@@ -17,9 +17,9 @@ public:
 	 */
 	UNREALED_API void Construct(const FArguments& InArgs);
 
-	UNREALED_API virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
-
 private:
+	/** Animates the credits during play */
+	EActiveTimerReturnType RollCredits( double InCurrentTime, float InDeltaTime );
 
 	/** Handles the user clicking the play/pause toggle button. */
 	FReply HandleTogglePlayPause();
@@ -35,6 +35,9 @@ private:
 
 	/** The widget that scrolls the credits text */
 	TSharedPtr<SScrollBox> ScrollBox;
+
+	/** The handle to the active roll credits tick */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
 
 	/** The auto scroll rate in pixels per second */
 	float ScrollPixelsPerSecond;

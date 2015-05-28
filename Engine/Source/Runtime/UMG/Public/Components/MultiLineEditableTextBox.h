@@ -20,7 +20,7 @@ public:
 public:
 	
 	/** The text content for this editable text box widget */
-	UPROPERTY(EditDefaultsOnly, Category=Content, meta=(MultiLine="true"))
+	UPROPERTY(EditAnywhere, Category=Content, meta=(MultiLine="true"))
 	FText Text;
 
 public:
@@ -37,31 +37,31 @@ public:
 	USlateWidgetStyleAsset* Style_DEPRECATED;
 
 	/** The justification of the text in the multilinebox */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Content)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Content)
 	TEnumAsByte<ETextJustify::Type> Justification;
 
 	/** Whether to wrap text automatically based on the widget's computed horizontal space.*/
-	UPROPERTY(EditDefaultsOnly, Category=Content)
+	UPROPERTY(EditAnywhere, Category=Content)
 	bool bAutoWrapText;
 
 	/** Whether text wraps onto a new line when it's length exceeds this width; if this value is zero or negative, no wrapping occurs. */
-	UPROPERTY(EditDefaultsOnly, AdvancedDisplay, Category=Content)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Content)
 	float WrapTextAt;
 
 	/** Font color and opacity (overrides Style) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FSlateFontInfo Font;
 
 	/** Text color and opacity (overrides Style) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FLinearColor ForegroundColor;
 
 	/** The color of the background/border around the editable text (overrides Style) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FLinearColor BackgroundColor;
 
 	/** Text color and opacity when read-only (overrides Style) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FLinearColor ReadOnlyForegroundColor;
 
 	/** Called whenever the text is changed interactively by the user */
@@ -78,14 +78,14 @@ public:
 public:
 
 	/**  */
-	UFUNCTION(BlueprintCallable, Category="Widget", meta=(FriendlyName="GetText (Multi-Line Text Box)"))
+	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="GetText (Multi-Line Text Box)"))
 	FText GetText() const;
 
 	/**  */
-	UFUNCTION(BlueprintCallable, Category="Widget", meta=(FriendlyName="SetText (Multi-Line Text Box)"))
+	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="SetText (Multi-Line Text Box)"))
 	void SetText(FText InText);
 
-	UFUNCTION(BlueprintCallable, Category="Widget", meta=(FriendlyName="SetError (Multi-Line Text Box)"))
+	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="SetError (Multi-Line Text Box)"))
 	void SetError(FText InError);
 
 	//TODO UMG Add Set ReadOnlyForegroundColor

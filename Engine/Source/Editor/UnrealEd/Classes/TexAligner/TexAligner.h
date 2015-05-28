@@ -63,10 +63,10 @@ class UTexAligner : public UObject
 	// End UObject Interface
 
 	// @todo document
-	UNREALED_API void Align( ETexAlign InTexAlignType );
+	UNREALED_API void Align( UWorld* InWorld, ETexAlign InTexAlignType );
 
 	// @todo document
-	void Align( ETexAlign InTexAlignType, UModel* InModel );
+	void Align( UWorld* InWorld, ETexAlign InTexAlignType, UModel* InModel );
 	
 	// Aligns a specific BSP surface
 	virtual void AlignSurf( ETexAlign InTexAlignType, UModel* InModel, FBspSurfIdx* InSurfIdx, FPoly* InPoly, FVector* InNormal );

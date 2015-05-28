@@ -1,17 +1,30 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#import <UIKit/UIKit.h>
-
+#include "SlateViewerApp.h"
 #include "IOSAppDelegate.h"
 #include "IOSCommandLineHelper.h"
 #include "IOS/SlateOpenGLESView.h"
 #include "STestSuite.h"
+
+#import <UIKit/UIKit.h>
 
 
 #define IOS_MAX_PATH 1024
 #define CMD_LINE_MAX 16384
 
 FString GSavedCommandLine;
+
+void FAppEntry::Suspend()
+{
+}
+
+void FAppEntry::Resume()
+{
+}
+
+void FAppEntry::SuspendTick()
+{
+}
 
 
 void FAppEntry::PreInit(IOSAppDelegate* AppDelegate, UIApplication* Application)
@@ -47,6 +60,10 @@ void FAppEntry::Init()
 	// start up the main loop
 	GEngineLoop.PreInit(FCommandLine::Get());
 
+	// move it to this thread
+	SlateOpenGLESView* View = (SlateOpenGLESView*)[IOSAppDelegate GetDelegate].RootView;
+	[EAGLContext setCurrentContext:View.Context];
+	
 	// crank up a normal Slate application using the platform's standalone renderer
 	FSlateApplication::InitializeAsStandaloneApplication(GetStandardStandaloneRenderer());
 

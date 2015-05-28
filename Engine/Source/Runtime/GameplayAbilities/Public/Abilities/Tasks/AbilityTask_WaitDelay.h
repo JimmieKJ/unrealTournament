@@ -4,12 +4,12 @@
 #include "Abilities/GameplayAbilityTypes.h"
 #include "AbilityTask_WaitDelay.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FWaitDelayDelegate);
+
 UCLASS(MinimalAPI)
 class UAbilityTask_WaitDelay : public UAbilityTask
 {
 	GENERATED_UCLASS_BODY()
-
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FWaitDelayDelegate);
 
 	UPROPERTY(BlueprintAssignable)
 	FWaitDelayDelegate	OnFinish;

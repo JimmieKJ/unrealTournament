@@ -46,7 +46,7 @@ public:
 
 	LANDSCAPE_API virtual FGuid& GetParameterExpressionId() override;
 
-	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
+	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
 
 	/**
 	 * Do any object-specific cleanup required immediately after loading an object,

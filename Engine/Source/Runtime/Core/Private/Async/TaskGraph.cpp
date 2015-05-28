@@ -9,6 +9,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogTaskGraph, Log, All);
 DEFINE_STAT(STAT_FReturnGraphTask);
 DEFINE_STAT(STAT_FTriggerEventGraphTask);
 DEFINE_STAT(STAT_UnknownGraphTask);
+DEFINE_STAT(STAT_ParallelFor);
+DEFINE_STAT(STAT_ParallelForTask);
 
 namespace ENamedThreads
 {
@@ -544,7 +546,7 @@ public:
 	 *
 	 * @return True if initialization was successful, false otherwise
 	 */
-	virtual bool Init()
+	virtual bool Init() override
 	{
 		InitializeForCurrentThread();
 		return true;
@@ -556,7 +558,7 @@ public:
 	 *
 	 * @return The exit code of the runnable object
 	 */
-	virtual uint32 Run()
+	virtual uint32 Run() override
 	{
 		ProcessTasksUntilQuit(0);
 		return 0;
@@ -565,7 +567,7 @@ public:
 	/**
 	 * This is called if a thread is requested to terminate early
 	 */
-	virtual void Stop()
+	virtual void Stop() override
 	{
 		RequestQuit(0);
 	}
@@ -573,7 +575,7 @@ public:
 	/**
 	 * Called in the context of the aggregating thread to perform any cleanup.
 	 */
-	virtual void Exit()
+	virtual void Exit() override
 	{
 	}
 
@@ -614,14 +616,14 @@ private:
 		FEvent*												StallRestartEvent;
 
 		FThreadTaskQueue()
-			: StallRestartEvent(FPlatformProcess::CreateSynchEvent(true))
+			: StallRestartEvent(FPlatformProcess::GetSynchEventFromPool(true))
 		{
 
 		}
 		~FThreadTaskQueue()
 		{
-			delete StallRestartEvent;
-			StallRestartEvent = NULL;
+			FPlatformProcess::ReturnSynchEventToPool( StallRestartEvent );
+			StallRestartEvent = nullptr;
 		}
 	};
 
@@ -897,9 +899,14 @@ public:
 		return NumThreads - NumNamedThreads;
 	}
 
-	virtual ENamedThreads::Type GetCurrentThreadIfKnown() override
+	virtual ENamedThreads::Type GetCurrentThreadIfKnown(bool bLocalQueue) override
 	{
-		return GetCurrentThread();
+		ENamedThreads::Type Result = GetCurrentThread();
+		if (Result >= 0 && Result < NumNamedThreads)
+		{
+			Result = ENamedThreads::Type(int32(Result) | int32(ENamedThreads::LocalQueue));
+		}
+		return Result;
 	}
 
 	virtual bool IsThreadProcessingTasks(ENamedThreads::Type ThreadToCheck) override
@@ -989,7 +996,7 @@ public:
 		}
 	}
 
-	virtual void TriggerEventWhenTasksComplete(FEvent* InEvent, const FGraphEventArray& Tasks, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
+	virtual void TriggerEventWhenTasksComplete(FEvent* InEvent, const FGraphEventArray& Tasks, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread) override
 	{
 		check(InEvent);
 		bool bAnyPending = false;
@@ -1195,6 +1202,11 @@ void FTaskGraphInterface::Shutdown()
 	TaskGraphImplementationSingleton = NULL;
 }
 
+bool FTaskGraphInterface::IsRunning()
+{
+    return TaskGraphImplementationSingleton != NULL;
+}
+
 FTaskGraphInterface& FTaskGraphInterface::Get()
 {
 	checkThreadGraph(TaskGraphImplementationSingleton);
@@ -1204,10 +1216,10 @@ FTaskGraphInterface& FTaskGraphInterface::Get()
 
 // Statics and some implementations from FBaseGraphTask and FGraphEvent
 
-TLockFreeFixedSizeAllocator<FBaseGraphTask::SMALL_TASK_SIZE>& FBaseGraphTask::GetSmallTaskAllocator()
+static FBaseGraphTask::TSmallTaskAllocator TheSmallTaskAllocator;
+FBaseGraphTask::TSmallTaskAllocator& FBaseGraphTask::GetSmallTaskAllocator()
 {
-	static TLockFreeFixedSizeAllocator<FBaseGraphTask::SMALL_TASK_SIZE> TheAllocator;
-	return TheAllocator;
+	return TheSmallTaskAllocator;
 }
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -1217,15 +1229,11 @@ void FBaseGraphTask::LogPossiblyInvalidSubsequentsTask(const TCHAR* TaskName)
 }
 #endif
 
-TLockFreeClassAllocator<FGraphEvent>& FGraphEvent::GetAllocator()
-{
-	static TLockFreeClassAllocator<FGraphEvent> TheAllocator;
-	return TheAllocator;
-}
+static TLockFreeClassAllocator_TLSCache<FGraphEvent> TheGraphEventAllocator;
 
 FGraphEventRef FGraphEvent::CreateGraphEvent()
 {
-	return GetAllocator().New();
+	return TheGraphEventAllocator.New();
 }
 
 void FGraphEvent::DispatchSubsequents(ENamedThreads::Type CurrentThreadIfKnown)
@@ -1263,7 +1271,7 @@ void FGraphEvent::DispatchSubsequents(TArray<FBaseGraphTask*>& NewTasks, ENamedT
 
 void FGraphEvent::Recycle(FGraphEvent* ToRecycle)
 {
-	GetAllocator().Free(ToRecycle);
+	TheGraphEventAllocator.Free(ToRecycle);
 }
 
 FGraphEvent::~FGraphEvent()
@@ -1281,5 +1289,84 @@ FGraphEvent::~FGraphEvent()
 }
 
 
+//---
+
+#include "ParallelFor.h"
+
+static void TestParallelFor(const TArray<FString>& Args)
+{
+
+	ParallelFor(10, 
+		[](int32 Index)
+		{
+			UE_LOG(LogConsoleResponse, Display, TEXT("ParallelFor index=%d, thread=%x"), Index, FPlatformTLS::GetCurrentThreadId());
+		}
+	);
+
+	ParallelFor(10, 
+		[](int32 Index)
+		{
+			ParallelFor(10, 
+				[Index](int32 IndexInner)
+				{
+					UE_LOG(LogConsoleResponse, Display, TEXT("ParallelFor index=%d %d, thread=%x"), Index, IndexInner, FPlatformTLS::GetCurrentThreadId());
+				}
+			);
+		}
+	);
+
+	TArray<bool> TestBools;
+
+	TestBools.AddZeroed(10000);
+
+	ParallelFor(TestBools.Num(), [&TestBools](int32 Index){TestBools[Index] = true;});
+
+	for (int32 Index = 0; Index < TestBools.Num(); Index++)
+	{
+		check(TestBools[Index]);
+	}
+
+	TestBools.Empty(10000);
+	TestBools.AddZeroed(10000);
+
+	ParallelFor(TestBools.Num(), [&TestBools](int32 Index){TestBools[Index] = true;}, true);
+
+	for (int32 Index = 0; Index < TestBools.Num(); Index++)
+	{
+		check(TestBools[Index]);
+	}
+
+	uint32 TargetCrc = FCrc::MemCrc32(TestBools.GetData(), 1024);
+
+	{
+		double StartTime = FPlatformTime::Seconds();
+		ParallelFor(1024, 
+			[&TestBools, TargetCrc](int32 Index)
+			{
+				uint32 TestCrc = FCrc::MemCrc32(TestBools.GetData(), 1024);
+				check(TestCrc == TargetCrc);
+			}
+		);
+		UE_LOG(LogConsoleResponse, Display, TEXT("Parallel CRC of 1MB (%d threads) in %6.3fms"), FTaskGraphInterface::Get().GetNumWorkerThreads() + 1, float(FPlatformTime::Seconds() - StartTime) * 1000.0f);
+	}
+	{
+		double StartTime = FPlatformTime::Seconds();
+		ParallelFor(1024, 
+			[&TestBools, TargetCrc](int32 Index)
+			{
+				uint32 TestCrc = FCrc::MemCrc32(TestBools.GetData(), 1024);
+				check(TestCrc == TargetCrc);
+			}, 
+			true
+		);
+		UE_LOG(LogConsoleResponse, Display, TEXT("Serial CRC of 1MB in %6.3fms"), float(FPlatformTime::Seconds() - StartTime) * 1000.0f);
+	}
+}
+
+static FAutoConsoleCommand TestParallelForCmd(
+	TEXT("TestParallelFor"),
+	TEXT("Simple test of ParallelFor."),
+	FConsoleCommandWithArgsDelegate::CreateStatic(&TestParallelFor)
+	);
 
 

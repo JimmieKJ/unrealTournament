@@ -4,11 +4,17 @@
 
 #include "TileMapAssetTypeActions.h"
 #include "TileMapEditor.h"
+#include "PaperTileMap.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
 //////////////////////////////////////////////////////////////////////////
 // FTileMapAssetTypeActions
+
+FTileMapAssetTypeActions::FTileMapAssetTypeActions(EAssetTypeCategories::Type InAssetCategory)
+	: MyAssetCategory(InAssetCategory)
+{
+}
 
 FText FTileMapAssetTypeActions::GetName() const
 {
@@ -41,7 +47,7 @@ void FTileMapAssetTypeActions::OpenAssetEditor(const TArray<UObject*>& InObjects
 
 uint32 FTileMapAssetTypeActions::GetCategories()
 {
-	return EAssetTypeCategories::Misc;
+	return MyAssetCategory;
 }
 
 //////////////////////////////////////////////////////////////////////////

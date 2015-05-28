@@ -5,6 +5,8 @@
 #include "LinuxApplication.h"
 
 DEFINE_LOG_CATEGORY( LogLinuxWindow );
+DEFINE_LOG_CATEGORY( LogLinuxWindowType );
+DEFINE_LOG_CATEGORY( LogLinuxWindowEvent );
 
 FLinuxWindow::~FLinuxWindow()
 {
@@ -29,6 +31,18 @@ FLinuxWindow::FLinuxWindow()
 	, OLEReferenceCount(0)
 	, bIsVisible( false )
 	, bWasFullscreen( false )
+	, bIsPopupWindow(false)
+	, bIsTooltipWindow(false)
+	, bIsConsoleWindow(false)
+	, bIsDialogWindow(false)
+	, bIsNotificationWindow(false)
+	, bIsTopLevelWindow(false)
+	, bIsDragAndDropWindow(false)
+	, bIsUtilityWindow(false)
+	, bIsPointerInsideWindow(false)
+	, LeftBorderWidth(0)
+	, TopBorderHeight(0)
+	, bValidNativePropertiesCache(false)
 {
 	PreFullscreenWindowRect.left = PreFullscreenWindowRect.top = PreFullscreenWindowRect.right = PreFullscreenWindowRect.bottom = 0;
 }
@@ -43,6 +57,7 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 {
 	Definition = InDefinition;
 	OwningApplication = Application;
+	ParentWindow = InParent;
 
 	if (!FPlatformMisc::PlatformInitMultimedia()) //	will not initialize more than once
 	{
@@ -91,16 +106,107 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 		{
 			WindowStyle |= SDL_WINDOW_SKIP_TASKBAR;
 		}
+
+		if (Definition->IsRegularWindow && Definition->HasSizingFrame)
+		{
+			WindowStyle |= SDL_WINDOW_RESIZABLE;
+		}
 	}
 
-	if (Definition->AcceptsInput)
+	// This is a tool tip window.
+	if (!InParent.IsValid() && !Definition->HasOSWindowBorder &&
+		!Definition->AcceptsInput && Definition->IsTopmostWindow && 
+		!Definition->AppearsInTaskbar && !Definition->HasSizingFrame &&
+		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
+		Definition->SizeWillChangeOften)
 	{
-		WindowStyle |= SDL_WINDOW_ACCEPTS_INPUT;
-	} 
-
-	if ( Definition->HasSizingFrame )
+		WindowStyle |= SDL_WINDOW_TOOLTIP;
+		bIsTooltipWindow = true;
+		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Tooltip Window ***"));
+	}
+	// This is a notification window.
+	else if (InParent.IsValid() && !Definition->HasOSWindowBorder &&
+		Definition->AcceptsInput && !Definition->IsTopmostWindow && 
+		!Definition->AppearsInTaskbar && !Definition->HasSizingFrame &&
+		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
+		!Definition->ActivateWhenFirstShown && Definition->SizeWillChangeOften)
 	{
-		WindowStyle |= SDL_WINDOW_RESIZABLE;
+		WindowStyle |= SDL_WINDOW_NOTIFICATION;
+		bIsNotificationWindow = true;
+		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Notification Window ***"));
+	}
+	// Is it another notification window?
+	else if (InParent.IsValid() && !Definition->HasOSWindowBorder &&
+		Definition->AcceptsInput && !Definition->IsTopmostWindow && 
+		!Definition->AppearsInTaskbar && !Definition->HasSizingFrame &&
+		Definition->IsModalWindow && !Definition->IsRegularWindow &&
+		Definition->ActivateWhenFirstShown && !Definition->SizeWillChangeOften)
+	{
+		WindowStyle |= SDL_WINDOW_NOTIFICATION;
+		bIsNotificationWindow = true;
+		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is another Notification Window ***"));
+	}
+	// This is a popup menu window?
+	else if (InParent.IsValid() && !Definition->HasOSWindowBorder &&
+		Definition->AcceptsInput && !Definition->IsTopmostWindow && 
+		!Definition->AppearsInTaskbar && !Definition->HasSizingFrame &&
+		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
+		Definition->ActivateWhenFirstShown && !Definition->SizeWillChangeOften)
+	{
+		WindowStyle |= SDL_WINDOW_POPUP_MENU;
+		bIsPopupWindow = true;
+		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Popup Menu Window ***"));
+	}
+	// Is it a console window?
+	else if( InParent.IsValid() && !Definition->HasOSWindowBorder &&
+		Definition->AcceptsInput && !Definition->IsTopmostWindow && 
+		!Definition->AppearsInTaskbar && !Definition->HasSizingFrame &&
+		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
+		!Definition->ActivateWhenFirstShown && !Definition->SizeWillChangeOften)
+	{
+		WindowStyle |= SDL_WINDOW_POPUP_MENU;
+		bIsConsoleWindow = true;
+		bIsPopupWindow = true;
+		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Console Window ***"));
+	}
+	// Is it a drag and drop window?
+	else if (!InParent.IsValid() && !Definition->HasOSWindowBorder &&
+		!Definition->AcceptsInput && Definition->IsTopmostWindow && 
+		!Definition->AppearsInTaskbar && !Definition->HasSizingFrame &&
+		!Definition->IsModalWindow && !Definition->IsRegularWindow &&
+		!Definition->ActivateWhenFirstShown && !Definition->SizeWillChangeOften)
+	{
+		// TODO Experimental
+		WindowStyle |= SDL_WINDOW_DND;
+		bIsDragAndDropWindow = true;
+		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Drag and Drop Window ***"));
+	}
+	// Is modal dialog window?
+	else if (InParent.IsValid() && !Definition->HasOSWindowBorder &&
+		Definition->AcceptsInput && !Definition->IsTopmostWindow && 
+		Definition->AppearsInTaskbar && !Definition->HasSizingFrame &&
+		Definition->IsModalWindow && Definition->IsRegularWindow &&
+		Definition->ActivateWhenFirstShown && !Definition->SizeWillChangeOften)
+	{
+		WindowStyle |= SDL_WINDOW_DIALOG;
+		bIsDialogWindow = true;
+		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a Modal Dialog Window ***"));
+	}
+	// Is a Blueprint, Cascade, etc. utility window.
+	else if (InParent.IsValid() && !Definition->HasOSWindowBorder &&
+		Definition->AcceptsInput && !Definition->IsTopmostWindow && 
+		Definition->AppearsInTaskbar && Definition->HasSizingFrame &&
+		!Definition->IsModalWindow && Definition->IsRegularWindow &&
+		Definition->ActivateWhenFirstShown && !Definition->SizeWillChangeOften)
+	{
+		WindowStyle |= SDL_WINDOW_DIALOG;
+		bIsUtilityWindow = true;
+		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is a BP, Cascade, etc. Window ***"));
+	}
+	else
+	{
+		UE_LOG(LogLinuxWindowType, Verbose, TEXT("*** New Window is TopLevel Window ***"));
+		bIsTopLevelWindow = true;
 	}
 
 	//	The SDL window doesn't need to be reshaped.
@@ -108,7 +214,14 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 	HWnd = SDL_CreateWindow( TCHAR_TO_ANSI( *Definition->Title ), X, Y, ClientWidth, ClientHeight, WindowStyle  );
 	SDL_SetWindowHitTest( HWnd, FLinuxWindow::HitTest, this );
 
-	if (InParent.IsValid())
+	/* 
+		Do not set for Notification Windows the transient flag because the WM's usually raise the the parent window
+		if the Notificaton Window gets raised. That behaviour is to aggresive and disturbs users doing other things 
+		while UE4 calculates lights and other things and pop ups notifications. Notifications will be handled so that 
+		they are some sort of independend but will be raised if the TopLevel Window gets focused or activated.
+	*/
+	// Make the Window modal for it's parent.
+	if (bIsUtilityWindow || bIsDialogWindow || bIsConsoleWindow || bIsDialogWindow)
 	{
 		SDL_SetWindowModalFor(HWnd, InParent->GetHWnd());
 	}
@@ -116,23 +229,29 @@ void FLinuxWindow::Initialize( FLinuxApplication* const Application, const TShar
 	VirtualWidth  = ClientWidth;
 	VirtualHeight = ClientHeight;
 
+	// attempt to early cache native properties
+	CacheNativeProperties();
+
 	// We call reshape window here because we didn't take into account the non-client area
 	// in the initial creation of the window. Slate should only pass client area dimensions.
 	// Reshape window may resize the window if the non-client area is encroaching on our
 	// desired client area space.
 	ReshapeWindow( X, Y, ClientWidth, ClientHeight );
 
-	if( HWnd == NULL )
+	if (HWnd == nullptr)
 	{
 		// @todo Error message should be localized!
-		checkf(0, TEXT("Window Creation Failed (%d)"), SDL_GetError() );
+		checkf(false, TEXT("Window creation failed (%s)"), UTF8_TO_TCHAR(SDL_GetError()));
 		return;
 	}
 
-	if ( Definition->SupportsTransparency )
+	if ( Definition->TransparencySupport == EWindowTransparency::PerWindow )
 	{
 		SetOpacity( Definition->Opacity );
 	}
+
+	// TODO This can be removed later - for debugging purposes.
+	WindowSDLID = SDL_GetWindowID( HWnd );
 }
 
 SDL_HitTestResult FLinuxWindow::HitTest( SDL_Window *SDLwin, const SDL_Point *point, void *data )
@@ -173,13 +292,9 @@ SDL_HitTestResult FLinuxWindow::HitTest( SDL_Window *SDLwin, const SDL_Point *po
 void FLinuxWindow::MoveWindowTo( int32 X, int32 Y )
 {
 	// we are passed coordinates of a client area, so account for decorations
-	SDL_Rect Borders;
-	if (SDL_GetWindowBordersSize(HWnd, &Borders) == 0)
-	{
-		X -= Borders.x;
-		Y -= Borders.y;
-	}
-    SDL_SetWindowPosition( HWnd, X, Y );
+	checkf(bValidNativePropertiesCache, TEXT("Attempted to use border sizes too early, native properties aren't yet cached. Review the flow"));
+
+	SDL_SetWindowPosition( HWnd, X - LeftBorderWidth, Y - TopBorderHeight );
 }
 
 /** Native windows should implement BringToFront by making this window the top-most window (i.e. focused).
@@ -190,13 +305,14 @@ void FLinuxWindow::MoveWindowTo( int32 X, int32 Y )
  */
 void FLinuxWindow::BringToFront( bool bForce )
 {
-	if (bForce)
+	// TODO Forces the the window to top of z order? Only that? SDL is using XMapRaised which changes the z order
+	// so we do not steal focus here I guess.
+	if(bForce)
 	{
 		SDL_RaiseWindow(HWnd);
 	}
 	else
 	{
-		// FIXME: we don't bring it to front here now
 		SDL_ShowWindow(HWnd);
 	}
 }
@@ -205,6 +321,9 @@ void FLinuxWindow::BringToFront( bool bForce )
 void FLinuxWindow::Destroy()
 {
 	OwningApplication->RemoveEventWindow( HWnd );
+	OwningApplication->RemoveRevertFocusWindow( HWnd );
+	OwningApplication->RemoveNotificationWindow( HWnd );
+
 	SDL_DestroyWindow( HWnd );
 }
 
@@ -301,12 +420,9 @@ void FLinuxWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int32 
 			if (Definition->HasOSWindowBorder)
 			{
 				// we are passed coordinates of a client area, so account for decorations
-				SDL_Rect Borders;
-				if (SDL_GetWindowBordersSize(HWnd, &Borders) == 0)
-				{
-					NewX -= Borders.x;
-					NewY -= Borders.y;
-				}
+				checkf(bValidNativePropertiesCache, TEXT("Attempted to use border sizes too early, native properties aren't yet cached. Review the flow"));
+				NewX -= LeftBorderWidth;
+				NewY -= TopBorderHeight;
 			}
 			SDL_SetWindowPosition( HWnd, NewX, NewY );
 			SDL_SetWindowSize( HWnd, NewWidth, NewHeight );
@@ -449,7 +565,7 @@ bool FLinuxWindow::GetRestoredDimensions(int32& X, int32& Y, int32& Width, int32
 /** Sets focus on the native window */
 void FLinuxWindow::SetWindowFocus()
 {
-	SDL_SetWindowActive( HWnd );
+	SDL_SetWindowInputFocus( HWnd );
 }
 
 /**
@@ -469,8 +585,8 @@ void FLinuxWindow::SetOpacity( const float InOpacity )
  */
 void FLinuxWindow::Enable( bool bEnable )
 {
-	//	SDL2 doesn't offer such functionality...
-	//  Could be added to ds_extenstion
+	// Different WMs handle this in different way.
+	// TODO: figure out if ignoring this causes problems for Slate
 }
 
 /** @return true if native window exists underneath the coordinates */
@@ -485,9 +601,6 @@ bool FLinuxWindow::IsPointInWindow( int32 X, int32 Y ) const
 
 int32 FLinuxWindow::GetWindowBorderSize() const
 {
-	// need to lie and return 0 border size even if we have a border.
-	// reporting anything else causes problems in Slate with menu
-	// positioning.
 	return 0;
 }
 
@@ -503,9 +616,102 @@ void FLinuxWindow::SetText( const TCHAR* const Text )
 	SDL_SetWindowTitle( HWnd, TCHAR_TO_ANSI(Text));
 }
 
-
 bool FLinuxWindow::IsRegularWindow() const
 {
 	return Definition->IsRegularWindow;
 }
 
+bool FLinuxWindow::IsPopupMenuWindow() const
+{
+	return bIsPopupWindow;
+}
+
+bool FLinuxWindow::IsTooltipWindow() const
+{
+	return bIsTooltipWindow;
+}
+
+bool FLinuxWindow::IsNotificationWindow() const
+{
+	return bIsNotificationWindow;
+}
+
+bool FLinuxWindow::IsTopLevelWindow() const
+{
+	return bIsTopLevelWindow;
+}
+
+bool FLinuxWindow::IsDialogWindow() const
+{
+	return bIsDialogWindow;
+}
+
+bool FLinuxWindow::IsDragAndDropWindow() const
+{
+	return bIsDragAndDropWindow;
+}
+
+bool FLinuxWindow::IsUtilityWindow() const
+{
+	return bIsUtilityWindow;
+}
+
+bool FLinuxWindow::IsActivateWhenFirstShown() const
+{
+	return Definition->ActivateWhenFirstShown;
+}
+
+uint32 FLinuxWindow::GetID() const
+{
+	return WindowSDLID;
+}
+
+void FLinuxWindow::LogInfo() 
+{
+	UE_LOG(LogLinuxWindowType, Log, TEXT("---------- Windows ID: %d Properties -----------)"), GetID());
+	UE_LOG(LogLinuxWindowType, Log, TEXT("InParent: %d"), ParentWindow.IsValid());
+	UE_LOG(LogLinuxWindowType, Log, TEXT("HasOSWindowBorder: %d"), Definition->HasOSWindowBorder);
+	UE_LOG(LogLinuxWindowType, Log, TEXT("IsTopmostWindow: %d"), Definition->IsTopmostWindow);
+	UE_LOG(LogLinuxWindowType, Log, TEXT("HasSizingFrame: %d"), Definition->HasSizingFrame);
+	UE_LOG(LogLinuxWindowType, Log, TEXT("AppearsInTaskbar: %d"), Definition->AppearsInTaskbar);
+	UE_LOG(LogLinuxWindowType, Log, TEXT("AcceptsInput: %d"), Definition->AcceptsInput);
+	UE_LOG(LogLinuxWindowType, Log, TEXT("IsModalWindow: %d"), Definition->IsModalWindow);
+	UE_LOG(LogLinuxWindowType, Log, TEXT("IsRegularWindow: %d"), Definition->IsRegularWindow);
+	UE_LOG(LogLinuxWindowType, Log, TEXT("ActivateWhenFirstShown: %d"), Definition->ActivateWhenFirstShown);
+	UE_LOG(LogLinuxWindowType, Log, TEXT("SizeWillChangeOften: %d"), Definition->SizeWillChangeOften);
+}
+
+const TSharedPtr< FLinuxWindow >& FLinuxWindow::GetParent() const
+{
+	return ParentWindow;
+}
+
+void FLinuxWindow::OnPointerEnteredWindow(bool PointerEnteredWindow)
+{
+	bIsPointerInsideWindow = PointerEnteredWindow;
+}
+
+bool FLinuxWindow::IsPointerInsideWindow() const
+{
+	return bIsPointerInsideWindow;
+}
+
+void FLinuxWindow::GetNativeBordersSize(int32& OutLeftBorderWidth, int32& OutTopBorderHeight) const
+{
+	checkf(bValidNativePropertiesCache, TEXT("Attempted to get border sizes too early, native properties aren't yet cached. Review the flow"));
+	OutLeftBorderWidth = LeftBorderWidth;
+	OutTopBorderHeight = TopBorderHeight;
+}
+
+void FLinuxWindow::CacheNativeProperties()
+{
+	// cache border sizes
+	int Top, Left;
+	if (SDL_GetWindowBordersSize(HWnd, &Top, &Left, nullptr, nullptr) == 0)
+	{
+		LeftBorderWidth = Left;
+		TopBorderHeight = Top;
+	}
+
+	bValidNativePropertiesCache = true;
+}

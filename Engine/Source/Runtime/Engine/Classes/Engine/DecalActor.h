@@ -1,20 +1,21 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/**
- * Decal to add texture/material on existing geometry.
- *
- */
-
 #pragma once
+
 #include "DecalActor.generated.h"
 
-//
-// Forward declarations.
-//
+
 class UBoxComponent;
 
+/**
+* DecalActor contains a DecalComponent which can be used to render material modifications on top of existing geometry.
+*
+* @see https://docs.unrealengine.com/latest/INT/Engine/Actors/DecalActor
+* @see UDecalComponent
+*/
 UCLASS(hideCategories=(Collision, Attachment, Actor, Input, Replication), showCategories=("Input|MouseInput", "Input|TouchInput"), ComponentWrapperClass,MinimalAPI)
-class ADecalActor : public AActor
+class ADecalActor
+	: public AActor
 {
 	GENERATED_UCLASS_BODY()
 
@@ -61,10 +62,12 @@ public:
 
 	// Begin AActor interface.
 	virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown) override;
+	virtual bool GetReferencedContentObjects(TArray<UObject*>& Objects) const override;
 	// End AActor interface.
 #endif // WITH_EDITOR
 
 public:
+
 	/** Returns Decal subobject **/
 	ENGINE_API class UDecalComponent* GetDecal() const;
 #if WITH_EDITORONLY_DATA
@@ -76,6 +79,3 @@ public:
 	ENGINE_API UBoxComponent* GetBoxComponent() const;
 #endif
 };
-
-
-

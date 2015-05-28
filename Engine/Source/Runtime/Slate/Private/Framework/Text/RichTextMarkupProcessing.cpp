@@ -6,10 +6,60 @@
 
 #include "RichTextMarkupProcessing.h"
 
+struct FUnescapeHelper
+{
+	TArray<FString> EscapeSequences;
+	TArray<FString> UnescapedCharacters;
+
+	FUnescapeHelper()
+	{
+		EscapeSequences.Add(TEXT("quot"));	UnescapedCharacters.Add(TEXT("\""));
+		EscapeSequences.Add(TEXT("lt"));		UnescapedCharacters.Add(TEXT("<"));
+		EscapeSequences.Add(TEXT("gt"));		UnescapedCharacters.Add(TEXT(">"));
+		EscapeSequences.Add(TEXT("amp"));		UnescapedCharacters.Add(TEXT("&"));
+	}
+
+} static const UnescapeHelper;
+
+struct FEscapeSequenceRegexPatternString
+{
+	// Generate a regular expression pattern string that matches each of the escape sequences as alternatives, each in its own capture group.
+	static FString Get(const TArray<FString>& EscapeSequences)
+	{
+		FString EscapeSequenceRegexPatternString;
+
+		for (const FString& EscapeSequence : EscapeSequences)
+		{
+			// Add alternation operator to regex.
+			if (!(EscapeSequenceRegexPatternString.IsEmpty()))
+			{
+				EscapeSequenceRegexPatternString += TEXT("|");
+			}
+
+			// Add capture group for escape sequence.
+			EscapeSequenceRegexPatternString += TEXT("(");
+			EscapeSequenceRegexPatternString += TEXT("&");
+			EscapeSequenceRegexPatternString += EscapeSequence;
+			EscapeSequenceRegexPatternString += TEXT(";");
+			EscapeSequenceRegexPatternString += TEXT(")");
+		}
+
+		return EscapeSequenceRegexPatternString;
+	}
+};
+
 
 TSharedRef< FDefaultRichTextMarkupParser > FDefaultRichTextMarkupParser::Create()
 {
 	return MakeShareable( new FDefaultRichTextMarkupParser() );
+}
+
+FDefaultRichTextMarkupParser::FDefaultRichTextMarkupParser()
+	: EscapeSequenceRegexPattern(FRegexPattern(FEscapeSequenceRegexPatternString::Get(UnescapeHelper.EscapeSequences)))
+	, ElementRegexPattern( FRegexPattern(TEXT("<([\\w\\d\\.-]+)((?: (?:[\\w\\d\\.-]+=(?>\".*?\")))+)?(?:(?:/>)|(?:>(.*?)</>))") ))
+	, AttributeRegexPattern( FRegexPattern(TEXT("([\\w\\d\\.]+)=(?>\"(.*?)\")")) )
+{
+
 }
 
 void FDefaultRichTextMarkupParser::Process(TArray<FTextLineParseResults>& Results, const FString& Input, FString& Output)
@@ -31,7 +81,6 @@ void FDefaultRichTextMarkupParser::Process(TArray<FTextLineParseResults>& Result
 void FDefaultRichTextMarkupParser::ParseLineRanges(const FString& Input, const TArray<FTextRange>& LineRanges, TArray<FTextLineParseResults>& LineParseResultsArray) const
 {
 	// Special regular expression pattern for matching rich text markup elements. IE: <ElementName AttributeName="AttributeValue">Content</>
-	FRegexPattern ElementRegexPattern( TEXT("<([\\w\\d\\.]+)((?: (?:[\\w\\d\\.]+=(?>\".*?\")))+)?(?:(?:/>)|(?:>(.*?)</>))") );
 	FRegexMatcher ElementRegexMatcher(ElementRegexPattern, Input);
 
 	// Parse line ranges, creating line parse results and run parse results.
@@ -73,10 +122,6 @@ void FDefaultRichTextMarkupParser::ParseLineRanges(const FString& Input, const T
 
 			if(AttributeListBegin != INDEX_NONE && AttributeListEnd != INDEX_NONE)
 			{
-				FRegexPattern AttributeRegexPattern(
-					TEXT("([\\w\\d\\.]+)=(?>\"(.*?)\")")
-					);
-
 				FRegexMatcher AttributeRegexMatcher(AttributeRegexPattern, Input);
 				AttributeRegexMatcher.SetLimits(AttributeListBegin, AttributeListEnd);
 
@@ -146,53 +191,6 @@ void FDefaultRichTextMarkupParser::HandleEscapeSequences(const FString& Input, T
 		for(int32 j = 0; j < LineParseResults.Runs.Num(); ++j)
 		{
 			FTextRunParseResults& RunParseResults = LineParseResults.Runs[j];
-
-			struct FUnescapeHelper
-			{
-				TArray<FString> EscapeSequences;
-				TArray<FString> UnescapedCharacters;
-
-				FUnescapeHelper()
-				{
-					EscapeSequences.Add(TEXT("quot"));	UnescapedCharacters.Add(TEXT("\""));
-					EscapeSequences.Add(TEXT("lt"));		UnescapedCharacters.Add(TEXT("<"));
-					EscapeSequences.Add(TEXT("gt"));		UnescapedCharacters.Add(TEXT(">"));
-					EscapeSequences.Add(TEXT("amp"));		UnescapedCharacters.Add(TEXT("&"));
-				}
-
-			} static const UnescapeHelper;
-
-			struct FEscapeSequenceRegexPatternString
-			{
-				// Generate a regular expression pattern string that matches each of the escape sequences as alternatives, each in its own capture group.
-				static FString Get(const TArray<FString>& EscapeSequences)
-				{
-					FString EscapeSequenceRegexPatternString;
-
-					for(const FString& EscapeSequence : EscapeSequences)
-					{
-						// Add alternation operator to regex.
-						if( !( EscapeSequenceRegexPatternString.IsEmpty() ) )
-						{
-							EscapeSequenceRegexPatternString += TEXT("|");
-						}
-
-						// Add capture group for escape sequence.
-						EscapeSequenceRegexPatternString += TEXT("(");
-						EscapeSequenceRegexPatternString += TEXT("&");
-						EscapeSequenceRegexPatternString += EscapeSequence;
-						EscapeSequenceRegexPatternString += TEXT(";");
-						EscapeSequenceRegexPatternString += TEXT(")");
-					}
-
-					return EscapeSequenceRegexPatternString;
-				}
-			};
-
-			FRegexPattern EscapeSequenceRegexPattern(
-				FEscapeSequenceRegexPatternString::Get(UnescapeHelper.EscapeSequences)
-				);
-
 			FRegexMatcher EscapeSequenceRegexMatcher(EscapeSequenceRegexPattern, Input);
 
 			TArray<int32*> IndicesToUpdate;

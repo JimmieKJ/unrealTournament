@@ -88,7 +88,7 @@ void dtLocalBoundary::addSegment(const float dist, const float* s)
 }
 
 void dtLocalBoundary::update(dtPolyRef ref, const float* pos, const float collisionQueryRange,
-	const float* forcedRemovePos, float forcedRemoveRadius, bool useForcedRemove,
+	const bool bRemoveNearLink, const float* linkV0, const float* linkV1,
 	const dtPolyRef* path, const int npath,
 	const float* moveDir,
 	dtNavMeshQuery* navquery, const dtQueryFilter* filter)
@@ -107,7 +107,7 @@ void dtLocalBoundary::update(dtPolyRef ref, const float* pos, const float collis
 	
 	// First query non-overlapping polygons.
 	navquery->findLocalNeighbourhood(ref, pos, collisionQueryRange,
-									 filter, path, npath, m_polys, 0, &m_npolys, MAX_LOCAL_POLYS);
+									 filter, m_polys, 0, &m_npolys, MAX_LOCAL_POLYS);
 	
 	// [UE4] include direction to segment in score
 	float closestPt[3] = { 0.0f };
@@ -119,7 +119,7 @@ void dtLocalBoundary::update(dtPolyRef ref, const float* pos, const float collis
 	int nsegs = 0;
 	for (int j = 0; j < m_npolys; ++j)
 	{
-		navquery->getPolyWallSegments(m_polys[j], filter, path, npath, segs, 0, &nsegs, MAX_SEGS_PER_POLY);
+		navquery->getPolyWallSegments(m_polys[j], filter, segs, 0, &nsegs, MAX_SEGS_PER_POLY);
 		for (int k = 0; k < nsegs; ++k)
 		{
 			const float* s = &segs[k*6];
@@ -130,12 +130,15 @@ void dtLocalBoundary::update(dtPolyRef ref, const float* pos, const float collis
 				continue;
 
 			// [UE4] remove segments too close to requested position
-			if (useForcedRemove)
+			if (bRemoveNearLink)
 			{
-				float tseg2;
-				const float dist2 = dtDistancePtSegSqr2D(forcedRemovePos, s, s + 3, tseg2);
-				if (dist2 < dtSqr(forcedRemoveRadius))
+				float dummyS = 0.0f;
+				float dummyT = 0.0f;
+				const bool bIntersect = dtIntersectSegSeg2D(s, s+3, linkV0, linkV1, dummyS, dummyT);
+				if (bIntersect)
+				{
 					continue;
+				}
 			}
 
 			// [UE4] include direction to segment in score
@@ -150,6 +153,80 @@ void dtLocalBoundary::update(dtPolyRef ref, const float* pos, const float collis
 	}
 }
 
+void dtLocalBoundary::update(const dtSharedBoundary* sharedData, const int sharedIdx,
+	const float* pos, const float collisionQueryRange,
+	const bool bRemoveNearLink, const float* linkV0, const float* linkV1,
+	const dtPolyRef* path, const int npath, const float* moveDir,
+	dtNavMeshQuery* navquery, const dtQueryFilter* filter)
+{
+	if (!sharedData || !sharedData->HasSample(sharedIdx))
+	{
+		return;
+	}
+
+	const dtSharedBoundaryData& Data = sharedData->Data[sharedIdx];
+	m_npolys = FMath::Min(Data.Polys.Num(), MAX_LOCAL_POLYS);
+	int32 PolyIdx = 0;
+	for (auto It = Data.Polys.CreateConstIterator(); It; ++It)
+	{
+		m_polys[PolyIdx] = *It;
+		
+		PolyIdx++;
+		if (PolyIdx >= m_npolys)
+		{
+			break;
+		}
+	}
+
+	float closestPt[3] = { 0.0f };
+	float dirToSeg[3] = { 0.0f };
+	float s[6];
+
+	TSet<dtPolyRef> PathLookup;
+	for (int32 Idx = 0; Idx < npath; Idx++)
+	{
+		PathLookup.Add(path[Idx]);
+	}
+
+	m_nsegs = 0;
+	for (int32 Idx = 0; Idx < Data.Edges.Num(); Idx++)
+	{
+		float tseg = 0.0f;
+		const float distSqr = dtDistancePtSegSqr2D(pos, Data.Edges[Idx].v0, Data.Edges[Idx].v1, tseg);
+		if (distSqr > dtSqr(collisionQueryRange))
+			continue;
+
+		// remove segments too close to requested position
+		if (bRemoveNearLink)
+		{
+			float dummyS = 0.0f;
+			float dummyT = 0.0f;
+			const bool bIntersect = dtIntersectSegSeg2D(Data.Edges[Idx].v0, Data.Edges[Idx].v1, linkV0, linkV1, dummyS, dummyT);
+			if (bIntersect)
+			{
+				continue;
+			}
+		}
+
+		// remove segments when both sides are on path (single area trace)
+		if (PathLookup.Contains(Data.Edges[Idx].p0) && PathLookup.Contains(Data.Edges[Idx].p1))
+		{
+			continue;
+		}
+
+		// include direction to segment in score
+		dtVmad(closestPt, Data.Edges[Idx].v0, Data.Edges[Idx].v1, tseg);
+		dtVsub(dirToSeg, closestPt, pos);
+		dtVnormalize(dirToSeg);
+		const float dseg = dtVdot2D(dirToSeg, moveDir);
+		const float score = distSqr *((1.0f - dseg) * 0.5f);
+
+		dtVcopy(s, Data.Edges[Idx].v0);
+		dtVcopy(s + 3, Data.Edges[Idx].v1);
+		addSegment(score, s);
+	}
+}
+
 bool dtLocalBoundary::isValid(dtNavMeshQuery* navquery, const dtQueryFilter* filter)
 {
 	if (!m_npolys)
@@ -161,7 +238,7 @@ bool dtLocalBoundary::isValid(dtNavMeshQuery* navquery, const dtQueryFilter* fil
 		if (!navquery->isValidPolyRef(m_polys[i], filter))
 			return false;
 	}
-	
+
 	return true;
 }
 

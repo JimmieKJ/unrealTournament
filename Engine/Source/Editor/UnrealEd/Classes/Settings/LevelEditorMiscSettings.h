@@ -2,15 +2,15 @@
 
 #pragma once
 
+#include "Engine/DeveloperSettings.h"
 #include "LevelEditorMiscSettings.generated.h"
 
 
 /**
- * Implements the Level Editor's miscellaneous settings.
+ * Configure miscellaneous settings for the Level Editor.
  */
-UCLASS(config=EditorUserSettings)
-class UNREALED_API ULevelEditorMiscSettings
-	: public UObject
+UCLASS(config=EditorPerProjectUserSettings, meta=( DisplayName="Miscellaneous" ))
+class UNREALED_API ULevelEditorMiscSettings : public UDeveloperSettings
 {
 	GENERATED_UCLASS_BODY()
 

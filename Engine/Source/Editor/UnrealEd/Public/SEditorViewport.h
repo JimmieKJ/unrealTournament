@@ -17,7 +17,7 @@ public:
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent ) override;
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	
 	/**
 	 * @return True if the viewport is being updated in realtime
@@ -26,6 +26,15 @@ public:
 
 	/** @return True if the viewport is currently visible */
 	virtual bool IsVisible() const;
+
+	/** 
+	 * Invalidates the viewport to ensure it is redrawn during the next tick. 
+	 * This is implied every frame while the viewport IsRealtime().
+	 */
+	void Invalidate();
+
+	/** Toggles realtime on/off for the viewport. Slate tick/paint is ensured when realtime is on. */
+	void OnToggleRealtime();
 
 	/**
 	 * @return true if the specified coordinate system the active one active
@@ -44,7 +53,13 @@ public:
 
 protected:
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() = 0;
-	virtual TSharedPtr<SWidget> MakeViewportToolbar() = 0;
+
+	// Implement this to add a viewport toolbar to the inside top of the viewport
+	virtual TSharedPtr<SWidget> MakeViewportToolbar() { return TSharedPtr<SWidget>(nullptr); }
+
+	// Implement this to add an arbitrary set of toolbars or other overlays to the inside of the viewport
+	virtual void PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay) { }
+
 	virtual void BindCommands();
 	virtual const FSlateBrush* OnGetViewportBorderBrush() const { return NULL; }
 	virtual FSlateColor OnGetViewportBorderColorAndOpacity() const { return FLinearColor::Black; }
@@ -55,7 +70,6 @@ protected:
 	virtual EVisibility OnGetViewportContentVisibility() const;
 
 	/** UI Command delegate bindings */
-	void OnToggleRealtime();
 	void OnToggleStats();
 
 	/**
@@ -102,7 +116,6 @@ protected:
 	 */
 	bool IsExposureSettingSelected( int32 ID ) const;
 	
-
 	virtual void OnScreenCapture();
 	virtual void OnScreenCaptureForProjectThumbnail();
 	virtual bool DoesAllowScreenCapture() { return true; }
@@ -124,6 +137,11 @@ protected:
 	 * @return true if the translate/rotate mode widget is visible 
 	 */
 	virtual bool IsTranslateRotateModeVisible() const;
+
+	/**
+	* @return true if the 2d mode widget is visible
+	*/
+	virtual bool Is2DModeVisible() const;
 
 	/**
 	 * Moves between widget modes
@@ -155,14 +173,29 @@ protected:
 
 protected:
 	TSharedPtr<SOverlay> ViewportOverlay;
+
 	/** Viewport that renders the scene provided by the viewport client */
 	TSharedPtr<class FSceneViewport> SceneViewport;
+	
 	/** Widget where the scene viewport is drawn in */
 	TSharedPtr<SViewport> ViewportWidget;
+	
 	/** The client responsible for setting up the scene */
 	TSharedPtr<FEditorViewportClient> Client;
+	
 	/** Commandlist used in the viewport (Maps commands to viewport specific actions) */
 	TSharedPtr<FUICommandList> CommandList;
+	
 	/** The last time the viewport was ticked (for visibility determination) */
 	double LastTickTime;
+
+private:
+	/** Ensures a Slate tick/paint pass when the viewport is realtime or was invalidated this frame */
+	EActiveTimerReturnType EnsureTick( double InCurrentTime, float InDeltaTime );
+
+	/** The handle to the active timer */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
+
+	/** Whether the viewport needs to update, even without input or realtime (e.g. inertial camera movement) */
+	bool bInvalidated;
 };

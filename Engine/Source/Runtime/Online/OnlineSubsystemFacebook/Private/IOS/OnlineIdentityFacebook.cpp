@@ -5,6 +5,9 @@
 #include "OnlineSubsystemFacebookPrivatePCH.h"
 #include "OnlineIdentityFacebook.h"
 
+#import <FBSDKCoreKit/FBSDKCoreKit.h>
+#import <FBSDKLoginKit/FBSDKLoginKit.h>
+
 // Other UE4 includes
 #include "IOSAppDelegate.h"
 
@@ -17,6 +20,7 @@ FUserOnlineAccountFacebook::FUserOnlineAccountFacebook(const FString& InUserId, 
 		: AuthTicket(InAuthTicket)
 		, UserId(new FUniqueNetIdString(InUserId))
 {
+	GConfig->GetString(TEXT("OnlineSubsystemFacebook.Login"), TEXT("AuthToken"), AuthTicket, GEngineIni);
 }
 
 TSharedRef<FUniqueNetId> FUserOnlineAccountFacebook::GetUserId() const
@@ -91,53 +95,55 @@ bool FOnlineIdentityFacebook::Login(int32 LocalUserNum, const FOnlineAccountCred
 
 	dispatch_async(dispatch_get_main_queue(),^ 
 		{
-			[FBSession openActiveSessionWithReadPermissions:nil allowLoginUI:YES 
-				completionHandler:^(FBSession *session, FBSessionState status, NSError *error) 
-				{
-					UE_LOG(LogOnline, Display, TEXT("[FBSession openActiveSessionWithReadPermissions]"));
-
-					// Check we have logged in correctly
-					bool bSuccessfullyLoggedIn = error == nil && status != FBSessionStateClosedLoginFailed && status != FBSessionStateCreatedOpening;
-					if( bSuccessfullyLoggedIn )
+			FBSDKAccessToken *accessToken = [FBSDKAccessToken currentAccessToken];
+			if (accessToken == nil)
+			{
+				FBSDKLoginManager* loginManager = [[FBSDKLoginManager alloc] init];
+				[loginManager logInWithReadPermissions:nil
+					handler: ^(FBSDKLoginManagerLoginResult* result, NSError* error)
 					{
-						UE_LOG(LogOnline, Display, TEXT("[FBSession bSuccessfullyLoggedIn = true]"));
-
-						FString Token([session accessTokenData].accessToken);
-						UserAccount->AuthTicket = Token;
-						UE_LOG(LogOnline, Display, TEXT("Got signin token: %s"), *Token );
-
-						[[FBRequest requestForMe] startWithCompletionHandler:^(FBRequestConnection *connection, NSDictionary<FBGraphUser> *user, NSError *error2)
-							{
-								if (!error2)
-								{
-									const FString UserId([user objectForKey:@"id"]);
-									UserAccount->UserId = MakeShareable(new FUniqueNetIdString(UserId));
-									UE_LOG(LogOnline, Display, TEXT("got user profile for id: %s"), *UserId );
-								}
-								else
-								{
-									UE_LOG(LogOnline, Display, TEXT("[FBRequest requestForMe] startWithCompletionHandler: Error: %d"), [error2 code] );
-								}
-							}
-						];
-						TriggerOnLoginCompleteDelegates(LocalUserNum, bSuccessfullyLoggedIn, UserAccount->UserId.Get(), TEXT(""));
-
-						//@todo samz - login status change delegate
-					}
-					else
-					{
-						UE_LOG(LogOnline, Display, TEXT("[FBSession bSuccessfullyLoggedIn = false[%d]]"), [error code]);
-						[FBSession.activeSession closeAndClearTokenInformation];
-						[FBSession setActiveSession:nil];
-						
+						UE_LOG(LogOnline, Display, TEXT("[FBSDKLoginManager logInWithReadPermissions]"));
+						bool bSuccessfulLogin = false;
+				 
+						if(error)
+						{
+							UE_LOG(LogOnline, Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = error[%d]]"), [error code]);
+						}
+						else if(result.isCancelled)
+						{
+							UE_LOG(LogOnline, Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = cancelled"));
+						}
+						else
+						{
+							UE_LOG(LogOnline, Display, TEXT("[FBSDKLoginManager logInWithReadPermissions = true]"));
+				 
+							FString Token([result token].tokenString);
+							UserAccount->AuthTicket = Token;
+							GConfig->SetString(TEXT("OnlineSubsystemFacebook.Login"), TEXT("AuthToken"), *Token, GEngineIni);
+				 
+							const FString UserId([result token].userID);
+							UserAccount->UserId = MakeShareable(new FUniqueNetIdString(UserId));
+				 
+							bSuccessfulLogin = true;
+						}
+				 
+						LoginStatus = bSuccessfulLogin ? ELoginStatus::LoggedIn : ELoginStatus::NotLoggedIn;
 						FUniqueNetIdString TempId;
-						TriggerOnLoginCompleteDelegates(LocalUserNum, bSuccessfullyLoggedIn, TempId, FString(TEXT("Failed to create a valid FBSession")));
+						TriggerOnLoginCompleteDelegates(LocalUserNum, bSuccessfulLogin, (bSuccessfulLogin ? UserAccount->UserId.Get() : TempId), TEXT(""));
+				 
+						UE_LOG(LogOnline, Display, TEXT("Facebook login was successful? - %d"), bSuccessfulLogin);
 					}
-					LoginStatus = bSuccessfullyLoggedIn ? ELoginStatus::LoggedIn : ELoginStatus::NotLoggedIn;
-
-					UE_LOG(LogOnline, Display, TEXT("Facebook login was successful? - %d"), bSuccessfullyLoggedIn);
-				}
-			];
+				];
+			}
+			else
+			{
+				LoginStatus = ELoginStatus::LoggedIn;
+				const FString UserId([accessToken userID]);
+				UserAccount->UserId = MakeShareable(new FUniqueNetIdString(UserId));
+				TriggerOnLoginCompleteDelegates(LocalUserNum, true, UserAccount->UserId.Get(), TEXT(""));
+				
+				UE_LOG(LogOnline, Display, TEXT("Facebook login was successful? - Already had token!"));
+			}
 		}
 	);
 
@@ -165,13 +171,14 @@ TSharedPtr<FUniqueNetId> FOnlineIdentityFacebook::CreateUniquePlayerId(const FSt
 bool FOnlineIdentityFacebook::Logout(int32 LocalUserNum)
 {
 	//@todo samz - login status change delegate
-
 	dispatch_async(dispatch_get_main_queue(),^ 
 		{
-			if( [FBSession.activeSession isOpen] )
+			if ([FBSDKAccessToken currentAccessToken])
 			{
-				[FBSession.activeSession closeAndClearTokenInformation];
-				[FBSession setActiveSession:nil];
+				FBSDKLoginManager *loginManager = [[FBSDKLoginManager alloc] init];
+				[loginManager logOut];
+				
+				LoginStatus = ELoginStatus::NotLoggedIn;
 			}
 		}
 	);

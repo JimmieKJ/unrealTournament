@@ -42,8 +42,23 @@ public:
 	
 	static FGenericTeamId GetTeamIdentifier(const AActor* TeamMember);
 	static ETeamAttitude::Type GetAttitude(const AActor* A, const AActor* B);
+	static ETeamAttitude::Type GetAttitude(FGenericTeamId TeamA, FGenericTeamId TeamB)
+	{
+		return AttitudeSolverImpl ? (*AttitudeSolverImpl)(TeamA, TeamB) : ETeamAttitude::Neutral;
+	}
 
-	static FGenericTeamId NoTeam;
+	typedef ETeamAttitude::Type FAttitudeSolverFunction(FGenericTeamId, FGenericTeamId);
+	
+	static void SetAttitudeSolver(FAttitudeSolverFunction* Solver);
+
+protected:
+	// the default implementation makes all teams hostile
+	// @note that for consistency IGenericTeamAgentInterface should be using the same function 
+	//	(by default it does)
+	static FAttitudeSolverFunction* AttitudeSolverImpl;
+
+public:
+	static const FGenericTeamId NoTeam;
 };
 
 UINTERFACE()
@@ -57,11 +72,16 @@ class AIMODULE_API IGenericTeamAgentInterface
 	GENERATED_IINTERFACE_BODY()
 
 	/** Assigns Team Agent to given TeamID */
-	virtual void SetGenericTeamId(const FGenericTeamId& TemaID) {}
+	virtual void SetGenericTeamId(const FGenericTeamId& TeamID) {}
 	
 	/** Retrieve team identifier in form of FGenericTeamId */
 	virtual FGenericTeamId GetGenericTeamId() const { return FGenericTeamId::NoTeam; }
 
 	/** Retrieved owner attitude toward given Other object */
-	virtual ETeamAttitude::Type GetTeamAttitudeTowards(const AActor& Other) const { return ETeamAttitude::Neutral; }
+	virtual ETeamAttitude::Type GetTeamAttitudeTowards(const AActor& Other) const
+	{ 
+		const IGenericTeamAgentInterface* OtherTeamAgent = Cast<const IGenericTeamAgentInterface>(&Other);
+		return OtherTeamAgent ? FGenericTeamId::GetAttitude(GetGenericTeamId(), OtherTeamAgent->GetGenericTeamId())
+			: ETeamAttitude::Neutral;
+	}
 };

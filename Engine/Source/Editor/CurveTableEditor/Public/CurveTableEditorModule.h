@@ -31,7 +31,7 @@ public:
 	virtual TSharedRef<ICurveTableEditor> CreateCurveTableEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UCurveTable* Table );
 
 	/** Gets the extensibility managers for outside entities to extend static mesh editor's menus and toolbars */
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() {return MenuExtensibilityManager;}
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() override {return MenuExtensibilityManager;}
 
 	/** CurveTable Editor app identifier string */
 	static const FName CurveTableEditorAppIdentifier;

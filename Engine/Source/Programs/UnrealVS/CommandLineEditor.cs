@@ -162,9 +162,13 @@ namespace UnrealVS
 						if (UnrealVSPackage.Instance.IsUE4Loaded && Utils.IsGameProject(SelectedStartupProject) && Utils.HasUProjectCommandLineArg(ActiveConfiguration.Name))
 						{
 							string UProjectFileName = Utils.GetUProjectFileName(SelectedStartupProject);
-							if (CommandLineArguments.Trim().StartsWith(UProjectFileName, StringComparison.InvariantCultureIgnoreCase))
+							if (CommandLineArguments.Trim().StartsWith(UProjectFileName, StringComparison.OrdinalIgnoreCase))
 							{
 								CommandLineArguments = CommandLineArguments.Trim().Substring(UProjectFileName.Length).Trim();
+							}
+							else if (CommandLineArguments.Trim().StartsWith(SelectedStartupProject.Name, StringComparison.OrdinalIgnoreCase))
+							{
+								CommandLineArguments = CommandLineArguments.Trim().Substring(SelectedStartupProject.Name.Length).Trim();
 							}
 						}
 
@@ -260,7 +264,16 @@ namespace UnrealVS
 						if (FullCommandLine.Trim().StartsWith(UProjectFileName, StringComparison.InvariantCultureIgnoreCase))
 						{
 							VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
-															string.Format("INFORMATION: The filename {0} has been removed from the command line because it is included automatically for 'Game' projects.", UProjectFileName),
+															string.Format("INFORMATION: The project filename {0} has been removed from the command line because it is included automatically for 'Game' projects.", UProjectFileName),
+															"UnrealVS",
+															OLEMSGICON.OLEMSGICON_INFO,
+															OLEMSGBUTTON.OLEMSGBUTTON_OK,
+															OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+						}
+						else if (FullCommandLine.Trim().StartsWith(SelectedStartupProject.Name, StringComparison.OrdinalIgnoreCase))
+						{
+							VsShellUtilities.ShowMessageBox(ServiceProvider.GlobalProvider,
+															string.Format("INFORMATION: The project name {0} has been removed from the command line because it is included automatically for 'Game' projects.", SelectedStartupProject.Name),
 															"UnrealVS",
 															OLEMSGICON.OLEMSGICON_INFO,
 															OLEMSGBUTTON.OLEMSGBUTTON_OK,

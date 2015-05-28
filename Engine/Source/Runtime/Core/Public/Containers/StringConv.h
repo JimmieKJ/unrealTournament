@@ -1,18 +1,18 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/**
- *
- * This file contains the classes used when converting strings between
- * standards (ANSI, UNICODE, etc.)
- */
+// This file contains the classes used when converting strings between
+// standards (ANSI, UNICODE, etc.)
 
 #pragma once
+
 #include "Containers/ContainerAllocationPolicies.h"
 #include "HAL/Platform.h"
 #include "HAL/PlatformString.h"
 
+
 #define DEFAULT_STRING_CONVERSION_SIZE 128u
 #define UNICODE_BOGUS_CHAR_CODEPOINT   '?'
+
 
 template <typename From, typename To>
 class TStringConvert

@@ -18,22 +18,42 @@ static FName ProviderName("Git");
 
 void FGitSourceControlProvider::Init(bool bForceConnection)
 {
-	PathToGameDir = FPaths::ConvertRelativePathToFull(FPaths::GameDir());
-
 	CheckGitAvailability();
 
-	if(bForceConnection)
-	{
-		// First connection, to find the path to the root git directory (if any)
-		GitSourceControlUtils::FindRootDirectory(PathToGameDir, PathToRepositoryRoot);
-	}
+	// bForceConnection: not used anymore
 }
 
 void FGitSourceControlProvider::CheckGitAvailability()
 {
 	FGitSourceControlModule& GitSourceControl = FModuleManager::LoadModuleChecked<FGitSourceControlModule>("GitSourceControl");
 	const FString& PathToGitBinary = GitSourceControl.AccessSettings().GetBinaryPath();
-	bGitAvailable = GitSourceControlUtils::CheckGitAvailability(PathToGitBinary);
+	if(!PathToGitBinary.IsEmpty())
+	{
+		bGitAvailable = GitSourceControlUtils::CheckGitAvailability(PathToGitBinary);
+		if(bGitAvailable)
+		{
+			// Find the path to the root Git directory (if any)
+			const FString PathToGameDir = FPaths::ConvertRelativePathToFull(FPaths::GameDir());
+			const bool bRepositoryFound = GitSourceControlUtils::FindRootDirectory(PathToGameDir, PathToRepositoryRoot);
+			// Get user name & email (of the repository, else from the global Git config)
+			GitSourceControlUtils::GetUserConfig(PathToGitBinary, PathToRepositoryRoot, UserName, UserEmail);
+			if (bRepositoryFound)
+			{
+				// Get branch name
+				GitSourceControlUtils::GetBranchName(PathToGitBinary, PathToRepositoryRoot, BranchName);
+				bGitRepositoryFound = true;
+			}
+			else
+			{
+				UE_LOG(LogSourceControl, Error, TEXT("'%s' is not part of a Git repository"), *FPaths::GameDir());
+				bGitRepositoryFound = false;
+			}
+		}
+	}
+	else
+	{
+		bGitAvailable = false;
+	}
 }
 
 void FGitSourceControlProvider::Close()
@@ -62,21 +82,24 @@ TSharedRef<FGitSourceControlState, ESPMode::ThreadSafe> FGitSourceControlProvide
 FText FGitSourceControlProvider::GetStatusText() const
 {
 	FFormatNamedArguments Args;
-	Args.Add( TEXT("IsEnabled"), IsEnabled() ? LOCTEXT("Yes", "Yes") : LOCTEXT("No", "No") );
 	Args.Add( TEXT("RepositoryName"), FText::FromString(PathToRepositoryRoot) );
 	Args.Add( TEXT("BranchName"), FText::FromString(BranchName) );
+	Args.Add( TEXT("UserName"), FText::FromString(UserName) );
+	Args.Add( TEXT("UserEmail"), FText::FromString(UserEmail) );
 
-	return FText::Format( NSLOCTEXT("Status", "Provider: Git\nEnabledLabel", "Enabled: {IsEnabled}\nRepository: {RepositoryName}\nBranch: {BranchName}"), Args );
+	return FText::Format( NSLOCTEXT("Status", "Provider: Git\nEnabledLabel", "Repository: {RepositoryName}\nBranch: {BranchName}\nUser: {UserName}\nE-mail: {UserEmail}"), Args );
 }
 
+/** Quick check if source control is enabled */
 bool FGitSourceControlProvider::IsEnabled() const
 {
-	return bGitAvailable;
+	return bGitRepositoryFound;
 }
 
+/** Quick check if source control is available for use (useful for server-based providers) */
 bool FGitSourceControlProvider::IsAvailable() const
 {
-	return bGitAvailable;
+	return bGitRepositoryFound;
 }
 
 const FName& FGitSourceControlProvider::GetName(void) const
@@ -106,7 +129,21 @@ ECommandResult::Type FGitSourceControlProvider::GetState( const TArray<FString>&
 	return ECommandResult::Succeeded;
 }
 
-void FGitSourceControlProvider::RegisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
+TArray<FSourceControlStateRef> FGitSourceControlProvider::GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const
+{
+	TArray<FSourceControlStateRef> Result;
+	for(const auto& CacheItem : StateCache)
+	{
+		FSourceControlStateRef State = CacheItem.Value;
+		if(Predicate(State))
+		{
+			Result.Add(State);
+		}
+	}
+	return Result;
+}
+
+void FGitSourceControlProvider::RegisterSourceControlStateChanged(const FSourceControlStateChanged::FDelegate& SourceControlStateChanged)
 {
 	OnSourceControlStateChanged.Add( SourceControlStateChanged );
 }
@@ -128,7 +165,7 @@ void FGitSourceControlProvider::UnregisterSourceControlStateChanged_Handle( FDel
 
 ECommandResult::Type FGitSourceControlProvider::Execute( const TSharedRef<ISourceControlOperation, ESPMode::ThreadSafe>& InOperation, const TArray<FString>& InFiles, EConcurrency::Type InConcurrency, const FSourceControlOperationComplete& InOperationCompleteDelegate )
 {
-	if(!IsEnabled())
+	if(!IsEnabled() && !(InOperation->GetName() == "Connect")) // Only Connect operation allowed while not Enabled (Connected)
 	{
 		return ECommandResult::Failed;
 	}
@@ -155,15 +192,11 @@ ECommandResult::Type FGitSourceControlProvider::Execute( const TSharedRef<ISourc
 	if(InConcurrency == EConcurrency::Synchronous)
 	{
 		Command->bAutoDelete = false;
-// @todo: temporary debug logs
-//		UE_LOG(LogSourceControl, Log, TEXT("ExecuteSynchronousCommand: '%s'"), *InOperation->GetName().ToString());
 		return ExecuteSynchronousCommand(*Command, InOperation->GetInProgressString());
 	}
 	else
 	{
 		Command->bAutoDelete = true;
-// @todo: temporary debug logs
-//		UE_LOG(LogSourceControl, Log, TEXT("IssueCommand(Asynchronous): '%s'"), *InOperation->GetName().ToString());
 		return IssueCommand(*Command);
 	}
 }
@@ -190,12 +223,12 @@ bool FGitSourceControlProvider::UsesChangelists() const
 TSharedPtr<IGitSourceControlWorker, ESPMode::ThreadSafe> FGitSourceControlProvider::CreateWorker(const FName& InOperationName) const
 {
 	const FGetGitSourceControlWorker* Operation = WorkersMap.Find(InOperationName);
-	if(Operation != NULL)
+	if(Operation != nullptr)
 	{
 		return Operation->Execute();
 	}
 		
-	return NULL;
+	return nullptr;
 }
 
 void FGitSourceControlProvider::RegisterWorker( const FName& InName, const FGetGitSourceControlWorker& InDelegate )
@@ -224,20 +257,13 @@ void FGitSourceControlProvider::Tick()
 	for(int32 CommandIndex = 0; CommandIndex < CommandQueue.Num(); ++CommandIndex)
 	{
 		FGitSourceControlCommand& Command = *CommandQueue[CommandIndex];
-		if (Command.bExecuteProcessed)
+		if(Command.bExecuteProcessed)
 		{
 			// Remove command from the queue
 			CommandQueue.RemoveAt(CommandIndex);
 
 			// let command update the states of any files
 			bStatesUpdated |= Command.Worker->UpdateStates();
-
-			// if connect operation: obtain the path to the Git root directory of the repository
-			if(Command.Operation->GetName() == "Connect" && Command.bCommandSuccessful)
-			{
-				PathToRepositoryRoot = Command.PathToRepositoryRoot;
-				BranchName = Command.BranchName;
-			}
 
 			// dump any messages to output log
 			OutputCommandMessages(Command);
@@ -320,7 +346,7 @@ ECommandResult::Type FGitSourceControlProvider::ExecuteSynchronousCommand(FGitSo
 
 ECommandResult::Type FGitSourceControlProvider::IssueCommand(FGitSourceControlCommand& InCommand)
 {
-	if ( GThreadPool != NULL )
+	if(GThreadPool != nullptr)
 	{
 		// Queue this to our worker thread(s) for resolving
 		GThreadPool->AddQueuedWork(&InCommand);

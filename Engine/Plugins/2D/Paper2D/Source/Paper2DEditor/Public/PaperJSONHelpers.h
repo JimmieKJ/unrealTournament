@@ -26,8 +26,8 @@ public:
 	// Returns true if the field named Key is a Number (truncating it to an integer), populating Out_Value, or false if it is missing or the wrong type (Out_Value is set to 0 on failure)
 	static bool ReadIntegerNoDefault(const TSharedPtr<class FJsonObject> Item, const FString& Key, int32& Out_Value);
 
-	// Returns true if the object named Key is a struct containing four floats (x,y,w,h), populating XY and WH with the values)
-	static bool ReadRectangle(const TSharedPtr<class FJsonObject> Item, const FString& Key, FVector2D& Out_XY, FVector2D& Out_WH);
+	// Returns true if the object named Key is a struct containing four integers (x,y,w,h), populating XY and WH with the values)
+	static bool ReadRectangle(const TSharedPtr<class FJsonObject> Item, const FString& Key, FIntPoint& Out_XY, FIntPoint& Out_WH);
 
 	// Returns true if the object named Key is a struct containing two floats (w,h), populating WH with the values)
 	static bool ReadSize(const TSharedPtr<class FJsonObject> Item, const FString& Key, FVector2D& Out_WH);

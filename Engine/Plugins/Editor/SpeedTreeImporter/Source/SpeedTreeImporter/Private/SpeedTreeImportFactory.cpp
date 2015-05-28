@@ -8,6 +8,7 @@
 #include "Materials/MaterialExpressionClamp.h"
 #include "Materials/MaterialExpressionComponentMask.h"
 #include "Materials/MaterialExpressionConstant.h"
+#include "Materials/MaterialExpressionConstant3Vector.h"
 #include "Materials/MaterialExpressionLinearInterpolate.h"
 #include "Materials/MaterialExpressionPower.h"
 #include "Materials/MaterialExpressionMultiply.h"
@@ -68,6 +69,14 @@ public:
 	/** Tree scale **/
 	float							TreeScale;
 
+	/** LOD type **/
+	enum EImportLODType
+	{
+		ILT_PaintedFoliage,
+		ILT_IndividualActors
+	};
+	EImportLODType					LODType;
+
 	/** options */
 	TSharedPtr<SCheckBox>			MakeMaterialsCheck;
 	TSharedPtr<SCheckBox>			IncludeNormalMapCheck;
@@ -98,6 +107,7 @@ public:
 	SSpeedTreeImportOptions() :
 		ImportGeometryType(IGT_3D),
 		TreeScale(30.48f),
+		LODType(ILT_PaintedFoliage),
 		bImport(false)
 	{}
 
@@ -116,24 +126,49 @@ public:
 	{
 		return SNew(SCheckBox)
 		.Style(FEditorStyle::Get(), "RadioButton")
-		.IsChecked(this, &SSpeedTreeImportOptions::IsRadioChecked, Type)
-		.OnCheckStateChanged(this, &SSpeedTreeImportOptions::OnRadioChanged, Type)
+		.IsChecked(this, &SSpeedTreeImportOptions::IsGeometryTypeRadioChecked, Type)
+		.OnCheckStateChanged(this, &SSpeedTreeImportOptions::OnGeometryTypeRadioChanged, Type)
 		.Content()
 		[
 			SNew(STextBlock).Text(NameText)
 		];
 	}
 
-	ECheckBoxState IsRadioChecked(EImportGeometryType ButtonId) const
+	ECheckBoxState IsGeometryTypeRadioChecked(EImportGeometryType ButtonId) const
 	{
 		return (ImportGeometryType == ButtonId) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 
-	void OnRadioChanged( ECheckBoxState NewRadioState, EImportGeometryType RadioThatChanged )
+	void OnGeometryTypeRadioChanged(ECheckBoxState NewRadioState, EImportGeometryType RadioThatChanged )
 	{
 		if (NewRadioState == ECheckBoxState::Checked)
 		{
 			ImportGeometryType = RadioThatChanged;
+		}
+	}
+
+	TSharedRef<SWidget> CreateLodTypeCombo(const FText& NameText, bool bChecked, EImportLODType Type)
+	{
+		return SNew(SCheckBox)
+		.Style(FEditorStyle::Get(), "RadioButton")
+		.IsChecked(this, &SSpeedTreeImportOptions::IsLodTypeRadioChecked, Type)
+		.OnCheckStateChanged(this, &SSpeedTreeImportOptions::OnLodTypeRadioChanged, Type)
+		.Content()
+		[
+			SNew(STextBlock).Text(NameText)
+		];
+	}
+
+	ECheckBoxState IsLodTypeRadioChecked(EImportLODType ButtonId) const
+	{
+		return (LODType == ButtonId) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
+	void OnLodTypeRadioChanged(ECheckBoxState NewRadioState, EImportLODType RadioThatChanged)
+	{
+		if (NewRadioState == ECheckBoxState::Checked)
+		{
+			LODType = RadioThatChanged;
 		}
 	}
 
@@ -155,6 +190,24 @@ public:
 				[
 					SNew(SVerticalBox)
 
+					+ SVerticalBox::Slot().AutoHeight().Padding(5).HAlign(HAlign_Left)
+					[
+						SNew(STextBlock).Text(LOCTEXT("TreeScaleLabel", "Tree Scale"))
+					]
+
+					+SVerticalBox::Slot().AutoHeight().Padding(5)
+					[
+						SNew(SEditableTextBox)
+						.SelectAllTextWhenFocused(true)
+						.OnTextCommitted(this, &SSpeedTreeImportOptions::ScaleTextCommitted)
+						.Text(FText::AsNumber(TreeScale))
+					]
+				]
+
+				+SVerticalBox::Slot().AutoHeight().Padding(5)
+				[
+					SNew(SVerticalBox)
+
 					+SVerticalBox::Slot().AutoHeight().Padding(5).HAlign(HAlign_Left)
 					[
 						SNew(STextBlock).Text(LOCTEXT("GeometryCategoryLabel", "Geometry"))
@@ -166,7 +219,7 @@ public:
 					
 						+SVerticalBox::Slot().AutoHeight().Padding(5)
 						[
-							CreateGeometryTypeCombo( LOCTEXT("3D_LODs", "3D LODs"), true, IGT_3D)
+							CreateGeometryTypeCombo(LOCTEXT("3D_LODs", "3D LODs"), true, IGT_3D)
 						]
 
 						+SVerticalBox::Slot().AutoHeight().Padding(5)
@@ -187,15 +240,22 @@ public:
 
 					+ SVerticalBox::Slot().AutoHeight().Padding(5).HAlign(HAlign_Left)
 					[
-						SNew(STextBlock).Text(LOCTEXT("TreeScaleLabel", "Tree Scale"))
+						SNew(STextBlock).Text(LOCTEXT("LODSetupLabel", "LOD Setup"))
 					]
 
-					+SVerticalBox::Slot().AutoHeight().Padding(5)
+					+SVerticalBox::Slot().AutoHeight().Padding(15, 5)
 					[
-						SNew(SEditableTextBox)
-						.SelectAllTextWhenFocused(true)
-						.OnTextCommitted(this, &SSpeedTreeImportOptions::ScaleTextCommitted)
-						.Text(FText::AsNumber(TreeScale))
+						SNew(SVerticalBox)
+						
+						+SVerticalBox::Slot().AutoHeight().Padding(5)
+						[
+							CreateLodTypeCombo(LOCTEXT("PaintedFoliage", "Painted Foliage"), true, ILT_PaintedFoliage)
+						]
+
+						+SVerticalBox::Slot().AutoHeight().Padding(5)
+						[
+							CreateLodTypeCombo(LOCTEXT("IndividualActors", "Individual Actors"), false, ILT_IndividualActors)
+						]
 					]
 				]
 
@@ -356,7 +416,7 @@ USpeedTreeImportFactory::USpeedTreeImportFactory(const FObjectInitializer& Objec
 
 FText USpeedTreeImportFactory::GetDisplayName() const
 {
-	return LOCTEXT("SpeedTreeImportFactoryDescription", "Speed Tree");
+	return LOCTEXT("SpeedTreeImportFactoryDescription", "SpeedTree");
 }
 
 
@@ -372,7 +432,7 @@ UClass* USpeedTreeImportFactory::ResolveSupportedClass()
 	return UStaticMesh::StaticClass();
 }
 
-static UTexture* CreateSpeedTreeMaterialTexture(UObject* Parent, FString Filename, bool bNormalMap)
+UTexture* CreateSpeedTreeMaterialTexture(UObject* Parent, FString Filename, bool bNormalMap, TSet<UPackage*>& LoadedPackages)
 {
 	UTexture* UnrealTexture = NULL;
 
@@ -390,10 +450,19 @@ static UTexture* CreateSpeedTreeMaterialTexture(UObject* Parent, FString Filenam
 	NewPackageName = PackageTools::SanitizePackageName(NewPackageName);
 	UPackage* Package = CreatePackage(NULL, *NewPackageName);
 
-	// does not override existing textures
+	// find existing texture
 	UnrealTexture = FindObject<UTexture>(Package, *TextureName);
 	if (UnrealTexture != NULL)
 	{
+		if (!LoadedPackages.Contains(Package))
+		{
+			LoadedPackages.Add(Package);
+			if (!FReimportManager::Instance()->Reimport(UnrealTexture, true))
+			{
+				UE_LOG(LogSpeedTreeImport, Warning, TEXT("Manual texture reimport and recompression may be needed for %s"), *TextureName);
+			}
+		}
+
 		return UnrealTexture;
 	}
 
@@ -407,6 +476,7 @@ static UTexture* CreateSpeedTreeMaterialTexture(UObject* Parent, FString Filenam
 	else
 	{
 		auto TextureFact = NewObject<UTextureFactory>();
+		TextureFact->AddToRoot();
 		TextureFact->SuppressImportOverwriteDialog();
 
 		if (bNormalMap)
@@ -419,18 +489,24 @@ static UTexture* CreateSpeedTreeMaterialTexture(UObject* Parent, FString Filenam
 		UnrealTexture = (UTexture*)TextureFact->FactoryCreateBinary(UTexture2D::StaticClass(), Package, *TextureName, RF_Standalone|RF_Public, NULL, *Extension, PtrTexture, PtrTexture + TextureData.Num(), GWarn);
 		if (UnrealTexture != NULL)
 		{
+			UnrealTexture->SourceFilePath = FReimportManager::SanitizeImportFilename(Filename, UnrealTexture);
+			UnrealTexture->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*Filename).ToString();
+
 			// Notify the asset registry
 			FAssetRegistryModule::AssetCreated(UnrealTexture);
 
 			// Set the dirty flag so this package will get saved later
 			Package->SetDirtyFlag(true);
+			LoadedPackages.Add(Package);
 		}
+
+		TextureFact->RemoveFromRoot();
 	}
 
 	return UnrealTexture;
 }
 
-static void LayoutMaterial(UMaterialInterface* MaterialInterface)
+void LayoutMaterial(UMaterialInterface* MaterialInterface)
 {
 	UMaterial* Material = MaterialInterface->GetMaterial();
 	Material->EditorX = 0;
@@ -537,7 +613,7 @@ static void LayoutMaterial(UMaterialInterface* MaterialInterface)
 	}
 }
 
-static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString MaterialFullName, const SpeedTree::SRenderState* RenderState, TSharedPtr<SSpeedTreeImportOptions> Options, ESpeedTreeWindType WindType, int NumBillboards)
+UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString MaterialFullName, const SpeedTree::SRenderState* RenderState, TSharedPtr<SSpeedTreeImportOptions> Options, ESpeedTreeWindType WindType, int NumBillboards, TSet<UPackage*>& LoadedPackages)
 {
 	// Make sure we have a parent
 	if (!Options->MakeMaterialsCheck->IsChecked() || !ensure(Parent))
@@ -555,36 +631,48 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 	UMaterialInterface* UnrealMaterialInterface = FindObject<UMaterialInterface>(Package, *FixedMaterialName);
 	if (UnrealMaterialInterface != NULL)
 	{
+		// touch the textures anyway to make sure they reload if necessary
+		UTexture* DiffuseTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_DIFFUSE]), false, LoadedPackages);
+		if (DiffuseTexture)
+		{
+			if (RenderState->m_bBranchesPresent && Options->IncludeDetailMapCheck->IsChecked())
+			{
+				UTexture* DetailTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_DETAIL_DIFFUSE]), false, LoadedPackages);
+			}
+		}
+		if (Options->IncludeSpecularMapCheck->IsChecked())
+		{
+			UTexture* SpecularTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_SPECULAR_MASK]), false, LoadedPackages);
+		}
+		if (Options->IncludeNormalMapCheck->IsChecked())
+		{
+			UTexture* NormalTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_NORMAL]), true, LoadedPackages);
+		}
+
 		return UnrealMaterialInterface;
 	}
 	
 	// create an unreal material asset
 	auto MaterialFactory = NewObject<UMaterialFactoryNew>();
 	UMaterial* UnrealMaterial = (UMaterial*)MaterialFactory->FactoryCreateNew(UMaterial::StaticClass(), Package, *FixedMaterialName, RF_Standalone|RF_Public, NULL, GWarn);
-	if (UnrealMaterial != NULL)
+	FAssetRegistryModule::AssetCreated(UnrealMaterial);
+	Package->SetDirtyFlag(true);
+
+	if (!RenderState->m_bDiffuseAlphaMaskIsOpaque && !RenderState->m_bBranchesPresent && !RenderState->m_bRigidMeshesPresent)
 	{
-		if (!RenderState->m_bDiffuseAlphaMaskIsOpaque && !RenderState->m_bBranchesPresent && !RenderState->m_bRigidMeshesPresent)
-		{
-			UnrealMaterial->BlendMode = BLEND_Masked;
-			UnrealMaterial->SetCastShadowAsMasked(true);
-			UnrealMaterial->TwoSided = !(RenderState->m_bHorzBillboard || RenderState->m_bVertBillboard);
-		}
-
-		// Notify the asset registry
-		FAssetRegistryModule::AssetCreated(UnrealMaterial);
-
-		// Set the dirty flag so this package will get saved later
-		Package->SetDirtyFlag(true);
+		UnrealMaterial->BlendMode = BLEND_Masked;
+		UnrealMaterial->SetCastShadowAsMasked(true);
+		UnrealMaterial->TwoSided = !(RenderState->m_bHorzBillboard || RenderState->m_bVertBillboard);
 	}
 
 	UMaterialExpressionClamp* BranchSeamAmount = NULL;
 	if (Options->IncludeBranchSeamSmoothing->IsChecked() && RenderState->m_bBranchesPresent && RenderState->m_eBranchSeamSmoothing != SpeedTree::EFFECT_OFF)
 	{
-		UMaterialExpressionTextureCoordinate* SeamTexcoordExpression = ConstructObject<UMaterialExpressionTextureCoordinate>(UMaterialExpressionTextureCoordinate::StaticClass(), UnrealMaterial);
+		UMaterialExpressionTextureCoordinate* SeamTexcoordExpression = NewObject<UMaterialExpressionTextureCoordinate>(UnrealMaterial);
 		SeamTexcoordExpression->CoordinateIndex = 4;
 		UnrealMaterial->Expressions.Add(SeamTexcoordExpression);
 
-		UMaterialExpressionComponentMask* ComponentMaskExpression = ConstructObject<UMaterialExpressionComponentMask>(UMaterialExpressionComponentMask::StaticClass(), UnrealMaterial);
+		UMaterialExpressionComponentMask* ComponentMaskExpression = NewObject<UMaterialExpressionComponentMask>(UnrealMaterial);
 		ComponentMaskExpression->R = 0;
 		ComponentMaskExpression->G = 1;
 		ComponentMaskExpression->B = 0;
@@ -592,22 +680,22 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 		ComponentMaskExpression->Input.Expression = SeamTexcoordExpression;
 		UnrealMaterial->Expressions.Add(ComponentMaskExpression);
 
-		UMaterialExpressionPower* PowerExpression = ConstructObject<UMaterialExpressionPower>(UMaterialExpressionPower::StaticClass(), UnrealMaterial);
+		UMaterialExpressionPower* PowerExpression = NewObject<UMaterialExpressionPower>(UnrealMaterial);
 		PowerExpression->Base.Expression = ComponentMaskExpression;
 		PowerExpression->ConstExponent = RenderState->m_fBranchSeamWeight;
 		UnrealMaterial->Expressions.Add(PowerExpression);
 
-		BranchSeamAmount = ConstructObject<UMaterialExpressionClamp>(UMaterialExpressionClamp::StaticClass(), UnrealMaterial);
+		BranchSeamAmount = NewObject<UMaterialExpressionClamp>(UnrealMaterial);
 		BranchSeamAmount->Input.Expression = PowerExpression;
 		UnrealMaterial->Expressions.Add(BranchSeamAmount);
 	}
 
 	// textures and properties
-	UTexture* DiffuseTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_DIFFUSE]), false);
+	UTexture* DiffuseTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_DIFFUSE]), false, LoadedPackages);
 	if (DiffuseTexture)
 	{
 		// make texture sampler
-		UMaterialExpressionTextureSample* TextureExpression = ConstructObject<UMaterialExpressionTextureSample>(UMaterialExpressionTextureSample::StaticClass(), UnrealMaterial);
+		UMaterialExpressionTextureSample* TextureExpression = NewObject<UMaterialExpressionTextureSample>(UnrealMaterial);
 		TextureExpression->Texture = DiffuseTexture;
 		TextureExpression->SamplerType = SAMPLERTYPE_Color;
 		UnrealMaterial->Expressions.Add(TextureExpression);
@@ -624,17 +712,17 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 		if (BranchSeamAmount != NULL)
 		{
 			// perform branch seam smoothing
-			UMaterialExpressionTextureCoordinate* SeamTexcoordExpression = ConstructObject<UMaterialExpressionTextureCoordinate>(UMaterialExpressionTextureCoordinate::StaticClass(), UnrealMaterial);
+			UMaterialExpressionTextureCoordinate* SeamTexcoordExpression = NewObject<UMaterialExpressionTextureCoordinate>(UnrealMaterial);
 			SeamTexcoordExpression->CoordinateIndex = 6;
 			UnrealMaterial->Expressions.Add(SeamTexcoordExpression);
 
-			UMaterialExpressionTextureSample* SeamTextureExpression = ConstructObject<UMaterialExpressionTextureSample>(UMaterialExpressionTextureSample::StaticClass(), UnrealMaterial);
+			UMaterialExpressionTextureSample* SeamTextureExpression = NewObject<UMaterialExpressionTextureSample>(UnrealMaterial);
 			SeamTextureExpression->Texture = DiffuseTexture;
 			SeamTextureExpression->SamplerType = SAMPLERTYPE_Color;
 			SeamTextureExpression->Coordinates.Expression = SeamTexcoordExpression;
 			UnrealMaterial->Expressions.Add(SeamTextureExpression);
 
-			UMaterialExpressionLinearInterpolate* InterpolateExpression = ConstructObject<UMaterialExpressionLinearInterpolate>(UMaterialExpressionLinearInterpolate::StaticClass(), UnrealMaterial);
+			UMaterialExpressionLinearInterpolate* InterpolateExpression = NewObject<UMaterialExpressionLinearInterpolate>(UnrealMaterial);
 			InterpolateExpression->A.Expression = SeamTextureExpression;
 			InterpolateExpression->B.Expression = TextureExpression;
 			InterpolateExpression->Alpha.Expression = BranchSeamAmount;
@@ -645,23 +733,23 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 
 		if (RenderState->m_bBranchesPresent && Options->IncludeDetailMapCheck->IsChecked())
 		{
-			UTexture* DetailTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_DETAIL_DIFFUSE]), false);
+			UTexture* DetailTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_DETAIL_DIFFUSE]), false, LoadedPackages);
 			if (DetailTexture)
 			{
 				// add/find UVSet
-				UMaterialExpressionTextureCoordinate* DetailTexcoordExpression = ConstructObject<UMaterialExpressionTextureCoordinate>(UMaterialExpressionTextureCoordinate::StaticClass(), UnrealMaterial);
+				UMaterialExpressionTextureCoordinate* DetailTexcoordExpression = NewObject<UMaterialExpressionTextureCoordinate>(UnrealMaterial);
 				DetailTexcoordExpression->CoordinateIndex = 5;
 				UnrealMaterial->Expressions.Add(DetailTexcoordExpression);
 				
 				// make texture sampler
-				UMaterialExpressionTextureSample* DetailTextureExpression = ConstructObject<UMaterialExpressionTextureSample>(UMaterialExpressionTextureSample::StaticClass(), UnrealMaterial);
+				UMaterialExpressionTextureSample* DetailTextureExpression = NewObject<UMaterialExpressionTextureSample>(UnrealMaterial);
 				DetailTextureExpression->Texture = DetailTexture;
 				DetailTextureExpression->SamplerType = SAMPLERTYPE_Color;
 				DetailTextureExpression->Coordinates.Expression = DetailTexcoordExpression;
 				UnrealMaterial->Expressions.Add(DetailTextureExpression);
 
 				// interpolate the detail
-				UMaterialExpressionLinearInterpolate* InterpolateExpression = ConstructObject<UMaterialExpressionLinearInterpolate>(UMaterialExpressionLinearInterpolate::StaticClass(), UnrealMaterial);
+				UMaterialExpressionLinearInterpolate* InterpolateExpression = NewObject<UMaterialExpressionLinearInterpolate>(UnrealMaterial);
 				InterpolateExpression->A.Expression = UnrealMaterial->BaseColor.Expression;
 				InterpolateExpression->B.Expression = DetailTextureExpression;
 				InterpolateExpression->Alpha.Expression = DetailTextureExpression;
@@ -681,11 +769,11 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 	bool bMadeSpecular = false;
 	if (Options->IncludeSpecularMapCheck->IsChecked())
 	{
-		UTexture* SpecularTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_SPECULAR_MASK]), false);
+		UTexture* SpecularTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_SPECULAR_MASK]), false, LoadedPackages);
 		if (SpecularTexture)
 		{
 			// make texture sampler
-			UMaterialExpressionTextureSample* TextureExpression = ConstructObject<UMaterialExpressionTextureSample>(UMaterialExpressionTextureSample::StaticClass(), UnrealMaterial);
+			UMaterialExpressionTextureSample* TextureExpression = NewObject<UMaterialExpressionTextureSample>(UnrealMaterial);
 			TextureExpression->Texture = SpecularTexture;
 			TextureExpression->SamplerType = SAMPLERTYPE_Color;
 			
@@ -697,7 +785,7 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 
 	if (!bMadeSpecular)
 	{
-		UMaterialExpressionConstant* ZeroExpression = ConstructObject<UMaterialExpressionConstant>(UMaterialExpressionConstant::StaticClass(), UnrealMaterial);
+		UMaterialExpressionConstant* ZeroExpression = NewObject<UMaterialExpressionConstant>(UnrealMaterial);
 		ZeroExpression->R = 0.0f;
 		UnrealMaterial->Expressions.Add(ZeroExpression);
 		UnrealMaterial->Specular.Expression = ZeroExpression;
@@ -705,11 +793,11 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 
 	if (Options->IncludeNormalMapCheck->IsChecked())
 	{
-		UTexture* NormalTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_NORMAL]), true);
+		UTexture* NormalTexture = CreateSpeedTreeMaterialTexture(Parent, ANSI_TO_TCHAR(RenderState->m_apTextures[SpeedTree::TL_NORMAL]), true, LoadedPackages);
 		if (NormalTexture)
 		{
 			// make texture sampler
-			UMaterialExpressionTextureSample* TextureExpression = ConstructObject<UMaterialExpressionTextureSample>(UMaterialExpressionTextureSample::StaticClass(), UnrealMaterial);
+			UMaterialExpressionTextureSample* TextureExpression = NewObject<UMaterialExpressionTextureSample>(UnrealMaterial);
 			TextureExpression->Texture = NormalTexture;
 			TextureExpression->SamplerType = SAMPLERTYPE_Normal;
 			
@@ -719,17 +807,17 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 			if (BranchSeamAmount != NULL)
 			{
 				// perform branch seam smoothing
-				UMaterialExpressionTextureCoordinate* SeamTexcoordExpression = ConstructObject<UMaterialExpressionTextureCoordinate>(UMaterialExpressionTextureCoordinate::StaticClass(), UnrealMaterial);
+				UMaterialExpressionTextureCoordinate* SeamTexcoordExpression = NewObject<UMaterialExpressionTextureCoordinate>(UnrealMaterial);
 				SeamTexcoordExpression->CoordinateIndex = 6;
 				UnrealMaterial->Expressions.Add(SeamTexcoordExpression);
 
-				UMaterialExpressionTextureSample* SeamTextureExpression = ConstructObject<UMaterialExpressionTextureSample>(UMaterialExpressionTextureSample::StaticClass(), UnrealMaterial);
+				UMaterialExpressionTextureSample* SeamTextureExpression = NewObject<UMaterialExpressionTextureSample>(UnrealMaterial);
 				SeamTextureExpression->Texture = NormalTexture;
 				SeamTextureExpression->SamplerType = SAMPLERTYPE_Normal;
 				SeamTextureExpression->Coordinates.Expression = SeamTexcoordExpression;
 				UnrealMaterial->Expressions.Add(SeamTextureExpression);
 
-				UMaterialExpressionLinearInterpolate* InterpolateExpression = ConstructObject<UMaterialExpressionLinearInterpolate>(UMaterialExpressionLinearInterpolate::StaticClass(), UnrealMaterial);
+				UMaterialExpressionLinearInterpolate* InterpolateExpression = NewObject<UMaterialExpressionLinearInterpolate>(UnrealMaterial);
 				InterpolateExpression->A.Expression = SeamTextureExpression;
 				InterpolateExpression->B.Expression = TextureExpression;
 				InterpolateExpression->Alpha.Expression = BranchSeamAmount;
@@ -742,7 +830,7 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 
 	if (Options->IncludeVertexProcessingCheck->IsChecked() && !RenderState->m_bRigidMeshesPresent)
 	{
-		UMaterialExpressionSpeedTree* SpeedTreeExpression = ConstructObject<UMaterialExpressionSpeedTree>(UMaterialExpressionSpeedTree::StaticClass(), UnrealMaterial);
+		UMaterialExpressionSpeedTree* SpeedTreeExpression = NewObject<UMaterialExpressionSpeedTree>(UnrealMaterial);
 	
 		SpeedTreeExpression->LODType = (Options->IncludeSmoothLODCheck->IsChecked() ? STLOD_Smooth : STLOD_Pop);
 		SpeedTreeExpression->WindType = WindType;
@@ -768,7 +856,7 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 	if (Options->IncludeSpeedTreeAO->IsChecked() && 
 		!(RenderState->m_bVertBillboard || RenderState->m_bHorzBillboard))
 	{
-		UMaterialExpressionVertexColor* VertexColor = ConstructObject<UMaterialExpressionVertexColor>(UMaterialExpressionVertexColor::StaticClass(), UnrealMaterial);
+		UMaterialExpressionVertexColor* VertexColor = NewObject<UMaterialExpressionVertexColor>(UnrealMaterial);
 		UnrealMaterial->Expressions.Add(VertexColor);
 		UnrealMaterial->AmbientOcclusion.Expression = VertexColor;
 		UnrealMaterial->AmbientOcclusion.Mask = VertexColor->GetOutputs()[0].Mask;
@@ -779,15 +867,27 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 	}
 
 	// UE4 flips normals for two-sided materials. SpeedTrees don't need that
-	if (UnrealMaterial->TwoSided && UnrealMaterial->Normal.Expression != NULL)
+	if (UnrealMaterial->TwoSided)
 	{
-		UMaterialExpressionTwoSidedSign* TwoSidedSign = ConstructObject<UMaterialExpressionTwoSidedSign>(UMaterialExpressionTwoSidedSign::StaticClass(), UnrealMaterial);
+		UMaterialExpressionTwoSidedSign* TwoSidedSign = NewObject<UMaterialExpressionTwoSidedSign>(UnrealMaterial);
 		UnrealMaterial->Expressions.Add(TwoSidedSign);
 
-		UMaterialExpressionMultiply* Multiply = ConstructObject<UMaterialExpressionMultiply>(UMaterialExpressionMultiply::StaticClass(), UnrealMaterial);
-		Multiply->A.Expression = UnrealMaterial->Normal.Expression;
-		Multiply->B.Expression = TwoSidedSign;
+		auto Multiply = NewObject<UMaterialExpressionMultiply>(UnrealMaterial);
 		UnrealMaterial->Expressions.Add(Multiply);
+		Multiply->A.Expression = TwoSidedSign;
+
+		if (UnrealMaterial->Normal.Expression == NULL)
+		{
+			auto VertexNormalExpression = NewObject<UMaterialExpressionConstant3Vector>(UnrealMaterial);
+			UnrealMaterial->Expressions.Add(VertexNormalExpression);
+			VertexNormalExpression->Constant = FLinearColor(0.0f, 0.0f, 1.0f);
+
+			Multiply->B.Expression = VertexNormalExpression;
+		}
+		else
+		{
+			Multiply->B.Expression = UnrealMaterial->Normal.Expression;
+		}
 
 		UnrealMaterial->Normal.Expression = Multiply;
 	}
@@ -798,7 +898,7 @@ static UMaterialInterface* CreateSpeedTreeMaterial(UObject* Parent, FString Mate
 		UMaterialFunction* ColorVariationFunction = LoadObject<UMaterialFunction>(NULL, TEXT("/Engine/Functions/Engine_MaterialFunctions01/SpeedTree/SpeedTreeColorVariation.SpeedTreeColorVariation"), NULL, LOAD_None, NULL);
 		if (ColorVariationFunction)
 		{
-			UMaterialExpressionMaterialFunctionCall* ColorVariation = ConstructObject<UMaterialExpressionMaterialFunctionCall>(UMaterialExpressionMaterialFunctionCall::StaticClass(), UnrealMaterial);
+			UMaterialExpressionMaterialFunctionCall* ColorVariation = NewObject<UMaterialExpressionMaterialFunctionCall>(UnrealMaterial);
 			UnrealMaterial->Expressions.Add(ColorVariation);
 
 			ColorVariation->MaterialFunction = ColorVariationFunction;
@@ -918,7 +1018,7 @@ static void MakeBodyFromCollisionObjects(UStaticMesh* StaticMesh, const SpeedTre
 		{
 			// sphere object
 			FKSphereElem SphereElem;
-			FMemory::MemZero(SphereElem);
+			FMemory::Memzero(SphereElem);
 			SphereElem.Radius = CollisionObject.m_fRadius;
 			SphereElem.Center = Pos1;
 			AggGeo.SphereElems.Add(SphereElem);
@@ -927,7 +1027,7 @@ static void MakeBodyFromCollisionObjects(UStaticMesh* StaticMesh, const SpeedTre
 		{
 			// capsule/sphyll object
 			FKSphylElem SphylElem;
-			FMemory::MemZero(SphylElem);
+			FMemory::Memzero(SphylElem);
 			SphylElem.Radius = CollisionObject.m_fRadius;
 			FVector UpDir = Pos2 - Pos1;
 			SphylElem.Length = UpDir.Size();
@@ -1105,6 +1205,8 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 			}
 			else
 			{
+				LoadedPackages.Empty( );
+
 				// make static mesh object
 				FString MeshName = ObjectTools::SanitizeObjectName(InName.ToString());
 				FString NewPackageName = FPackageName::GetLongPackagePath(InParent->GetOutermost()->GetName()) + TEXT("/") + MeshName;
@@ -1112,17 +1214,27 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 				UPackage* Package = CreatePackage(NULL, *NewPackageName);
 				
 				// clear out old mesh
+				TArray<UMaterialInterface*> OldMaterials;
 				UStaticMesh* ExistingMesh = FindObject<UStaticMesh>(Package, *MeshName);
+				FGlobalComponentReregisterContext RecreateComponents;
+
 				if (ExistingMesh)
 				{
+					OldMaterials = ExistingMesh->Materials;
+					for (int32 i = 0; i < OldMaterials.Num(); ++i)
+					{
+						OldMaterials[i]->PreEditChange(NULL);
+						OldMaterials[i]->PostEditChange();
+					}
+
 					// Free any RHI resources for existing mesh before we re-create in place.
 					ExistingMesh->PreEditChange(NULL);
 				}
 				
-				StaticMesh = NewNamedObject<UStaticMesh>(Package, FName(*MeshName), Flags | RF_Public);
+				StaticMesh = NewObject<UStaticMesh>(Package, FName(*MeshName), Flags | RF_Public);
 
 				// @todo AssetImportData make a data class for speed tree assets
-				StaticMesh->AssetImportData = ConstructObject<UAssetImportData>(UAssetImportData::StaticClass(), StaticMesh);
+				StaticMesh->AssetImportData = NewObject<UAssetImportData>(StaticMesh);
 				StaticMesh->AssetImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(UFactory::GetCurrentFilename(), StaticMesh);
 				StaticMesh->AssetImportData->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*UFactory::GetCurrentFilename()).ToString();
 				StaticMesh->AssetImportData->bDirty = false;
@@ -1267,7 +1379,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 
 								MaterialName = ObjectTools::SanitizeObjectName(MaterialName);
 
-								UMaterialInterface* Material = CreateSpeedTreeMaterial(InParent, MaterialName, RenderState, Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards);
+								UMaterialInterface* Material = CreateSpeedTreeMaterial(InParent, MaterialName, RenderState, Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards, LoadedPackages);
 								
 								RenderStateIndexToStaticMeshIndex.Add(DrawCall->m_nRenderStateIndex, StaticMesh->Materials.Num());
 								MaterialIndex = StaticMesh->Materials.Num();
@@ -1370,7 +1482,7 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 				// make billboard LOD
 				if (Options->ImportGeometryType != SSpeedTreeImportOptions::IGT_3D && SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards > 0)
 				{
-					UMaterialInterface* Material = CreateSpeedTreeMaterial(InParent, MeshName + "_Billboard", &SpeedTreeGeometry->m_aBillboardRenderStates[SpeedTree::RENDER_PASS_MAIN], Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards);
+					UMaterialInterface* Material = CreateSpeedTreeMaterial(InParent, MeshName + "_Billboard", &SpeedTreeGeometry->m_aBillboardRenderStates[SpeedTree::RENDER_PASS_MAIN], Options, WindType, SpeedTreeGeometry->m_sVertBBs.m_nNumBillboards, LoadedPackages);
 					int32 MaterialIndex = StaticMesh->Materials.Num();
 					StaticMesh->Materials.Add(Material);
 
@@ -1471,6 +1583,11 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 					LODModel->RawMeshBulkData->SaveRawMesh(RawMesh);
 				}
 
+				if (OldMaterials.Num() == StaticMesh->Materials.Num())
+				{
+					StaticMesh->Materials = OldMaterials;
+				}
+
 				StaticMesh->Build();
 
 				if (Options->IncludeCollision->IsChecked())
@@ -1484,7 +1601,10 @@ UObject* USpeedTreeImportFactory::FactoryCreateBinary( UClass* InClass, UObject*
 				}
 
 				// make better LOD info for SpeedTrees
-				StaticMesh->bAutoComputeLODScreenSize = false;
+				if (Options->LODType == SSpeedTreeImportOptions::ILT_IndividualActors)
+				{
+					StaticMesh->bAutoComputeLODScreenSize = false;
+				}
 				StaticMesh->bRequiresLODDistanceConversion = false;
 			}
 		}

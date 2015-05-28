@@ -4,19 +4,22 @@
 
 #include "IDataTableEditor.h"
 #include "Toolkits/AssetEditorToolkit.h"
-
+#include "EditorUndoClient.h"
 #include "Kismet2/StructureEditorUtils.h"
 #include "DataTableEditorUtils.h"
 
 class UDataTable;
+class FJsonObject;
 
 DECLARE_DELEGATE_OneParam(FOnRowHighlighted, FName /*Row name*/);
 
 /** Viewer/editor for a DataTable */
 class FDataTableEditor : public IDataTableEditor
+	, public FEditorUndoClient
 	, public FStructureEditorUtils::INotifyOnStructChanged
 	, public FDataTableEditorUtils::INotifyOnDataTableChanged
 {
+	friend class SDataTableListViewRow;
 
 public:
 
@@ -38,14 +41,16 @@ public:
 	/** Destructor */
 	virtual ~FDataTableEditor();
 
-	/* Create the uniform grid panel */
-	TSharedPtr<SUniformGridPanel> CreateGridPanel();
-
 	/** IToolkit interface */
 	virtual FName GetToolkitFName() const override;
 	virtual FText GetBaseToolkitName() const override;
 	virtual FString GetWorldCentricTabPrefix() const override;
 	virtual FLinearColor GetWorldCentricTabColorScale() const override;
+
+	// FEditorUndoClient
+	virtual void PostUndo(bool bSuccess) override;
+	virtual void PostRedo(bool bSuccess) override;
+	void HandleUndoRedo();
 
 	// INotifyOnStructChanged
 	virtual void PreChange(const class UUserDefinedStruct* Struct, FStructureEditorUtils::EStructureEditorChangeInfo Info) override;
@@ -55,13 +60,26 @@ public:
 	virtual void PreChange(const UDataTable* Changed, FDataTableEditorUtils::EDataTableChangeInfo Info) override;
 	virtual void PostChange(const UDataTable* Changed, FDataTableEditorUtils::EDataTableChangeInfo Info) override;
 
+	/** Get the data table being edited */
+	const UDataTable* GetDataTable() const;
+
+	void HandlePostChange();
+
 	void SetHighlightedRow(FName Name);
 
 private:
 
-	void ReloadVisibleData();
+	void RefreshCachedDataTable();
 
-	void OnSearchTextChanged(const FText& SearchText);
+	void UpdateVisibleRows();
+
+	void RestoreCachedSelection(const FName InCachedSelection, const bool bUpdateEvenIfValid = false);
+
+	FText GetFilterText() const;
+
+	void OnFilterTextChanged(const FText& InFilterText);
+
+	FSlateColor GetRowTextColor(FName RowName) const;
 
 	TSharedRef<SVerticalBox> CreateContentBox();
 
@@ -73,37 +91,91 @@ private:
 	/**	Spawns the tab with the Row Editor inside */
 	TSharedRef<SDockTab> SpawnTab_RowEditor(const FSpawnTabArgs& Args);
 
-	FSlateColor GetRowColor(FName RowName) const;
+	FOptionalSize GetRowNameColumnWidth() const;
 
-	FReply OnRowClicked(const FGeometry&, const FPointerEvent&, FName RowName);
+	float GetColumnWidth(const int32 ColumnIndex) const;
+
+	void OnColumnResized(const float NewWidth, const int32 ColumnIndex);
+
+	void LoadLayoutData();
+
+	void SaveLayoutData();
+
+	/** Make the widget for a row name entry in the data table row list view */
+	TSharedRef<ITableRow> MakeRowNameWidget(FDataTableEditorRowListViewDataPtr InRowDataPtr, const TSharedRef<STableViewBase>& OwnerTable);
+
+	/** Make the widget for a row entry in the data table row list view */
+	TSharedRef<ITableRow> MakeRowWidget(FDataTableEditorRowListViewDataPtr InRowDataPtr, const TSharedRef<STableViewBase>& OwnerTable);
+
+	/** Make the widget for a cell entry in the data table row list view */
+	TSharedRef<SWidget> MakeCellWidget(FDataTableEditorRowListViewDataPtr InRowDataPtr, const int32 InRowIndex, const FName& InColumnId);
+
+	void OnRowNamesListViewScrolled(double InScrollOffset);
+
+	void OnCellsListViewScrolled(double InScrollOffset);
+
+	void OnRowSelectionChanged(FDataTableEditorRowListViewDataPtr InNewSelection, ESelectInfo::Type InSelectInfo);
 
 private:
 
-	/** Cached table data */
-	TArray<TArray<FString> > CachedDataTable;
+	/** Struct holding information about the current column widths */
+	struct FColumnWidth
+	{
+		FColumnWidth()
+			: bIsAutoSized(true)
+			, CurrentWidth(0.0f)
+		{
+		}
 
-	/** Visibility of data table rows */
-	TArray<bool> RowsVisibility;
+		/** True if this column is being auto-sized rather than sized by the user */
+		bool bIsAutoSized;
+		/** The width of the column, either sized by the user, or auto-sized */
+		float CurrentWidth;
+	};
 
-	/** Search box */
-	TSharedPtr<SWidget> SearchBox;
+	/** Array of the columns that are available for editing */
+	TArray<FDataTableEditorColumnHeaderDataPtr> AvailableColumns;
 
-	/** Scroll containing data table */
-	TSharedPtr<SScrollBox> ScrollBoxWidget;
+	/** Array of the rows that are available for editing */
+	TArray<FDataTableEditorRowListViewDataPtr> AvailableRows;
+	
+	/** Array of the rows that match the active filter(s) */
+	TArray<FDataTableEditorRowListViewDataPtr> VisibleRows;
 
-	/**Border surrounding the GridPanel */
-	TSharedPtr<SBorder>	 GridPanelOwner;
+	/** Header row containing entries for each column in AvailableColumns */
+	TSharedPtr<SHeaderRow> ColumnNamesHeaderRow;
 
-	/* The DataTable that is active in the editor */
-	TAssetPtr<UDataTable> DataTable;
+	/** List view responsible for showing the row names column */
+	TSharedPtr<SListView<FDataTableEditorRowListViewDataPtr>> RowNamesListView;
 
+	/** List view responsible for showing the rows in VisibleRows for each entry in AvailableColumns */
+	TSharedPtr<SListView<FDataTableEditorRowListViewDataPtr>> CellsListView;
+
+	/** Width of the row name column */
+	float RowNameColumnWidth;
+
+	/** Widths of data table cell columns */
+	TArray<FColumnWidth> ColumnWidths;
+
+	/** The layout data for the currently loaded data table */
+	TSharedPtr<FJsonObject> LayoutData;
+
+	/** The name of the currently selected row */
 	FName HighlightedRowName;
 
+	/** The current filter text applied to the data table */
+	FText ActiveFilterText;
+
 	FOnRowHighlighted CallbackOnRowHighlighted;
+
+	FSimpleDelegate CallbackOnDataTableUndoRedo;
 
 	/**	The tab id for the data table tab */
 	static const FName DataTableTabId;
 
 	/**	The tab id for the row editor tab */
 	static const FName RowEditorTabId;
+
+	/** The column id for the row name list view column */
+	static const FName RowNameColumnId;
 };

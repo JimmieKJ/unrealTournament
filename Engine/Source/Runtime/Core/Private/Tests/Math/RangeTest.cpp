@@ -8,7 +8,7 @@
 PRAGMA_DISABLE_OPTIMIZATION
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRangeTest, "Core.Math.Range", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRangeTest, "System.Core.Math.Range", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FRangeTest::RunTest( const FString& Parameters )
 {

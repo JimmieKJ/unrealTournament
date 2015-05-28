@@ -5,6 +5,7 @@
 
 extern "C"
 {
+#define LUA_COMPAT_APIINTCASTS 1
 #include "lua.h"
 #include "lauxlib.h"
 #include "lualib.h"

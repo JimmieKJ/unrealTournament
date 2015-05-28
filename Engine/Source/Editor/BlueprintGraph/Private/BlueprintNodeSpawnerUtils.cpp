@@ -78,3 +78,23 @@ UClass* FBlueprintNodeSpawnerUtils::GetBindingClass(const UObject* Binding)
 	}
 	return BindingClass;
 }
+
+//------------------------------------------------------------------------------
+bool FBlueprintNodeSpawnerUtils::IsStaleFieldAction(UBlueprintNodeSpawner const* BlueprintAction)
+{
+	bool bHasStaleAssociatedField= false;
+
+	const UField* AssociatedField = GetAssociatedField(BlueprintAction);
+	if (AssociatedField != nullptr)
+	{
+		UClass* ClassOwner = AssociatedField->GetOwnerClass();
+		if (ClassOwner != nullptr)
+		{
+			// check to see if this field belongs to a TRASH or REINST class,
+			// maybe to a class that was thrown out because of a hot-reload?
+			bHasStaleAssociatedField = ClassOwner->HasAnyClassFlags(CLASS_NewerVersionExists) || (ClassOwner->GetOutermost() == GetTransientPackage());
+		}
+	}
+
+	return bHasStaleAssociatedField;
+}

@@ -17,7 +17,6 @@ class BLUEPRINTGRAPH_API UK2Node_BaseAsyncTask : public UK2Node
 
 	// UEdGraphNode interface
 	virtual void AllocateDefaultPins() override;
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual bool IsCompatibleWithGraph(const UEdGraph* TargetGraph) const override;
@@ -33,9 +32,6 @@ class BLUEPRINTGRAPH_API UK2Node_BaseAsyncTask : public UK2Node
 	// End of UK2Node interface
 
 protected:
-	// Creates a default menu entry
-	TSharedPtr<FEdGraphSchemaAction_K2NewNode> CreateDefaultMenuEntry(UK2Node_BaseAsyncTask* NodeTemplate, FGraphContextMenuBuilder& ContextMenuBuilder) const;
-
 	// Returns the factory function (checked)
 	UFunction* GetFactoryFunction() const;
 

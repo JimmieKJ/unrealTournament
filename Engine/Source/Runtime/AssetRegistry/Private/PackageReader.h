@@ -32,6 +32,10 @@ public:
 	int64 Tell();
 	int64 TotalSize();
 	FArchive& operator<<( FName& Name );
+	virtual FString GetArchiveName() const override
+	{
+		return PackageFilename;
+	}
 
 private:
 	FString PackageFilename;

@@ -115,27 +115,18 @@ FText UKismetTextLibrary::Conv_BoolToText(bool InBool)
 
 FText UKismetTextLibrary::Conv_ByteToText(uint8 Value)
 {
-	FNumberFormattingOptions NumberFormatOptions;
-	NumberFormatOptions.UseGrouping = true;
-	NumberFormatOptions.RoundingMode = ERoundingMode::ToZero;
-	NumberFormatOptions.MinimumIntegralDigits = 1;
-	NumberFormatOptions.MaximumIntegralDigits = 3;
-	NumberFormatOptions.MinimumFractionalDigits = 0;
-	NumberFormatOptions.MaximumFractionalDigits = 0;
-
-	return FText::AsNumber(Value, &NumberFormatOptions);
+	return FText::AsNumber(Value, &FNumberFormattingOptions::DefaultNoGrouping());
 }
 
 
 FText UKismetTextLibrary::Conv_IntToText(int32 Value, bool bUseGrouping/* = true*/, int32 MinimumIntegralDigits/* = 1*/, int32 MaximumIntegralDigits/* = 324*/)
 {
+	// Only update the values that need to be changed from the default FNumberFormattingOptions, 
+	// as this lets us use the default formatter if possible (which is a performance win!)
 	FNumberFormattingOptions NumberFormatOptions;
 	NumberFormatOptions.UseGrouping = bUseGrouping;
-	NumberFormatOptions.RoundingMode = ERoundingMode::FromZero;
 	NumberFormatOptions.MinimumIntegralDigits = MinimumIntegralDigits;
 	NumberFormatOptions.MaximumIntegralDigits = MaximumIntegralDigits;
-	NumberFormatOptions.MinimumFractionalDigits = 0;
-	NumberFormatOptions.MaximumFractionalDigits = 0;
 
 	return FText::AsNumber(Value, &NumberFormatOptions);
 }
@@ -199,19 +190,19 @@ FText UKismetTextLibrary::AsPercent_Float(float Value, TEnumAsByte<ERoundingMode
 
 FText UKismetTextLibrary::AsDate_DateTime(const FDateTime& InDateTime)
 {
-	return FText::AsDate(InDateTime, EDateTimeStyle::Default, TEXT("Unknown"));
+	return FText::AsDate(InDateTime, EDateTimeStyle::Default, FText::GetInvariantTimeZone());
 }
 
 
 FText UKismetTextLibrary::AsDateTime_DateTime(const FDateTime& InDateTime)
 {
-	return FText::AsDateTime(InDateTime, EDateTimeStyle::Default, EDateTimeStyle::Default, TEXT("Unknown"));
+	return FText::AsDateTime(InDateTime, EDateTimeStyle::Default, EDateTimeStyle::Default, FText::GetInvariantTimeZone());
 }
 
 
 FText UKismetTextLibrary::AsTime_DateTime(const FDateTime& InDateTime)
 {
-	return FText::AsTime(InDateTime, EDateTimeStyle::Default, TEXT("Unknown"));
+	return FText::AsTime(InDateTime, EDateTimeStyle::Default, FText::GetInvariantTimeZone());
 }
 
 

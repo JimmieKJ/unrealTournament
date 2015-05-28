@@ -7,6 +7,18 @@
 #include "Rendering/PaperBatchSceneProxy.h"
 #include "PhysicsEngine/BodySetup2D.h"
 #include "LocalVertexFactory.h"
+#include "MeshBatch.h"
+#include "EngineGlobals.h"
+#include "SceneManagement.h"
+#include "Engine/Engine.h"
+#include "SpriteDrawCall.h"
+
+static TAutoConsoleVariable<int32> CVarDrawSpritesAsTwoSided(TEXT("r.Paper2D.DrawTwoSided"), 1, TEXT("Draw sprites as two sided."));
+
+DECLARE_CYCLE_STAT(TEXT("Get Batch Mesh"), STAT_PaperRender_GetBatchMesh, STATGROUP_Paper2D);
+DECLARE_CYCLE_STAT(TEXT("Get New Batch Meshes"), STAT_PaperRender_GetNewBatchMeshes, STATGROUP_Paper2D);
+DECLARE_CYCLE_STAT(TEXT("Convert Batches"), STAT_PaperRender_ConvertBatches, STATGROUP_Paper2D);
+DECLARE_CYCLE_STAT(TEXT("SpriteProxy GDME"), STAT_PaperRenderSceneProxy_GetDynamicMeshElements, STATGROUP_Paper2D);
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperSpriteVertex
@@ -17,28 +29,90 @@ FPackedNormal FPaperSpriteVertex::PackedNormalZ(FVector(0.0f, -1.0f, 0.0f));
 void FPaperSpriteVertex::SetTangentsFromPaperAxes()
 {
 	PackedNormalX = PaperAxisX;
-	PackedNormalZ = PaperAxisZ;
+	PackedNormalZ = -PaperAxisZ;
 	// store determinant of basis in w component of normal vector
 	PackedNormalZ.Vector.W = (GetBasisDeterminantSign(PaperAxisX, PaperAxisY, PaperAxisZ) < 0.0f) ? 0 : 255;
 }
 
+
 //////////////////////////////////////////////////////////////////////////
 // FPaperSpriteVertexBuffer
 
-/** A dummy vertex buffer used to give the FPaperSpriteVertexFactory something to reference as a stream source. */
-class FPaperSpriteVertexBuffer : public FVertexBuffer
+class FDummyResourceArrayWrapper : public FResourceArrayInterface
 {
 public:
-	virtual void InitRHI() override
+	FDummyResourceArrayWrapper(void* InData, uint32 InSize)
+		: Data(InData)
+		, Size(InSize)
 	{
-		FRHIResourceCreateInfo CreateInfo;
-		VertexBufferRHI = RHICreateVertexBuffer(sizeof(FPaperSpriteVertex), BUF_Static, CreateInfo);
+	}
+
+	virtual const void* GetResourceData() const override { return Data; }
+	virtual uint32 GetResourceDataSize() const override { return Size; }
+	virtual void Discard() override { }
+	virtual bool IsStatic() const override { return false; }
+	virtual bool GetAllowCPUAccess() const override { return false; }
+	virtual void SetAllowCPUAccess(bool bInNeedsCPUAccess) override { }
+
+private:
+	void* Data;
+	uint32 Size;
+};
+
+void FPaperSpriteVertexBuffer::InitRHI()
+{
+	const uint32 SizeInBytes = Vertices.Num() * sizeof(FPaperSpriteVertex);
+
+	FDummyResourceArrayWrapper Wrapper(Vertices.GetData(), SizeInBytes);
+	FRHIResourceCreateInfo CreateInfo(&Wrapper);
+	VertexBufferRHI = RHICreateVertexBuffer(SizeInBytes, BUF_Static, CreateInfo);
+
+	Vertices.Empty();
+}
+
+//////////////////////////////////////////////////////////////////////////
+// FPaperSpriteVertexFactory
+
+FPaperSpriteVertexFactory::FPaperSpriteVertexFactory()
+{
+}
+
+void FPaperSpriteVertexFactory::Init(const FPaperSpriteVertexBuffer* InVertexBuffer)
+{
+	check(!IsInRenderingThread());
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+		InitPaperSpriteVertexFactory,
+		FPaperSpriteVertexFactory*,VertexFactory,this,
+		const FPaperSpriteVertexBuffer*,VB,InVertexBuffer,
+	{
+		// Initialize the vertex factory's stream components.
+		DataType NewData;
+		NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VB,FPaperSpriteVertex,Position,VET_Float3);
+		NewData.TangentBasisComponents[0] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VB,FPaperSpriteVertex,TangentX,VET_PackedNormal);
+		NewData.TangentBasisComponents[1] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VB,FPaperSpriteVertex,TangentZ,VET_PackedNormal);
+		NewData.ColorComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VB,FPaperSpriteVertex,Color,VET_Color);
+		NewData.TextureCoordinates.Add(FVertexStreamComponent(VB, STRUCT_OFFSET(FPaperSpriteVertex,TexCoords), sizeof(FPaperSpriteVertex), VET_Float2));
+		VertexFactory->SetData(NewData);
+	});
+}
+
+//////////////////////////////////////////////////////////////////////////
+// FDummyPaperSpriteVertexBuffer
+
+/** A dummy vertex buffer used to give the FPaperSpriteVertexFactoryDummy something to reference as a stream source. */
+class FDummyPaperSpriteVertexBuffer : public FPaperSpriteVertexBuffer
+{
+public:
+	FDummyPaperSpriteVertexBuffer()
+	{
+		Vertices.Emplace(FVector::ZeroVector, FVector2D::ZeroVector, FLinearColor::Black);
 	}
 };
-static TGlobalResource<FPaperSpriteVertexBuffer> GDummyMaterialSpriteVertexBuffer;
+static TGlobalResource<FDummyPaperSpriteVertexBuffer> GDummyMaterialSpriteVertexBuffer;
 
 /** The vertex factory used to draw paper sprites. */
-class FPaperSpriteVertexFactory : public FLocalVertexFactory
+class FPaperSpriteVertexFactoryDummy : public FLocalVertexFactory
 {
 public:
 	void AllocateStuff()
@@ -80,44 +154,44 @@ public:
 		SetData(Data);
 	}
 
-	FPaperSpriteVertexFactory()
+	FPaperSpriteVertexFactoryDummy()
 	{
 		AllocateStuff();
 	}
 };
 
-//@TODO: Figure out how to do this properly at module load time
-//static TGlobalResource<FPaperSpriteVertexFactory> GPaperSpriteVertexFactory;
-
 //////////////////////////////////////////////////////////////////////////
-// FTextureOverrideRenderProxy
+// FSpriteTextureOverrideRenderProxy
 
 /**
- * A material render proxy which overrides a named texture parameter.
+ * A material render proxy which overrides various named texture parameters.
  */
-class FTextureOverrideRenderProxy : public FDynamicPrimitiveResource, public FMaterialRenderProxy
+class FSpriteTextureOverrideRenderProxy : public FDynamicPrimitiveResource, public FMaterialRenderProxy
 {
 public:
 	const FMaterialRenderProxy* const Parent;
-	const UTexture* Texture;
-	FName TextureParameterName;
+	const UTexture* BaseTexture;
+	FAdditionalSpriteTextureArray AdditionalTextures;
+	UE_EXPAND_IF_WITH_EDITOR(const FPaperRenderSceneProxyTextureOverrideMap& TextureOverrideList);
 
+public:
 	/** Initialization constructor. */
-	FTextureOverrideRenderProxy(const FMaterialRenderProxy* InParent, const UTexture* InTexture, const FName& InParameterName)
+	FSpriteTextureOverrideRenderProxy(const FMaterialRenderProxy* InParent, const UTexture* InBaseTexture, FAdditionalSpriteTextureArray InAdditionalTextures UE_EXPAND_IF_WITH_EDITOR(, const FPaperRenderSceneProxyTextureOverrideMap& InTextureOverrideList))
 		: Parent(InParent)
-		, Texture(InTexture)
-		, TextureParameterName(InParameterName)
+		, BaseTexture(InBaseTexture)
+		, AdditionalTextures(InAdditionalTextures)
+		UE_EXPAND_IF_WITH_EDITOR(, TextureOverrideList(InTextureOverrideList))
 	{}
 
-	virtual ~FTextureOverrideRenderProxy()
+	virtual ~FSpriteTextureOverrideRenderProxy()
 	{
 	}
 
 	// FDynamicPrimitiveResource interface.
-	virtual void InitPrimitiveResource()
+	virtual void InitPrimitiveResource() override
 	{
 	}
-	virtual void ReleasePrimitiveResource()
+	virtual void ReleasePrimitiveResource() override
 	{
 		delete this;
 	}
@@ -138,19 +212,52 @@ public:
 		return Parent->GetScalarValue(ParameterName, OutValue, Context);
 	}
 
-	virtual bool GetTextureValue(const FName ParameterName,const UTexture** OutValue, const FMaterialRenderContext& Context) const override
+	virtual bool GetTextureValue(const FName ParameterName, const UTexture** OutValue, const FMaterialRenderContext& Context) const override
 	{
 		if (ParameterName == TextureParameterName)
 		{
-			*OutValue = Texture;
+			*OutValue = ApplyEditorOverrides(BaseTexture);
 			return true;
 		}
-		else
+		else if (ParameterName.GetComparisonIndex() == AdditionalTextureParameterRootName.GetComparisonIndex())
 		{
-			return Parent->GetTextureValue(ParameterName, OutValue, Context);
+			const int32 AdditionalSlotIndex = ParameterName.GetNumber() - 1;
+			if (AdditionalTextures.IsValidIndex(AdditionalSlotIndex))
+			{
+				*OutValue = ApplyEditorOverrides(AdditionalTextures[AdditionalSlotIndex]);
+				return true;
+			}
 		}
+		
+		return Parent->GetTextureValue(ParameterName, OutValue, Context);
 	}
+
+#if WITH_EDITOR
+	inline const UTexture* ApplyEditorOverrides(const UTexture* InTexture) const
+	{
+		if (TextureOverrideList.Num() > 0)
+		{
+			if (const UTexture* const* OverridePtr = TextureOverrideList.Find(InTexture))
+			{
+				return *OverridePtr;
+			}
+		}
+
+		return InTexture;
+	}
+#else
+	FORCEINLINE const UTexture* ApplyEditorOverrides(const UTexture* InTexture) const
+	{
+		return InTexture;
+	}
+#endif
+
+	static const FName TextureParameterName;
+	static const FName AdditionalTextureParameterRootName;
 };
+
+const FName FSpriteTextureOverrideRenderProxy::TextureParameterName(TEXT("SpriteTexture"));
+const FName FSpriteTextureOverrideRenderProxy::AdditionalTextureParameterRootName(TEXT("SpriteAdditionalTexture"));
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperRenderSceneProxy
@@ -159,11 +266,13 @@ FPaperRenderSceneProxy::FPaperRenderSceneProxy(const UPrimitiveComponent* InComp
 	: FPrimitiveSceneProxy(InComponent)
 	, Material(nullptr)
 	, Owner(InComponent->GetOwner())
-	, BodySetup(const_cast<UPrimitiveComponent*>(InComponent)->GetBodySetup())
+	, MyBodySetup(const_cast<UPrimitiveComponent*>(InComponent)->GetBodySetup())
 	, bCastShadow(InComponent->CastShadow)
 	, CollisionResponse(InComponent->GetCollisionResponseToChannels())
 {
 	WireframeColor = FLinearColor::White;
+
+	bDrawTwoSided = CVarDrawSpritesAsTwoSided.GetValueOnGameThread() != 0;
 }
 
 FPaperRenderSceneProxy::~FPaperRenderSceneProxy()
@@ -174,6 +283,9 @@ FPaperRenderSceneProxy::~FPaperRenderSceneProxy()
 		Batcher->UnregisterManagedProxy(this);
 	}
 #endif
+
+	VertexBuffer.ReleaseResource();
+	MyVertexFactory.ReleaseResource();
 }
 
 void FPaperRenderSceneProxy::CreateRenderThreadResources()
@@ -186,9 +298,50 @@ void FPaperRenderSceneProxy::CreateRenderThreadResources()
 #endif
 }
 
+void FPaperRenderSceneProxy::DebugDrawBodySetup(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector, UBodySetup* BodySetup, const FMatrix& GeomTransformMatrix, const FLinearColor& CollisionColor, bool bDrawSolid) const
+{
+	if (FMath::Abs(GeomTransformMatrix.Determinant()) < SMALL_NUMBER)
+	{
+		// Catch this here or otherwise GeomTransform below will assert
+		// This spams so commented out
+		//UE_LOG(LogStaticMesh, Log, TEXT("Zero scaling not supported (%s)"), *StaticMesh->GetPathName());
+	}
+	else
+	{
+		FTransform GeomTransform(GeomTransformMatrix);
+
+		if (bDrawSolid)
+		{
+			// Make a material for drawing solid collision stuff
+			auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
+				GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
+				WireframeColor
+				);
+
+			Collector.RegisterOneFrameMaterialProxy(SolidMaterialInstance);
+
+			BodySetup->AggGeom.GetAggGeom(GeomTransform, WireframeColor, SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
+		}
+		else
+		{
+			// wireframe
+			BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(CollisionColor, IsSelected(), IsHovered()), nullptr, (Owner == nullptr), false, UseEditorDepthTest(), ViewIndex, Collector);
+		}
+	}
+}
+
+void FPaperRenderSceneProxy::DebugDrawCollision(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector, bool bDrawSolid) const
+{
+	if (MyBodySetup != nullptr)
+	{
+		const FColor CollisionColor = FColor(157, 149, 223, 255);
+		DebugDrawBodySetup(View, ViewIndex, Collector, MyBodySetup, GetLocalToWorld(), CollisionColor, bDrawSolid);
+	}
+}
+
 void FPaperRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_PaperRenderSceneProxy_GetDynamicMeshElements);
+	SCOPE_CYCLE_COUNTER(STAT_PaperRenderSceneProxy_GetDynamicMeshElements);
 	checkSlow(IsInRenderingThread());
 
 	const FEngineShowFlags& EngineShowFlags = ViewFamily.EngineShowFlags;
@@ -213,26 +366,9 @@ void FPaperRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 			{
 				const FSceneView* View = Views[ViewIndex];
 
-				// Set the selection/hover color from the current engine setting.
-				FLinearColor OverrideColor;
-				bool bUseOverrideColor = false;
-
-				const bool bShowAsSelected = !(GIsEditor && EngineShowFlags.Selection) || IsSelected();
-				if (bShowAsSelected || IsHovered())
-				{
-					bUseOverrideColor = true;
-					OverrideColor = GetSelectionColor(FLinearColor::White, bShowAsSelected, IsHovered());
-				}
-
-				bUseOverrideColor = false;
-
-				// Sprites of locked actors draw in red.
-				//FLinearColor LevelColorToUse = IsSelected() ? ColorToUse : (FLinearColor)LevelColor;
-				//FLinearColor PropertyColorToUse = PropertyColor;
-
 #if TEST_BATCHING
 #else
-				GetDynamicMeshElementsForView(View, ViewIndex, bUseOverrideColor, OverrideColor, Collector);
+				GetDynamicMeshElementsForView(View, ViewIndex, Collector);
 #endif
 			}
 		}
@@ -245,40 +381,9 @@ void FPaperRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 		{
 			if ((bDrawSimpleCollision || bDrawWireframeCollision) && AllowDebugViewmodes())
 			{
-				if (BodySetup)
-				{
-					if (FMath::Abs(GetLocalToWorld().Determinant()) < SMALL_NUMBER)
-					{
-						// Catch this here or otherwise GeomTransform below will assert
-						// This spams so commented out
-						//UE_LOG(LogStaticMesh, Log, TEXT("Zero scaling not supported (%s)"), *StaticMesh->GetPathName());
-					}
-					else
-					{
-						const bool bDrawSolid = !bDrawWireframeCollision;
-
-						if (bDrawSolid)
-						{
-							// Make a material for drawing solid collision stuff
-							auto SolidMaterialInstance = new FColoredMaterialRenderProxy(
-								GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(IsSelected(), IsHovered()),
-								WireframeColor
-								);
-
-							Collector.RegisterOneFrameMaterialProxy(SolidMaterialInstance);
-
-							FTransform GeomTransform(GetLocalToWorld());
-							BodySetup->AggGeom.GetAggGeom(GeomTransform, WireframeColor, SolidMaterialInstance, false, true, UseEditorDepthTest(), ViewIndex, Collector);
-						}
-						else
-						{
-							// wireframe
-							FColor CollisionColor = FColor(157, 149, 223, 255);
-							FTransform GeomTransform(GetLocalToWorld());
-							BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(CollisionColor, IsSelected(), IsHovered()), nullptr, (Owner == nullptr), false, UseEditorDepthTest(), ViewIndex, Collector);
-						}
-					}
-				}
+				const FSceneView* View = Views[ViewIndex];
+				const bool bDrawSolid = !bDrawWireframeCollision;
+				DebugDrawCollision(View, ViewIndex, Collector, bDrawSolid);
 			}
 
 			// Draw bounds
@@ -301,39 +406,37 @@ FVertexFactory* FPaperRenderSceneProxy::GetPaperSpriteVertexFactory() const
 		FPaperSpriteVertex::SetTangentsFromPaperAxes();
 	}
 
-	static TGlobalResource<FPaperSpriteVertexFactory> GPaperSpriteVertexFactory;
+	static TGlobalResource<FPaperSpriteVertexFactoryDummy> GPaperSpriteVertexFactory;
 	return &GPaperSpriteVertexFactory;
 }
 
-void FPaperRenderSceneProxy::GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, bool bUseOverrideColor, const FLinearColor& OverrideColor, FMeshElementCollector& Collector) const
+void FPaperRenderSceneProxy::GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector) const
 {
 	if (Material != nullptr)
 	{
-		GetBatchMesh(View, bUseOverrideColor, OverrideColor, Material, BatchedSprites, ViewIndex, Collector);
+		GetBatchMesh(View, Material, BatchedSprites, ViewIndex, Collector);
 	}
-	GetNewBatchMeshes(View, bUseOverrideColor, OverrideColor, ViewIndex, Collector);
+	GetNewBatchMeshes(View, ViewIndex, Collector);
 }
 
-void FPaperRenderSceneProxy::GetNewBatchMeshes(const FSceneView* View, bool bUseOverrideColor, const FLinearColor& OverrideColor, int32 ViewIndex, FMeshElementCollector& Collector) const
+void FPaperRenderSceneProxy::GetNewBatchMeshes(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector) const
 {
-	//@TODO: Doesn't support OverrideColor yet
 	if (BatchedSections.Num() == 0)
 	{
 		return;
 	}
 
+	SCOPE_CYCLE_COUNTER(STAT_PaperRender_GetNewBatchMeshes);
+
 	const uint8 DPG = GetDepthPriorityGroup(View);
-	FVertexFactory* VertexFactory = GetPaperSpriteVertexFactory();
 	const bool bIsWireframeView = View->Family->EngineShowFlags.Wireframe;
 
 	for (const FSpriteRenderSection& Batch : BatchedSections)
 	{
-		const FLinearColor EffectiveWireframeColor = (Batch.Material->GetBlendMode() != BLEND_Opaque) ? WireframeColor : FLinearColor::Green;
-		FMaterialRenderProxy* ParentMaterialProxy = Batch.Material->GetRenderProxy((View->Family->EngineShowFlags.Selection) && IsSelected(), IsHovered());
-		FTexture* TextureResource = (Batch.Texture != nullptr) ? Batch.Texture->Resource : nullptr;
-
-		if ((TextureResource != nullptr) && (Batch.NumVertices > 0))
+		if (Batch.IsValid())
 		{
+			FMaterialRenderProxy* ParentMaterialProxy = Batch.Material->GetRenderProxy((View->Family->EngineShowFlags.Selection) && IsSelected(), IsHovered());
+
 			FMeshBatch& Mesh = Collector.AllocateMesh();
 
 			Mesh.bCanApplyViewModeOverrides = true;
@@ -342,6 +445,8 @@ void FPaperRenderSceneProxy::GetNewBatchMeshes(const FSceneView* View, bool bUse
 			// Implementing our own wireframe coloring as the automatic one (controlled by Mesh.bCanApplyViewModeOverrides) only supports per-FPrimitiveSceneProxy WireframeColor
 			if (bIsWireframeView)
 			{
+				const FLinearColor EffectiveWireframeColor = (Batch.Material->GetBlendMode() != BLEND_Opaque) ? WireframeColor : FLinearColor::Green;
+
 				auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
 					GEngine->WireframeMaterial->GetRenderProxy(IsSelected(), IsHovered()),
 					GetSelectionColor(EffectiveWireframeColor, IsSelected(), IsHovered(), false)
@@ -357,21 +462,16 @@ void FPaperRenderSceneProxy::GetNewBatchMeshes(const FSceneView* View, bool bUse
 			}
 
 			// Create a texture override material proxy and register it as a dynamic resource so that it won't be deleted until the rendering thread has finished with it
-			FTextureOverrideRenderProxy* TextureOverrideMaterialProxy = new FTextureOverrideRenderProxy(ParentMaterialProxy, Batch.Texture, TEXT("SpriteTexture"));
+			FSpriteTextureOverrideRenderProxy* TextureOverrideMaterialProxy = new FSpriteTextureOverrideRenderProxy(ParentMaterialProxy, Batch.BaseTexture, Batch.AdditionalTextures UE_EXPAND_IF_WITH_EDITOR(, TextureOverrideList));
 			Collector.RegisterOneFrameMaterialProxy(TextureOverrideMaterialProxy);
 
-			Mesh.UseDynamicData = true;
-			// Note: memory referenced by Collector must be valid as long as the Collector is around, see Collector.AllocateOneFrameResource
-			Mesh.DynamicVertexData = BatchedVertices.GetData();
-			Mesh.DynamicVertexStride = sizeof(FPaperSpriteVertex);
-
-			Mesh.VertexFactory = VertexFactory;
+			Mesh.VertexFactory = &MyVertexFactory;
 			Mesh.LCI = nullptr;
 			Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative() ? true : false;
 			Mesh.CastShadow = bCastShadow;
 			Mesh.DepthPriorityGroup = DPG;
 			Mesh.Type = PT_TriangleList;
-			Mesh.bDisableBackfaceCulling = true;
+			Mesh.bDisableBackfaceCulling = bDrawTwoSided;
 			Mesh.MaterialRenderProxy = TextureOverrideMaterialProxy;
 
 			// Set up the FMeshBatchElement.
@@ -396,20 +496,20 @@ public:
 	TArray<FPaperSpriteVertex, TInlineAllocator<6> > Vertices;
 };
 
-void FPaperRenderSceneProxy::GetBatchMesh(const FSceneView* View, bool bUseOverrideColor, const FLinearColor& OverrideColor, class UMaterialInterface* BatchMaterial, const TArray<FSpriteDrawCallRecord>& Batch, int32 ViewIndex, FMeshElementCollector& Collector) const
+void FPaperRenderSceneProxy::GetBatchMesh(const FSceneView* View, class UMaterialInterface* BatchMaterial, const TArray<FSpriteDrawCallRecord>& Batch, int32 ViewIndex, FMeshElementCollector& Collector) const
 {
+	SCOPE_CYCLE_COUNTER(STAT_PaperRender_GetBatchMesh);
+
 	const uint8 DPG = GetDepthPriorityGroup(View);
 	FVertexFactory* VertexFactory = GetPaperSpriteVertexFactory();
 
 	const bool bIsWireframeView = View->Family->EngineShowFlags.Wireframe;
-	const FLinearColor EffectiveWireframeColor = (BatchMaterial->GetBlendMode() != BLEND_Opaque) ? WireframeColor : FLinearColor::Green;
 
 	for (const FSpriteDrawCallRecord& Record : Batch)
 	{
-		FTexture* TextureResource = (Record.Texture != nullptr) ? Record.Texture->Resource : nullptr;
-		if ((TextureResource != nullptr) && (Record.RenderVerts.Num() > 0))
+		if (Record.IsValid())
 		{
-			const FLinearColor SpriteColor = bUseOverrideColor ? OverrideColor : Record.Color;
+			const FColor SpriteColor(Record.Color);
 			const FVector EffectiveOrigin = Record.Destination;
 
 			FPaperVertexArray& VertexArray = Collector.AllocateOneFrameResource<FPaperVertexArray>();
@@ -439,6 +539,8 @@ void FPaperRenderSceneProxy::GetBatchMesh(const FSceneView* View, bool bUseOverr
 			// Implementing our own wireframe coloring as the automatic one (controlled by Mesh.bCanApplyViewModeOverrides) only supports per-FPrimitiveSceneProxy WireframeColor
 			if (bIsWireframeView)
 			{
+				const FLinearColor EffectiveWireframeColor = (BatchMaterial->GetBlendMode() != BLEND_Opaque) ? WireframeColor : FLinearColor::Green;
+
 				auto WireframeMaterialInstance = new FColoredMaterialRenderProxy(
 					GEngine->WireframeMaterial->GetRenderProxy(IsSelected(), IsHovered()),
 					GetSelectionColor(EffectiveWireframeColor, IsSelected(), IsHovered(), false)
@@ -454,16 +556,16 @@ void FPaperRenderSceneProxy::GetBatchMesh(const FSceneView* View, bool bUseOverr
 			}
 
 			// Create a texture override material proxy and register it as a dynamic resource so that it won't be deleted until the rendering thread has finished with it
-			FTextureOverrideRenderProxy* TextureOverrideMaterialProxy = new FTextureOverrideRenderProxy(ParentMaterialProxy, Record.Texture, TEXT("SpriteTexture"));
+			FSpriteTextureOverrideRenderProxy* TextureOverrideMaterialProxy = new FSpriteTextureOverrideRenderProxy(ParentMaterialProxy, Record.BaseTexture, Record.AdditionalTextures UE_EXPAND_IF_WITH_EDITOR(, TextureOverrideList));
 			Collector.RegisterOneFrameMaterialProxy(TextureOverrideMaterialProxy);
 
 			Mesh.MaterialRenderProxy = TextureOverrideMaterialProxy;
 			Mesh.LCI = nullptr;
 			Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative() ? true : false;
-			Mesh.CastShadow = false;
+			Mesh.CastShadow = bCastShadow;
 			Mesh.DepthPriorityGroup = DPG;
 			Mesh.Type = PT_TriangleList;
-			Mesh.bDisableBackfaceCulling = true;
+			Mesh.bDisableBackfaceCulling = bDrawTwoSided;
 
 			// Set up the FMeshBatchElement.
 			FMeshBatchElement& BatchElement = Mesh.Elements[0];
@@ -475,8 +577,6 @@ void FPaperRenderSceneProxy::GetBatchMesh(const FSceneView* View, bool bUseOverr
 			BatchElement.MaxVertexIndex = VertexArray.Vertices.Num();
 			BatchElement.PrimitiveUniformBuffer = GetUniformBuffer();
 			BatchElement.NumPrimitives = VertexArray.Vertices.Num() / 3;
-
-			const bool bIsWireframeView = View->Family->EngineShowFlags.Wireframe;
 
 			Collector.AddMesh(ViewIndex, Mesh);
 		}
@@ -522,11 +622,6 @@ FPrimitiveViewRelevance FPaperRenderSceneProxy::GetViewRelevance(const FSceneVie
 	return Result;
 }
 
-void FPaperRenderSceneProxy::OnTransformChanged()
-{
-	Origin = GetLocalToWorld().GetOrigin();
-}
-
 uint32 FPaperRenderSceneProxy::GetMemoryFootprint() const
 {
 	return sizeof(*this) + GetAllocatedSize();
@@ -539,6 +634,8 @@ bool FPaperRenderSceneProxy::CanBeOccluded() const
 
 void FPaperRenderSceneProxy::SetDrawCall_RenderThread(const FSpriteDrawCallRecord& NewDynamicData)
 {
+	SCOPE_CYCLE_COUNTER(STAT_PaperRender_SetSpriteRT);
+
 	BatchedSprites.Empty();
 
 	FSpriteDrawCallRecord& Record = *new (BatchedSprites) FSpriteDrawCallRecord;
@@ -547,7 +644,7 @@ void FPaperRenderSceneProxy::SetDrawCall_RenderThread(const FSpriteDrawCallRecor
 
 void FPaperRenderSceneProxy::SetBodySetup_RenderThread(UBodySetup* NewSetup)
 {
-	BodySetup = NewSetup;
+	MyBodySetup = NewSetup;
 }
 
 bool FPaperRenderSceneProxy::IsCollisionView(const FEngineShowFlags& EngineShowFlags, bool& bDrawSimpleCollision, bool& bDrawComplexCollision) const
@@ -571,4 +668,50 @@ bool FPaperRenderSceneProxy::IsCollisionView(const FEngineShowFlags& EngineShowF
 	}
 
 	return bInCollisionView;
+}
+
+#if WITH_EDITOR
+void FPaperRenderSceneProxy::SetTransientTextureOverride_RenderThread(const UTexture* InTextureToModifyOverrideFor, UTexture* InOverrideTexture)
+{
+	if (InOverrideTexture != nullptr)
+	{
+		TextureOverrideList.FindOrAdd(InTextureToModifyOverrideFor) = InOverrideTexture;
+	}
+	else
+	{
+		TextureOverrideList.Remove(InTextureToModifyOverrideFor);
+	}
+}
+#endif
+
+void FPaperRenderSceneProxy::ConvertBatchesToNewStyle(TArray<FSpriteDrawCallRecord>& SourceBatches)
+{
+	SCOPE_CYCLE_COUNTER(STAT_PaperRender_ConvertBatches);
+
+	VertexBuffer.Vertices.Reset();
+	BatchedSections.Reset();
+
+	for (const FSpriteDrawCallRecord& SourceBatch : SourceBatches)
+	{
+		if (SourceBatch.IsValid())
+		{
+			FSpriteRenderSection& DestBatch = *new (BatchedSections) FSpriteRenderSection();
+
+			DestBatch.BaseTexture = SourceBatch.BaseTexture;
+			DestBatch.AdditionalTextures = SourceBatch.AdditionalTextures;
+			DestBatch.Material = Material;
+
+			DestBatch.AddTriangles(SourceBatch, VertexBuffer.Vertices);
+		}
+	}
+
+	if (VertexBuffer.Vertices.Num() > 0)
+	{
+		// Init the vertex factory
+		MyVertexFactory.Init(&VertexBuffer);
+
+		// Enqueue initialization of render resources
+		BeginInitResource(&VertexBuffer);
+		BeginInitResource(&MyVertexFactory);
+	}
 }

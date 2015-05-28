@@ -126,7 +126,14 @@ class FSampleGrabberCallback : public IMFSampleGrabberSinkCallback
 public:
 	FSampleGrabberCallback(TArray<uint8>& InTextureData)
 		: RefCount(1)
-		, TextureData(InTextureData) {}
+		, TextureData(InTextureData) 
+	{
+	}
+
+	virtual ~FSampleGrabberCallback()
+	{
+	}
+
 
 	// IUnknown interface
 	STDMETHODIMP QueryInterface(REFIID RefID, void** Object);

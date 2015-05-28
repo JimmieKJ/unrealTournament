@@ -19,8 +19,8 @@
 #include "PhysicsEngine/PhysicsHandleComponent.h"
 #include "DrawDebugHelpers.h"
 
-FPhATEdPreviewViewportClient::FPhATEdPreviewViewportClient(TWeakPtr<FPhAT> InPhAT, TSharedPtr<FPhATSharedData> Data)
-	: FEditorViewportClient(nullptr, &Data->PreviewScene)
+FPhATEdPreviewViewportClient::FPhATEdPreviewViewportClient(TWeakPtr<FPhAT> InPhAT, TSharedPtr<FPhATSharedData> Data, const TSharedRef<SPhATPreviewViewport>& InPhATPreviewViewport)
+	: FEditorViewportClient(nullptr, &Data->PreviewScene, StaticCastSharedRef<SEditorViewport>(InPhATPreviewViewport))
 	, PhATPtr(InPhAT)
 	, SharedData(Data)
 	, MinPrimSize(0.5f)
@@ -33,6 +33,9 @@ FPhATEdPreviewViewportClient::FPhATEdPreviewViewportClient(TWeakPtr<FPhAT> InPhA
 	, SimGrabMoveSpeed(1.0f)
 {
 	check(PhATPtr.IsValid());
+
+	ModeTools->SetWidgetMode(FWidget::EWidgetMode::WM_Translate);
+	ModeTools->SetCoordSystem(COORD_Local);
 
 	bAllowedToMoveCamera = true;
 
@@ -137,10 +140,10 @@ void FPhATEdPreviewViewportClient::DrawCanvas( FViewport& InViewport, FSceneView
 		TextItem.Text = NSLOCTEXT("UnrealEd", "Lock", "LOCK");
 	}else if(SharedData->EditingMode == FPhATSharedData::PEM_ConstraintEdit)
 	{
-		if(SharedData->WidgetMode == FWidget::WM_Translate)
+		if(GetWidgetMode() == FWidget::WM_Translate)
 		{
 			TextItem.Text = NSLOCTEXT("UnrealEd", "SingleMove", "hold ALT to move a single reference frame");
-		}else if(SharedData->WidgetMode == FWidget::WM_Rotate)
+		}else if(GetWidgetMode() == FWidget::WM_Rotate)
 		{
 			TextItem.Text = NSLOCTEXT("UnrealEd", "DoubleRotate", "hold ALT to rotate both reference frames");
 		}
@@ -463,33 +466,35 @@ bool FPhATEdPreviewViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisL
 		FPhATSharedData::FSelection & SelectedObject = SelectedObjects[i];
 		if( SharedData->bManipulating )
 		{
+			float BoneScale = 1.f;
 			if (SharedData->EditingMode == FPhATSharedData::PEM_BodyEdit) /// BODY EDITING ///
 			{
 				int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->BodySetup[SelectedObject.Index]->BoneName);
 
 				FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
+				BoneScale = BoneTM.GetScale3D().GetAbsMax();
 				BoneTM.RemoveScaling();
 
-				SelectedObject.WidgetTM = SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SelectedObject.Index, SelectedObject.PrimitiveType, SelectedObject.PrimitiveIndex, 1.f );
+				SelectedObject.WidgetTM = SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SelectedObject.Index, SelectedObject.PrimitiveType, SelectedObject.PrimitiveIndex, BoneScale);
 			}
 			else  /// CONSTRAINT EDITING ///
 			{
 				SelectedObject.WidgetTM = SharedData->GetConstraintMatrix(SelectedObject.Index, EConstraintFrame::Frame2, 1.f);
 			}
 
-			if ( SharedData->WidgetMode == FWidget::WM_Translate )
+			if ( GetWidgetMode() == FWidget::WM_Translate )
 			{
 				FVector Dir = SelectedObject.WidgetTM.InverseTransformVector( Drag.GetSafeNormal() );
-				FVector DragVec = Dir * Drag.Size();
+				FVector DragVec = Dir * Drag.Size() / BoneScale;
 				SelectedObject.ManipulateTM.AddToTranslation( DragVec );
 			}
-			else if ( SharedData->WidgetMode == FWidget::WM_Rotate )
+			else if ( GetWidgetMode() == FWidget::WM_Rotate )
 			{
 				FVector Axis; 
 				float Angle;
 				Rot.Quaternion().ToAxisAndAngle(Axis, Angle);
 		
-				Axis = SelectedObject.WidgetTM.InverseTransformVector( Axis );
+				Axis = SelectedObject.WidgetTM.InverseTransformVectorNoScale( Axis );
 		
 				const FQuat Start = SelectedObject.ManipulateTM.GetRotation();
 				const FQuat Delta = FQuat( Axis, Angle );
@@ -497,7 +502,7 @@ bool FPhATEdPreviewViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisL
 
 				SelectedObject.ManipulateTM = FTransform( Result );
 			}
-			else if ( SharedData->WidgetMode == FWidget::WM_Scale && SharedData->EditingMode == FPhATSharedData::PEM_BodyEdit) // Scaling only valid for bodies.
+			else if ( GetWidgetMode() == FWidget::WM_Scale && SharedData->EditingMode == FPhATSharedData::PEM_BodyEdit) // Scaling only valid for bodies.
 			{
 				ModifyPrimitiveSize(SelectedObject.Index, SelectedObject.PrimitiveType, SelectedObject.PrimitiveIndex, Scale );
 			}
@@ -509,7 +514,7 @@ bool FPhATEdPreviewViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisL
 				ConstraintSetup->DefaultInstance.SetRefFrame(EConstraintFrame::Frame2, SelectedObject.ManipulateTM * StartManParentConTM);
 
 				//Rotation by default only rotates one frame, but translation by default moves both
-				bool bMultiFrame = (IsAltPressed() && SharedData->WidgetMode == FWidget::WM_Rotate) || (!IsAltPressed() && SharedData->WidgetMode == FWidget::WM_Translate);
+				bool bMultiFrame = (IsAltPressed() && GetWidgetMode() == FWidget::WM_Rotate) || (!IsAltPressed() && GetWidgetMode() == FWidget::WM_Translate);
 				
 				if (bMultiFrame)
 				{
@@ -560,21 +565,22 @@ void FPhATEdPreviewViewportClient::TrackingStopped()
 
 FWidget::EWidgetMode FPhATEdPreviewViewportClient::GetWidgetMode() const
 {
-	FWidget::EWidgetMode WidgetMode = FWidget::WM_None;
+	FWidget::EWidgetMode ReturnWidgetMode = FWidget::WM_None;
+	FWidget::EWidgetMode WidgetMode = FEditorViewportClient::GetWidgetMode();
 
 	if( SharedData->EditingMode == FPhATSharedData::PEM_BodyEdit && SharedData->GetSelectedBody()) 
 	{
-		WidgetMode = SharedData->WidgetMode;
+		ReturnWidgetMode = WidgetMode;
 	}
 	else if( 
 		SharedData->EditingMode == FPhATSharedData::PEM_ConstraintEdit 
 		&& SharedData->GetSelectedConstraint()
-		&& SharedData->WidgetMode != FWidget::WM_Scale )
+		&& WidgetMode != FWidget::WM_Scale )
 	{
-		WidgetMode = SharedData->WidgetMode;
+		ReturnWidgetMode = WidgetMode;
 	}
 
-	return WidgetMode;
+	return ReturnWidgetMode;
 }
 
 FVector FPhATEdPreviewViewportClient::GetWidgetLocation() const
@@ -590,9 +596,10 @@ FVector FPhATEdPreviewViewportClient::GetWidgetLocation() const
 		int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->BodySetup[SharedData->GetSelectedBody()->Index]->BoneName);
 
 		FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
+		const float Scale = BoneTM.GetScale3D().GetAbsMax();
 		BoneTM.RemoveScaling();
 
-		return SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, 1.f).GetTranslation();
+		return SharedData->EditorSkelComp->GetPrimitiveTransform(BoneTM, SharedData->GetSelectedBody()->Index, SharedData->GetSelectedBody()->PrimitiveType, SharedData->GetSelectedBody()->PrimitiveIndex, Scale).GetTranslation();
 	}
 	else  /// CONSTRAINT EDITING ///
 	{
@@ -643,12 +650,15 @@ FMatrix FPhATEdPreviewViewportClient::GetWidgetCoordSystem() const
 
 ECoordSystem FPhATEdPreviewViewportClient::GetWidgetCoordSystemSpace() const
 {
-	return SharedData->WidgetMode == FWidget::WM_Scale ? COORD_Local : SharedData->MovementSpace;
+	return GetWidgetMode() == FWidget::WM_Scale ? COORD_Local : ModeTools->GetCoordSystem();;
 }
 
 void FPhATEdPreviewViewportClient::Tick(float DeltaSeconds)
 {
 	FEditorViewportClient::Tick(DeltaSeconds);
+
+	UWorld* World = SharedData->PreviewScene.GetWorld();
+	World->Tick(LEVELTICK_All, DeltaSeconds);
 
 	if (SharedData->bRunningSimulation)
 	{
@@ -660,7 +670,6 @@ void FPhATEdPreviewViewportClient::Tick(float DeltaSeconds)
 			Invalidate();
 		}
 
-		UWorld* World = SharedData->PreviewScene.GetWorld();
 		AWorldSettings* Setting = World->GetWorldSettings();
 		Setting->WorldGravityZ = SharedData->bNoGravitySimulation ? 0.0f : UPhysicsSettings::Get()->DefaultGravityZ*SharedData->EditorSimOptions->GravScale;
 		Setting->bWorldGravitySet = true;
@@ -668,12 +677,12 @@ void FPhATEdPreviewViewportClient::Tick(float DeltaSeconds)
 		// We back up the transforms array now
 		SharedData->EditorSkelComp->AnimationSpaceBases = SharedData->EditorSkelComp->GetSpaceBases();
 		SharedData->EditorSkelComp->SetPhysicsBlendWeight(SharedData->EditorSimOptions->PhysicsBlend);
+	}
 
-		if(SharedData->Recorder.InRecording())
-		{
-			// make sure you don't allow switch SharedData->EditorSkelComp
-			SharedData->Recorder.UpdateRecord(SharedData->EditorSkelComp, DeltaSeconds);
-		}
+	if(SharedData->Recorder.InRecording())
+	{
+		// make sure you don't allow switch SharedData->EditorSkelComp
+		SharedData->Recorder.UpdateRecord(SharedData->EditorSkelComp, DeltaSeconds);
 	}
 }
 

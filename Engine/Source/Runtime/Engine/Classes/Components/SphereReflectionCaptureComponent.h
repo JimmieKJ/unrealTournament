@@ -23,9 +23,9 @@ class USphereReflectionCaptureComponent : public UReflectionCaptureComponent
 	class UDrawSphereComponent* PreviewInfluenceRadius;
 
 public:
-	virtual void UpdatePreviewShape();
+	virtual void UpdatePreviewShape() override;
 
-	virtual float GetInfluenceBoundingRadius() const
+	virtual float GetInfluenceBoundingRadius() const override
 	{
 		return InfluenceRadius;
 	}

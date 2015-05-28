@@ -78,12 +78,6 @@ struct FTimerHandle
 
 	}
 
-	FTimerHandle(int32 InHandle)
-		: Handle(InHandle)
-	{
-
-	}
-
 	bool IsValid() const
 	{
 		return Handle != INDEX_NONE;
@@ -115,23 +109,24 @@ private:
 	int32 Handle;
 };
 
-namespace ETimerStatus
+enum class ETimerStatus : uint8
 {
-	enum Type
-	{
-		Pending,
-		Active,
-		Paused
-	};
-}
+	Pending,
+	Active,
+	Paused,
+	Executing
+};
 
 struct FTimerData
 {
 	/** If true, this timer will loop indefinitely.  Otherwise, it will be destroyed when it expires. */
-	bool bLoop;
+	uint8 bLoop : 1;
+
+	/** If true, this timer was created with a delegate to call (which means if the delegate becomes invalid, we should invalidate the timer too). */
+	uint8 bRequiresDelegate : 1;
 
 	/** Timer Status */
-	ETimerStatus::Type Status;
+	ETimerStatus Status;
 	
 	/** Time between set and fire, or repeat frequency if looping. */
 	float Rate;
@@ -149,14 +144,23 @@ struct FTimerData
 	FTimerHandle TimerHandle;
 
 	FTimerData()
-		: bLoop(false), Status(ETimerStatus::Active)
-		, Rate(0), ExpireTime(0)
+		: bLoop(false)
+		, bRequiresDelegate(false)
+		, Status(ETimerStatus::Active)
+		, Rate(0)
+		, ExpireTime(0)
 	{}
 
 	/** Operator less, used to sort the heap based on time until execution. **/
 	bool operator<(const FTimerData& Other) const
 	{
 		return ExpireTime < Other.ExpireTime;
+	}
+
+	void Clear()
+	{
+		TimerDelegate.Unbind();
+		TimerHandle.Invalidate();
 	}
 };
 
@@ -760,7 +764,7 @@ private:
 	void InternalSetTimerForNextTick( FTimerUnifiedDelegate const& InDelegate );
 	void DEPRECATED_InternalClearTimer( FTimerUnifiedDelegate const& InDelegate );
 	void InternalClearTimer( FTimerHandle const& InDelegate );
-	void InternalClearTimer( int32 TimerIdx, ETimerStatus::Type TimerStatus );
+	void InternalClearTimer( int32 TimerIdx, ETimerStatus TimerStatus );
 	void InternalClearAllTimers( void const* Object );
 
 	/** Will find a timer in the active, paused, or pending list. */
@@ -788,7 +792,7 @@ private:
 	/** An internally consistent clock, independent of World.  Advances during ticking. */
 	double InternalTime;
 
-	/** Timer delegate currently being executed.  Used to handle "timer delegates that manipulating timers" cases. */
+	/** Timer delegate currently being executed.  Used to handle "timer delegates that manipulate timers" cases. */
 	FTimerData CurrentlyExecutingTimer;
 
 	/** Set this to GFrameCounter when Timer is ticked. To figure out if Timer has been already ticked or not this frame. */

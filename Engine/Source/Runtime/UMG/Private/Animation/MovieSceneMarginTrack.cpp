@@ -14,7 +14,7 @@ UMovieSceneMarginTrack::UMovieSceneMarginTrack(const FObjectInitializer& ObjectI
 
 UMovieSceneSection* UMovieSceneMarginTrack::CreateNewSection()
 {
-	return ConstructObject<UMovieSceneSection>( UMovieSceneMarginSection::StaticClass(), this, NAME_None, RF_Transactional );
+	return NewObject<UMovieSceneSection>(this, UMovieSceneMarginSection::StaticClass(), NAME_None, RF_Transactional);
 }
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneMarginTrack::CreateInstance()

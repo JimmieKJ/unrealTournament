@@ -6,7 +6,6 @@
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
 #include "KismetCompiler.h"
-#include "K2ActionMenuBuilder.h"
 #include "K2Node_CreateDragDropOperation.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
@@ -35,18 +34,6 @@ UClass* UK2Node_CreateDragDropOperation::GetClassPinBaseClass() const
 FText UK2Node_CreateDragDropOperation::GetMenuCategory() const
 {
 	return FEditorCategoryUtils::GetCommonCategory(FCommonEditorCategory::UserInterface);
-}
-
-void UK2Node_CreateDragDropOperation::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	UK2Node_CreateDragDropOperation* TemplateNode = NewObject<UK2Node_CreateDragDropOperation>(GetTransientPackage(), GetClass());
-
-	const FString Category = TEXT("User Interface");
-	const FText   MenuDesc = LOCTEXT("CreateDragDropOperationMenuOption", "Create Drag & Drop Operation...");
-	const FString Tooltip  = TEXT("Create a new UI drag and drop operation.  Use inside of OnDragDetected.");
-
-	TSharedPtr<FEdGraphSchemaAction_K2NewNode> NodeAction = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, Category, MenuDesc, Tooltip);
-	NodeAction->NodeTemplate = TemplateNode;
 }
 
 FName UK2Node_CreateDragDropOperation::GetCornerIcon() const

@@ -202,6 +202,30 @@ namespace MetalUtils
 		{"SV_Target5", glsl_type::half4_type, "FragColor5", ir_var_out, "[[ color(5) ]]"},
 		{"SV_Target6", glsl_type::half4_type, "FragColor6", ir_var_out, "[[ color(6) ]]"},
 		{"SV_Target7", glsl_type::half4_type, "FragColor7", ir_var_out, "[[ color(7) ]]"},
+		{"SV_Target0", glsl_type::half3_type, "FragColor0", ir_var_out, "[[ color(0) ]]"},
+		{"SV_Target1", glsl_type::half3_type, "FragColor1", ir_var_out, "[[ color(1) ]]"},
+		{"SV_Target2", glsl_type::half3_type, "FragColor2", ir_var_out, "[[ color(2) ]]"},
+		{"SV_Target3", glsl_type::half3_type, "FragColor3", ir_var_out, "[[ color(3) ]]"},
+		{"SV_Target4", glsl_type::half3_type, "FragColor4", ir_var_out, "[[ color(4) ]]"},
+		{"SV_Target5", glsl_type::half3_type, "FragColor5", ir_var_out, "[[ color(5) ]]"},
+		{"SV_Target6", glsl_type::half3_type, "FragColor6", ir_var_out, "[[ color(6) ]]"},
+		{"SV_Target7", glsl_type::half3_type, "FragColor7", ir_var_out, "[[ color(7) ]]"},
+		{"SV_Target0", glsl_type::half2_type, "FragColor0", ir_var_out, "[[ color(0) ]]"},
+		{"SV_Target1", glsl_type::half2_type, "FragColor1", ir_var_out, "[[ color(1) ]]"},
+		{"SV_Target2", glsl_type::half2_type, "FragColor2", ir_var_out, "[[ color(2) ]]"},
+		{"SV_Target3", glsl_type::half2_type, "FragColor3", ir_var_out, "[[ color(3) ]]"},
+		{"SV_Target4", glsl_type::half2_type, "FragColor4", ir_var_out, "[[ color(4) ]]"},
+		{"SV_Target5", glsl_type::half2_type, "FragColor5", ir_var_out, "[[ color(5) ]]"},
+		{"SV_Target6", glsl_type::half2_type, "FragColor6", ir_var_out, "[[ color(6) ]]"},
+		{"SV_Target7", glsl_type::half2_type, "FragColor7", ir_var_out, "[[ color(7) ]]"},
+		{"SV_Target0", glsl_type::half_type, "FragColor0", ir_var_out, "[[ color(0) ]]"},
+		{"SV_Target1", glsl_type::half_type, "FragColor1", ir_var_out, "[[ color(1) ]]"},
+		{"SV_Target2", glsl_type::half_type, "FragColor2", ir_var_out, "[[ color(2) ]]"},
+		{"SV_Target3", glsl_type::half_type, "FragColor3", ir_var_out, "[[ color(3) ]]"},
+		{"SV_Target4", glsl_type::half_type, "FragColor4", ir_var_out, "[[ color(4) ]]"},
+		{"SV_Target5", glsl_type::half_type, "FragColor5", ir_var_out, "[[ color(5) ]]"},
+		{"SV_Target6", glsl_type::half_type, "FragColor6", ir_var_out, "[[ color(6) ]]"},
+		{"SV_Target7", glsl_type::half_type, "FragColor7", ir_var_out, "[[ color(7) ]]"},
 		{NULL, NULL, NULL, ir_var_auto, nullptr}
 	};
 
@@ -274,7 +298,6 @@ namespace MetalUtils
 			return nullptr;
 		}
 
-		ir_variable* Variable = NULL;
 		if (FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
 		{
 			FSystemValue* SystemValues = SystemValueTable[Frequency];
@@ -326,7 +349,7 @@ namespace MetalUtils
 			_mesa_glsl_warning(ParseState, "unrecognized system value input '%s'", Semantic);
 		}
 
-		Variable = new(ParseState)ir_variable(
+		ir_variable* Variable = new(ParseState)ir_variable(
 			Type,
 			ralloc_asprintf(ParseState, "IN_%s", Semantic),
 			ir_var_in);
@@ -455,12 +478,12 @@ namespace MetalUtils
 	{
 		ir_variable* Variable = NULL;
 
-		if (!Variable && FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
+		if (FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
 		{
 			FSystemValue* SystemValues = SystemValueTable[Frequency];
 			for (int i = 0; SystemValues[i].HlslSemantic != nullptr; ++i)
 			{
-				if (SystemValues[i].Mode == ir_var_out && FCStringAnsi::Stricmp(SystemValues[i].HlslSemantic, Semantic) == 0)
+				if (SystemValues[i].Mode == ir_var_out && FCStringAnsi::Stricmp(SystemValues[i].HlslSemantic, Semantic) == 0 && SystemValues[i].Type->vector_elements == Type->vector_elements)
 				{
 					Variable = new(ParseState) ir_variable(SystemValues[i].Type, SystemValues[i].MetalName, ir_var_out);
 					Variable->semantic = SystemValues[i].MetalSemantic;
@@ -1717,7 +1740,7 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 					{
 						Mask = (1 << Variable->type->vector_elements) - 1;
 					}
-					auto* Assign = new(ParseState)ir_assignment(new(ParseState)ir_dereference_variable(Variable), DeRefMember, nullptr, Mask);
+					auto* Assign = new(ParseState)ir_assignment(new(ParseState) ir_dereference_variable(Variable), DeRefMember, nullptr, Mask);
 					PreCallInstructions.push_tail(Assign);
 					VarsToMoveToBody.push_back(Variable);
 				}
@@ -1740,15 +1763,16 @@ void FMetalCodeBackend::PackInputsAndOutputs(exec_list* Instructions, _mesa_glsl
 				if (VSOutVariables.find(Variable) != VSOutVariables.end())
 				{
 					VarsToMoveToBody.push_back(Variable);
-					ir_dereference* DeRefMember = new(ParseState)ir_dereference_record(VSOut, Variable->name);
-					auto* Assign = new(ParseState)ir_assignment(DeRefMember, new(ParseState)ir_dereference_variable(Variable));
+					ir_dereference* DeRefMember = new(ParseState) ir_dereference_record(VSOut, Variable->name);
+					auto* Assign = new(ParseState) ir_assignment(DeRefMember, new(ParseState)ir_dereference_variable(Variable));
 					PostCallInstructions.push_tail(Assign);
 				}
 				else if (PSOutVariables.find(Variable) != PSOutVariables.end())
 				{
 					VarsToMoveToBody.push_back(Variable);
-					ir_dereference* DeRefMember = new(ParseState)ir_dereference_record(PSOut, Variable->name);
-					auto* Assign = new(ParseState)ir_assignment(DeRefMember, new(ParseState)ir_dereference_variable(Variable));
+					ir_dereference* DeRefMember = new(ParseState) ir_dereference_record(PSOut, Variable->name);
+					ir_rvalue* DeRefVar = new(ParseState) ir_dereference_variable(Variable);
+					auto* Assign = new(ParseState) ir_assignment(DeRefMember, DeRefVar);
 					PostCallInstructions.push_tail(Assign);
 				}
 				else

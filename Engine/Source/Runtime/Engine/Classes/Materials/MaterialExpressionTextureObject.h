@@ -24,7 +24,7 @@ class UMaterialExpressionTextureObject : public UMaterialExpressionTextureBase
 	virtual uint32 GetOutputType(int32 OutputIndex) override;
 #endif // WITH_EDITOR
 	// End UMaterialExpression Interface
-	virtual int32 CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex);
+	virtual int32 CompilePreview(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 };
 
 

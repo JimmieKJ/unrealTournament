@@ -36,15 +36,15 @@ TSharedRef<SWidget> FLevelViewportLayoutFourPanes::MakeViewportLayout(const FStr
 		ViewportKey3 = SpecificLayoutString + TEXT(".Viewport3");
 
 		FString PercentageString;
-		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage0")), PercentageString, GEditorUserSettingsIni))
+		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage0")), PercentageString, GEditorPerProjectIni))
 		{
 			TTypeFromString<float>::FromString(PrimarySplitterPercentage, *PercentageString);
 		}		
-		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage1")), PercentageString, GEditorUserSettingsIni))
+		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage1")), PercentageString, GEditorPerProjectIni))
 		{
 			TTypeFromString<float>::FromString(SecondarySplitterPercentage0, *PercentageString);
 		}	
-		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage2")), PercentageString, GEditorUserSettingsIni))
+		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage2")), PercentageString, GEditorPerProjectIni))
 		{
 			TTypeFromString<float>::FromString(SecondarySplitterPercentage1, *PercentageString);
 		}	
@@ -74,9 +74,9 @@ void FLevelViewportLayoutFourPanes::SaveLayoutString(const FString& LayoutString
 		float SecondaryPercentage0 = SecondarySplitterWidget->SlotAt(0).SizeValue.Get();
 		float SecondaryPercentage1 = SecondarySplitterWidget->SlotAt(1).SizeValue.Get();
 
-		GConfig->SetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage0")), *TTypeToString<float>::ToString(PrimaryPercentage), GEditorUserSettingsIni);
-		GConfig->SetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage1")), *TTypeToString<float>::ToString(SecondaryPercentage0), GEditorUserSettingsIni);
-		GConfig->SetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage2")), *TTypeToString<float>::ToString(SecondaryPercentage1), GEditorUserSettingsIni);
+		GConfig->SetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage0")), *TTypeToString<float>::ToString(PrimaryPercentage), GEditorPerProjectIni);
+		GConfig->SetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage1")), *TTypeToString<float>::ToString(SecondaryPercentage0), GEditorPerProjectIni);
+		GConfig->SetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage2")), *TTypeToString<float>::ToString(SecondaryPercentage1), GEditorPerProjectIni);
 
 		SaveCommonLayoutString(SpecificLayoutString);
 	}

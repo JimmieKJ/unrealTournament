@@ -164,28 +164,81 @@ struct ENGINE_API FNetViewer
 {
 	GENERATED_USTRUCT_BODY()
 
+	/** The "controlling net object" associated with this view (typically player controller) */
 	UPROPERTY()
-	class APlayerController* InViewer;
+	class AActor* InViewer;
 
+	/** The actor that is being directly viewed, usually a pawn.  Could also be the net actor of consequence */
 	UPROPERTY()
-	class AActor* Viewer;
+	class AActor* ViewTarget;
 
+	/** Where the viewer is looking from */
 	UPROPERTY()
 	FVector ViewLocation;
 
+	/** Direction the viewer is looking */
 	UPROPERTY()
 	FVector ViewDir;
 
-
 	FNetViewer()
 		: InViewer(NULL)
-		, Viewer(NULL)
+		, ViewTarget(NULL)
 		, ViewLocation(ForceInit)
 		, ViewDir(ForceInit)
 	{
 	}
 
 	FNetViewer(UNetConnection* InConnection, float DeltaSeconds);
+};
+
+
+USTRUCT()
+struct ENGINE_API FHierarchicalSimplification
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** If this is true, it will simplify mesh but it is slower. 
+	 * If false, it will just merge actors but not simplify using the lower LOD if exists. 
+	 * For example if you build LOD 1, it will use LOD 1 of the mesh to merge actors if exists.  
+	 * If you merge material, it will reduce drawcalls. 
+	 */
+	UPROPERTY(Category=FHierarchicalSimplification, EditAnywhere)
+	bool bSimplifyMesh;
+
+	/** Draw Distance for this LOD actor to display. Once one of parent displays, it won't draw any of children. */
+	UPROPERTY(Category=FHierarchicalSimplification, EditAnywhere, AdvancedDisplay, meta=(UIMin=10.f, ClampMin=10.f))
+	float DrawDistance;
+
+	/** Desired Bounding Radius for clustering - this is not guaranteed but used to calculate filling factor for auto clustering */
+	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(UIMin=10.f, ClampMin=10.f))
+	float DesiredBoundRadius;
+
+	/** Desired Filling Percentage for clustering - this is not guaranteed but used to calculate filling factor  for auto clustering */
+	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "0", ClampMax = "100", UIMin = "0", UIMax = "100"))
+	float DesiredFillingPercentage;
+
+	/** Min number of actors to build LODActor */
+	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "1", UIMin = "1"))
+	int32 MinNumberOfActorsToBuild;
+
+	/** Simplification Setting if bSimplifyMesh is true */
+	UPROPERTY(Category=FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
+	FMeshProxySettings ProxySetting;
+
+	/** Merge Mesh Setting if bSimplifyMesh is false */
+	UPROPERTY(Category=FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
+	FMeshMergingSettings MergeSetting;
+
+	FHierarchicalSimplification()
+		: bSimplifyMesh(false)
+		, DrawDistance(3000)
+		, DesiredBoundRadius(3000)
+		, DesiredFillingPercentage(50)
+		, MinNumberOfActorsToBuild(2)
+	{
+		MergeSetting.bMergeMaterials = true;
+		MergeSetting.bGenerateLightMapUV = true;
+	}
 };
 
 /**
@@ -202,10 +255,15 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=World, AdvancedDisplay)
 	uint32 bEnableWorldBoundsChecks:1;
 
-	/** if set to false navigation system will not get created (and all navigation functionality won't be accesible)*/
+	/** if set to false navigation system will not get created (and all navigation functionality won't be accessible)*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category=World, AdvancedDisplay)
 	uint32 bEnableNavigationSystem:1;
 
+#if WITH_EDITORONLY_DATA
+	/** if set to true, hierarchical LODs will be built, which will create hierarchical LODActors*/
+	UPROPERTY(EditAnywhere, config, Category=World, AdvancedDisplay)
+	uint32 bEnableHierarchicalLODSystem:1;
+#endif
 	/** 
 	 * Enables tools for composing a tiled world. 
 	 * Level has to be saved and all sub-levels removed before enabling this option.
@@ -343,6 +401,11 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	UPROPERTY(EditAnywhere, Category=Audio)
 	class USoundMix* DefaultBaseSoundMix;
 
+#if WITH_EDITORONLY_DATA
+	/** Hierarchical LOD Setup */
+	UPROPERTY(EditAnywhere, Category=LODSystem, AdvancedDisplay, meta=(editcondition = "bEnableHierarchicalLODSystem"))
+	TArray<struct FHierarchicalSimplification>	HierarchicalLODSetup;
+#endif
 	/************************************/
 	/** DEFAULT SETTINGS **/
 
@@ -350,7 +413,6 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=VR)
 	float WorldToMeters;
 
-#if WITH_EDITORONLY_DATA
 	/************************************/
 	/** EDITOR ONLY SETTINGS **/
 	
@@ -358,7 +420,6 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	UPROPERTY()
 	class UBookMark* BookMarks[10];
 
-#endif // WITH_EDITORONLY_DATA
 	/************************************/
 
 	/** 

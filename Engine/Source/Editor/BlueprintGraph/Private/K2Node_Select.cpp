@@ -160,9 +160,11 @@ public:
 							SelectionNodeType = IndexPin->PinType.PinCategory;
 						}
 					}
+
+					const UEdGraph* OwningGraph = Context.MessageLog.FindSourceObjectTypeChecked<UEdGraph>( SelectNode->GetGraph() );
 					LiteralStringTerm->Name =
 						FString::Printf(*LOCTEXT("SelectNodeIndexWarning", "Graph %s: Selection Node of type %s failed! Out of bounds indexing of the options. There are only %d options available.").ToString(),
-						(SelectNode && SelectNode->GetGraph()) ? *SelectNode->GetGraph()->GetFullName() : TEXT("NONE"),
+						(OwningGraph) ? *OwningGraph->GetFullName() : TEXT("NONE"),
 						*SelectionNodeType,
 						OptionPins.Num());
 					PrintStatement.RHS.Add(LiteralStringTerm);
@@ -260,14 +262,33 @@ void UK2Node_Select::AllocateDefaultPins()
 	Super::AllocateDefaultPins();
 }
 
+void UK2Node_Select::AutowireNewNode(UEdGraphPin* FromPin)
+{
+	if (FromPin)
+	{
+		// Attempt to autowire to the index pin as users generally drag off of something intending to use
+		// it as an index in a select statement rather than an arbitrary entry:
+		const UEdGraphSchema_K2* K2Schema = CastChecked<UEdGraphSchema_K2>(GetSchema());
+		UEdGraphPin* IndexPin = GetIndexPin();
+		ECanCreateConnectionResponse ConnectResponse = K2Schema->CanCreateConnection(FromPin, IndexPin).Response;
+		if (ConnectResponse == ECanCreateConnectionResponse::CONNECT_RESPONSE_MAKE)
+		{
+			if (K2Schema->TryCreateConnection(FromPin, IndexPin))
+			{
+				FromPin->GetOwningNode()->NodeConnectionListChanged();
+				this->NodeConnectionListChanged();
+				return;
+			}
+		}
+	}
+
+	// No connection made, just use default autowire logic:
+	Super::AutowireNewNode(FromPin);
+}
+
 FText UK2Node_Select::GetTooltipText() const
 {
 	return LOCTEXT("SelectNodeTooltip", "Return the option at Index, (first option is indexed at 0)");
-}
-
-FString UK2Node_Select::GetKeywords() const
-{
-	return TEXT("Ternary If");
 }
 
 FText UK2Node_Select::GetNodeTitle(ENodeTitleType::Type TitleType) const
@@ -631,6 +652,8 @@ void UK2Node_Select::SetEnum(UEnum* InEnum, bool bForceRegenerate)
 
 void UK2Node_Select::NodeConnectionListChanged()
 {
+	Super::NodeConnectionListChanged();
+
 	if (bReconstructNode)
 	{
 		ReconstructNode();

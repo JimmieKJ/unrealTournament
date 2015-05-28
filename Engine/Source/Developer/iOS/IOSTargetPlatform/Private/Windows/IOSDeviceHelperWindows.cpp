@@ -152,7 +152,7 @@ private:
 		// separate out each line
 		TArray<FString> DeviceStrings;
 		StdOut = StdOut.Replace(TEXT("\r"), TEXT("\n"));
-		StdOut.ParseIntoArray(&DeviceStrings, TEXT("\n"), true);
+		StdOut.ParseIntoArray(DeviceStrings, TEXT("\n"), true);
 
 		TArray<FString> CurrentDeviceIds;
 		bool FoundList = false;

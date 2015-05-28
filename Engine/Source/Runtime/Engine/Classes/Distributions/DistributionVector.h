@@ -118,7 +118,7 @@ class ENGINE_API UDistributionVector : public UDistribution
 	virtual FVector GetVectorValue(float F = 0);
 
 
-	UDistributionVector(const FObjectInitializer& ObjectInitializer)
+	UDistributionVector(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
 	:	Super(ObjectInitializer)
 	,   bCanBeBaked(true)
 	,   bIsDirty(true) // make sure the FRawDistribution is initialized
@@ -148,10 +148,10 @@ class ENGINE_API UDistributionVector : public UDistribution
 	virtual FVector	GetValue( float F = 0.f, UObject* Data = NULL, int32 LastExtreme = 0, struct FRandomStream* InRandomStream = NULL ) const;
 
 	// Begin FCurveEdInterface Interface
-	virtual void GetInRange(float& MinIn, float& MaxIn) const;
-	virtual void GetOutRange(float& MinOut, float& MaxOut) const;
+	virtual void GetInRange(float& MinIn, float& MaxIn) const override;
+	virtual void GetOutRange(float& MinOut, float& MaxOut) const override;
 	virtual	void GetRange(FVector& OutMin, FVector& OutMax) const;
-	// Begin FCurveEdInterface Interface
+	// End FCurveEdInterface Interface
 
 	/** @return true of this distribution can be baked into a FRawDistribution lookup table, otherwise false */
 	virtual bool CanBeBaked() const 

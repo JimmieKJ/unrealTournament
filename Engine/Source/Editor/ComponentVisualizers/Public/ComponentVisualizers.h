@@ -10,12 +10,12 @@ public:
 	/**
 	 * Called right after the module DLL has been loaded and the module object has been created
 	 */
-	virtual void StartupModule();
+	virtual void StartupModule() override;
 
 	/**
 	 * Called before the module is unloaded, right before the module object is destroyed.
 	 */
-	virtual void ShutdownModule();
+	virtual void ShutdownModule() override;
 
 	/**
 	 * Override this to set whether your module is allowed to be unloaded on the fly

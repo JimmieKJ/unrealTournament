@@ -44,7 +44,7 @@ class ENGINE_API ALevelScriptActor : public AActor
 	// --- Level State Functions ------------------------
 	/** @todo document */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly)
-	virtual void LevelReset();
+	void LevelReset();
 
 	/**
 	 * Event called on world origin location changes
@@ -53,7 +53,7 @@ class ENGINE_API ALevelScriptActor : public AActor
 	 * @param	NewOriginLocation	New world origin location
 	 */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void WorldOriginLocationChanged(FIntVector OldOriginLocation, FIntVector NewOriginLocation);
+	void WorldOriginLocationChanged(FIntVector OldOriginLocation, FIntVector NewOriginLocation);
 	
 #if WITH_EDITOR
 	// Begin UObject Interface

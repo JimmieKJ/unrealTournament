@@ -84,6 +84,7 @@ public:
 #if WITH_EDITOR
 	virtual void PreEditChange(class FEditPropertyChain& PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	void PropagateKeyChangesToDerivedBlackboardAssets();
 #endif
 
 	/** @return true if blackboard keys are not conflicting with parent key chain */
@@ -103,7 +104,7 @@ public:
 			FBlackboardEntry Entry;
 			Entry.EntryName = KeyName;
 
-			CreatedKeyType = ConstructObject<T>(T::StaticClass(), this);
+			CreatedKeyType = NewObject<T>(this);
 			Entry.KeyType = CreatedKeyType;		
 
 			Keys.Add(Entry);
@@ -130,6 +131,9 @@ public:
 	void UpdateKeyIDs();
 
 	void UpdateIfHasSynchronizedKeys();
+
+	/** fix entries with deprecated key types */
+	void UpdateDeprecatedKeys();
 
 protected:
 

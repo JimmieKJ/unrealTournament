@@ -20,9 +20,9 @@
 	External FX system interface.
 -----------------------------------------------------------------------------*/
 
-FFXSystemInterface* FFXSystemInterface::Create(ERHIFeatureLevel::Type InFeatureLevel)
+FFXSystemInterface* FFXSystemInterface::Create(ERHIFeatureLevel::Type InFeatureLevel, EShaderPlatform InShaderPlatform)
 {
-	return new FFXSystem(InFeatureLevel);
+	return new FFXSystem(InFeatureLevel, InShaderPlatform);
 }
 
 void FFXSystemInterface::Destroy( FFXSystemInterface* FXSystem )
@@ -141,9 +141,10 @@ namespace FXConsoleVariables
 	FX system.
 ------------------------------------------------------------------------------*/
 
-FFXSystem::FFXSystem(ERHIFeatureLevel::Type InFeatureLevel)
+FFXSystem::FFXSystem(ERHIFeatureLevel::Type InFeatureLevel, EShaderPlatform InShaderPlatform)
 	: ParticleSimulationResources(NULL)
 	, FeatureLevel(InFeatureLevel)
+	, ShaderPlatform(InShaderPlatform)
 #if WITH_EDITOR
 	, bSuspended(false)
 #endif // #if WITH_EDITOR

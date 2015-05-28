@@ -1,14 +1,16 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "ControlChannel.generated.h"
 
-//
-// A channel for exchanging connection control messages
-//
 
+/**
+ * A channel for exchanging connection control messages.
+ */
 UCLASS(transient, customConstructor)
-class UControlChannel : public UChannel
+class ENGINE_API UControlChannel
+	: public UChannel
 {
 	GENERATED_UCLASS_BODY()
 
@@ -47,14 +49,14 @@ class UControlChannel : public UChannel
 	/**
 	 * Default constructor
 	 */
-	UControlChannel(const FObjectInitializer& ObjectInitializer)
+	UControlChannel(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
 		: UChannel(ObjectInitializer)
 	{
 		ChannelClasses[CHTYPE_Control]      = GetClass();
 		ChType								= CHTYPE_Control;
 	}
 
-	virtual void Init( UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally );
+	virtual void Init( UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally ) override;
 
 	// Begin UChannel interface.
 	virtual FPacketIdRange SendBunch(FOutBunch* Bunch, bool Merge) override;
@@ -64,8 +66,8 @@ class UControlChannel : public UChannel
 
 
 	/** Handle an incoming bunch. */
-	void ReceivedBunch( FInBunch& Bunch );
+	virtual void ReceivedBunch( FInBunch& Bunch ) override;
 
 	/** Describe the text channel. */
-	FString Describe();
+	virtual FString Describe() override;
 };

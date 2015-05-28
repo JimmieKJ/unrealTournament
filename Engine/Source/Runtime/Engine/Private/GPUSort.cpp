@@ -82,7 +82,7 @@ public:
 	 */
 	virtual void InitRHI() override
 	{
-		if (GetFeatureLevel() >= ERHIFeatureLevel::SM5)
+		if (RHISupportsComputeShaders(GShaderPlatformForFeatureLevel[GetFeatureLevel()]))
 		{
 			const int32 OffsetsCount = DIGIT_COUNT * MAX_GROUP_COUNT;
 			const int32 OffsetsBufferSize = OffsetsCount * sizeof(uint32);
@@ -183,7 +183,7 @@ public:
 	 */
 	virtual void InitRHI() override
 	{
-		if (GetFeatureLevel() >= ERHIFeatureLevel::SM5)
+		if (RHISupportsComputeShaders(GShaderPlatformForFeatureLevel[GetFeatureLevel()]))
 		{
 			FRHIResourceCreateInfo CreateInfo;
 			SortParametersBufferRHI = RHICreateVertexBuffer(
@@ -686,7 +686,7 @@ int32 SortGPUBuffers(FRHICommandListImmediate& RHICmdList, FGPUSortBuffers SortB
 	const bool bDebugOffsets = CVarDebugOffsets.GetValueOnRenderThread() != 0;
 	const bool bDebugSort = CVarDebugSort.GetValueOnRenderThread() != 0;
 
-	check(FeatureLevel == ERHIFeatureLevel::SM5);
+	check(RHISupportsComputeShaders(GShaderPlatformForFeatureLevel[FeatureLevel]));
 
 	SCOPED_DRAW_EVENTF(RHICmdList, SortGPU, TEXT("SortGPU_%d"), Count);
 
@@ -845,7 +845,7 @@ static bool RunGPUSortTest(FRHICommandListImmediate& RHICmdList, int32 TestSize,
 	const bool bDebugOffsets = CVarDebugOffsets.GetValueOnRenderThread() != 0;
 	const bool bDebugSort = CVarDebugSort.GetValueOnRenderThread() != 0;
 
-	if (FeatureLevel != ERHIFeatureLevel::SM5)
+	if (!RHISupportsComputeShaders(GShaderPlatformForFeatureLevel[FeatureLevel]))
 	{
 		return false;
 	}

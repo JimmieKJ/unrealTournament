@@ -2,83 +2,39 @@
 
 #pragma once
 
+#include "PaperEditorShared/AssetEditorSelectedItem.h"
+#include "PaperSprite.h"
+
 //////////////////////////////////////////////////////////////////////////
 // FSelectionTypes
 
 class FSelectionTypes
 {
 public:
+	static const FName GeometryShape;
 	static const FName Vertex;
 	static const FName Edge;
 	static const FName Pivot;
-	static const FName Socket;
 	static const FName SourceRegion;
 private:
 	FSelectionTypes() {}
 };
 
-class FSpriteSelectedVertex;
-
 //////////////////////////////////////////////////////////////////////////
-// FSelectedItem
+// ISpriteSelectionContext
 
-class FSelectedItem
+class ISpriteSelectionContext
 {
-protected:
-	FSelectedItem(FName InTypeName)
-		: TypeName(InTypeName)
-	{
-	}
-
-protected:
-	FName TypeName;
 public:
-	virtual bool IsA(FName TestType) const
-	{
-		return TestType == TypeName;
-	}
-
-	virtual uint32 GetTypeHash() const
-	{
-		return 0;
-	}
-
-	virtual bool Equals(const FSelectedItem& OtherItem) const
-	{
-		return false;
-	}
-
-	virtual void ApplyDelta(const FVector2D& Delta)
-	{
-	}
-
-	//@TODO: Doesn't belong here in base!
-	virtual void SplitEdge()
-	{
-	}
-
-	virtual FVector GetWorldPos() const
-	{
-		return FVector::ZeroVector;
-	}
-
-	virtual const FSpriteSelectedVertex* CastSelectedVertex() const
-	{
-		return nullptr;
-	}
-
-	virtual ~FSelectedItem() {}
+	virtual FVector2D SelectedItemConvertWorldSpaceDeltaToLocalSpace(const FVector& WorldSpaceDelta) const = 0;
+	virtual FVector2D WorldSpaceToTextureSpace(const FVector& SourcePoint) const = 0;
+	virtual FVector TextureSpaceToWorldSpace(const FVector2D& SourcePoint) const = 0;
+	virtual float SelectedItemGetUnitsPerPixel() const = 0;
+	virtual void BeginTransaction(const FText& SessionName) = 0;
+	virtual void MarkTransactionAsDirty() = 0;
+	virtual void EndTransaction() = 0;
+	virtual void InvalidateViewportAndHitProxies() = 0;
 };
-
-inline uint32 GetTypeHash(const FSelectedItem& Vertex)
-{
-	return Vertex.GetTypeHash();
-}
-
-inline bool operator==(const FSelectedItem& V1, const FSelectedItem& V2)
-{
-	return V1.Equals(V2);
-}
 
 //////////////////////////////////////////////////////////////////////////
 // FSpriteSelectedSourceRegion
@@ -122,8 +78,9 @@ public:
 		{
 			UTexture2D* SourceTexture = Sprite->GetSourceTexture();
 			const FVector2D SourceDims = (SourceTexture != nullptr) ? FVector2D(SourceTexture->GetSurfaceWidth(), SourceTexture->GetSurfaceHeight()) : FVector2D::ZeroVector;
-            int XAxis = 0; // -1 = min, 0 = none, 1 = max
-            int YAxis = 0; // ditto
+
+			int32 XAxis = 0; // -1 = min, 0 = none, 1 = max
+            int32 YAxis = 0; // ditto
             
 			switch (VertexIndex)
 			{
@@ -159,11 +116,11 @@ public:
 				break;
 			}
 
-			const FVector2D TextureSpaceDelta = Sprite->ConvertWorldSpaceDeltaToTextureSpace(PaperAxisX * WorldSpaceDelta.X + PaperAxisY * WorldSpaceDelta.Y);
+			const FVector2D TextureSpaceDelta = Sprite->ConvertWorldSpaceDeltaToTextureSpace(PaperAxisX * WorldSpaceDelta.X + PaperAxisY * WorldSpaceDelta.Y, /*bIgnoreRotation=*/ true);
 
             if (XAxis == -1)
             {
-                float AllowedDelta = FMath::Clamp(TextureSpaceDelta.X, -Sprite->SourceUV.X, Sprite->SourceDimension.X - 1);
+                const float AllowedDelta = FMath::Clamp(TextureSpaceDelta.X, -Sprite->SourceUV.X, Sprite->SourceDimension.X - 1);
                 Sprite->SourceUV.X += AllowedDelta;
                 Sprite->SourceDimension.X -= AllowedDelta;
             }
@@ -174,7 +131,7 @@ public:
             
             if (YAxis == -1)
             {
-				float AllowedDelta = FMath::Clamp(TextureSpaceDelta.Y, -Sprite->SourceUV.Y, Sprite->SourceDimension.Y - 1);
+				const float AllowedDelta = FMath::Clamp(TextureSpaceDelta.Y, -Sprite->SourceUV.Y, Sprite->SourceDimension.Y - 1);
 				Sprite->SourceUV.Y += AllowedDelta;
 				Sprite->SourceDimension.Y -= AllowedDelta;
             }
@@ -233,22 +190,52 @@ public:
 		return Result;
 	}
 
-	virtual void ApplyDelta(const FVector2D& Delta) override
+	virtual void ApplyDelta(const FVector2D& Delta, const FRotator& Rotation, const FVector& Scale3D, FWidget::EWidgetMode MoveMode) override
 	{
-		ApplyDeltaIndexed(Delta, VertexIndex);
+		if (MoveMode == FWidget::WM_Translate)
+		{
+			ApplyDeltaIndexed(Delta, VertexIndex);
+		}
 	}
 
 	FVector GetWorldPos() const override
 	{
 		return GetWorldPosIndexed(VertexIndex);
 	}
-
-	virtual void SplitEdge() override
-	{
-		// Nonsense operation on a vertex, do nothing
-	}
 };
 
+
+//////////////////////////////////////////////////////////////////////////
+// FSpriteSelectedShape
+
+class FSpriteSelectedShape : public FSelectedItem
+{
+public:
+	// The editor context
+	ISpriteSelectionContext* EditorContext;
+
+	// The geometry that this shape belongs to
+	FSpriteGeometryCollection& Geometry;
+
+	// The index of this shape in the geometry above
+	const int32 ShapeIndex;
+
+	// Is this a background object that should have lower priority?
+	const bool bIsBackground;
+
+	TWeakObjectPtr<UPaperSprite> SpritePtr;
+public:
+	FSpriteSelectedShape(ISpriteSelectionContext* InEditorContext, FSpriteGeometryCollection& InGeometry, int32 InShapeIndex, bool bInIsBackground = false);
+
+	// FSelectedItem interface
+	virtual uint32 GetTypeHash() const override;
+	virtual EMouseCursor::Type GetMouseCursor() const override;
+	virtual bool Equals(const FSelectedItem& OtherItem) const override;
+	virtual bool IsBackgroundObject() const override;
+	virtual void ApplyDelta(const FVector2D& Delta, const FRotator& Rotation, const FVector& Scale3D, FWidget::EWidgetMode MoveMode) override;
+	virtual FVector GetWorldPos() const override;
+	// End of FSelectedItem interface
+};
 
 //////////////////////////////////////////////////////////////////////////
 // FSpriteSelectedVertex
@@ -256,46 +243,28 @@ public:
 class FSpriteSelectedVertex : public FSelectedItem
 {
 public:
-	int32 VertexIndex;
-	int32 PolygonIndex;
+	// The editor context
+	ISpriteSelectionContext* EditorContext;
 
-	// If true, it's render data, otherwise it's collision data
-	bool bRenderData;
+	// The geometry that this shape belongs to
+	FSpriteGeometryCollection& Geometry;
 
-	TWeakObjectPtr<UPaperSprite> SpritePtr;
+	const int32 ShapeIndex;
+	const int32 VertexIndex;
+
 public:
-	FSpriteSelectedVertex()
+	FSpriteSelectedVertex(ISpriteSelectionContext* InEditorContext, FSpriteGeometryCollection& InGeometry, int32 InShapeIndex, int32 InVertexIndex)
 		: FSelectedItem(FSelectionTypes::Vertex)
-		, VertexIndex(0)
-		, PolygonIndex(0)
-		, bRenderData(false)
+		, EditorContext(InEditorContext)
+		, Geometry(InGeometry)
+		, ShapeIndex(InShapeIndex)
+		, VertexIndex(InVertexIndex)
 	{
-	}
-
-	virtual bool IsValidInEditor(UPaperSprite* Sprite, bool bRenderData) const
-	{
-		if (SpritePtr == Sprite && this->bRenderData == bRenderData)
-		{
-			if (UPaperSprite* Sprite = SpritePtr.Get())
-			{
-				FSpritePolygonCollection& Geometry = bRenderData ? Sprite->RenderGeometry : Sprite->CollisionGeometry;
-				if (Geometry.Polygons.IsValidIndex(PolygonIndex) && Geometry.Polygons[PolygonIndex].Vertices.IsValidIndex(VertexIndex))
-				{
-					return true;
-				}
-			}
-		}
-		return false;
-	}
-
-	virtual const FSpriteSelectedVertex* CastSelectedVertex() const
-	{
-		return (FSpriteSelectedVertex*)this;
 	}
 
 	virtual uint32 GetTypeHash() const override
 	{
-		return VertexIndex + (PolygonIndex * 311) + (bRenderData ? 1063 : 0);
+		return VertexIndex + (ShapeIndex * 311);
 	}
 
 	virtual bool Equals(const FSelectedItem& OtherItem) const override
@@ -305,7 +274,7 @@ public:
 			const FSpriteSelectedVertex& V1 = *this;
 			const FSpriteSelectedVertex& V2 = *(FSpriteSelectedVertex*)(&OtherItem);
 
-			return (V1.VertexIndex == V2.VertexIndex) && (V1.PolygonIndex == V2.PolygonIndex) && (V1.bRenderData == V2.bRenderData) && (V1.SpritePtr == V2.SpritePtr);
+			return (V1.VertexIndex == V2.VertexIndex) && (V1.ShapeIndex == V2.ShapeIndex) && (&(V1.Geometry) == &(V2.Geometry));
 		}
 		else
 		{
@@ -315,21 +284,22 @@ public:
 
 	virtual void ApplyDeltaIndexed(const FVector2D& Delta, int32 TargetVertexIndex)
 	{
-		if (UPaperSprite* Sprite = SpritePtr.Get())
+		if (Geometry.Shapes.IsValidIndex(ShapeIndex))
 		{
-			FSpritePolygonCollection& Geometry = bRenderData ? Sprite->RenderGeometry : Sprite->CollisionGeometry;
-			if (Geometry.Polygons.IsValidIndex(PolygonIndex))
+			FSpriteGeometryShape& Shape = Geometry.Shapes[ShapeIndex];
+			TArray<FVector2D>& Vertices = Shape.Vertices;
+			TargetVertexIndex = (Vertices.Num() > 0) ? (TargetVertexIndex % Vertices.Num()) : 0;
+			if (Vertices.IsValidIndex(TargetVertexIndex))
 			{
-				TArray<FVector2D>& Vertices = Geometry.Polygons[PolygonIndex].Vertices;
-				TargetVertexIndex = (Vertices.Num() > 0) ? (TargetVertexIndex % Vertices.Num()) : 0;
-				if (Vertices.IsValidIndex(TargetVertexIndex))
-				{
-					const FVector WorldSpaceDelta = PaperAxisX * Delta.X + PaperAxisY * Delta.Y;
-					const FVector2D TextureSpaceDelta = Sprite->ConvertWorldSpaceDeltaToTextureSpace(WorldSpaceDelta);
-					Vertices[TargetVertexIndex] += TextureSpaceDelta;
+				FVector2D& ShapeSpaceVertex = Vertices[TargetVertexIndex];
 
-					Geometry.GeometryType = ESpritePolygonMode::FullyCustom;
-				}
+				const FVector WorldSpaceDelta = PaperAxisX * Delta.X + PaperAxisY * Delta.Y;
+				const FVector2D TextureSpaceDelta = EditorContext->SelectedItemConvertWorldSpaceDeltaToLocalSpace(WorldSpaceDelta);
+				const FVector2D NewTextureSpacePos = Shape.ConvertShapeSpaceToTextureSpace(ShapeSpaceVertex) + TextureSpaceDelta;
+				ShapeSpaceVertex = Shape.ConvertTextureSpaceToShapeSpace(NewTextureSpacePos);
+
+				Geometry.GeometryType = ESpritePolygonMode::FullyCustom;
+				Shape.ShapeType = ESpriteShapeType::Polygon;
 			}
 		}
 	}
@@ -338,53 +308,53 @@ public:
 	{
 		FVector Result = FVector::ZeroVector;
 
-		if (UPaperSprite* Sprite = SpritePtr.Get())
+		if (Geometry.Shapes.IsValidIndex(ShapeIndex))
 		{
-			FSpritePolygonCollection& Geometry = bRenderData ? Sprite->RenderGeometry : Sprite->CollisionGeometry;
-
-			if (Geometry.Polygons.IsValidIndex(PolygonIndex))
+			const FSpriteGeometryShape& Shape = Geometry.Shapes[ShapeIndex];
+			const TArray<FVector2D>& Vertices = Shape.Vertices;
+			TargetVertexIndex = (Vertices.Num() > 0) ? (TargetVertexIndex % Vertices.Num()) : 0;
+			if (Vertices.IsValidIndex(TargetVertexIndex))
 			{
-				const TArray<FVector2D>& Vertices = Geometry.Polygons[PolygonIndex].Vertices;
-				TargetVertexIndex = (Vertices.Num() > 0) ? (TargetVertexIndex % Vertices.Num()) : 0;
-				if (Vertices.IsValidIndex(TargetVertexIndex))
-				{
-					Result = Sprite->ConvertTextureSpaceToWorldSpace(Vertices[TargetVertexIndex]);
-				}
+				const FVector2D& ShapeSpacePos = Vertices[TargetVertexIndex];
+				const FVector2D TextureSpacePos = Shape.ConvertShapeSpaceToTextureSpace(ShapeSpacePos);
+				Result = EditorContext->TextureSpaceToWorldSpace(TextureSpacePos);
 			}
 		}
 
 		return Result;
 	}
 
-	virtual void ApplyDelta(const FVector2D& Delta) override
+	virtual void ApplyDelta(const FVector2D& Delta, const FRotator& Rotation, const FVector& Scale3D, FWidget::EWidgetMode MoveMode) override
 	{
-		ApplyDeltaIndexed(Delta, VertexIndex);
+		if (MoveMode == FWidget::WM_Translate)
+		{
+			ApplyDeltaIndexed(Delta, VertexIndex);
+		}
 	}
 
 	FVector GetWorldPos() const override
 	{
 		return GetWorldPosIndexed(VertexIndex);
 	}
-
-	virtual void SplitEdge() override
-	{
-		// Nonsense operation on a vertex, do nothing
-	}
 };
 
 
 //////////////////////////////////////////////////////////////////////////
 // FSpriteSelectedEdge
-//@TODO: Much hackery lies here; need a real data structure!
 
-
+// Note: Defined based on a vertex index; this is the edge between the vertex and the next one.
 class FSpriteSelectedEdge : public FSpriteSelectedVertex
 {
-	// Note: Defined based on a vertex index; this is the edge between the vertex and the next one.
 public:
-	FSpriteSelectedEdge()
+	FSpriteSelectedEdge(ISpriteSelectionContext* InEditorContext, FSpriteGeometryCollection& InGeometry, int32 InShapeIndex, int32 InVertexIndex)
+		: FSpriteSelectedVertex(InEditorContext, InGeometry, InShapeIndex, InVertexIndex)
 	{
 		TypeName = FSelectionTypes::Edge;
+	}
+
+	virtual bool IsA(FName TestType) const
+	{
+		return (TestType == TypeName) || (TestType == FSelectionTypes::Vertex);
 	}
 
 	virtual bool Equals(const FSelectedItem& OtherItem) const override
@@ -394,7 +364,7 @@ public:
 			const FSpriteSelectedEdge& E1 = *this;
 			const FSpriteSelectedEdge& E2 = *(FSpriteSelectedEdge*)(&OtherItem);
 
-			return (E1.VertexIndex == E2.VertexIndex) && (E1.PolygonIndex == E2.PolygonIndex) && (E1.bRenderData == E2.bRenderData) && (E1.SpritePtr == E2.SpritePtr);
+			return (E1.VertexIndex == E2.VertexIndex) && (E1.ShapeIndex == E2.ShapeIndex) && (&(E1.Geometry) == &(E2.Geometry));
 		}
 		else
 		{
@@ -402,7 +372,7 @@ public:
 		}
 	}
 
-	virtual void ApplyDelta(const FVector2D& Delta) override
+	virtual void ApplyDelta(const FVector2D& Delta, const FRotator& Rotation, const FVector& Scale3D, FWidget::EWidgetMode MoveMode) override
 	{
 		ApplyDeltaIndexed(Delta, VertexIndex);
 		ApplyDeltaIndexed(Delta, VertexIndex+1);
@@ -414,93 +384,5 @@ public:
 		const FVector Pos2 = GetWorldPosIndexed(VertexIndex+1);
 
 		return (Pos1 + Pos2) * 0.5f;
-	}
-
-	virtual void SplitEdge() override
-	{
-		if (UPaperSprite* Sprite = SpritePtr.Get())
-		{
-			FSpritePolygonCollection& Geometry = bRenderData ? Sprite->RenderGeometry : Sprite->CollisionGeometry;
-			Geometry.GeometryType = ESpritePolygonMode::FullyCustom;
-
-			if (Geometry.Polygons.IsValidIndex(PolygonIndex))
-			{
-				TArray<FVector2D>& Vertices = Geometry.Polygons[PolygonIndex].Vertices;
-				if (Vertices.IsValidIndex(VertexIndex))
-				{
-					const int32 NextVertexIndex = (VertexIndex + 1) % Vertices.Num();
-
-					const FVector2D NewPos = (Vertices[VertexIndex] + Vertices[NextVertexIndex]) * 0.5f;
-					
-					Vertices.Insert(NewPos, VertexIndex+1);
-				}
-			}
-		}
-	}
-};
-
-
-
-//////////////////////////////////////////////////////////////////////////
-// FSpriteSelectedSocket
-
-class FSpriteSelectedSocket : public FSelectedItem
-{
-public:
-	FName SocketName;
-	TWeakObjectPtr<UPaperSprite> SpritePtr;
-
-public:
-	FSpriteSelectedSocket()
-		: FSelectedItem(FSelectionTypes::Socket)
-	{
-	}
-
-	virtual bool Equals(const FSelectedItem& OtherItem) const override
-	{
-		if (OtherItem.IsA(FSelectionTypes::Socket))
-		{
-			const FSpriteSelectedSocket& S1 = *this;
-			const FSpriteSelectedSocket& S2 = *(FSpriteSelectedSocket*)(&OtherItem);
-
-			return (S1.SocketName == S2.SocketName) && (S1.SpritePtr == S2.SpritePtr);
-		}
-		else
-		{
-			return false;
-		}
-	}
-
-	//@TODO: Currently sockets are in unflipped pivot space,
-	virtual void ApplyDelta(const FVector2D& Delta) override
-	{
-		if (UPaperSprite* Sprite = SpritePtr.Get())
-		{
-			if (FPaperSpriteSocket* Socket = Sprite->FindSocket(SocketName))
-			{
-				const FVector Delta3D_UU = (PaperAxisX * Delta.X) + (PaperAxisY * -Delta.Y);
-				const FVector Delta3D = Delta3D_UU * Sprite->GetPixelsPerUnrealUnit();
-				Socket->LocalTransform.SetLocation(Socket->LocalTransform.GetLocation() + Delta3D);
-			}
-		}
-	}
-
-	FVector GetWorldPos() const override
-	{
-		if (UPaperSprite* Sprite = SpritePtr.Get())
-		{
-			if (FPaperSpriteSocket* Socket = Sprite->FindSocket(SocketName))
-			{
- 				const FVector PivotSpacePos = Socket->LocalTransform.GetLocation();
-				return Sprite->GetPivotToWorld().TransformPosition(PivotSpacePos);
-			}
-		}
-
-		return FVector::ZeroVector;
-	}
-
-	virtual void SplitEdge() override
-	{
-		// Nonsense operation on a socket, do nothing
 	}
 };

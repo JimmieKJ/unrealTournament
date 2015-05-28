@@ -13,24 +13,6 @@ class FRunnableThreadWin
 	/** The thread handle for the thread. */
 	HANDLE Thread;
 
-	/** The runnable object to execute on this thread. */
-	FRunnable* Runnable;
-
-	/** Sync event to make sure that Init() has been completed before allowing the main thread to continue. */
-	FEvent* ThreadInitSyncEvent;
-
-	/** The priority to run the thread at. */
-	EThreadPriority ThreadPriority;
-
-	/** The Affinity to run the thread with. */
-	uint64 ThreadAffintyMask;
-
-	/** ID set during thread creation. */
-	uint32 ThreadID;
-
-	/** Name of the thread. */
-	FString ThreadName;
-
 	/**
 	 * Helper function to set thread names, visible by the debugger.
 	 * @param ThreadID		Thread ID for the thread who's name is going to be set
@@ -97,13 +79,7 @@ public:
 
 	FRunnableThreadWin( )
 		: Thread(NULL)
-		, Runnable(NULL)
-		, ThreadInitSyncEvent(NULL)
-		, ThreadPriority(TPri_Normal)
-		, ThreadID(NULL)
-	{
-
-	}
+	{}
 
 	~FRunnableThreadWin( )
 	{
@@ -112,7 +88,6 @@ public:
 		{
 			Kill(true);
 		}
-		FRunnableThread::GetThreadRegistry().Remove(ThreadID);
 	}
 	
 	virtual void SetThreadPriority( EThreadPriority NewPriority ) override
@@ -129,7 +104,7 @@ public:
 		}
 	}
 
-	virtual void Suspend( bool bShouldPause = 1 ) override
+	virtual void Suspend( bool bShouldPause = true ) override
 	{
 		check(Thread);
 		if (bShouldPause == true)
@@ -175,16 +150,6 @@ public:
 		WaitForSingleObject(Thread,INFINITE);
 	}
 
-	virtual uint32 GetThreadID( ) override
-	{
-		return ThreadID;
-	}
-
-	virtual FString GetThreadName( ) override
-	{
-		return ThreadName;
-	}
-
 protected:
 
 	virtual bool CreateInternal( FRunnable* InRunnable, const TCHAR* InThreadName,
@@ -193,10 +158,10 @@ protected:
 	{
 		check(InRunnable);
 		Runnable = InRunnable;
-		ThreadAffintyMask = InThreadAffinityMask;
+		ThreadAffinityMask = InThreadAffinityMask;
 
 		// Create a sync event to guarantee the Init() function is called first
-		ThreadInitSyncEvent	= FPlatformProcess::CreateSynchEvent(true);
+		ThreadInitSyncEvent	= FPlatformProcess::GetSynchEventFromPool(true);
 
 		// Create the new thread
 		Thread = CreateThread(NULL,InStackSize,_ThreadProc,this,STACK_SIZE_PARAM_IS_A_RESERVATION,(::DWORD *)&ThreadID);
@@ -204,7 +169,7 @@ protected:
 		// If it fails, clear all the vars
 		if (Thread == NULL)
 		{
-			Runnable = NULL;
+			Runnable = nullptr;
 		}
 		else
 		{
@@ -216,8 +181,8 @@ protected:
 		}
 
 		// Cleanup the sync event
-		delete ThreadInitSyncEvent;
-		ThreadInitSyncEvent = NULL;
+		FPlatformProcess::ReturnSynchEventToPool(ThreadInitSyncEvent);
+		ThreadInitSyncEvent = nullptr;
 		return Thread != NULL;
 	}
 };

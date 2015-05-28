@@ -5,188 +5,262 @@
 
 #include "AssetRegistryModule.h"
 #include "Textures/TextureAtlas.h"
+#include "PaperSprite.h"
 
 //////////////////////////////////////////////////////////////////////////
 // 
 
-void CopyTextureData(const uint8* Source, uint8* Dest, uint32 SizeX, uint32 SizeY, uint32 BytesPerPixel, uint32 SourceStride, uint32 DestStride)
-{
-	const uint32 NumBytesPerRow = SizeX * BytesPerPixel;
-
-	for (uint32 Y = 0; Y < SizeY; ++Y)
-	{
-		FMemory::Memcpy(
-			Dest + (DestStride * Y),
-			Source + (SourceStride * Y),
-			NumBytesPerRow
-			);
-	}
-}
-
-struct FSingleTexturePaperAtlas : public FSlateTextureAtlas
-{
-public:
-	FSingleTexturePaperAtlas(uint32 InWidth, uint32 InHeight)
-	: FSlateTextureAtlas(InWidth, InHeight, sizeof(FColor), ESlateTextureAtlasPaddingStyle::NoPadding)
-	{
-		//@TODO: check(StrideBytes >= 4*Width);
-	}
-
-	virtual void ConditionalUpdateTexture() override {}
-
-	void CopyToTexture(UTexture2D* Texture)
-	{
-		const int32 NumMips = 1;
-
-		Texture->Source.Init(AtlasWidth, AtlasHeight, /*NumSlices=*/ 1, NumMips, ETextureSourceFormat::TSF_BGRA8, AtlasData.GetData());
-		Texture->UpdateResource();
-	}
-
-	const FAtlasedTextureSlot* AddSprite(UPaperSprite* Sprite)
-	{
-		const FVector2D SpriteSizeFloat = Sprite->GetSourceSize();
-		const FIntPoint SpriteSize(FMath::TruncToInt(SpriteSizeFloat.X), FMath::TruncToInt(SpriteSizeFloat.Y));
-
-		TArray<uint8> DummyBuffer;
-		DummyBuffer.AddZeroed(SpriteSize.X * SpriteSize.Y * BytesPerPixel);
-		
-		check(Sprite->GetSourceTexture());
-		FTextureSource& SourceData = Sprite->GetSourceTexture()->Source;
-
-		//@TODO: Handle different texture formats!
-		if (SourceData.GetFormat() == TSF_BGRA8)
-		{
-			uint32 BytesPerPixel = SourceData.GetBytesPerPixel();
-			uint8* OffsetSource = SourceData.LockMip(0) + (FMath::TruncToInt(Sprite->GetSourceUV().X) + FMath::TruncToInt(Sprite->GetSourceUV().Y) * SourceData.GetSizeX()) * BytesPerPixel;
-			uint8* OffsetDest = DummyBuffer.GetData();
-
-			CopyTextureData(OffsetSource, OffsetDest, SpriteSize.X, SpriteSize.Y, BytesPerPixel, SourceData.GetSizeX() * BytesPerPixel, SpriteSize.X * BytesPerPixel);
-
-			SourceData.UnlockMip(0);
-		}
-		else
-		{
-			UE_LOG(LogPaper2DEditor, Error, TEXT("Sprite %s is not BGRA8, which isn't supported in atlases yet"), *(Sprite->GetPathName()));
-		}
-
-		const FAtlasedTextureSlot* Slot = AddTexture(SpriteSize.X, SpriteSize.Y, DummyBuffer);
-		if (Slot != nullptr)
-		{
-			SpriteToSlotMap.Add(Sprite, Slot);
-		}
-
-		return Slot;
-	}
-
-public:
-	TMap<UPaperSprite*, const FAtlasedTextureSlot*> SpriteToSlotMap;
-};
+#include "PaperAtlasTextureHelpers.h"
+#include "PaperAtlasHelpers.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperAtlasGenerator
 
 void FPaperAtlasGenerator::HandleAssetChangedEvent(UPaperSpriteAtlas* Atlas)
 {
-	Atlas->MaxWidth = FMath::Clamp(Atlas->MaxWidth, 16, 4096);
-	Atlas->MaxHeight = FMath::Clamp(Atlas->MaxHeight, 16, 4096);
+	const int32 MaxAtlasDimension = 4096;
+	static_assert(MaxAtlasDimension < 16384, "PaperAtlasGenerator MaxAtlasDimension exceeds multiplier in sort key");
+	Atlas->MaxWidth = FMath::Clamp(Atlas->MaxWidth, 16, MaxAtlasDimension);
+	Atlas->MaxHeight = FMath::Clamp(Atlas->MaxHeight, 16, MaxAtlasDimension);
+	Atlas->MipCount = FPaperAtlasTextureHelpers::ClampMips(Atlas->MaxWidth, Atlas->MaxHeight, Atlas->MipCount);
 
-	// Find all sprites that reference the atlas and force them loaded
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	bool bTestForAtlasImprovement = true;
 
-	TArray<FAssetData> AssetList;
-	TMultiMap<FName, FString> TagsAndValues;
-	TagsAndValues.Add(TEXT("AtlasGroupGUID"), Atlas->AtlasGUID.ToString(EGuidFormats::Digits));
-	AssetRegistryModule.Get().GetAssetsByTagValues(TagsAndValues, AssetList);
-
-	TIndirectArray<FSingleTexturePaperAtlas> AtlasGenerators;
-
-	// Start off with one page
-	new (AtlasGenerators) FSingleTexturePaperAtlas(Atlas->MaxWidth, Atlas->MaxHeight);
-
-	for (const FAssetData& SpriteRef : AssetList)
+	// Have the atlas settings changed? This will trigger a full rebuild
+	bool bAtlasDimensionsChanged = Atlas->MaxWidth != Atlas->BuiltWidth || Atlas->MaxHeight != Atlas->BuiltHeight;
+	if (bAtlasDimensionsChanged || Atlas->Padding != Atlas->BuiltPadding)
 	{
-		if (UPaperSprite* Sprite = Cast<UPaperSprite>(SpriteRef.GetAsset()))
+		Atlas->bRebuildAtlas = true;
+	}
+
+	// Save the settings this atlas is being built with
+	Atlas->BuiltWidth = Atlas->MaxWidth;
+	Atlas->BuiltHeight = Atlas->MaxHeight;
+	Atlas->BuiltPadding = Atlas->Padding;
+
+	// Force rebuild an atlas by deleting history
+	if (Atlas->bRebuildAtlas)
+	{
+		Atlas->AtlasSlots.Empty();
+		Atlas->NumIncrementalBuilds = 0;
+		Atlas->bRebuildAtlas = false;
+	}
+	else
+	{
+		// Keep track of incremental builds
+		Atlas->NumIncrementalBuilds++;
+	}
+
+	// Load all sprites that were used in building this atlas
+	TArray<UPaperSprite*> SpritesInPreviousAtlas;
+	LoadAllReferencedSprites(Atlas, SpritesInPreviousAtlas);
+
+	// Load all sprites that currently reference this atlas
+	TArray<UPaperSprite*> SpritesInNewAtlas;
+	LoadAllSpritesWithAtlasGroupGUID(Atlas, SpritesInNewAtlas);
+
+	// Find sprites removed from this atlas, but not null (i.e. deliberately removed from the atlas)
+	bool bWasTextureRemoved = false;
+	for (UPaperSprite* OriginalSprite : SpritesInPreviousAtlas)
+	{
+		if (!SpritesInNewAtlas.Contains(OriginalSprite))
 		{
-			//@TODO: Use the tight bounds instead of the source bounds
-			const FVector2D SpriteSizeFloat = Sprite->GetSourceSize();
+			RemoveTextureSlotWithSprite(Atlas, OriginalSprite);
+			bWasTextureRemoved = true;
+		}
+	}
+	if (bWasTextureRemoved)
+	{
+		MergeAdjacentRects(Atlas);
+	}
+
+	// Sort new sprites by size
+	struct Local
+	{
+		static int32 SpriteSortValue(const UPaperSprite& Sprite)
+		{
+			const FVector2D SpriteSizeFloat = Sprite.GetSourceSize();
 			const FIntPoint SpriteSize(FMath::TruncToInt(SpriteSizeFloat.X), FMath::TruncToInt(SpriteSizeFloat.Y));
+			return SpriteSize.X * 16384 + SpriteSize.Y; // Sort wider textures first
+		}
+	};
+	SpritesInNewAtlas.Sort( [](UPaperSprite& A, UPaperSprite& B) { return Local::SpriteSortValue(A) > Local::SpriteSortValue(B); } );
 
-			if (Sprite->GetSourceTexture() == nullptr)
+	// Add new sprites
+	TArray<FPaperSpriteAtlasSlot> ImprovementTestAtlas; // A second atlas to compare wastage
+	for (UPaperSprite* Sprite : SpritesInNewAtlas)
+	{
+		const FVector2D SpriteSizeFloat = Sprite->GetSourceSize();
+		const FIntPoint SpriteSize(FMath::TruncToInt(SpriteSizeFloat.X), FMath::TruncToInt(SpriteSizeFloat.Y));
+		const FIntPoint PaddedSpriteSize(SpriteSize.X + Atlas->Padding * 2, SpriteSize.Y + Atlas->Padding * 2);
+
+		if (Sprite->GetSourceTexture() == nullptr)
+		{
+			UE_LOG(LogPaper2DEditor, Error, TEXT("Sprite %s has no source texture and cannot be packed"), *(Sprite->GetPathName()));
+			continue;
+		}
+
+		//TODO: Padding should only be considered by the slot finder to allow atlasing
+		// textures flush to the edge
+		if ((PaddedSpriteSize.X > Atlas->MaxWidth) || (PaddedSpriteSize.Y > Atlas->MaxHeight))
+		{
+			// This sprite cannot ever fit into an atlas page
+			UE_LOG(LogPaper2DEditor, Error, TEXT("Sprite %s (%d x %d) can never fit into atlas %s (%d x %d) due to maximum page size restrictions"),
+				*(Sprite->GetPathName()),
+				SpriteSize.X,
+				SpriteSize.Y,
+				*(Atlas->GetPathName()),
+				Atlas->MaxWidth,
+				Atlas->MaxHeight);
+			continue;
+		}
+
+		bool bSpriteChanged = false;
+		FindBestSlotForTexture(Atlas->AtlasSlots, Atlas->MaxWidth, Atlas->MaxHeight, Sprite, PaddedSpriteSize.X, PaddedSpriteSize.Y, bSpriteChanged);
+		if (bSpriteChanged)
+		{
+			//TODO: keep track of sprite moving about in the atlas?
+		}
+
+		if (bTestForAtlasImprovement)
+		{
+			// Pack into a second test atlas in parallel
+			bool bUnused = false;
+			FindBestSlotForTexture(ImprovementTestAtlas, Atlas->MaxWidth, Atlas->MaxHeight, Sprite, PaddedSpriteSize.X, PaddedSpriteSize.Y, bSpriteChanged);
+		}
+	}
+
+	// Test for improvement if necessary
+	// An "improvement" is defined as less atlases overall, but could be extended to check for atlas area once we support resizing atlases
+	if (bTestForAtlasImprovement)
+	{
+		if (NumTexturesUsedInAtlasSlots(ImprovementTestAtlas) < NumTexturesUsedInAtlasSlots(Atlas->AtlasSlots))
+		{
+			const EAppReturnType::Type Choice = FMessageDialog::Open(EAppMsgType::YesNo, NSLOCTEXT("PaperEditor", "AtlasPackingImprovement", "Atlas packing can be improved significantly by repacking the entire atlas. This will require re-saving most or all sprites in this atlas.\nDo you want to do this now?"));
+			if (Choice == EAppReturnType::Yes)
 			{
-				UE_LOG(LogPaper2DEditor, Error, TEXT("Sprite %s has no source texture and cannot be packed"), *(Sprite->GetPathName()));
-				continue;
+				// Likely to mark most sprites dirty
+				Atlas->AtlasSlots = ImprovementTestAtlas;
 			}
+		}
+	}
 
-			//@TODO: Take padding into account (push this into the generator)
-			if ((SpriteSize.X > Atlas->MaxWidth) || (SpriteSize.Y >= Atlas->MaxHeight))
+	// Update atlas textures
+	TArray<UTexture*> RemappedAtlasTextures; // Will only contain valid and used textures after this
+	TArray<bool> RemappedAtlasForceDirty; // If any atlases were missing (due to user deleting bits), all the dependent sprites are considered dirty
+	TArray<int32> AtlasLookupIndex; // To correct mismatched atlas numbers, gaps in arrays, etc
+	for (FPaperSpriteAtlasSlot& Slot : Atlas->AtlasSlots)
+	{
+		// Get the "correct" atlas index
+		while (!AtlasLookupIndex.IsValidIndex(Slot.AtlasIndex))
+		{
+			AtlasLookupIndex.Add(-1); // add an uninitialized lookup entry
+			RemappedAtlasForceDirty.Add(false);
+		}
+
+		if (AtlasLookupIndex[Slot.AtlasIndex] == -1)
+		{
+			AtlasLookupIndex[Slot.AtlasIndex] = RemappedAtlasTextures.Num();
+			if (Atlas->GeneratedTextures.IsValidIndex(Slot.AtlasIndex) && Atlas->GeneratedTextures[Slot.AtlasIndex] != nullptr)
 			{
-				// This sprite cannot ever fit into an atlas page
-				UE_LOG(LogPaper2DEditor, Error, TEXT("Sprite %s (%d x %d) can never fit into atlas %s (%d x %d) due to maximum page size restrictions"),
-					*(Sprite->GetPathName()),
-					SpriteSize.X,
-					SpriteSize.Y,
-					*(Atlas->GetPathName()),
-					Atlas->MaxWidth,
-					Atlas->MaxHeight);
+				RemappedAtlasTextures.Add(Atlas->GeneratedTextures[Slot.AtlasIndex]);
+				RemappedAtlasForceDirty.Add(false);
 			}
 			else
 			{
-				const FAtlasedTextureSlot* Slot = nullptr;
+				// The texture never existed - all sprites referencing this MUST be dirty and MUST be updated
+				RemappedAtlasTextures.Add(NewObject<UTexture2D>(Atlas, NAME_None, RF_Public));
+				RemappedAtlasForceDirty.Add(true);
+			}
+		}
 
-				// Does it fit in any existing pages?
-				for (auto& Generator : AtlasGenerators)
-				{
-					Slot = Generator.AddSprite(Sprite);
+		// Now atlas index refers to the RemappedAtlasTexures
+		Slot.AtlasIndex = AtlasLookupIndex[Slot.AtlasIndex];
+	}
 
-					if (Slot != nullptr)
-					{
-						break;
-					}
-				}
+	// Now fill the atlases and update sprite data where needed
+	for (int32 AtlasIndex = 0; AtlasIndex < RemappedAtlasTextures.Num(); ++AtlasIndex)
+	{
+		UTexture2D* AtlasTexture = Cast<UTexture2D>(RemappedAtlasTextures[AtlasIndex]);
+		check(AtlasTexture); // this should not be null
 
-				if (Slot == nullptr)
-				{
-					// Doesn't fit in any current pages, make a new one
-					FSingleTexturePaperAtlas* NewGenerator = new (AtlasGenerators) FSingleTexturePaperAtlas(Atlas->MaxWidth, Atlas->MaxHeight);
-					Slot = NewGenerator->AddSprite(Sprite);
-				}
+		// An atlas is ALSO forced dirty if the dimensions have changed
+		// We're just grabbing a fixed atlas size here for now
+		const int32 AtlasWidth = Atlas->MaxWidth;
+		const int32 AtlasHeight = Atlas->MaxHeight;
+		const int32 BytesPerPixel = sizeof(FColor);
 
-				if (Slot != nullptr)
-				{
-					UE_LOG(LogPaper2DEditor, Warning, TEXT("Allocated %s to (%d,%d)"), *(Sprite->GetPathName()), Slot->X, Slot->Y);
-				}
-				else
-				{
-					// ERROR: Didn't fit into a brand new page, maybe padding was wrong
-					UE_LOG(LogPaper2DEditor, Error, TEXT("Failed to allocate %s into a brand new page"), *(Sprite->GetPathName()));
-				}
+		const bool bAtlasDirty = RemappedAtlasForceDirty[AtlasIndex] || (AtlasTexture->GetImportedSize() != FIntPoint(AtlasWidth, AtlasHeight));
+
+		// Propagate texture settings
+		AtlasTexture->CompressionSettings = Atlas->CompressionSettings;
+		AtlasTexture->Filter = Atlas->Filter;
+		AtlasTexture->AddressX = TextureAddress::TA_Clamp;
+		AtlasTexture->AddressY = TextureAddress::TA_Clamp;
+		AtlasTexture->MipGenSettings = TextureMipGenSettings::TMGS_LeaveExistingMips;
+
+		// Allocate enough space for all mips
+		TArray<uint8> AtlasTextureData;
+		int32 CurrentAtlasWidth = AtlasWidth;
+		int32 CurrentAtlasHeight = AtlasHeight;
+		int32 TotalPixels = 0;
+		for (int32 MipIndex = 0; MipIndex < Atlas->MipCount; ++MipIndex)
+		{
+			TotalPixels += CurrentAtlasHeight * CurrentAtlasWidth;
+		}
+		AtlasTextureData.AddZeroed(TotalPixels * BytesPerPixel);
+
+		// Atlas sprites
+		TArray<FPaperSpriteAtlasSlot> SlotsForAtlas;
+		for (FPaperSpriteAtlasSlot& Slot : Atlas->AtlasSlots)
+		{
+			UPaperSprite* SpriteBeingBuilt = Slot.SpriteRef.Get();
+
+			// Only for the sprites in this atlas
+			if (Slot.AtlasIndex == AtlasIndex && SpriteBeingBuilt != nullptr)
+			{
+				SlotsForAtlas.Add(Slot);
+				FPaperAtlasTextureHelpers::CopySpriteToAtlasTextureData(AtlasTextureData, AtlasWidth, AtlasHeight, BytesPerPixel, Atlas->PaddingType, Atlas->Padding, SpriteBeingBuilt, Slot);
+			}
+		}
+
+		// Mipmaps
+		if (Atlas->MipCount > 1)
+		{
+			FPaperAtlasTextureHelpers::GenerateMipChainARGB(SlotsForAtlas, AtlasTextureData, Atlas->MipCount, AtlasWidth, AtlasHeight);
+		}
+
+
+		AtlasTexture->Source.Init(AtlasWidth, AtlasHeight, /*NumSlices=*/ 1, Atlas->MipCount, ETextureSourceFormat::TSF_BGRA8, AtlasTextureData.GetData());
+		AtlasTexture->UpdateResource();
+		AtlasTexture->PostEditChange();
+	}
+
+	// Rebuild sprites that have changed position in the atlas
+	for (FPaperSpriteAtlasSlot& Slot : Atlas->AtlasSlots)
+	{
+		UPaperSprite* SpriteBeingBuilt = Slot.SpriteRef.Get();
+		if (SpriteBeingBuilt)
+		{
+			UTexture2D* BakedSourceTexture = Cast<UTexture2D>(RemappedAtlasTextures[Slot.AtlasIndex]);
+			FVector2D BakedSourceUV = FVector2D(Slot.X + Atlas->Padding, Slot.Y + Atlas->Padding);
+
+			if (SpriteBeingBuilt->BakedSourceTexture != BakedSourceTexture || SpriteBeingBuilt->BakedSourceUV != BakedSourceUV || bAtlasDimensionsChanged)
+			{
+				SpriteBeingBuilt->Modify();
+				SpriteBeingBuilt->BakedSourceTexture = Cast<UTexture2D>(RemappedAtlasTextures[Slot.AtlasIndex]);
+				SpriteBeingBuilt->BakedSourceUV = FVector2D(Slot.X + Atlas->Padding, Slot.Y + Atlas->Padding);
+				SpriteBeingBuilt->RebuildRenderData();
+
+				// Propagate changes to sprites in scene
+				SpriteBeingBuilt->PostEditChange();
 			}
 		}
 	}
 
-	// Turn the generators back into textures
-	Atlas->GeneratedTextures.Empty(AtlasGenerators.Num());
-	for (int32 GeneratorIndex = 0; GeneratorIndex < AtlasGenerators.Num(); ++GeneratorIndex)
-	{
-		FSingleTexturePaperAtlas& AtlasPage = AtlasGenerators[GeneratorIndex];
+	// Finalize changes
+	Atlas->GeneratedTextures = RemappedAtlasTextures;
 
-		UTexture2D* Texture = NewNamedObject<UTexture2D>(Atlas, NAME_None, RF_Public);
-		Atlas->GeneratedTextures.Add(Texture);
-
-		AtlasPage.CopyToTexture(Texture);
-
-		// Now update the baked data for all the sprites to point there
-		for (auto& SpriteToSlot : AtlasPage.SpriteToSlotMap)
-		{
-			UPaperSprite* Sprite = SpriteToSlot.Key;
-			Sprite->Modify();
-			const FAtlasedTextureSlot* Slot = SpriteToSlot.Value;
-			Sprite->BakedSourceTexture = Texture;
-			Sprite->BakedSourceUV = FVector2D(Slot->X, Slot->Y);
-			Sprite->RebuildRenderData();
-		}
-	}
-
-	//@TODO: Adjust the atlas rebuild code so that it tries to preserve existing sprites (optimize for the 'just added one to the end' case, preventing dirtying lots of assets unnecessarily)
-	//@TODO: invoke this code when a sprite has the atlas group property modified
+	// Dirty
+	Atlas->MarkPackageDirty();
 }

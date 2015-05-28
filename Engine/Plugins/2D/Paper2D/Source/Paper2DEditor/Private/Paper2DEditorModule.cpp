@@ -7,33 +7,51 @@
 #include "PropertyEditorModule.h"
 #include "PaperStyle.h"
 #include "PaperEditorCommands.h"
+#include "PaperEditorShared/SpriteGeometryEditMode.h"
 
 #include "AssetEditorToolkit.h"
 #include "ModuleManager.h"
 #include "ContentBrowserExtensions/ContentBrowserExtensions.h"
+#include "LevelEditorMenuExtensions/Paper2DLevelEditorExtensions.h"
+#include "PaperImporterSettings.h"
 
 // Sprite support
 #include "SpriteAssetTypeActions.h"
 #include "PaperSpriteAssetBroker.h"
+#include "PaperSpriteThumbnailRenderer.h"
 #include "SpriteEditor/SpriteDetailsCustomization.h"
+#include "SpriteEditor/SpriteComponentDetailsCustomization.h"
 #include "SpriteEditor/SpritePolygonCollectionCustomization.h"
+#include "SpriteEditor/SpriteEditorSettings.h"
 
 // Flipbook support
 #include "FlipbookAssetTypeActions.h"
 #include "PaperFlipbookAssetBroker.h"
+#include "PaperFlipbookThumbnailRenderer.h"
+#include "FlipbookEditor/FlipbookComponentDetailsCustomization.h"
+#include "FlipbookEditor/FlipbookEditorSettings.h"
 
 // Tile set support
 #include "TileSetAssetTypeActions.h"
+#include "PaperTileSetThumbnailRenderer.h"
+#include "TileSetEditor/TileSetEditorSettings.h"
+#include "TileSetEditor/TileSetDetailsCustomization.h"
 
 // Tile map support
 #include "TileMapEditing/TileMapAssetTypeActions.h"
 #include "TileMapEditing/PaperTileMapAssetBroker.h"
 #include "TileMapEditing/EdModeTileMap.h"
 #include "TileMapEditing/PaperTileMapDetailsCustomization.h"
+#include "TileMapEditing/TileMapEditorSettings.h"
 
 // Atlas support
 #include "Atlasing/AtlasAssetTypeActions.h"
 #include "Atlasing/PaperAtlasGenerator.h"
+#include "PaperSpriteAtlas.h"
+
+// Grouped sprite support
+#include "PaperGroupedSpriteComponent.h"
+#include "GroupedSprites/GroupedSpriteDetailsCustomization.h"
 
 // Settings
 #include "PaperRuntimeSettings.h"
@@ -41,6 +59,9 @@
 
 // Intro tutorials
 #include "Editor/IntroTutorials/Public/IIntroTutorials.h"
+
+// Mesh paint adapters
+#include "MeshPainting/MeshPaintSpriteAdapter.h"
 
 DEFINE_LOG_CATEGORY(LogPaper2DEditor);
 
@@ -52,12 +73,18 @@ DEFINE_LOG_CATEGORY(LogPaper2DEditor);
 class FPaper2DEditor : public IPaper2DEditorModule
 {
 public:
+	FPaper2DEditor()
+		: Paper2DAssetCategoryBit(EAssetTypeCategories::Misc)
+	{
+	}
+
 	// IPaper2DEditorModule interface
 	virtual TSharedPtr<FExtensibilityManager> GetSpriteEditorMenuExtensibilityManager() override { return SpriteEditor_MenuExtensibilityManager; }
 	virtual TSharedPtr<FExtensibilityManager> GetSpriteEditorToolBarExtensibilityManager() override { return SpriteEditor_ToolBarExtensibilityManager; }
 
 	virtual TSharedPtr<FExtensibilityManager> GetFlipbookEditorMenuExtensibilityManager() override { return FlipbookEditor_MenuExtensibilityManager; }
 	virtual TSharedPtr<FExtensibilityManager> GetFlipbookEditorToolBarExtensibilityManager() override { return FlipbookEditor_ToolBarExtensibilityManager; }
+	virtual uint32 GetPaper2DAssetCategory() const override { return Paper2DAssetCategoryBit; }
 	// End of IPaper2DEditorModule
 
 private:
@@ -74,8 +101,11 @@ private:
 	TSharedPtr<IComponentAssetBroker> PaperFlipbookBroker;
 	TSharedPtr<IComponentAssetBroker> PaperTileMapBroker;
 
-	FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate OnPropertyChangedHandle;
-	FDelegateHandle OnPropertyChangedHandleDelegateHandle;
+	TSharedPtr<IMeshPaintGeometryAdapterFactory> SpriteMeshPaintAdapterFactory;
+	FDelegateHandle OnPropertyChangedDelegateHandle;
+	FDelegateHandle OnAssetReimportDelegateHandle;
+
+	EAssetTypeCategories::Type Paper2DAssetCategoryBit;
 
 public:
 	virtual void StartupModule() override
@@ -94,11 +124,14 @@ public:
 
 		// Register asset types
 		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
-		RegisterAssetTypeAction(AssetTools, MakeShareable(new FSpriteAssetTypeActions));
-		RegisterAssetTypeAction(AssetTools, MakeShareable(new FFlipbookAssetTypeActions));
-		RegisterAssetTypeAction(AssetTools, MakeShareable(new FTileSetAssetTypeActions));
-		RegisterAssetTypeAction(AssetTools, MakeShareable(new FTileMapAssetTypeActions));
-		RegisterAssetTypeAction(AssetTools, MakeShareable(new FAtlasAssetTypeActions));
+
+		Paper2DAssetCategoryBit = AssetTools.RegisterAdvancedAssetCategory(FName(TEXT("Paper2D")), LOCTEXT("Paper2DAssetCategory", "Paper2D"));
+
+		RegisterAssetTypeAction(AssetTools, MakeShareable(new FSpriteAssetTypeActions(Paper2DAssetCategoryBit)));
+		RegisterAssetTypeAction(AssetTools, MakeShareable(new FFlipbookAssetTypeActions(Paper2DAssetCategoryBit)));
+		RegisterAssetTypeAction(AssetTools, MakeShareable(new FTileSetAssetTypeActions(Paper2DAssetCategoryBit)));
+		RegisterAssetTypeAction(AssetTools, MakeShareable(new FTileMapAssetTypeActions(Paper2DAssetCategoryBit)));
+		RegisterAssetTypeAction(AssetTools, MakeShareable(new FAtlasAssetTypeActions(Paper2DAssetCategoryBit)));
 
 		PaperSpriteBroker = MakeShareable(new FPaperSpriteAssetBroker);
 		FComponentAssetBrokerage::RegisterBroker(PaperSpriteBroker, UPaperSpriteComponent::StaticClass(), true, true);
@@ -114,7 +147,11 @@ public:
 			FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 			PropertyModule.RegisterCustomClassLayout(UPaperTileMapComponent::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FPaperTileMapDetailsCustomization::MakeInstance));
 			PropertyModule.RegisterCustomClassLayout(UPaperTileMap::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FPaperTileMapDetailsCustomization::MakeInstance));
+			PropertyModule.RegisterCustomClassLayout(UPaperTileSet::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FTileSetDetailsCustomization::MakeInstance));
 			PropertyModule.RegisterCustomClassLayout(UPaperSprite::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FSpriteDetailsCustomization::MakeInstance));
+			PropertyModule.RegisterCustomClassLayout(UPaperSpriteComponent::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FSpriteComponentDetailsCustomization::MakeInstance));
+			PropertyModule.RegisterCustomClassLayout(UPaperFlipbookComponent::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FFlipbookComponentDetailsCustomization::MakeInstance));
+			PropertyModule.RegisterCustomClassLayout(UPaperGroupedSpriteComponent::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FGroupedSpriteComponentDetailsCustomization::MakeInstance));
 
 			//@TODO: Struct registration should happen using ::StaticStruct, not by string!!!
 			//PropertyModule.RegisterCustomPropertyTypeLayout( "SpritePolygonCollection", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FSpritePolygonCollectionCustomization::MakeInstance ) );
@@ -123,8 +160,10 @@ public:
 		}
 
 		// Register to be notified when properties are edited
-		OnPropertyChangedHandle = FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate::CreateRaw(this, &FPaper2DEditor::OnPropertyChanged);
-		OnPropertyChangedHandleDelegateHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.Add(OnPropertyChangedHandle);
+		OnPropertyChangedDelegateHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FPaper2DEditor::OnPropertyChanged);
+
+		// Register to be notified when an asset is reimported
+		OnAssetReimportDelegateHandle = FEditorDelegates::OnAssetReimport.AddRaw(this, &FPaper2DEditor::OnObjectReimported);
 
 		// Register the thumbnail renderers
 		UThumbnailManager::Get().RegisterCustomRenderer(UPaperSprite::StaticClass(), UPaperSpriteThumbnailRenderer::StaticClass());
@@ -139,9 +178,26 @@ public:
 			FSlateIcon(),
 			false);
 
-		// Integrate Paper2D actions associated with existing engine types (e.g., Texture2D) into the content browser
-		FPaperContentBrowserExtensions::InstallHooks();
+		FEditorModeRegistry::Get().RegisterMode<FSpriteGeometryEditMode>(
+			FSpriteGeometryEditMode::EM_SpriteGeometry,
+			LOCTEXT("SpriteGeometryEditMode", "Sprite Geometry Editor"),
+			FSlateIcon(),
+			false);
 
+		// Integrate Paper2D actions into existing editor context menus
+		if (!IsRunningCommandlet())
+		{
+			FPaperContentBrowserExtensions::InstallHooks();
+			FPaperLevelEditorMenuExtensions::InstallHooks();
+		}
+		// Register with the mesh paint module
+		if (IMeshPaintModule* MeshPaintModule = FModuleManager::LoadModulePtr<IMeshPaintModule>("MeshPaint"))
+		{
+			SpriteMeshPaintAdapterFactory = MakeShareable(new FMeshPaintSpriteAdapterFactory());
+			MeshPaintModule->RegisterGeometryAdapterFactory(SpriteMeshPaintAdapterFactory.ToSharedRef());
+		}
+
+		//
 		RegisterSettings();
 	}
 
@@ -157,6 +213,14 @@ public:
 		{
 			UnregisterSettings();
 
+			// Unregister from the mesh paint module
+			if (IMeshPaintModule* MeshPaintModule = FModuleManager::GetModulePtr<IMeshPaintModule>("MeshPaint"))
+			{
+				MeshPaintModule->UnregisterGeometryAdapterFactory(SpriteMeshPaintAdapterFactory.ToSharedRef());
+				SpriteMeshPaintAdapterFactory.Reset();
+			}
+
+			FPaperLevelEditorMenuExtensions::RemoveHooks();
 			FPaperContentBrowserExtensions::RemoveHooks();
 
 			FComponentAssetBrokerage::UnregisterBroker(PaperTileMapBroker);
@@ -164,6 +228,7 @@ public:
 			FComponentAssetBrokerage::UnregisterBroker(PaperSpriteBroker);
 
 			// Unregister the editor modes
+			FEditorModeRegistry::Get().UnregisterMode(FSpriteGeometryEditMode::EM_SpriteGeometry);
 			FEditorModeRegistry::Get().UnregisterMode(FEdModeTileMap::EM_TileMap);
 
 			// Unregister the thumbnail renderers
@@ -173,7 +238,10 @@ public:
 			UThumbnailManager::Get().UnregisterCustomRenderer(UPaperFlipbook::StaticClass());
 
 			// Unregister the property modification handler
-			FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandleDelegateHandle);
+			FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedDelegateHandle);
+
+			// Unregister the asset reimport handler
+			FEditorDelegates::OnAssetReimport.Remove(OnAssetReimportDelegateHandle);
 		}
 
 		// Unregister the details customization
@@ -216,6 +284,17 @@ private:
 		}
 	}
 
+	void OnObjectReimported(UObject* InObject)
+	{
+		if (UTexture2D* Texture = Cast<UTexture2D>(InObject))
+		{
+			for (TObjectIterator<UPaperSprite> SpriteIt; SpriteIt; ++SpriteIt)
+			{
+				SpriteIt->OnObjectReimported(Texture);
+			}
+		}
+	}
+
 	void RegisterSettings()
 	{
 		if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
@@ -223,8 +302,32 @@ private:
 			SettingsModule->RegisterSettings("Project", "Plugins", "Paper2D",
 				LOCTEXT("RuntimeSettingsName", "Paper 2D"),
 				LOCTEXT("RuntimeSettingsDescription", "Configure the Paper 2D plugin"),
-				GetMutableDefault<UPaperRuntimeSettings>()
-			);
+				GetMutableDefault<UPaperRuntimeSettings>());
+
+			SettingsModule->RegisterSettings("Editor", "ContentEditors", "SpriteEditor",
+				LOCTEXT("SpriteEditorSettingsName", "Sprite Editor"),
+				LOCTEXT("SpriteEditorSettingsDescription", "Configure the look and feel of the Sprite Editor."),
+				GetMutableDefault<USpriteEditorSettings>());
+
+			SettingsModule->RegisterSettings("Editor", "ContentEditors", "FlipbookEditor",
+				LOCTEXT("FlipbookEditorSettingsName", "Flipbook Editor"),
+				LOCTEXT("FlipbookEditorSettingsDescription", "Configure the look and feel of the Flipbook Editor."),
+				GetMutableDefault<UFlipbookEditorSettings>());
+
+			SettingsModule->RegisterSettings("Editor", "ContentEditors", "TileMapEditor",
+				LOCTEXT("TileMapEditorSettingsName", "Tile Map Editor"),
+				LOCTEXT("TileMapEditorSettingsDescription", "Configure the look and feel of the Tile Map Editor."),
+				GetMutableDefault<UTileMapEditorSettings>());
+
+			SettingsModule->RegisterSettings("Editor", "ContentEditors", "TileSetEditor",
+				LOCTEXT("TileSetEditorSettingsName", "Tile Set Editor"),
+				LOCTEXT("TileSetEditorSettingsDescription", "Configure the look and feel of the Tile Set Editor."),
+				GetMutableDefault<UTileSetEditorSettings>());
+
+			SettingsModule->RegisterSettings("Project", "Editor", "Paper2DImport",
+				LOCTEXT("PaperImporterSettingsName", "Paper2D - Import"),
+				LOCTEXT("PaperImporterSettingsDescription", "Configure how assets get imported or converted to sprites."),
+				GetMutableDefault<UPaperImporterSettings>());
 		}
 	}
 
@@ -232,6 +335,11 @@ private:
 	{
 		if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
 		{
+			SettingsModule->UnregisterSettings("Project", "Editor", "Paper2DImport");
+			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "TileSetEditor");
+			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "TileMapEditor");
+			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "FlipbookEditor");
+			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "SpriteEditor");
 			SettingsModule->UnregisterSettings("Project", "Plugins", "Paper2D");
 		}
 	}

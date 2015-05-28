@@ -10,7 +10,7 @@
 * and handed back to the effect renderer on load.
 */
 UCLASS()
-class UNiagaraEffectRendererProperties : public UObject
+class ENGINE_API UNiagaraEffectRendererProperties : public UObject
 {
 	GENERATED_UCLASS_BODY()
 	UNiagaraEffectRendererProperties()

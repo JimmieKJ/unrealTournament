@@ -10,6 +10,11 @@ public class BootstrapPackagedGameTarget : TargetRules
 		Type = TargetType.Program;
 
 		bUseStaticCRT = true;
+
+		if (Target.Platform == UnrealTargetPlatform.Win32)
+		{
+			PreferredSubPlatform = "WindowsXP";
+		}
 	}
 
 	//
@@ -49,17 +54,13 @@ public class BootstrapPackagedGameTarget : TargetRules
 		UEBuildConfiguration.bBuildWithEditorOnlyData = false;
 		UEBuildConfiguration.bCompileAgainstEngine = false;
 		UEBuildConfiguration.bCompileAgainstCoreUObject = false;
-
-		if (Target.Platform == UnrealTargetPlatform.Win32)
-		{
-			WindowsPlatform.SupportWindowsXPIfAvailable = true;
-		}
 	}
 	
-    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, bool bBuildingRocket, out bool bInternalToolOnly, out bool SeparateNode)
+    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
 	{
 		bInternalToolOnly = false;
 		SeparateNode = false;
+		CrossCompile = false;
 		return (InHostPlatform == UnrealTargetPlatform.Win64);
 	}
 

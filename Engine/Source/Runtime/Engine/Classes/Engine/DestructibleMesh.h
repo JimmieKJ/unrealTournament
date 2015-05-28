@@ -2,10 +2,9 @@
 
 #pragma once
 
-/** This class holds an APEX destructible asset as well as an associated USkeletalMesh */
-
 #include "Engine/SkeletalMesh.h"
 #include "DestructibleMesh.generated.h"
+
 
 #if WITH_APEX
 namespace NxParameterized
@@ -22,6 +21,7 @@ namespace physx
 }
 #endif
 
+
 /**
 	Chunks up to the depth DefaultImpactDamageDepth will take impact damage, unless IDO_On or IDO_Off is chosen.
 */
@@ -33,6 +33,7 @@ enum EImpactDamageOverride
 	IDO_Off,
 	IDO_MAX,
 };
+
 
 /** Properties that may be set for all chunks at a particular depth in the fracture hierarchy. */
 USTRUCT()
@@ -55,6 +56,7 @@ struct FDestructibleDepthParameters
 #endif
 
 };
+
 
 /** Flags that apply to a destructible actor. */
 USTRUCT()
@@ -152,8 +154,7 @@ struct FDestructibleParametersFlag
 		, bAccurateRaycasts(false)
 		, bUseValidBounds(false)
 		, bFormExtendedStructures(false)
-	{
-	}
+	{ }
 
 #if WITH_APEX
 	void FillDestructibleActorDesc(NxParameterized::Interface* Params) const;
@@ -161,6 +162,7 @@ struct FDestructibleParametersFlag
 #endif
 
 };
+
 
 /** Parameters that pertain to chunk damage. */
 USTRUCT()
@@ -186,7 +188,7 @@ struct FDestructibleDamageParameters
 	bool bEnableImpactDamage;
 
 	/**
-		Controls how much damage is applied upon collision. Damage = ImpactDamage * ImpactForce. The default value is zero, which means impact damage is disabled.
+		Controls how much damage is applied upon collision. Damage = ImpactDamage * ImpactForce.
 		@see DepthParameters for per level control of ImpactDamage
 	*/
 	UPROPERTY(EditAnywhere, Category=DestructibleDamageParameters, meta = (editcondition = "bEnableImpactDamage") )
@@ -215,16 +217,14 @@ struct FDestructibleDamageParameters
 
 
 	FDestructibleDamageParameters()
-	: DamageThreshold(1.0f)
-	, DamageSpread(0.1f)
-	, bEnableImpactDamage(false)
-	, ImpactDamage(0.0f)
-	, DefaultImpactDamageDepth(-1)
-	, bCustomImpactResistance(false)
-	, ImpactResistance(0.0f)
-	
-	{
-	}
+		: DamageThreshold(1.0f)
+		, DamageSpread(0.1f)
+		, bEnableImpactDamage(false)
+		, ImpactDamage(0.1f)
+		, DefaultImpactDamageDepth(0.f)
+		, bCustomImpactResistance(false)
+		, ImpactResistance(1.f)
+	{ }
 
 #if WITH_APEX
 	void FillDestructibleActorDesc(NxParameterized::Interface* Params, UPhysicalMaterial* PhysMat) const;
@@ -232,6 +232,7 @@ struct FDestructibleDamageParameters
 #endif
 	
 };
+
 
 /** Parameters that pertain to chunk debris-level settings. */
 USTRUCT()
@@ -293,6 +294,7 @@ struct FDestructibleDebrisParameters
 	
 };
 
+
 /** Parameters that are less-often used. */
 USTRUCT()
 struct FDestructibleAdvancedParameters
@@ -345,6 +347,7 @@ struct FDestructibleAdvancedParameters
 
 };
 
+
 /** Special hierarchy depths for various behaviors. */
 USTRUCT()
 struct FDestructibleSpecialHierarchyDepths
@@ -388,22 +391,23 @@ struct FDestructibleSpecialHierarchyDepths
 	UPROPERTY(EditAnywhere, Category=DestructibleSpecialHierarchyDepths, meta=(DisplayName = "Essential LOD Depth"))
 	int32 EssentialDepth;
 
-
-
+	/**
+	 * Default constructor.
+	 */
 	FDestructibleSpecialHierarchyDepths()
-	: SupportDepth(0)
-	, MinimumFractureDepth(0)
-	, bEnableDebris(false)
-	, DebrisDepth(-1)
-	, EssentialDepth(0)
-	{
-	}
+		: SupportDepth(0)
+		, MinimumFractureDepth(0)
+		, bEnableDebris(false)
+		, DebrisDepth(-1)
+		, EssentialDepth(0)
+	{ }
 	
 #if WITH_APEX
 	void FillDestructibleActorDesc(NxParameterized::Interface* Params) const;
 	void LoadDefaultDestructibleParametersFromApexAsset(const NxParameterized::Interface* Params);
 #endif
 };
+
 
 /** Parameters that apply to a destructible actor. */
 USTRUCT()
@@ -440,8 +444,13 @@ struct FDestructibleParameters
 	struct FDestructibleParametersFlag Flags;
 };
 
+
+/**
+ * Holds an APEX destructible asset as well as an associated USkeletalMesh.
+ */
 UCLASS(hidecategories=(Object, Mesh, LevelOfDetail, Mirroring, Physics, Reimport, Clothing), MinimalAPI)
-class UDestructibleMesh : public USkeletalMesh
+class UDestructibleMesh
+	: public USkeletalMesh
 {
 	GENERATED_UCLASS_BODY()
 
@@ -458,7 +467,7 @@ class UDestructibleMesh : public USkeletalMesh
 	UPROPERTY(instanced)
 	class UDestructibleFractureSettings* FractureSettings;
 	
-	/** Static mesh this destructible mesh is created from. Is NULL if not created from a static mesh */
+	/** Static mesh this destructible mesh is created from. Is nullptr if not created from a static mesh */
 	UPROPERTY()
 	UStaticMesh* SourceStaticMesh;
 	
@@ -478,15 +487,19 @@ public:
 	physx::apex::NxDestructibleAsset* ApexDestructibleAsset;
 #endif // WITH_APEX
 
-	// Begin UObject interface.
-	virtual void				PostLoad() override;
-	virtual void				Serialize(FArchive& Ar) override;
-	virtual void				FinishDestroy() override;
-#if WITH_EDITOR
-	virtual void				PreEditChange(UProperty* PropertyAboutToChange) override;
-#endif
-	// End UObject interface.
+public:
 
+	// UObject interface.
+
+	virtual void PostLoad() override;
+	virtual void Serialize(FArchive& Ar) override;
+	virtual void FinishDestroy() override;
+#if WITH_EDITOR
+	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
+#endif
+
+public:
+		
 #if WITH_APEX
 	/** 
 	 * Retrieve a default actor descriptor.
@@ -506,40 +519,35 @@ public:
 #endif // WITH_APEX
 
 	/** Fills DefaultDestructibleParameters with parameters from the NxDestructibleAsset. */
-	ENGINE_API void				LoadDefaultDestructibleParametersFromApexAsset();
+	ENGINE_API void LoadDefaultDestructibleParametersFromApexAsset();
 
 	/**
-	 * Create DestructibleFractureSettings for this DestructibleMesh if it doesn't have one
+	 * Create DestructibleFractureSettings for this DestructibleMesh if it doesn't have one.
 	 */
-	ENGINE_API void				CreateFractureSettings();
+	ENGINE_API void CreateFractureSettings();
 
 	/**
 	 * Imports FractureSettings data from a StaticMesh
 	 *
-	 * @param StaticMesh - the StaticMesh to import
-	 *
-	 * @return True if successful
+	 * @param StaticMesh The StaticMesh to import
+	 * @return true on success, false otherwise.
 	 */
-	ENGINE_API bool				BuildFractureSettingsFromStaticMesh(UStaticMesh* StaticMesh);
+	ENGINE_API bool BuildFractureSettingsFromStaticMesh(UStaticMesh* StaticMesh);
 
 	/** 
 	 * Initializes this DestructibleMesh from a StaticMesh.
 	 *
-	 * @param StaticMesh - the StaticMesh to import
-	 *
-	 * @return True if successful.
-	 **/
-	ENGINE_API bool				BuildFromStaticMesh(UStaticMesh& StaticMesh);
+	 * @param StaticMesh The StaticMesh to import
+	 * @return true on success, false otherwise.
+	 */
+	ENGINE_API bool BuildFromStaticMesh(UStaticMesh& StaticMesh);
 
 	/** 
 	 * Initialized this DestructibleMesh from the StaticMesh it was created from and the passed
 	 * in ChunkMeshes to build the level 1 chunks from.
 	 *
-	 * @param ChunkMeshes		Meshes to build the level1 chunks from
-	 * @return					True if successful 
-	 **/
-	ENGINE_API bool				SetupChunksFromStaticMeshes(const TArray<UStaticMesh*>& ChunkMeshes);
+	 * @param ChunkMeshes Meshes to build the level1 chunks from
+	 * @return true on success, false otherwise.
+	 */
+	ENGINE_API bool SetupChunksFromStaticMeshes(const TArray<UStaticMesh*>& ChunkMeshes);
 };
-
-
-

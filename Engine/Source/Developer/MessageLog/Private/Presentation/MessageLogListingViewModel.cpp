@@ -286,7 +286,10 @@ void FMessageLogListingViewModel::NotifyIfAnyMessages( const FText& Message, EMe
 	// Note we use page 0 in this function, as that is the page that will
 	// have most recently had messages added to it.
 
-	if ( bForce || NumMessagesPresent(0, SeverityFilter) > 0 )
+	// SeverityFilter represents only logging items Higher severity than it.
+	EMessageSeverity::Type HigherSeverity = ( EMessageSeverity::Type )( FMath::Max(SeverityFilter - 1, 0) );
+
+	if ( bForce || NumMessagesPresent(0, HigherSeverity) > 0 )
 	{
 		FText NotificationMessage;
 		if(Message.IsEmpty())

@@ -7,14 +7,16 @@
 
 #define LOCTEXT_NAMESPACE "TranslationPicker"
 
+// Default dimensions of the Translation Picker edit window (floating window also uses these sizes, so it matches roughly)
+const int32 STranslationPickerEditWindow::DefaultEditWindowWidth = 500;
+const int32 STranslationPickerEditWindow::DefaultEditWindowHeight = 500;
+
 void STranslationPickerEditWindow::Construct(const FArguments& InArgs)
 {
 	ParentWindow = InArgs._ParentWindow;
 	PickedTexts = InArgs._PickedTexts;
-
 	WindowContents = SNew(SBox);
-
-	auto TextsBox = SNew(SVerticalBox);
+	TSharedRef<SVerticalBox> TextsBox = SNew(SVerticalBox);
 
 	// Add a new Translation Picker Edit Widget for each picked text
 	for (FText PickedText : PickedTexts)
@@ -22,14 +24,20 @@ void STranslationPickerEditWindow::Construct(const FArguments& InArgs)
 		TSharedPtr<SEditableTextBox> TextBox;
 		int32 DefaultPadding = 0.0f;
 
+		TSharedRef<STranslationPickerEditWidget> NewEditWidget = 
+			SNew(STranslationPickerEditWidget)
+			.PickedText(PickedText)
+			.bAllowEditing(true);
+
+		EditWidgets.Add(NewEditWidget);
+
 		TextsBox->AddSlot()
-			.FillHeight(1)
+			.AutoHeight()
 			.Padding(FMargin(5))
 			[
 				SNew(SBorder)
 				[
-					SNew(STranslationPickerEditWidget)
-					.PickedText(PickedText)
+					NewEditWidget
 				]
 			];
 	}
@@ -42,59 +50,70 @@ void STranslationPickerEditWindow::Construct(const FArguments& InArgs)
 		SNew(SBorder)
 		.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 		[
+
 			SNew(SVerticalBox)
 			+ SVerticalBox::Slot()
-			.FillHeight(1)
+			.AutoHeight()
+			.HAlign(HAlign_Center)
+			.Padding(DefaultPadding)
 			[
-				SNew(SBox)
-				.Padding(FMargin(8, 5, 8, 5))
+				// Display name of the current language
+				SNew(STextBlock)
+				.Text(FText::FromString(FInternationalization::Get().GetCurrentCulture()->GetDisplayName()))
+				.Justification(ETextJustify::Center)
+			]
+			+ SVerticalBox::Slot()
+			[
+				SNew(SScrollBox)
+				+ SScrollBox::Slot()
+				.Padding(0.0f)
 				[
 					SNew(SVerticalBox)
 					+ SVerticalBox::Slot()
-					.Padding(DefaultPadding)
 					.AutoHeight()
+					.Padding(FMargin(8, 5, 8, 5))
 					[
 						TextsBox
 					]
-					+ SVerticalBox::Slot()
-					.Padding(DefaultPadding)
-					.AutoHeight()
-					.HAlign(HAlign_Right)
+				]
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign(HAlign_Right)
+			.Padding(DefaultPadding)
+			[
+				SNew(SUniformGridPanel)
+				.SlotPadding(FEditorStyle::GetMargin("StandardDialog.SlotPadding"))
+				.MinDesiredSlotWidth(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotWidth"))
+				.MinDesiredSlotHeight(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotHeight"))
+				+ SUniformGridPanel::Slot(0, 0)
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+					.OnClicked(this, &STranslationPickerEditWindow::SaveAllAndClose)
 					[
-						SNew(SUniformGridPanel)
-						.SlotPadding(FEditorStyle::GetMargin("StandardDialog.SlotPadding"))
-						.MinDesiredSlotWidth(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotWidth"))
-						.MinDesiredSlotHeight(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotHeight"))
-						+ SUniformGridPanel::Slot(0, 0)
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(FMargin(0, 0, 3, 0))
+						.VAlign(VAlign_Center)
+						.AutoWidth()
 						[
-							SNew(SButton)
-							.HAlign(HAlign_Center)
-							.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-							.OnClicked(this, &STranslationPickerEditWindow::Close)
-							[
-								SNew(SHorizontalBox)
-								+ SHorizontalBox::Slot()
-								.Padding(FMargin(0, 0, 3, 0))
-								.VAlign(VAlign_Center)
-								.AutoWidth()
-								[
-									SNew(STextBlock).Text(LOCTEXT("SaveAllAndClose", "Save all and close"))
-								]
-							]
-						]
-						+ SUniformGridPanel::Slot(1, 0)
-						[
-							SNew(SButton)
-							.HAlign(HAlign_Center)
-							.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-							.OnClicked(this, &STranslationPickerEditWindow::Close)
-							.Text(LOCTEXT("CancelButton", "Cancel"))
+							SNew(STextBlock).Text(LOCTEXT("SaveAllAndClose", "Save all and close"))
 						]
 					]
 				]
+				+ SUniformGridPanel::Slot(1, 0)
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Center)
+					.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+					.OnClicked(this, &STranslationPickerEditWindow::Close)
+					.VAlign(VAlign_Center)
+					.Text(LOCTEXT("CancelButton", "Cancel"))
+				]
 			]
 		]
-
 	);
 
 	ChildSlot
@@ -126,14 +145,43 @@ FReply STranslationPickerEditWindow::Close()
 	return FReply::Handled();
 }
 
+FReply STranslationPickerEditWindow::SaveAllAndClose()
+{
+	
+	TArray<UTranslationUnit*> TempArray;
+
+	for (TSharedRef<STranslationPickerEditWidget> EditWidget : EditWidgets)
+	{
+		UTranslationUnit* TranslationUnit = EditWidget->GetTranslationUnitWithAnyChanges();
+		if (TranslationUnit != nullptr)
+		{
+			TempArray.Add(TranslationUnit);
+		}
+	}
+
+	if (TempArray.Num() > 0)
+	{
+		// Save the data via translation data manager
+		FTranslationDataManager::SaveSelectedTranslations(TempArray);
+	}
+
+	Close();
+
+	return FReply::Handled();
+}
+
 void STranslationPickerEditWidget::Construct(const FArguments& InArgs)
 {
 	PickedText = InArgs._PickedText;
+	bAllowEditing = InArgs._bAllowEditing;
 	int32 DefaultPadding = 0.0f;
 
+	bool bCultureInvariant = PickedText.IsCultureInvariant();
+	bool bShouldGatherForLocalization = FTextInspector::ShouldGatherForLocalization(PickedText);
+
 	// Get all the data we need and format it properly
-	const FString* NamespaceString = FTextInspector::GetNamespace(PickedText);
-	const FString* KeyString = FTextInspector::GetKey(PickedText);
+	TOptional<FString> NamespaceString = FTextInspector::GetNamespace(PickedText);
+	TOptional<FString> KeyString = FTextInspector::GetKey(PickedText);
 	const FString* SourceString = FTextInspector::GetSourceString(PickedText);
 	const FString& TranslationString = FTextInspector::GetDisplayString(PickedText);
 	FString LocresFullPath;
@@ -141,116 +189,203 @@ void STranslationPickerEditWidget::Construct(const FArguments& InArgs)
 	FString ManifestAndArchiveNameString;
 	if (NamespaceString && KeyString)
 	{
-		TSharedPtr<FString, ESPMode::ThreadSafe> TextTableName = TSharedPtr<FString, ESPMode::ThreadSafe>(nullptr);
-		TextTableName = FTextLocalizationManager::Get().GetTableName(*NamespaceString, *KeyString);
-		LocresFullPath = *TextTableName;
-		if (TextTableName.IsValid())
+		FString LocResId;
+		if (FTextLocalizationManager::Get().GetLocResID(NamespaceString.GetValue(), KeyString.GetValue(), LocResId))
 		{
-			ManifestAndArchiveNameString = FPaths::GetBaseFilename(*TextTableName);
+			LocresFullPath = *LocResId;
+			ManifestAndArchiveNameString = FPaths::GetBaseFilename(*LocResId);
 		}
 	}
 
-	FText Namespace = NamespaceString != nullptr ? FText::FromString(*NamespaceString) : FText::GetEmpty();
-	FText Key = KeyString != nullptr ? FText::FromString(*KeyString) : FText::GetEmpty();
+	FText Namespace = FText::FromString(NamespaceString.Get(TEXT("")));
+	FText Key = FText::FromString(KeyString.Get(TEXT("")));
 	FText Source = SourceString != nullptr ? FText::FromString(*SourceString) : FText::GetEmpty();
 	FText ManifestAndArchiveName = FText::FromString(ManifestAndArchiveNameString);
 	FText Translation = FText::FromString(TranslationString);
 
-	FText SourceWithLabel = FText::Format(LOCTEXT("SourceLabel", "Source: {0}"), Source);
-	FText NamespaceWithLabel = FText::Format(LOCTEXT("NamespaceLabel", "Namespace: {0}"), Namespace);
-	FText KeyWithLabel = FText::Format(LOCTEXT("KeyLabel", "Key: {0}"), Key);
-	FText ManifestAndArchiveNameWithLabel = FText::Format(LOCTEXT("LocresFileLabel", "Manifest/Archive File: {0}"), FText::FromString(ManifestAndArchiveNameString));
+	FText SourceLabel = LOCTEXT("SourceLabel", "Source:");
+	FText NamespaceLabel = LOCTEXT("NamespaceLabel", "Namespace:");
+	FText KeyLabel = LOCTEXT("KeyLabel", "Key:");
+	FText ManifestAndArchiveNameLabel = LOCTEXT("LocresFileLabel", "Target :");
 
 	// Save the necessary data in UTranslationUnit for later.  This is what we pass to TranslationDataManager to save our edits
 	TranslationUnit = NewObject<UTranslationUnit>();
-	TranslationUnit->Namespace = NamespaceString != nullptr ? *NamespaceString : "";
+	TranslationUnit->Namespace = NamespaceString.Get(TEXT(""));
 	TranslationUnit->Source = SourceString != nullptr ? *SourceString : "";
 	TranslationUnit->Translation = TranslationString;
 	TranslationUnit->LocresPath = LocresFullPath;
 
+	// Can only save if we have all the required information
+	bool bHasRequiredLocalizationInfo = NamespaceString.IsSet() && SourceString != nullptr && LocresFullPath.Len() > 0;
+
+	TSharedPtr<SGridPanel> GridPanel;
+	TSharedRef<SGridPanel> LocalizationInfoAndSaveButtonSlot = SNew(SGridPanel).FillColumn(2,1);
+
 	// Layout all our data
 	ChildSlot
 		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.FillHeight(1)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.FillWidth(1)
 			.Padding(FMargin(5))
 			[
 				SNew(SVerticalBox)
 				+ SVerticalBox::Slot()
-				.FillHeight(1)
-				.Padding(FMargin(5))
 				[
-					SNew(STextBlock)
-					.Text(SourceWithLabel)
-				]
-				+ SVerticalBox::Slot()
-				.FillHeight(1)
+				SAssignNew(GridPanel, SGridPanel)
+				.FillColumn(1,1)
+				+ SGridPanel::Slot(0,0)
 				.Padding(FMargin(5))
+				.HAlign(HAlign_Right)
 				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("TranslationLabel", "Translation: "))
-					]
-					+ SHorizontalBox::Slot()
-					[
-						SAssignNew(TextBox, SEditableTextBox)
-						.Text(Translation)
-						.HintText(LOCTEXT("TranslationEditTextBox_HintText", "Enter/edit translation here."))
-					]
+						.TextStyle(FEditorStyle::Get(), "RichTextBlock.Bold")
+						.Text(SourceLabel)
 				]
-			]
-			+SVerticalBox::Slot()
-			.FillHeight(1)
-			.Padding(FMargin(5))
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(FMargin(5))
+				+ SGridPanel::Slot(0, 1)
+					.Padding(FMargin(5))
+					.HAlign(HAlign_Right)
 				[
 					SNew(SVerticalBox)
+					.Visibility(!bHasRequiredLocalizationInfo && SourceString->Equals(TranslationString) ? EVisibility::Collapsed : EVisibility::Visible)
 					+ SVerticalBox::Slot()
 					[
 						SNew(STextBlock)
-						.Text(NamespaceWithLabel)
-					]
-					+ SVerticalBox::Slot()
-					[
-						SNew(STextBlock)
-						.Text(KeyWithLabel)
-					]
-					+ SVerticalBox::Slot()
-					[
-						SNew(STextBlock)
-						.Text(ManifestAndArchiveNameWithLabel)
+						.TextStyle(FEditorStyle::Get(), "RichTextBlock.Bold")
+						.Text(LOCTEXT("TranslationLabel", "Translation: "))
 					]
 				]
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(FMargin(5))
+				
+				+ SGridPanel::Slot(1, 0)
+					.Padding(FMargin(5))
+					.ColumnSpan(2)
 				[
-					SNew(SButton)
-					.HAlign(HAlign_Center)
-					.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-					.OnClicked(this, &STranslationPickerEditWidget::SaveAndPreview)
+					SNew(STextBlock)
+					.Text(Source)
+				]
+				+ SGridPanel::Slot(1, 1)
+					.ColumnSpan(2)
+					.Padding(FMargin(5))
 					[
-						SNew(SHorizontalBox)
-						+ SHorizontalBox::Slot()
-						.Padding(FMargin(0, 0, 3, 0))
-						.VAlign(VAlign_Center)
-						.AutoWidth()
+						SNew(SVerticalBox)
+						.Visibility(!bHasRequiredLocalizationInfo && SourceString->Equals(TranslationString) ? EVisibility::Collapsed : EVisibility::Visible)
+						+ SVerticalBox::Slot()
 						[
-							SNew(STextBlock)
-							.Text(LOCTEXT("SaveAndPreviewButtonText", "Save and preview"))
+							SAssignNew(TextBox, SMultiLineEditableTextBox)
+							.IsEnabled(bAllowEditing && bHasRequiredLocalizationInfo)
+							.Text(Translation)
+							.HintText(LOCTEXT("TranslationEditTextBox_HintText", "Enter/edit translation here."))
 						]
 					]
 				]
+			+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(5))
+				[
+					LocalizationInfoAndSaveButtonSlot
+				]
 			]
 		];
+
+	if (bCultureInvariant)
+	{
+		LocalizationInfoAndSaveButtonSlot->AddSlot(0, 0)
+			.Padding(FMargin(5))
+			.ColumnSpan(2)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("CultureInvariantLabel", "This text is culture-invariant"))
+				.Justification(ETextJustify::Center)
+			];
+	}
+	else if (!bShouldGatherForLocalization)
+	{
+		LocalizationInfoAndSaveButtonSlot->AddSlot(0, 0)
+			.Padding(FMargin(5))
+			.ColumnSpan(2)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("NotGatheredForLocalizationLabel", "This text is not gathered for localization"))
+				.Justification(ETextJustify::Center)
+			];
+	}
+	else if (!bHasRequiredLocalizationInfo)
+	{
+		LocalizationInfoAndSaveButtonSlot->AddSlot(0, 0)
+			.Padding(FMargin(5))
+			.ColumnSpan(2)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("RequiredLocalizationInfoNotFound", "The required localization info for this text was not found."))
+				.Justification(ETextJustify::Center)
+			];
+	}
+	else
+	{
+		LocalizationInfoAndSaveButtonSlot->AddSlot(0, 0)
+			.Padding(FMargin(2.5))
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.TextStyle(FEditorStyle::Get(), "RichTextBlock.Bold")
+				.Text(NamespaceLabel)
+			];
+		LocalizationInfoAndSaveButtonSlot->AddSlot(1, 0)
+			.Padding(FMargin(2.5))
+			[
+				SNew(STextBlock)
+				.Text(Namespace)
+			];
+		LocalizationInfoAndSaveButtonSlot->AddSlot(0, 1)
+			.Padding(FMargin(2.5))
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.TextStyle(FEditorStyle::Get(), "RichTextBlock.Bold")
+				.Text(KeyLabel)
+			];
+		LocalizationInfoAndSaveButtonSlot->AddSlot(1, 1)
+			.Padding(FMargin(2.5))
+			[
+				SNew(STextBlock)
+				.Text(Key)
+			];
+		LocalizationInfoAndSaveButtonSlot->AddSlot(0, 2)
+			.Padding(FMargin(2.5))
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.TextStyle(FEditorStyle::Get(), "RichTextBlock.Bold")
+				.Text(ManifestAndArchiveNameLabel)
+			];
+		LocalizationInfoAndSaveButtonSlot->AddSlot(1, 2)
+			.Padding(FMargin(2.5))
+			[
+				SNew(STextBlock)
+				.Text(ManifestAndArchiveName)
+			];
+		LocalizationInfoAndSaveButtonSlot->AddSlot(2, 2)
+			.Padding(FMargin(2.5))
+			[
+				SNew(SButton)
+				.HAlign(HAlign_Center)
+				.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+				.OnClicked(this, &STranslationPickerEditWidget::SaveAndPreview)
+				.IsEnabled(bHasRequiredLocalizationInfo)
+				.Visibility(bAllowEditing ? EVisibility::Visible : EVisibility::Collapsed)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.Padding(FMargin(0, 0, 3, 0))
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Text(bHasRequiredLocalizationInfo ? LOCTEXT("SaveAndPreviewButtonText", "Save and preview") : LOCTEXT("SaveAndPreviewButtonDisabledText", "Cannot Save"))
+					]
+				]
+			];
+	}
 }
 
 FReply STranslationPickerEditWidget::SaveAndPreview()
@@ -264,6 +399,19 @@ FReply STranslationPickerEditWidget::SaveAndPreview()
 	FTranslationDataManager::SaveSelectedTranslations(TempArray);
 
 	return FReply::Handled();
+}
+
+UTranslationUnit* STranslationPickerEditWidget::GetTranslationUnitWithAnyChanges()
+{
+	if (TranslationUnit)
+	{
+		// Update translation string from entered text
+		TranslationUnit->Translation = TextBox->GetText().ToString();
+
+		return TranslationUnit;
+	}
+
+	return nullptr;
 }
 
 #undef LOCTEXT_NAMESPACE

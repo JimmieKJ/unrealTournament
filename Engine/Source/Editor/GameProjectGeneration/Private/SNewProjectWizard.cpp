@@ -14,6 +14,9 @@
 #include "Editor/Documentation/Public/IDocumentation.h"
 #include "BreakIterator.h"
 #include "SHyperlink.h"
+#include "SOutputLogDialog.h"
+
+#include "Settings/EditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "NewProjectWizard"
 
@@ -299,7 +302,7 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 	bLastGlobalValidityCheckSuccessful = true;
 	bLastNameAndLocationValidityCheckSuccessful = true;
 	bPreventPeriodicValidityChecksUntilNextChange = false;
-	bCopyStarterContent = GEditor ? GEditor->AccessGameAgnosticSettings().bCopyStarterContentPreference : true;
+	bCopyStarterContent = GEditor ? GetDefault<UEditorSettings>()->bCopyStarterContentPreference : true;
 
 	IHardwareTargetingModule& HardwareTargeting = IHardwareTargetingModule::Get();
 
@@ -338,7 +341,7 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 		StartContentCombo = SNew(SDecoratedEnumCombo<int32>, MoveTemp(StarterContentInfo))
 			.SelectedEnum(this, &SNewProjectWizard::GetCopyStarterContentIndex)
 			.OnEnumChanged(this, &SNewProjectWizard::OnSetCopyStarterContent)
-			.ToolTipText(LOCTEXT("CopyStarterContent_ToolTip", "Enable to include an additional content pack containing simple placeable meshes with basic materials and textures.\nYou can opt out of including this to create a project that only has the bare essentials for the selected project template.").ToString());
+			.ToolTipText(LOCTEXT("CopyStarterContent_ToolTip", "Enable to include an additional content pack containing simple placeable meshes with basic materials and textures.\nYou can opt out of including this to create a project that only has the bare essentials for the selected project template."));
 	}
 
 	const float UniformPadding = 16.f;
@@ -355,7 +358,7 @@ void SNewProjectWizard::Construct( const FArguments& InArgs )
 			[
 				SAssignNew(MainWizard, SWizard)
 				.ButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
-				.CancelButtonStyle(FEditorStyle::Get(), "FlatButton.Warning")
+				.CancelButtonStyle(FEditorStyle::Get(), "FlatButton.Default")
 				.FinishButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
 				.ButtonTextStyle(FEditorStyle::Get(), "LargeText")
 				.ForegroundColor(FEditorStyle::Get().GetSlateColor("WhiteBrush"))
@@ -853,8 +856,6 @@ FText SNewProjectWizard::GetStarterContentWarningTooltip() const
 
 void SNewProjectWizard::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	// Every few seconds, the project file path is checked for validity in case the disk contents changed and the location is now valid or invalid.
 	// After project creation, periodic checks are disabled to prevent a brief message indicating that the project you created already exists.
 	// This feature is re-enabled if the user did not restart and began editing parameters again.
@@ -1289,7 +1290,7 @@ void SNewProjectWizard::SetDefaultProjectLocation( )
 	FString DefaultProjectFilePath;
 	
 	// First, try and use the first previously used path that still exists
-	for ( const FString& CreatedProjectPath : GEditor->GetGameAgnosticSettings().CreatedProjectPaths )
+	for ( const FString& CreatedProjectPath : GetDefault<UEditorSettings>()->CreatedProjectPaths )
 	{
 		if ( IFileManager::Get().DirectoryExists(*CreatedProjectPath) )
 		{
@@ -1439,14 +1440,14 @@ bool SNewProjectWizard::CreateProject( const FString& ProjectFile )
 		return false;
 	}
 
-	FText FailReason;
+	FText FailReason, FailLog;
 
 	FProjectInformation ProjectInfo(ProjectFile, SelectedTemplate->bGenerateCode, bCopyStarterContent, SelectedTemplate->ProjectFile);
 	ProjectInfo.TargetedHardware = SelectedHardwareClassTarget;
 	ProjectInfo.DefaultGraphicsPerformance = SelectedGraphicsPreset;
-	if (!GameProjectUtils::CreateProject(ProjectInfo, FailReason))
+	if (!GameProjectUtils::CreateProject(ProjectInfo, FailReason, FailLog))
 	{
-		DisplayError(FailReason);
+		SOutputLogDialog::Open(LOCTEXT("CreateProject", "Create Project"), FailReason, FailLog, FText::GetEmpty());
 		return false;
 	}
 
@@ -1459,10 +1460,11 @@ bool SNewProjectWizard::CreateProject( const FString& ProjectFile )
 		CreatedProjectPath.AppendChar('/');
 	}
 
-	GEditor->AccessGameAgnosticSettings().CreatedProjectPaths.Remove(CreatedProjectPath);
-	GEditor->AccessGameAgnosticSettings().CreatedProjectPaths.Insert(CreatedProjectPath, 0);
-	GEditor->AccessGameAgnosticSettings().bCopyStarterContentPreference = bCopyStarterContent;
-	GEditor->AccessGameAgnosticSettings().PostEditChange();
+	auto* Settings = GetMutableDefault<UEditorSettings>();
+	Settings->CreatedProjectPaths.Remove(CreatedProjectPath);
+	Settings->CreatedProjectPaths.Insert(CreatedProjectPath, 0);
+	Settings->bCopyStarterContentPreference = bCopyStarterContent;
+	Settings->PostEditChange();
 
 	return true;
 }
@@ -1486,9 +1488,9 @@ void SNewProjectWizard::CreateAndOpenProject( )
 
 	if( GetSelectedTemplateItem()->bGenerateCode )
 	{
-	    // Rocket already has the engine compiled, so we can try to build and open a new project immediately. Non-Rocket might require building
+	    // If the engine is installed it is already compiled, so we can try to build and open a new project immediately. Non-installed situations might require building
 	    // the engine (especially the case when binaries came from P4), so we only open the IDE for that.
-		if (FRocketSupport::IsRocket())
+		if (FApp::IsEngineInstalled())
 		{
 			if (GameProjectUtils::BuildCodeProject(ProjectFile))
 			{

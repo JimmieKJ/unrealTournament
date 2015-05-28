@@ -19,15 +19,6 @@ DECLARE_LOG_CATEGORY_EXTERN(CrashReportClientLog, Log, All)
 
 #define FILE_LINE_STRING TEXT(__FILE__) TEXT("(") TEXT(STRINGIZE(__LINE__)) TEXT(")")
 
-/** IP of server to send report to */
-extern const TCHAR* GServerIP;
-
-/** Filename to use when saving diagnostics report (if generated locally) */
-extern const TCHAR* GDiagnosticsFilename;
-
-/** A user ID and/or name to add to the report and display */
-extern FString GCrashUserId;
-
 /** This writes and error to the log rather than calling 'check': don't want the crash reporter crashing */
 void CrashReportClientCheck(bool bCondition, const TCHAR* Location);
 #define CRASHREPORTCLIENT_CHECK(COND) CrashReportClientCheck(COND, FILE_LINE_STRING)

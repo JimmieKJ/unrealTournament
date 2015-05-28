@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PhysXProfileSDK", "./PhysXProfileSDK.vcxproj", "{AF7DD4B5-EEC5-7B38-63E6-1B0BB06CBB23}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		checked|Win32 = checked|Win32
+		debug|Win32 = debug|Win32
+		profile|Win32 = profile|Win32
+		release|Win32 = release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AF7DD4B5-EEC5-7B38-63E6-1B0BB06CBB23}.checked|Win32.ActiveCfg = checked|Win32
+		{AF7DD4B5-EEC5-7B38-63E6-1B0BB06CBB23}.checked|Win32.Build.0 = checked|Win32
+		{AF7DD4B5-EEC5-7B38-63E6-1B0BB06CBB23}.debug|Win32.ActiveCfg = debug|Win32
+		{AF7DD4B5-EEC5-7B38-63E6-1B0BB06CBB23}.debug|Win32.Build.0 = debug|Win32
+		{AF7DD4B5-EEC5-7B38-63E6-1B0BB06CBB23}.profile|Win32.ActiveCfg = profile|Win32
+		{AF7DD4B5-EEC5-7B38-63E6-1B0BB06CBB23}.profile|Win32.Build.0 = profile|Win32
+		{AF7DD4B5-EEC5-7B38-63E6-1B0BB06CBB23}.release|Win32.ActiveCfg = release|Win32
+		{AF7DD4B5-EEC5-7B38-63E6-1B0BB06CBB23}.release|Win32.Build.0 = release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddins) = postSolution
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+	EndGlobalSection
+EndGlobal

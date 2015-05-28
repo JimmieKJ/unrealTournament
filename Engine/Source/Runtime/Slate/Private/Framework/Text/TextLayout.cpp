@@ -10,6 +10,7 @@ FTextLayout::FBreakCandidate FTextLayout::CreateBreakCandidate( int32& OutRunInd
 	int16 MaxBelowBaseline = 0;
 	FVector2D BreakSize( ForceInitToZero );
 	FVector2D BreakSizeWithoutTrailingWhitespace( ForceInitToZero );
+	float FirstTrailingWhitespaceCharWidth = 0.0f;
 	int32 WhitespaceStopIndex = CurrentBreak;
 	uint8 Kerning = 0;
 
@@ -59,7 +60,20 @@ FTextLayout::FBreakCandidate FTextLayout::CreateBreakCandidate( int32& OutRunInd
 		{
 			// This slice contains trailing whitespace, measure the text size, then add on the whitespace size
 			SliceSize = SliceSizeWithoutTrailingWhitespace = Run.Measure( BeginIndex, WhitespaceStopIndex, Scale );
-			SliceSize.X += Run.Measure( WhitespaceStopIndex, StopIndex, Scale ).X;
+			const float WhitespaceWidth = Run.Measure( WhitespaceStopIndex, StopIndex, Scale ).X;
+			SliceSize.X += WhitespaceWidth;
+
+			// We also need to measure the width of the first piece of trailing whitespace
+			if ( WhitespaceStopIndex + 1 == StopIndex )
+			{
+				// Only have one piece of whitespace
+				FirstTrailingWhitespaceCharWidth = WhitespaceWidth;
+			}
+			else
+			{
+				// Deliberately use the run version of Measure as we don't want the run model to cache this measurement since it may be out of order and break the binary search
+				FirstTrailingWhitespaceCharWidth = Run.GetRun()->Measure( WhitespaceStopIndex, WhitespaceStopIndex + 1, Scale ).X;
+			}
 		}
 		else
 		{
@@ -97,6 +111,7 @@ FTextLayout::FBreakCandidate FTextLayout::CreateBreakCandidate( int32& OutRunInd
 	BreakCandidate.TrimmedSize = BreakSizeWithoutTrailingWhitespace;
 	BreakCandidate.ActualRange = FTextRange( PreviousBreak, CurrentBreak );
 	BreakCandidate.TrimmedRange = FTextRange( PreviousBreak, WhitespaceStopIndex );
+	BreakCandidate.FirstTrailingWhitespaceCharWidth = FirstTrailingWhitespaceCharWidth;
 	BreakCandidate.MaxAboveBaseline = MaxAboveBaseline;
 	BreakCandidate.MaxBelowBaseline = MaxBelowBaseline;
 	BreakCandidate.Kerning = Kerning;
@@ -108,7 +123,7 @@ FTextLayout::FBreakCandidate FTextLayout::CreateBreakCandidate( int32& OutRunInd
 	return BreakCandidate;
 }
 
-void FTextLayout::CreateLineViewBlocks( int32 LineModelIndex, const int32 StopIndex, int32& OutRunIndex, int32& OutRendererIndex, int32& OutPreviousBlockEnd, TArray< TSharedRef< ILayoutBlock > >& OutSoftLine )
+void FTextLayout::CreateLineViewBlocks( int32 LineModelIndex, const int32 StopIndex, const float WrappedLineWidth, int32& OutRunIndex, int32& OutRendererIndex, int32& OutPreviousBlockEnd, TArray< TSharedRef< ILayoutBlock > >& OutSoftLine )
 {
 	const FLineModel& LineModel = LineModels[ LineModelIndex ];
 
@@ -219,7 +234,7 @@ void FTextLayout::CreateLineViewBlocks( int32 LineModelIndex, const int32 StopIn
 	FVector2D LineSize( ForceInitToZero );
 	
 	// Use a negative scroll offset since positive scrolling moves things negatively in screen space
-	FVector2D CurrentOffset( Margin.Left - ScrollOffset.X, Margin.Top + DrawSize.Y - ScrollOffset.Y );
+	FVector2D CurrentOffset( Margin.Left - ScrollOffset.X, Margin.Top + TextLayoutSize.Height - ScrollOffset.Y );
 
 	if ( OutSoftLine.Num() > 0 )
 	{
@@ -254,8 +269,9 @@ void FTextLayout::CreateLineViewBlocks( int32 LineModelIndex, const int32 StopIn
 		LineViews.Add( LineView );
 	}
 
-	DrawSize.X = FMath::Max( DrawSize.X, LineSize.X ); //DrawSize.X is the size of the longest line + the Margin
-	DrawSize.Y += LineSize.Y; //DrawSize.Y is the total height of all lines
+	TextLayoutSize.DrawWidth = FMath::Max( TextLayoutSize.DrawWidth, LineSize.X ); // DrawWidth is the size of the longest line + the Margin
+	TextLayoutSize.WrappedWidth = FMath::Max( TextLayoutSize.WrappedWidth, (StopIndex == INDEX_NONE) ? LineSize.X : WrappedLineWidth ); // WrappedWidth is the size of the longest line + the Margin + any trailing whitespace width
+	TextLayoutSize.Height += LineSize.Y; // Height is the total height of all lines
 }
 
 void FTextLayout::JustifyLayout()
@@ -265,7 +281,7 @@ void FTextLayout::JustifyLayout()
 		return;
 	}
 
-	const float LayoutWidthNoMargin = FMath::Max(DrawSize.X, ViewSize.X * Scale) - (Margin.GetTotalSpaceAlong<Orient_Horizontal>() * Scale);
+	const float LayoutWidthNoMargin = FMath::Max(TextLayoutSize.DrawWidth, ViewSize.X * Scale) - (Margin.GetTotalSpaceAlong<Orient_Horizontal>() * Scale);
 
 	for (FLineView& LineView : LineViews)
 	{
@@ -308,9 +324,12 @@ void FTextLayout::FlowLayout()
 		FlowLineLayout(LineModelIndex, WrappingDrawWidth, SoftLine);
 	}
 
-	//Add on the margins to the DrawSize
-	DrawSize.X += Margin.GetTotalSpaceAlong<Orient_Horizontal>() * Scale;
-	DrawSize.Y += Margin.GetTotalSpaceAlong<Orient_Vertical>() * Scale;
+	// Add on the margins to the layout size
+	const float MarginWidth = Margin.GetTotalSpaceAlong<Orient_Horizontal>() * Scale;
+	const float MarginHeight = Margin.GetTotalSpaceAlong<Orient_Vertical>() * Scale;
+	TextLayoutSize.DrawWidth += MarginWidth;
+	TextLayoutSize.WrappedWidth += MarginWidth;
+	TextLayoutSize.Height += MarginHeight;
 }
 
 void FTextLayout::FlowLineLayout(const int32 LineModelIndex, const float WrappingDrawWidth, TArray<TSharedRef<ILayoutBlock>>& SoftLine)
@@ -333,7 +352,7 @@ void FTextLayout::FlowLineLayout(const int32 LineModelIndex, const float Wrappin
 	if (!IsWrapping || LineModel.BreakCandidates.Num() == 0 )
 	{
 		//Then iterate over all of it's runs
-		CreateLineViewBlocks( LineModelIndex, INDEX_NONE, /*OUT*/CurrentRunIndex, /*OUT*/CurrentRendererIndex, /*OUT*/PreviousBlockEnd, SoftLine );
+		CreateLineViewBlocks( LineModelIndex, INDEX_NONE, 0.0f, /*OUT*/CurrentRunIndex, /*OUT*/CurrentRendererIndex, /*OUT*/PreviousBlockEnd, SoftLine );
 		check( CurrentRunIndex == LineModel.Runs.Num() );
 		CurrentWidth = 0;
 		SoftLine.Empty();
@@ -355,8 +374,23 @@ void FTextLayout::FlowLineLayout(const int32 LineModelIndex, const float Wrappin
 				const bool IsFirstBreak = BreakIndex == 0;
 
 				const FBreakCandidate& FinalBreakOnSoftLine = ( !IsFirstBreak && !IsFirstBreakOnSoftLine && !BreakWithoutTrailingWhitespaceDoesFit ) ? LineModel.BreakCandidates[ --BreakIndex ] : Break;
+				
+				// We want the wrapped line width to contain the first piece of trailing whitespace for a line, however we only do this if we have trailing whitespace
+				// otherwise very long non-breaking words can cause the wrapped line width to expand beyond the desired wrap width
+				float WrappedLineWidth = CurrentWidth;
+				if ( BreakWithoutTrailingWhitespaceDoesFit && !IsLastBreak )
+				{
+					// This break has trailing whitespace
+					WrappedLineWidth += ( FinalBreakOnSoftLine.TrimmedSize.X + FinalBreakOnSoftLine.FirstTrailingWhitespaceCharWidth );
+				}
+				else
+				{
+					// This break is either longer than the wrapping point or the last break on this line, so make sure and clamp the line size to the given wrapping width
+					WrappedLineWidth += FinalBreakOnSoftLine.ActualSize.X;
+					WrappedLineWidth = FMath::Min(WrappedLineWidth, WrappingDrawWidth);
+				}
 
-				CreateLineViewBlocks( LineModelIndex, FinalBreakOnSoftLine.ActualRange.EndIndex, /*OUT*/CurrentRunIndex, /*OUT*/CurrentRendererIndex, /*OUT*/PreviousBlockEnd, SoftLine );
+				CreateLineViewBlocks( LineModelIndex, FinalBreakOnSoftLine.ActualRange.EndIndex, WrappedLineWidth, /*OUT*/CurrentRunIndex, /*OUT*/CurrentRendererIndex, /*OUT*/PreviousBlockEnd, SoftLine );
 
 				if ( CurrentRunIndex < LineModel.Runs.Num() && FinalBreakOnSoftLine.ActualRange.EndIndex == LineModel.Runs[ CurrentRunIndex ].GetTextRange().EndIndex )
 				{
@@ -495,7 +529,7 @@ void FTextLayout::BeginLineLayout(FLineModel& LineModel)
 
 void FTextLayout::ClearView()
 {
-	DrawSize = FVector2D::ZeroVector;
+	TextLayoutSize = FTextLayoutSize();
 	LineViews.Empty();
 }
 
@@ -566,7 +600,7 @@ FTextLayout::FTextLayout()
 	, Margin()
 	, Justification( ETextJustify::Left )
 	, LineHeightPercentage( 1.0f )
-	, DrawSize( ForceInitToZero )
+	, TextLayoutSize()
 	, ViewSize( ForceInitToZero )
 	, ScrollOffset( ForceInitToZero )
 	, LineBreakIterator() // Initialized in FTextLayout::CreateWrappingCache if no custom iterator is provided
@@ -790,15 +824,15 @@ FTextLocation FTextLayout::GetTextLocationAt( const FLineView& LineView, const F
 	return FTextLocation( LineView.ModelIndex, LineView.Range.EndIndex );
 }
 
-int32 FTextLayout::GetLineViewIndexForTextLocation(const TArray< FTextLayout::FLineView >& LineViews, const FTextLocation& Location, const bool bPerformInclusiveBoundsCheck)
+int32 FTextLayout::GetLineViewIndexForTextLocation(const TArray< FTextLayout::FLineView >& InLineViews, const FTextLocation& Location, const bool bPerformInclusiveBoundsCheck)
 {
 	const int32 LineModelIndex = Location.GetLineIndex();
 	const int32 Offset = Location.GetOffset();
 
 	const FLineModel& LineModel = LineModels[LineModelIndex];
-	for(int32 Index = 0; Index < LineViews.Num(); Index++)
+	for(int32 Index = 0; Index < InLineViews.Num(); Index++)
 	{
-		const FTextLayout::FLineView& LineView = LineViews[Index];
+		const FTextLayout::FLineView& LineView = InLineViews[Index];
 
 		if(LineView.ModelIndex == LineModelIndex)
 		{
@@ -809,7 +843,7 @@ int32 FTextLayout::GetLineViewIndexForTextLocation(const TArray< FTextLayout::FL
 			}
 
 			// If we're the last line, then we also need to test for the end index being part of the range
-			const bool bIsLastLineForModel = Index == (LineViews.Num() - 1) || LineViews[Index + 1].ModelIndex != LineModelIndex;
+			const bool bIsLastLineForModel = Index == (InLineViews.Num() - 1) || InLineViews[Index + 1].ModelIndex != LineModelIndex;
 			if((bIsLastLineForModel || bPerformInclusiveBoundsCheck) && LineView.Range.EndIndex == Offset)
 			{
 				return Index;
@@ -1316,14 +1350,14 @@ bool FTextLayout::RemoveAt( const FTextLocation& Location, int32 Count )
 			const int32 IntersectedLength = IntersectedRangeToRemove.Len();
 			if (RunLength == IntersectedLength)
 			{
-				// The text for this entire run has been removed
-				if (LineModel.Runs.Num() > 1)
+				// The text for this entire run has been removed, so remove this run
+				LineModel.Runs.RemoveAt(RunIndex);
+
+				// Every line needs at least one run - if we just removed the last run for this line, add a new default text run with a zero range
+				if (LineModel.Runs.Num() == 0)
 				{
-					LineModel.Runs.RemoveAt(RunIndex);
-				}
-				else
-				{
-					RunModel.SetTextRange(FTextRange(0, 0));
+					TSharedRef<IRun> NewTextRun = CreateDefaultTextRun(LineModel.Text, FTextRange(0, 0));
+					LineModel.Runs.Add(NewTextRun);
 				}
 			}
 			else if (RunRange.BeginIndex > RemoveTextRange.BeginIndex)
@@ -1442,18 +1476,20 @@ void FTextLayout::GetAsTextAndOffsets(FString* const OutDisplayText, FTextOffset
 		OutTextOffsetLocations->OffsetData.Reserve(LineModels.Num());
 	}
 
+	const int32 LineTerminatorLength = FCString::Strlen(LINE_TERMINATOR);
+
 	for (int32 LineModelIndex = 0; LineModelIndex < LineModels.Num(); LineModelIndex++)
 	{
 		const FLineModel& LineModel = LineModels[LineModelIndex];
 
-		// Append \n to the end of the previous line
+		// Append line terminator to the end of the previous line
 		if (LineModelIndex > 0)
 		{
 			if (OutDisplayText)
 			{
-				OutDisplayText->AppendChar('\n');
+				*OutDisplayText += LINE_TERMINATOR;
 			}
-			++DisplayTextLength;
+			DisplayTextLength += LineTerminatorLength;
 		}
 
 		int32 LineLength = 0;
@@ -1542,7 +1578,7 @@ void FTextLayout::GetSelectionAsText(FString& DisplayText, const FTextSelection&
 
 				if (LineIndex != SelectionEndLineIndex)
 				{
-					DisplayText.AppendChar('\n');
+					DisplayText += LINE_TERMINATOR;
 				}
 			}
 		}
@@ -1669,8 +1705,11 @@ void FTextLayout::SetMargin( const FMargin& InMargin )
 			}
 		}
 
-		DrawSize.X += ( Margin.GetTotalSpaceAlong<Orient_Horizontal>() - PreviousMargin.GetTotalSpaceAlong<Orient_Horizontal>() ) * Scale;
-		DrawSize.Y += ( Margin.GetTotalSpaceAlong<Orient_Vertical>() - PreviousMargin.GetTotalSpaceAlong<Orient_Vertical>() ) * Scale;
+		const float MarginDeltaWidth = ( Margin.GetTotalSpaceAlong<Orient_Horizontal>() - PreviousMargin.GetTotalSpaceAlong<Orient_Horizontal>() ) * Scale;
+		const float MarginDeltaHeight = ( Margin.GetTotalSpaceAlong<Orient_Vertical>() - PreviousMargin.GetTotalSpaceAlong<Orient_Vertical>() ) * Scale;
+		TextLayoutSize.DrawWidth += MarginDeltaWidth;
+		TextLayoutSize.WrappedWidth += MarginDeltaWidth;
+		TextLayoutSize.Height += MarginDeltaHeight;
 	}
 }
 
@@ -1745,12 +1784,17 @@ float FTextLayout::GetWrappingWidth() const
 
 FVector2D FTextLayout::GetDrawSize() const
 {
-	return DrawSize;
+	return TextLayoutSize.GetDrawSize();
+}
+
+FVector2D FTextLayout::GetWrappedSize() const
+{
+	return TextLayoutSize.GetWrappedSize() * ( 1 / Scale );
 }
 
 FVector2D FTextLayout::GetSize() const
 {
-	return DrawSize * ( 1 / Scale );
+	return TextLayoutSize.GetDrawSize() * ( 1 / Scale );
 }
 
 const TArray< FTextLayout::FLineModel >& FTextLayout::GetLineModels() const
@@ -1794,14 +1838,14 @@ void FTextLayout::FRunModel::AppendTextTo(FString& Text, const FTextRange& Range
 	Run->AppendTextTo(Text, Range);
 }
 
-TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefinition& BlockDefine, float Scale ) const
+TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefinition& BlockDefine, float InScale ) const
 {
 	const FTextRange& SizeRange = BlockDefine.ActualRange;
 
 	if ( MeasuredRanges.Num() == 0 )
 	{
 		FTextRange RunRange = Run->GetTextRange();
-		return Run->CreateBlock( BlockDefine.ActualRange.BeginIndex, BlockDefine.ActualRange.EndIndex, Run->Measure( SizeRange.BeginIndex, SizeRange.EndIndex, Scale ), BlockDefine.Renderer );
+		return Run->CreateBlock( BlockDefine.ActualRange.BeginIndex, BlockDefine.ActualRange.EndIndex, Run->Measure( SizeRange.BeginIndex, SizeRange.EndIndex, InScale ), BlockDefine.Renderer );
 	}
 
 	int32 StartRangeIndex = 0;
@@ -1866,7 +1910,7 @@ TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefi
 		}
 		else
 		{
-			BlockSize += Run->Measure( SizeRange.BeginIndex, SizeRange.EndIndex, Scale );
+			BlockSize += Run->Measure( SizeRange.BeginIndex, SizeRange.EndIndex, InScale );
 		}
 	}
 	else
@@ -1877,7 +1921,7 @@ TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefi
 		}
 		else
 		{
-			BlockSize += Run->Measure( SizeRange.BeginIndex, MeasuredRanges[ StartRangeIndex ].EndIndex, Scale );
+			BlockSize += Run->Measure( SizeRange.BeginIndex, MeasuredRanges[ StartRangeIndex ].EndIndex, InScale );
 		}
 
 		for (int32 Index = StartRangeIndex + 1; Index < EndRangeIndex; Index++)
@@ -1893,7 +1937,7 @@ TSharedRef< ILayoutBlock > FTextLayout::FRunModel::CreateBlock( const FBlockDefi
 		}
 		else
 		{
-			FVector2D Size = Run->Measure( MeasuredRanges[ EndRangeIndex ].BeginIndex, SizeRange.EndIndex, Scale );
+			FVector2D Size = Run->Measure( MeasuredRanges[ EndRangeIndex ].BeginIndex, SizeRange.EndIndex, InScale );
 			BlockSize.X += Size.X;
 			BlockSize.Y = FMath::Max( Size.Y, BlockSize.Y );
 		}

@@ -20,7 +20,7 @@ APhysicsConstraintActor::APhysicsConstraintActor(const FObjectInitializer& Objec
 	};
 	static FConstructorStatics ConstructorStatics;
 
-	ConstraintComp = ObjectInitializer.CreateDefaultSubobject<UPhysicsConstraintComponent>(this, TEXT("MyConstraintComp"));
+	ConstraintComp = CreateDefaultSubobject<UPhysicsConstraintComponent>(TEXT("MyConstraintComp"));
 	RootComponent = ConstraintComp;
 	bHidden = true;
 }

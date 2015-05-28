@@ -157,7 +157,7 @@ void SGameplayTagContainerGraphPin::RefreshTagList()
 	FString CurrentDefaultValue = GraphPinObj->GetDefaultAsString();
 	if (CurrentDefaultValue.IsEmpty())
 	{
-		CurrentDefaultValue = FString(TEXT("()"));
+		CurrentDefaultValue = FString(TEXT("(GameplayTags=())"));
 	}
 	if (!CurrentDefaultValue.Equals(TagContainerString))
 	{

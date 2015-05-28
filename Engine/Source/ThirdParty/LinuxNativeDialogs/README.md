@@ -1,26 +1,29 @@
-# you can just: bash README.md
-# from its location to execute commands below
+UELinuxNativeDialogs
+==================
 
-cd UELinuxNativeDialogs
+Linux file dialog implementations dedicated for Unreal Engine. Purpose of this project is to provide a simple C API allowing to open linux file and font dialogs utilizing either of four mainstream GUI toolkits:
+* Qt4
+* Qt5
+* Gtk+2
+* Gtk+3
+
+## Building
+
+```
+# Ubuntu
+sudo apt-get install libgtk2.0-dev libgtk-3-dev libqt4-dev qtbase5-dev
+mkdir build
 cd build
 cmake ..
 make
-mv lib{qt,gtk}*.so ../lib/Linux/x86_64-unknown-linux-gnu/
-cp ../lib/Linux/x86_64-unknown-linux-gnu/*.so ../../../../../../Engine/Binaries/Linux/
-cd ../../../../../../Engine/Binaries/Linux/
+```
 
-if [ -f libqt4dialog.so ]; then
-  ln -s libqt4dialog.so libLND.so
-fi
+The shared libraries can be dlopened and `UNativeDialogs.h` should be used to utilize them. Alternatively a normal link could be performed and required implementation chosen with `LD_LIBRARY_PATH`.
 
-if [ -f libqt5dialog.so ]; then
-  ln -s libqt5dialog.so libLND.so
-fi
+## License
 
-if [ -f libgtk2dialog.so ]; then
-  ln -s libgtk2dialog.so libLND.so
-fi
+The MIT License (MIT)
 
-if [ -f libgtk3dialog.so ]; then
-  ln -s libgtk3dialog.so libLND.so
-fi
+Copyright (c) 2014 Code Charm Ltd
+
+If you require any special license please contact RushPL on #ue4linux @ irc.freenode.net or damian@codecharm.co.uk

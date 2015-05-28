@@ -30,8 +30,8 @@ public:
 	void CascadeTickComponent(float DeltaTime, enum ELevelTick TickType);
 
 	// Collision Handling...
-	virtual bool ParticleLineCheck(FHitResult& Hit, AActor* SourceActor, const FVector& End, const FVector& Start, const FVector& Extent, const FCollisionObjectQueryParams&);
+	virtual bool ParticleLineCheck(FHitResult& Hit, AActor* SourceActor, const FVector& End, const FVector& Start, const FVector& Extent, const FCollisionObjectQueryParams&) override;
 protected:
-	virtual void UpdateLODInformation();
+	virtual void UpdateLODInformation() override;
 };
 

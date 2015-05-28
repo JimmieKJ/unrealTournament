@@ -19,8 +19,8 @@ class UObjectRedirector : public UObject
 	// Variables.
 	UObject*		DestinationObject;
 	// UObject interface.
-	virtual void PreSave();
-	void Serialize( FArchive& Ar );
+	virtual void PreSave() override;
+	void Serialize( FArchive& Ar ) override;
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForServer() const override;
 	virtual bool NeedsLoadForEditorGame() const override;
@@ -38,7 +38,7 @@ class UObjectRedirector : public UObject
 	 *
 	 * @return	return true if property values were added to the map.
 	 */
-	virtual bool GetNativePropertyValues( TMap<FString,FString>& out_PropertyValues, uint32 ExportFlags=0 ) const;
+	virtual bool GetNativePropertyValues( TMap<FString,FString>& out_PropertyValues, uint32 ExportFlags=0 ) const override;
 };
 
 /**

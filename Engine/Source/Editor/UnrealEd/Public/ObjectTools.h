@@ -505,15 +505,6 @@ namespace ObjectTools
 	UNREALED_API bool IsClassRedirector( const UClass* Class );
 
 	/**
-	 * Determines if an array of objects are valid for replace
-	 *
-	 * @param InProposedObjects	The objects to check.
-	 * 
-	 * @return true if all objects are not a restricted type for replacement.
-	 */
-	UNREALED_API bool AreObjectsValidForReplace( const TArray<UObject*>& InProposedObjects );
-
-	/**
 	 * Determines if an array of objects are all of interchangeable types.
 	 *
 	 * @param InProposedObjects	The objects to check.

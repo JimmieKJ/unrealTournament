@@ -219,7 +219,7 @@ bool FEditorPerfCaptureCommand::Update()
 * Map Performance in Editor tests
 * Grabs certain performance numbers and saves it to a file.
 */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FMapPerformanceInEditor, "Performance.Map Performance in Editor", EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser)
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FMapPerformanceInEditor, "Project.Performance.Map Performance in Editor", EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser)
 
 /**
 * Requests a enumeration of all maps to be loaded

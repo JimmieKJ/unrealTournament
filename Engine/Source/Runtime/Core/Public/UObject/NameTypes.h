@@ -299,6 +299,7 @@ class TStaticIndirectArrayThreadSafeRead
 		}
 		check(ChunkIndex < NumChunks && Chunks[ChunkIndex]); // should have a valid pointer now
 	}
+
 	/**
 	 * Return a pointer to the pointer to a given element
 	 * @param Index The Index of an element we want to retrieve the pointer-to-pointer for
@@ -319,7 +320,7 @@ public:
 		: NumElements(0)
 		, NumChunks(0)
 	{
-		FMemory::MemZero(Chunks);
+		FMemory::Memzero(Chunks);
 	}
 	/** 
 	 * Return the number of elements in the array 
@@ -374,6 +375,28 @@ public:
 	ElementType*** GetRootBlockForDebuggerVisualizers()
 	{
 		return Chunks;
+	}
+	/**
+	* Make sure chunks are allocated to hold the specified capacity of items. This is NOT thread safe.
+	**/
+	void Reserve(int32 Capacity)
+	{
+		check(Capacity >= 0 && Capacity <= MaxTotalElements);
+		if (Capacity > NumElements)
+		{			
+			int32 MaxChunks = (Capacity + ElementsPerChunk - 1) / ElementsPerChunk;
+			check(MaxChunks >= NumChunks);
+			for (int32 ChunkIndex = 0; ChunkIndex < MaxChunks; ++ChunkIndex)
+			{
+				if (!Chunks[ChunkIndex])
+				{
+					ElementType** NewChunk = (ElementType**)FMemory::Malloc(sizeof(ElementType*) * ElementsPerChunk);
+					FMemory::Memzero(NewChunk, sizeof(ElementType*) * ElementsPerChunk);
+					Chunks[ChunkIndex] = NewChunk;
+				}
+			}
+			NumChunks = MaxChunks;
+		}
 	}
 };
 
@@ -551,7 +574,15 @@ public:
 	 */
 	FORCEINLINE bool operator<( const FName& Other ) const
 	{
-		return ToString() < Other.ToString();
+		return Compare(Other) < 0;
+	}
+
+	/**
+	 * Comparison operator used for sorting alphabetically.
+	 */
+	FORCEINLINE bool operator>(const FName& Other) const
+	{
+		return Compare(Other) > 0;
 	}
 
 	FORCEINLINE bool IsNone() const
@@ -748,13 +779,13 @@ public:
 	FName( const TCHAR* Name, int32 InNumber, EFindName FindType=FNAME_Add );
 
 	/**
-	 * Constructor used by ULinkerLoad when loading its name table; Creates an FName with an instance
+	 * Constructor used by FLinkerLoad when loading its name table; Creates an FName with an instance
 	 * number of 0 that does not attempt to split the FName into string and number portions.
 	 */
 	FName( ELinkerNameTableConstructor, const WIDECHAR* Name );
 
 	/**
-	 * Constructor used by ULinkerLoad when loading its name table; Creates an FName with an instance
+	 * Constructor used by FLinkerLoad when loading its name table; Creates an FName with an instance
 	 * number of 0 that does not attempt to split the FName into string and number portions.
 	 */
 	FName( ELinkerNameTableConstructor, const ANSICHAR* Name );
@@ -939,7 +970,7 @@ private:
 	friend FNameEntry* AllocateNameEntry( const void* Name, NAME_INDEX Index, FNameEntry* HashNext, bool bIsPureAnsi );
 
 	/**
-	 * Shared initialization code (between two constructors)
+	 * Initialization from a wide string
 	 * 
 	 * @param InName String name of the name/number pair
 	 * @param InNumber Number part of the name/number pair
@@ -950,23 +981,27 @@ private:
 	void Init(const WIDECHAR* InName, int32 InNumber, EFindName FindType, bool bSplitName=true, int32 HardcodeIndex = -1);
 
 	/**
-	 * Non-optimized initialization code for ansi names.
+	 * Initialization from an ANSI string
 	 * 
 	 * @param InName		String name of the name/number pair
 	 * @param InNumber		Number part of the name/number pair
 	 * @param FindType		Operation to perform on names
 	 * @param bSplitName	If true, this function will attempt to split a number off of the string portion (turning Rocket_17 to Rocket and number 17)
+	 * @param HardcodeIndex If >= 0, this represents a hardcoded FName and so automatically gets this index
 	 */
-	void Init(const ANSICHAR* InName, int32 InNumber, EFindName FindType, bool bSplitName=true, int32 HardcodeIndex = -1)
-	{
-		Init(StringCast<WIDECHAR>(InName).Get(), InNumber, FindType, bSplitName, HardcodeIndex);
-	}
+	void Init(const ANSICHAR* InName, int32 InNumber, EFindName FindType, bool bSplitName=true, int32 HardcodeIndex = -1);
+
+	template <typename TCharType>
+	void InitInternal(const TCharType* InName, int32 InNumber, const EFindName FindType, const bool bSplitName, const int32 HardcodeIndex);
 
 	template <typename TCharType>
 	static bool InitInternal_FindOrAdd(const TCharType* InName, const EFindName FindType, const int32 HardcodeIndex, int32& OutComparisonIndex, int32& OutDisplayIndex);
 
 	template <typename TCharType>
 	static bool InitInternal_FindOrAddNameEntry(const TCharType* InName, const EFindName FindType, const ENameCase ComparisonMode, int32& OutIndex);
+
+	template <typename TCharType>
+	static bool SplitNameWithCheckImpl(const TCharType* OldName, TCharType* NewName, int32 NewNameLen, int32& NewNumber);
 
 	FORCEINLINE NAME_INDEX GetComparisonIndexFast() const
 	{

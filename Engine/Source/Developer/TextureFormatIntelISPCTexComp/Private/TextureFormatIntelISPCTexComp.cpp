@@ -172,9 +172,9 @@ class FTextureFormatIntelISPCTexComp : public ITextureFormat
 						IntelBC6HCompressScans(mpEncSettings, mpInImage, mpOutImage, mYStart, mYEnd);
 					}
 
-					static const TCHAR* Name()
+					FORCEINLINE TStatId GetStatId() const
 					{
-						return TEXT("FIntelCompressWorker");
+						RETURN_QUICK_DECLARE_CYCLE_STAT(FIntelCompressWorker, STATGROUP_ThreadPoolAsyncTasks);
 					}
 
 					bc6h_enc_settings*	mpEncSettings;
@@ -244,9 +244,9 @@ class FTextureFormatIntelISPCTexComp : public ITextureFormat
 						IntelBC7CompressScans(mpEncSettings, mpInImage, mpOutImage, mYStart, mYEnd);
 					}
 
-					static const TCHAR* Name()
+					FORCEINLINE TStatId GetStatId() const
 					{
-						return TEXT("FIntelCompressWorker");
+						RETURN_QUICK_DECLARE_CYCLE_STAT(FIntelCompressWorker, STATGROUP_ThreadPoolAsyncTasks);
 					}
 
 					bc7_enc_settings*	mpEncSettings;

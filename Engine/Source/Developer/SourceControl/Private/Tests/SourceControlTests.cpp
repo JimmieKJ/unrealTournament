@@ -85,7 +85,7 @@ bool FSetProviderLatentCommand::Update()
 	return true;
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FSetProviderTest, "Editor.Source Control.Set Provider", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FSetProviderTest, "Project.Editor.Source Control.Set Provider", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FSetProviderTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -116,7 +116,7 @@ bool FConnectLatentCommand::Update()
 	return AsyncHelper.IsDone();
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FConnectTest, "Editor.Source Control.Connect", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FConnectTest, "Project.Editor.Source Control.Connect", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FConnectTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -213,7 +213,7 @@ bool FCheckOutLatentCommand::Update()
 	return AsyncHelper.IsDone();
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCheckOutTest, "Editor.Source Control.Check Out", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCheckOutTest, "Project.Editor.Source Control.Check Out", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FCheckOutTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -226,7 +226,7 @@ bool FCheckOutTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the filename
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	// check to see if we should restore the read only status after this test
@@ -364,7 +364,7 @@ bool FMarkForAddLatentCommand::Update()
 	return AsyncHelper.IsDone();
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FMarkForAddTest, "Editor.Source Control.Mark For Add", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FMarkForAddTest, "Project.Editor.Source Control.Mark For Add", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FMarkForAddTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -377,7 +377,7 @@ bool FMarkForAddTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the filename
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	ADD_LATENT_AUTOMATION_COMMAND(FSetProviderLatentCommand(FName(*ParamArray[0])));
@@ -437,7 +437,7 @@ bool FDeleteLatentCommand::Update()
 	return AsyncHelper.IsDone();
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FDeleteTest, "Editor.Source Control.Delete", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FDeleteTest, "Project.Editor.Source Control.Delete", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FDeleteTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -450,7 +450,7 @@ bool FDeleteTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the filename
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	// check to see if we should restore the read only status after this test
@@ -538,7 +538,7 @@ bool FEditTextureLatentCommand::Update()
 	return true;
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCheckInTest, "Editor.Source Control.Check In", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCheckInTest, "Project.Editor.Source Control.Check In", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FCheckInTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -551,7 +551,7 @@ bool FCheckInTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the filename
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	// check to see if we should restore the read only status after this test
@@ -608,7 +608,7 @@ bool FSyncLatentCommand::Update()
 	return AsyncHelper.IsDone();
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FSyncTest, "Editor.Source Control.Sync", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FSyncTest, "Project.Editor.Source Control.Sync", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FSyncTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -621,7 +621,7 @@ bool FSyncTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the filename
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	ADD_LATENT_AUTOMATION_COMMAND(FSetProviderLatentCommand(FName(*ParamArray[0])));
@@ -631,7 +631,7 @@ bool FSyncTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FRevertTest, "Editor.Source Control.Revert", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FRevertTest, "Project.Editor.Source Control.Revert", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FRevertTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -644,7 +644,7 @@ bool FRevertTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the filename
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	ADD_LATENT_AUTOMATION_COMMAND(FSetProviderLatentCommand(FName(*ParamArray[0])));
@@ -726,7 +726,7 @@ bool FGetStateLatentCommand::Update()
 	return true;
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FUpdateStatusTest, "Editor.Source Control.Update Status", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FUpdateStatusTest, "Project.Editor.Source Control.Update Status", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FUpdateStatusTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -739,7 +739,7 @@ bool FUpdateStatusTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the filename
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	ADD_LATENT_AUTOMATION_COMMAND(FSetProviderLatentCommand(FName(*ParamArray[0])));
@@ -810,7 +810,7 @@ bool FGetLabelLatentCommand::Update()
 	return true;
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FGetLabelTest, "Editor.Source Control.Get Label", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FGetLabelTest, "Project.Editor.Source Control.Get Label", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FGetLabelTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -823,7 +823,7 @@ bool FGetLabelTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the label
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	TArray<FString> FilesToGet;
@@ -855,7 +855,7 @@ bool FSyncLabelLatentCommand::Update()
 	return true;
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FSyncLabelTest, "Editor.Source Control.Sync Label", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FSyncLabelTest, "Project.Editor.Source Control.Sync Label", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FSyncLabelTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -868,7 +868,7 @@ bool FSyncLabelTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the label
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	TArray<FString> FilesToGet;
@@ -921,7 +921,7 @@ bool FGetRevisionLatentCommand::Update()
 	return true;
 }
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FGetRevisionTest, "Editor.Source Control.Get Revision", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FGetRevisionTest, "Project.Editor.Source Control.Get Revision", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
 
 void FGetRevisionTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -934,7 +934,7 @@ bool FGetRevisionTest::RunTest(const FString& Parameters)
 	// parameter is the provider we want to use followed by the filename
 	const FString Delimiter(TEXT(" "));
 	TArray<FString> ParamArray;
-	Parameters.ParseIntoArray(&ParamArray, *Delimiter, true);
+	Parameters.ParseIntoArray(ParamArray, *Delimiter, true);
 	ensure(ParamArray.Num() == 2);
 
 	ADD_LATENT_AUTOMATION_COMMAND(FSetProviderLatentCommand(FName(*ParamArray[0])));

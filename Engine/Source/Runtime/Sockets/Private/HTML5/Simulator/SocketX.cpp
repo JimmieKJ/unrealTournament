@@ -108,6 +108,11 @@ void FSocketX::GetAddress( FInternetAddr& OutAddr )
 	Pimpl->GetAddress(ADDTOPIMPL(OutAddr) );
 }
 
+bool FSocketX::GetPeerAddress( FInternetAddr& OutAddr )
+{
+	Pimpl->GetPeerAddress(ADDTOPIMPL(OutAddr));
+}
+
 bool FSocketX::SetNonBlocking( bool bIsNonBlocking /*= true */ )
 {
 	return Pimpl->SetNonBlocking( bIsNonBlocking ); 

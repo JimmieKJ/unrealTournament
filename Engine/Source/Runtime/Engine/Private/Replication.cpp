@@ -36,12 +36,12 @@ static bool				SavedbReversePlayback;
 static float			SavedPosition;
 static uint8			SavedReplicationForceIsPlaying;
 
-float AMatineeActor::GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, APlayerController* Viewer, UActorChannel* InChannel, float Time, bool bLowBandwidth)
+float AMatineeActor::GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, AActor* Viewer, AActor* ViewTarget, UActorChannel* InChannel, float Time, bool bLowBandwidth)
 {
-	float Result = Super::GetNetPriority(ViewPos, ViewDir, Viewer, InChannel, Time, bLowBandwidth);
+	float Result = Super::GetNetPriority(ViewPos, ViewDir, Viewer, ViewTarget, InChannel, Time, bLowBandwidth);
 	// attempt to replicate MatineeActors approximately in the order that they were spawned to reduce ordering issues
-	// when LDs make multipler matinees affect the same target(s)
-	// not great, but without a full depedancy setup this is the best we can do
+	// when LDs make multiple matinees affect the same target(s)
+	// not great, but without a full dependency setup this is the best we can do
 	if (InChannel == NULL)
 	{
 		Result += 1.0f - CreationTime / GetWorld()->TimeSeconds;

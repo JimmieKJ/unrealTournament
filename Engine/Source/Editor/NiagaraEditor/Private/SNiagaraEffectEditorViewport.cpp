@@ -8,8 +8,8 @@
 #include "Runtime/Engine/Public/Slate/SceneViewport.h"
 #include "NiagaraEditor.h"
 #include "ComponentReregisterContext.h"
-#include "Components/NiagaraComponent.h"
-#include "Engine/NiagaraEffect.h"
+#include "NiagaraComponent.h"
+#include "NiagaraEffect.h"
 #include "SDockTab.h"
 #include "Engine/TextureCube.h"
 
@@ -17,7 +17,7 @@
 class FNiagaraEffectEditorViewportClient : public FEditorViewportClient
 {
 public:
-	FNiagaraEffectEditorViewportClient(TWeakPtr<INiagaraEffectEditor> InEffectEditor, FPreviewScene& InPreviewScene);
+	FNiagaraEffectEditorViewportClient(TWeakPtr<INiagaraEffectEditor> InEffectEditor, FPreviewScene& InPreviewScene, const TSharedRef<SNiagaraEffectEditorViewport>& InNiagaraEditorViewport);
 	
 	// FEditorViewportClient interface
 	virtual FLinearColor GetBackgroundColor() const override;
@@ -34,9 +34,9 @@ private:
 	TWeakPtr<INiagaraEffectEditor> EffectEditorPtr;
 };
 
-FNiagaraEffectEditorViewportClient::FNiagaraEffectEditorViewportClient(TWeakPtr<INiagaraEffectEditor> InEffectEditor, FPreviewScene& InPreviewScene)
-: FEditorViewportClient( nullptr, &InPreviewScene )
-, EffectEditorPtr(InEffectEditor)
+FNiagaraEffectEditorViewportClient::FNiagaraEffectEditorViewportClient(TWeakPtr<INiagaraEffectEditor> InEffectEditor, FPreviewScene& InPreviewScene, const TSharedRef<SNiagaraEffectEditorViewport>& InNiagaraEditorViewport)
+	: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InNiagaraEditorViewport))
+	, EffectEditorPtr(InEffectEditor)
 {
 	// Setup defaults for the common draw helper.
 	DrawHelper.bDrawPivot = false;
@@ -112,7 +112,7 @@ void SNiagaraEffectEditorViewport::Construct(const FArguments& InArgs)
 	
 	SEditorViewport::Construct( SEditorViewport::FArguments() );
 
-	PreviewComponent = ConstructObject<UNiagaraComponent>(UNiagaraComponent::StaticClass(), GetTransientPackage(), NAME_None, RF_Transient);
+	PreviewComponent = NewObject<UNiagaraComponent>(GetTransientPackage(), NAME_None, RF_Transient);
 }
 
 SNiagaraEffectEditorViewport::~SNiagaraEffectEditorViewport()
@@ -135,12 +135,10 @@ void SNiagaraEffectEditorViewport::RefreshViewport()
 	SceneViewport->InvalidateDisplay();
 }
 
-void SNiagaraEffectEditorViewport::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SNiagaraEffectEditorViewport::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SEditorViewport::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	SEditorViewport::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 }
-
-
 
 void SNiagaraEffectEditorViewport::SetPreviewEffect(FNiagaraEffectInstance *InPreviewEffect)
 {
@@ -241,7 +239,7 @@ bool SNiagaraEffectEditorViewport::IsTogglePreviewBackgroundChecked() const
 
 TSharedRef<FEditorViewportClient> SNiagaraEffectEditorViewport::MakeEditorViewportClient() 
 {
-	EditorViewportClient = MakeShareable( new FNiagaraEffectEditorViewportClient(nullptr, PreviewScene) );
+	EditorViewportClient = MakeShareable( new FNiagaraEffectEditorViewportClient(nullptr, PreviewScene, SharedThis(this)) );
 	
 	EditorViewportClient->SetViewLocation( FVector::ZeroVector );
 	EditorViewportClient->SetViewRotation( FRotator::ZeroRotator );

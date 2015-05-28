@@ -42,7 +42,7 @@ UPhATEdSkeletalMeshComponent::UPhATEdSkeletalMeshComponent(const FObjectInitiali
 
 	// this is because in phat editor, you'd like to see fixed bones to be fixed without animation force update
 	KinematicBonesUpdateType = EKinematicBonesUpdateToPhysics::SkipSimulatingBones;
-	bUpdateJointsFromAnimation = true;
+	bUpdateJointsFromAnimation = false;
 	ForcedLodModel = 1;
 
 	static FName CollisionProfileName(TEXT("PhysicsActor"));
@@ -190,7 +190,7 @@ void UPhATEdSkeletalMeshComponent::RenderAssetTools(const FSceneView* View, clas
 				{
 					if (CollisionViewMode == FPhATSharedData::PRM_Solid || CollisionViewMode == FPhATSharedData::PRM_Wireframe)
 					{
-						AggGeom->ConvexElems[j].DrawElemWire(PDI, ElemTM, GetPrimitiveColor(i, KPT_Convex, j));
+						AggGeom->ConvexElems[j].DrawElemWire(PDI, ElemTM, Scale, GetPrimitiveColor(i, KPT_Convex, j));
 					}
 				}
 				

@@ -72,7 +72,7 @@ public:
 	/** Delegate that can be used to create a custom "expander" widget for a particular row */
 	DECLARE_DELEGATE_RetVal_OneParam( TSharedRef<SExpanderArrow>, FOnCreateCustomRowExpander, FCustomExpanderData const& );
 	/** Delegate executed when an action is selected */
-	DECLARE_DELEGATE_OneParam( FOnActionSelected, const TArray< TSharedPtr<FEdGraphSchemaAction> >& );
+	DECLARE_DELEGATE_TwoParams( FOnActionSelected, const TArray< TSharedPtr<FEdGraphSchemaAction> >&, ESelectInfo::Type );
 	/** Delegate executed when an action is double clicked */
 	DECLARE_DELEGATE_OneParam( FOnActionDoubleClicked, const TArray< TSharedPtr<FEdGraphSchemaAction> >& );
 	/** Delegate executed when an action is dragged */
@@ -295,7 +295,7 @@ protected:
 	 *
 	 * @return true if item selection delegate was executed
 	 */
-	bool HandleSelection( TSharedPtr< FGraphActionNode > &InSelectedItem );
+	bool HandleSelection( TSharedPtr< FGraphActionNode > &InSelectedItem, ESelectInfo::Type InSelectionType );
 
 	/** Called when tree item is double clicked */
 	void OnItemDoubleClicked( TSharedPtr< FGraphActionNode > InClickedItem );

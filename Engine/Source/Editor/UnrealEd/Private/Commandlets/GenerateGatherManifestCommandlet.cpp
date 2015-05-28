@@ -54,27 +54,15 @@ int32 UGenerateGatherManifestCommandlet::Main( const FString& Params )
 
 	// Get destination path.
 	FString DestinationPath;
-	if( !GetConfigString( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) )
+	if( !GetPathFromConfig( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) )
 	{
 		UE_LOG( LogGenerateManifestCommandlet, Error, TEXT("No destination path specified.") );
 		return -1;
 	}
 
-	if (FPaths::IsRelative(DestinationPath))
-	{
-		if (!FPaths::GameDir().IsEmpty())
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::GameDir() ), *DestinationPath );
-		}
-		else
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::EngineDir() ), *DestinationPath );
-		}
-	}
-
 	// Get manifest name.
 	FString ManifestName;
-	if( !GetConfigString( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) )
+	if( !GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) )
 	{
 		UE_LOG( LogGenerateManifestCommandlet, Error, TEXT("No manifest name specified.") );
 		return -1;
@@ -82,22 +70,7 @@ int32 UGenerateGatherManifestCommandlet::Main( const FString& Params )
 
 	//Grab any manifest dependencies
 	TArray<FString> ManifestDependenciesList;
-	GetConfigArray(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
-
-	for (FString& ManifestDependency : ManifestDependenciesList)
-	{
-		if (FPaths::IsRelative(ManifestDependency))
-		{
-			if (!FPaths::GameDir().IsEmpty())
-			{
-				ManifestDependency = FPaths::Combine( *( FPaths::GameDir() ), *ManifestDependency );
-			}
-			else
-			{
-				ManifestDependency = FPaths::Combine( *( FPaths::EngineDir() ), *ManifestDependency );
-			}
-		}
-	}
+	GetPathArrayFromConfig(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
 
 	if( ManifestDependenciesList.Num() > 0 )
 	{
@@ -110,17 +83,19 @@ int32 UGenerateGatherManifestCommandlet::Main( const FString& Params )
 		ManifestInfo->ApplyManifestDependencies();
 	}
 	
-
-	if( !WriteManifest( ManifestInfo->GetManifest(), DestinationPath / ManifestName ) )
+	const FString ManifestPath = DestinationPath / ManifestName;
+	if( !WriteManifestToFile( ManifestInfo->GetManifest(), ManifestPath ) )
 	{
-		UE_LOG( LogGenerateManifestCommandlet, Error,TEXT("Failed to write manifest to %s."), *DestinationPath );				
+		UE_LOG( LogGenerateManifestCommandlet, Error,TEXT("Failed to write manifest to %s."), *ManifestPath );				
 		return -1;
 	}
 	return 0;
 }
 
-bool UGenerateGatherManifestCommandlet::WriteManifest( const TSharedPtr<FInternationalizationManifest>& InManifest, const FString& OutputFilePath )
+bool UGenerateGatherManifestCommandlet::WriteManifestToFile( const TSharedPtr<FInternationalizationManifest>& InManifest, const FString& OutputFilePath )
 {
+	UE_LOG(LogGenerateManifestCommandlet, Log, TEXT("Writing archive to %s."), *OutputFilePath);
+
 	// We can not continue if the provided manifest is not valid
 	if( !InManifest.IsValid() )
 	{

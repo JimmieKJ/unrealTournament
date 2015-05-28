@@ -13,12 +13,13 @@ UAbilityTask_WaitAbilityActivate::UAbilityTask_WaitAbilityActivate(const FObject
 	IncludeTriggeredAbilities = false;
 }
 
-UAbilityTask_WaitAbilityActivate* UAbilityTask_WaitAbilityActivate::WaitForAbilityActivate(UObject* WorldContextObject, FGameplayTag InWithTag, FGameplayTag InWithoutTag, bool InIncludeTriggeredAbilities)
+UAbilityTask_WaitAbilityActivate* UAbilityTask_WaitAbilityActivate::WaitForAbilityActivate(UObject* WorldContextObject, FGameplayTag InWithTag, FGameplayTag InWithoutTag, bool InIncludeTriggeredAbilities, bool InTriggerOnce)
 {
 	auto MyObj = NewTask<UAbilityTask_WaitAbilityActivate>(WorldContextObject);
 	MyObj->WithTag = InWithTag;
 	MyObj->WithoutTag = InWithoutTag;
 	MyObj->IncludeTriggeredAbilities = InIncludeTriggeredAbilities;
+	MyObj->TriggerOnce = InTriggerOnce;
 	return MyObj;
 }
 
@@ -46,7 +47,10 @@ void UAbilityTask_WaitAbilityActivate::OnAbilityActivate(UGameplayAbility* Activ
 
 	OnActivate.Broadcast(ActivatedAbility);
 
-	EndTask();
+	if (TriggerOnce)
+	{
+		EndTask();
+	}
 }
 
 void UAbilityTask_WaitAbilityActivate::OnDestroy(bool AbilityEnded)

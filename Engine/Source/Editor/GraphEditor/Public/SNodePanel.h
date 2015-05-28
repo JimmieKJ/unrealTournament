@@ -308,7 +308,7 @@ public:
 			return &Children;
 		}
 
-		virtual FVector2D ComputeDesiredSize() const override
+		virtual FVector2D ComputeDesiredSize(float) const override
 		{
 			for( int32 ChildIndex = 0; ChildIndex < Children.Num(); ++ChildIndex )
 			{
@@ -325,8 +325,28 @@ public:
 			return FVector2D::ZeroVector;
 		}
 
+		virtual float GetRelativeLayoutScale(const FSlotBase& Child) const override
+		{
+			const FNodeSlot& ThisSlot = static_cast<const FNodeSlot&>(Child);
+			if ( !ThisSlot.AllowScale.Get() )
+			{
+				// Child slots that do not allow zooming should scale themselves to negate the node panel's zoom.
+				TSharedPtr<SNodePanel> ParentPanel = GetParentPanel();
+				if (ParentPanel.IsValid())
+				{					
+					return 1.0f/ParentPanel->GetZoomAmount();
+				}
+			}
+
+			return 1.0f;
+		}
+
 		virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override
 		{
+			// Child slots that do not allow zooming should scale themselves to negate the node panel's zoom.
+			TSharedPtr<SNodePanel> ParentPanel = GetParentPanel();
+			const float ZoomInverse = ParentPanel.IsValid() ? 1.0f / ParentPanel->GetZoomAmount() : 1.0f;
+
 			for( int32 ChildIndex = 0; ChildIndex < Children.Num(); ++ChildIndex )
 			{
 				const FNodeSlot& CurChild = Children[ChildIndex];
@@ -334,7 +354,7 @@ public:
 				if ( ArrangedChildren.Accepts(ChildVisibility) )
 				{
 					const FMargin SlotPadding(CurChild.SlotPadding.Get());
-					const float GeometryScale = CurChild.AllowScale.Get() ? 1.f : 1.f / AllottedGeometry.Scale;
+					// If this child is not allowed to scale, its scale relative to its parent should undo the parent widget's scaling.
 					FVector2D Size;
 
 					if( CurChild.Size.IsSet() )
@@ -347,12 +367,12 @@ public:
 						AlignmentArrangeResult YResult = AlignChild<Orient_Vertical>(AllottedGeometry.Size.Y, CurChild, SlotPadding);
 						Size = FVector2D( XResult.Size, YResult.Size );
 					}
-					const FArrangedWidget ChildGeom = 
-					AllottedGeometry.MakeChild(
+					const FArrangedWidget ChildGeom =
+						AllottedGeometry.MakeChild(
 						CurChild.GetWidget(),
 						CurChild.Offset.Get(),
 						Size,
-						GeometryScale
+						GetRelativeLayoutScale(CurChild)
 					);
 					ArrangedChildren.AddWidget( ChildVisibility, ChildGeom );
 				}
@@ -472,6 +492,9 @@ public:
 			return true;
 		}
 
+		/** Called when user interaction has completed */
+		virtual void EndUserInteraction() const {}
+
 		/** 
 		 *	override, when area used to select node, should be different, than it's size
 		 *	e.g. comment node - only title bar is selectable
@@ -489,6 +512,11 @@ public:
 		bool operator < ( const SNodePanel::SNode& NodeIn ) const
 		{
 			return GetSortDepth() < NodeIn.GetSortDepth();
+		}
+
+		void SetParentPanel(const TSharedPtr<SNodePanel>& InParent)
+		{
+			ParentPanelPtr = InParent;
 		}
 
 	protected:
@@ -525,7 +553,13 @@ public:
 
 	private:
 
+		TSharedPtr<SNodePanel> GetParentPanel() const
+		{
+			return ParentPanelPtr.Pin();
+		}
+
 		TPanelChildren<FNodeSlot> Children;
+		TWeakPtr<SNodePanel> ParentPanelPtr;
 
 	};
 
@@ -533,12 +567,12 @@ public:
 
 	// SPanel interface
 	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual FChildren* GetChildren() override;
 	// End of SPanel interface
 
 	// SWidget interface
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -549,7 +583,7 @@ public:
 	virtual void OnFocusLost( const FFocusEvent& InFocusEvent ) override;
 	virtual FReply OnTouchGesture( const FGeometry& MyGeometry, const FPointerEvent& GestureEvent ) override;
 	virtual FReply OnTouchEnded( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent ) override;
-
+	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const override;
 	// End of SWidget interface
 public:
 	/**
@@ -582,7 +616,10 @@ public:
 		return 16.f;
 	}
 
-	// Zooms out to fit either all nodes or only the selected ones
+	/** 
+	 * Zooms out to fit either all nodes or only the selected ones.
+	 * @param bOnlySelection Whether to zoom to fit around only the current selection (if false, will zoom to the extents of all nodes)
+	 */
 	void ZoomToFit(bool bOnlySelection);
 
 	/** Get the bounding area for the currently selected nodes 
@@ -610,6 +647,13 @@ public:
 protected:
 	/** Initialize members */
 	void Construct();
+
+	/**
+	 * Zooms to the specified target rect
+	 * @param TopLeft The top left corner of the target rect
+	 * @param BottomRight The bottom right corner of the target rect
+	 */
+	void ZoomToTarget(const FVector2D& TopLeft, const FVector2D& BottomRight);
 
 	/** Update the new view offset location  */
 	void UpdateViewOffset(const FGeometry& MyGeometry, const FVector2D& TargetPosition);
@@ -795,15 +839,8 @@ protected:
 	/** Deferred zoom to node extents */
 	bool bDeferredZoomToNodeExtents;
 
-	/** Are we currently zooming to fit? */
-	bool bDeferredZoomingToFit;
-
 	/** Zoom selection padding */
 	float ZoomPadding;
-
-	/** Zoom target rectangle */
-	FVector2D ZoomTargetTopLeft;
-	FVector2D ZoomTargetBottomRight;
 
 	/** Allow continous zoom interpolation? */
 	bool bAllowContinousZoomInterpolation;
@@ -838,9 +875,24 @@ protected:
 	/** Invoked when the user may be attempting to spawn a node using a shortcut */
 	SGraphEditor::FOnSpawnNodeByShortcut OnSpawnNodeByShortcut;
 
-	/** The last key gesture detected in this graph panel */
-	FInputGesture LastKeyGestureDetected;
+	/** The last key chord detected in this graph panel */
+	FInputChord LastKeyChordDetected;
 
 	/** The current transaction for undo/redo */
 	TSharedPtr<FScopedTransaction> ScopedTransactionPtr;
+
+private:
+	/** Active timer that handles deferred zooming until the target zoom is reached */
+	EActiveTimerReturnType HandleZoomToFit(double InCurrentTime, float InDeltaTime);
+
+private:
+	/** The handle to the active timer */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
+
+	/** Cached geometry for use within the active timer */
+	FGeometry CachedGeometry;
+
+	/** Zoom target rectangle */
+	FVector2D ZoomTargetTopLeft;
+	FVector2D ZoomTargetBottomRight;
 };

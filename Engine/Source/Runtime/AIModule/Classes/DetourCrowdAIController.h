@@ -10,5 +10,5 @@ class ADetourCrowdAIController : public AAIController
 {
 	GENERATED_BODY()
 public:
-	ADetourCrowdAIController(const FObjectInitializer& ObjectInitializer);
+	ADetourCrowdAIController(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 };

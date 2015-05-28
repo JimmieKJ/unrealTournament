@@ -2,6 +2,11 @@
 
 #include "Paper2DEditorPrivatePCH.h"
 #include "AssetData.h"
+#include "TileMapActorFactory.h"
+#include "PaperTileMapActor.h"
+#include "PaperImporterSettings.h"
+#include "PaperTileMapComponent.h"
+#include "PaperTileMapActor.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UTileMapActorFactory
@@ -15,34 +20,28 @@ UTileMapActorFactory::UTileMapActorFactory(const FObjectInitializer& ObjectIniti
 
 void UTileMapActorFactory::PostSpawnActor(UObject* Asset, AActor* NewActor)
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	APaperTileMapActor* TypedActor = CastChecked<APaperTileMapActor>(NewActor);
 	UPaperTileMapComponent* RenderComponent = TypedActor->GetRenderComponent();
 	check(RenderComponent);
 
-	if (UPaperTileMap* TileMap = Cast<UPaperTileMap>(Asset))
+	if (UPaperTileMap* TileMapAsset = Cast<UPaperTileMap>(Asset))
 	{
-		GEditor->SetActorLabelUnique(NewActor, TileMap->GetName());
-
 		RenderComponent->UnregisterComponent();
-		RenderComponent->TileMap = TileMap;
+		RenderComponent->TileMap = TileMapAsset;
 		RenderComponent->RegisterComponent();
 	}
-	else if (UPaperTileSet* TileSet = Cast<UPaperTileSet>(Asset))
+	else if (RenderComponent->OwnsTileMap())
 	{
-		GEditor->SetActorLabelUnique(NewActor, TileSet->GetName());
+		RenderComponent->UnregisterComponent();
 
-		if (RenderComponent->TileMap != nullptr)
-		{
-			RenderComponent->UnregisterComponent();
-			RenderComponent->TileMap->TileWidth = TileSet->TileWidth;
-			RenderComponent->TileMap->TileHeight = TileSet->TileHeight;
-			RenderComponent->RegisterComponent();
-		}
-	}
+		UPaperTileMap* OwnedTileMap = RenderComponent->TileMap;
+		check(OwnedTileMap);
 
-	if (RenderComponent->OwnsTileMap())
-	{
-		RenderComponent->TileMap->AddNewLayer();
+		GetDefault<UPaperImporterSettings>()->ApplySettingsForTileMapInit(OwnedTileMap, Cast<UPaperTileSet>(Asset));
+
+		RenderComponent->RegisterComponent();
 	}
 }
 
@@ -57,18 +56,12 @@ void UTileMapActorFactory::PostCreateBlueprint(UObject* Asset, AActor* CDO)
 		{
 			RenderComponent->TileMap = TileMap;
 		}
-		else if (UPaperTileSet* TileSet = Cast<UPaperTileSet>(Asset))
+		else if (RenderComponent->OwnsTileMap())
 		{
-			if (RenderComponent->TileMap != nullptr)
-			{
-				RenderComponent->TileMap->TileWidth = TileSet->TileWidth;
-				RenderComponent->TileMap->TileHeight = TileSet->TileHeight;
-			}
-		}
+			UPaperTileMap* OwnedTileMap = RenderComponent->TileMap;
+			check(OwnedTileMap);
 
-		if (RenderComponent->OwnsTileMap())
-		{
-			RenderComponent->TileMap->AddNewLayer();
+			GetDefault<UPaperImporterSettings>()->ApplySettingsForTileMapInit(OwnedTileMap, Cast<UPaperTileSet>(Asset));
 		}
 	}
 }

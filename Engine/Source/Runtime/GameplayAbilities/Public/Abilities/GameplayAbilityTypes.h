@@ -3,8 +3,10 @@
 #pragma once
 
 #include "GameplayEffect.h"
+#include "GameplayAbilitySpec.h"
 #include "GameplayPrediction.h"
 #include "AttributeSet.h"
+#include "GameFramework/MovementComponent.h"
 #include "GameplayAbilityTypes.generated.h"
 
 class UGameplayEffect;
@@ -47,14 +49,17 @@ namespace EGameplayAbilityNetExecutionPolicy
 
 	enum Type
 	{
-		// Part of this ability runs predictively on the client.
-		Predictive		UMETA(DisplayName = "Predictive"),
+		// Part of this ability runs predictively on the local client if there is one
+		LocalPredicted		UMETA(DisplayName = "Local Predicted"),
 
-		// This ability must be OK'd by the server before doing anything on a client.
-		Server			UMETA(DisplayName = "Server"),
+		// This ability will only run on the client or server that has local control
+		LocalOnly			UMETA(DisplayName = "Local Only"),
 
-		// This ability runs as long the client says it does.
-		Client			UMETA(DisplayName = "Client"),
+		// This ability is initiated by the server, but will also run on the local client if one exists
+		ServerInitiated		UMETA(DisplayName = "Server Initiated"),
+
+		// This ability will only run on the server
+		ServerOnly			UMETA(DisplayName = "Server Only"),
 	};
 }
 
@@ -77,68 +82,25 @@ namespace EGameplayAbilityReplicationPolicy
 
 
 UENUM(BlueprintType)
-namespace EGameplayAbilityActivationMode
+namespace EGameplayAbilityTriggerSource
 {
+	/**	Defines what type of trigger will activate the ability, paired to a tag */
+
 	enum Type
 	{
-		// We are the authority activating this ability
-		Authority,
+		// Triggered from a gameplay event, will come with payload
+		GameplayEvent,
 
-		// We are not the authority but aren't predicting yet. This is a mostly invalid state to be in.
-		NonAuthority,
+		// Triggered if the ability's owner gets a tag added, triggered once whenever it's added
+		OwnedTagAdded,
 
-		// We are predicting the activation of this ability
-		Predicting,
-
-		// We are not the authority, but the authority has confirmed this activation
-		Confirmed,
+		// Triggered if the ability's owner gets tag added, removed when the tag is removed
+		OwnedTagPresent,
 	};
 }
 
+
 // ----------------------------------------------------
-
-USTRUCT(BlueprintType)
-struct FGameplayAbilitySpecHandle
-{
-	GENERATED_USTRUCT_BODY()
-
-	FGameplayAbilitySpecHandle()
-	: Handle(INDEX_NONE)
-	{
-
-	}
-
-	bool IsValid() const
-	{
-		return Handle != INDEX_NONE;
-	}
-
-	void GenerateNewHandle()
-	{
-		static int32 GHandle = 1;
-		Handle = GHandle++;
-	}
-
-	bool operator==(const FGameplayAbilitySpecHandle& Other) const
-	{
-		return Handle == Other.Handle;
-	}
-
-	bool operator!=(const FGameplayAbilitySpecHandle& Other) const
-	{
-		return Handle != Other.Handle;
-	}
-
-	friend uint32 GetTypeHash(const FGameplayAbilitySpecHandle& SpecHandle)
-	{
-		return ::GetTypeHash(SpecHandle.Handle);
-	}
-
-private:
-
-	UPROPERTY()
-	int32 Handle;
-};
 
 /**
  *	FGameplayAbilityActorInfo
@@ -197,131 +159,45 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActorInfo
 	virtual void ClearActorInfo();
 };
 
-/**
- *	FGameplayAbilityActivationInfo
- *
- *	Data tied to a specific activation of an ability.
- *		-Tell us whether we are the authority, if we are predicting, confirmed, etc.
- *		-Holds current and previous PredictionKey
- *		-Generally not meant to be subclassed in projects.
- *		-Passed around by value since the struct is small.
- */
-USTRUCT(BlueprintType)
-struct GAMEPLAYABILITIES_API FGameplayAbilityActivationInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	FGameplayAbilityActivationInfo()
-		: ActivationMode(EGameplayAbilityActivationMode::Authority)
-		, bCanBeEndedByOtherInstance(false)
-	{
-
-	}
-
-	FGameplayAbilityActivationInfo(AActor* InActor)
-		: bCanBeEndedByOtherInstance(false)	
-	{
-		// On Init, we are either Authority or NonAuthority. We haven't been given a PredictionKey and we haven't been confirmed.
-		// NonAuthority essentially means 'I'm not sure what how I'm going to do this yet'.
-		ActivationMode = (InActor->Role == ROLE_Authority ? EGameplayAbilityActivationMode::Authority : EGameplayAbilityActivationMode::NonAuthority);
-	}
-
-	FGameplayAbilityActivationInfo(EGameplayAbilityActivationMode::Type InType)
-		: ActivationMode(InType)
-		, bCanBeEndedByOtherInstance(false)
-	{
-	}	
-
-	UPROPERTY(BlueprintReadOnly, Category = "ActorInfo")
-	mutable TEnumAsByte<EGameplayAbilityActivationMode::Type>	ActivationMode;
-
-	/** An ability that runs on multiple game instances can be canceled by a remote instance, but only if that remote instance has already confirmed starting it. */
-	UPROPERTY()
-	bool bCanBeEndedByOtherInstance;
-
-	void SetActivationConfirmed();
-
-	void SetPredicting(FPredictionKey PredictionKey);
-
-	FPredictionKey GetActivationPredictionKey() { return PredictionKeyWhenActivated; }
-
-private:
-
-	// This was the prediction key used to activate this ability. It does not get updated
-	// if new prediction keys are generated over the course of the ability.
-	FPredictionKey PredictionKeyWhenActivated;
-	
-};
-
 // ----------------------------------------------------
 
 USTRUCT()
-struct GAMEPLAYABILITIES_API FGameplayAbilitySpec
+struct FGameplayAbilitySpecHandleAndPredictionKey
 {
 	GENERATED_USTRUCT_BODY()
 
-	FGameplayAbilitySpec()
-	: Ability(nullptr), Level(1), InputID(INDEX_NONE), SourceObject(nullptr), InputPressed(false), ActiveCount(0)
+	FGameplayAbilitySpecHandleAndPredictionKey()
+	: PredictionKeyAtCreation(0)
+	{}
+
+	FGameplayAbilitySpecHandleAndPredictionKey(const FGameplayAbilitySpecHandle& HandleRef, const FPredictionKey& PredictionKeyAtCreationRef)
+		: AbilityHandle(HandleRef), PredictionKeyAtCreation(PredictionKeyAtCreationRef.Current)
+	{}
+
+	bool operator==(const FGameplayAbilitySpecHandleAndPredictionKey& Other) const
 	{
-		
+		return AbilityHandle == Other.AbilityHandle && PredictionKeyAtCreation == Other.PredictionKeyAtCreation;
 	}
 
-	FGameplayAbilitySpec(UGameplayAbility* InAbility, int32 InLevel=1, int32 InInputID=INDEX_NONE, UObject* InSourceObject=nullptr)
-		: Ability(InAbility), Level(InLevel), InputID(InInputID), SourceObject(InSourceObject), InputPressed(false), ActiveCount(0)
+	bool operator!=(const FGameplayAbilitySpecHandleAndPredictionKey& Other) const
 	{
-		Handle.GenerateNewHandle();
+		return AbilityHandle != Other.AbilityHandle || PredictionKeyAtCreation != Other.PredictionKeyAtCreation;
 	}
 
-	/** Handle for outside sources to refer to this spec by */
-	UPROPERTY()
-	FGameplayAbilitySpecHandle Handle;
-	
-	/** Ability of the spec (either CDO or instanced) */
-	UPROPERTY()
-	UGameplayAbility* Ability;
-	
-	/** Level of Ability */
-	UPROPERTY()
-	int32	Level;
-
-	/** InputID, if bound */
-	UPROPERTY()
-	int32	InputID;
-
-	/** Object this ability was created from, can be an actor or static object. Useful to bind an ability to a gameplay object */
-	UPROPERTY()
-	UObject* SourceObject;
-
-	/** Is input currently pressed. Set to false when input is released */
-	UPROPERTY(NotReplicated)
-	bool	InputPressed;
-
-	/** A count of the number of times this ability has been activated minus the number of times it has been ended. For instanced abilities this will be the number of currently active instances. Can't replicate until prediction accurately handles this.*/
-	UPROPERTY(NotReplicated)
-	uint8	ActiveCount;
-
-	/** Activation state of this ability. This is not replicated since it needs to be overwritten locally on clients during prediction. */
-	UPROPERTY(NotReplicated)
-	FGameplayAbilityActivationInfo	ActivationInfo;
-
-	/** Non replicating instances of this ability. */
-	UPROPERTY(NotReplicated)
-	TArray<UGameplayAbility*> NonReplicatedInstances;
-
-	/** Replicated instances of this ability.. */
-	UPROPERTY()
-	TArray<UGameplayAbility*> ReplicatedInstances;
-
-	TArray<UGameplayAbility*> GetAbilityInstances() const
+	friend uint32 GetTypeHash(const FGameplayAbilitySpecHandleAndPredictionKey& Handle)
 	{
-		TArray<UGameplayAbility*> Abilities;
-		Abilities.Append(ReplicatedInstances);
-		Abilities.Append(NonReplicatedInstances);
-		return Abilities;
+		return GetTypeHash(Handle.AbilityHandle) ^ Handle.PredictionKeyAtCreation;
 	}
 
-	bool IsActive() const;
+private:
+
+	UPROPERTY()
+	FGameplayAbilitySpecHandle AbilityHandle;
+
+	UPROPERTY()
+	int32 PredictionKeyAtCreation;
 };
+
 
 // ----------------------------------------------------
 
@@ -344,6 +220,10 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityRepAnimMontage
 	UPROPERTY()
 	float Position;
 
+	/** Montage current blend time */
+	UPROPERTY()
+	float BlendTime;
+
 	/** NextSectionID */
 	UPROPERTY()
 	uint8 NextSectionID;
@@ -360,6 +240,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityRepAnimMontage
 		: AnimMontage(NULL),
 		PlayRate(0.f),
 		Position(0.f),
+		BlendTime(0.f),
 		NextSectionID(0),
 		IsStopped(true),
 		ForcePlayBit(0)
@@ -403,24 +284,49 @@ struct GAMEPLAYABILITIES_API FGameplayEventData
 	GENERATED_USTRUCT_BODY()
 
 	FGameplayEventData()
-	: Instigator(NULL)
-	, Target(NULL)
-	, Var1(0.f)
-	, Var2(0.f)
-	, Var3(0.f)
+	: Instigator(nullptr)
+	, Target(nullptr)
+	, OptionalObject(nullptr)
+	, OptionalObject2(nullptr)
+	, EventMagnitude(0.f)
 	{
 	}
 	
+	// Tag of the event that triggered this
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
-	AActor* Instigator;
+	FGameplayTag EventTag;
+
+	// The instigator of the event
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
-	AActor* Target;
+	const AActor* Instigator;
+
+	// The target of the event
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
-	float Var1;
+	const AActor* Target;
+
+	// An optional ability-specific object to be passed though the event
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
-	float Var2;
+	UObject* OptionalObject;
+
+	// A second optional ability-specific object to be passed though the event
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
-	float Var3;
+	UObject* OptionalObject2;
+
+	// Polymorphic context information
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
+	FGameplayEffectContextHandle ContextHandle;
+
+	// Tags that the instigator has
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
+	FGameplayTagContainer InstigatorTags;
+
+	// Tags that the target has
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
+	FGameplayTagContainer TargetTags;
+
+	// The magnitude of the triggering event
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
+	float EventMagnitude;
 };
 
 /** 
@@ -429,10 +335,12 @@ struct GAMEPLAYABILITIES_API FGameplayEventData
  */
 struct FGameplayAbiliyInputBinds
 {
-	FGameplayAbiliyInputBinds(FString InConfirmTargetCommand, FString InCancelTargetCommand, FString InEnumName)
+	FGameplayAbiliyInputBinds(FString InConfirmTargetCommand, FString InCancelTargetCommand, FString InEnumName, int32 InConfirmTargetInputID = INDEX_NONE, int32 InCancelTargetInputID = INDEX_NONE)
 	: ConfirmTargetCommand(InConfirmTargetCommand)
 	, CancelTargetCommand(InCancelTargetCommand)
 	, EnumName(InEnumName)
+	, ConfirmTargetInputID(InConfirmTargetInputID)
+	, CancelTargetInputID(InCancelTargetInputID)
 	{ }
 
 	/** Defines command string that will be bound to Confirm Targeting */
@@ -441,8 +349,14 @@ struct FGameplayAbiliyInputBinds
 	/** Defines command string that will be bound to Cancel Targeting */
 	FString CancelTargetCommand;
 
-	/** Returns enum to use for ability bings. E.g., "Ability1"-"Ability8" input commands will be bound to ability activations inside the AbiltiySystemComponent */
+	/** Returns enum to use for ability binds. E.g., "Ability1"-"Ability9" input commands will be bound to ability activations inside the AbiltiySystemComponent */
 	FString	EnumName;
+
+	/** If >=0, Confirm is bound to an entry in the enum */
+	int32 ConfirmTargetInputID;
+
+	/** If >=0, Confirm is bound to an entry in the enum */
+	int32 CancelTargetInputID;
 
 	UEnum* GetBindEnum() { return FindObject<UEnum>(ANY_PACKAGE, *EnumName); }
 };

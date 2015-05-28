@@ -38,6 +38,8 @@
 
 void FSkeletalMeshComponentPreClothTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(FSkeletalMeshComponentPreClothTickFunction_ExecuteTick);
+
 	if ((TickType == LEVELTICK_All) && Target && !Target->HasAnyFlags(RF_PendingKill | RF_Unreachable))
 	{
 		Target->PreClothTick(DeltaTime);
@@ -369,7 +371,7 @@ void USkeletalMeshComponent::CreateBodySetup()
 {
 	if (BodySetup == NULL && SkeletalMesh)
 	{
-		BodySetup = ConstructObject<UBodySetup>(UBodySetup::StaticClass(), this);
+		BodySetup = NewObject<UBodySetup>(this);
 	}
 
 	UBodySetup* OriginalBodySetup = SkeletalMesh->GetBodySetup();
@@ -442,9 +444,9 @@ void USkeletalMeshComponent::SetSimulatePhysics(bool bSimulate)
 		{
 			if (FBodyInstance* BodyInstance = Bodies[BodyIdx])
 			{
-				if (UBodySetup * BodySetup = PhysAsset->BodySetup[BodyIdx])
+				if (UBodySetup * PhysAssetBodySetup = PhysAsset->BodySetup[BodyIdx])
 				{
-					if (BodySetup->PhysicsType == EPhysicsType::PhysType_Default)
+					if (PhysAssetBodySetup->PhysicsType == EPhysicsType::PhysType_Default)
 					{
 						BodyInstance->SetInstanceSimulatePhysics(bSimulate);
 					}
@@ -474,24 +476,28 @@ void USkeletalMeshComponent::AddRadialImpulse(FVector Origin, float Radius, floa
 		return;
 	}
 
+	const float StrengthPerMass = Strength / FMath::Max(GetMass(), KINDA_SMALL_NUMBER);
 	for(int32 i=0; i<Bodies.Num(); i++)
 	{
-		Bodies[i]->AddRadialImpulseToBody(Origin, Radius, Strength, Falloff, bVelChange);
+		const float StrengthPerBody = bVelChange ? Strength : (StrengthPerMass * Bodies[i]->GetBodyMass());
+		Bodies[i]->AddRadialImpulseToBody(Origin, Radius, StrengthPerBody, Falloff, bVelChange);
 	}
 }
 
 
 
-void USkeletalMeshComponent::AddRadialForce(FVector Origin, float Radius, float Strength, ERadialImpulseFalloff Falloff)
+void USkeletalMeshComponent::AddRadialForce(FVector Origin, float Radius, float Strength, ERadialImpulseFalloff Falloff, bool bAccelChange)
 {
 	if(bIgnoreRadialForce)
 	{
 		return;
 	}
 
+	const float StrengthPerMass = Strength / FMath::Max(GetMass(), KINDA_SMALL_NUMBER);
 	for(int32 i=0; i<Bodies.Num(); i++)
 	{
-		Bodies[i]->AddRadialForceToBody(Origin, Radius, Strength, Falloff);
+		const float StrengthPerBody = bAccelChange ? Strength : (StrengthPerMass * Bodies[i]->GetBodyMass());
+		Bodies[i]->AddRadialForceToBody(Origin, Radius, StrengthPerBody, Falloff, bAccelChange);
 	}
 
 }
@@ -756,17 +762,17 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 	Bodies.AddZeroed(NumBodies);
 	for(int32 i=0; i<NumBodies; i++)
 	{
-		UBodySetup* BodySetup = PhysicsAsset->BodySetup[i];
+		UBodySetup* PhysicsAssetBodySetup = PhysicsAsset->BodySetup[i];
 		Bodies[i] = new FBodyInstance;
 		FBodyInstance* BodyInst = Bodies[i];
 		check(BodyInst);
 
 		// Get transform of bone by name.
-		int32 BoneIndex = GetBoneIndex( BodySetup->BoneName );
+		int32 BoneIndex = GetBoneIndex( PhysicsAssetBodySetup->BoneName );
 		if(BoneIndex != INDEX_NONE)
 		{
 			// Copy body setup default instance properties
-			BodyInst->CopyBodyInstancePropertiesFrom(&BodySetup->DefaultInstance);
+			BodyInst->CopyBodyInstancePropertiesFrom(&PhysicsAssetBodySetup->DefaultInstance);
 			// we don't allow them to use this in editor. For physics asset, this set up is overriden by Physics Type. 
 			// but before we hide in the detail customization, we saved with this being true, causing the simulate always happens for some bodies
 			// so adding initialization here to disable this. 
@@ -775,24 +781,43 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 			// this is not true for all other BodyInstance, but for physics assets it is true. 
 			BodyInst->bSimulatePhysics = false;
 			BodyInst->InstanceBodyIndex = i; // Set body index 
+			BodyInst->InstanceBoneIndex = BoneIndex; // Set bone index
 
 			if (i == RootBodyIndex)
 			{
-				BodyInst->LockedAxisMode = BodyInstance.LockedAxisMode;
-				BodyInst->CustomLockedAxis = BodyInstance.CustomLockedAxis;
+				BodyInst->DOFMode = BodyInstance.DOFMode;
+				BodyInst->CustomDOFPlaneNormal = BodyInstance.CustomDOFPlaneNormal;
+				BodyInst->bLockXTranslation = BodyInstance.bLockXTranslation;
+				BodyInst->bLockYTranslation = BodyInstance.bLockYTranslation;
+				BodyInst->bLockZTranslation = BodyInstance.bLockZTranslation;
+				BodyInst->bLockXRotation = BodyInstance.bLockXRotation;
+				BodyInst->bLockYRotation = BodyInstance.bLockYRotation;
+				BodyInst->bLockZRotation = BodyInstance.bLockZRotation;
+				BodyInst->bLockTranslation = BodyInstance.bLockTranslation;
+				BodyInst->bLockRotation = BodyInstance.bLockRotation;
 
 				BodyInst->COMNudge = BodyInstance.COMNudge;
 			}
 			else
 			{
-				BodyInst->LockedAxisMode = ELockedAxis::None;
+				BodyInst->DOFMode = EDOFMode::None;
 			}
 
 #if WITH_PHYSX
 			// Create physics body instance.
 			FTransform BoneTransform = GetBoneTransform( BoneIndex );
-			BodyInst->InitBody( BodySetup, BoneTransform, this, PhysScene, Aggregate);
+			BodyInst->InitBody( PhysicsAssetBodySetup, BoneTransform, this, PhysScene, Aggregate);
 #endif //WITH_PHYSX
+
+			// Remember if we have bodies in sync/async scene, so we know which scene(s) to lock when moving bodies
+			if(BodyInst->UseAsyncScene(PhysScene))
+			{
+				bHasBodiesInAsyncScene = true;
+			}
+			else
+			{
+				bHasBodiesInSyncScene = true;
+			}
 		}
 	}
 
@@ -800,30 +825,37 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 	SetRootBodyIndex(RootBodyIndex);
 
 #if WITH_PHYSX
-	// add Aggregate into the scene
-	if(Aggregate && Aggregate->getNbActors() > 0 && PhysScene)
+
+	if (PhysScene)
 	{
 		// Get the scene type from the SkeletalMeshComponent's BodyInstance
-		const uint32 SceneType = BodyInstance.UseAsyncScene() ? PST_Async : PST_Sync;
-		PhysScene->GetPhysXScene(SceneType)->addAggregate(*Aggregate);
-
-		// If we've used an aggregate, InitBody would not be able to set awake status as we *must* have a scene
-		// to do that, so we reconcile this here.
-		AActor* Owner = GetOwner();
-		bool bShouldSleep = !BodyInstance.bStartAwake && (Owner && Owner->GetVelocity().SizeSquared() <= KINDA_SMALL_NUMBER);
-
-		for(FBodyInstance* Body : Bodies)
+		const uint32 SceneType = (bHasBodiesInAsyncScene && PhysScene->HasAsyncScene()) ? PST_Async : PST_Sync;
+		PxScene* PScene = PhysScene->GetPhysXScene(SceneType);
+		SCOPED_SCENE_WRITE_LOCK(PScene);
+		// add Aggregate into the scene
+		if (Aggregate && Aggregate->getNbActors() > 0)
 		{
-			// Creates a DOF constraint if necessary for the body - also requires the scene to exist within the actor
-			Body->CreateDOFLock();
+			PScene->addAggregate(*Aggregate);
 
-			// Set to sleep if necessary
-			if(bShouldSleep)
+			// If we've used an aggregate, InitBody would not be able to set awake status as we *must* have a scene
+			// to do that, so we reconcile this here.
+			AActor* Owner = GetOwner();
+			bool bShouldSleep = !BodyInstance.bStartAwake && (Owner && Owner->GetVelocity().SizeSquared() <= KINDA_SMALL_NUMBER);
+
+			for (FBodyInstance* Body : Bodies)
 			{
-				Body->GetPxRigidDynamic()->putToSleep();
+				// Creates a DOF constraint if necessary for the body - also requires the scene to exist within the actor
+				Body->CreateDOFLock();
+
+				// Set to sleep if necessary
+				if (bShouldSleep)
+				{
+					Body->GetPxRigidDynamic_AssumesLocked()->putToSleep();
+				}
 			}
 		}
 	}
+
 #endif //WITH_PHYSX
 
 	// Create all the constraints.
@@ -870,6 +902,12 @@ void USkeletalMeshComponent::TermArticulated()
 	{
 		PhysScene->DeferredRemoveCollisionDisableTable(SkelMeshCompID);
 	}
+
+	// Get the scene type from the SkeletalMeshComponent's BodyInstance
+	const uint32 SceneType = BodyInstance.UseAsyncScene(PhysScene) ? PST_Async : PST_Sync;
+	PxScene* PScene = PhysScene->GetPhysXScene(SceneType);
+	SCOPED_SCENE_WRITE_LOCK(PScene);
+
 #endif	//#if WITH_PHYSX
 
 	// We shut down the physics for each body and constraint here. 
@@ -902,6 +940,10 @@ void USkeletalMeshComponent::TermArticulated()
 		Aggregate = NULL;
 	}
 #endif //WITH_PHYSX
+
+	// Reset bools for scenes
+	bHasBodiesInAsyncScene = false;
+	bHasBodiesInSyncScene = false;
 }
 
 void USkeletalMeshComponent::TermBodiesBelow(FName ParentBoneName)
@@ -1160,12 +1202,12 @@ void USkeletalMeshComponent::ResetAllBodiesSimulatePhysics()
 	for(int32 i=0; i<Bodies.Num(); i++)
 	{
 		FBodyInstance*	BodyInst	= Bodies[i];
-		UBodySetup*	BodySetup	= BodyInst->BodySetup.Get();
+		UBodySetup*	BodyInstSetup	= BodyInst->BodySetup.Get();
 
 		// Set fixed on any bodies with bAlwaysFullAnimWeight set to true
-		if(BodySetup && BodySetup->PhysicsType != PhysType_Default)
+		if(BodyInstSetup && BodyInstSetup->PhysicsType != PhysType_Default)
 		{
-			if (BodySetup->PhysicsType == PhysType_Simulated)
+			if (BodyInstSetup->PhysicsType == PhysType_Simulated)
 			{
 				BodyInst->SetInstanceSimulatePhysics(true);
 			}
@@ -1210,10 +1252,10 @@ void USkeletalMeshComponent::SetAllBodiesPhysicsBlendWeight(float PhysicsBlendWe
 	for(int32 i=0; i<Bodies.Num(); i++)
 	{
 		FBodyInstance*	BodyInst	= Bodies[i];
-		UBodySetup*	BodySetup	= BodyInst->BodySetup.Get();
+		UBodySetup*	BodyInstSetup	= BodyInst->BodySetup.Get();
 
 		// Set fixed on any bodies with bAlwaysFullAnimWeight set to true
-		if(BodySetup && (!bSkipCustomPhysicsType || BodySetup->PhysicsType == PhysType_Default) )
+		if(BodyInstSetup && (!bSkipCustomPhysicsType || BodyInstSetup->PhysicsType == PhysType_Default) )
 		{
 			BodyInst->PhysicsBlendWeight = PhysicsBlendWeight;
 		}
@@ -1291,9 +1333,9 @@ void USkeletalMeshComponent::OnUpdateTransform(bool bSkipPhysicsMove)
 	Super::OnUpdateTransform(true);
 
 	// Always send new transform to physics
-	if(bPhysicsStateCreated && !bSkipPhysicsMove )
+	if(bPhysicsStateCreated && !bSkipPhysicsMove)
 	{
-		UpdateKinematicBonesToPhysics(GetSpaceBases(), false, false, true);
+		UpdateKinematicBonesToAnim(GetSpaceBases(), false, false, true);
 	}
 
 #if WITH_APEX_CLOTHING
@@ -1307,9 +1349,9 @@ void USkeletalMeshComponent::OnUpdateTransform(bool bSkipPhysicsMove)
 
 void USkeletalMeshComponent::UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps, bool bDoNotifies, const TArray<FOverlapInfo>* OverlapsAtEndLocation)
 {
-		UPrimitiveComponent::UpdateOverlaps(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
-	}
-
+	// Parent class (USkinnedMeshComponent) routes only to children, but we really do want to test our own bodies for overlaps.
+	UPrimitiveComponent::UpdateOverlaps(PendingOverlaps, bDoNotifies, OverlapsAtEndLocation);
+}
 
 void USkeletalMeshComponent::CreatePhysicsState()
 {
@@ -1326,8 +1368,6 @@ void USkeletalMeshComponent::CreatePhysicsState()
 		BodySetup->CreatePhysicsMeshes();
 		Super::CreatePhysicsState();	//If we're doing per poly we'll use the body instance of the primitive component
 	}
-
-	
 }
 
 
@@ -1382,12 +1422,12 @@ void USkeletalMeshComponent::UpdateMeshForBrokenConstraints()
 			// Get child bodies of this joint
 			for(int32 BodySetupIndex = 0; BodySetupIndex < PhysicsAsset->BodySetup.Num(); BodySetupIndex++)
 			{
-				UBodySetup* BodySetup = PhysicsAsset->BodySetup[BodySetupIndex];
-				int32 BoneIndex = GetBoneIndex(BodySetup->BoneName);
+				UBodySetup* PhysicsAssetBodySetup = PhysicsAsset->BodySetup[BodySetupIndex];
+				int32 BoneIndex = GetBoneIndex(PhysicsAssetBodySetup->BoneName);
 				if( BoneIndex != INDEX_NONE && 
 					(BoneIndex == JointBoneIndex || SkeletalMesh->RefSkeleton.BoneIsChildOf(BoneIndex, JointBoneIndex)) )
 				{
-					DEBUGBROKENCONSTRAINTUPDATE(UE_LOG(LogSkeletalMesh, Log, TEXT("    Found Child Bone: (%d) %s"), BoneIndex, *BodySetup->BoneName.ToString());)
+					DEBUGBROKENCONSTRAINTUPDATE(UE_LOG(LogSkeletalMesh, Log, TEXT("    Found Child Bone: (%d) %s"), BoneIndex, *PhysicsAssetBodySetup->BoneName.ToString());)
 
 					FBodyInstance* ChildBodyInst = Bodies[BodySetupIndex];
 					if( ChildBodyInst )
@@ -1400,7 +1440,7 @@ void USkeletalMeshComponent::UpdateMeshForBrokenConstraints()
 						}
 					}
 
-					FConstraintInstance* ChildConstraintInst = FindConstraintInstance(BodySetup->BoneName);
+					FConstraintInstance* ChildConstraintInst = FindConstraintInstance(PhysicsAssetBodySetup->BoneName);
 					if( ChildConstraintInst )
 					{
 						if( ChildConstraintInst->bLinearPositionDrive )
@@ -1487,9 +1527,9 @@ void USkeletalMeshComponent::GetWeldedBodies(TArray<FBodyInstance*> & OutWeldedB
 			OutWeldedBodies.Add(&BodyInstance);
 			if (PhysicsAsset)
 			{
-				if (UBodySetup * BodySetup = PhysicsAsset->BodySetup[BodyIdx])
+				if (UBodySetup * PhysicsAssetBodySetup = PhysicsAsset->BodySetup[BodyIdx])
 				{
-					OutLabels.Add(BodySetup->BoneName);
+					OutLabels.Add(PhysicsAssetBodySetup->BoneName);
 				}
 				else
 				{
@@ -1728,9 +1768,46 @@ FVector USkeletalMeshComponent::GetSkinnedVertexPosition(int32 VertexIndex) cons
 
 extern float DebugLineLifetime;
 
+float USkeletalMeshComponent::GetDistanceToCollision(const FVector& Point, FVector& ClosestPointOnCollision) const
+{
+	ClosestPointOnCollision = Point;
+	float ClosestPointDistance = -1.f;
+	bool bHasResult = false;
+
+	for (int32 BodyIdx = 0; BodyIdx < Bodies.Num(); ++BodyIdx)
+	{
+		FBodyInstance* BodyInstance = Bodies[BodyIdx];
+		if (BodyInstance && BodyInstance->IsValidBodyInstance() && (BodyInstance->GetCollisionEnabled() != ECollisionEnabled::NoCollision))
+		{
+			FVector ClosestPoint;
+			const float Distance = Bodies[BodyIdx]->GetDistanceToBody(Point, ClosestPoint);
+
+			if (Distance < 0.f)
+			{
+				// Invalid result, impossible to be better than ClosestPointDistance
+				continue;
+			}
+
+			if (!bHasResult || (Distance < ClosestPointDistance))
+			{
+				bHasResult = true;
+				ClosestPointDistance = Distance;
+				ClosestPointOnCollision = ClosestPoint;
+
+				// If we're inside collision, we're not going to find anything better, so abort search we've got our best find.
+				if (Distance <= KINDA_SMALL_NUMBER)
+				{
+					break;
+				}
+			}
+		}
+	}
+
+	return ClosestPointDistance;
+}
+
 bool USkeletalMeshComponent::LineTraceComponent(struct FHitResult& OutHit, const FVector Start, const FVector End, const struct FCollisionQueryParams& Params)
 {
-	UPhysicsAsset* const PhysicsAsset = GetPhysicsAsset();
 	UWorld* const World = GetWorld();
 	bool bHaveHit = false;
 
@@ -1779,75 +1856,20 @@ bool USkeletalMeshComponent::SweepComponent( FHitResult& OutHit, const FVector S
 	return bHaveHit;
 }
 
-bool USkeletalMeshComponent::ComponentOverlapComponent(class UPrimitiveComponent* PrimComp,const FVector Pos,const FRotator Rot,const struct FCollisionQueryParams& Params)
+bool USkeletalMeshComponent::ComponentOverlapComponentImpl(class UPrimitiveComponent* PrimComp,const FVector Pos,const FQuat& Quat,const struct FCollisionQueryParams& Params)
 {
-	//@TODO: BOX2D: USkeletalMeshComponent::ComponentOverlapComponent is not supported.  Try to rephrase this in terms of agnostic operations on a set of FBodyInstances, reducing the amount of PhysX-specific code
-#if WITH_PHYSX
-	// will have to do per component - default single body or physicsinstance 
-	const PxRigidActor* TargetRigidBody = (PrimComp)? PrimComp->BodyInstance.GetPxRigidActor():NULL;
-	if (TargetRigidBody==NULL || TargetRigidBody->getNbShapes()==0)
-	{
-		return false;
-	}
-
-	// if target is skeletalmeshcomponent and do not support singlebody physics
-	USkeletalMeshComponent * OtherComp = Cast<USkeletalMeshComponent>(PrimComp);
-	if (OtherComp)
+	//we do not support skeletal mesh vs skeletal mesh overlap test
+	if (PrimComp->IsA<USkeletalMeshComponent>())
 	{
 		UE_LOG(LogCollision, Log, TEXT("ComponentOverlapComponent : (%s) Does not support skeletalmesh with Physics Asset"), *PrimComp->GetPathName());
 		return false;
 	}
 
-	// calculate the test global pose of the actor
-	PxTransform PTestGlobalPose = U2PTransform(FTransform(Rot, Pos));
-
-	// Get all the shapes from the actor
-	TArray<PxShape*> PTargetShapes;
-	PTargetShapes.AddZeroed(TargetRigidBody->getNbShapes());
-	int32 NumTargetShapes = TargetRigidBody->getShapes(PTargetShapes.GetData(), PTargetShapes.Num());
-
-	bool bHaveOverlap = false;
-
-	for (int32 TargetShapeIdx=0; TargetShapeIdx<PTargetShapes.Num(); ++TargetShapeIdx)
+	if (FBodyInstance* BI = PrimComp->GetBodyInstance())
 	{
-		const PxShape * PTargetShape = PTargetShapes[TargetShapeIdx];
-		check (PTargetShape);
-
-		// Calc shape global pose
-		PxTransform PShapeGlobalPose = PTestGlobalPose.transform(PTargetShape->getLocalPose());
-
-		GET_GEOMETRY_FROM_SHAPE(PGeom, PTargetShape);
-
-		if(PGeom != NULL)
-		{
-			for (int32 BodyIdx=0; BodyIdx < Bodies.Num(); ++BodyIdx)
-			{
-				bHaveOverlap = Bodies[BodyIdx]->OverlapPhysX(*PGeom, PShapeGlobalPose);
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-				if((GetWorld()->DebugDrawTraceTag != NAME_None) && (GetWorld()->DebugDrawTraceTag == Params.TraceTag))
-				{
-					TArray<FOverlapResult> Overlaps;
-					if (bHaveOverlap)
-					{
-						FOverlapResult Result;
-						Result.Component = PrimComp;
-						Result.Actor = PrimComp->GetOwner();
-						Result.bBlockingHit = true;
-						Overlaps.Add(Result);
-					}
-
-					DrawGeomOverlaps(GetWorld(), *PGeom, PShapeGlobalPose, Overlaps, DebugLineLifetime);
-				}
-#endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-				if (bHaveOverlap)
-				{
-					break;
-				}
-			}
-		}
-		return bHaveOverlap;
+		return BI->OverlapTestForBodies(Pos, Quat, Bodies);
 	}
-#endif //WITH_PHYSX
+
 	return false;
 }
 
@@ -1864,7 +1886,7 @@ bool USkeletalMeshComponent::OverlapComponent(const FVector& Pos, const FQuat& R
 	return false;
 }
 
-bool USkeletalMeshComponent::ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const UWorld* World, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
+bool USkeletalMeshComponent::ComponentOverlapMultiImpl(TArray<struct FOverlapResult>& OutOverlaps, const UWorld* World, const FVector& Pos, const FQuat& Quat, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
 {
 	OutOverlaps.Reset();
 
@@ -1883,7 +1905,7 @@ bool USkeletalMeshComponent::ComponentOverlapMulti(TArray<struct FOverlapResult>
 	for (const FBodyInstance* Body : Bodies)
 	{
 		checkSlow(Body);
-		if (Body->OverlapMulti(OutOverlaps, World, &WorldToComponent, Pos, Rot, TestChannel, ParamsWithSelf, ResponseParams, ObjectQueryParams))
+		if (Body->OverlapMulti(OutOverlaps, World, &WorldToComponent, Pos, Quat, TestChannel, ParamsWithSelf, ResponseParams, ObjectQueryParams))
 		{
 			bHaveBlockingHit = true;
 		}
@@ -2246,9 +2268,13 @@ void USkeletalMeshComponent::ApplyWindForCloth(FClothingActor& ClothingActor)
 		{
 			FVector Position = ComponentToWorld.GetTranslation();
 
-			FVector4 WindParam = World->Scene->GetWindParameters(Position);
+			FVector WindDirection;
+			float WindSpeed;
+			float WindMinGust;
+			float WindMaxGust;
+			World->Scene->GetWindParameters(Position, WindDirection, WindSpeed, WindMinGust, WindMaxGust);
 
-			physx::PxVec3 WindVelocity(WindParam.X, WindParam.Y, WindParam.Z);
+			physx::PxVec3 WindVelocity(WindDirection.X, WindDirection.Y, WindDirection.Z);
 
 			WindVelocity *= WindUnitAmout;
 			float WindAdaption = rand()%20 * 0.1f; // make range from 0 to 2
@@ -2371,6 +2397,9 @@ void USkeletalMeshComponent::DrawDebugClothCollisions()
 			case FClothCollisionPrimitive::CONVEX:	
 				DrawDebugConvexFromPlanes(CollisionPrims[PrimIndex], Colors[PrimIndex%6]);
 				break;
+
+			case FClothCollisionPrimitive::PLANE:
+				break;
 			}
 
 			//draw a bounding box for double checking
@@ -2437,24 +2466,26 @@ bool USkeletalMeshComponent::GetClothCollisionDataFromStaticMesh(UPrimitiveCompo
 		return false;
 	}
 
-	int32 NumSyncShapes = 0;
-
-	TArray<PxShape*> AllShapes = PrimComp->BodyInstance.GetAllShapes(NumSyncShapes);
-
-	if(NumSyncShapes == 0 || NumSyncShapes > 3) //skipping complicated object because of collision limitation
+	bool bSuccess = false;
+	PrimComp->BodyInstance.ExecuteOnPhysicsReadOnly([&]
 	{
-		return false;
+		TArray<PxShape*> AllShapes;
+		const int32 NumSyncShapes = PrimComp->BodyInstance.GetAllShapes_AssumesLocked(AllShapes);
+
+		if (NumSyncShapes == 0 || NumSyncShapes > 3) //skipping complicated object because of collision limitation
+	{
+			return;
 	}
 
 	FVector Center = PrimComp->Bounds.Origin;
 	FTransform Transform = PrimComp->ComponentToWorld;
 	FMatrix TransMat = Transform.ToMatrixWithScale();
 
-	for(int32 ShapeIdx=0; ShapeIdx < NumSyncShapes; ShapeIdx++)
+		for (int32 ShapeIdx = 0; ShapeIdx < NumSyncShapes; ShapeIdx++)
 	{
 		PxGeometryType::Enum GeomType = AllShapes[ShapeIdx]->getGeometryType();
 
-		switch(GeomType)
+			switch (GeomType)
 		{
 		case PxGeometryType::eSPHERE:
 			{
@@ -2504,27 +2535,27 @@ bool USkeletalMeshComponent::GetClothCollisionDataFromStaticMesh(UPrimitiveCompo
 
 				ClothPrimData.ConvexPlanes.Empty(6); //box has 6 planes
 
-				FPlane UPlane1(1,0,0,Center.X + BoxGeom.halfExtents.x);
+				FPlane UPlane1(1, 0, 0, Center.X + BoxGeom.halfExtents.x);
 				UPlane1 = UPlane1.TransformBy(TransMat);
 				ClothPrimData.ConvexPlanes.Add(UPlane1);
 
-				FPlane UPlane2(-1,0,0,Center.X - BoxGeom.halfExtents.x);
+				FPlane UPlane2(-1, 0, 0, Center.X - BoxGeom.halfExtents.x);
 				UPlane2 = UPlane2.TransformBy(TransMat);
 				ClothPrimData.ConvexPlanes.Add(UPlane2);
 
-				FPlane UPlane3(0,1,0,Center.Y + BoxGeom.halfExtents.y);
+				FPlane UPlane3(0, 1, 0, Center.Y + BoxGeom.halfExtents.y);
 				UPlane3 = UPlane3.TransformBy(TransMat);
 				ClothPrimData.ConvexPlanes.Add(UPlane3);
 
-				FPlane UPlane4(0,-1,0,Center.Y - BoxGeom.halfExtents.y);
+				FPlane UPlane4(0, -1, 0, Center.Y - BoxGeom.halfExtents.y);
 				UPlane4 = UPlane4.TransformBy(TransMat);
 				ClothPrimData.ConvexPlanes.Add(UPlane4);
 
-				FPlane UPlane5(0,0,1,Center.Z + BoxGeom.halfExtents.z);
+				FPlane UPlane5(0, 0, 1, Center.Z + BoxGeom.halfExtents.z);
 				UPlane5 = UPlane5.TransformBy(TransMat);
 				ClothPrimData.ConvexPlanes.Add(UPlane5);
 
-				FPlane UPlane6(0,0,-1,Center.Z - BoxGeom.halfExtents.z);
+				FPlane UPlane6(0, 0, -1, Center.Z - BoxGeom.halfExtents.z);
 				UPlane6 = UPlane6.TransformBy(TransMat);
 				ClothPrimData.ConvexPlanes.Add(UPlane6);
 
@@ -2538,7 +2569,7 @@ bool USkeletalMeshComponent::GetClothCollisionDataFromStaticMesh(UPrimitiveCompo
 
 				AllShapes[ShapeIdx]->getConvexMeshGeometry(ConvexGeom);
 
-				if(ConvexGeom.convexMesh)
+				if (ConvexGeom.convexMesh)
 				{
 					FClothCollisionPrimitive ClothPrimData;
 					ClothPrimData.Origin = Center;
@@ -2548,11 +2579,11 @@ bool USkeletalMeshComponent::GetClothCollisionDataFromStaticMesh(UPrimitiveCompo
 
 					ClothPrimData.ConvexPlanes.Empty(NumPoly);
 
-					for(uint32 Poly=0; Poly < NumPoly; Poly++)
+					for (uint32 Poly = 0; Poly < NumPoly; Poly++)
 					{
 						PxHullPolygon HullData;
-						ConvexGeom.convexMesh->getPolygonData(Poly, HullData);						
-						physx::PxPlane PPlane(HullData.mPlane[0],HullData.mPlane[1],HullData.mPlane[2],HullData.mPlane[3]);
+						ConvexGeom.convexMesh->getPolygonData(Poly, HullData);
+						physx::PxPlane PPlane(HullData.mPlane[0], HullData.mPlane[1], HullData.mPlane[2], HullData.mPlane[3]);
 						FPlane UPlane = P2UPlane(PPlane);
 						UPlane = UPlane.TransformBy(TransMat);
 						ClothPrimData.ConvexPlanes.Add(UPlane);
@@ -2565,7 +2596,10 @@ bool USkeletalMeshComponent::GetClothCollisionDataFromStaticMesh(UPrimitiveCompo
 			break;
 		}
 	}
-	return true;
+		bSuccess = true;
+	});
+
+	return bSuccess;
 }
 
 void USkeletalMeshComponent::FindClothCollisions(TArray<FApexClothCollisionVolumeData>& OutCollisions)
@@ -3017,7 +3051,7 @@ void USkeletalMeshComponent::ProcessClothCollisionWithEnvironment()
 	static FName ClothOverlapComponentsName(TEXT("ClothOverlapComponents"));
 	FCollisionQueryParams Params(ClothOverlapComponentsName, false);
 
-	GetWorld()->OverlapMulti(Overlaps, Bounds.Origin, FQuat::Identity, FCollisionShape::MakeBox(Bounds.BoxExtent), Params, ObjectParams);
+	GetWorld()->OverlapMultiByObjectType(Overlaps, Bounds.Origin, FQuat::Identity, ObjectParams, FCollisionShape::MakeBox(Bounds.BoxExtent), Params);
 
 	for (int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); ++OverlapIdx)
 	{
@@ -3064,6 +3098,12 @@ void USkeletalMeshComponent::ProcessClothCollisionWithEnvironment()
 
 void USkeletalMeshComponent::PreClothTick(float DeltaTime)
 {
+	//IMPORTANT!
+	//
+	// The decision on whether to use PreClothTick or not is made by ShouldRunPreClothTick()
+	// Any changes that are made to PreClothTick that effect whether it should be run or not
+	// have to be reflected in ShouldRunPreClothTick() as well
+	
 	// if physics is disabled on dedicated server, no reason to be here. 
 	if (!bEnablePhysicsOnDedicatedServer && IsRunningDedicatedServer())
 	{
@@ -3084,8 +3124,7 @@ void USkeletalMeshComponent::PreClothTick(float DeltaTime)
 	// and run this if that is true or rendered
 	// that will at least reduce the chance of mismatch
 	// generally if you move your actor position, this has to happen to approximately match their bounds
-	bool bShouldBlendPhys = ShouldBlendPhysicsBones() || bBlendPhysics;
-	if (bShouldBlendPhys)
+	if (ShouldBlendPhysicsBones())
 	{
 		if (IsRegistered())
 		{
@@ -3101,7 +3140,7 @@ void USkeletalMeshComponent::PreClothTick(float DeltaTime)
 	// if skeletal mesh has clothing assets, call TickClothing
 	if (SkeletalMesh && SkeletalMesh->ClothingAssets.Num() > 0)
 	{
-		TickClothing(DeltaTime + SkippedTickDeltaTime);
+		TickClothing(DeltaTime);
 	}
 #endif
 }
@@ -3612,7 +3651,7 @@ void USkeletalMeshComponent::TickClothing(float DeltaTime)
 {
 #if WITH_APEX_CLOTHING
 	// animated but bone transforms were not updated because it was not rendered
-	if(bPoseTicked && !bRecentlyRendered)
+	if(PoseTickedThisFrame() && !bRecentlyRendered)
 	{
 		ForceClothNextUpdateTeleportAndReset();
 	}
@@ -4789,27 +4828,29 @@ void USkeletalMeshComponent::DrawClothingPhysicalMeshWire(FPrimitiveDrawInterfac
 		for(uint32 IndexIdx=0; IndexIdx < NumIndices; IndexIdx+=3)
 		{
 			// draw a triangle
-			uint32 Index0 = VisualInfo.ClothPhysicalMeshIndices[IndexIdx];
-			uint32 Index1 = VisualInfo.ClothPhysicalMeshIndices[IndexIdx + 1];
-			uint32 Index2 = VisualInfo.ClothPhysicalMeshIndices[IndexIdx + 2];
-
-			// If index is greater than Num of vertices, then skip 
-			if(Index0 >= NumPhysicalMeshVerts 
-			|| Index1 >= NumPhysicalMeshVerts 
-			|| Index2 >= NumPhysicalMeshVerts)
-			{
-				continue;
-			}
-
 			FVector V[3];
-			V[0] = (*PhysicalMeshVertices)[Index0];
-			V[1] = (*PhysicalMeshVertices)[Index1];
-			V[2] = (*PhysicalMeshVertices)[Index2];
-
 			float MaxDists[3];
-			MaxDists[0] = VisualInfo.ClothConstrainCoeffs[Index0].ClothMaxDistance;
-			MaxDists[1] = VisualInfo.ClothConstrainCoeffs[Index1].ClothMaxDistance;
-			MaxDists[2] = VisualInfo.ClothConstrainCoeffs[Index2].ClothMaxDistance;
+			{
+				uint32 Index0 = VisualInfo.ClothPhysicalMeshIndices[IndexIdx];
+				uint32 Index1 = VisualInfo.ClothPhysicalMeshIndices[IndexIdx + 1];
+				uint32 Index2 = VisualInfo.ClothPhysicalMeshIndices[IndexIdx + 2];
+
+				// If index is greater than Num of vertices, then skip 
+				if(Index0 >= NumPhysicalMeshVerts 
+				|| Index1 >= NumPhysicalMeshVerts 
+				|| Index2 >= NumPhysicalMeshVerts)
+				{
+					continue;
+				}
+
+				V[0] = (*PhysicalMeshVertices)[Index0];
+				V[1] = (*PhysicalMeshVertices)[Index1];
+				V[2] = (*PhysicalMeshVertices)[Index2];
+
+				MaxDists[0] = VisualInfo.ClothConstrainCoeffs[Index0].ClothMaxDistance;
+				MaxDists[1] = VisualInfo.ClothConstrainCoeffs[Index1].ClothMaxDistance;
+				MaxDists[2] = VisualInfo.ClothConstrainCoeffs[Index2].ClothMaxDistance;
+			}
 
 			for(int32 i=0; i<3; i++)
 			{

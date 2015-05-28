@@ -28,15 +28,20 @@ private:
 
 	FReply OnCustomizeNavigation(TWeakPtr<IPropertyHandle> PropertyHandle);
 	
-	FText HandleNavigationText(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav) const;
+	EUINavigationRule GetNavigationRule(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav) const;
+	FText GetNavigationText(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav) const;
 
-	TSharedRef<class SWidget> MakeNavRow(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav, FText NavName);
+	void MakeNavRow(TWeakPtr<IPropertyHandle> PropertyHandle, IDetailChildrenBuilder& ChildBuilder, EUINavigation Nav, FText NavName);
 
 	TSharedRef<class SWidget> MakeNavMenu(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav);
 
 	void HandleNavMenuEntryClicked(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav, EUINavigationRule Rule);
 
-	void SetNav(UWidget* Widget, EUINavigation Nav, EUINavigationRule Rule);
+	FText GetExplictWidget(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav) const;
+	void OnCommitExplictWidgetText(const FText& ItemFText, ETextCommit::Type CommitInfo, TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav);
+	EVisibility GetExplictWidgetFieldVisibility(TWeakPtr<IPropertyHandle> PropertyHandle, EUINavigation Nav) const;
+
+	void SetNav(UWidget* Widget, EUINavigation Nav, TOptional<EUINavigationRule> Rule, TOptional<FName> WidgetToFocus);
 
 private:
 	TWeakPtr<FWidgetBlueprintEditor> Editor;

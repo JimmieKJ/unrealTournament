@@ -151,6 +151,8 @@ public:
 
 	DECLARE_EVENT(IGameMoviePlayer, FOnMoviePlaybackFinished)
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() = 0;
+	
+	void BroadcastMoviePlaybackFinished() { OnMoviePlaybackFinished().Broadcast(); }
 
 	virtual ~IGameMoviePlayer() {}
 };

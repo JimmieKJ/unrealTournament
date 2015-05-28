@@ -50,6 +50,11 @@ struct ENGINE_API FSmartNameMapping
 	// @return bool - true if the name was found and removed, false if the name wasn't present in the mapping
 	bool Remove(const UID& Uid);
 
+	// Return UID * if it finds it
+	//  @param NewName - New name to set 
+	// @return UID pointer - null if it doesn't find. pointer if it finds. 
+	const FSmartNameMapping::UID* FindUID(const FName& Name);
+
 	// Check whether a name already exists in the mapping
 	// @param Uid - the UID to check
 	// @return bool - whether the name was found

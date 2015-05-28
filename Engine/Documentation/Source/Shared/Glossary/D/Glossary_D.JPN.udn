@@ -1,4 +1,5 @@
-﻿Title:D
+﻿INTSourceChangelist:2419781
+Title:D
 Crumbs:Shared/Glossary
 Description:
 Availability:Public
@@ -19,7 +20,7 @@ Availability:Public
 
 ![Blueprint Data Pins](k2_pins_data.png)
 
-ノードは入力および出力データピンをいくつでも持つことができます。Function　Callノードのデータピンは、対応する関数のパラメータと戻り値に対応します。
+ノードは入力および出力データピンをいくつでも持つことができます。Function Call ノードのデータピンは、対応する関数のパラメータと戻り値に対応します。
 [/EXCERPT:Glossary_data_pin]
 
 	[/PARAM]
@@ -30,15 +31,15 @@ Availability:Public
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
- デフォル トモード
+Defaults モード
 	[/PARAM]
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Defaults_Mode]
-**ブループリントのデフォルト** または **Default** モードでは、 _ブループリント_ のすべてのプロパティが表示されます。 
-こうしたプロパティには、ブループリントに含まれる変数、ネイティブ コードで定義されるコンポーネントに加え、複製、ナビゲーション、コリジョンのプロパティがあります。 
-**Default** モードでこうしたプロパティに対して設定される値は、ブループリントの新規インスタンスが作成された場合に使用されます。 
-
+**Class Defaults** または **Default** モードでは、 _ブループリント_ のすべてのプロパティが表示されます。 
+こうしたプロパティには、 _ブループリント_ に含まれる変数、ネイティブ コードで定義されるコンポーネントに加え、 
+レプリケーション、ナビゲーション、コリジョンのプロパティがあります。**Default** モードでこうしたプロパティに対して設定される値は、 
+ _ブループリント_ の新規インスタンスが作成された場合に使用されます。
 [/EXCERPT:Glossary_Defaults_Mode]
 
 **Defaults モード** は 3 つあるモードのうちの 1 つです。他の 2 つは、**Components モード** と **Graph モード** です。
@@ -53,7 +54,7 @@ Details パネル
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Details_panel]
-レベル エディタの **[詳細] パネル** は、各種エレメントのプロパティ情報を格納するパネルです。UE のツールやエディタの多くに **[詳細]** パネルが含まれています。レベルエディタ、マチネ、ペルソナなどが例に挙げられます。
+レベル エディタの **[Details] パネル** は、各種エレメントのプロパティ情報を格納するパネルです。UE のツールやエディタの多くに **[Details]** パネルが含まれています。レベル エディタ、マチネ、ペルソナなどが例に挙げられます。
 [/EXCERPT:Glossary_Details_panel]
 
 	[/PARAM]
@@ -61,12 +62,12 @@ Details パネル
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
-Director Group
+Director グループ
 	[/PARAM]
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Director_Group]
-**Director Group** はカメラ ビューポートを制御する特別なタイプの Matinee グループです。ショット間のカメラビューポートの切り替えにディレクターグループを使用します。1 つの Matinee シーケンスに対して、1 つだけ Director グループがついています。
+**Director グループ** はカメラ ビューポートを制御する特別なタイプの Matinee グループです。Director グループを使って、ショット間のカメラビューポートの切り替えをします。1 つの Matinee シーケンスに対して、1 つだけ Director グループがついています。
 [/EXCERPT:Glossary_Director_Group]
 
 	[/PARAM]

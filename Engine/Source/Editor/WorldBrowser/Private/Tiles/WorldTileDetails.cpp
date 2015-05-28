@@ -35,6 +35,7 @@ void UWorldTileDetails::SetInfo(const FWorldTileInfo& Info, ULevel* Level)
 	Layer				= Info.Layer;
 	Bounds				= Info.Bounds;
 	ZOrder				= Info.ZOrder;
+	bHideInTileView		= Info.bHideInTileView;
 
 	// Sync LOD settings
 	NumLOD				= Info.LODList.Num();
@@ -65,6 +66,7 @@ FWorldTileInfo UWorldTileDetails::GetInfo() const
 	Info.Layer					= Layer;
 	Info.Bounds					= Bounds;
 	Info.ZOrder					= ZOrder;
+	Info.bHideInTileView		= bHideInTileView;
 
 	// Sync LOD settings
 	Info.LODList.SetNum(FMath::Clamp(NumLOD, 0, WORLDTILE_LOD_MAX_INDEX));
@@ -120,6 +122,10 @@ void UWorldTileDetails::PostEditChangeProperty( struct FPropertyChangedEvent& Pr
 	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UWorldTileDetails, ZOrder))
 	{
 		ZOrderChangedEvent.Broadcast();
+	}
+	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UWorldTileDetails, bHideInTileView))
+	{
+		HideInTileViewChangedEvent.Broadcast();
 	}
 }
 

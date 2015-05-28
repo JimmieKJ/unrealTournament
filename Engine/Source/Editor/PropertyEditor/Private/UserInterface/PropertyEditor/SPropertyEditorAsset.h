@@ -61,7 +61,7 @@ public:
 	void GetDesiredWidth( float& OutMinDesiredWidth, float &OutMaxDesiredWidth );
 
 	/** Override the tick method so we can check for thumbnail differences & update if necessary */
-	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 private:
 	struct FObjectOrAssetData

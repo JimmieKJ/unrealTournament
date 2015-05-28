@@ -63,7 +63,7 @@ public:
 		}
 	}
 
-	virtual FVector2D ComputeDesiredSize() const override
+	virtual FVector2D ComputeDesiredSize(float) const override
 	{
 		FVector2D ThisDesiredSize = FVector2D::ZeroVector;
 

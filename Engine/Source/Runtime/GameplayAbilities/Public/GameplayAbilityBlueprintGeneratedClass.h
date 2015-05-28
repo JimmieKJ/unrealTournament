@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Engine/BlueprintGeneratedClass.h"
 #include "GameplayAbilityBlueprintGeneratedClass.generated.h"
 
 UCLASS()

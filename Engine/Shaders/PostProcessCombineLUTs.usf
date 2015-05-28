@@ -4,9 +4,14 @@
 	LUTBlender.usf: Filter pixel shader source.
 =============================================================================*/
 
+#define USE_COLOR_MATRIX	1
+#define USE_SHADOW_TINT		1
+#define USE_CONTRAST		1
+
 #include "Common.usf"
 #include "PostProcessCommon.usf"
 #include "TonemapCommon.usf"
+#include "GammaCorrectionCommon.usf"
 
 // ---------------------------------------------------
 
@@ -24,7 +29,126 @@ float LUTWeights[5];
 half3 ColorScale;
 half4 OverlayColor;
 
+static const float LUTSize = 32;
 
+// Accurate for 1000K < Temp < 15000K
+// [Krystek 1985, "An algorithm to calculate correlated colour temperature"]
+float2 PlanckianLocusChromaticity( float Temp )
+{
+	float u = ( 0.860117757f + 1.54118254e-4f * Temp + 1.28641212e-7f * Temp*Temp ) / ( 1.0f + 8.42420235e-4f * Temp + 7.08145163e-7f * Temp*Temp );
+	float v = ( 0.317398726f + 4.22806245e-5f * Temp + 4.20481691e-8f * Temp*Temp ) / ( 1.0f - 2.89741816e-5f * Temp + 1.61456053e-7f * Temp*Temp );
+
+	float x = 3*u / ( 2*u - 8*v + 4 );
+	float y = 2*v / ( 2*u - 8*v + 4 );
+
+	return float2(x,y);
+}
+
+// Accurate for 4000K < Temp < 25000K
+// in: correlated color temperature
+// out: CIE 1931 chromaticity
+float2 D_IlluminantChromaticity( float Temp )
+{
+	// Correct for revision of Plank's law
+	// This makes 6500 == D65
+	Temp *= 1.4388 / 1.438;
+
+	float x =	Temp <= 7000 ?
+				0.244063 + ( 0.09911e3 + ( 2.9678e6 - 4.6070e9 / Temp ) / Temp ) / Temp :
+				0.237040 + ( 0.24748e3 + ( 1.9018e6 - 2.0064e9 / Temp ) / Temp ) / Temp;
+	
+	float y = -3 * x*x + 2.87 * x - 0.275;
+
+	return float2(x,y);
+}
+
+// Find closest color temperature to chromaticity
+// [McCamy 1992, "Correlated color temperature as an explicit function of chromaticity coordinates"]
+float CorrelatedColorTemperature( float x, float y )
+{
+	float n = (x - 0.3320) / (0.1858 - y);
+	return -449 * n*n*n + 3525 * n*n - 6823.3 * n + 5520.33;
+}
+
+float2 PlanckianIsothermal( float Temp, float Tint )
+{
+	float u = ( 0.860117757f + 1.54118254e-4f * Temp + 1.28641212e-7f * Temp*Temp ) / ( 1.0f + 8.42420235e-4f * Temp + 7.08145163e-7f * Temp*Temp );
+	float v = ( 0.317398726f + 4.22806245e-5f * Temp + 4.20481691e-8f * Temp*Temp ) / ( 1.0f - 2.89741816e-5f * Temp + 1.61456053e-7f * Temp*Temp );
+
+	float ud = ( -1.13758118e9f - 1.91615621e6f * Temp - 1.53177f * Temp*Temp ) / Square( 1.41213984e6f + 1189.62f * Temp + Temp*Temp );
+	float vd = (  1.97471536e9f - 705674.0f * Temp - 308.607f * Temp*Temp ) / Square( 6.19363586e6f - 179.456f * Temp + Temp*Temp );
+
+	float2 uvd = normalize( float2( u, v ) );
+
+	// Correlated color temperature is meaningful within +/- 0.05
+	u += -uvd.y * Tint * 0.05;
+	v +=  uvd.x * Tint * 0.05;
+	
+	float x = 3*u / ( 2*u - 8*v + 4 );
+	float y = 2*v / ( 2*u - 8*v + 4 );
+
+	return float2(x,y);
+}
+
+float WhiteTemp;
+float WhiteTint;
+
+float3 WhiteBalance( float3 LinearColor )
+{
+	float2 SrcWhiteDaylight = D_IlluminantChromaticity( WhiteTemp );
+	float2 SrcWhitePlankian = PlanckianLocusChromaticity( WhiteTemp );
+
+	float2 SrcWhite = WhiteTemp < 4000 ? SrcWhitePlankian : SrcWhiteDaylight;
+	float2 D65White = float2( 0.31270,  0.32900 );
+
+	{
+		// Offset along isotherm
+		float2 Isothermal = PlanckianIsothermal( WhiteTemp, WhiteTint ) - SrcWhitePlankian;
+		SrcWhite += Isothermal;
+	}
+
+	float3x3 WhiteBalanceMat = ChromaticAdaptation( SrcWhite, D65White );
+	WhiteBalanceMat = mul( XYZ_2_sRGB_MAT, mul( WhiteBalanceMat, sRGB_2_XYZ_MAT ) );
+
+	return mul( WhiteBalanceMat, LinearColor );
+}
+
+float3 ColorSaturation;
+float3 ColorContrast;
+float3 ColorGamma;
+float3 ColorGain;
+float3 ColorOffset;
+
+float3 ColorGrade( float3 LinearColor )
+{
+	// ACEScg working space
+	const float3x3 sRGB_2_AP1 = mul( XYZ_2_AP1_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
+	const float3x3 AP1_2_sRGB = mul( XYZ_2_sRGB_MAT, mul( D60_2_D65_CAT, AP1_2_XYZ_MAT ) );
+
+	float3 WorkingColor = mul( sRGB_2_AP1, LinearColor );
+
+	// TODO optimize
+	float Luma = dot( WorkingColor, AP1_RGB2Y );
+	WorkingColor = max( 0, lerp( Luma.xxx, WorkingColor, ColorSaturation ) );
+	WorkingColor = pow( WorkingColor * (1.0 / 0.18), ColorContrast ) * 0.18;
+	WorkingColor = pow( WorkingColor, 1.0 / ColorGamma );
+	WorkingColor = WorkingColor * ColorGain + ColorOffset;
+
+#if 0
+	{
+		// Split tone
+		float ShadowWeight = 1 - smoothstep( 0, 0.18, Luma );
+		float HighlightWeight = smoothstep( 0.5, 1, Luma );
+		float MidtoneWeight = 1 - ShadowWeight - HighlightWeight;
+
+		WorkingColor = ShadowWeight * ShadowColor + MidtoneWeight * GradedColor + HighlightWeight * HighlightColor;
+	}
+#endif
+
+	return mul( AP1_2_sRGB, WorkingColor );
+}
+
+uint OutputDevice;
 
 // todo: Weight[0] should be used for neutral, Texture* name should start with 1, color correction should apply on top of that
 #if USE_VOLUME_LUT == 1
@@ -33,21 +157,9 @@ void MainPS(FWriteToSliceGeometryOutput Input, out float4 OutColor : SV_Target0)
 	// construct the neutral color from a 3d position volume texture	
 	float4 Neutral;
 	{
-		float2 UV = Input.Vertex.UV - float2(0.5f / 16.0f, 0.5f / 16.0f);
+		float2 UV = Input.Vertex.UV - float2(0.5f / LUTSize, 0.5f / LUTSize);
 
-		Neutral = float4(UV * (16.0f / 15.0f), Input.LayerIndex / 15.0f, 0);
-	}
-
-	// Transform Neutral color to 256x16 UV
-	float2 InUV;
-	{
-		float Scale = 15.0f / 16.0f; 
-
-		float IntB = floor(Neutral.b * 15.9999f) / 16.0f;
-
-		InUV = float2(Neutral.r * Scale / 16.0f + IntB, Neutral.g * Scale);
-		
-		InUV += float2(0.5f / 256.0f, 0.5f / 16.0f);
+		Neutral = float4(UV * LUTSize / (LUTSize - 1), Input.LayerIndex / (LUTSize - 1), 0);
 	}
 #else
 void MainPS(float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
@@ -57,53 +169,107 @@ void MainPS(float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 	{ 
 		float2 UV = InUV.xy;
 
-		UV -= float2(0.5f / 256.0f, 0.5f / 16.0f);
+		UV -= float2(0.5f / (LUTSize * LUTSize), 0.5f / LUTSize);
 
-		float Scale = 16.0f / 15.0f;
+		float Scale = LUTSize / (LUTSize - 1);
 
 		float3 RGB;
 		
-		RGB.r = frac(UV.x * 16.0f);
-		RGB.b = UV.x - RGB.r / 16.0f;
+		RGB.r = frac(UV.x * LUTSize);
+		RGB.b = UV.x - RGB.r / LUTSize;
 		RGB.g = UV.y;
 
 		Neutral = float4(RGB * Scale, 0);
 	}
 #endif
 
-    OutColor = LUTWeights[0] * Neutral;
+	float3 LogColor = Neutral.rgb;
+	
+	const float LinearRange = 14;
+	const float LinearGrey = 0.18;
+	const float ExposureGrey = 444;
 
-	// BLENDCOUNT is the number of LUT that are blended together including the neutral one
-#if BLENDCOUNT >= 2
-	OutColor += LUTWeights[1] * Texture2DSample(Texture1, Texture1Sampler, InUV);
-#endif
+	float3 LinearColor = exp2( ( LogColor - ExposureGrey / 1023.0 ) * LinearRange ) * LinearGrey;
+	//float3 LinearColor = 2 * ( pow(10.0, ((LogColor - 0.616596 - 0.03) / 0.432699)) - 0.037584 );	// SLog
+	//float3 LinearColor = ( pow( 10, ( 1023 * LogColor - 685 ) / 300) - .0108 ) / (1 - .0108);	// Cineon
+	//LinearColor = max( 0, LinearColor );
 
-#if BLENDCOUNT >= 3
-	OutColor += LUTWeights[2] * Texture2DSample(Texture2, Texture2Sampler, InUV);
-#endif
+	float3 BalancedColor = WhiteBalance( LinearColor );
+	float3 GradedColor = ColorGrade( BalancedColor );
+	float3 FilmColor = FilmToneMap( GradedColor );
+	
+	BRANCH
+	if( ColorShadow_Tint2.a == 0 )
+	{
+		// Legacy tone mapper
+		FilmColor = FilmPostProcess( GradedColor );
+	}
 
-#if BLENDCOUNT >= 4
-	OutColor += LUTWeights[3] * Texture2DSample(Texture3, Texture3Sampler, InUV);
-#endif
+#if BLENDCOUNT > 1
+	{
+		// Legacy LDR LUT color grading
 
-#if BLENDCOUNT >= 5
-	OutColor += LUTWeights[4] * Texture2DSample(Texture4, Texture4Sampler, InUV);
+		// FIXME LUTs are in sRGB space
+		half3 GammaColor = LinearToSrgbBranching( saturate( FilmColor ) );
+
+		float3 UVW = GammaColor * (15.0 / 16.0) + (0.5f / 16.0);
+
+		GammaColor = LUTWeights[0] * GammaColor;
+
+		// BLENDCOUNT is the number of LUT that are blended together including the neutral one
+	#if BLENDCOUNT >= 2
+		GammaColor += LUTWeights[1] * UnwrappedTexture3DSample( Texture1, Texture1Sampler, UVW, 16 ).rgb;
+	#endif
+
+	#if BLENDCOUNT >= 3
+		GammaColor += LUTWeights[2] * UnwrappedTexture3DSample( Texture2, Texture2Sampler, UVW, 16 ).rgb;
+	#endif
+
+	#if BLENDCOUNT >= 4
+		GammaColor += LUTWeights[3] * UnwrappedTexture3DSample( Texture3, Texture3Sampler, UVW, 16 ).rgb;
+	#endif
+
+	#if BLENDCOUNT >= 5
+		GammaColor += LUTWeights[4] * UnwrappedTexture3DSample( Texture4, Texture4Sampler, UVW, 16 ).rgb;
+	#endif
+
+		// Back to linear space
+		FilmColor = sRGBToLinear( GammaColor );
+	}
 #endif
+	
+	// apply math color correction on top to texture based solution
+	FilmColor = ColorCorrection( FilmColor );
 
 	// blend with custom LDR color, used for Fade track in Matinee
-	OutColor.rgb = lerp(OutColor.rgb * ColorScale, OverlayColor.rgb, OverlayColor.a);
+	FilmColor = lerp( FilmColor * ColorScale, OverlayColor.rgb, OverlayColor.a );
 
-	// apply math color correction on top ot texture based solution
-	// (faster than doing it in the full screen pass)
-	OutColor.rgb = ColorCorrection(OutColor.rgb);
+	// Apply "gamma" curve adjustment.
+	FilmColor = pow( FilmColor, InverseGamma.y );
+		
+	half3 OutDeviceColor = 0;
+	BRANCH
+	if( OutputDevice == 0 )
+	{
+		// Apply conversion to sRGB (this must be an exact sRGB conversion else darks are bad).
+		// Branching is faster than branchless on AMD on PC.
+		OutDeviceColor = LinearToSrgbBranching( FilmColor );
+	}
+	else if( OutputDevice == 1 )
+	{
+		// Didn't profile yet if the branching version would be faster (different linear segment).
+		OutDeviceColor = LinearTo709Branchless( FilmColor );
+	}
+	else
+	{
+		// This is different than the prior "gamma" curve adjustment (but reusing the variable).
+		// For displays set to a gamma colorspace.
+		// Note, MacOSX native output is raw gamma 2.2 not sRGB!
+		OutDeviceColor = pow( FilmColor, InverseGamma.z );
+	}
 
-//	static float SmallPowConst = 0.00000001f;
-
-	// needed for d3d11 and if custom gamma is specified
-	// could be integrated into the uberpostprocess but here it is much cheaper
-	// max() clamp to get nice behavior for negative colors (see level sm2test)
-//	OutColor = UnClampedPow(max(float4(SmallPowConst,SmallPowConst,SmallPowConst,SmallPowConst), OutColor), 2.2f * GammaInverse);
-//	OutColor = pow(max(float4(SmallPowConst,SmallPowConst,SmallPowConst,SmallPowConst), OutColor), 2.2f * GammaInverse);
+	// Better to saturate(lerp(a,b,t)) than lerp(saturate(a),saturate(b),t)
+	OutColor.rgb = OutDeviceColor / 1.05;
 }
 
 

@@ -33,10 +33,8 @@ namespace ELogsSortMode
 	};
 }
 
-void SVisualLoggerLogsList::Construct(const FArguments& InArgs, const TSharedRef<FUICommandList>& InCommandList, TSharedPtr<IVisualLoggerInterface> InVisualLoggerInterface)
+void SVisualLoggerLogsList::Construct(const FArguments& InArgs, const TSharedRef<FUICommandList>& InCommandList)
 {
-	VisualLoggerInterface = InVisualLoggerInterface;
-
 	ChildSlot
 		[
 			SAssignNew(LogsLinesWidget, SListView<TSharedPtr<FLogEntryItem> >)
@@ -73,21 +71,13 @@ void SVisualLoggerLogsList::OnFiltersChanged()
 
 void SVisualLoggerLogsList::LogEntryLineSelectionChanged(TSharedPtr<FLogEntryItem> SelectedItem, ESelectInfo::Type SelectInfo)
 {
-	TMap<FName, FVisualLogExtensionInterface*>& AllExtensions = FVisualLogger::Get().GetAllExtensions();
-	for (auto Iterator = AllExtensions.CreateIterator(); Iterator; ++Iterator)
+	if (SelectedItem.IsValid() == true)
 	{
-		FVisualLogExtensionInterface* Extension = (*Iterator).Value;
-		if (Extension != NULL)
-		{
-			if (SelectedItem.IsValid() == true)
-			{
-				Extension->LogEntryLineSelectionChanged(SelectedItem, SelectedItem->UserData, SelectedItem->TagName);
-			}
-			else
-			{
-				Extension->LogEntryLineSelectionChanged(SelectedItem, 0, NAME_None);
-			}
-		}
+		FLogVisualizer::Get().GetVisualLoggerEvents().OnLogLineSelectionChanged.ExecuteIfBound(SelectedItem, SelectedItem->UserData, SelectedItem->TagName);
+	}
+	else
+	{
+		FLogVisualizer::Get().GetVisualLoggerEvents().OnLogLineSelectionChanged.ExecuteIfBound(SelectedItem, 0, NAME_None);
 	}
 }
 
@@ -102,7 +92,7 @@ TSharedRef<ITableRow> SVisualLoggerLogsList::LogEntryLinesGenerateRow(TSharedPtr
 			[
 				SNew(STextBlock)
 				.ColorAndOpacity(FSlateColor(Item->CategoryColor))
-				.Text(Item->Category)
+				.Text( FText::FromString(Item->Category) )
 				.HighlightText(this, &SVisualLoggerLogsList::GetFilterText)
 			]
 			+ SHorizontalBox::Slot()
@@ -110,15 +100,16 @@ TSharedRef<ITableRow> SVisualLoggerLogsList::LogEntryLinesGenerateRow(TSharedPtr
 			.Padding(FMargin(5.0f, 0.0f))
 			[
 				SNew(STextBlock)
-				.ColorAndOpacity(FSlateColor(FLinearColor::Gray))
-				.Text(FString(TEXT("(")) + FString(FOutputDevice::VerbosityToString(Item->Verbosity)) + FString(TEXT(")")))
+				.ColorAndOpacity(FSlateColor(Item->Verbosity == ELogVerbosity::Error ? FLinearColor::Red : (Item->Verbosity == ELogVerbosity::Warning ? FLinearColor::Yellow : FLinearColor::Gray)))
+				.Text(FText::FromString(FString(TEXT("(")) + FString(FOutputDevice::VerbosityToString(Item->Verbosity)) + FString(TEXT(")"))))
 			]
 			+ SHorizontalBox::Slot()
 			.Padding(FMargin(5.0f, 0.0f))
 			[
 				SNew(STextBlock)
 				.AutoWrapText(true)
-				.Text(Item->Line)
+				.ColorAndOpacity(FSlateColor(Item->Verbosity == ELogVerbosity::Error ? FLinearColor::Red : (Item->Verbosity == ELogVerbosity::Warning ? FLinearColor::Yellow : FLinearColor::Gray)))
+				.Text(FText::FromString(Item->Line))
 				.HighlightText(this, &SVisualLoggerLogsList::GetFilterText)
 			]
 		];
@@ -128,12 +119,11 @@ FText SVisualLoggerLogsList::GetFilterText() const
 {
 	static FText NoText;
 	const bool bSearchInsideLogs = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bSearchInsideLogs;
-	return bSearchInsideLogs ? FilterText : NoText;
+	return bSearchInsideLogs ? FText::FromString(FCategoryFiltersManager::Get().GetSearchString()) : NoText;
 }
 
 void SVisualLoggerLogsList::OnFiltersSearchChanged(const FText& Filter)
 {
-	FilterText = Filter;
 	OnFiltersChanged();
 }
 
@@ -144,25 +134,38 @@ void SVisualLoggerLogsList::OnItemSelectionChanged(const FVisualLogDevice::FVisu
 
 	TArray<FVisualLoggerCategoryVerbosityPair> OutCategories;
 	FVisualLoggerHelpers::GetCategories(LogEntry.Entry, OutCategories);
-	if (VisualLoggerInterface->HasValidCategories(OutCategories) == false)
+	bool bHasValidCategory = false;
+	for (auto& CurrentCategory : OutCategories)
+	{
+		bHasValidCategory |= FCategoryFiltersManager::Get().MatchCategoryFilters(CurrentCategory.CategoryName.ToString(), CurrentCategory.Verbosity);
+	}
+	
+	if (!bHasValidCategory)
 	{
 		return;
 	}
 
 	CurrentLogEntry = LogEntry;
 	const FVisualLogLine* LogLine = LogEntry.Entry.LogLines.GetData();
+	const bool bSearchInsideLogs = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bSearchInsideLogs;
 	for (int LineIndex = 0; LineIndex < LogEntry.Entry.LogLines.Num(); ++LineIndex, ++LogLine)
 	{
-		bool bShowLine = true;
-
-		FString CurrentCategory = LogLine->Category.ToString();
-		bShowLine = VisualLoggerInterface->IsValidCategory(CurrentCategory, LogLine->Verbosity) /*&& (bHistogramGraphsFilter || (QuickFilterText.Len() == 0 || CurrentCategory.Find(QuickFilterText) != INDEX_NONE))*/;
+		bool bShowLine = FCategoryFiltersManager::Get().MatchCategoryFilters(LogLine->Category.ToString(), LogLine->Verbosity);
+		if (bSearchInsideLogs)
+		{
+			FString String = FCategoryFiltersManager::Get().GetSearchString();
+			if (String.Len() > 0)
+			{
+				bShowLine &= LogLine->Line.Find(String) != INDEX_NONE || LogLine->Category.ToString().Find(String) != INDEX_NONE;
+			}
+		}
+		
 
 		if (bShowLine)
 		{
 			FLogEntryItem EntryItem;
 			EntryItem.Category = LogLine->Category.ToString();
-			EntryItem.CategoryColor = VisualLoggerInterface->GetCategoryColor(LogLine->Category);
+			EntryItem.CategoryColor = FLogVisualizer::Get().GetColorForCategory(LogLine->Category.ToString());
 			EntryItem.Verbosity = LogLine->Verbosity;
 			EntryItem.Line = LogLine->Line;
 			EntryItem.UserData = LogLine->UserData;
@@ -174,16 +177,13 @@ void SVisualLoggerLogsList::OnItemSelectionChanged(const FVisualLogDevice::FVisu
 
 	for (auto& Event : LogEntry.Entry.Events)
 	{
-		bool bShowLine = true;
-
-		FString CurrentCategory = Event.Name;
-		bShowLine = VisualLoggerInterface->IsValidCategory(Event.Name, Event.Verbosity) /*&& (bHistogramGraphsFilter || (QuickFilterText.Len() == 0 || CurrentCategory.Find(QuickFilterText) != INDEX_NONE))*/;
+		bool bShowLine = FCategoryFiltersManager::Get().MatchCategoryFilters(Event.Name, Event.Verbosity);
 
 		if (bShowLine)
 		{
 			FLogEntryItem EntryItem;
 			EntryItem.Category = Event.Name;
-			EntryItem.CategoryColor = VisualLoggerInterface->GetCategoryColor(*EntryItem.Category);
+			EntryItem.CategoryColor = FLogVisualizer::Get().GetColorForCategory(*EntryItem.Category);
 			EntryItem.Verbosity = Event.Verbosity;
 			EntryItem.Line = FString::Printf(TEXT("Registered event: '%s' (%d times)%s"), *Event.Name, Event.Counter, Event.EventTags.Num() ? TEXT("\n") : TEXT(""));
 			for (auto& EventTag : Event.EventTags)
@@ -198,7 +198,6 @@ void SVisualLoggerLogsList::OnItemSelectionChanged(const FVisualLogDevice::FVisu
 
 	}
 
-	//SetCurrentViewedTime(LogEntry.Entry.TimeStamp);
 	LogsLinesWidget->RequestListRefresh();
 }
 #undef LOCTEXT_NAMESPACE

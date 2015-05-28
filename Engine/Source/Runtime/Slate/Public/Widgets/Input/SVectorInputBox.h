@@ -57,6 +57,9 @@ public:
 		/** Menu extender delegate for the Z value */
 		SLATE_EVENT( FMenuExtensionDelegate, ContextMenuExtenderZ )
 
+		/** Provide custom type functionality for the vector */
+		SLATE_ARGUMENT( TSharedPtr< INumericTypeInterface<float> >, TypeInterface )
+
 	SLATE_END_ARGS()
 
 	/**

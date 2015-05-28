@@ -20,7 +20,6 @@ class UAnimGraphNode_SequenceEvaluator : public UAnimGraphNode_Base
 	// End of UEdGraphNode
 
 	// UAnimGraphNode_Base interface
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual void ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog) override;
 	virtual void PreloadRequiredAssets() override;	
 	// Interface to support transition getter

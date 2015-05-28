@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_CLOTHING_ASSET_AUTHORING_H
 #define NX_CLOTHING_ASSET_AUTHORING_H
@@ -63,23 +47,25 @@ public:
 	virtual void setInvalidConstrainCoefficients(const NxClothingConstrainCoefficients& coeff) = 0;
 
 	/**
-	\brief Sets the graphcial and physical mesh for the given graphical lod level.
+	\brief Sets the graphical and physical mesh for the given graphical lod level.
 	\param [in] lod						Identifier for that lod level.
 	\param [in] graphicalMesh			The graphical mesh to be rendered in that lod level.
 	\param [in] physicalMesh			The physical mesh to be simulated on that lod level. The reference to the same physical mesh can be
 										given for different graphical lods. It is copied internally.
 										<br><b>Note:</b> If the same physical mesh is used several time, the paint values are copied from the
 										graphical mesh the first time the physical mesh is passed in here.
-	\param [in] numMaxDistReductions	The number of physical submeshes that are created from the current submesh.
+	\param [in] numMaxDistReductions	\b DEPRECATED The number of physical submeshes that are created from the current submesh.
 										<br><b>Note:</b> If the same physical mesh is used several time, the submeshes are created with the
 										number of the first time it has been passed in.
-	\param [in] maxDistReductions		For each physicalLod it can be defined how much the maxDistances are reduced when that LoD is active.
+	\deprecated Use default value physx::PxU32 numMaxDistReductions = 0
+	\param [in] maxDistReductions		\b DEPRECATED For each physicalLod it can be defined how much the maxDistances are reduced when that LoD is active.
 										All triangles that have vertices reduced down to 0 or smaller are not simulated anymore. If no list
 										with distances is provided, the mesh will be split into approximately equally large triangle patches.
+	\deprecated Use default value physx::PxF32* maxDistReductions = NULL
 	\param [in] normalResemblance		This angle (in degrees) specifies how similar the normal from the physical and graphical mesh need to
 										be in order for them to be accepted as immediate mode skinning pairs. Use 90 or bigger for any
 										resemblance. Must be in range (0, 90], but it's highly recommended to use more than 5 degrees.
-	\param [in] ignoreUnusedVertices	All Vertices that have the 'usedForPhysics' property set to false will be ignored when transfering
+	\param [in] ignoreUnusedVertices	All Vertices that have the 'usedForPhysics' property set to false will be ignored when transferring
 										the painted values from the graphical to the physical mesh
 	\param [in] progress				Progress bar callback class.
 	*/
@@ -89,7 +75,7 @@ public:
 
 
 	/**
-	\brief Assigns a platform tag to a graphcial lod.
+	\brief Assigns a platform tag to a graphical lod.
 	*/
 	virtual bool addPlatformToGraphicalLod(physx::PxU32 lod, NxPlatformTag platform) = 0;
 
@@ -101,24 +87,24 @@ public:
 	/**
 	\brief Get number of platform tags for a given lod.
 	*/
-	virtual physx::PxU32 getNumPlatforms(physx::PxU32 lod) = 0;
+	virtual physx::PxU32 getNumPlatforms(physx::PxU32 lod) const = 0;
 
 	/**
 	\brief Get i-th platform tag of given lod;
 	*/
-	virtual NxPlatformTag getPlatform(physx::PxU32 lod, physx::PxU32 i) = 0;
+	virtual NxPlatformTag getPlatform(physx::PxU32 lod, physx::PxU32 i) const = 0;
 
 	/**
 	\brief Returns the number of LoDs that have been set in the NxClothingAssetAuthoring::setMeshes call
 	*/
-	virtual physx::PxU32 getNumLods() = 0;
+	virtual physx::PxU32 getNumLods() const = 0;
 
 	/**
 	\brief Returns the n-th LoD value from the NxClothingAssetAuthoring::setMeshes call.
 
 	\note These values do not have to be a continuous list
 	*/
-	virtual physx::PxI32 getLodValue(physx::PxU32 lod) = 0;
+	virtual physx::PxI32 getLodValue(physx::PxU32 lod) const = 0;
 
 	/**
 	\brief Clears all lods and meshes.
@@ -128,7 +114,7 @@ public:
 	/**
 	\brief Returns a reference to the internal copy of the physical mesh for the given graphical lod. Returned object MUST be destroyed by the user immediately after use.
 	*/
-	virtual NxClothingPhysicalMesh* getClothingPhysicalMesh(physx::PxU32 graphicalLod) = 0;
+	virtual NxClothingPhysicalMesh* getClothingPhysicalMesh(physx::PxU32 graphicalLod) const = 0;
 
 	/**
 	\brief assigns name and bindpose to a bone. This needs to be called for every bone at least once
@@ -345,12 +331,12 @@ public:
 
 	\note Under no circumstances you should modify the positions of the render mesh asset's vertices. This will certainly break clothing
 	*/
-	virtual ::NxParameterized::Interface*	getRenderMeshAssetAuthoring(physx::PxU32 lodLevel) = 0;
+	virtual ::NxParameterized::Interface*	getRenderMeshAssetAuthoring(physx::PxU32 lodLevel) const = 0;
 
 	/**
 	\brief Retrieves the bind pose transform of this bone.
 	*/
-	virtual	bool getBoneBindPose(physx::PxU32 boneIndex, physx::PxMat44& bindPose) = 0;
+	virtual	bool getBoneBindPose(physx::PxU32 boneIndex, physx::PxMat44& bindPose) const = 0;
 
 	/**
 	\brief Directly sets the bind pose transform of this bone

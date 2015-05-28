@@ -31,7 +31,7 @@ public:
 	/** Public const access to the current state of the scope stack */
 	FORCEINLINE const FScopedSlowTaskStack& GetScopeStack() const
 	{
-		return ScopeStack;
+		return *ScopeStack;
 	}
 
 	/**** Legacy API - not deprecated as it's still in heavy use, but superceded by FScopedSlowTask ****/
@@ -80,8 +80,9 @@ public:
 
 	bool	TreatWarningsAsErrors;
 
-	FFeedbackContext() :
-		 TreatWarningsAsErrors( 0 )
+	FFeedbackContext()
+		: TreatWarningsAsErrors(0)
+		, ScopeStack(MakeShareable(new FScopedSlowTaskStack))
 	{}
 
 private:
@@ -93,7 +94,7 @@ protected:
 	friend FScopedSlowTask;
 
 	/** Stack of pointers to feedback scopes that are currently open */
-	FScopedSlowTaskStack ScopeStack;
+	TSharedRef<FScopedSlowTaskStack> ScopeStack;
 	TArray<TUniquePtr<FScopedSlowTask>> LegacyAPIScopes;
 
 	/** Ask that the UI be updated as a result of the scope stack changing */
@@ -181,7 +182,7 @@ public:
 		, CurrentFrameScope(0)
 		, bVisibleOnUI(true)
 		, StartTime(FPlatformTime::Seconds())
-		, bEnabled(bInEnabled)
+		, bEnabled(bInEnabled && IsInGameThread())
 		, bCreatedDialog(false)		// only set to true if we create a dialog
 		, Context(InContext)
 	{
@@ -193,7 +194,7 @@ public:
 
 		if (bEnabled)
 		{
-			Context.ScopeStack.Push(this);
+			Context.ScopeStack->Push(this);
 		}
 	}
 
@@ -208,7 +209,7 @@ public:
 				Context.FinalizeSlowTask();
 			}
 
-			FScopedSlowTaskStack& Stack = Context.ScopeStack;
+			FScopedSlowTaskStack& Stack = *Context.ScopeStack;
 			checkSlow(Stack.Num() != 0 && Stack.Last() == this);
 
 			Stack.Pop(false);
@@ -245,7 +246,7 @@ public:
 
 		if (bEnabled)
 		{
-			Context.RequestUpdateUI(bCreatedDialog || Context.ScopeStack[0] == this);
+			Context.RequestUpdateUI(bCreatedDialog || (*Context.ScopeStack)[0] == this);
 		}
 	}
 

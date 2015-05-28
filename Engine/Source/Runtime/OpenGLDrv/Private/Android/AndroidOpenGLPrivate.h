@@ -86,6 +86,10 @@ private:
 		{
 			TargetPlatformNames.Add(TEXT("Android_ETC2"));
 		}
+		if (ExtensionsString.Contains(TEXT("GL_KHR_texture_compression_astc_ldr")))
+		{
+			TargetPlatformNames.Add(TEXT("Android_ASTC"));
+		}
 
 		// all devices support ETC
 		TargetPlatformNames.Add(TEXT("Android_ETC1"));

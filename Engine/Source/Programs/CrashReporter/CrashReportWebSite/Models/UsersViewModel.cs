@@ -14,8 +14,10 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 	{
 		/// <summary>The currently selected user group.</summary>
 		public string UserGroup { get; set; }
+
 		/// <summary>The currently selected user group.</summary>
-		public List<string> Users { get; set; }
+		public HashSet<string> Users { get; set; }
+
 		/// <summary>The number of users in each group.</summary>
 		public Dictionary<string, int> GroupCounts { get; set; }
 	}

@@ -11,6 +11,7 @@
 #if WITH_PHYSX
 	#include "PhysXSupport.h"
 #endif // WITH_PHYSX
+#include "PhysicsPublic.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 
@@ -87,7 +88,7 @@ void USkeletalMeshComponent::BlendPhysicsBones( TArray<FBoneIndexType>& InRequir
 		int32 BoneIndex = InRequiredBones[i];
 
 		// See if this is a physics bone..
-		int32 BodyIndex = PhysicsAsset->FindBodyIndex( SkeletalMesh->RefSkeleton.GetBoneName(BoneIndex));
+		int32 BodyIndex = PhysicsAsset ? PhysicsAsset->FindBodyIndex(SkeletalMesh->RefSkeleton.GetBoneName(BoneIndex)) : INDEX_NONE;
 		// need to update back to physX so that physX knows where it was after blending
 		bool bUpdatePhysics = false;
 		FBodyInstance* BodyInstance = NULL;
@@ -151,6 +152,13 @@ void USkeletalMeshComponent::BlendPhysicsBones( TArray<FBoneIndexType>& InRequir
 					// Now blend in this atom. See if we are forcing this bone to always be blended in
 					LocalAtoms[BoneIndex].Blend( LocalAtoms[BoneIndex], PhysAtom, UsePhysWeight );
 
+					if(BoneIndex == 0)
+					{
+						//We must update RecipScale3D based on the atom scale of the root
+						TotalScale3D *= LocalAtoms[0].GetScale3D();
+						RecipScale3D = TotalScale3D.Reciprocal();
+					}
+
 					if (UsePhysWeight < 1.f)
 					{
 						bUpdatePhysics = true;
@@ -191,11 +199,16 @@ void USkeletalMeshComponent::BlendPhysicsBones( TArray<FBoneIndexType>& InRequir
 
 
 
-bool USkeletalMeshComponent::ShouldBlendPhysicsBones()
+bool USkeletalMeshComponent::ShouldBlendPhysicsBones() const
 {
-	for (int32 BodyIndex = 0; BodyIndex < Bodies.Num(); ++BodyIndex)
+	return Bodies.Num() > 0 && (DoAnyPhysicsBodiesHaveWeight() || bBlendPhysics);
+}
+
+bool USkeletalMeshComponent::DoAnyPhysicsBodiesHaveWeight() const
+{
+	for (const FBodyInstance* Body : Bodies)
 	{
-		if (Bodies[BodyIndex]->PhysicsBlendWeight > 0.f)
+		if (Body->PhysicsBlendWeight > 0.f)
 		{
 			return true;
 		}
@@ -233,7 +246,7 @@ void USkeletalMeshComponent::BlendInPhysics()
 
 
 
-void USkeletalMeshComponent::UpdateKinematicBonesToPhysics(const TArray<FTransform>& InSpaceBases, bool bTeleport, bool bNeedsSkinning, bool bForceUpdate)
+void USkeletalMeshComponent::UpdateKinematicBonesToAnim(const TArray<FTransform>& InSpaceBases, bool bTeleport, bool bNeedsSkinning, bool bForceUpdate)
 {
 	SCOPE_CYCLE_COUNTER(STAT_UpdateRBBones);
 
@@ -251,8 +264,21 @@ void USkeletalMeshComponent::UpdateKinematicBonesToPhysics(const TArray<FTransfo
 		return;
 	}
 
+	// Get the scene, and do nothing if we can't get one.
+	FPhysScene* PhysScene = nullptr;
+	if (GetWorld() != nullptr)
+	{
+		PhysScene = GetWorld()->GetPhysicsScene();
+	}
+
+	if(PhysScene == nullptr)
+	{
+		return;
+	}
+
 	const FTransform& CurrentLocalToWorld = ComponentToWorld;
 
+	// Gracefully handle NaN
 	if(CurrentLocalToWorld.ContainsNaN())
 	{
 		return;
@@ -277,9 +303,10 @@ void USkeletalMeshComponent::UpdateKinematicBonesToPhysics(const TArray<FTransfo
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if( !MeshScale3D.IsUniform() )
 	{
-		UE_LOG(LogPhysics, Log, TEXT("USkeletalMeshComponent::UpdateKinematicBonesToPhysics : Non-uniform scale factor (%s) can cause physics to mismatch for %s  SkelMesh: %s"), *MeshScale3D.ToString(), *GetFullName(), SkeletalMesh ? *SkeletalMesh->GetFullName() : TEXT("NULL"));
+		UE_LOG(LogPhysics, Log, TEXT("USkeletalMeshComponent::UpdateKinematicBonesToAnim : Non-uniform scale factor (%s) can cause physics to mismatch for %s  SkelMesh: %s"), *MeshScale3D.ToString(), *GetFullName(), SkeletalMesh ? *SkeletalMesh->GetFullName() : TEXT("NULL"));
 	}
 #endif
+
 
 	if (bEnablePerPolyCollision == false)
 	{
@@ -296,6 +323,19 @@ void USkeletalMeshComponent::UpdateKinematicBonesToPhysics(const TArray<FTransfo
 			}
 #endif
 
+#if WITH_PHYSX
+			// Lock the scenes we need (flags set in InitArticulated)
+			if(bHasBodiesInSyncScene)
+			{
+				SCENE_LOCK_WRITE(PhysScene->GetPhysXScene(PST_Sync))
+			}
+
+			if (bHasBodiesInAsyncScene)
+			{
+				SCENE_LOCK_WRITE(PhysScene->GetPhysXScene(PST_Async))
+			}
+#endif
+
 			// Iterate over each body
 			for (int32 i = 0; i < Bodies.Num(); i++)
 			{
@@ -305,22 +345,36 @@ void USkeletalMeshComponent::UpdateKinematicBonesToPhysics(const TArray<FTransfo
 
 				if (bForceUpdate || (BodyInst->IsValidBodyInstance() && !BodyInst->IsInstanceSimulatingPhysics()))
 				{
-					// Find the graphics bone index that corresponds to this physics body.
-					FName const BodyName = PhysicsAsset->BodySetup[i]->BoneName;
-					int32 const BoneIndex = SkeletalMesh->RefSkeleton.FindBoneIndex(BodyName);
+					const int32 BoneIndex = BodyInst->InstanceBoneIndex;
 
 					// If we could not find it - warn.
 					if (BoneIndex == INDEX_NONE || BoneIndex >= GetNumSpaceBases())
 					{
+						const FName BodyName = PhysicsAsset->BodySetup[i]->BoneName;
 						UE_LOG(LogPhysics, Log, TEXT("UpdateRBBones: WARNING: Failed to find bone '%s' need by PhysicsAsset '%s' in SkeletalMesh '%s'."), *BodyName.ToString(), *PhysicsAsset->GetName(), *SkeletalMesh->GetName());
 					}
 					else
 					{
+#if WITH_PHYSX
 						// update bone transform to world
-						FTransform BoneTransform = InSpaceBases[BoneIndex] * CurrentLocalToWorld;
+						const FTransform BoneTransform = InSpaceBases[BoneIndex] * CurrentLocalToWorld;
+						ensure(!BoneTransform.ContainsNaN());
 
-						// move body
-						BodyInst->SetBodyTransform(BoneTransform, bTeleport);
+						// If kinematic and not teleporting, set kinematic target
+						PxRigidDynamic* PRigidDynamic = BodyInst->GetPxRigidDynamic_AssumesLocked();
+						if (!IsRigidBodyNonKinematic_AssumesLocked(PRigidDynamic) && !bTeleport)
+						{
+							PhysScene->SetKinematicTarget_AssumesLocked(BodyInst, BoneTransform, true);
+						}
+						// Otherwise, set global pose
+						else
+						{
+							const PxTransform PNewPose = U2PTransform(BoneTransform);
+							ensure(PNewPose.isValid());
+							PRigidDynamic->setGlobalPose(PNewPose);
+						}
+#endif
+
 
 						// now update scale
 						// if uniform, we'll use BoneTranform
@@ -351,6 +405,19 @@ void USkeletalMeshComponent::UpdateKinematicBonesToPhysics(const TArray<FTransfo
 					}
 				}
 			}
+
+#if WITH_PHYSX
+			// Unlock the scenes 
+			if (bHasBodiesInSyncScene)
+			{
+				SCENE_UNLOCK_WRITE(PhysScene->GetPhysXScene(PST_Sync))
+			}
+
+			if (bHasBodiesInAsyncScene)
+			{
+				SCENE_UNLOCK_WRITE(PhysScene->GetPhysXScene(PST_Async))
+			}
+#endif
 		}
 	}
 	else

@@ -42,6 +42,12 @@ struct FFOscillator
 		, Frequency(0)
 		, InitialOffset(0)
 	{}
+
+	/** Advances the oscillation time and returns the current value. */
+	static float UpdateOffset(FFOscillator const& Osc, float& CurrentOffset, float DeltaTime);
+
+	/** Returns the initial value of the oscillator. */
+	static float GetInitialOffset(FFOscillator const& Osc);
 };
 
 /** Defines FRotator oscillation. */
@@ -106,7 +112,7 @@ class ENGINE_API UCameraShake : public UObject
 	GENERATED_UCLASS_BODY()
 
 	/** 
-	 *  If true to only allow a single instance of this shake to play at any given time. 
+	 *  If true to only allow a single instance of this shake class to play at any given time.
 	 *  Subsequent attempts to play this shake will simply restart the timer.
 	 */
 	UPROPERTY(EditAnywhere, Category=CameraShake)
@@ -121,7 +127,7 @@ class ENGINE_API UCameraShake : public UObject
 	float OscillationBlendInTime;
 
 	/** Duration of the blend-out, where the oscillation scales from 1 to 0. */
-	UPROPERTY(EditAnywhere, Category = Oscillation, meta = (ClampMin = "0.0"))
+	UPROPERTY(EditAnywhere, Category=Oscillation, meta = (ClampMin = "0.0"))
 	float OscillationBlendOutTime;
 
 	/** Rotational oscillation */
@@ -140,10 +146,6 @@ class ENGINE_API UCameraShake : public UObject
 	 * Parameters for defining CameraAnim-driven camera shakes
 	 ************************************************************/
 
-	/** Source camera animation to play. Can be null. */
-	UPROPERTY(EditAnywhere, Category=AnimShake)
-	class UCameraAnim* Anim;
-
 	/** Scalar defining how fast to play the anim. */
 	UPROPERTY(EditAnywhere, Category=AnimShake, meta=(ClampMin = "0.001"))
 	float AnimPlayRate;
@@ -160,16 +162,92 @@ class ENGINE_API UCameraShake : public UObject
 	UPROPERTY(EditAnywhere, Category=AnimShake, meta=(ClampMin = "0.0"))
 	float AnimBlendOutTime;
 
-	/**
-	 * If true, play a random snippet of the animation of length Duration.  Implies bLoop and bRandomStartTime = true for the CameraAnim.
-	 * If false, play the full anim once, non-looped. Useful for getting variety out of a single looped CameraAnim asset.
-	 */
-	UPROPERTY(EditAnywhere, Category=AnimShake)
-	uint32 bRandomAnimSegment:1;
-
 	/** When bRandomAnimSegment is true, this defines how long the anim should play. */
-	UPROPERTY(EditAnywhere, Category=AnimShake, meta=(ClampMin = "0.0", editcondition = "bRandomAnimSegment"))
+	UPROPERTY(EditAnywhere, Category = AnimShake, meta = (ClampMin = "0.0", editcondition = "bRandomAnimSegment"))
 	float RandomAnimSegmentDuration;
+
+	/** Source camera animation to play. Can be null. */
+	UPROPERTY(EditAnywhere, Category = AnimShake)
+	class UCameraAnim* Anim;
+
+	/**
+	* If true, play a random snippet of the animation of length Duration.  Implies bLoop and bRandomStartTime = true for the CameraAnim.
+	* If false, play the full anim once, non-looped. Useful for getting variety out of a single looped CameraAnim asset.
+	*/
+	UPROPERTY(EditAnywhere, Category = AnimShake)
+	uint32 bRandomAnimSegment : 1;
+
+protected:
+
+	// INSTANCE DATA
+	
+	/** True if this shake is currently blending in. */
+	uint32 bBlendingIn:1;
+
+	/** True if this shake is currently blending out. */
+	uint32 bBlendingOut:1;
+
+	/** How long this instance has been blending in. */
+	float CurrentBlendInTime;
+
+	/** How long this instance has been blending out. */
+	float CurrentBlendOutTime;
+
+	UPROPERTY(transient, BlueprintReadOnly, Category = CameraShake)
+	class APlayerCameraManager* CameraOwner;
+
+	/** Time remaining for oscillation shakes. Less than 0.f means shake infinitely. */
+	float OscillatorTimeRemaining;
+
+	/** Current location sinusoidal offset. */
+	FVector LocSinOffset;
+
+	/** Current rotational sinusoidal offset. */
+	FVector RotSinOffset;
+
+	/** Current FOV sinusoidal offset. */
+	float FOVSinOffset;
+
+	/** Overall intensity scale for this shake instance. */
+	float ShakeScale;
+
+	/** What space to play the shake in before applying to the camera.  Affects both Anim and Oscillation shakes. */
+	ECameraAnimPlaySpace::Type PlaySpace;
+
+	/** The playing instance of the CameraAnim-based shake, if any. */
+	UPROPERTY()
+	class UCameraAnimInst* AnimInst;
+
+	/** Matrix defining the playspace, used when PlaySpace == CAPS_UserDefined */
+	FMatrix UserPlaySpaceMatrix;
+
+public:
+
+	// Blueprint API
+
+	/** Called every tick to let the shake modify the point of view */
+	UFUNCTION(BlueprintImplementableEvent, Category=CameraShake)
+	void BlueprintUpdateCameraShake(float DeltaTime, float Alpha, const FMinimalViewInfo& POV, FMinimalViewInfo& ModifiedPOV);
+
+	/** Called when the shake starts playing */
+	UFUNCTION(BlueprintImplementableEvent, Category = CameraShake)
+	void ReceivePlayShake(float Scale);
+
+	/** Called to allow a shake to decide when it's finished playing. */
+	UFUNCTION(BlueprintNativeEvent, Category = CameraShake)
+	bool ReceiveIsFinished() const;
+
+	/** Called when the shake is explicitly stopped. */
+	UFUNCTION(BlueprintImplementableEvent, Category = CameraShake)
+	void ReceiveStopShake();
+
+	// Native API
+
+	virtual void UpdateAndApplyCameraShake(float DeltaTime, float Alpha, FMinimalViewInfo& InOutPOV);
+	virtual void PlayShake(class APlayerCameraManager* Camera, float Scale, ECameraAnimPlaySpace::Type PlaySpace, FRotator UserPlaySpaceRot = FRotator::ZeroRotator);
+	virtual bool IsFinished() const;
+	virtual void StopShake();
+
 };
 
 

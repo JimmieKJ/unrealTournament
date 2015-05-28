@@ -4,6 +4,12 @@
 #include "RawMesh.h"
 #include "MeshUtilities.h"
 
+// Standard Simplygon channels have some issues with extracting color data back from simplification, 
+// so we use this workaround with user channels
+static const char* USER_MATERIAL_CHANNEL_METALLIC = "UserMetallic";
+static const char* USER_MATERIAL_CHANNEL_ROUGHNESS = "UserRoughness";
+static const char* USER_MATERIAL_CHANNEL_SPECULAR = "UserSpecular";
+
 
 #ifdef __clang__
 	// SimplygonSDK.h uses 'deprecated' pragma which Clang does not recognize
@@ -423,10 +429,16 @@ public:
 	{
 		bool bCastMaterials;
 		bool bCastNormals;
+		bool bCastMetallic;
+		bool bCastRoughness;
+		bool bCastSpecular;
 
 		FMaterialCastingProperties()
-			: bCastMaterials(false),
-			  bCastNormals(false)			
+			: bCastMaterials(false)
+			, bCastNormals(false)
+			, bCastMetallic(false)
+			, bCastRoughness(false)
+			, bCastSpecular(false)
 		{
 		}
 	};
@@ -517,10 +529,10 @@ public:
 			//Create a new material for the proxy geometry
 			SimplygonSDK::spMaterial OutputMaterialLOD = SDK->CreateMaterial();
 
-			//Create Image data where the diffuse data is stored
-			SimplygonSDK::spImageData OutputDiffuseData = SDK->CreateImageData();
 			//Cast diffuse texture data
 			{
+				//Create Image data where the diffuse data is stored
+				SimplygonSDK::spImageData OutputDiffuseData = SDK->CreateImageData();
 				// Cast the data using a color caster
 				SimplygonSDK::spColorCaster cast = SDK->CreateColorCaster();
 				cast->SetColorType( SimplygonSDK::SG_MATERIAL_CHANNEL_DIFFUSE );
@@ -543,7 +555,7 @@ public:
 			}
 
 			
-			//Cast normal texture data
+			// Normal texture data
 			if(CastProperties.bCastNormals)
 			{
 				//Create Image data where the normal data is stored
@@ -565,13 +577,78 @@ public:
 				OutputMaterialLOD->SetLayeredTextureLevel(SimplygonSDK::SG_MATERIAL_CHANNEL_NORMALS, 0, 0);
 			}
 
+			// Metallic texture data
+			if(CastProperties.bCastMetallic)
+			{
+				// Create Image data where the metallic data is stored
+				SimplygonSDK::spImageData OutputMetallicData = SDK->CreateImageData();
+				// Cast the data using a color caster
+				SimplygonSDK::spColorCaster cast = SDK->CreateColorCaster();
+				cast->SetColorType( USER_MATERIAL_CHANNEL_METALLIC );
+				cast->SetSourceMaterials( OriginalMaterials );
+				cast->SetMappingImage( MappingImage );
+				cast->SetOutputChannels( 3 );
+				cast->SetOutputChannelBitDepth( 8 );
+				cast->SetsRGB(false);
+				cast->SetDilation( 10 );
+				cast->SetOutputImage(OutputMetallicData);
+				cast->CastMaterials(); // Fetch!
+
+				OutputMaterialLOD->AddUserChannel(USER_MATERIAL_CHANNEL_METALLIC);
+				OutputMaterialLOD->SetLayeredTextureImage(USER_MATERIAL_CHANNEL_METALLIC, 0, OutputMetallicData);
+				OutputMaterialLOD->SetLayeredTextureLevel(USER_MATERIAL_CHANNEL_METALLIC, 0, 0);
+			}
+
+			// Roughness texture data
+			if(CastProperties.bCastRoughness)
+			{
+				// Create Image data where the metallic data is stored
+				SimplygonSDK::spImageData OutputRoughnessData = SDK->CreateImageData();
+				// Cast the data using a color caster
+				SimplygonSDK::spColorCaster cast = SDK->CreateColorCaster();
+				cast->SetColorType( USER_MATERIAL_CHANNEL_ROUGHNESS );
+				cast->SetSourceMaterials( OriginalMaterials );
+				cast->SetMappingImage( MappingImage ); 
+				cast->SetOutputChannels( 3 );
+				cast->SetOutputChannelBitDepth( 8 );
+				cast->SetsRGB(false);
+				cast->SetDilation( 10 ); 
+				cast->SetOutputImage(OutputRoughnessData);
+				cast->CastMaterials(); // Fetch!
+
+				OutputMaterialLOD->AddUserChannel(USER_MATERIAL_CHANNEL_ROUGHNESS);
+				OutputMaterialLOD->SetLayeredTextureImage(USER_MATERIAL_CHANNEL_ROUGHNESS, 0, OutputRoughnessData);
+				OutputMaterialLOD->SetLayeredTextureLevel(USER_MATERIAL_CHANNEL_ROUGHNESS, 0, 0);
+			}
+
+			// Specular texture data
+			if(CastProperties.bCastSpecular)
+			{
+				// Create Image data where the metallic data is stored
+				SimplygonSDK::spImageData OutputSpecularData = SDK->CreateImageData();
+				// Cast the data using a color caster
+				SimplygonSDK::spColorCaster cast = SDK->CreateColorCaster();
+				cast->SetColorType( USER_MATERIAL_CHANNEL_SPECULAR );
+				cast->SetSourceMaterials( OriginalMaterials );
+				cast->SetMappingImage( MappingImage ); 
+				cast->SetOutputChannels( 3 );
+				cast->SetOutputChannelBitDepth( 8 );
+				cast->SetsRGB(false);
+				cast->SetDilation( 10 ); 
+				cast->SetOutputImage(OutputSpecularData);
+				cast->CastMaterials(); // Fetch!
+
+				OutputMaterialLOD->AddUserChannel(USER_MATERIAL_CHANNEL_SPECULAR);
+				OutputMaterialLOD->SetLayeredTextureImage(USER_MATERIAL_CHANNEL_SPECULAR, 0, OutputSpecularData);
+				OutputMaterialLOD->SetLayeredTextureLevel(USER_MATERIAL_CHANNEL_SPECULAR, 0, 0);
+			}
+						
 			//Create a new material table for the new materials
 			SimplygonSDK::spMaterialTable OutputTable = SDK->CreateMaterialTable();
 			OutputTable->AddMaterial(OutputMaterialLOD);
 
 			//Convert the simplygon material to unreal materials
 			CreateFlattenMaterialFromSGMaterial(OutputTable, OutMaterial);
-
 		}
 
 		//Collect the proxy mesh
@@ -1451,7 +1528,7 @@ private:
 	/**
 	 * ProxyLOD Related Methods
 	 */
-	void SetMaterialChannel(
+	void SetMaterialChannelData(
 		const TArray<FColor>& InSamples, 
 		FIntPoint InTextureSize,
 		SimplygonSDK::spMaterial& InSGMaterial, 
@@ -1476,16 +1553,17 @@ private:
 				Texel[0] = InSamples[TexelIndex].R;
 				Texel[1] = InSamples[TexelIndex].G;
 				Texel[2] = InSamples[TexelIndex].B;
-				Texel[3] = InSamples[TexelIndex].A;
+				Texel[3] = (SGMaterialChannelName == SimplygonSDK::SG_MATERIAL_CHANNEL_DIFFUSE ? InSamples[TexelIndex].A : FColor::White.A);
 			
 				ImageColors->SetTuple(TexelIndex, Texel);
 			}
 			InSGMaterial->SetLayeredTextureImage(SGMaterialChannelName, 0, ImageData);
 			InSGMaterial->SetLayeredTextureLevel(SGMaterialChannelName, 0, 0);
 		}
-		else
+		else if (NumTexels == 1)
 		{
 			// handle uniform value
+			InSGMaterial->SetColorRGB(SGMaterialChannelName, InSamples[0].R, InSamples[0].G, InSamples[0].B);
 		}
 	}
 
@@ -1518,77 +1596,107 @@ private:
 
 			if(!SGMaterial->HasUserChannel(SimplygonSDK::SG_MATERIAL_CHANNEL_ROUGHNESS))
 				SGMaterial->AddUserChannel(SimplygonSDK::SG_MATERIAL_CHANNEL_ROUGHNESS);
+
+			// We actually use these channels for metallic, roughness and specular
+			if(!SGMaterial->HasUserChannel(USER_MATERIAL_CHANNEL_METALLIC))
+				SGMaterial->AddUserChannel(USER_MATERIAL_CHANNEL_METALLIC);
+
+			if(!SGMaterial->HasUserChannel(USER_MATERIAL_CHANNEL_ROUGHNESS))
+				SGMaterial->AddUserChannel(USER_MATERIAL_CHANNEL_ROUGHNESS);
+
+			if(!SGMaterial->HasUserChannel(USER_MATERIAL_CHANNEL_SPECULAR))
+				SGMaterial->AddUserChannel(USER_MATERIAL_CHANNEL_SPECULAR);
+
 					
 			SGMaterial->SetName(TCHAR_TO_ANSI(*FString::Printf(TEXT("Material%d"), MaterialIndex)));
 			
-			// Does current material have BaseColor?
+			// BaseColor
 			if (FlattenMaterial.DiffuseSamples.Num())
 			{
-				SetMaterialChannel(FlattenMaterial.DiffuseSamples, FlattenMaterial.DiffuseSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_DIFFUSE);
+				SetMaterialChannelData(FlattenMaterial.DiffuseSamples, FlattenMaterial.DiffuseSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_DIFFUSE);
 			}
 
-			//Does current material have a normalmap?
+			// Normal
 			if (FlattenMaterial.NormalSamples.Num())
 			{
 				OutCastProperties.bCastNormals = true;
-				SetMaterialChannel(FlattenMaterial.NormalSamples, FlattenMaterial.NormalSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_NORMALS);
+				SetMaterialChannelData(FlattenMaterial.NormalSamples, FlattenMaterial.NormalSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_NORMALS);
 			}
 
+			// Metallic
+			if (FlattenMaterial.MetallicSamples.Num())
+			{
+				OutCastProperties.bCastMetallic = true;
+				SetMaterialChannelData(FlattenMaterial.MetallicSamples, FlattenMaterial.MetallicSize, SGMaterial, USER_MATERIAL_CHANNEL_METALLIC);
+			}
+
+			// Roughness
+			if (FlattenMaterial.RoughnessSamples.Num())
+			{
+				OutCastProperties.bCastRoughness = true;
+				SetMaterialChannelData(FlattenMaterial.RoughnessSamples, FlattenMaterial.RoughnessSize, SGMaterial, USER_MATERIAL_CHANNEL_ROUGHNESS);
+			}
+
+			// Specular
+			if (FlattenMaterial.SpecularSamples.Num())
+			{
+				OutCastProperties.bCastSpecular = true;
+				SetMaterialChannelData(FlattenMaterial.SpecularSamples, FlattenMaterial.SpecularSize, SGMaterial, USER_MATERIAL_CHANNEL_SPECULAR);
+			}
+			
  			OutSGMaterialTable->AddMaterial(SGMaterial);
 		}
 
 		return true;
 	}
 
+	void GetMaterialChannelData(const SimplygonSDK::spMaterial& InSGMaterial, const char* SGMaterialChannelName, TArray<FColor>& OutSamples, FIntPoint& OutTextureSize)
+	{
+		SimplygonSDK::spImageData SGChannelData = InSGMaterial->GetLayeredTextureImage(SGMaterialChannelName, 0);
+		if (SGChannelData)
+		{
+			SimplygonSDK::spUnsignedCharArray ImageColors = SimplygonSDK::SafeCast<SimplygonSDK::IUnsignedCharArray>(SGChannelData->GetColors());
+			
+			OutTextureSize.X = SGChannelData->GetXSize();
+			OutTextureSize.Y = SGChannelData->GetYSize();
+			
+			int32 TexelsCount = OutTextureSize.X*OutTextureSize.Y;
+			OutSamples.Empty(TexelsCount);
+			OutSamples.AddUninitialized(TexelsCount);
+
+			for (int32 TexelIndex = 0; TexelIndex < TexelsCount; ++TexelIndex)
+			{
+				uint8 ColorData[4];
+				ImageColors->GetTuple(TexelIndex, (unsigned char*)&ColorData);
+			
+				OutSamples[TexelIndex].R = ColorData[0];
+				OutSamples[TexelIndex].G = ColorData[1];
+				OutSamples[TexelIndex].B = ColorData[2];
+				OutSamples[TexelIndex].A = (SGMaterialChannelName == SimplygonSDK::SG_MATERIAL_CHANNEL_DIFFUSE ? ColorData[3] : FColor::White.A);
+			}
+		}
+	}
+
 	void CreateFlattenMaterialFromSGMaterial(
 		SimplygonSDK::spMaterialTable& InSGMaterialTable, 
 		MaterialExportUtils::FFlattenMaterial& OutMaterial)
 	{
-		//Get the diffuse data from SGMaterial
-		SimplygonSDK::spImageData SGDiffuseData = InSGMaterialTable->GetMaterial(0)->GetLayeredTextureImage(SimplygonSDK::SG_MATERIAL_CHANNEL_DIFFUSE, 0);
-		{
-			SimplygonSDK::spUnsignedCharArray DiffuseImageColors = SimplygonSDK::SafeCast<SimplygonSDK::IUnsignedCharArray>( SGDiffuseData->GetColors() );
-			
-			OutMaterial.DiffuseSize.X = SGDiffuseData->GetXSize();
-			OutMaterial.DiffuseSize.Y = SGDiffuseData->GetYSize();
-			int32 TexelsCount = OutMaterial.DiffuseSize.X*OutMaterial.DiffuseSize.Y;
+		SimplygonSDK::spMaterial SGMaterial = InSGMaterialTable->GetMaterial(0);
 		
-			//Fill diffuse texture with color data collected from simplygon
-			OutMaterial.DiffuseSamples.SetNumUninitialized(TexelsCount);
-			for (int32 TexelIndex = 0; TexelIndex < TexelsCount; ++TexelIndex)
-			{
-				uint8 DiffuseData[4];
-				DiffuseImageColors->GetTuple(TexelIndex, (unsigned char*)&DiffuseData);
-			
-				OutMaterial.DiffuseSamples[TexelIndex].R = DiffuseData[0];
-				OutMaterial.DiffuseSamples[TexelIndex].G = DiffuseData[1];
-				OutMaterial.DiffuseSamples[TexelIndex].B = DiffuseData[2];
-				OutMaterial.DiffuseSamples[TexelIndex].A = DiffuseData[3];
-			}
-		}
+		// Diffuse
+		GetMaterialChannelData(SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_DIFFUSE, OutMaterial.DiffuseSamples, OutMaterial.DiffuseSize);
 
-		//Get the normal data from SGMaterial
-		SimplygonSDK::spImageData SGNormalData = InSGMaterialTable->GetMaterial(0)->GetLayeredTextureImage(SimplygonSDK::SG_MATERIAL_CHANNEL_NORMALS, 0);
-		if (SGNormalData)
-		{
-			SimplygonSDK::spUnsignedCharArray NormalImageColors = SimplygonSDK::SafeCast<SimplygonSDK::IUnsignedCharArray>( SGNormalData->GetColors() );
-			OutMaterial.NormalSize.X = SGNormalData->GetXSize();
-			OutMaterial.NormalSize.Y = SGNormalData->GetYSize();
-			int32 TexelsCount = OutMaterial.NormalSize.X*OutMaterial.NormalSize.Y;
-			
-			//Fill normal texture with color data collected from simplygon
-			OutMaterial.NormalSamples.SetNumUninitialized(TexelsCount);
-			for (int32 TexelIndex = 0; TexelIndex < TexelsCount; ++TexelIndex)
-			{
-				uint8 NormalData[3];
-				NormalImageColors->GetTuple(TexelIndex, (unsigned char*)&NormalData);
-			
-				OutMaterial.NormalSamples[TexelIndex].R = NormalData[0];
-				OutMaterial.NormalSamples[TexelIndex].G = NormalData[1];
-				OutMaterial.NormalSamples[TexelIndex].B = NormalData[2];
-				OutMaterial.NormalSamples[TexelIndex].A = FColor::White.A;
-			}
-		}
+		// Normal
+		GetMaterialChannelData(SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_NORMALS, OutMaterial.NormalSamples, OutMaterial.NormalSize);
+	
+		// Metallic
+		GetMaterialChannelData(SGMaterial, USER_MATERIAL_CHANNEL_METALLIC, OutMaterial.MetallicSamples, OutMaterial.MetallicSize);
+
+		// Roughness
+		GetMaterialChannelData(SGMaterial, USER_MATERIAL_CHANNEL_ROUGHNESS, OutMaterial.RoughnessSamples, OutMaterial.RoughnessSize);
+
+		// Specular
+		GetMaterialChannelData(SGMaterial, USER_MATERIAL_CHANNEL_SPECULAR, OutMaterial.SpecularSamples, OutMaterial.SpecularSize);
 	}
 };
 

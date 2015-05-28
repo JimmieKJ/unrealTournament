@@ -27,12 +27,30 @@ public:
 
 FORCEINLINE FRotationTranslationMatrix::FRotationTranslationMatrix(const FRotator& Rot, const FVector& Origin)
 {
-	const float	SR	= FMath::Sin(Rot.Roll * PI / 180.f);
-	const float	SP	= FMath::Sin(Rot.Pitch * PI / 180.f);
-	const float	SY	= FMath::Sin(Rot.Yaw * PI / 180.f);
-	const float	CR	= FMath::Cos(Rot.Roll * PI / 180.f);
-	const float	CP	= FMath::Cos(Rot.Pitch * PI / 180.f);
-	const float	CY	= FMath::Cos(Rot.Yaw * PI / 180.f);
+#if WITH_DIRECTXMATH	// Currently VectorSinCos() is only vectorized in DirectX implementation. Other platforms become slower if they use this.
+
+	VectorRegister Angles = MakeVectorRegister(Rot.Roll, Rot.Pitch, Rot.Yaw, 0.0f);
+	VectorRegister HalfAngles = VectorMultiply(Angles, GlobalVectorConstants::DEG_TO_RAD);
+
+	union { VectorRegister v; float f[4]; } SinAngles, CosAngles;	
+	VectorSinCos(&SinAngles.v, &CosAngles.v, &HalfAngles);
+
+	const float	SR	= SinAngles.f[0];
+	const float	SP	= SinAngles.f[1];
+	const float	SY	= SinAngles.f[2];
+	const float	CR	= CosAngles.f[0];
+	const float	CP	= CosAngles.f[1];
+	const float	CY	= CosAngles.f[2];
+
+#else
+	
+	float SP, SY, SR;
+	float CP, CY, CR;
+	FMath::SinCos(&SP, &CP, FMath::DegreesToRadians(Rot.Pitch));
+	FMath::SinCos(&SY, &CY, FMath::DegreesToRadians(Rot.Yaw));
+	FMath::SinCos(&SR, &CR, FMath::DegreesToRadians(Rot.Roll));
+
+#endif
 
 	M[0][0]	= CP * CY;
 	M[0][1]	= CP * SY;

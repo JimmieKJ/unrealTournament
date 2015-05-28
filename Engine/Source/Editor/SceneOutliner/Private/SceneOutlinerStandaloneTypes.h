@@ -47,13 +47,6 @@ namespace SceneOutliner
 			CachedHash = CalculateTypeHash();
 		}
 
-		/** ID representing a level blueprint */
-		explicit FTreeItemID(const FLevelBlueprintHandle& InLevelBlueprint) : Type(EType::LevelBlueprint)
-		{
-			new (Data) FLevelBlueprintHandle(InLevelBlueprint);
-			CachedHash = CalculateTypeHash();
-		}
-
 		/** ID representing a folder */
 		FTreeItemID(const FName& InFolder) : Type(EType::Folder)
 		{
@@ -72,7 +65,6 @@ namespace SceneOutliner
 			switch(Type)
 			{
 				case EType::Object:			new (Data) FObjectKey(Other.GetAsObjectKey());											break;
-				case EType::LevelBlueprint:	new (Data) FLevelBlueprintHandle(Other.GetAsLevelBlueprintRef());						break;
 				case EType::Folder:			new (Data) FName(Other.GetAsFolderRef());												break;
 				default:																											break;
 			}
@@ -97,7 +89,6 @@ namespace SceneOutliner
 			switch(Type)
 			{
 				case EType::Object:			GetAsObjectKey().~FObjectKey();							break;
-				case EType::LevelBlueprint:	GetAsLevelBlueprintRef().~FLevelBlueprintHandle();		break;
 				case EType::Folder:			GetAsFolderRef().~FName();								break;
 				default:																			break;
 			}
@@ -118,7 +109,6 @@ namespace SceneOutliner
 			switch(Type)
 			{
 				case EType::Object:			Hash = GetTypeHash(GetAsObjectKey());				break;
-				case EType::LevelBlueprint:	Hash = GetTypeHash(GetAsLevelBlueprintRef());		break;
 				case EType::Folder:			Hash = GetTypeHash(GetAsFolderRef());				break;
 				default:																		break;
 			}
@@ -134,7 +124,6 @@ namespace SceneOutliner
 	private:
 
 		FObjectKey& 				GetAsObjectKey() const 			{ return *reinterpret_cast<FObjectKey*>(Data); }
-		FLevelBlueprintHandle& 		GetAsLevelBlueprintRef() const 	{ return *reinterpret_cast<FLevelBlueprintHandle*>(Data); }
 		FName& 						GetAsFolderRef() const			{ return *reinterpret_cast<FName*>(Data); }
 
 		/** Compares the specified ID with this one - assumes matching types */
@@ -143,18 +132,17 @@ namespace SceneOutliner
 			switch(Type)
 			{
 				case EType::Object:			return GetAsObjectKey() == Other.GetAsObjectKey();
-				case EType::LevelBlueprint:	return GetAsLevelBlueprintRef() == Other.GetAsLevelBlueprintRef();
 				case EType::Folder:			return GetAsFolderRef() == Other.GetAsFolderRef();
 				case EType::Null:			return true;
 				default: check(false);		return false;
 			}
 		}
 
-		enum class EType : uint8 { Object, LevelBlueprint, Folder, Null };
+		enum class EType : uint8 { Object, Folder, Null };
 		EType Type;
 
 		uint32 CachedHash;
-		static const uint32 MaxSize = TMaxSizeof<FObjectKey, FLevelBlueprintHandle, FName>::Value;
+		static const uint32 MaxSize = TMaxSizeof<FObjectKey, FName>::Value;
 		mutable uint8 Data[MaxSize];
 	};
 

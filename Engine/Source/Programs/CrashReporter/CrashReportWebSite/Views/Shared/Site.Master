@@ -32,6 +32,12 @@
 			</div>
 			<div id="utils">
 				&nbsp;|&nbsp;
+				<span><a href="/Crashes">Crashes</a></span>
+				&nbsp;|&nbsp;
+				<span><a href="/Buggs">Buggs</a></span>
+				&nbsp;|&nbsp;
+				<span><a href="/Reports/Index/">Reports</a></span>
+				&nbsp;|&nbsp;
 				<span><a href="/Dashboard/Index/">Dashboard</a></span>
 				&nbsp;|&nbsp;
 				<span><a href="/Users/Index/">Edit Users</a></span>
@@ -46,7 +52,11 @@
 				<div id="mainLeft">
 					<asp:ContentPlaceHolder ID="MainContent" runat="server" />
 				</div>
-			</div>
+			</div>		
+		</div>
+
+		<div style="clear:both;">
+			<asp:ContentPlaceHolder ID="ReportsContent" runat="server" />
 		</div>
 
 		<div id="footer" style="clear:both;">

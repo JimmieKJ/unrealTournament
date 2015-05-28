@@ -3,6 +3,7 @@
 #pragma once
 #include "EnvQueryTypes.h"
 #include "Tickable.h"
+#include "EnvironmentQuery/EnvQueryInstanceBlueprintWrapper.h"
 #include "EnvQueryManager.generated.h"
 
 class UObject;
@@ -93,7 +94,7 @@ struct AIMODULE_API FEQSDebugger
 		TSharedPtr<FEnvQueryInstance> Instance;
 	};
 
-	void StoreQuery(TSharedPtr<FEnvQueryInstance>& Query);
+	void StoreQuery(UWorld* InWorld, TSharedPtr<FEnvQueryInstance>& Query);
 	TArray<FEnvQueryInfo>&  GetAllQueriesForOwner(const UObject* Owner);
 
 protected:
@@ -113,7 +114,7 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 
 	// We need to implement GetWorld() so that any EQS-related blueprints (such as blueprint contexts) can implement
 	// GetWorld() and so provide access to blueprint nodes using hidden WorldContextObject parameters.
-	virtual UWorld* GetWorld() const;
+	virtual UWorld* GetWorld() const override;
 
 	/** [FTickableGameObject] tick function */
 	virtual void Tick(float DeltaTime) override;
@@ -147,17 +148,26 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 	/** execute query */
 	bool AbortQuery(int32 RequestID);
 
-	/** fail all running queries on changing persistent map */
-	virtual void OnPreLoadMap();
+	/** fail all running queries on cleaning the world */
+	virtual void OnWorldCleanup();
 
 	/** cleanup hooks for map loading */
 	virtual void FinishDestroy() override;
+
+	/** add information for data providers about query instance run independently */
+	void RegisterExternalQuery(TSharedPtr<FEnvQueryInstance> QueryInstance);
+
+	/** clear information about query instance run independently */
+	void UnregisterExternalQuery(TSharedPtr<FEnvQueryInstance> QueryInstance);
 
 	/** list of all known item types */
 	static TArray<TSubclassOf<UEnvQueryItemType> > RegisteredItemTypes;
 
 	static UEnvQueryManager* GetCurrent(UWorld* World);
 	static UEnvQueryManager* GetCurrent(UObject* WorldContextObject);
+	
+	UFUNCTION(BlueprintCallable, Category = "AI|EQS", meta = (WorldContext = "WorldContext", AdvancedDisplay = "WrapperClass"))
+	static UEnvQueryInstanceBlueprintWrapper* RunEQSQuery(UObject* WorldContext, UEnvQuery* QueryTemplate, UObject* Querier, TEnumAsByte<EEnvQueryRunMode::Type> RunMode, TSubclassOf<UEnvQueryInstanceBlueprintWrapper> WrapperClass);
 
 #if USE_EQS_DEBUGGER
 	static void NotifyAssetUpdate(UEnvQuery* Query);
@@ -172,6 +182,9 @@ protected:
 
 	/** currently running queries */
 	TArray<TSharedPtr<FEnvQueryInstance> > RunningQueries;
+
+	/** queries run independently from manager, mapped here for data providers */
+	TMap<int32, TWeakPtr<FEnvQueryInstance>> ExternalQueries;
 
 	/** cache of instances */
 	UPROPERTY(transient)

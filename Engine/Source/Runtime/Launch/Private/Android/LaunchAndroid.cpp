@@ -175,7 +175,7 @@ static void InitCommandLine()
 	FCommandLine::Set(TEXT(""));
 
 	// read in the command line text file from the sdcard if it exists
-	FString CommandLineFilePath = GFilePathBase + FString("/") + (!FApp::IsGameNameEmpty() ? FApp::GetGameName() : FPlatformProcess::ExecutableName()) + FString("/UE4CommandLine.txt");
+	FString CommandLineFilePath = GFilePathBase + FString("/UE4Game/") + (!FApp::IsGameNameEmpty() ? FApp::GetGameName() : FPlatformProcess::ExecutableName()) + FString("/UE4CommandLine.txt");
 	FILE* CommandLineFile = fopen(TCHAR_TO_UTF8(*CommandLineFilePath), "r");
 	if(CommandLineFile == NULL)
 	{
@@ -281,7 +281,7 @@ int32 AndroidMain(struct android_app* state)
 	InitCommandLine();
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Final commandline: %s\n"), FCommandLine::Get());
 
-	EventHandlerEvent = FPlatformProcess::CreateSynchEvent();
+	EventHandlerEvent = FPlatformProcess::GetSynchEventFromPool(false);
 	FPlatformMisc::LowLevelOutputDebugString(L"Created sync event");
 	FAppEventManager::GetInstance()->SetEventHandlerEvent(EventHandlerEvent);
 
@@ -292,6 +292,16 @@ int32 AndroidMain(struct android_app* state)
 	// We need to do this really early for Android so that files in the
 	// OBBs and APK are found.
 	IPlatformFile::GetPlatformPhysical().Initialize(nullptr, FCommandLine::Get());
+
+#if 0
+	for (int32 i = 0; i < 10; i++)
+	{
+		sleep(1);
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("[Patch %d]"), i);
+
+	}
+	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("[Patch] : Dont Patch \n"));
+#endif
 
 	// initialize the engine
 	GEngineLoop.PreInit(0, NULL, FCommandLine::Get());
@@ -616,6 +626,15 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 			Message.KeyEventData.modifier = AKeyEvent_getMetaState(event);
 			Message.KeyEventData.isRepeat = AKeyEvent_getAction(event) == AKEY_EVENT_ACTION_MULTIPLE;
 			FAndroidInputInterface::DeferMessage(Message);
+
+			// allow event to be generated for volume up and down, but conditionally allow system to handle it, too
+			if (keyCode == AKEYCODE_VOLUME_UP || keyCode == AKEYCODE_VOLUME_DOWN)
+			{
+				if (FPlatformMisc::GetVolumeButtonsHandledBySystem())
+				{
+					return 0;
+				}
+			}
 		}
 
 		return 1;

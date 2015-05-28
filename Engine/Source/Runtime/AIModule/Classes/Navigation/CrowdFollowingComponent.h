@@ -21,7 +21,7 @@ namespace ECrowdAvoidanceQuality
 	};
 }
 
-UCLASS()
+UCLASS(BlueprintType)
 class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, public ICrowdAgentInterface
 {
 	GENERATED_UCLASS_BODY()
@@ -57,7 +57,11 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	/** pass agent velocity to movement component */
 	virtual void ApplyCrowdAgentVelocity(const FVector& NewVelocity, const FVector& DestPathCorner, bool bTraversingLink);
 
+	/** pass desired position to movement component (after resolving collisions between crowd agents) */
+	virtual void ApplyCrowdAgentPosition(const FVector& NewPosition);
+
 	/** master switch for crowd steering & avoidance */
+	UFUNCTION(BlueprintCallable, Category = "Crowd")
 	virtual void SuspendCrowdSteering(bool bSuspend);
 
 	/** switch between crowd simulation and parent implementation (following path segments) */
@@ -76,6 +80,7 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	void SetCrowdCollisionQueryRange(float Range, bool bUpdateAgent = true);
 	void SetCrowdPathOptimizationRange(float Range, bool bUpdateAgent = true);
 	void SetCrowdAvoidanceQuality(ECrowdAvoidanceQuality::Type Quality, bool bUpdateAgent = true);
+	void SetCrowdAvoidanceRangeMultiplier(float Multipler, bool bUpdateAgent = true);
 
 	FORCEINLINE bool IsCrowdSimulationEnabled() const { return bEnableCrowdSimulation; }
 	FORCEINLINE bool IsCrowdSimulatioSuspended() const { return bSuspendCrowdSimulation; }
@@ -101,13 +106,14 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	FORCEINLINE float GetCrowdCollisionQueryRange() const { return CollisionQueryRange; }
 	FORCEINLINE float GetCrowdPathOptimizationRange() const { return PathOptimizationRange; }
 	FORCEINLINE ECrowdAvoidanceQuality::Type GetCrowdAvoidanceQuality() const { return AvoidanceQuality; }
+	FORCEINLINE float GetCrowdAvoidanceRangeMultiplier() const { return AvoidanceRangeMultiplier; }
 	FORCEINLINE int32 GetAvoidanceGroup() const { return AvoidanceGroup.Packed; }
 	FORCEINLINE int32 GetGroupsToAvoid() const { return GroupsToAvoid.Packed; }
 	FORCEINLINE int32 GetGroupsToIgnore() const { return GroupsToIgnore.Packed; }
 
-	virtual void GetDebugStringTokens(TArray<FString>& Tokens, TArray<EPathFollowingDebugTokens::Type>& Flags) const;
+	virtual void GetDebugStringTokens(TArray<FString>& Tokens, TArray<EPathFollowingDebugTokens::Type>& Flags) const override;
 #if ENABLE_VISUAL_LOG
-	virtual void DescribeSelfToVisLog(struct FVisualLogEntry* Snapshot) const;
+	virtual void DescribeSelfToVisLog(struct FVisualLogEntry* Snapshot) const override;
 #endif // ENABLE_VISUAL_LOG
 
 protected:
@@ -159,6 +165,9 @@ protected:
 	float SeparationWeight;
 	float CollisionQueryRange;
 	float PathOptimizationRange;
+
+	/** multiplier for avoidance samples during detection, doesn't affect actual velocity */
+	float AvoidanceRangeMultiplier;
 
 	/** start index of current path part */
 	int32 PathStartIndex;

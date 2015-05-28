@@ -7,8 +7,8 @@
 /** 
  * A simple arrow rendered using lines. Useful for indicating which way an object is facing.
  */
-UCLASS(ClassGroup=Utility, hidecategories=(Object,LOD,Physics,Lighting,TextureStreaming,Activation,"Components|Activation",Collision), editinlinenew, meta=(BlueprintSpawnableComponent), MinimalAPI)
-class UArrowComponent : public UPrimitiveComponent
+UCLASS(ClassGroup=Utility, hidecategories=(Object,LOD,Physics,Lighting,TextureStreaming,Activation,"Components|Activation",Collision), editinlinenew, meta=(BlueprintSpawnableComponent))
+class ENGINE_API UArrowComponent : public UPrimitiveComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -53,7 +53,7 @@ class UArrowComponent : public UPrimitiveComponent
 	virtual void SetArrowColor_DEPRECATED(FColor NewColor);
 
 	/** Updates the arrow's colour, and tells it to refresh */
-	UFUNCTION(BlueprintCallable, FriendlyName="SetArrowColor", Category="Components|Arrow")
+	UFUNCTION(BlueprintCallable, DisplayName="SetArrowColor", Category="Components|Arrow")
 	virtual void SetArrowColor_New(FLinearColor NewColor);
 
 	// Begin UPrimitiveComponent interface.
@@ -70,7 +70,7 @@ class UArrowComponent : public UPrimitiveComponent
 
 #if WITH_EDITORONLY_DATA
 	/** Set the scale that we use when rendering in-editor */
-	ENGINE_API static void SetEditorScale(float InEditorScale);
+	static void SetEditorScale(float InEditorScale);
 
 	/** The scale we use when rendering in-editor */
 	static float EditorScale;

@@ -42,7 +42,7 @@ void STooltipPresenter::OnArrangeChildren(const FGeometry& AllottedGeometry, FAr
 	));
 }
 
-FVector2D STooltipPresenter::ComputeDesiredSize() const
+FVector2D STooltipPresenter::ComputeDesiredSize( float ) const
 {
 	return ChildSlot.GetWidget()->GetDesiredSize();
 }

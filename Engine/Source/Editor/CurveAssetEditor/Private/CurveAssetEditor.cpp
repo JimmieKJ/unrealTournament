@@ -11,6 +11,7 @@
 #include "Curves/CurveVector.h"
 #include "Curves/CurveLinearColor.h"
 #include "Curves/CurveFloat.h"
+#include "SNumericDropDown.h"
 
 #define LOCTEXT_NAMESPACE "CurveAssetEditor"
 
@@ -130,24 +131,9 @@ TSharedRef<SDockTab> FCurveAssetEditor::SpawnTab_CurveAsset( const FSpawnTabArgs
 		];
 
 	UCurveBase* Curve = Cast<UCurveBase>(GetEditingObject());
-	UCurveFloat* FloatCurve = Cast<UCurveFloat>(Curve);
-	UCurveVector* VectorCurve = Cast<UCurveVector>(Curve);
-	UCurveLinearColor* LinearColorCurve = Cast<UCurveLinearColor>(Curve);
 
-	FCurveOwnerInterface* CurveOwner = NULL;
-	if(FloatCurve != NULL)
-	{
-		CurveOwner = FloatCurve;
-	}
-	else if(LinearColorCurve != NULL)
-	{
-		CurveOwner = LinearColorCurve;
-	}
-	else
-	{
-		CurveOwner = VectorCurve;
-	}
-
+	FCurveOwnerInterface* CurveOwner = Curve;
+	
 	if (CurveOwner != NULL)
 	{
 		check(TrackWidget.IsValid());
@@ -168,19 +154,6 @@ void FCurveAssetEditor::SetInputSnap(float value)
 	InputSnap = value;
 }
 
-FText FCurveAssetEditor::GetInputSnapText() const
-{
-	return FText::AsNumber(InputSnap);
-}
-
-void FCurveAssetEditor::InputSnapTextComitted(const FText& InNewText, ETextCommit::Type InTextCommit)
-{
-	if (InNewText.IsNumeric())
-	{
-		TTypeFromString<float>::FromString(InputSnap, *InNewText.ToString());
-	}
-}
-
 float FCurveAssetEditor::GetOutputSnap() const
 {
 	return OutputSnap;
@@ -189,69 +162,6 @@ float FCurveAssetEditor::GetOutputSnap() const
 void FCurveAssetEditor::SetOutputSnap(float value)
 {
 	OutputSnap = value;
-}
-
-FText FCurveAssetEditor::GetOutputSnapText() const
-{
-	return FText::AsNumber(OutputSnap);
-}
-
-void FCurveAssetEditor::OutputSnapTextComitted(const FText& InNewText, ETextCommit::Type InTextCommit)
-{
-	if (InNewText.IsNumeric())
-	{
-		TTypeFromString<float>::FromString(OutputSnap, *InNewText.ToString());
-	}
-}
-
-TSharedRef<SWidget> FCurveAssetEditor::BuildInputSnapMenu()
-{
-	FMenuBuilder MenuBuilder(true, NULL);
-
-	FUIAction OneThousandthAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetInputSnap, 0.001f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("InputSnap_OneThousandth", "0.001"), LOCTEXT("InputSnap_OneThousandth", "Set snap to 1/1000th"), FSlateIcon(), OneThousandthAction);
-
-	FUIAction OneHundredthAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetInputSnap, 0.01f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("InputSnap_OneHundredth", "0.01"), LOCTEXT("InputSnap_OneHundredth", "Set snap to 1/100th"), FSlateIcon(), OneHundredthAction);
-
-	FUIAction OneTenthAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetInputSnap, 0.1f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("InputSnap_OneTenth", "0.1"), LOCTEXT("InputSnap_OneTenth", "Set snap to 1/10th"), FSlateIcon(), OneTenthAction);
-
-	FUIAction OneAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetInputSnap, 1.0f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("InputSnap_One", "1"), LOCTEXT("InputSnap_One", "Set snap to 1h"), FSlateIcon(), OneAction);
-
-	FUIAction TenAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetInputSnap, 10.0f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("InputSnap_Ten", "10"), LOCTEXT("InputSnap_Ten", "Set snap to 10"), FSlateIcon(), TenAction);
-
-	FUIAction HundredAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetInputSnap, 100.0f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("InputSnap_OneHundred", "100"), LOCTEXT("InputSnap_OneHundred", "Set snap to 100"), FSlateIcon(), HundredAction);
-
-	return MenuBuilder.MakeWidget();
-}
-
-TSharedRef<SWidget> FCurveAssetEditor::BuildOutputSnapMenu()
-{
-	FMenuBuilder MenuBuilder(true, NULL);
-
-	FUIAction OneThousandthAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetOutputSnap, 0.001f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("OutputSnap_OneThousandth", "0.001"), LOCTEXT("OutputSnap_OneThousandth", "Set snap to 1/1000th"), FSlateIcon(), OneThousandthAction);
-
-	FUIAction OneHundredthAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetOutputSnap, 0.01f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("OutputSnap_OneHundredth", "0.01"), LOCTEXT("OutputSnap_OneHundredth", "Set snap to 1/100th"), FSlateIcon(), OneHundredthAction);
-
-	FUIAction OneTenthAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetOutputSnap, 0.1f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("OutputSnap_OneTenth", "0.1"), LOCTEXT("OutputSnap_OneTenth", "Set snap to 1/10th"), FSlateIcon(), OneTenthAction);
-
-	FUIAction OneAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetOutputSnap, 1.0f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("OutputSnap_One", "1"), LOCTEXT("OutputSnap_One", "Set snap to 1h"), FSlateIcon(), OneAction);
-
-	FUIAction TenAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetOutputSnap, 10.0f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("OutputSnap_Ten", "10"), LOCTEXT("OutputSnap_Ten", "Set snap to 10"), FSlateIcon(), TenAction);
-
-	FUIAction HundredAction(FExecuteAction::CreateSP(this, &FCurveAssetEditor::SetOutputSnap, 100.0f));
-	MenuBuilder.AddMenuEntry(LOCTEXT("OutputSnap_OneHundred", "100"), LOCTEXT("OutputSnap_OneHundred", "Set snap to 100"), FSlateIcon(), HundredAction);
-
-	return MenuBuilder.MakeWidget();
 }
 
 float FCurveAssetEditor::GetTimelineLength() const
@@ -302,53 +212,29 @@ TSharedPtr<FExtender> FCurveAssetEditor::GetToolbarExtender()
 
 	TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
 
+	TArray<SNumericDropDown<float>::FNamedValue> SnapValues;
+	SnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.001f, LOCTEXT( "Snap_OneThousandth", "0.001" ), LOCTEXT( "SnapDescription_OneThousandth", "Set snap to 1/1000th" ) ) );
+	SnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.01f, LOCTEXT( "Snap_OneHundredth", "0.01" ), LOCTEXT( "SnapDescription_OneHundredth", "Set snap to 1/100th" ) ) );
+	SnapValues.Add( SNumericDropDown<float>::FNamedValue( 0.1f, LOCTEXT( "Snap_OneTenth", "0.1" ), LOCTEXT( "SnapDescription_OneTenth", "Set snap to 1/10th" ) ) );
+	SnapValues.Add( SNumericDropDown<float>::FNamedValue( 1.0f, LOCTEXT( "Snap_One", "1" ), LOCTEXT( "SnapDescription_One", "Set snap to 1" ) ) );
+	SnapValues.Add( SNumericDropDown<float>::FNamedValue( 10.0f, LOCTEXT( "Snap_Ten", "10" ), LOCTEXT( "SnapDescription_Ten", "Set snap to 10" ) ) );
+	SnapValues.Add( SNumericDropDown<float>::FNamedValue( 100.0f, LOCTEXT( "Snap_OneHundred", "100" ), LOCTEXT( "SnapDescription_OneHundred", "Set snap to 100" ) ) );
+
 	TSharedRef<SWidget> InputSnapWidget =
-		SNew(SVerticalBox)
-		+ SVerticalBox::Slot()
-		.Padding(4)
-		.AutoHeight()
-		[
-			SNew(STextBlock)
-			.Text(LOCTEXT("InputSnap", "Time Snap"))
-		]
-		+ SVerticalBox::Slot()
-		.Padding(4)
-		.AutoHeight()
-		[
-			SNew(SComboButton)
-			.ContentPadding(1)
-			.OnGetMenuContent(this, &FCurveAssetEditor::BuildInputSnapMenu)
-			.ButtonContent()
-			[
-				SNew(SEditableTextBox)
-				.Text(this, &FCurveAssetEditor::GetInputSnapText)
-				.OnTextCommitted(this, &FCurveAssetEditor::InputSnapTextComitted)
-			]
-		];
+		SNew( SNumericDropDown<float> )
+		.DropDownValues( SnapValues )
+		.LabelText( LOCTEXT("InputSnapLabel", "Input Snap"))
+		.Value( this, &FCurveAssetEditor::GetInputSnap )
+		.OnValueChanged( this, &FCurveAssetEditor::SetInputSnap )
+		.Orientation( this, &FCurveAssetEditor::GetSnapLabelOrientation );
 
 	TSharedRef<SWidget> OutputSnapWidget =
-		SNew(SVerticalBox)
-		+ SVerticalBox::Slot()
-		.Padding(4)
-		.AutoHeight()
-		[
-			SNew(STextBlock)
-			.Text(LOCTEXT("OutputSnap", "Value Snap"))
-		]
-		+ SVerticalBox::Slot()
-		.Padding(4)
-		.AutoHeight()
-		[
-			SNew(SComboButton)
-			.ContentPadding(1)
-			.OnGetMenuContent(this, &FCurveAssetEditor::BuildOutputSnapMenu)
-			.ButtonContent()
-			[
-				SNew(SEditableTextBox)
-				.Text(this, &FCurveAssetEditor::GetOutputSnapText)
-				.OnTextCommitted(this, &FCurveAssetEditor::OutputSnapTextComitted)
-			]
-		];
+		SNew( SNumericDropDown<float> )
+		.DropDownValues( SnapValues )
+		.LabelText( LOCTEXT( "OutputSnapLabel", "Output Snap" ) )
+		.Value( this, &FCurveAssetEditor::GetOutputSnap )
+		.OnValueChanged( this, &FCurveAssetEditor::SetOutputSnap )
+		.Orientation( this, &FCurveAssetEditor::GetSnapLabelOrientation );
 
 	ToolbarExtender->AddToolBarExtension(
 		"Asset",
@@ -358,6 +244,13 @@ TSharedPtr<FExtender> FCurveAssetEditor::GetToolbarExtender()
 		);
 
 	return ToolbarExtender;
+}
+
+EOrientation FCurveAssetEditor::GetSnapLabelOrientation() const
+{
+	return FMultiBoxSettings::UseSmallToolBarIcons.Get()
+		? EOrientation::Orient_Horizontal
+		: EOrientation::Orient_Vertical;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -42,7 +42,7 @@ void FNavLinkStructCustomization::CustomizeChildren( TSharedRef<class IPropertyH
 
 	FString AgentPrefix("bSupportsAgent");
 	const UNavigationSystem* DefNavSys = (UNavigationSystem*)(UNavigationSystem::StaticClass()->GetDefaultObject());
-	const int32 NumAgents = FMath::Min(DefNavSys->SupportedAgents.Num(), 16);
+	const int32 NumAgents = FMath::Min(DefNavSys->GetSupportedAgents().Num(), 16);
 
 	for (uint32 i = 0; i < NumChildren; i++)
 	{
@@ -54,7 +54,7 @@ void FNavLinkStructCustomization::CustomizeChildren( TSharedRef<class IPropertyH
 
 			if (AgentIdx >= 0 && AgentIdx < NumAgents)
 			{
-				FText PropName = FText::Format(LOCTEXT("SupportedAgentFmt", "Supports Agent: {0}"), FText::FromName(DefNavSys->SupportedAgents[AgentIdx].Name));
+				FText PropName = FText::Format(LOCTEXT("SupportedAgentFmt", "Supports Agent: {0}"), FText::FromName(DefNavSys->GetSupportedAgents()[AgentIdx].Name));
 				StructBuilder.AddChildContent(PropName)
 					.NameContent()
 					[

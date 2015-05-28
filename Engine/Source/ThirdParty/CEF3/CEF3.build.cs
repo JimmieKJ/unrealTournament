@@ -59,6 +59,8 @@ public class CEF3 : ModuleRules
 				PublicDelayLoadDLLs.Add("libcef.dll");
 				PublicDelayLoadDLLs.Add("libEGL.dll");
 				PublicDelayLoadDLLs.Add("libGLESv2.dll");
+
+				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/" + Target.Platform.ToString() + "/UnrealCEFSubProcess.exe"));
 			}
 			// TODO: Ensure these are filled out correctly when adding other platforms
 			else if (Target.Platform == UnrealTargetPlatform.Mac)

@@ -8,190 +8,8 @@
 
 #include "HlslLexer.h"
 
-#define USE_UNREAL_ALLOCATOR 0
-
 namespace CrossCompiler
 {
-	struct FLinearAllocator
-	{
-		static const int PageSize = 1024* 1024;
-
-		FLinearAllocator()
-		{
-			auto* Initial = new FPage(PageSize);
-			Pages.Add(Initial);
-		}
-
-		~FLinearAllocator()
-		{
-			for (auto* Page : Pages)
-			{
-				delete Page;
-			}
-		}
-
-		inline void* Alloc(SIZE_T NumBytes)
-		{
-			check(NumBytes <= PageSize);
-			auto* Page = Pages.Last();
-			if (Page->Current + NumBytes > Page->End)
-			{
-				Page = new FPage(PageSize);
-				Pages.Add(Page);
-			}
-
-			void* Ptr = Page->Current;
-			Page->Current += NumBytes;
-			return Ptr;
-		}
-
-		inline void* Alloc(SIZE_T NumBytes, SIZE_T Align)
-		{
-			void* Data = Alloc(NumBytes + Align - 1);
-			UPTRINT Address = (UPTRINT)Data;
-			Address += (Align - (Address % (UPTRINT)Align)) % Align;
-			return (void*)Address;
-		}
-
-		inline TCHAR* Strdup(const TCHAR* String)
-		{
-			if (!String)
-			{
-				return nullptr;
-			}
-
-			auto* Data = (TCHAR*)Alloc(FCString::Strlen(String) + 1);
-			FCString::Strcpy(Data, FCString::Strlen(String) + 1, String);
-			return Data;
-		}
-
-		inline TCHAR* Strdup(const FString& String)
-		{
-			auto* Data = (TCHAR*)Alloc(String.Len() + 1);
-			FCString::Strcpy(Data, String.Len() + 1, *String);
-			return Data;
-		}
-
-		struct FPage
-		{
-			char* Current;
-			char* Begin;
-			char* End;
-
-			FPage(SIZE_T Size)
-			{
-				Begin = new char[Size];
-				End = Begin + Size;
-				Current = Begin;
-			}
-
-			~FPage()
-			{
-				delete [] Begin;
-			}
-		};
-		TArray<FPage*> Pages;
-	};
-
-#if !USE_UNREAL_ALLOCATOR
-	class FLinearAllocatorPolicy
-	{
-	public:
-		// Unreal allocator magic
-		enum { NeedsElementType = false };
-		enum { RequireRangeCheck = true };
-
-		template<typename ElementType>
-		class ForElementType
-		{
-		public:
-
-			/** Default constructor. */
-			ForElementType() :
-				LinearAllocator(nullptr),
-				Data(nullptr)
-			{}
-
-			// FContainerAllocatorInterface
-			/*FORCEINLINE*/ ElementType* GetAllocation() const
-			{
-				return Data;
-			}
-			void ResizeAllocation(int32 PreviousNumElements, int32 NumElements, int32 NumBytesPerElement)
-			{
-				void* OldData = Data;
-				if (NumElements)
-				{
-					// Allocate memory from the stack.
-					Data = (ElementType*)LinearAllocator->Alloc(NumElements * NumBytesPerElement,
-						FMath::Max((uint32)sizeof(void*), (uint32)ALIGNOF(ElementType))
-						);
-
-					// If the container previously held elements, copy them into the new allocation.
-					if (OldData && PreviousNumElements)
-					{
-						const int32 NumCopiedElements = FMath::Min(NumElements, PreviousNumElements);
-						FMemory::Memcpy(Data, OldData, NumCopiedElements * NumBytesPerElement);
-					}
-				}
-			}
-			int32 CalculateSlack(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
-			{
-				return DefaultCalculateSlack(NumElements, NumAllocatedElements, NumBytesPerElement);
-			}
-
-			int32 GetAllocatedSize(int32 NumAllocatedElements, int32 NumBytesPerElement) const
-			{
-				return NumAllocatedElements * NumBytesPerElement;
-			}
-
-			FLinearAllocator* LinearAllocator;
-
-		private:
-
-			/** A pointer to the container's elements. */
-			ElementType* Data;
-		};
-
-		typedef ForElementType<FScriptContainerElement> ForAnyElementType;
-	};
-
-	class FLinearBitArrayAllocator
-		: public TInlineAllocator<4, FLinearAllocatorPolicy>
-	{
-	};
-
-	class FLinearSparseArrayAllocator
-		: public TSparseArrayAllocator<FLinearAllocatorPolicy, FLinearBitArrayAllocator>
-	{
-	};
-
-	class FLinearSetAllocator
-		: public TSetAllocator<FLinearSparseArrayAllocator, TInlineAllocator<1, FLinearAllocatorPolicy> >
-	{
-	};
-
-	template <typename TType>
-	class TLinearArray : public TArray<TType, FLinearAllocatorPolicy>
-	{
-	public:
-		TLinearArray(FLinearAllocator* Allocator)
-		{
-			TArray<TType, FLinearAllocatorPolicy>::AllocatorInstance.LinearAllocator = Allocator;
-		}
-	};
-
-/*
-	template <typename TType>
-	struct TLinearSet : public TSet<typename TType, DefaultKeyFuncs<typename TType>, FLinearSetAllocator>
-	{
-		TLinearSet(FLinearAllocator* InAllocator)
-		{
-			Elements.AllocatorInstance.LinearAllocator = InAllocator;
-		}
-	};*/
-#endif
-
 	namespace AST
 	{
 		class FNode
@@ -495,6 +313,14 @@ namespace CrossCompiler
 					uint32 bOut : 1;
 					uint32 bRowMajor : 1;
 					uint32 bShared : 1;
+					uint32 bUniform : 1;
+
+					// Interpolation modifiers
+					uint32 bLinear : 1;
+					uint32 bCentroid : 1;
+					uint32 bNoInterpolation : 1;
+					uint32 bNoPerspective : 1;
+					uint32 bSample : 1;
 				};
 				uint32 Raw;
 			};

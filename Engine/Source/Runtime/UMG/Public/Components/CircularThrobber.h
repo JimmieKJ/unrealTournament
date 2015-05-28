@@ -20,22 +20,22 @@ class UMG_API UCircularThrobber : public UWidget
 public:
 
 	/** How many pieces there are */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance, meta=( ClampMin = "1", UIMin = "1", UIMax = "8" ))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, meta=( ClampMin="1", ClampMax="25", UIMin="1", UIMax="25" ))
 	int32 NumberOfPieces;
 
 	/** The amount of time for a full circle (in seconds) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	float Period;
 
 	/** The radius of the circle */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	float Radius;
 
 	/** Image to use for each segment of the throbber */
 	UPROPERTY()
 	USlateBrushAsset* PieceImage_DEPRECATED;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FSlateBrush Image;
 
 public:

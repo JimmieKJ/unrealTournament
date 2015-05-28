@@ -23,7 +23,7 @@ class UEditorNotifyObject : public UEditorAnimBaseObj
 	virtual void InitialiseNotify(int32 TrackIdx, int32 NotifyIndex);
 	
 	/** Copy changes made to the event object back to the montage asset */
-	virtual bool ApplyChangesToMontage();
+	virtual bool ApplyChangesToMontage() override;
 
 	/** Index of the notify within it's track */
 	int32 NotifyIndex;

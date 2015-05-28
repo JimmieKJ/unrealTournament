@@ -14,9 +14,11 @@ UBTService_DefaultFocus::UBTService_DefaultFocus(const FObjectInitializer& Objec
 	bNotifyBecomeRelevant = true;
 	bNotifyCeaseRelevant = true;
 
+	FocusPriority = EAIFocusPriority::Default;
+
 	// accept only actors and vectors
-	BlackboardKey.AddObjectFilter(this, AActor::StaticClass());
-	BlackboardKey.AddVectorFilter(this);
+	BlackboardKey.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_DefaultFocus, BlackboardKey), AActor::StaticClass());
+	BlackboardKey.AddVectorFilter(this, GET_MEMBER_NAME_CHECKED(UBTService_DefaultFocus, BlackboardKey));
 }
 
 void UBTService_DefaultFocus::OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
@@ -38,7 +40,7 @@ void UBTService_DefaultFocus::OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp
 			AActor* TargetActor = Cast<AActor>(KeyValue);
 			if (TargetActor)
 			{
-				OwnerController->SetFocus(TargetActor, EAIFocusPriority::Default);
+				OwnerController->SetFocus(TargetActor, FocusPriority);
 				MyMemory->FocusActorSet = TargetActor;
 				MyMemory->bActorSet = true;
 			}
@@ -46,7 +48,7 @@ void UBTService_DefaultFocus::OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp
 		else
 		{
 			const FVector FocusLocation = MyBlackboard->GetValue<UBlackboardKeyType_Vector>(BlackboardKey.GetSelectedKeyID());
-			OwnerController->SetFocalPoint(FocusLocation, EAIFocusPriority::Default);
+			OwnerController->SetFocalPoint(FocusLocation, FocusPriority);
 			MyMemory->FocusLocationSet = FocusLocation;
 		}
 	}
@@ -64,16 +66,16 @@ void UBTService_DefaultFocus::OnCeaseRelevant(UBehaviorTreeComponent& OwnerComp,
 		bool bClearFocus = false;
 		if (MyMemory->bActorSet)
 		{
-			bClearFocus = (MyMemory->FocusActorSet == OwnerController->GetFocusActorForPriority(EAIFocusPriority::Default));
+			bClearFocus = (MyMemory->FocusActorSet == OwnerController->GetFocusActorForPriority(FocusPriority));
 		}
 		else
 		{
-			bClearFocus = (MyMemory->FocusLocationSet == OwnerController->GetFocalPointForPriority(EAIFocusPriority::Default));
+			bClearFocus = (MyMemory->FocusLocationSet == OwnerController->GetFocalPointForPriority(FocusPriority));
 		}
 
 		if (bClearFocus)
 		{
-			OwnerController->ClearFocus(EAIFocusPriority::Default);
+			OwnerController->ClearFocus(FocusPriority);
 		}
 	}
 }

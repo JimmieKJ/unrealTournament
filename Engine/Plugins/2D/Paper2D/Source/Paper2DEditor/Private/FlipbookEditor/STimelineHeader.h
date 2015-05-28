@@ -15,7 +15,7 @@ public:
 		, _PlayTime(0)
 	{}
 
-	SLATE_ATTRIBUTE(float, SlateUnitsPerFrame)
+		SLATE_ATTRIBUTE(float, SlateUnitsPerFrame)
 		SLATE_ATTRIBUTE(class UPaperFlipbook*, FlipbookBeingEdited)
 		SLATE_ATTRIBUTE(float, PlayTime)
 	SLATE_END_ARGS()
@@ -36,29 +36,16 @@ public:
 		Rebuild();
 	}
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
-	{
-		SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-		UPaperFlipbook* Flipbook = FlipbookBeingEdited.Get();
-		int32 NewNumFrames = (Flipbook != nullptr) ? Flipbook->GetNumFrames() : 0;
-		if (NewNumFrames != NumFramesFromLastRebuild)
-		{
-			Rebuild();
-		}
-	}
-
-private:
 	void Rebuild()
 	{
 		MainBoxPtr->ClearChildren();
 
 		UPaperFlipbook* Flipbook = FlipbookBeingEdited.Get();
-		float LocalSlateUnitsPerFrame = SlateUnitsPerFrame.Get();
+		const float LocalSlateUnitsPerFrame = SlateUnitsPerFrame.Get();
 		if ((Flipbook != nullptr) && (LocalSlateUnitsPerFrame > 0))
 		{
 			const int32 NumFrames = Flipbook->GetNumFrames();
-			for (int32 FrameIdx = 0; FrameIdx < NumFrames; ++FrameIdx)
+			for (int32 FrameIndex = 0; FrameIndex < NumFrames; ++FrameIndex)
 			{
 				MainBoxPtr->AddSlot()
 					.AutoWidth()
@@ -68,7 +55,7 @@ private:
 						.HAlign(HAlign_Center)
 						[
 							SNew(STextBlock)
-							.Text(FText::AsNumber(FrameIdx))
+							.Text(FText::AsNumber(FrameIndex))
 						]
 					];
 			}

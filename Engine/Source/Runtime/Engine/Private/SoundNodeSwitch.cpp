@@ -50,7 +50,7 @@ void USoundNodeSwitch::RenamePins()
 	TArray<class UEdGraphPin*> InputPins;
 
 #if WITH_EDITORONLY_DATA
-	GraphNode->GetInputPins(InputPins);
+	GetGraphNode()->GetInputPins(InputPins);
 #endif
 
 	for (int32 i = 0; i < InputPins.Num(); i++)

@@ -45,6 +45,8 @@ public:
 
 	virtual void GetAddress( FInternetAddr& OutAddr );
 
+	virtual bool GetPeerAddress( FInternetAddr& OutAddr ) override;
+
 	virtual bool SetNonBlocking( bool bIsNonBlocking = true );
 
 	virtual bool SetBroadcast( bool bAllowBroadcast = true );

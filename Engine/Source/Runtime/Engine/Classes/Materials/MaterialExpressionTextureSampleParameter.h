@@ -32,6 +32,9 @@ class ENGINE_API UMaterialExpressionTextureSampleParameter : public UMaterialExp
 #endif
 	// End UMaterialExpression Interface
 
+	/** Return whether this is the named parameter, and fill in its value */
+	bool IsNamedParameter(FName InParameterName, UTexture*& OutValue) const;
+
 	/**
 	 * Return true if the texture is a movie texture
 	 *
@@ -57,5 +60,5 @@ class ENGINE_API UMaterialExpressionTextureSampleParameter : public UMaterialExp
 		return ExpressionGUID;
 	}
 
-	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
+	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
 };

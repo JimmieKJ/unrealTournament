@@ -74,7 +74,7 @@ namespace AnimationEditorUtils
 				FString PackageName;
 				CreateUniqueAssetName(Object->GetOutermost()->GetName(), InSuffix, PackageName, Name);
 
-				TFactory* Factory = ConstructObject<TFactory>(TFactory::StaticClass());
+				TFactory* Factory = NewObject<TFactory>();
 				Factory->TargetSkeleton = Object;
 
 				FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");

@@ -5,69 +5,70 @@
 #include "SlateBasics.h"
 #include "BlueprintEditorCommands.h"
 #include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
-#include "Editor/BlueprintGraph/Public/K2ActionMenuBuilder.h" // for AddEventForFunction(), ...
 #include "Engine/Selection.h"
 #include "Engine/LevelScriptActor.h"
+#include "BlueprintFunctionNodeSpawner.h" 
+#include "BlueprintEventNodeSpawner.h" 
 
-struct FBlueprintPaletteListBuilder;
+#define LOCTEXT_NAMESPACE ""
 
 /** UI_COMMAND takes long for the compile to optimize */
 PRAGMA_DISABLE_OPTIMIZATION
 void FBlueprintEditorCommands::RegisterCommands()
 {
 	// Edit commands
-	UI_COMMAND( FindInBlueprint, "Search", "Finds references to functions, events, variables, and pins in the current Blueprint", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Control, EKeys::F) );
-	UI_COMMAND( FindInBlueprints, "Find in Blueprints", "Find references to functions, events and variables in ALL Blueprints", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Control | EModifierKey::Shift, EKeys::F) );
-	UI_COMMAND( ReparentBlueprint, "Reparent Blueprint", "Change the parent of this Blueprint", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( FindInBlueprint, "Search", "Finds references to functions, events, variables, and pins in the current Blueprint", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control, EKeys::F) );
+	UI_COMMAND( FindInBlueprints, "Find in Blueprints", "Find references to functions, events and variables in ALL Blueprints", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control | EModifierKey::Shift, EKeys::F) );
+	UI_COMMAND( ReparentBlueprint, "Reparent Blueprint", "Change the parent of this Blueprint", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( CompileBlueprint, "Compile", "Compile the blueprint", EUserInterfaceActionType::Button, FInputGesture(EKeys::F7) );
-	UI_COMMAND( RefreshAllNodes, "Refresh All nodes", "Refreshes all nodes in the graph to account for external changes", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( DeleteUnusedVariables, "Delete Unused Variables", "Deletes any variables that are never used", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( CompileBlueprint, "Compile", "Compile the blueprint", EUserInterfaceActionType::Button, FInputChord(EKeys::F7) );
+	UI_COMMAND( RefreshAllNodes, "Refresh All nodes", "Refreshes all nodes in the graph to account for external changes", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( DeleteUnusedVariables, "Delete Unused Variables", "Deletes any variables that are never used", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND( FindReferencesFromClass, "List references (from class)", "Find all objects that the class references", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( FindReferencesFromBlueprint, "List referenced (from blueprint)", "Find all objects that the blueprint references", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( RepairCorruptedBlueprint, "Repair corrupted blueprint", "Attempts to repair a corrupted blueprint that cannot be saved", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( FindReferencesFromClass, "List references (from class)", "Find all objects that the class references", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( FindReferencesFromBlueprint, "List referenced (from blueprint)", "Find all objects that the blueprint references", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( RepairCorruptedBlueprint, "Repair corrupted blueprint", "Attempts to repair a corrupted blueprint that cannot be saved", EUserInterfaceActionType::Button, FInputChord() );
 
 	// View commands 
-	UI_COMMAND( ZoomToWindow, "Zoom to Graph Extents", "Fit the current view to the entire graph", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ZoomToSelection, "Zoom to Selection", "Fit the current view to the selection", EUserInterfaceActionType::Button, FInputGesture(EKeys::Home) );
-	UI_COMMAND( NavigateToParent, "Go to parent graph", "Open the parent graph", EUserInterfaceActionType::Button, FInputGesture(EKeys::PageUp) );
-	UI_COMMAND( NavigateToParentBackspace, "Go to parent graph", "Open the parent graph", EUserInterfaceActionType::Button, FInputGesture(EKeys::BackSpace) );
-	UI_COMMAND( NavigateToChild, "Go to child graph", "Open the child graph", EUserInterfaceActionType::Button, FInputGesture(EKeys::PageDown) );
+	UI_COMMAND( ZoomToWindow, "Zoom to Graph Extents", "Fit the current view to the entire graph", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ZoomToSelection, "Zoom to Selection", "Fit the current view to the selection", EUserInterfaceActionType::Button, FInputChord(EKeys::Home) );
+	UI_COMMAND( NavigateToParent, "Go to parent graph", "Open the parent graph", EUserInterfaceActionType::Button, FInputChord(EKeys::PageUp) );
+	UI_COMMAND( NavigateToParentBackspace, "Go to parent graph", "Open the parent graph", EUserInterfaceActionType::Button, FInputChord(EKeys::BackSpace) );
+	UI_COMMAND( NavigateToChild, "Go to child graph", "Open the child graph", EUserInterfaceActionType::Button, FInputChord(EKeys::PageDown) );
 
 	// Preview commands
-	UI_COMMAND( ResetCamera, "Reset Camera", "Resets the camera to focus on the mesh", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( EnableSimulation, "Simulation", "Enables the simulation of the blueprint and ticking", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ShowFloor, "Show Floor", "Toggles a ground mesh for collision", EUserInterfaceActionType::ToggleButton, FInputGesture() );
-	UI_COMMAND( ShowGrid, "Show Grid", "Toggles viewport grid", EUserInterfaceActionType::ToggleButton, FInputGesture() );
+	UI_COMMAND( ResetCamera, "Reset Camera", "Resets the camera to focus on the mesh", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( EnableSimulation, "Simulation", "Enables the simulation of the blueprint and ticking", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ShowFloor, "Show Floor", "Toggles a ground mesh for collision", EUserInterfaceActionType::ToggleButton, FInputChord() );
+	UI_COMMAND( ShowGrid, "Show Grid", "Toggles viewport grid", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
 	// Debugging commands
-	UI_COMMAND( EnableAllBreakpoints,"Enable All Breakpoints", "Enable all breakpoints", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( DisableAllBreakpoints, "Disable All Breakpoints", "Disable all breakpoints", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( ClearAllBreakpoints, "Delete All Breakpoints", "Delete all breakpoints", EUserInterfaceActionType::Button, FInputGesture(EModifierKey::Control | EModifierKey::Shift, EKeys::F9) );
-	UI_COMMAND(	ClearAllWatches, "Delete All Watches", "Delete all watches", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( EnableAllBreakpoints,"Enable All Breakpoints", "Enable all breakpoints", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( DisableAllBreakpoints, "Disable All Breakpoints", "Disable all breakpoints", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ClearAllBreakpoints, "Delete All Breakpoints", "Delete all breakpoints", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Control | EModifierKey::Shift, EKeys::F9) );
+	UI_COMMAND(	ClearAllWatches, "Delete All Watches", "Delete all watches", EUserInterfaceActionType::Button, FInputChord() );
 
 	// New documents
-	UI_COMMAND( AddNewVariable, "Variable", "Adds a new variable to this blueprint.", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AddNewLocalVariable, "Local Variable", "Adds a new local variable to this graph.", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AddNewFunction, "Function", "Add a new function graph", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND(	AddNewMacroDeclaration, "Macro", "Add a new macro declaration graph", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AddNewAnimationGraph, "Anim Graph", "Add a new animation graph", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AddNewEventGraph, "Graph", "Add a new event graph", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( AddNewDelegate, "Event Dispatcher", "Add a new event dispatcher", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( AddNewVariable, "Variable", "Adds a new variable to this blueprint.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AddNewLocalVariable, "Local Variable", "Adds a new local variable to this graph.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AddNewFunction, "Function", "Add a new function graph", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND(	AddNewMacroDeclaration, "Macro", "Add a new macro declaration graph", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AddNewAnimationGraph, "Anim Graph", "Add a new animation graph", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AddNewEventGraph, "Graph", "Add a new event graph", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( AddNewDelegate, "Event Dispatcher", "Add a new event dispatcher", EUserInterfaceActionType::Button, FInputChord() );
 
 	// Development commands
-	UI_COMMAND( SaveIntermediateBuildProducts, "Save Intermediate Build Products", "Should the compiler save intermediate build products for debugging.", EUserInterfaceActionType::ToggleButton, FInputGesture() );
+	UI_COMMAND( SaveIntermediateBuildProducts, "Save Intermediate Build Products", "Should the compiler save intermediate build products for debugging.", EUserInterfaceActionType::ToggleButton, FInputChord() );
 
-	UI_COMMAND( RecompileGraphEditor, "Recompile Graph Editor", "Recompiles and reloads C++ code for the graph editor", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( RecompileKismetCompiler, "Recompile Blueprint Compiler", "Recompiles and reloads C++ code for the blueprint compiler", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( RecompileBlueprintEditor, "Recompile Blueprint Editor", "Recompiles and reloads C++ code for the blueprint editor", EUserInterfaceActionType::Button, FInputGesture() );
-	UI_COMMAND( RecompilePersona, "Recompile Persona", "Recompiles and reloads C++ code for Persona", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( RecompileGraphEditor, "Recompile Graph Editor", "Recompiles and reloads C++ code for the graph editor", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( RecompileKismetCompiler, "Recompile Blueprint Compiler", "Recompiles and reloads C++ code for the blueprint compiler", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( RecompileBlueprintEditor, "Recompile Blueprint Editor", "Recompiles and reloads C++ code for the blueprint editor", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( RecompilePersona, "Recompile Persona", "Recompiles and reloads C++ code for Persona", EUserInterfaceActionType::Button, FInputChord() );
 
-	UI_COMMAND(GenerateNativeCode, "Generate Native Code", "Generate C++ code from the blueprint", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(GenerateNativeCode, "Generate Native Code", "Generate C++ code from the blueprint", EUserInterfaceActionType::Button, FInputChord());
 
 	// SCC commands
-	UI_COMMAND( BeginBlueprintMerge, "Merge", "Shows the Blueprint merge panel and toolbar, allowing the user to resolve conflicted blueprints", EUserInterfaceActionType::Button, FInputGesture() );
+	UI_COMMAND( BeginBlueprintMerge, "Merge", "Shows the Blueprint merge panel and toolbar, allowing the user to resolve conflicted blueprints", EUserInterfaceActionType::Button, FInputChord() );
 }
 
 PRAGMA_ENABLE_OPTIMIZATION
@@ -95,7 +96,7 @@ namespace NodeSpawnInfoHelpers
 		if( InBlueprint->ParentClass->HasMetaData(*ExclusionListKeyName) )
 		{
 			const FString ExcludedEventNameString = InBlueprint->ParentClass->GetMetaData(*ExclusionListKeyName);
-			ExcludedEventNameString.ParseIntoArray(&ExcludedEventNames, TEXT(","), true);
+			ExcludedEventNameString.ParseIntoArray(ExcludedEventNames, TEXT(","), true);
 		}
 
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
@@ -149,49 +150,42 @@ class FNodeSpawnInfo
 public:
 	virtual ~FNodeSpawnInfo () {}
 
-	/** Holds the UI Command to verify gestures for this action are held */
+	/** Holds the UI Command to verify chords for this action are held */
 	TSharedPtr< FUICommandInfo > CommandInfo;
 
 	/**
 	 * Creates an action to be used for placing a node into the graph
 	 *
-	 * @param	InPaletteBuilder	The Blueprint palette the action should be created for
-	 * @param	InDestGraph			The graph the action should be created for
+	 * @param	InDestGraph					The graph the action should be created for
+	 * @param	InOutDestPosition			Position to start placing nodes, will be updated to be at the next safe position for node placement
+	 * @param	OutNodes					All nodes spawned by this operation
 	 *
-	 * @return						A fully prepared action containing the information to spawn the node
+	 * @return								A fully prepared action containing the information to spawn the node
 	 */
-	virtual void GetActions(FBlueprintPaletteListBuilder& InPaletteBuilder, UEdGraph* InDestGraph) = 0;
+	virtual void GetActions(UEdGraph* InDestGraph, FVector2D& InOutDestPosition, TArray<UEdGraphNode*>& OutNodes) = 0;
 };
 
 class FEdGraphNodeSpawnInfo : public FNodeSpawnInfo
 {
 public:
-	FEdGraphNodeSpawnInfo(UClass* InClass) : NodeClass(InClass), GraphNode(NULL) {}
+	FEdGraphNodeSpawnInfo(UClass* InClass) : NodeClass(InClass) {}
 
 	// FNodeSpawnInfo interface
-	virtual void GetActions(FBlueprintPaletteListBuilder& InPaletteBuilder, UEdGraph* InDestGraph) override
+	virtual void GetActions(UEdGraph* InDestGraph, FVector2D& InOutDestPosition, TArray<UEdGraphNode*>& OutNodes) override
 	{
 		TSharedPtr<FEdGraphSchemaAction_NewNode> NewActionNode = TSharedPtr<FEdGraphSchemaAction_NewNode>(new FEdGraphSchemaAction_NewNode);
 
-		if (!GraphNode.IsValid())
-		{
-			GraphNode = InPaletteBuilder.CreateTemplateNode<UEdGraphNode>(NodeClass);
-		}
-		ensureMsgf( GraphNode->GetClass() == NodeClass, TEXT("FEdGraphNodeSpawnInfo::GetAction() class mismatch (GraphNode class %s, NodeClass %s"), *GraphNode->GetClass()->GetName(), *NodeClass->GetName() );
+		IBlueprintNodeBinder::FBindingSet Bindings;
+		UEdGraphNode* GraphNode = UBlueprintNodeSpawner::Create(NodeClass)->Invoke(InDestGraph, Bindings, InOutDestPosition);
 
-		// the NodeTemplate UPROPERTY takes ownership of GraphNode's lifetime (hence it being a weak-pointer here)
-		NewActionNode->NodeTemplate = GraphNode.Get();
-
-		InPaletteBuilder.AddAction(NewActionNode);
+		InOutDestPosition.Y = FMath::Max(InOutDestPosition.Y, GraphNode->NodePosY + UEdGraphSchema_K2::EstimateNodeHeight(GraphNode));
+		OutNodes.Add(GraphNode);
 	}
 	// End of FNodeSpawnInfo interface
 
 private:
 	/** The class type the node should be */
 	UClass* NodeClass;
-
-	/** The graph node to place into the action to spawn it in the graph */
-	TWeakObjectPtr<UEdGraphNode> GraphNode;
 };
 
 class FFunctionNodeSpawnInfo : public FNodeSpawnInfo
@@ -200,9 +194,9 @@ public:
 	FFunctionNodeSpawnInfo(UFunction* InFunctionPtr) : FunctionPtr(InFunctionPtr) {}
 
 	// FNodeSpawnInfo interface
-	virtual void GetActions(FBlueprintPaletteListBuilder& InPaletteBuilder, UEdGraph* InDestGraph) override
+	virtual void GetActions(UEdGraph* InDestGraph, FVector2D& InOutDestPosition, TArray<UEdGraphNode*>& OutNodes) override
 	{
-		const UBlueprint* Blueprint = InPaletteBuilder.Blueprint;
+		const UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(InDestGraph);
 
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 		if(NodeSpawnInfoHelpers::IsFunctionAvailableAsEvent(Blueprint, FunctionPtr))
@@ -210,7 +204,11 @@ public:
 			UFunction* FunctionEvent = NodeSpawnInfoHelpers::FindEventFunctionForClass(Blueprint, FunctionPtr);
 			if(FunctionEvent)
 			{
-				FK2ActionMenuBuilder::AddEventForFunction(InPaletteBuilder, FunctionEvent);
+				IBlueprintNodeBinder::FBindingSet Bindings;
+				UEdGraphNode* GraphNode = UBlueprintEventNodeSpawner::Create(FunctionEvent)->Invoke(InDestGraph, Bindings, InOutDestPosition);
+
+				InOutDestPosition.Y = FMath::Max(InOutDestPosition.Y, GraphNode->NodePosY + UEdGraphSchema_K2::EstimateNodeHeight(GraphNode));
+				OutNodes.Add(GraphNode);
 			}
 		}
 		else
@@ -223,9 +221,13 @@ public:
 				FunctionTypes |= UEdGraphSchema_K2::EFunctionType::FT_Imperative;
 			}
 
-			if(K2Schema->CanFunctionBeUsedInGraph(Blueprint->GeneratedClass, FunctionPtr, InDestGraph, FunctionTypes, false, FFunctionTargetInfo()))
+			if(K2Schema->CanFunctionBeUsedInGraph(Blueprint->GeneratedClass, FunctionPtr, InDestGraph, FunctionTypes, false))
 			{
-				FK2ActionMenuBuilder::AddSpawnInfoForFunction(FunctionPtr, false, FFunctionTargetInfo(), FMemberReference(), TEXT(""), K2Schema->AG_LevelReference, InPaletteBuilder);
+				IBlueprintNodeBinder::FBindingSet Bindings;
+				UEdGraphNode* GraphNode = UBlueprintFunctionNodeSpawner::Create(FunctionPtr)->Invoke(InDestGraph, Bindings, InOutDestPosition);
+
+				InOutDestPosition.Y = FMath::Max(InOutDestPosition.Y, GraphNode->NodePosY + UEdGraphSchema_K2::EstimateNodeHeight(GraphNode));
+				OutNodes.Add(GraphNode);
 			}
 		}
 	}
@@ -242,9 +244,12 @@ public:
 	FMacroNodeSpawnInfo(UEdGraph* InMacroGraph) : MacroGraph(InMacroGraph) {}
 
 	// FNodeSpawnInfo interface
-	virtual void GetActions(FBlueprintPaletteListBuilder& InPaletteBuilder, UEdGraph* InDestGraph) override
+	virtual void GetActions(UEdGraph* InDestGraph, FVector2D& InOutDestPosition, TArray<UEdGraphNode*>& OutNodes) override
 	{
-		FK2ActionMenuBuilder::AttachMacroGraphAction(InPaletteBuilder, MacroGraph);
+		IBlueprintNodeBinder::FBindingSet Bindings;
+		UK2Node_MacroInstance* MacroInstanceNode = Cast<UK2Node_MacroInstance>(UBlueprintNodeSpawner::Create(UK2Node_MacroInstance::StaticClass())->Invoke(InDestGraph, Bindings, InOutDestPosition));
+		MacroInstanceNode->SetMacroGraph(MacroGraph);
+		MacroInstanceNode->ReconstructNode();
 	}
 	// End of FNodeSpawnInfo interface
 
@@ -257,22 +262,20 @@ class FActorRefSpawnInfo : public FNodeSpawnInfo
 {
 public:
 	// FNodeSpawnInfo interface
-	virtual void GetActions(FBlueprintPaletteListBuilder& InPaletteBuilder, UEdGraph* InDestGraph) override
+	virtual void GetActions(UEdGraph* InDestGraph, FVector2D& InOutDestPosition, TArray<UEdGraphNode*>& OutNodes) override
 	{
-		const UBlueprint* Blueprint = InPaletteBuilder.Blueprint;
+		const UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(InDestGraph);
 		USelection* SelectedLvlActors = GEditor->GetSelectedActors();
 
 		if ((Blueprint != nullptr) && Blueprint->ParentClass->IsChildOf<ALevelScriptActor>() && (SelectedLvlActors->Num() > 0))
 		{
 			for (FSelectionIterator LvlActorIt(*SelectedLvlActors); LvlActorIt; ++LvlActorIt)
 			{
-				UK2Node_Literal* TemplateRefNode = InPaletteBuilder.CreateTemplateNode<UK2Node_Literal>();
+				IBlueprintNodeBinder::FBindingSet Bindings;
+				UK2Node_Literal* TemplateRefNode = Cast<UK2Node_Literal>(UBlueprintNodeSpawner::Create(UK2Node_Literal::StaticClass())->Invoke(InDestGraph, Bindings, InOutDestPosition));
 				TemplateRefNode->SetObjectRef(*LvlActorIt);
 
-				TSharedPtr<FEdGraphSchemaAction_NewNode> NewActionNode = TSharedPtr<FEdGraphSchemaAction_NewNode>(new FEdGraphSchemaAction_NewNode);
-				NewActionNode->NodeTemplate = TemplateRefNode;
-
-				InPaletteBuilder.AddAction(NewActionNode);
+				OutNodes.Add(TemplateRefNode);
 			}
 		}
 	}
@@ -287,7 +290,7 @@ void FBlueprintSpawnNodeCommands::RegisterCommands()
 	const FString ConfigSection = TEXT("BlueprintSpawnNodes");
 	const FString SettingName = TEXT("Node");
 	TArray< FString > NodeSpawns;
-	GConfig->GetArray(*ConfigSection, *SettingName, NodeSpawns, GEditorUserSettingsIni);
+	GConfig->GetArray(*ConfigSection, *SettingName, NodeSpawns, GEditorPerProjectIni);
 
 	for(int32 x = 0; x < NodeSpawns.Num(); ++x)
 	{
@@ -374,12 +377,12 @@ void FBlueprintSpawnNodeCommands::RegisterCommands()
 				FParse::Bool(*NodeSpawns[x], TEXT("Cmd="), bCmd);
 			}
 
-			FInputGesture Gesture(Key, EModifierKey::FromBools(bCtrl, bAlt, bShift, bCmd));
+			FInputChord Chord(Key, EModifierKey::FromBools(bCtrl, bAlt, bShift, bCmd));
 
 			FText CommandLabelText = FText::FromString( CommandLabel );
 			FText Description = FText::Format( NSLOCTEXT("BlueprintEditor", "NodeSpawnDescription", "Hold down the bound keys and left click in the graph panel to spawn a {0} node."), CommandLabelText );
 
-			FUICommandInfo::MakeCommandInfo( this->AsShared(), CommandInfo, FName(*NodeSpawns[x]), CommandLabelText, Description, FSlateIcon(FEditorStyle::GetStyleSetName(), *FString::Printf(TEXT("%s.%s"), *this->GetContextName().ToString(), *NodeSpawns[x])), EUserInterfaceActionType::Button, Gesture );
+			FUICommandInfo::MakeCommandInfo( this->AsShared(), CommandInfo, FName(*NodeSpawns[x]), CommandLabelText, Description, FSlateIcon(FEditorStyle::GetStyleSetName(), *FString::Printf(TEXT("%s.%s"), *this->GetContextName().ToString(), *NodeSpawns[x])), EUserInterfaceActionType::Button, Chord );
 
 			InfoPtr->CommandInfo = CommandInfo;
 
@@ -388,21 +391,31 @@ void FBlueprintSpawnNodeCommands::RegisterCommands()
 	}
 
 	TSharedPtr<FNodeSpawnInfo> AddActorRefAction = MakeShareable(new FActorRefSpawnInfo);
-	UI_COMMAND(AddActorRefAction->CommandInfo, "Add Selected Actor Reference(s)", "Spawns node(s) which reference the currently selected actor(s) in the level.", EUserInterfaceActionType::Button, FInputGesture(EKeys::R));
+	UI_COMMAND(AddActorRefAction->CommandInfo, "Add Selected Actor Reference(s)", "Spawns node(s) which reference the currently selected actor(s) in the level.", EUserInterfaceActionType::Button, FInputChord(EKeys::R));
 	NodeCommands.Add(AddActorRefAction);
 }
 
 
-void FBlueprintSpawnNodeCommands::GetGraphActionByGesture(FInputGesture& InGesture, FBlueprintPaletteListBuilder& InPaletteBuilder, UEdGraph* InDestGraph) const
+void FBlueprintSpawnNodeCommands::GetGraphActionByChord(FInputChord& InChord, UEdGraph* InDestGraph, FVector2D& InOutDestPosition, TArray<UEdGraphNode*>& OutNodes) const
 {
-	if(InGesture.IsValidGesture())
+	if(InChord.IsValidChord())
 	{
 		for(int32 x = 0; x < NodeCommands.Num(); ++x)
 		{
-			if(NodeCommands[x]->CommandInfo->GetActiveGesture().Get() == InGesture)
+			if(NodeCommands[x]->CommandInfo->GetActiveChord().Get() == InChord)
 			{
-				NodeCommands[x]->GetActions(InPaletteBuilder, InDestGraph);
+				NodeCommands[x]->GetActions(InDestGraph, InOutDestPosition, OutNodes);
 			}
 		}
 	}
 }
+
+//////////////////////////////////////////////////////////////////////////
+// FSCSEditorViewportCommands
+
+void FSCSEditorViewportCommands::RegisterCommands()
+{
+	UI_COMMAND(DeleteComponent, "Delete", "Delete current selection", EUserInterfaceActionType::Button, FInputChord(EKeys::Platform_Delete));
+}
+
+#undef LOCTEXT_NAMESPACE

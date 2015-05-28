@@ -11,30 +11,33 @@ UBlackboardKeyType_Name::UBlackboardKeyType_Name(const FObjectInitializer& Objec
 	SupportedOp = EBlackboardKeyOperation::Text;
 }
 
-FName UBlackboardKeyType_Name::GetValue(const uint8* RawData)
+FName UBlackboardKeyType_Name::GetValue(const UBlackboardKeyType_Name* KeyOb, const uint8* RawData)
 {
 	return GetValueFromMemory<FName>(RawData);
 }
 
-bool UBlackboardKeyType_Name::SetValue(uint8* RawData, const FName& Value)
+bool UBlackboardKeyType_Name::SetValue(UBlackboardKeyType_Name* KeyOb, uint8* RawData, const FName& Value)
 {
 	return SetValueInMemory<FName>(RawData, Value);
 }
 
-FString UBlackboardKeyType_Name::DescribeValue(const uint8* RawData) const
+EBlackboardCompare::Type UBlackboardKeyType_Name::CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+	const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const
 {
-	return GetValue(RawData).ToString();
+	const FName MyValue = GetValue(this, MemoryBlock);
+	const FName OtherValue = GetValue((UBlackboardKeyType_Name*)OtherKeyOb, OtherMemoryBlock);
+
+	return (MyValue == OtherValue) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
 }
 
-EBlackboardCompare::Type UBlackboardKeyType_Name::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
+FString UBlackboardKeyType_Name::DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
 {
-	return GetValueFromMemory<FName>(MemoryBlockA) == GetValueFromMemory<FName>(MemoryBlockB)
-		? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
+	return GetValue(this, RawData).ToString();
 }
 
-bool UBlackboardKeyType_Name::TestTextOperation(const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const
+bool UBlackboardKeyType_Name::TestTextOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const
 {
-	const FString Value = GetValue(MemoryBlock).ToString();
+	const FString Value = GetValue(this, MemoryBlock).ToString();
 	switch (Op)
 	{
 	case ETextKeyOperation::Equal:			return (Value == OtherString);

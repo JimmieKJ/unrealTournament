@@ -74,19 +74,19 @@ void UBorderSlot::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 		{
 			FName PropertyName = PropertyChangedEvent.Property->GetFName();
 
-			if ( UBorder* Border = CastChecked<UBorder>(Parent) )
+			if ( UBorder* ParentBorder = CastChecked<UBorder>(Parent) )
 			{
 				if ( PropertyName == "Padding" )
 				{
-					FObjectEditorUtils::MigratePropertyValue(this, "Padding", Border, "Padding");
+					FObjectEditorUtils::MigratePropertyValue(this, "Padding", ParentBorder, "Padding");
 				}
 				else if ( PropertyName == "HorizontalAlignment" )
 				{
-					FObjectEditorUtils::MigratePropertyValue(this, "HorizontalAlignment", Border, "HorizontalAlignment");
+					FObjectEditorUtils::MigratePropertyValue(this, "HorizontalAlignment", ParentBorder, "HorizontalAlignment");
 				}
 				else if ( PropertyName == "VerticalAlignment" )
 				{
-					FObjectEditorUtils::MigratePropertyValue(this, "VerticalAlignment", Border, "VerticalAlignment");
+					FObjectEditorUtils::MigratePropertyValue(this, "VerticalAlignment", ParentBorder, "VerticalAlignment");
 				}
 			}
 		}

@@ -11,7 +11,7 @@ UBTTask_RunBehavior::UBTTask_RunBehavior(const FObjectInitializer& ObjectInitial
 
 EBTNodeResult::Type UBTTask_RunBehavior::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	const bool bPushed = OwnerComp.PushInstance(*BehaviorAsset);
+	const bool bPushed = BehaviorAsset != nullptr && OwnerComp.PushInstance(*BehaviorAsset);
 	return bPushed ? EBTNodeResult::InProgress : EBTNodeResult::Failed;
 }
 

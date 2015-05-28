@@ -179,7 +179,6 @@ struct CORE_API FMapErrors
 	 /** {Count} element(s) with zero triangles in static mesh {StaticMesh}: **TODO** */
     static FName ElementsWithZeroTriangles;
   
-
     /**  Volume */
 
 	/** LevelStreamingVolume is not in the persistent level - please delete: This warning is caused when there is a level streaming volume that does not exist in the persistent level.  This can be problematic because the volume will not be considered when checking to see if a streaming level should be loaded or unloaded.  You can fix this problem by deleting the level streaming volume and recreating it. */
@@ -201,6 +200,17 @@ struct CORE_API FMapErrors
 
 	/** {Actor} : Repaired painted vertex colors: Painted vertex colors were repaired on this actor. */
     static FName RepairedPaintedVertexColors;
+
+	/** Hierarchical LOD **/
+
+	/** {LODActor} : Static mesh is missing for the built LODActor.  Did you remove the asset? */
+	static FName LODActorMissingStaticMesh;
+
+	/** {LODActor} : Actor is missing. The actor might have been removed. We recommend you to build LOD again. */
+	static FName LODActorMissingActor;
+
+	/** {LODActor} : NoActor is assigned. We recommend to delete this actor. */
+	static FName LODActorNoActorFound;
 };
 
 /**

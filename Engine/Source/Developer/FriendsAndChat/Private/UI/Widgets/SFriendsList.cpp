@@ -16,10 +16,10 @@ class SFriendsListImpl : public SFriendsList
 {
 public:
 
-	void Construct(const FArguments& InArgs, const TSharedRef<FFriendListViewModel>& ViewModel)
+	void Construct(const FArguments& InArgs, const TSharedRef<FFriendListViewModel>& InViewModel)
 	{
 		FriendStyle = *InArgs._FriendStyle;
-		this->ViewModel = ViewModel;
+		ViewModel = InViewModel;
 		ViewModel->OnFriendsListUpdated().AddSP(this, &SFriendsListImpl::RefreshFriendsList);
 		MenuMethod = InArgs._Method;
 
@@ -47,9 +47,17 @@ private:
 				.Method(MenuMethod)
 			];
 		}
+
+		this->RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SFriendsListImpl::OneTimeTickUpdate));
+	}
+
+	EActiveTimerReturnType OneTimeTickUpdate(double InCurrentTime, float InDeltaTime)
+	{
+		return EActiveTimerReturnType::Stop;
 	}
 
 private:
+
 	/** Holds the style to use when making the widget. */
 	FFriendsAndChatStyle FriendStyle;
 	TSharedPtr<FFriendListViewModel> ViewModel;
@@ -81,9 +89,8 @@ FSlateColor SFriendsList::GetActionButtonFontColor(const FFriendsAndChatStyle& F
 	switch (ActionLevel)
 	{
 	case EFriendActionLevel::Critical:
-		return FSlateColor(FriendStyle.FriendListCriticalFontColor);
 	case EFriendActionLevel::Emphasis:
-		return FSlateColor(FriendStyle.FriendListEmphasisFontColor);
+		return FSlateColor::UseForeground();
 	case EFriendActionLevel::Action:
 	default:
 		return FSlateColor(FriendStyle.FriendListActionFontColor);

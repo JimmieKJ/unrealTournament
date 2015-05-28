@@ -22,9 +22,6 @@ class AIMODULE_API UBTTask_PawnActionBase : public UBTTaskNode
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditAnywhere, Category=Action)
-	TEnumAsByte<EAIRequestPriority::Type> ActionPriority;
-
 	virtual EBTNodeResult::Type AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
 
 protected:
@@ -38,7 +35,5 @@ protected:
 public:
 
 	/** helper functions, should be used when behavior tree task deals with pawn actions, but can't derive from this class */
-
-	static EBTNodeResult::Type AbortTaskHandler(UBTTaskNode* TaskNode, UBehaviorTreeComponent& OwnerComp, EAIRequestPriority::Type Priority = EAIRequestPriority::Logic);
 	static void ActionEventHandler(UBTTaskNode* TaskNode, UPawnAction& Action, EPawnActionEventType::Type Event);
 };

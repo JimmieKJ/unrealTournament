@@ -159,7 +159,7 @@ half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
 
 #define FBoneMatrix float3x4
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
 
 // The bone matrix buffer stored as 4x3 (3 float4 texels behind each other), all chunks of a skeletal mesh in one
 Buffer<float4> BoneMatrices;
@@ -203,10 +203,11 @@ struct FVertexFactoryIntermediates
 };
 
 /** Converts from vertex factory specific input to a FMaterialVertexParameters, which is used by vertex shader material inputs. */
-FMaterialVertexParameters GetMaterialVertexParameters( FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 WorldPosition, float3x3 TangentToLocal )
+FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 WorldPosition, float3x3 TangentToLocal)
 {
 	FMaterialVertexParameters Result = (FMaterialVertexParameters)0;
 	Result.WorldPosition = WorldPosition - View.PreViewTranslation.xyz;
+	Result.PrevWorldPosition = WorldPosition - View.PrevPreViewTranslation.xyz;
 	Result.VertexColor = Intermediates.Color;
 	Result.TangentToWorld = mul(TangentToLocal, GetLocalToWorld3x3());
 
@@ -277,7 +278,7 @@ float3 MorphPosition( FVertexFactoryInput Input, FVertexFactoryIntermediates Int
 
 FBoneMatrix GetBoneMatrix(int Index)
 {
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
 	float4 A = BoneMatrices[Index * 3];
 	float4 B = BoneMatrices[Index * 3 + 1];
 	float4 C = BoneMatrices[Index * 3 + 2];
@@ -306,7 +307,7 @@ FBoneMatrix CalcBoneMatrix( FVertexFactoryInput Input )
 
 FBoneMatrix GetPreviousBoneMatrix(int Index)
 {
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
 	float4 A = PreviousBoneMatrices[Index * 3 + BoneIndexOffset.x];
 	float4 B = PreviousBoneMatrices[Index * 3 + BoneIndexOffset.y];
 	float4 C = PreviousBoneMatrices[Index * 3 + BoneIndexOffset.z];
@@ -392,7 +393,7 @@ float3x3 SkinTangents( FVertexFactoryInput Input, FVertexFactoryIntermediates In
 	
 	#if GPUSKIN_APEX_CLOTH
 
-	float3x3 ClothTangent;
+	float3x3 ClothTangent = float3x3(1,0,0, 0,1,0, 0,0,1);
 	float TempClothBlendWeight = 0.0f;
 	if( IsSimulatedVertex(Input) )
 	{ 
@@ -503,7 +504,7 @@ float4 CalcWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates 
 		float4 TransformedSkinPos = mul(SkinnedPosition, Primitive.LocalToWorld);
 
 		// Intermediates.SimulatedPosition is a clothing position in world coord
-		float3 BlendedPos = Intermediates.SimulatedPosition * ClothBlendWeight + TransformedSkinPos.xyz * (1.0f - ClothBlendWeight);
+		float3 BlendedPos = lerp(TransformedSkinPos.xyz, Intermediates.SimulatedPosition, ClothBlendWeight);
 		return float4(BlendedPos + View.PreViewTranslation, 1);
 	}
 	else
@@ -581,16 +582,16 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 							1),
 					PreviousLocalToWorld);
 #else
-	float4 PrevSkinPosInWolrd = mul(float4(SkinPreviousPosition(Input, Intermediates),1), PreviousLocalToWorld);
+	float4 PrevSkinPosInWorld = mul(float4(SkinPreviousPosition(Input, Intermediates),1), PreviousLocalToWorld);
 #if GPUSKIN_APEX_CLOTH
 	if( IsSimulatedVertex(Input) )
 	{
-		float3 BlendedPrevPos = (Intermediates.SimulatedPosition + View.PrevPreViewTranslation)*ClothBlendWeight + PrevSkinPosInWolrd.xyz*(1.0f - ClothBlendWeight);		 
-		return float4(BlendedPrevPos, 1);
+		float3 BlendedPrevPos = lerp(PrevSkinPosInWorld.xyz, Intermediates.SimulatedPosition, ClothBlendWeight);		 
+		return float4(BlendedPrevPos + View.PrevPreViewTranslation, 1);
 	}
 #endif // GPUSKIN_APEX_CLOTH
 
-	return PrevSkinPosInWolrd;
+	return PrevSkinPosInWorld;
 #endif
 	}
 

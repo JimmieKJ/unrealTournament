@@ -8,7 +8,7 @@ class FSlateDynamicTextureResource;
 class FSlateUTextureResource;
 class FSlateMaterialResource;
 
-struct FDynamicResourceMap : public FGCObject
+struct FDynamicResourceMap
 {
 public:
 	TSharedPtr<FSlateDynamicTextureResource> GetDynamicTextureResource( FName ResourceName ) const;
@@ -35,14 +35,10 @@ public:
 	void ReleaseResources();
 
 	uint32 GetNumObjectResources() const { return UTextureResourceMap.Num() + MaterialResourceMap.Num(); }
-
-	/** FGCObject interface */
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-
 private:
 	TMap<FName, TSharedPtr<FSlateDynamicTextureResource> > NativeTextureMap;
 	
-	TMap<UObject*, TSharedPtr<FSlateUTextureResource> > UTextureResourceMap;
+	TMap<TWeakObjectPtr<UTexture2D>, TSharedPtr<FSlateUTextureResource> > UTextureResourceMap;
 
 	/** Map of all material resources */
 	TMap<TWeakObjectPtr<UMaterialInterface>, TSharedPtr<FSlateMaterialResource> > MaterialResourceMap;

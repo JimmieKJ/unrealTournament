@@ -4,4 +4,5 @@
 
 #include "Json.h"
 #include "JsonObjectConverter.h"
+#include "JsonObjectWrapper.h"
 

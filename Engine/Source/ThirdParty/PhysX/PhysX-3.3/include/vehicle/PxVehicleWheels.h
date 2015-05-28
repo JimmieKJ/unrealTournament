@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -59,6 +42,12 @@ class PxMaterial;
 
 class PxVehicleWheelsSimData
 {
+//= ATTENTION! =====================================================================================
+// Changing the data layout of this class breaks the binary serialization format.  See comments for 
+// PX_BINARY_SERIAL_VERSION.  If a modification is required, please adjust the getBinaryMetaData 
+// function.  If the modification is made on a custom branch, please change PX_BINARY_SERIAL_VERSION
+// accordingly.
+//==================================================================================================
 public:
 
 	friend class PxVehicleWheels;
@@ -437,6 +426,16 @@ public:
 	PxU32 getNbWheelCentreOffset() const { return mNbActiveWheels;	}
 	PxU32 getNbWheelShapeMapping() const { return mNbActiveWheels; }
 	PxU32 getNbSceneQueryFilterData() const { return mNbActiveWheels; }
+	PxF32 getMinLongSlipDenominator() const {return mMinLongSlipDenominator;}
+	void setThresholdLongSpeed(const PxF32 f) {mThresholdLongitudinalSpeed = f;}
+	PxF32 getThresholdLongSpeed() const {return mThresholdLongitudinalSpeed;}
+	void setLowForwardSpeedSubStepCount(const PxU32 f) {mLowForwardSpeedSubStepCount = f;}
+	PxU32 getLowForwardSpeedSubStepCount() const {return mLowForwardSpeedSubStepCount;}
+	void setHighForwardSpeedSubStepCount(const PxU32 f) {mHighForwardSpeedSubStepCount = f;}
+	PxU32 getHighForwardSpeedSubStepCount() const {return mHighForwardSpeedSubStepCount;}
+	void setWheelEnabledState(const PxU32 wheel, const bool state) {if(state) {enableWheel(wheel);} else {disableWheel(wheel);}}
+	bool getWheelEnabledState(const PxU32 wheel) const {return !getIsWheelDisabled(wheel);}
+	PxU32 getNbWheelEnabledState() const {return mNbActiveWheels;}
 	PxVehicleWheelsSimData(){}
 	~PxVehicleWheelsSimData(){}
 //~serialization
@@ -448,6 +447,12 @@ PX_COMPILE_TIME_ASSERT(0==(sizeof(PxVehicleWheelsSimData) & 15));
 */
 class PxVehicleWheelsDynData
 {
+//= ATTENTION! =====================================================================================
+// Changing the data layout of this class breaks the binary serialization format.  See comments for 
+// PX_BINARY_SERIAL_VERSION.  If a modification is required, please adjust the getBinaryMetaData 
+// function.  If the modification is made on a custom branch, please change PX_BINARY_SERIAL_VERSION
+// accordingly.
+//==================================================================================================
 public:
 
 	friend class PxVehicleWheels;
@@ -579,6 +584,12 @@ PX_COMPILE_TIME_ASSERT(0==(sizeof(PxVehicleWheelsDynData) & 15));
 */
 class PxVehicleWheels : public PxBase
 {
+//= ATTENTION! =====================================================================================
+// Changing the data layout of this class breaks the binary serialization format.  See comments for 
+// PX_BINARY_SERIAL_VERSION.  If a modification is required, please adjust the getBinaryMetaData 
+// function.  If the modification is made on a custom branch, please change PX_BINARY_SERIAL_VERSION
+// accordingly.
+//==================================================================================================
 public:
 
 	friend class PxVehicleUpdate;

@@ -36,7 +36,7 @@ public:
 	}
 
 	// SWidget interface
-	virtual FVector2D ComputeDesiredSize() const override
+	virtual FVector2D ComputeDesiredSize(float) const override
 	{
 		const float Height = 24.0f;
 		const float Thickness = 16.0f;

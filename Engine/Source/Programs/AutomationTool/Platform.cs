@@ -291,6 +291,27 @@ namespace AutomationTool
 		}
 
         /// <summary>
+        /// Gets extra cook commandline arguments for this platform.
+        /// </summary>
+        /// <param name="Params"> ProjectParams </param>
+        /// <returns>Cook platform string.</returns>
+        public virtual string GetCookExtraCommandLine(ProjectParams Params)
+        {
+            return ""; 
+        }
+
+        /// <summary>
+        /// Gets extra maps needed on this platform.
+        /// </summary>
+        /// <returns>extra maps</returns>
+        public virtual List<string> GetCookExtraMaps()
+        {
+            return new List<string>();
+        }
+
+
+
+        /// <summary>
         /// Gets editor cook platform name for this platform. Cooking the editor is not useful, but this is used to fill the derived data cache
         /// </summary>
         /// <returns>Cook platform string.</returns>
@@ -455,6 +476,14 @@ namespace AutomationTool
 			return true;
 		}
 
+		/// <summary>
+		/// Determines whether we should stage a UE4CommandLine.txt for this platform 
+		/// </summary>
+		public virtual bool ShouldStageCommandLine(ProjectParams Params, DeploymentContext SC)
+		{
+			return true;
+		}
+
         /// <summary>
         /// Only relevant for the mac and PC at the moment. Example calling the Mac platform with PS4 as an arg will return false. Can't compile or cook for the PS4 on the mac.
         /// </summary>
@@ -463,11 +492,25 @@ namespace AutomationTool
             return false;
         }
 
+		/// <summary>
+		/// Allows some platforms to not be compiled, for instance when BuildCookRun -build is performed
+		/// </summary>
+		/// <returns><c>true</c> if this instance can be compiled; otherwise, <c>false</c>.</returns>
+		public virtual bool CanBeCompiled()
+		{
+			return true;
+		}
+
 		public virtual bool RetrieveDeployedManifests(ProjectParams Params, DeploymentContext SC, out List<string> UFSManifests, out List<string> NonUFSManifests)
 		{
 			UFSManifests = null;
 			NonUFSManifests = null;
 			return false;
+		}
+
+		public virtual UnrealTargetPlatform[] GetStagePlatforms()
+		{
+			return new UnrealTargetPlatform[] { PlatformType };
 		}
 
 		#endregion

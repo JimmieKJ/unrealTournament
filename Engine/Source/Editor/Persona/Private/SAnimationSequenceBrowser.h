@@ -75,11 +75,6 @@ public:
 
 	/** Refresh list */
 	void SelectAsset(UAnimationAsset * AnimAsset);
-	
-	/**
-	 * Update the widget
-	 */
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 protected:
 	bool CanShowColumnForAssetRegistryTag(FName AssetType, FName TagName) const;
@@ -137,6 +132,11 @@ protected:
 	 * Called as a tooltip is about to show;
 	 */
 	bool OnVisualizeAssetToolTip(const TSharedPtr<SWidget>& TooltipContent, FAssetData& AssetData);
+
+	/**
+	* Called as a tooltip is closing
+	*/
+	void OnAssetToolTipClosing();
 
 	/**
 	 * Cleaup a component from the preview scene along with any attached children
@@ -199,4 +199,17 @@ protected:
 	FGetCurrentSelectionDelegate GetCurrentSelectionDelegate;
 
 	void RetargetAnimationHandler(USkeleton* OldSkeleton, USkeleton* NewSkeleton, bool bRemapReferencedAssets, bool bConvertSpaces, TArray<TWeakObjectPtr<UObject>> InAnimAssets);
+
+private:
+	/** Updates the animation preview in the tooltip */
+	EActiveTimerReturnType UpdateTootipPreview( double InCurrentTime, float InDeltaTime );
+
+	/** Whether the tooltip was visualized this frame */
+	uint8 bToolTipClosedThisFrame : 1;
+
+	/** Whether the active timer is currently registered */
+	uint8 bIsActiveTimerRegistered : 1;
+
+	/** Whether the active timer should stop */
+	uint8 bToolTipVisualizedThisFrame : 1;
 };

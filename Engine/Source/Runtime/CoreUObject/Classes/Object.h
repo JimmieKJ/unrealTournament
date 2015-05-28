@@ -206,6 +206,47 @@ namespace EMouseCursor
 	};
 }
 
+/** A set of numerical unit types supported by the engine. Mirrored from UnitConversion.h */
+UENUM(BlueprintType)
+enum class EUnit
+{
+	/** Scalar distance/length units */
+	Micrometers, Millimeters, Centimeters, Meters, Kilometers,
+	Inches, Feet, Yards, Miles,
+	Lightyears,
+
+	/** Angular units */
+	Degrees, Radians,
+
+	/** Speed units */
+	MetersPerSecond, KilometersPerHour, MilesPerHour,
+
+	/** Temperature units */
+	Celsius, Farenheit, Kelvin,
+
+	/** Mass units */
+	Micrograms, Milligrams, Grams, Kilograms, MetricTons,
+	Ounces, Pounds, Stones,
+
+	/** Force units */
+	Newtons, PoundsForce, KilogramsForce,
+
+	/** Frequency units */
+	Hertz, Kilohertz, Megahertz, Gigahertz, RevolutionsPerMinute,
+
+	/** Data Size units */
+	Bytes, Kilobytes, Megabytes, Gigabytes, Terabytes,
+
+	/** Luminous flux units */
+	Lumens,
+
+	/** Time units */
+	Milliseconds, Seconds, Minutes, Hours, Days, Months, Years,
+
+	/** Symbolic entry, not specifyable on meta data */
+	Unspecified
+};
+
 // A globally unique identifier.
 USTRUCT(immutable, noexport, BlueprintType)
 struct FGuid
@@ -221,14 +262,6 @@ struct FGuid
 
 	UPROPERTY(EditAnywhere, SaveGame, Category=Guid)
 	int32 D;
-};
-
-// A unique identifier for networking objects
-USTRUCT(immutable, noexport)
-struct FNetworkGUID
-{
-	UPROPERTY(SaveGame)
-	uint32 Value;
 };
 
 /**
@@ -455,7 +488,7 @@ struct FLinearColor
  * A bounding box.
  * The full C++ class is located here: Engine\Source\Runtime\Core\Public\Math\Box.h
  */
-USTRUCT(immutable, noexport)
+USTRUCT(immutable, noexport, BlueprintType)
 struct FBox
 {
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Box, SaveGame)
@@ -889,7 +922,11 @@ public:
 	/**
 	 * Default UObject constructor.
 	 */
-	UObject(const FObjectInitializer& ObjectInitializer);
+	UObject(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	UObject(FVTableHelper& Helper);
+#endif // WITH_HOT_RELOAD_CTORS
 
 	//=============================================================================
 	// K2 support functions.
@@ -900,7 +937,7 @@ public:
 	 * @param	EntryPoint	The entry point to start code execution at.
 	 */
 	UFUNCTION(BlueprintImplementableEvent, meta=(BlueprintInternalUseOnly = "true"))
-	virtual void ExecuteUbergraph(int32 EntryPoint);
+	void ExecuteUbergraph(int32 EntryPoint);
 };
 
 #endif

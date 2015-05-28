@@ -12,7 +12,7 @@
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
-typedef TTextFilter<const TSharedPtr<FLevelModel>& > LevelTextFilter;
+typedef TTextFilter<const FLevelModel* > LevelTextFilter;
 
 class SLevelsTreeWidget : public STreeView<TSharedPtr<FLevelModel>>
 {
@@ -428,9 +428,9 @@ private:
 	}
 
 	/** Appends the Level's name to the OutSearchStrings array if the Level is valid */
-	void TransformLevelToString(const TSharedPtr<FLevelModel>& Level, TArray<FString>& OutSearchStrings) const
+	void TransformLevelToString(const FLevelModel* Level, TArray<FString>& OutSearchStrings) const
 	{
-		if (Level.IsValid() && Level->HasValidPackage())
+		if (Level != nullptr && Level->HasValidPackage())
 		{
 			OutSearchStrings.Add(FPackageName::GetShortName(Level->GetLongPackageName()));
 		}

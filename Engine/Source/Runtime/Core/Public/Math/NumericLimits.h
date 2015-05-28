@@ -34,38 +34,10 @@
  *****************************************************************************/
 
 /**
- * Helper class to maps numeric type to it's limits
+ * Helper class to map a numeric type to its limits
  */
 template <typename NumericType>
-struct TNumericLimits 
-{
-	/*
-	 *	@return minimum value
-	 */
-	static NumericType Min()
-	{
-		check(0); // min value of unknown type
-		return 0;
-	}
-	
-	/*
-	 *	@return maximum value
-	 */
-	static NumericType Max()
-	{
-		check(0); // max value of unknown type		
-		return 0;
-	}
-
-	/*
-	 *	@return most negative value
-	 */
-	static NumericType Lowest()
-	{
-		check(0); // lowest value of unknown type		
-		return 0;
-	}
-};
+struct TNumericLimits;
 
 
 /**

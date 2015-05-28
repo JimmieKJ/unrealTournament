@@ -14,7 +14,7 @@ class UMG_API UWidgetSwitcher : public UPanelWidget
 
 public:
 	/** The slot index to display */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Switcher", meta=( UIMin=0, ClampMin=0 ))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Switcher", meta=( UIMin=0, ClampMin=0 ))
 	int32 ActiveWidgetIndex;
 
 public:

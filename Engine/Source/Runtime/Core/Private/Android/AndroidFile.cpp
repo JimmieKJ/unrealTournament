@@ -35,12 +35,15 @@ const FDateTime AndroidEpoch(1970, 1, 1);
 
 
 // AndroidProcess uses this for executable name
+FString GAndroidProjectName;
 FString GPackageName;
 static int32 GPackageVersion = 0;
 static int32 GPackagePatchVersion = 0;
 
 // External File Path base - setup during load
 FString GFilePathBase;
+// External File Direcory Path (for application) - setup during load
+FString GExternalFilePath;
 // External font path base - setup during load
 FString GFontPathBase;
 
@@ -51,15 +54,25 @@ extern jobject AndroidJNI_GetJavaAssetManager();
 extern AAssetManager * AndroidThunkCpp_GetAssetManager();
 
 //This function is declared in the Java-defined class, GameActivity.java: "public native void nativeSetObbInfo(String PackageName, int Version, int PatchVersion);"
-extern "C" void Java_com_epicgames_ue4_GameActivity_nativeSetObbInfo(JNIEnv* jenv, jobject thiz, jstring PackageName, jint Version, jint PatchVersion)
+extern "C" void Java_com_epicgames_ue4_GameActivity_nativeSetObbInfo(JNIEnv* jenv, jobject thiz, jstring ProjectName, jstring PackageName, jint Version, jint PatchVersion)
 {
-	const char* JavaChars = jenv->GetStringUTFChars(PackageName, 0);
-	GPackageName = UTF8_TO_TCHAR(JavaChars);
+	const char* JavaProjectChars = jenv->GetStringUTFChars(ProjectName, 0);
+	GAndroidProjectName = UTF8_TO_TCHAR(JavaProjectChars);
+	const char* JavaPackageChars = jenv->GetStringUTFChars(PackageName, 0);
+	GPackageName = UTF8_TO_TCHAR(JavaPackageChars);
 	GPackageVersion = Version;
 	GPackagePatchVersion = PatchVersion;
 
-	//Release the string
-	jenv->ReleaseStringUTFChars(PackageName, JavaChars);
+	//Release the strings
+	jenv->ReleaseStringUTFChars(ProjectName, JavaProjectChars);
+	jenv->ReleaseStringUTFChars(PackageName, JavaPackageChars);
+}
+
+// Constructs the base path for any files which are not in OBB/pak data
+const FString &GetFileBasePath()
+{
+	static FString BasePath = GFilePathBase + FString("/UE4Game/") + FApp::GetGameName() + FString("/");
+	return BasePath;
 }
 
 /**
@@ -323,6 +336,12 @@ public:
 
 	bool SetFileTimeStamp( const FString& FileName, const FDateTime& DateTime )
 	{
+		if (bInitialized == false)
+		{
+			Read();
+			bInitialized = true;
+		}
+
 		FDateTime* Result = ManifestEntries.Find( FileName );
 		if ( Result == NULL )
 		{
@@ -342,13 +361,13 @@ public:
 	void Read()
 	{
 		// Local filepaths are directly in the deployment directory.
-		static const FString BasePath = GFilePathBase + FString("/") + FApp::GetGameName() + FString("/");
-		const FString ManfiestPath = BasePath + ManifestFileName;
+		static const FString &BasePath = GetFileBasePath();
+		const FString ManifestPath = BasePath + ManifestFileName;
 
 		ManifestEntries.Empty();
 
 		// int Handle = open( TCHAR_TO_UTF8(ManifestFileName), O_RDWR );
-		int Handle = open( TCHAR_TO_UTF8(*ManfiestPath), O_RDONLY );
+		int Handle = open( TCHAR_TO_UTF8(*ManifestPath), O_RDONLY );
 
 		if ( Handle == -1 )
 		{
@@ -372,7 +391,7 @@ public:
 		close( Handle );
 
 		TArray<FString> Lines;
-		EntireFile.ParseIntoArrayLines(&Lines);
+		EntireFile.ParseIntoArrayLines(Lines);
 
 #if LOG_ANDROID_FILE_MANIFEST
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Loaded manifest file %s"), *ManifestFileName);
@@ -419,11 +438,11 @@ public:
 	{
 		
 		// Local filepaths are directly in the deployment directory.
-		static const FString BasePath = GFilePathBase + FString("/") + FApp::GetGameName() + FString("/");
-		const FString ManfiestPath = BasePath + ManifestFileName;
+		static const FString &BasePath = GetFileBasePath();
+		const FString ManifestPath = BasePath + ManifestFileName;
 
 
-		int Handle = open( TCHAR_TO_UTF8(*ManfiestPath), O_WRONLY );
+		int Handle = open(TCHAR_TO_UTF8(*ManifestPath), O_WRONLY | O_CREAT | O_TRUNC);
 
 		if ( Handle == -1 )
 		{
@@ -845,8 +864,8 @@ public:
 			// See <http://developer.android.com/google/play/expansion-files.html>
 			FString OBBDir1 = GFilePathBase + FString(TEXT("/Android/obb/") + GPackageName);
 			FString OBBDir2 = GFilePathBase + FString(TEXT("/obb/") + GPackageName);
-			FString MainOBBName = FString::Printf(TEXT("main.%05d.%s.obb"), GPackageVersion, *GPackageName);
-			FString PatchOBBName = FString::Printf(TEXT("patch.%05d.%s.obb"), GPackageVersion, *GPackageName);
+			FString MainOBBName = FString::Printf(TEXT("main.%d.%s.obb"), GPackageVersion, *GPackageName);
+			FString PatchOBBName = FString::Printf(TEXT("patch.%d.%s.obb"), GPackageVersion, *GPackageName);
 			if (FileExists(*(OBBDir1 / MainOBBName), true))
 			{
 				MountOBB(*(OBBDir1 / MainOBBName));
@@ -888,7 +907,6 @@ public:
 			// For local files we need to check if it's a plain
 			// file, as opposed to directories.
 			result = S_ISREG(FileInfo.st_mode);
-			return result;
 		}
 		else
 		{
@@ -896,7 +914,7 @@ public:
 			result = IsResource(AssetPath) || IsAsset(AssetPath);
 		}
 #if LOG_ANDROID_FILE
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::FileExists('%s') => %s"), Filename, result ? TEXT("TRUE") : TEXT("FALSE"));
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::FileExists('%s') => %s\nResolved as %s"), Filename, result ? TEXT("TRUE") : TEXT("FALSE"), *LocalPath);
 #endif
 		return result;
 	}
@@ -1093,6 +1111,14 @@ public:
 #if LOG_ANDROID_FILE_MANIFEST
 			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Failed to find time stamp in NonUFSManifest for file '%s'"), Filename);
 #endif
+
+			// pak file outside of obb may not be in manifest so check if it exists
+			if (AssetPath.EndsWith(".pak"))
+			{
+				// return local file access timestamp (if exists)
+				return GetAccessTimeStamp(Filename, true);
+			}
+
 			return FDateTime::MinValue();
 
 #endif
@@ -1192,12 +1218,12 @@ public:
 		return Filename;
 	}
 
-	virtual IFileHandle* OpenRead(const TCHAR* Filename) override
+	virtual IFileHandle* OpenRead(const TCHAR* Filename, bool bAllowWrite = false) override
 	{
-		return OpenRead(Filename, false);
+		return OpenRead(Filename, false, bAllowWrite);
 	}
 
-	IFileHandle* OpenRead(const TCHAR* Filename, bool AllowLocal)
+	IFileHandle* OpenRead(const TCHAR* Filename, bool AllowLocal, bool bAllowWrite)
 	{
 #if LOG_ANDROID_FILE
 		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("FAndroidPlatformFile::OpenRead('%s')"), Filename);
@@ -1580,10 +1606,12 @@ private:
 		if (!AndroidPath.IsEmpty())
 		{
 			if ((AllowLocal && AndroidPath.StartsWith(TEXT("/"))) ||
-				AndroidPath.StartsWith(GFontPathBase))
+				AndroidPath.StartsWith(GFontPathBase) ||
+				AndroidPath.StartsWith(GExternalFilePath.Left(AndroidPath.Len())))
 			{
 				// Absolute paths are only local.
 				LocalPath = AndroidPath;
+				AssetPath = AndroidPath;
 			}
 			else
 			{
@@ -1598,7 +1626,7 @@ private:
 				}
 
 				// Local filepaths are directly in the deployment directory.
-				static FString BasePath = GFilePathBase + FString("/") + FApp::GetGameName() + FString("/");
+				static FString BasePath = GetFileBasePath();
 				LocalPath = BasePath + AndroidPath;
 
 				// Asset paths are relative to the base directory.
@@ -1667,7 +1695,7 @@ private:
 	void MountOBB(const TCHAR* Filename)
 	{
 		FFileHandleAndroid* File
-			= static_cast<FFileHandleAndroid*>(OpenRead(Filename, true));
+			= static_cast<FFileHandleAndroid*>(OpenRead(Filename, true, false));
 		check(nullptr != File);
 		ZipResource.AddPatchFile(MakeShareable(File));
 		FPlatformMisc::LowLevelOutputDebugStringf(

@@ -1,10 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-#ifndef __ActorIconFinder_h__
-#define __ActorIconFinder_h__
-
 #pragma once
+
+class FAssetData;
 
 class FClassIconFinder
 {
@@ -36,6 +34,12 @@ public:
 	/** Find the large thumbnail name to use for the supplied class */
 	UNREALED_API static FName FindThumbnailNameForClass(const UClass* InClass, const FName& InDefaultName = FName() );
 
+	/** Utility function to convert a Blueprint into the most suitable class possible for use by the icon finder */
+	UNREALED_API static const UClass* GetIconClassForBlueprint(const UBlueprint* InBlueprint);
+
+	/** Utility function to convert an asset into the most suitable class possible for use by the icon finder */
+	UNREALED_API static const UClass* GetIconClassForAssetData(const FAssetData& InAssetData, bool* bOutIsClassType = nullptr);
+
 private:
 	/** Find a thumbnail/icon name to use for the supplied class */
 	UNREALED_API static FName FindIconNameImpl(const UClass* InClass, const FName& InDefaultName = FName(), const TCHAR* StyleRoot = TEXT("ClassIcon") );
@@ -46,5 +50,3 @@ private:
 	/** The available style sets to source icons from */
 	static TArray < const ISlateStyle* > Styles;
 };
-
-#endif // __ActorIconFinder_h__

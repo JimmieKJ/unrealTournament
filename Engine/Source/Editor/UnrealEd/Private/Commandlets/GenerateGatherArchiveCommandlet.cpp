@@ -60,25 +60,47 @@ int32 UGenerateGatherArchiveCommandlet::Main( const FString& Params )
 
 	// Get manifest name.
 	FString ManifestName;
-	if( !GetConfigString( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) )
+	if( !GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) )
 	{
 		UE_LOG( LogGenerateArchiveCommandlet, Error, TEXT("No manifest name specified.") );
 		return -1;
 	}
 
-	// Get source culture.
-	FString SourceCulture;
-	if( GetConfigString( *SectionName, TEXT("SourceCulture"), SourceCulture, GatherTextConfigPath ) )
+	// Get native culture.
+	FString NativeCulture;
 	{
-		if( I18N.GetCulture( SourceCulture ).IsValid() )
+		const bool WasNativeCultureSpecified = GetStringFromConfig( *SectionName, TEXT("NativeCulture"), NativeCulture, GatherTextConfigPath );
+
+		// Get source culture (DEPRECATED).
+		FString SourceCulture;
+		const bool WasSourceCultureSpecified = GetStringFromConfig( *SectionName, TEXT("SourceCulture"), SourceCulture, GatherTextConfigPath );
+		if (WasSourceCultureSpecified)
 		{
-			UE_LOG(LogGenerateArchiveCommandlet, Verbose, TEXT("Specified culture is not a valid runtime culture, but may be a valid base language: %s"), *(SourceCulture) );
+			UE_LOG(LogGenerateArchiveCommandlet, Warning, TEXT("SourceCulture detected in section %s. SourceCulture is deprecated, please use NativeCulture."), *SectionName);
 		}
+
+		// Use SourceCulture if NativeCulture isn't specified.
+		if (!WasNativeCultureSpecified && WasSourceCultureSpecified)
+		{
+			NativeCulture = SourceCulture;
+		}
+	}
+
+	if (!NativeCulture.IsEmpty())
+	{
+		if (!I18N.GetCulture(NativeCulture).IsValid())
+		{
+			UE_LOG(LogGenerateArchiveCommandlet, Verbose, TEXT("Specified native culture is not a valid runtime culture, but may be a valid base language: %s"), *(NativeCulture) );
+		}
+	}
+	else
+	{
+		UE_LOG(LogGenerateArchiveCommandlet, Warning, TEXT("No native culture specified. If the actual native culture is specified for generation, its archive entries may lack default translations."));
 	}
 
 	// Get cultures to generate.
 	TArray<FString> CulturesToGenerate;
-	GetConfigArray(*SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath);
+	GetStringArrayFromConfig(*SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath);
 	
 	if( CulturesToGenerate.Num() == 0 )
 	{
@@ -96,27 +118,15 @@ int32 UGenerateGatherArchiveCommandlet::Main( const FString& Params )
 
 	// Get destination path.
 	FString DestinationPath;
-	if( !GetConfigString( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) )
+	if( !GetPathFromConfig( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) )
 	{
 		UE_LOG( LogGenerateArchiveCommandlet, Error, TEXT("No destination path specified.") );
 		return -1;
 	}
 
-	if (FPaths::IsRelative(DestinationPath))
-	{
-		if (!FPaths::GameDir().IsEmpty())
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::GameDir() ), *DestinationPath );
-		}
-		else
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::EngineDir() ), *DestinationPath );
-		}
-	}
-
 	// Get archive name.
 	FString ArchiveName;
-	if( !( GetConfigString(* SectionName, TEXT("ArchiveName"), ArchiveName, GatherTextConfigPath ) ) )
+	if( !( GetStringFromConfig(* SectionName, TEXT("ArchiveName"), ArchiveName, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogGenerateArchiveCommandlet, Error, TEXT("No archive name specified."));
 		return -1;
@@ -124,7 +134,7 @@ int32 UGenerateGatherArchiveCommandlet::Main( const FString& Params )
 
 	// Get bPurgeOldEmptyEntries option.
 	bool ShouldPurgeOldEmptyEntries;
-	if ( !GetConfigBool( *SectionName, TEXT("bPurgeOldEmptyEntries"), ShouldPurgeOldEmptyEntries, GatherTextConfigPath) )
+	if ( !GetBoolFromConfig( *SectionName, TEXT("bPurgeOldEmptyEntries"), ShouldPurgeOldEmptyEntries, GatherTextConfigPath) )
 	{
 		ShouldPurgeOldEmptyEntries = false;
 	}
@@ -146,7 +156,7 @@ int32 UGenerateGatherArchiveCommandlet::Main( const FString& Params )
 	for(int32 Culture = 0; Culture < CulturesToGenerate.Num(); Culture++)
 	{
 		TSharedRef< FInternationalizationArchive > InternationalizationArchive = MakeShareable( new FInternationalizationArchive );
-		BuildArchiveFromManifest( InternationalizationManifest, InternationalizationArchive, SourceCulture, CulturesToGenerate[Culture] );
+		BuildArchiveFromManifest( InternationalizationManifest, InternationalizationArchive, NativeCulture, CulturesToGenerate[Culture] );
 
 		const FString CulturePath = DestinationPath / CulturesToGenerate[Culture];
 		FJsonInternationalizationArchiveSerializer ArchiveSerializer;
@@ -263,9 +273,10 @@ int32 UGenerateGatherArchiveCommandlet::Main( const FString& Params )
 		TSharedRef< FJsonObject > OutputArchiveJsonObj = MakeShareable( new FJsonObject );
 		ArchiveSerializer.SerializeArchive( OutputInternationalizationArchive, OutputArchiveJsonObj );
 
-		if( !WriteArchiveToFile( OutputArchiveJsonObj, DestinationPath, *CulturesToGenerate[Culture], *ArchiveName ) )
+		const FString ArchivePath = FPaths::ConvertRelativePathToFull(DestinationPath) / CulturesToGenerate[Culture] / ArchiveName;
+		if( !WriteArchiveToFile( OutputArchiveJsonObj, ArchivePath ) )
 		{
-			UE_LOG( LogGenerateArchiveCommandlet, Error,TEXT("Failed to write archive to %s."), *DestinationPath );				
+			UE_LOG( LogGenerateArchiveCommandlet, Error,TEXT("Failed to write archive to %s."), *ArchivePath );				
 			return -1;
 		}
 	}
@@ -273,16 +284,14 @@ int32 UGenerateGatherArchiveCommandlet::Main( const FString& Params )
 	return 0;
 }
 
-bool UGenerateGatherArchiveCommandlet::WriteArchiveToFile(TSharedRef< FJsonObject > ArchiveJSONObject, const FString& OutputDirectoryPath, const TCHAR* Culture, const FString& FileName)
+bool UGenerateGatherArchiveCommandlet::WriteArchiveToFile(TSharedRef< FJsonObject > ArchiveJSONObject, const FString& OutputFilePath)
 {
-	FString FullOutPath = FPaths::ConvertRelativePathToFull(OutputDirectoryPath) / Culture / FileName;
+	UE_LOG(LogGenerateArchiveCommandlet, Log, TEXT("Writing archive to %s."), *OutputFilePath);
 
-	if( !WriteJSONToTextFile(ArchiveJSONObject, FullOutPath, SourceControlInfo ) )
+	if( !WriteJSONToTextFile(ArchiveJSONObject, OutputFilePath, SourceControlInfo ) )
 	{
 		return false;
 	}
-
-	UE_LOG(LogGenerateArchiveCommandlet, Log, TEXT("Writing archive to %s."), *OutputDirectoryPath);
 
 	return true;
 }
@@ -439,9 +448,6 @@ void UGenerateGatherArchiveCommandlet::ConditionSource( FLocItem& LocItem )
 {
 	if( LocItem.MetadataObj.IsValid() )
 	{
-		if( LocItem.MetadataObj.IsValid() )
-		{
-			ConditionSourceMetadata( MakeShareable( new FLocMetadataValueObject( LocItem.MetadataObj ) ) );
-		}
+		ConditionSourceMetadata( MakeShareable( new FLocMetadataValueObject( LocItem.MetadataObj ) ) );
 	}
 }

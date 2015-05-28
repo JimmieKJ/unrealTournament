@@ -119,7 +119,7 @@ public:
 	/**
 	 * Constructor
 	 */
-	FLevelEditorViewportClient();
+	FLevelEditorViewportClient(const TSharedPtr<class SLevelViewport>& InLevelViewport);
 
 	/**
 	 * Destructor
@@ -247,7 +247,7 @@ public:
 	void DrawTextureStreamingBounds(const FSceneView* View,FPrimitiveDrawInterface* PDI);
 
 	/** GC references. */
-	void AddReferencedObjects( FReferenceCollector& Collector );
+	void AddReferencedObjects( FReferenceCollector& Collector ) override;
 	
 	/**
 	 * Copies layout and camera settings from the specified viewport
@@ -497,6 +497,9 @@ protected:
 	/** Called when editor cleanse event is triggered */
 	void OnEditorCleanse();
 
+	/** Called before the editor tries to begin PIE */
+	void OnPreBeginPIE(const bool bIsSimulating);
+
 	/** Callback for when an editor user setting has changed */
 	void HandleViewportSettingChanged(FName PropertyName);
 
@@ -506,6 +509,7 @@ protected:
 	/** FEditorViewportClient Interface*/
 	virtual void UpdateLinkedOrthoViewports( bool bInvalidate = false ) override;
 	virtual ELevelViewportType GetViewportType() const override;
+	virtual void SetViewportType( ELevelViewportType InViewportType ) override;
 	virtual void OverridePostProcessSettings( FSceneView& View ) override;
 	virtual void PerspectiveCameraMoved() override;
 	virtual bool ShouldLockPitch() const override;

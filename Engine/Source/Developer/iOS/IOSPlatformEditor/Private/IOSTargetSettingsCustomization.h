@@ -107,6 +107,9 @@ private:
 	// certificate request
 	FReply OnCertificateRequestClicked();
 
+	// ssh key request
+	FReply OnGenerateSSHKey();
+
 	// Get the image to display for the provision status
 	const FSlateBrush* GetProvisionStatus() const;
 
@@ -118,6 +121,9 @@ private:
 
 	// Update the provision status
 	void UpdateStatus();
+
+	// Update the ssh key status
+	void UpdateSSHStatus();
 
 	// status tick delay
 	bool UpdateStatusDelegate(float delay);
@@ -142,6 +148,9 @@ private:
 
 	// updates the text in the ini file and checks for a valid provision/certificate
 	void OnBundleIdentifierChanged(const FText& NewText, ETextCommit::Type, TSharedRef<IPropertyHandle> InPropertyHandle);
+
+	// updates the text in the ini file and checks for a valid provision/certificate
+	void OnRemoteServerChanged(const FText& NewText, ETextCommit::Type, TSharedRef<IPropertyHandle> InPropertyHandle);
 
 	// 
 	FText GetBundleText(TSharedRef<IPropertyHandle> InPropertyHandle) const;

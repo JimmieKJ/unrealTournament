@@ -9,8 +9,16 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"Editor/GameplayTagsEditor/Private",
+                    "Developer/AssetTools/Private",
 				}
 			);
+
+            PublicIncludePathModuleNames.AddRange(
+                new string[] {
+                    "AssetTools",
+                    "AssetRegistry",
+			    }
+            );
 
 
 			PrivateDependencyModuleNames.AddRange(
@@ -21,6 +29,7 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
 					"AssetTools",
+                    "AssetRegistry",
 					"GameplayTags",
                     "InputCore",
 					"Slate",

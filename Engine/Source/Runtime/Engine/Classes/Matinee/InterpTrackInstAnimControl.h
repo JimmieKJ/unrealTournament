@@ -3,7 +3,7 @@
 #pragma once
 #include "InterpTrackInstAnimControl.generated.h"
 
-UCLASS()
+UCLASS(MinimalAPI)
 class UInterpTrackInstAnimControl : public UInterpTrackInst
 {
 	GENERATED_UCLASS_BODY()

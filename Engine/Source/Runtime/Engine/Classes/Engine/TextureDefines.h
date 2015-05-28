@@ -50,7 +50,7 @@ enum TextureGroup
 	// no compression, created on import of a .IES file
 	TEXTUREGROUP_IESLightProfile UMETA(DisplayName="IESLightProfile"),
 	// non-filtered, useful for 2D rendering
-	TEXTUREGROUP_Pixels2D UMETA(DisplayName="2D Pixels"),
+	TEXTUREGROUP_Pixels2D UMETA(DisplayName="2D Pixels (unfiltered)"),
 	TEXTUREGROUP_MAX,
 };
 
@@ -83,4 +83,40 @@ enum TextureMipGenSettings
 	TMGS_Blur4 UMETA(DisplayName="Blur4"),
 	TMGS_Blur5 UMETA(DisplayName="Blur5"),
 	TMGS_MAX,
+
+	// Note: These are serialized as as raw values in the texture DDC key, so additional entries
+	// should be added at the bottom; reordering or removing entries will require changing the GUID
+	// in the texture compressor DDC key
+};
+
+// Options for texture padding mode
+UENUM()
+namespace ETexturePowerOfTwoSetting
+{
+	enum Type
+	{
+		// Do not modify the texture dimensions
+		None,
+
+		// Pad the texture to the nearest power of two size
+		PadToPowerOfTwo,
+
+		// Pad the texture to the nearest square power of two size
+		PadToSquarePowerOfTwo
+
+		// Note: These are serialized as as raw values in the texture DDC key, so additional entries
+		// should be added at the bottom; reordering or removing entries will require changing the GUID
+		// in the texture compressor DDC key
+	};
+}
+
+// Must match enum ESamplerFilter in RHIDefinitions.h
+UENUM()
+enum class ETextureSamplerFilter : uint8
+{
+	Point,
+	Bilinear,
+	Trilinear,
+	AnisotropicPoint,
+	AnisotropicLinear,
 };

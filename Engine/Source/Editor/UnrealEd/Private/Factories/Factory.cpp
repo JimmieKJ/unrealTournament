@@ -158,9 +158,17 @@ void UFactory::ResetState()
 	// Resets the state of the 'Yes To All / No To All' prompt for overwriting existing objects on import.
 	// After the reset, the next import collision will always display the prompt.
 	OverwriteYesOrNoToAllState = -1;
+}
 
-	// Resets the state of one time warning messages. This will allow the warning message to be shown.
-	bAllowOneTimeWarningMessages = true;
+void UFactory::DisplayOverwriteOptionsDialog(const FText& Message)
+{
+	// Prompt the user for what to do if a 'To All' response wasn't already given.
+	if (OverwriteYesOrNoToAllState != EAppReturnType::YesAll && OverwriteYesOrNoToAllState != EAppReturnType::NoAll)
+	{
+		OverwriteYesOrNoToAllState = FMessageDialog::Open(EAppMsgType::YesNoYesAllNoAllCancel, FText::Format(
+			NSLOCTEXT("UnrealEd", "ImportedAssetAlreadyExists", "{0} Would you like to overwrite the existing settings?\n\nYes or Yes to All: Overwrite the existing settings.\nNo or No to All: Preserve the existing settings.\nCancel: Abort the operation."),
+			Message));
+	}
 }
 
 UObject* UFactory::StaticImportObject
@@ -213,6 +221,7 @@ UObject* UFactory::StaticImportObject
 	}
 	else
 	{
+		auto TransientPackage = GetTransientPackage();
 		// Try all automatic factories, sorted by priority.
 		for( TObjectIterator<UClass> It; It; ++It )
 		{
@@ -221,17 +230,33 @@ UObject* UFactory::StaticImportObject
 				UFactory* Default = It->GetDefaultObject<UFactory>();
 				if (Class->IsChildOf(Default->SupportedClass) && Default->ImportPriority >= 0)
 				{
-					Factories.Add( ConstructObject<UFactory>( *It ) );
+					Factories.Add(NewObject<UFactory>(TransientPackage, *It));
 				}
 			}
 		}
 
-		struct FCompareUFactoryImportPriority
+		Factories.Sort([](const UFactory& A, const UFactory& B) -> bool
 		{
-			// Use > operator because we want higher priorities earlier in the list
-			FORCEINLINE bool operator()(const UFactory& A, const UFactory& B) const { return A.ImportPriority > B.ImportPriority; }
-		};
-		Factories.Sort( FCompareUFactoryImportPriority() );
+			// First sort so that higher priorities are earlier in the list
+			if( A.ImportPriority > B.ImportPriority )
+			{
+				return true;
+			}
+			else if( A.ImportPriority < B.ImportPriority )
+			{
+				return false;
+			}
+
+			// Then sort so that factories that only create new assets are tried after those that actually import the file data (when they have an equivalent priority)
+			const bool bFactoryAImportsFiles = !A.CanCreateNew();
+			const bool bFactoryBImportsFiles = !B.CanCreateNew();
+			if( bFactoryAImportsFiles && !bFactoryBImportsFiles )
+			{
+				return true;
+			}
+
+			return false;
+		});
 	}
 
 	bool bLoadedFile = false;
@@ -243,12 +268,9 @@ UObject* UFactory::StaticImportObject
 		UObject* Result = NULL;
 		if( Factory->CanCreateNew() )
 		{
-			if( FCString::Stricmp(Filename,TEXT(""))==0 )
-			{
-				UE_LOG(LogFactory, Log,  TEXT("FactoryCreateNew: %s with %s (%i %i %s)"), *Class->GetName(), *Factories[i]->GetClass()->GetName(), Factory->bCreateNew, Factory->bText, Filename );
-				Factory->ParseParms( Parms );
-				Result = Factory->FactoryCreateNew( Class, InOuter, Name, Flags, NULL, Warn );
-			}
+			UE_LOG(LogFactory, Log,  TEXT("FactoryCreateNew: %s with %s (%i %i %s)"), *Class->GetName(), *Factories[i]->GetClass()->GetName(), Factory->bCreateNew, Factory->bText, Filename );
+			Factory->ParseParms( Parms );
+			Result = Factory->FactoryCreateNew( Class, InOuter, Name, Flags, NULL, Warn );
 		}
 		else if( FCString::Stricmp(Filename,TEXT(""))!=0 )
 		{
@@ -435,13 +457,13 @@ UObject* UFactory::CreateOrOverwriteAsset(UClass* InClass, UObject* InParent, FN
 	UObject* ExistingAsset = StaticFindObject(NULL, InParent, *InName.ToString());
 	if ( !ExistingAsset )
 	{
-		return StaticConstructObject(InClass, InParent, InName, InFlags, InTemplate);
+		return NewObject<UObject>(InParent, InClass, InName, InFlags, InTemplate);
 	}
 
 	// If it does exist then it overwrites it if possible.
 	if ( ExistingAsset->GetClass()->IsChildOf(InClass) )
 	{
-		return StaticConstructObject(InClass, InParent, InName, InFlags, InTemplate);
+		return NewObject<UObject>(InParent, InClass, InName, InFlags, InTemplate);
 	}
 	
 	// If it can not overwrite then it will delete and replace.
@@ -472,7 +494,7 @@ UObject* UFactory::CreateOrOverwriteAsset(UClass* InClass, UObject* InParent, FN
 		else
 		{
 			// We can now create the asset in the package
-			return StaticConstructObject(InClass, InParent, InName, InFlags, InTemplate);
+			return NewObject<UObject>(InParent, InClass, InName, InFlags, InTemplate);
 		}
 	}
 	else

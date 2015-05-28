@@ -17,7 +17,7 @@ public:
 	virtual void ShutdownModule() override;
 
 	/** IModuleUIInterface implementation */
-	virtual TSharedRef< SWidget > GetModuleUIWidget();
+	virtual TSharedRef< SWidget > GetModuleUIWidget() override;
 
 private:
 

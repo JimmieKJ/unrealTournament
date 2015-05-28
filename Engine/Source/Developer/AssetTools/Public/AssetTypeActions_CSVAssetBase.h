@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "AssetTypeActions_Base.h"
+
 class FAssetTypeActions_CSVAssetBase : public FAssetTypeActions_Base
 {
 public:
@@ -11,11 +13,11 @@ public:
 	virtual bool IsImportedAsset() const override { return true; }
 
 protected:
-	/** Handler for opening the xls/xlsm version of the source file */
-	void ExecuteFindExcelFileInExplorer(TArray<FString> Filenames, TArray<FString> OverrideExtensions);
+	/** Handler for opening the source file for this asset */
+	void ExecuteFindSourceFileInExplorer(TArray<FString> Filenames, TArray<FString> OverrideExtensions);
 
-	/** Determine whether the find excel file in explorer editor command can execute or not */
-	bool CanExecuteFindExcelFileInExplorer(TArray<FString> Filenames, TArray<FString> OverrideExtensions) const;
+	/** Determine whether the find source file in explorer editor command can execute or not */
+	bool CanExecuteFindSourceFileInExplorer(TArray<FString> Filenames, TArray<FString> OverrideExtensions) const;
 
 	/** Verify the specified filename exists */
 	bool VerifyFileExists(const FString& InFileName) const;

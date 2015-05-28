@@ -238,7 +238,7 @@ FReply SRetargetManager::OnSaveRetargetBasePose()
 	{
 		USkeletalMesh * PreviewMesh = PreviewMeshComp->SkeletalMesh;
 
-		check (Skeleton == PreviewMesh->Skeleton);
+		check(PreviewMesh && Skeleton == PreviewMesh->Skeleton);
 
 		if (PreviewMesh)
 		{
@@ -293,7 +293,7 @@ FReply SRetargetManager::OnResetRetargetBasePose()
 		{
 			USkeletalMesh * PreviewMesh = PreviewMeshComp->SkeletalMesh;
 
-			check(Skeleton == PreviewMesh->Skeleton);
+			check(PreviewMesh && Skeleton == PreviewMesh->Skeleton);
 
 			if(PreviewMesh)
 			{

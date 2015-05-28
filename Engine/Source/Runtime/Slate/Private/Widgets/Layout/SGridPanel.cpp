@@ -215,7 +215,7 @@ void SGridPanel::OnArrangeChildren( const FGeometry& AllottedGeometry, FArranged
 }
 
 
-void SGridPanel::CacheDesiredSize()
+void SGridPanel::CacheDesiredSize(float LayoutScaleMultiplier)
 {
 	// The desired size of the grid is the sum of the desires sizes for every row and column.
 	ComputeDesiredCellSizes( Columns, Rows );
@@ -231,11 +231,11 @@ void SGridPanel::CacheDesiredSize()
 		TotalDesiredSizes.Y += Rows[RowId];
 	}
 	
-	SPanel::CacheDesiredSize();
+	SPanel::CacheDesiredSize(LayoutScaleMultiplier);
 }
 
 
-FVector2D SGridPanel::ComputeDesiredSize() const
+FVector2D SGridPanel::ComputeDesiredSize( float ) const
 {
 	return TotalDesiredSizes;
 }

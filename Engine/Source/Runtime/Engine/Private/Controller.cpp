@@ -12,7 +12,7 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/GameMode.h"
 #include "GameFramework/PawnMovementComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
+#include "MessageLog.h"
 
 // @todo this is here only due to circular dependency to AIModule. To be removed
 #include "Navigation/PathFollowingComponent.h"
@@ -21,6 +21,8 @@
 #include "Components/CapsuleComponent.h"
 
 DEFINE_LOG_CATEGORY(LogPath);
+
+#define LOCTEXT_NAMESPACE "Controller"
 
 
 AController::AController(const FObjectInitializer& ObjectInitializer)
@@ -34,7 +36,7 @@ AController::AController(const FObjectInitializer& ObjectInitializer)
 #endif // WITH_EDITORONLY_DATA
 	bOnlyRelevantToOwner = true;
 
-	TransformComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("TransformComponent0"));
+	TransformComponent = CreateDefaultSubobject<USceneComponent>(TEXT("TransformComponent0"));
 	RootComponent = TransformComponent;
 
 	bCanBeDamaged = false;
@@ -164,19 +166,15 @@ bool AController::LineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAl
 
 	if ( ViewPoint.IsZero() )
 	{
-		AActor*	ViewTarg = GetViewTarget();
-		ViewPoint = ViewTarg->GetActorLocation();
-		if( ViewTarg == Pawn )
-		{
-			ViewPoint.Z += Pawn->BaseEyeHeight; //look from eyes
-		}
+		FRotator ViewRotation;
+		GetActorEyesViewPoint(ViewPoint, ViewRotation);
 	}
 
 	static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 	FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, Other);
 	CollisionParms.AddIgnoredActor(this->GetPawn());
 	FVector TargetLocation = Other->GetTargetLocation(Pawn);
-	bool bHit = GetWorld()->LineTraceTest(ViewPoint, TargetLocation, ECC_Visibility, CollisionParms);
+	bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParms);
 	if( !bHit )
 	{
 		return true;
@@ -202,7 +200,7 @@ bool AController::LineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAl
 	Other->GetSimpleCollisionCylinder(OtherRadius, OtherHeight);
 	
 	//try viewpoint to head
-	bHit = GetWorld()->LineTraceTest(ViewPoint,  Other->GetActorLocation() + FVector(0.f,0.f,OtherHeight), ECC_Visibility, CollisionParms);
+	bHit = GetWorld()->LineTraceTestByChannel(ViewPoint,  Other->GetActorLocation() + FVector(0.f,0.f,OtherHeight), ECC_Visibility, CollisionParms);
 	return !bHit;
 }
 
@@ -218,6 +216,15 @@ void AController::PostInitializeComponents()
 
 void AController::Possess(APawn* InPawn)
 {
+	if (!HasAuthority())
+	{
+		FMessageLog("PIE").Warning(FText::Format(
+			LOCTEXT("ControllerPossessAuthorityOnly", "Possess function should only be used by the network authority for {0}"),
+			FText::FromName(GetFName())
+			));
+		return;
+	}
+
 	REDIRECT_OBJECT_TO_VLOG(InPawn, this);
 
 	if (InPawn != NULL)
@@ -418,6 +425,7 @@ void AController::InitPlayerState()
 			SpawnInfo.Owner = this;
 			SpawnInfo.Instigator = Instigator;
 			SpawnInfo.bNoCollisionFail = true;
+			SpawnInfo.ObjectFlags |= RF_Transient;	// We never want player states to save into a map
 			PlayerState = World->SpawnActor<APlayerState>(GameMode->PlayerStateClass, SpawnInfo );
 	
 			// force a default player name if necessary
@@ -461,7 +469,7 @@ void AController::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDi
 	{
 		if (PlayerState == NULL)
 		{
-			Canvas->DrawText(RenderFont, TEXT("NO PlayerState"), 4.0f, YPos );
+			YL = Canvas->DrawText(RenderFont, TEXT("NO PlayerState"), 4.0f, YPos );
 		}
 		else
 		{
@@ -474,7 +482,7 @@ void AController::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDi
 	}
 
 	Canvas->SetDrawColor(255,0,0);
-	Canvas->DrawText(RenderFont, FString::Printf(TEXT("CONTROLLER %s Pawn %s"), *GetName(), *Pawn->GetName()), 4.0f, YPos );
+	YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("CONTROLLER %s Pawn %s"), *GetName(), *Pawn->GetName()), 4.0f, YPos );
 	YPos += YL;
 }
 
@@ -554,6 +562,12 @@ bool AController::ShouldPostponePathUpdates() const
 	return Pawn ? Pawn->ShouldPostponePathUpdates() : false;
 }
 
+bool AController::IsFollowingAPath() const
+{
+	UPathFollowingComponent* PathFollowingComp = FindComponentByClass<UPathFollowingComponent>();
+	return (PathFollowingComp != nullptr) && PathFollowingComp->HasValidPath();
+}
+
 void AController::UpdateNavigationComponents()
 {
 	UPathFollowingComponent* PathFollowingComp = FindComponentByClass<UPathFollowingComponent>();
@@ -595,3 +609,5 @@ void AController::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutL
 
 /** Returns TransformComponent subobject **/
 USceneComponent* AController::GetTransformComponent() const { return TransformComponent; }
+
+#undef LOCTEXT_NAMESPACE

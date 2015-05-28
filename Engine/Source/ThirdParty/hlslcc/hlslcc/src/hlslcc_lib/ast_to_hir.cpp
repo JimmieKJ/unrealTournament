@@ -2595,75 +2595,9 @@ static void apply_type_qualifier_to_variable(const struct ast_type_qualifier *qu
 	const bool uses_deprecated_qualifier = qual->flags.q.attribute
 		|| qual->flags.q.varying;
 
-	/* Is the 'layout' keyword used with parameters that allow relaxed checking.
-	* Many implementations of GL_ARB_fragment_coord_conventions_enable and some
-	* implementations (only Mesa?) GL_ARB_explicit_attrib_location_enable
-	* allowed the layout qualifier to be used with 'varying' and 'attribute'.
-	* These extensions and all following extensions that add the 'layout'
-	* keyword have been modified to require the use of 'in' or 'out'.
-	*
-	* The following extension do not allow the deprecated keywords:
-	*
-	*    GL_AMD_conservative_depth
-	*    GL_ARB_conservative_depth
-	*    GL_ARB_gpu_shader5
-	*    GL_ARB_separate_shader_objects
-	*    GL_ARB_tesselation_shader
-	*    GL_ARB_transform_feedback3
-	*    GL_ARB_uniform_buffer_object
-	*
-	* It is unknown whether GL_EXT_shader_image_load_store or GL_NV_gpu_shader5
-	* allow layout with the deprecated keywords.
-	*/
-	const bool relaxed_layout_qualifier_checking =
-		state->ARB_fragment_coord_conventions_enable;
-
-	if (uses_layout && uses_deprecated_qualifier)
-	{
-		if (relaxed_layout_qualifier_checking)
-		{
-			_mesa_glsl_warning(loc, state,
-				"'layout' qualifier may not be used with "
-				"'attribute' or 'varying'");
-		}
-		else
-		{
-			_mesa_glsl_error(loc, state,
-				"'layout' qualifier may not be used with "
-				"'attribute' or 'varying'");
-		}
-	}
-
 	/* Layout qualifiers for gl_FragDepth, which are enabled by extension
 	* AMD_conservative_depth.
 	*/
-	int depth_layout_count = qual->flags.q.depth_any
-		+ qual->flags.q.depth_greater
-		+ qual->flags.q.depth_less
-		+ qual->flags.q.depth_unchanged;
-	if (depth_layout_count > 0
-		&& !state->AMD_conservative_depth_enable
-		&& !state->ARB_conservative_depth_enable)
-	{
-		_mesa_glsl_error(loc, state,
-			"extension GL_AMD_conservative_depth or "
-			"GL_ARB_conservative_depth must be enabled "
-			"to use depth layout qualifiers");
-	}
-	else if (depth_layout_count > 0
-		&& strcmp(var->name, "gl_FragDepth") != 0)
-	{
-		_mesa_glsl_error(loc, state,
-			"depth layout qualifiers can be applied only to "
-			"gl_FragDepth");
-	}
-	else if (depth_layout_count > 1
-		&& strcmp(var->name, "gl_FragDepth") == 0)
-	{
-		_mesa_glsl_error(loc, state,
-			"at most one depth layout qualifier can be applied to "
-			"gl_FragDepth");
-	}
 	if (qual->flags.q.depth_any)
 	{
 		var->depth_layout = ir_depth_layout_any;
@@ -2742,74 +2676,6 @@ ir_variable * get_variable_being_redeclared(ir_variable *var, ast_declaration *d
 		earlier->type = var->type;
 		delete var;
 		var = NULL;
-	}
-	else if (state->ARB_fragment_coord_conventions_enable
-		&& strcmp(var->name, "gl_FragCoord") == 0
-		&& earlier->type == var->type
-		&& earlier->mode == var->mode)
-	{
-		/* Allow redeclaration of gl_FragCoord for ARB_fcc layout
-		* qualifiers.
-		*/
-		earlier->origin_upper_left = var->origin_upper_left;
-		earlier->pixel_center_integer = var->pixel_center_integer;
-
-		/* According to section 4.3.7 of the GLSL 1.30 spec,
-		* the following built-in varaibles can be redeclared with an
-		* interpolation qualifier:
-		*    * gl_FrontColor
-		*    * gl_BackColor
-		*    * gl_FrontSecondaryColor
-		*    * gl_BackSecondaryColor
-		*    * gl_Color
-		*    * gl_SecondaryColor
-		*/
-	}
-	else if (state->language_version >= 130
-		&& (strcmp(var->name, "gl_FrontColor") == 0
-		|| strcmp(var->name, "gl_BackColor") == 0
-		|| strcmp(var->name, "gl_FrontSecondaryColor") == 0
-		|| strcmp(var->name, "gl_BackSecondaryColor") == 0
-		|| strcmp(var->name, "gl_Color") == 0
-		|| strcmp(var->name, "gl_SecondaryColor") == 0)
-		&& earlier->type == var->type
-		&& earlier->mode == var->mode)
-	{
-		earlier->interpolation = var->interpolation;
-
-		/* Layout qualifiers for gl_FragDepth. */
-	}
-	else if ((state->AMD_conservative_depth_enable ||
-		state->ARB_conservative_depth_enable)
-		&& strcmp(var->name, "gl_FragDepth") == 0
-		&& earlier->type == var->type
-		&& earlier->mode == var->mode)
-	{
-		/** From the AMD_conservative_depth spec:
-		*     Within any shader, the first redeclarations of gl_FragDepth
-		*     must appear before any use of gl_FragDepth.
-		*/
-		if (earlier->used)
-		{
-			_mesa_glsl_error(&loc, state,
-				"the first redeclaration of gl_FragDepth "
-				"must appear before any use of gl_FragDepth");
-		}
-
-		/* Prevent inconsistent redeclaration of depth layout qualifier. */
-		if (earlier->depth_layout != ir_depth_layout_none
-			&& earlier->depth_layout != var->depth_layout)
-		{
-			_mesa_glsl_error(&loc, state,
-				"gl_FragDepth: depth layout is declared here "
-				"as '%s, but it was previously declared as "
-				"'%s'",
-				depth_layout_string(var->depth_layout),
-				depth_layout_string(earlier->depth_layout));
-		}
-
-		earlier->depth_layout = var->depth_layout;
-
 	}
 	else
 	{
@@ -3145,38 +3011,6 @@ ir_rvalue* ast_declarator_list::hir(exec_list *instructions, struct _mesa_glsl_p
 		}
 
 		var = new(ctx)ir_variable(var_type, decl->identifier, ir_var_auto);
-
-		/* From page 22 (page 28 of the PDF) of the GLSL 1.10 specification;
-		*
-		*     "Global variables can only use the qualifiers const,
-		*     attribute, uni form, or varying. Only one may be
-		*     specified.
-		*
-		*     Local variables can only use the qualifier const."
-		*
-		* This is relaxed in GLSL 1.30.  It is also relaxed by any extension
-		* that adds the 'layout' keyword.
-		*/
-		if ((state->language_version < 130)
-			&& !state->ARB_explicit_attrib_location_enable
-			&& !state->ARB_fragment_coord_conventions_enable)
-		{
-			if (this->type->qualifier.flags.q.out)
-			{
-				_mesa_glsl_error(&loc, state,
-					"'out' qualifier in declaration of '%s' "
-					"only valid for function parameters in %s.",
-					decl->identifier, state->version_string);
-			}
-			if (this->type->qualifier.flags.q.in)
-			{
-				_mesa_glsl_error(&loc, state,
-					"'in' qualifier in declaration of '%s' "
-					"only valid for function parameters in %s.",
-					decl->identifier, state->version_string);
-			}
-			/* FINISHME: Test for other invalid qualifiers. */
-		}
 
 		apply_type_qualifier_to_variable(&this->type->qualifier, var, state,
 			&loc);
@@ -5217,16 +5051,6 @@ ir_rvalue * ast_struct_specifier::hir(exec_list *instructions, struct _mesa_glsl
 		const char *type_name;
 
 		decl_list->type->specifier->hir(instructions, state);
-
-		/* Section 10.9 of the GLSL ES 1.00 specification states that
-		* embedded structure definitions have been removed from the language.
-		*/
-		if (state->es_shader && decl_list->type->specifier->structure != NULL)
-		{
-			YYLTYPE loc = this->get_location();
-			_mesa_glsl_error(&loc, state, "Embedded structure definitions are "
-				"not allowed in GLSL ES 1.00.");
-		}
 
 		const glsl_type *decl_type =
 			decl_list->type->specifier->glsl_type(&type_name, state);

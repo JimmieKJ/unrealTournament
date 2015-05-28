@@ -113,7 +113,7 @@ struct FVehicleTransmissionData
 {
 	GENERATED_USTRUCT_BODY()
 	/** Whether to use automatic transmission */
-	UPROPERTY(EditAnywhere, Category = VehicleSetup, meta=(FriendlyName = "Automatic Transmission"))
+	UPROPERTY(EditAnywhere, Category = VehicleSetup, meta=(DisplayName = "Automatic Transmission"))
 	bool bUseGearAutoBox;
 
 	/** Time it takes to switch gears (seconds) */

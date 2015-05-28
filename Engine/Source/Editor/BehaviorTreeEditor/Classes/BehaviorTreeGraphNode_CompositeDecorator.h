@@ -26,13 +26,14 @@ class UBehaviorTreeGraphNode_CompositeDecorator : public UBehaviorTreeGraphNode
 	FString GetNodeTypeDescription() const;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual void AllocateDefaultPins() override;
-	virtual FString GetDescription() const override;
+	virtual FText GetDescription() const override;
 	virtual void PostPlacedNewNode() override;
 	virtual void PostLoad() override;
-	virtual UEdGraph* GetBoundGraph() const { return BoundGraph; }
+	virtual UEdGraph* GetBoundGraph() const override { return BoundGraph; }
 	virtual bool IsSubNode() const override;
 	virtual bool HasErrors() const override;
 	virtual bool RefreshNodeClass() override;
+	virtual void UpdateNodeClassData() override;
 
 	virtual void PrepareForCopying() override;
 	virtual void PostCopyNode() override;

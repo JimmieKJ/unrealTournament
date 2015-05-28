@@ -34,6 +34,16 @@ struct ENGINE_API FNavigationLinkBase
 	UPROPERTY(EditAnywhere, Category=Default, meta=(ClampMin = "1.0"))
 	float SnapRadius;
 
+	UPROPERTY(EditAnywhere, Category=Default, meta=(ClampMin = "1.0", EditCondition="bUseSnapHeight"))
+	float SnapHeight;
+
+	UPROPERTY()
+	uint32 bUseSnapHeight : 1;
+
+	/** If set, link will try to snap to cheapest area in given radius */
+	UPROPERTY(EditAnywhere, Category=Default)
+	uint32 bSnapToCheapestArea : 1;
+
 	/** Area type of this link (empty = default) */
 	UPROPERTY(EditAnywhere, Category=Default)
 	TSubclassOf<class UNavArea> AreaClass;

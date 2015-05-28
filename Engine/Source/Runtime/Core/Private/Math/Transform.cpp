@@ -52,7 +52,7 @@ FString FTransform::ToString() const
 bool FTransform::InitFromString( const FString& Source )
 {
 	TArray<FString> ComponentStrings;
-	Source.ParseIntoArray(&ComponentStrings, TEXT("|"), true);
+	Source.ParseIntoArray(ComponentStrings, TEXT("|"), true);
 	const int32 NumComponents = ComponentStrings.Num();
 	if(3 != NumComponents)
 	{

@@ -25,6 +25,7 @@ public:
 	FReply OnDoubleClicked();
 	FReply OnCtrlClicked();
 	TSharedRef<SWidget> GetRightClickMenu();
+	FText GetToolTipText() const;
 			
 private:
 	/** The data for this item */

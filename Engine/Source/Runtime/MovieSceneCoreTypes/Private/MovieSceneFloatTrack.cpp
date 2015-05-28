@@ -14,7 +14,7 @@ UMovieSceneFloatTrack::UMovieSceneFloatTrack( const FObjectInitializer& ObjectIn
 
 UMovieSceneSection* UMovieSceneFloatTrack::CreateNewSection()
 {
-	return ConstructObject<UMovieSceneSection>( UMovieSceneFloatSection::StaticClass(), this, NAME_None, RF_Transactional );
+	return NewObject<UMovieSceneSection>(this, UMovieSceneFloatSection::StaticClass(), NAME_None, RF_Transactional);
 }
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneFloatTrack::CreateInstance()

@@ -95,9 +95,9 @@ void UGlobalEditorUtilityBase::ForEachSelectedAsset()
 	}
 }
 
-UEditorUserSettings* UGlobalEditorUtilityBase::GetEditorUserSettings()
+UEditorPerProjectUserSettings* UGlobalEditorUtilityBase::GetEditorUserSettings()
 {
-	return &(GEditor->AccessEditorUserSettings());
+	return GetMutableDefault<UEditorPerProjectUserSettings>();
 }
 
 void UGlobalEditorUtilityBase::ClearActorSelectionSet()

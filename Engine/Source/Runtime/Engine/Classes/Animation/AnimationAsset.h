@@ -298,7 +298,6 @@ struct FRootMotionMovementParams
 			Set(InTransform * VBlendWeight);
 			BlendWeight = InBlendWeight;
 		}
-		RootMotionTransform.NormalizeRotation();
 	}
 
 	void AccumulateWithBlend(const FRootMotionMovementParams & MovementParams, float InBlendWeight)
@@ -322,6 +321,24 @@ struct FRootMotionMovementParams
 		{
 			AccumulateWithBlend(FTransform(), WeightLeft);
 		}
+		RootMotionTransform.NormalizeRotation();
+	}
+
+	FRootMotionMovementParams ConsumeRootMotion(float Alpha)
+	{
+		const ScalarRegister VAlpha(Alpha);
+		FTransform PartialRootMotion = (RootMotionTransform*VAlpha);
+		PartialRootMotion.SetScale3D(FVector(1.f));
+		PartialRootMotion.NormalizeRotation();
+		RootMotionTransform = RootMotionTransform.GetRelativeTransform(PartialRootMotion);
+		RootMotionTransform.NormalizeRotation(); //Make sure we are normalized, this needs to be investigated further
+
+		FRootMotionMovementParams ReturnParams;
+		ReturnParams.Set(PartialRootMotion);
+
+		check(PartialRootMotion.IsRotationNormalized());
+		check(RootMotionTransform.IsRotationNormalized());
+		return ReturnParams;
 	}
 };
 

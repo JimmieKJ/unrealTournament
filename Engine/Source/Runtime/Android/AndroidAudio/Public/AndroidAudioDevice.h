@@ -218,6 +218,7 @@ protected:
 	uint32						BufferSize;
 
 	int32						BufferInUse;
+	float						VolumePreviousUpdate;
 	bool						bHasLooped;
 
 	bool CreatePlayer();

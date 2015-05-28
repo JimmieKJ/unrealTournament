@@ -61,7 +61,7 @@ public:
 
 	// Begin UObject interface
 protected:
-	virtual FString GetDetailedInfoInternal() const;
+	virtual FString GetDetailedInfoInternal() const override;
 public:
 	// End UObject interface
 
@@ -88,9 +88,11 @@ public:
 	// End IMatineeAnimInterface Interface
 
 private:
-	EAnimationMode::Type	SavedAnimationMode;
 	// utility function to see if it can play animation or not
-	bool CanPlayAnimation();
+	bool CanPlayAnimation(class UAnimSequenceBase* AnimAssetBase=NULL) const;
+
+	// currently actively playing montage
+	TWeakObjectPtr<class UAnimMontage> CurrentlyPlayingMontage;
 
 public:
 	/** Returns SkeletalMeshComponent subobject **/

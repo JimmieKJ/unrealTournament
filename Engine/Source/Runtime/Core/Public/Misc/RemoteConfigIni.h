@@ -57,8 +57,10 @@ public:
 	/** Returns the local IO info object */
 	FRemoteConfigAsyncIOInfo& GetIOInfo();
 
-	/** Give the name for external event viewers. */
-	static const TCHAR* Name();
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FRemoteConfigAsyncWorker, STATGROUP_ThreadPoolAsyncTasks);
+	}
 
 	/** Indicates to the thread pool that this task is abandonable. */
 	bool CanAbandon();
@@ -209,7 +211,7 @@ private:
 bool IsUsingLocalIniFile(const TCHAR* FilenameToLoad, const TCHAR* IniFileName);
 
 /** Contains the logic for processing config files, local or remote. */
-void ProcessIniContents(const TCHAR* FilenameToLoad, const TCHAR* IniFileName, FConfigFile* Config, bool bDoEmptyConfig, bool bDoCombine, bool bDoWrite);
+void ProcessIniContents(const TCHAR* FilenameToLoad, const TCHAR* IniFileName, FConfigFile* Config, bool bDoEmptyConfig, bool bDoCombine);
 
 /** Returns the timestamp of the appropriate config file. */
 FDateTime GetIniTimeStamp(const TCHAR* FilenameToLoad, const TCHAR* IniFileName);

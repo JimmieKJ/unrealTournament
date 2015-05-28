@@ -41,7 +41,7 @@ static bool ParseMcppErrors(TArray<FShaderCompilerError>& OutErrors, const FStri
 	if (McppErrors.Len() > 0)
 	{
 		TArray<FString> Lines;
-		McppErrors.ParseIntoArray(&Lines, TEXT("\n"), true);
+		McppErrors.ParseIntoArray(Lines, TEXT("\n"), true);
 		for (int32 LineIndex = 0; LineIndex < Lines.Num(); ++LineIndex)
 		{
 			const FString& Line = Lines[LineIndex];

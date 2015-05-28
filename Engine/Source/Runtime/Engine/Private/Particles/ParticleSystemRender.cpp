@@ -885,10 +885,10 @@ void GatherParticleLightData(const FDynamicSpriteEmitterReplayDataBase& Source, 
 							//If this is the first time we've needed to add these then we need to fill data up to this light.
 							int32 NumLights = OutParticleLights.InstanceData.Num();
 							OutParticleLights.InstancePerViewDataIndices.AddUninitialized(OutParticleLights.InstanceData.Num());
-							for (int32 i = 0; i < NumLights; ++i)
+							for (int32 LightIndex = 0; LightIndex < NumLights; ++LightIndex)
 							{
-								OutParticleLights.InstancePerViewDataIndices[i].PerViewIndex = i;
-								OutParticleLights.InstancePerViewDataIndices[i].bHasPerViewData = false;
+								OutParticleLights.InstancePerViewDataIndices[LightIndex].PerViewIndex = LightIndex;
+								OutParticleLights.InstancePerViewDataIndices[LightIndex].bHasPerViewData = false;
 							}
 						}
 
@@ -959,7 +959,7 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 	SCOPE_CYCLE_COUNTER(STAT_SpriteRenderingTime);
 
 	const auto FeatureLevel = View->GetFeatureLevel();
-	const bool bInstanced = FeatureLevel >= ERHIFeatureLevel::SM4;
+	const bool bInstanced = RHISupportsInstancing(GetFeatureLevelShaderPlatform(FeatureLevel));
 
 	// Sort and generate particles for this view.
 	const FDynamicSpriteEmitterReplayDataBase* SourceData = GetSourceData();
@@ -969,7 +969,7 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 		if (SourceData->EmitterRenderMode == ERM_Normal)
 		{
 			// Determine how many vertices and indices are needed to render.
-			const int32 ParticleCount = SourceData->ActiveParticleCount;
+			int32 ParticleCount = SourceData->ActiveParticleCount;
 			const int32 VertexSize = GetDynamicVertexStride(FeatureLevel);
 			const int32 DynamicParameterVertexSize = sizeof(FParticleVertexDynamicParameter);
 			const int32 VertexPerParticle = bInstanced ? 1 : 4;
@@ -1034,16 +1034,13 @@ void FDynamicSpriteEmitterData::GetDynamicMeshElementsEmitter(const FParticleSys
 				PerViewUniformParameters.MacroUVParameters = FVector4(ObjectNDCPosition.X, ObjectNDCPosition.Y, ObjectMacroUVScales.X, ObjectMacroUVScales.Y);
 				CollectorResources.UniformBuffer = FParticleSpriteUniformBufferRef::CreateUniformBufferImmediate(PerViewUniformParameters, UniformBuffer_SingleFrame);
 
-				const FDynamicSpriteEmitterReplayDataBase* SourceData = GetSourceData();
-				check(SourceData);
-
 				FParticleSpriteVertexFactory* SpriteVertexFactory = &CollectorResources.VertexFactory;
 
 				// Don't render if the material will be ignored
 				const bool bIsWireframe = ViewFamily.EngineShowFlags.Wireframe;
 
 				// Calculate the number of particles that must be drawn.
-				int32 ParticleCount = Source.ActiveParticleCount;
+				ParticleCount = Source.ActiveParticleCount;
 				if ((Source.MaxDrawCount >= 0) && (ParticleCount > Source.MaxDrawCount))
 				{
 					ParticleCount = Source.MaxDrawCount;
@@ -1246,7 +1243,6 @@ void FDynamicMeshEmitterData::Init( bool bInSelected,
 		InEmitterInstance->SpriteTemplate->LODLevels[InEmitterInstance->CurrentLODLevelIndex]
 		);
 
-	check(IsInGameThread());
 	for (int32 i = 0; i < MeshMaterials.Num(); ++i)
 	{
 		UMaterialInterface* RenderMaterial = MeshMaterials[i];
@@ -1375,7 +1371,7 @@ void FDynamicMeshEmitterData::GetDynamicMeshElementsEmitter(const FParticleSyste
 {
 	SCOPE_CYCLE_COUNTER(STAT_MeshRenderingTime);
 
-	const bool bInstanced = View->GetFeatureLevel() >= ERHIFeatureLevel::SM4;
+	const bool bInstanced = RHISupportsInstancing(GetFeatureLevelShaderPlatform(View->GetFeatureLevel()));
 
 	if (bValid)
 	{
@@ -5182,7 +5178,7 @@ void FDynamicRibbonEmitterData::RenderDebug(const FParticleSystemSceneProxy* Pro
 			}
 
 			// Pin the size to the X component
-			float Increment = 1.0f / (StartTrailPayload->TriangleCount / 2);
+			float Increment = 1.0f / (StartTrailPayload->TriangleCount / 2.0f);
 			float ColorScale = 0.0f;
 
 			DebugParticle = Particle;
@@ -5353,8 +5349,7 @@ int32 FDynamicRibbonEmitterData::FillVertexData(struct FAsyncBufferFillData& Dat
 	FVector	ViewOrigin	= CameraToWorld.GetOrigin();
 
 	int32 MaxTessellationBetweenParticles = FMath::Max<int32>(Source.MaxTessellationBetweenParticles, 1);
-	int32 Sheets = FMath::Max<int32>(Source.Sheets, 1);
-	Sheets = 1;
+	int32 Sheets = 1;
 
 	// The distance tracking for tiling the 2nd UV set
 	float CurrDistance = 0.0f;
@@ -5379,7 +5374,7 @@ int32 FDynamicRibbonEmitterData::FillVertexData(struct FAsyncBufferFillData& Dat
 		// Pin the size to the X component
 		FLinearColor CurrLinearColor = PackingParticle->Color;
 		// The increment for going [0..1] along the complete trail
-		float TextureIncrement = 1.0f / (TrailPayload->TriangleCount / 2);
+		float TextureIncrement = 1.0f / (TrailPayload->TriangleCount / 2.0f);
 		float Tex_U = 0.0f;
 		FVector CurrTilePosition = PackingParticle->Location;
 		FVector PrevTilePosition = PackingParticle->Location;
@@ -5926,7 +5921,7 @@ void FDynamicAnimTrailEmitterData::RenderDebug(const FParticleSystemSceneProxy* 
 			}
 
 			// Pin the size to the X component
-			float Increment = 1.0f / (StartTrailPayload->TriangleCount / 2);
+			float Increment = 1.0f / (StartTrailPayload->TriangleCount / 2.0f);
 			float ColorScale = 0.0f;
 
 			FAnimTrailParticleRenderData RenderData(Source, Particle, StartTrailPayload);
@@ -6053,11 +6048,10 @@ int32 FDynamicAnimTrailEmitterData::FillVertexData(struct FAsyncBufferFillData& 
 	uint8* TempDynamicParamData = (uint8*)Data.DynamicParameterData;
 	FParticleBeamTrailVertexDynamicParameter* DynParamVertex;
 
-	int32 Sheets = FMath::Max<int32>(Source.Sheets, 1);
-	Sheets = 1;
+	int32 Sheets = 1;
 
 	// The increment for going [0..1] along the complete trail
-	float TextureIncrement = 1.0f / (Data.VertexCount / 2);
+	float TextureIncrement = 1.0f / (Data.VertexCount / 2.0f);
 	// The distance tracking for tiling the 2nd UV set
 	float CurrDistance = 0.0f;
 
@@ -6551,6 +6545,7 @@ void FParticleSystemSceneProxy::UpdateWorldSpacePrimitiveUniformBuffer() const
 			GetBounds(),
 			GetLocalBounds(),
 			ReceivesDecals(),
+			false,
 			false,
 			UseEditorDepthTest(),
 			1.0f			// LPV bias

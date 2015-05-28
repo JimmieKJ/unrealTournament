@@ -92,6 +92,7 @@ public:
 	void OnAssetSelected( const FAssetData& AssetData );
 	void OnActorSelected( AActor* InActor );
 	void OnGetActorFiltersForSceneOutliner( TSharedPtr<SceneOutliner::FOutlinerFilters>& OutFilters );
+	void EditConfigHierarchy();
 
 	/**	In an ideal world we wouldn't expose these */
 	TSharedRef< FPropertyNode > GetPropertyNode() const;

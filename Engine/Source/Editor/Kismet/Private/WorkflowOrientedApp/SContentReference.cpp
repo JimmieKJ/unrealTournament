@@ -32,6 +32,19 @@ void SContentReference::Construct(const FArguments& InArgs)
 
 	static const FName InvertedForegroundName("InvertedForeground");
 
+	PickerComboButton = SNew(SComboButton)
+		.ButtonStyle(FEditorStyle::Get(), "NoBorder")
+		.ContentPadding(1.f)
+		.Visibility(this, &SContentReference::GetPickButtonVisibility)
+		.OnGetMenuContent(this, &SContentReference::MakeAssetPickerMenu)
+		.HasDownArrow(false)
+		.ToolTipText(LOCTEXT("PickAsset", "Pick an asset from a popup menu"))
+		.ButtonContent()
+		[
+			SNew(SImage)
+			.Image(FEditorStyle::GetBrush(InArgs._Style, ".PickAsset"))
+		];
+
 	// Create the widgets
 	ChildSlot
 	[
@@ -48,6 +61,7 @@ void SContentReference::Construct(const FArguments& InArgs)
 			.BorderBackgroundColor( FLinearColor::White )
 			.ForegroundColor(FEditorStyle::GetSlateColor(InvertedForegroundName))
 			.ToolTipText(this, &SContentReference::GetAssetFullName)
+			.OnMouseDoubleClick(this, &SContentReference::OnDoubleClickedOnAssetName)
 			[
 				SNew(SBox)
 				.WidthOverride(InArgs._WidthOverride)
@@ -58,28 +72,6 @@ void SContentReference::Construct(const FArguments& InArgs)
 			]
 		]
 
-		// Use current selection in content browser button
-		//@TODO: Remove this code
-		/*
-		+SHorizontalBox::Slot()
-		.AutoWidth()
-		.HAlign(HAlign_Center)
-		.VAlign(VAlign_Center)
-		.Padding(1,0)
-		[
-			SNew(SButton)
-			.Style("NoBorder")
-			.OnClicked(this, &SContentReference::OnClickUseButton)
-			.ContentPadding(1.f)
-			.Visibility(this, &SContentReference::GetUseButtonVisibility)
-			.ToolTipText(LOCTEXT("UseSelected", "Try to use selected asset from content browser").ToString())
-			[
-				SNew(SImage)
-				.Image( FEditorStyle::GetBrush(InArgs._Style, ".UseSelectionFromContentBrowser") )
-			]
-		]
-		*/
-
 		// Pick an asset
 		+SHorizontalBox::Slot()
 		.AutoWidth()
@@ -87,18 +79,7 @@ void SContentReference::Construct(const FArguments& InArgs)
 		.VAlign(VAlign_Center)
 		.Padding(1,0)
 		[
-			SAssignNew(PickerComboButton, SComboButton)
-			.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
-			.ContentPadding(1.f)
-			.Visibility(this, &SContentReference::GetPickButtonVisibility)
-			.OnGetMenuContent( this, &SContentReference::MakeAssetPickerMenu )
-			.HasDownArrow(false)
-			.ToolTipText(LOCTEXT("PickAsset", "Pick an asset from a popup menu"))
-			.ButtonContent()
-			[
-				SNew(SImage)
-				.Image( FEditorStyle::GetBrush(InArgs._Style, ".PickAsset") )
-			]
+			PickerComboButton.ToSharedRef()
 		]
 			
 		// Find in content browser button
@@ -158,6 +139,11 @@ void SContentReference::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+}
+
+void SContentReference::OpenAssetPickerMenu()
+{
+	PickerComboButton->SetIsOpen(true);
 }
 
 EVisibility SContentReference::GetUseButtonVisibility() const
@@ -265,6 +251,20 @@ FText SContentReference::GetAssetFullName() const
 	else
 	{
 		return LOCTEXT("NullReferenceTooltip", "(None)");
+	}
+}
+
+FReply SContentReference::OnDoubleClickedOnAssetName(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent)
+{
+	OpenAssetToEdit();
+	return FReply::Handled();
+}
+
+void SContentReference::OpenAssetToEdit()
+{
+	if (UObject* Asset = AssetReference.Get())
+	{
+		GEditor->EditObject(Asset);
 	}
 }
 

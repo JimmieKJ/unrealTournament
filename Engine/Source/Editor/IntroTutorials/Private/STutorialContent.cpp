@@ -49,11 +49,14 @@ void STutorialContent::Construct(const FArguments& InArgs, UEditorTutorial* InTu
 
 	BorderIntroAnimation.AddCurve(0.0f, TutorialConstants::BorderIntroAnimationLength, ECurveEaseFunction::CubicOut);
 	BorderPulseAnimation.AddCurve(0.0f, TutorialConstants::BorderPulseAnimationLength, ECurveEaseFunction::Linear);
-	BorderIntroAnimation.Play();
-	BorderPulseAnimation.Play();
+	BorderIntroAnimation.Play(this->AsShared());
+	
+	// Set the border pulse to play on a loop and immediately pause it - will be resumed when needed
+	BorderPulseAnimation.Play(this->AsShared(), true);
+	BorderPulseAnimation.Pause();
 
 	ContentIntroAnimation.AddCurve(0.0f, TutorialConstants::ContentIntroAnimationLength, ECurveEaseFunction::Linear);
-	ContentIntroAnimation.Play();
+	ContentIntroAnimation.Play(this->AsShared());
 
 	if (InContent.Text.IsEmpty() == true)
 	{
@@ -215,25 +218,44 @@ void STutorialContent::Construct(const FArguments& InArgs, UEditorTutorial* InTu
 	];
 }
 
-static void GetAnimationValues(bool bIsIntro, float InAnimationProgress, float& OutAlphaFactor, float& OutPulseFactor, FLinearColor& OutShadowTint, FLinearColor& OutBorderTint)
+//static void GetAnimationValues(bool bIsIntro, float InAnimationProgress, float& OutAlphaFactor, float& OutPulseFactor, FLinearColor& OutShadowTint, FLinearColor& OutBorderTint)
+//{
+//	if ( bIsIntro )
+//	{
+//		OutAlphaFactor = InAnimationProgress;
+//		OutPulseFactor = ( 1.0f - OutAlphaFactor ) * 50.0f;
+//		OutShadowTint = FLinearColor(1.0f, 1.0f, 0.0f, OutAlphaFactor);
+//		OutBorderTint = FLinearColor(1.0f, 1.0f, 0.0f, OutAlphaFactor * OutAlphaFactor);
+//	}
+//	else
+//	{
+//		OutAlphaFactor = 1.0f - ( 0.5f + ( FMath::Cos(2.0f * PI * InAnimationProgress) * 0.5f ) );
+//		OutPulseFactor = 0.5f + ( FMath::Cos(2.0f * PI * InAnimationProgress) * 0.5f );
+//		OutShadowTint = FLinearColor(1.0f, 1.0f, 0.0f, 1.0f);
+//		OutBorderTint = FLinearColor(1.0f, 1.0f, 0.0f, TutorialConstants::MinBorderOpacity + ( ( 1.0f - TutorialConstants::MinBorderOpacity ) * OutAlphaFactor ));
+//	}
+//}
+
+void STutorialContent::GetAnimationValues(float& OutAlphaFactor, float& OutPulseFactor, FLinearColor& OutShadowTint, FLinearColor& OutBorderTint) const
 {
-	if(bIsIntro)
+	if (BorderIntroAnimation.IsPlaying())
 	{
-		OutAlphaFactor = InAnimationProgress;
-		OutPulseFactor = (1.0f - OutAlphaFactor) * 50.0f;
+		OutAlphaFactor = BorderIntroAnimation.GetLerp();
+		OutPulseFactor = ( 1.0f - OutAlphaFactor ) * 50.0f;
 		OutShadowTint = FLinearColor(1.0f, 1.0f, 0.0f, OutAlphaFactor);
 		OutBorderTint = FLinearColor(1.0f, 1.0f, 0.0f, OutAlphaFactor * OutAlphaFactor);
 	}
 	else
 	{
-		OutAlphaFactor = 1.0f - (0.5f + (FMath::Cos(2.0f * PI * InAnimationProgress) * 0.5f));
-		OutPulseFactor = 0.5f + (FMath::Cos(2.0f * PI * InAnimationProgress) * 0.5f);
+		float PulseAnimationProgress = BorderPulseAnimation.GetLerp();
+		OutAlphaFactor = 1.0f - ( 0.5f + ( FMath::Cos(2.0f * PI * PulseAnimationProgress) * 0.5f ) );
+		OutPulseFactor = 0.5f + ( FMath::Cos(2.0f * PI * PulseAnimationProgress) * 0.5f );
 		OutShadowTint = FLinearColor(1.0f, 1.0f, 0.0f, 1.0f);
-		OutBorderTint = FLinearColor(1.0f, 1.0f, 0.0f, TutorialConstants::MinBorderOpacity + ((1.0f - TutorialConstants::MinBorderOpacity) * OutAlphaFactor));
+		OutBorderTint = FLinearColor(1.0f, 1.0f, 0.0f, TutorialConstants::MinBorderOpacity + ( ( 1.0f - TutorialConstants::MinBorderOpacity ) * OutAlphaFactor ));
 	}
 }
 
-int32 STutorialContent::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
+int32 STutorialContent::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
 	CachedContentGeometry = AllottedGeometry;
 	CachedContentGeometry.AppendTransform(FSlateLayoutTransform(OutDrawElements.GetWindow()->GetPositionInScreen()));
@@ -244,7 +266,7 @@ int32 STutorialContent::OnPaint( const FPaintArgs& Args, const FGeometry& Allott
 		float PulseFactor;
 		FLinearColor ShadowTint;
 		FLinearColor BorderTint;
-		GetAnimationValues(BorderIntroAnimation.IsPlaying(),  BorderIntroAnimation.IsPlaying() ? BorderIntroAnimation.GetLerp() : BorderPulseAnimation.GetLerpLooping(), AlphaFactor, PulseFactor, ShadowTint, BorderTint);
+		GetAnimationValues(AlphaFactor, PulseFactor, ShadowTint, BorderTint);
 
 		const FSlateBrush* ShadowBrush = FCoreStyle::Get().GetBrush(TEXT("Tutorials.Shadow"));
 		const FSlateBrush* BorderBrush = FCoreStyle::Get().GetBrush(TEXT("Tutorials.Border"));
@@ -497,6 +519,11 @@ void STutorialContent::HandlePaintNamedWidget(TSharedRef<SWidget> InWidget, cons
 			{
 				bIsVisible = true;
 				CachedGeometry = InGeometry;
+
+				if (!BorderPulseAnimation.IsPlaying() && Anchor.bDrawHighlight)
+				{
+					BorderPulseAnimation.Resume();
+				}
 			}
 		}
 		break;
@@ -505,6 +532,7 @@ void STutorialContent::HandlePaintNamedWidget(TSharedRef<SWidget> InWidget, cons
 
 void STutorialContent::HandleResetNamedWidget()
 {
+	BorderPulseAnimation.Pause();
 	bIsVisible = false;
 }
 
@@ -647,8 +675,7 @@ void STutorialContent::HandleRestartSelected()
 	if(Tutorial.IsValid())
 	{
 		FIntroTutorials& IntroTutorials = FModuleManager::GetModuleChecked<FIntroTutorials>(TEXT("IntroTutorials"));
-		const bool bRestart = true;
-		IntroTutorials.LaunchTutorial(Tutorial.Get(), bRestart, FSlateApplication::Get().FindWidgetWindow(AsShared()));
+		IntroTutorials.LaunchTutorial(Tutorial.Get(), IIntroTutorials::ETutorialStartType::TST_RESTART, FSlateApplication::Get().FindWidgetWindow(AsShared()));
 
 		if( FEngineAnalytics::IsAvailable() && Tutorial.IsValid() )
 		{

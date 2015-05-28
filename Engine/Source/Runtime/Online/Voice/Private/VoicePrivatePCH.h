@@ -4,7 +4,21 @@
 
 #include "Core.h"
 
-#define PLATFORM_SUPPORTS_VOICE_CAPTURE (PLATFORM_WINDOWS)
+#if PLATFORM_WINDOWS
+
+#include "AllowWindowsPlatformTypes.h"
+
+#include <Audiopolicy.h>
+#include <Mmdeviceapi.h>
+#include <Functiondiscoverykeys_devpkey.h>
+#include <audiodefs.h>
+#include <dsound.h>
+
+#include "HideWindowsPlatformTypes.h"
+
+#endif // PLATFORM_WINDOWS
+
+#define PLATFORM_SUPPORTS_VOICE_CAPTURE (PLATFORM_WINDOWS || PLATFORM_MAC)
 
 // Module includes
 #include "VoiceModule.h"

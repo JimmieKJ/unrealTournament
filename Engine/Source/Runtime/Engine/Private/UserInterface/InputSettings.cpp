@@ -60,6 +60,11 @@ void UInputSettings::PostInitProperties()
 		case LANG_SPANISH:
 			DefaultConsoleKey = FInputKeyManager::Get().GetKeyFromCodes(VK_OEM_5, 0);
 			break;
+			
+		case LANG_JAPANESE:
+		case LANG_RUSSIAN:
+			DefaultConsoleKey = FInputKeyManager::Get().GetKeyFromCodes(VK_OEM_3, 0);
+			break;
 		}
 
 		if (DefaultConsoleKey != EKeys::Tilde && DefaultConsoleKey.IsValid())
@@ -105,7 +110,7 @@ void UInputSettings::RemoveActionMapping(const FInputActionKeyMapping& KeyMappin
 	{
 		if (ActionMappings[ActionIndex] == KeyMapping)
 		{
-			ActionMappings.RemoveAt(ActionIndex);
+			ActionMappings.RemoveAtSwap(ActionIndex);
 			// we don't break because the mapping may have been in the array twice
 		}
 	}
@@ -126,7 +131,7 @@ void UInputSettings::RemoveAxisMapping(const FInputAxisKeyMapping& InKeyMapping)
 		if (KeyMapping.AxisName == InKeyMapping.AxisName
 			&& KeyMapping.Key == InKeyMapping.Key)
 		{
-			AxisMappings.RemoveAt(AxisIndex);
+			AxisMappings.RemoveAtSwap(AxisIndex);
 			// we don't break because the mapping may have been in the array twice
 		}
 	}

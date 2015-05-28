@@ -85,7 +85,7 @@ The class only contains 6 functions. Lets look at these now.
 
 The MarbleBall class that has been created derives from the engines' Pawn class. For more details on this see 
 [Pawn Overview](DOCLINK:Gameplay/Framework/Pawn)
-Briefly this pawn class is a base class for all actors that can be possessed by players or AI.
+Briefly this pawn class is a base class for all Actors that can be possessed by players or AI.
 [/EXCERPT:StagePawnSummary]
 
 

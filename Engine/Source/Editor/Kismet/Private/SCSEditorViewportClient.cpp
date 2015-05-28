@@ -15,7 +15,6 @@
 #include "Editor/UnrealEd/Public/Kismet2/ComponentEditorUtils.h"
 #include "ISCSEditorCustomization.h"
 #include "ComponentVisualizer.h"
-#include "InstancedFoliage.h"
 #include "Engine/SimpleConstructionScript.h"
 #include "CanvasTypes.h"
 #include "EngineUtils.h"
@@ -24,6 +23,7 @@
 #include "Engine/TextureCube.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
+#include "SSCSEditorViewport.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSCSEditorViewport, Log, All);
 
@@ -105,8 +105,8 @@ namespace
 /////////////////////////////////////////////////////////////////////////
 // FSCSEditorViewportClient
 
-FSCSEditorViewportClient::FSCSEditorViewportClient(TWeakPtr<FBlueprintEditor>& InBlueprintEditorPtr, FPreviewScene* InPreviewScene)
-	: FEditorViewportClient(nullptr, InPreviewScene)
+FSCSEditorViewportClient::FSCSEditorViewportClient(TWeakPtr<FBlueprintEditor>& InBlueprintEditorPtr, FPreviewScene* InPreviewScene, const TSharedRef<SSCSEditorViewport>& InSCSEditorViewport)
+	: FEditorViewportClient(nullptr, InPreviewScene, StaticCastSharedRef<SEditorViewport>(InSCSEditorViewport))
 	, BlueprintEditorPtr(InBlueprintEditorPtr)
 	, PreviewActorBounds(ForceInitToZero)
 	, bIsManipulating(false)
@@ -125,10 +125,10 @@ FSCSEditorViewportClient::FSCSEditorViewportClient(TWeakPtr<FBlueprintEditor>& I
 	EngineShowFlags.SelectionOutline = GetDefault<ULevelEditorViewportSettings>()->bUseSelectionOutline;
 
 	// Set if the grid will be drawn
-	DrawHelper.bDrawGrid = GEditor->GetEditorUserSettings().bSCSEditorShowGrid;
+	DrawHelper.bDrawGrid = GetDefault<UEditorPerProjectUserSettings>()->bSCSEditorShowGrid;
 
 	// now add floor
-	EditorFloorComp = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
+	EditorFloorComp = NewObject<UStaticMeshComponent>(GetTransientPackage(), TEXT("EditorFloorComp"));
 
 	UStaticMesh* FloorMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/PhAT_FloorBox.PhAT_FloorBox"), NULL, LOAD_None, NULL);
 	if (ensure(FloorMesh))
@@ -143,8 +143,8 @@ FSCSEditorViewportClient::FSCSEditorViewportClient(TWeakPtr<FBlueprintEditor>& I
 	}
 
 	EditorFloorComp->SetRelativeScale3D(FVector(3.f, 3.f, 1.f));
-	EditorFloorComp->SetVisibility(GEditor->GetEditorUserSettings().bSCSEditorShowFloor);
-	EditorFloorComp->SetCollisionEnabled(GEditor->GetEditorUserSettings().bSCSEditorShowFloor? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
+	EditorFloorComp->SetVisibility(GetDefault<UEditorPerProjectUserSettings>()->bSCSEditorShowFloor);
+	EditorFloorComp->SetCollisionEnabled(GetDefault<UEditorPerProjectUserSettings>()->bSCSEditorShowFloor? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
 	PreviewScene->AddComponent(EditorFloorComp, FTransform::Identity);
 
 	// Turn off so that actors added to the world do not have a lifespan (so they will not auto-destroy themselves).
@@ -178,13 +178,9 @@ void FSCSEditorViewportClient::Tick(float DeltaSeconds)
 			}
 		}
 	}
-
-	if ( PreviewActor != LastPreviewActor.Get() || PreviewActor == nullptr || IsRealtime() )
+	else
 	{
-		LastPreviewActor = PreviewActor;
-
-		Invalidate();
-		RefreshPreviewBounds();
+		InvalidatePreview(false);
 	}
 
 	// Tick the preview scene world.
@@ -412,17 +408,8 @@ bool FSCSEditorViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList:
 							}
 							else
 							{
-								// Apply delta to the preview actor's scene component
-								GEditor->ApplyDeltaToComponent(
-										SceneComp,
-										true,
-										&Drag,
-										&Rot,
-										&ModifiedScale,
-										SceneComp->RelativeLocation );
-								UpdatedComponents.Add(SceneComp);
-
-							// Apply delta to the template component object
+								// Apply delta to the template component object 
+								// (the preview scene component will be set in one of the ArchetypeInstances loops below... to keep the two in sync) 
 								GEditor->ApplyDeltaToComponent(
 										SelectedTemplate,
 										true,
@@ -460,7 +447,7 @@ bool FSCSEditorViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList:
 									for(int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
 									{
 										SceneComp = Cast<USceneComponent>(ArchetypeInstances[InstanceIndex]);
-										if(SceneComp && SceneComp->GetOwner() != PreviewActor)
+										if(SceneComp != nullptr)
 										{
 											FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeLocation, OldRelativeLocation, SelectedTemplate->RelativeLocation);
 											FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeRotation, OldRelativeRotation, SelectedTemplate->RelativeRotation);
@@ -473,15 +460,12 @@ bool FSCSEditorViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList:
 									Outer->GetArchetypeInstances(ArchetypeInstances);
 									for(int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstances.Num(); ++InstanceIndex)
 									{
-										if(ArchetypeInstances[InstanceIndex] != PreviewActor)
+										SceneComp = static_cast<USceneComponent*>(FindObjectWithOuter(ArchetypeInstances[InstanceIndex], SelectedTemplate->GetClass(), SelectedTemplate->GetFName()));
+										if(SceneComp)
 										{
-											SceneComp = static_cast<USceneComponent*>(FindObjectWithOuter(ArchetypeInstances[InstanceIndex], SelectedTemplate->GetClass(), SelectedTemplate->GetFName()));
-											if(SceneComp)
-											{
-												FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeLocation, OldRelativeLocation, SelectedTemplate->RelativeLocation);
-												FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeRotation, OldRelativeRotation, SelectedTemplate->RelativeRotation);
-												FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeScale3D,  OldRelativeScale3D,  SelectedTemplate->RelativeScale3D);
-											}
+											FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeLocation, OldRelativeLocation, SelectedTemplate->RelativeLocation);
+											FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeRotation, OldRelativeRotation, SelectedTemplate->RelativeRotation);
+											FComponentEditorUtils::ApplyDefaultValueChange(SceneComp, SceneComp->RelativeScale3D, OldRelativeScale3D, SelectedTemplate->RelativeScale3D);
 										}
 									}
 								}
@@ -555,9 +539,7 @@ FWidget::EWidgetMode FSCSEditorViewportClient::GetWidgetMode() const
 			for ( int32 CurrentNodeIndex=0; CurrentNodeIndex < SelectedNodes.Num(); CurrentNodeIndex++ )
 			{
 				FSCSEditorTreeNodePtrType CurrentNodePtr = SelectedNodes[CurrentNodeIndex];
-				if (CurrentNodePtr.IsValid() && !RootNodes.Contains(CurrentNodePtr) && !CurrentNodePtr->IsRootComponent() && 
-					CurrentNodePtr->GetEditableComponentTemplate(BluePrintEditor->GetBlueprintObj()) &&
-					CurrentNodePtr->FindComponentInstanceInActor(PreviewActor))
+				if (CurrentNodePtr.IsValid() && !RootNodes.Contains(CurrentNodePtr) && !CurrentNodePtr->IsRootComponent() && CurrentNodePtr->CanEditDefaults() && CurrentNodePtr->FindComponentInstanceInActor(PreviewActor))
 				{
 					// a non-NULL, non-root item is selected, draw the widget
 					ReturnWidgetMode = WidgetMode;
@@ -636,7 +618,7 @@ FMatrix FSCSEditorViewportClient::GetWidgetCoordSystem() const
 					}					
 					else
 					{
-						Matrix = FRotationMatrix( SceneComp->GetComponentRotation() );
+						Matrix = FQuatRotationMatrix( SceneComp->GetComponentQuat() );
 					}
 				}
 			}
@@ -659,8 +641,16 @@ void FSCSEditorViewportClient::InvalidatePreview(bool bResetCamera)
 		return;
 	}
 
-	// Destroy the preview
-	BlueprintEditorPtr.Pin()->DestroyPreview();
+	UBlueprint* Blueprint = BlueprintEditorPtr.Pin()->GetBlueprintObj();
+	check(Blueprint);
+
+	const bool bIsPreviewActorValid = GetPreviewActor() != nullptr;
+
+	// Create or update the Blueprint actor instance in the preview scene
+	BlueprintEditorPtr.Pin()->UpdatePreviewActor(Blueprint, !bIsPreviewActorValid);
+
+	Invalidate();
+	RefreshPreviewBounds();
 	
 	if( bResetCamera )
 	{
@@ -753,7 +743,6 @@ void FSCSEditorViewportClient::ToggleIsSimulateEnabled()
 	PreviewScene->GetWorld()->bBegunPlay = bIsSimulateEnabled;
 	PreviewScene->GetWorld()->bShouldSimulatePhysics = bIsSimulateEnabled;
 
-	AActor* PreviewActor = GetPreviewActor();
 	TSharedPtr<SWidget> SCSEditor = BlueprintEditorPtr.Pin()->GetSCSEditor();
 	TSharedRef<SWidget> Inspector = BlueprintEditorPtr.Pin()->GetInspector();
 
@@ -771,37 +760,43 @@ void FSCSEditorViewportClient::ToggleIsSimulateEnabled()
 
 bool FSCSEditorViewportClient::GetShowFloor() 
 {
-	return GEditor->GetEditorUserSettings().bSCSEditorShowFloor;
+	return GetDefault<UEditorPerProjectUserSettings>()->bSCSEditorShowFloor;
 }
 
 void FSCSEditorViewportClient::ToggleShowFloor() 
 {
-	bool bShowFloor = GEditor->AccessEditorUserSettings().bSCSEditorShowFloor;
+	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+
+	bool bShowFloor = Settings->bSCSEditorShowFloor;
 	bShowFloor = !bShowFloor;
 	
 	EditorFloorComp->SetVisibility(bShowFloor);
 	EditorFloorComp->SetCollisionEnabled(bShowFloor? ECollisionEnabled::QueryAndPhysics : ECollisionEnabled::NoCollision);
 	GetWorld()->SendAllEndOfFrameUpdates();
 
-	GEditor->AccessEditorUserSettings().bSCSEditorShowFloor = bShowFloor;
+	Settings->bSCSEditorShowFloor = bShowFloor;
+	Settings->PostEditChange();
 
 	Invalidate();
 }
 
 bool FSCSEditorViewportClient::GetShowGrid() 
 {
-	return GEditor->GetEditorUserSettings().bSCSEditorShowGrid;
+	return GetDefault<UEditorPerProjectUserSettings>()->bSCSEditorShowGrid;
 }
 
 void FSCSEditorViewportClient::ToggleShowGrid() 
 {
-	bool bShowGrid = GEditor->AccessEditorUserSettings().bSCSEditorShowGrid;
+	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+
+	bool bShowGrid = Settings->bSCSEditorShowGrid;
 	bShowGrid = !bShowGrid;
 
 	DrawHelper.bDrawGrid = bShowGrid;
 
-	GEditor->AccessEditorUserSettings().bSCSEditorShowGrid = bShowGrid;
-
+	Settings->bSCSEditorShowGrid = bShowGrid;
+	Settings->PostEditChange();
+	
 	Invalidate();
 }
 

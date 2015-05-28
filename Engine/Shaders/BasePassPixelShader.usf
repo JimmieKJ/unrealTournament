@@ -14,8 +14,11 @@
 #include "BRDF.usf"
 #include "Random.usf"
 #include "LightAccumulator.usf"
-
 #include "DeferredShadingCommon.usf"
+#include "VelocityCommon.usf"
+
+#define PREV_FRAME_COLOR	1
+#include "ScreenSpaceRayCast.usf"
 
 #if TRANSLUCENT_SELF_SHADOWING
 
@@ -37,6 +40,11 @@ SamplerState TranslucencyLightingVolumeDirectionalInnerSampler;
 Texture3D TranslucencyLightingVolumeDirectionalOuter;
 SamplerState TranslucencyLightingVolumeDirectionalOuterSampler;
 
+Texture2D		HZBTexture;
+SamplerState	HZBSampler;
+Texture2D		PrevSceneColor;
+SamplerState	PrevSceneColorSampler;
+
 // 2nd order SH indirect lighting interpolated from the indirect lighting cache for the whole object
 // Used to apply precomputed lighting to translucency
 float4 IndirectLightingSHCoefficients[3];
@@ -47,10 +55,10 @@ float4 PointSkyBentNormal;
 	#define COMPILER_GLSL 0
 #endif
 
-#define EDITOR_ALPHA2COVERAGE (EDITOR_PRIMITIVE_MATERIAL && FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && !COMPILER_GLSL)
+#define EDITOR_ALPHA2COVERAGE (USE_EDITOR_COMPOSITING && FEATURE_LEVEL >= FEATURE_LEVEL_SM5 && !COMPILER_GLSL)
 
 
-#if TRANSLUCENCY_LIGHTING_SURFACE
+#if TRANSLUCENCY_LIGHTING_SURFACE || TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
 	/** Prenormalized capture of the scene that's closest to the object being rendered, used for reflection environment on translucency. */
@@ -62,6 +70,15 @@ float4 PointSkyBentNormal;
 	SamplerState ReflectionCubemapSampler;
 #endif
 
+uint MortonCode( uint x )
+{
+	//x = (x ^ (x <<  8)) & 0x00ff00ff;
+	//x = (x ^ (x <<  4)) & 0x0f0f0f0f;
+	x = (x ^ (x <<  2)) & 0x33333333;
+	x = (x ^ (x <<  1)) & 0x55555555;
+	return x;
+}
+
 half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameters, half Roughness, half3 SpecularColor, half IndirectIrradiance)
 {
 	half AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness);
@@ -72,12 +89,14 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 	float4 SpecularIBL = TextureCubeSampleLevel(ReflectionCubemap, ReflectionCubemapSampler, MaterialParameters.ReflectionVector, AbsoluteSpecularMip);
 #endif
 
+#if ALLOW_STATIC_LIGHTING
 	FLATTEN
 	if (View.UseLightmaps > 0)
 	{
 		// Note: make sure this matches the lightmap mixing done on opaque (ReflectionEnvironmentTiledDeferredMain)
 		SpecularIBL.rgb *= IndirectIrradiance;
 	}
+#endif
 
 #if ENABLE_SKY_LIGHT
 	BRANCH
@@ -97,13 +116,45 @@ half3 GetImageBasedReflectionLighting(FMaterialPixelParameters MaterialParameter
 		SpecularIBL.rgb += (1 - SpecularIBL.a) * SkyLighting;
 	}
 #endif
-	
+
+#if MATERIAL_SSR
+	if( View.CameraCut == 0 )
+	{
+		//uint FrameRandom = (uint)(View.TemporalAAParams.r * 1551);
+		uint FrameRandom = (View.FrameNumber & 15) * 1551;
+
+		uint Morton = MortonCode( (uint)MaterialParameters.SVPosition.x & 3 ) | ( MortonCode( (uint)MaterialParameters.SVPosition.y & 3 ) * 2 );
+		uint PixelIndex = reversebits( Morton ) >> 28;
+		//uint PixelIndex = ( (uint)MaterialParameters.SVPosition.x & 3 ) | ( ( (uint)MaterialParameters.SVPosition.y & 3 ) * 2 );
+		//PixelIndex = ( PixelIndex * 1551 ) & 15;
+
+		uint Offset = ( PixelIndex + FrameRandom ) & 15;
+		float StepOffset = Offset / 15.0;
+		StepOffset -= 0.5;
+		
+		//float4 HitUVzTime = RayCastCheap( HZBTexture, HZBSampler, MaterialParameters.ReflectionVector, MaterialParameters.ScreenPosition.w, MaterialParameters.WorldPosition_CamRelative, StepOffset );
+		float4 HitUVzTime = RayCast( HZBTexture, HZBSampler, MaterialParameters.ReflectionVector, 0, MaterialParameters.ScreenPosition.w, MaterialParameters.WorldPosition_CamRelative, 12, StepOffset );
+
+		// if there was a hit
+		BRANCH if( HitUVzTime.w < 1 )
+		{
+			float4 SSR = SampleScreenColor( PrevSceneColor, PrevSceneColorSampler, HitUVzTime.xyz );
+			SSR *= saturate( 2 - 6.6 * Roughness );
+			SpecularIBL.rgb = SpecularIBL.rgb * (1 - SSR.a) + SSR.rgb;
+		}
+	}
+#endif
+
 	half NoV = saturate(dot(MaterialParameters.WorldNormal, MaterialParameters.CameraVector));
 	SpecularColor = EnvBRDFApprox(SpecularColor, Roughness, NoV);
 
 	return SpecularIBL.rgb * SpecularColor;
 }
 
+#endif
+
+#if TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL
+	#include "ForEachLight.usf"
 #endif
 
 /** Calculates lighting for translucency. */
@@ -175,6 +226,10 @@ float3 GetTranslucencyLighting(FMaterialPixelParameters MaterialParameters, floa
 		// Determine lighting if no self shadowing is applied
 		InterpolatedLighting = DiffuseColor * VolumeLighting.rgb;
 
+	#elif TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL
+
+		InterpolatedLighting = AccumulateForwardLights(MaterialParameters, DiffuseColor, Roughness, SpecularColor);
+
 	#endif
 
 	#if (TRANSLUCENCY_LIGHTING_VOLUMETRIC_DIRECTIONAL || TRANSLUCENCY_LIGHTING_VOLUMETRIC_NONDIRECTIONAL || TRANSLUCENCY_LIGHTING_SURFACE) && TRANSLUCENT_SELF_SHADOWING
@@ -236,7 +291,7 @@ float3 GetTranslucencyLighting(FMaterialPixelParameters MaterialParameters, floa
 
 	#endif
 
-	#if TRANSLUCENCY_LIGHTING_SURFACE
+	#if TRANSLUCENCY_LIGHTING_SURFACE || TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL
 		InterpolatedLighting += GetImageBasedReflectionLighting(MaterialParameters, Roughness, SpecularColor, IndirectIrradiance);
 	#endif
 
@@ -447,7 +502,7 @@ void GetPrecomputedIndirectLightingAndSkyLight(
 	}
 	else
 	{
-	#if TRANSLUCENCY_LIGHTING_SURFACE && FEATURE_LEVEL >= FEATURE_LEVEL_SM5
+	#if (TRANSLUCENCY_LIGHTING_SURFACE || TRANSLUCENCY_LIGHTING_SURFACE_PERPIXEL) && FEATURE_LEVEL >= FEATURE_LEVEL_SM5
 		float DiffuseMip = ComputeReflectionCaptureMipFromRoughness(1);
 		float4 DiffuseIBL = TextureCubeArraySampleLevel(ReflectionCubemap, ReflectionCubemapSampler, MaterialParameters.WorldNormal, CubemapArrayIndex, DiffuseMip);
 		
@@ -460,7 +515,7 @@ void GetPrecomputedIndirectLightingAndSkyLight(
 	#endif
 }
 
-#if EDITOR_PRIMITIVE_MATERIAL
+#if USE_EDITOR_COMPOSITING
 	bool bEnableEditorPrimitiveDepthTest;
 	int MSAASampleCount;
 
@@ -474,12 +529,15 @@ float ClipForEditorPrimitives(FMaterialPixelParameters MaterialParameters)
 {
 	float Ret = 1;
 
-#if EDITOR_PRIMITIVE_MATERIAL && (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || ES2_EMULATION)
+#if USE_EDITOR_COMPOSITING && (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || ES2_EMULATION)
 	// Depth test manually if compositing editor primitives since the depth buffer is different (MSAA only)
 	BRANCH
 	if (bEnableEditorPrimitiveDepthTest)
 	{
+#if HAS_INVERTED_Z_BUFFER
+		//@todo-briank
 		bool bIsPerspective = (View.ViewToClip._m33 < 1.0f);
+#endif	// HAS_INVERTED_Z_BUFFER
  		
 		// dejitter the sample position and make a filtered lookup - for planes this allows to reconstruct a much less jittery depth comparison function, it however doesn't fix silhuetes
 		float DeviceZ = Texture2DSampleLevel(FilteredSceneDepthTexture, FilteredSceneDepthTextureSampler, (MaterialParameters.SVPosition.xy - View.TemporalAAParams.zw) * View.ViewSizeAndSceneTexelSize.zw, 0).r;
@@ -492,7 +550,7 @@ float ClipForEditorPrimitives(FMaterialPixelParameters MaterialParameters)
 		// 0.5f is to bias around the actual value, 1 or 0 are another option
 		Ret = saturate(0.5f - (DeviceZ - PixelDeviceZ) / DeviceDepthFade);
 	}
-#endif
+#endif	// USE_EDITOR_COMPOSITING && (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || ES2_EMULATION)
 
 	// Note: multiple returns cause strange HLSL compiler error for CV_Coverage in later code
 	return Ret;
@@ -523,10 +581,24 @@ uint CustomAlpha2Coverage(inout float4 InOutColor)
 }
 #endif
 
+void ApplyPixelDepthOffsetForBasePass(inout FMaterialPixelParameters MaterialParameters, inout FBasePassInterpolantsVSToPS BasePassInterpolants, out float OutDepth)
+{
+	float PixelDepthOffset = ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, OutDepth);
+
+#if WRITES_VELOCITY_TO_GBUFFER
+	BasePassInterpolants.VelocityPrevScreenPosition.w += PixelDepthOffset;
+
+	#if WRITES_VELOCITY_TO_GBUFFER_USE_POS_INTERPOLATOR
+		BasePassInterpolants.VelocityScreenPosition.w += PixelDepthOffset;
+	#endif
+#endif
+}
+
 void Main(
 	FVertexFactoryInterpolantsVSToPS Interpolants,
 	FBasePassInterpolantsVSToPS BasePassInterpolants,
-	in float4 SvPosition : SV_Position,
+	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position,
+
 	OPTIONAL_IsFrontFace,
 	out float4 OutColor		: SV_Target0
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && (MATERIALBLENDING_SOLID || MATERIALBLENDING_MASKED) && !NO_GBUFFER
@@ -536,8 +608,17 @@ void Main(
 	,out float4 OutGBufferD : SV_Target4
 	#if ALLOW_STATIC_LIGHTING
 		,out float4 OutGBufferE : SV_Target5
+		#if WRITES_VELOCITY_TO_GBUFFER
+			, out float4 OutGBufferVelocity : SV_Target6
+		#endif
+	#else
+		#if WRITES_VELOCITY_TO_GBUFFER
+			, out float4 OutGBufferVelocity : SV_Target5
+		#endif
 	#endif
 #endif
+
+	OPTIONAL_OutDepth
 
 #if EDITOR_ALPHA2COVERAGE != 0
    ,in uint InCoverage : SV_Coverage
@@ -557,19 +638,21 @@ void Main(
 #endif
 	);
 
-#if EDITOR_PRIMITIVE_MATERIAL && (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || ES2_EMULATION)
+#if USE_EDITOR_COMPOSITING && (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || ES2_EMULATION)
 	const bool bEditorWeightedZBuffering = true;
 #else
 	const bool bEditorWeightedZBuffering = false;
 #endif
-
+		
+#if OUTPUT_PIXEL_DEPTH_OFFSET
+	ApplyPixelDepthOffsetForBasePass(MaterialParameters, BasePassInterpolants, OutDepth);
+#endif
 
 	//Clip if the blend mode requires it.
 	if(!bEditorWeightedZBuffering)
 	{
 		GetMaterialCoverageAndClipping(MaterialParameters);
 	}
-
 
 	// Store the results in local variables and reuse instead of calling the functions multiple times.
 	half3 BaseColor = GetMaterialBaseColor( MaterialParameters );
@@ -589,7 +672,7 @@ void Main(
 		float4 SubsurfaceData = GetMaterialSubsurfaceData(MaterialParameters);
 
 #if MATERIAL_SHADINGMODEL_SUBSURFACE || MATERIAL_SHADINGMODEL_PREINTEGRATED_SKIN || MATERIAL_SHADINGMODEL_TWOSIDED_FOLIAGE
-		SubsurfaceColor = SubsurfaceData.rgb;
+		SubsurfaceColor = SubsurfaceData.rgb * View.DiffuseOverrideParameter.w + View.DiffuseOverrideParameter.xyz;
 #endif
 		SubsurfaceProfile = SubsurfaceData.a;
 	}
@@ -622,14 +705,17 @@ void Main(
 	half3 DiffuseColor = BaseColor - BaseColor * Metallic;
 	half3 SpecularColor = lerp( 0.08 * Specular.xxx, BaseColor, Metallic.xxx );
 
-// todo: COMPILE_SHADERS_FOR_DEVELOPMENT is unfinished feature, using XBOXONE_PROFILE as workaround
-#if COMPILE_SHADERS_FOR_DEVELOPMENT == 1 && !XBOXONE_PROFILE && !ES31_AEP_PROFILE
+#if USE_DEVELOPMENT_SHADERS
 	{
 		// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
 		DiffuseColor = DiffuseColor * View.DiffuseOverrideParameter.w + View.DiffuseOverrideParameter.xyz;
 		SpecularColor = SpecularColor * View.SpecularOverrideParameter.w + View.SpecularOverrideParameter.xyz;
 	}
 #endif
+
+	// TODO Replace with proper EnvBRDF for Burley diffuse model.
+	// Any indirect diffuse done in the base pass does not properly account for the Burley diffuse model besides this crude approximation.
+	DiffuseColor *= 1 - 0.3333 * Roughness;
 
 
 	half3 Color = 0;
@@ -646,10 +732,10 @@ void Main(
 		#if MATERIAL_SHADINGMODEL_SUBSURFACE || MATERIAL_SHADINGMODEL_PREINTEGRATED_SKIN
 			// Add subsurface energy to diffuse
 			//@todo - better subsurface handling for these shading models with skylight and precomputed GI
-			DiffuseColor += SubsurfaceColor;
+			EffectiveDiffuseColor += SubsurfaceColor;
 		#endif
 
-		Color += (DiffuseIndirectLighting * DiffuseColor + SubsurfaceIndirectLighting * SubsurfaceColor) * MaterialAO;
+		Color += (DiffuseIndirectLighting * EffectiveDiffuseColor + SubsurfaceIndirectLighting * SubsurfaceColor) * MaterialAO;
 
 		#if SIMPLE_DYNAMIC_LIGHTING
 			// always unshadowed so BiasedNDotL is not needed
@@ -684,8 +770,7 @@ void Main(
 
 	half3 Emissive = GetMaterialEmissive(MaterialParameters);
 
-// todo: COMPILE_SHADERS_FOR_DEVELOPMENT is unfinished feature, using XBOXONE_PROFILE as workaround
-#if COMPILE_SHADERS_FOR_DEVELOPMENT == 1 && !XBOXONE_PROFILE && !ES31_AEP_PROFILE
+#if USE_DEVELOPMENT_SHADERS
 	// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
 	#if SM5_PROFILE || SM4_PROFILE
 		BRANCH
@@ -708,7 +793,7 @@ void Main(
 		OutColor = half4(Color * VertexFog.a + VertexFog.rgb, Opacity);
 		OutColor = RETURN_COLOR(OutColor);
 	#elif MATERIALBLENDING_ADDITIVE
-		OutColor = half4(Color * VertexFog.aaa * Opacity.xxx, 0.0f);
+		OutColor = half4(Color * VertexFog.a * Opacity, 0.0f);
 		OutColor = RETURN_COLOR(OutColor);
 	#elif MATERIALBLENDING_MODULATE
 		// RETURN_COLOR not needed with modulative blending
@@ -741,6 +826,7 @@ void Main(
 		GBuffer.Opacity = Opacity;
 		GBuffer.DecalMask = Primitive.DecalReceiverMask;
 		GBuffer.HasDistanceFieldRepresentation = Primitive.HasDistanceFieldRepresentation;
+		GBuffer.HasHeightfieldRepresentation = Primitive.HasHeightfieldRepresentation;
 
 		#if MATERIAL_SHADINGMODEL_UNLIT
 			GBuffer.ShadingModelID = SHADINGMODELID_UNLIT;
@@ -793,12 +879,26 @@ void Main(
 			float4 OutGBufferE = 0;
 		#endif
 
+		#if WRITES_VELOCITY_TO_GBUFFER
+			{
+				// 2d velocity, includes camera an object motion
+			#if WRITES_VELOCITY_TO_GBUFFER_USE_POS_INTERPOLATOR
+				float2 Velocity = Calculate2DVelocity(BasePassInterpolants.VelocityScreenPosition, BasePassInterpolants.VelocityPrevScreenPosition);
+			#else
+				float2 Velocity = Calculate2DVelocity(MaterialParameters.ScreenPosition, BasePassInterpolants.VelocityPrevScreenPosition);
+			#endif
+
+				// Make sure not to touch 0,0 which is clear color
+				GBuffer.Velocity = float4(EncodeVelocityToTexture(Velocity), 0, 0) * BasePassInterpolants.VelocityPrevScreenPosition.z;
+			}
+		#else
+			GBuffer.Velocity = 0;
+			float4 OutGBufferVelocity = 0;
+		#endif
+
 		float QuantizationBias = PseudoRandom( MaterialParameters.SVPosition.xy ) * 0.5 - 0.5;
-		EncodeGBuffer(GBuffer, OutGBufferA, OutGBufferB, OutGBufferC, OutGBufferD, OutGBufferE, QuantizationBias);
+		EncodeGBuffer(GBuffer, OutGBufferA, OutGBufferB, OutGBufferC, OutGBufferD, OutGBufferE, OutGBufferVelocity, QuantizationBias);
 	#endif 
-	
-
-
 
 	if(bEditorWeightedZBuffering)
 	{

@@ -20,7 +20,7 @@
  * @param	bReturnFaceIndex	True if we want to lookup the face index
  * @param	bReturnPhysMat		True if we want to lookup the physical material
  */
-void ConvertQueryImpactHit(const PxLocationHit& PHit, FHitResult& OutResult, float CheckLength, const PxFilterData& QueryFilter, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry* const Geom, const PxTransform& QueryTM, bool bReturnFaceIndex, bool bReturnPhysMat);
+void ConvertQueryImpactHit(const UWorld* World, const PxLocationHit& PHit, FHitResult& OutResult, float CheckLength, const PxFilterData& QueryFilter, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry* const Geom, const PxTransform& QueryTM, bool bReturnFaceIndex, bool bReturnPhysMat);
 
 /** 
  * Util to convert physX raycast results to our hit results
@@ -34,7 +34,7 @@ void ConvertQueryImpactHit(const PxLocationHit& PHit, FHitResult& OutResult, flo
  * @param	bReturnFaceIndex	True if we want to lookup the face index
  * @param	bReturnPhysMat		True if we want to lookup the physical material
  */
-void ConvertRaycastResults(int32 NumHits, PxRaycastHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, bool bReturnFaceIndex, bool bReturnPhysMat);
+void ConvertRaycastResults(const UWorld* World, int32 NumHits, PxRaycastHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, bool bReturnFaceIndex, bool bReturnPhysMat);
 
 /** 
  * Util to convert physX sweep results to unreal hit results and add to array
@@ -48,7 +48,7 @@ void ConvertRaycastResults(int32 NumHits, PxRaycastHit* Hits, float CheckLength,
  * @param	Geom
  * @return	true if any blocking hit was found within MaxDistance.
  */
-bool AddSweepResults(int32 NumHits, const PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnPhysMat);
+bool AddSweepResults(const UWorld* World, int32 NumHits, const PxSweepHit* Hits, float CheckLength, const PxFilterData& QueryFilter, TArray<FHitResult>& OutHits, const FVector& StartLoc, const FVector& EndLoc, const PxGeometry& Geom, const PxTransform& QueryTM, float MaxDistance, bool bReturnPhysMat);
 
 /** 
  * Util to convert physX overlap query to our overlap result
@@ -58,7 +58,16 @@ bool AddSweepResults(int32 NumHits, const PxSweepHit* Hits, float CheckLength, c
  * @param	OutOverlap	(out) Result converted
  * @param	QueryFilter	Query Filter 
  */
-void ConvertQueryOverlap(const PxShape* PShape, const PxRigidActor* PActor, FOverlapResult& OutOverlap, const PxFilterData& QueryFilter);
+void ConvertQueryOverlap(const UWorld* World, const PxShape* PShape, const PxRigidActor* PActor, FOverlapResult& OutOverlap, const PxFilterData& QueryFilter);
+
+/**
+ * Util to determine if a shape is deemed blocking based on the query filter
+ *
+ * @param PShape Shape that overlaps
+ * @QueryFilter Query Filter
+ * @return true if the query filter and shape filter resolve to be blocking
+ */
+bool IsBlocking(const PxShape* PShape, const PxFilterData& QueryFilter);
 
 
 /** 

@@ -108,9 +108,9 @@ WIN_SetWindowPositionInternal(_THIS, SDL_Window * window, UINT flags)
     x = window->x + rect.left;
     y = window->y + rect.top;
 
-    data->expected_resize = TRUE;
-    SetWindowPos(hwnd, top, x, y, w, h, flags);
-    data->expected_resize = FALSE;
+    data->expected_resize = SDL_TRUE;
+    SetWindowPos( hwnd, top, x, y, w, h, flags );
+    data->expected_resize = SDL_FALSE;
 }
 
 static int
@@ -371,14 +371,8 @@ void
 WIN_SetWindowTitle(_THIS, SDL_Window * window)
 {
     HWND hwnd = ((SDL_WindowData *) window->driverdata)->hwnd;
-    LPTSTR title;
-
-    if (window->title) {
-        title = WIN_UTF8ToString(window->title);
-    } else {
-        title = NULL;
-    }
-    SetWindowText(hwnd, title ? title : TEXT(""));
+    LPTSTR title = WIN_UTF8ToString(window->title);
+    SetWindowText(hwnd, title);
     SDL_free(title);
 }
 
@@ -470,9 +464,9 @@ WIN_MaximizeWindow(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = (SDL_WindowData *)window->driverdata;
     HWND hwnd = data->hwnd;
-    data->expected_resize = TRUE;
+    data->expected_resize = SDL_TRUE;
     ShowWindow(hwnd, SW_MAXIMIZE);
-    data->expected_resize = FALSE;
+    data->expected_resize = SDL_FALSE;
 }
 
 void
@@ -485,7 +479,8 @@ WIN_MinimizeWindow(_THIS, SDL_Window * window)
 void
 WIN_SetWindowBordered(_THIS, SDL_Window * window, SDL_bool bordered)
 {
-    HWND hwnd = ((SDL_WindowData *) window->driverdata)->hwnd;
+    SDL_WindowData *data = (SDL_WindowData *)window->driverdata;
+    HWND hwnd = data->hwnd;
     DWORD style = GetWindowLong(hwnd, GWL_STYLE);
 
     if (bordered) {
@@ -496,8 +491,10 @@ WIN_SetWindowBordered(_THIS, SDL_Window * window, SDL_bool bordered)
         style |= STYLE_BORDERLESS;
     }
 
-    SetWindowLong(hwnd, GWL_STYLE, style);
-    WIN_SetWindowPositionInternal(_this, window, SWP_NOCOPYBITS | SWP_FRAMECHANGED | SWP_NOREPOSITION | SWP_NOZORDER |SWP_NOACTIVATE | SWP_NOSENDCHANGING);
+    data->in_border_change = SDL_TRUE;
+    SetWindowLong( hwnd, GWL_STYLE, style );
+    WIN_SetWindowPositionInternal(_this, window, SWP_NOCOPYBITS | SWP_FRAMECHANGED | SWP_NOZORDER | SWP_NOACTIVATE);
+    data->in_border_change = SDL_FALSE;
 }
 
 void
@@ -505,9 +502,9 @@ WIN_RestoreWindow(_THIS, SDL_Window * window)
 {
     SDL_WindowData *data = (SDL_WindowData *)window->driverdata;
     HWND hwnd = data->hwnd;
-    data->expected_resize = TRUE;
+    data->expected_resize = SDL_TRUE;
     ShowWindow(hwnd, SW_RESTORE);
-    data->expected_resize = FALSE;
+    data->expected_resize = SDL_FALSE;
 }
 
 void
@@ -553,9 +550,9 @@ WIN_SetWindowFullscreen(_THIS, SDL_Window * window, SDL_VideoDisplay * display, 
         y = window->windowed.y + rect.top;
     }
     SetWindowLong(hwnd, GWL_STYLE, style);
-    data->expected_resize = TRUE;
+    data->expected_resize = SDL_TRUE;
     SetWindowPos(hwnd, top, x, y, w, h, SWP_NOCOPYBITS | SWP_NOACTIVATE);
-    data->expected_resize = FALSE;
+    data->expected_resize = SDL_FALSE;
 }
 
 int
@@ -634,15 +631,17 @@ WIN_DestroyWindow(_THIS, SDL_Window * window)
         }
         SDL_free(data);
     }
+    window->driverdata = NULL;
 }
 
 SDL_bool
 WIN_GetWindowWMInfo(_THIS, SDL_Window * window, SDL_SysWMinfo * info)
 {
-    HWND hwnd = ((SDL_WindowData *) window->driverdata)->hwnd;
+    const SDL_WindowData *data = (const SDL_WindowData *) window->driverdata;
     if (info->version.major <= SDL_MAJOR_VERSION) {
         info->subsystem = SDL_SYSWM_WINDOWS;
-        info->info.win.window = hwnd;
+        info->info.win.window = data->hwnd;
+        info->info.win.hdc = data->hdc;
         return SDL_TRUE;
     } else {
         SDL_SetError("Application not compiled with SDL %d.%d\n",
@@ -746,9 +745,7 @@ WIN_UpdateClipCursor(SDL_Window *window)
     SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
     SDL_Mouse *mouse = SDL_GetMouse();
 
-    /* Don't clip the cursor while we're in the modal resize or move loop */
-    if (data->in_title_click || data->in_modal_loop) {
-        ClipCursor(NULL);
+    if (data->focus_click_pending) {
         return;
     }
 

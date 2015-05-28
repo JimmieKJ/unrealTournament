@@ -48,3 +48,4 @@ bool FPointerEvent::IsPointerEvent() const
 {
 	return true;
 }
+

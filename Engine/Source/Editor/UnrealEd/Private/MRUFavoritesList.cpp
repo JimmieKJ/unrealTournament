@@ -4,6 +4,8 @@
 #include "UnrealEd.h"
 #include "MRUFavoritesList.h"
 #include "ConfigCacheIni.h"
+#include "SNotificationList.h"
+#include "NotificationManager.h"
 
 const FString FMainMRUFavoritesList::FAVORITES_INI_SECTION = TEXT("FavoriteFiles");
 
@@ -46,7 +48,7 @@ void FMainMRUFavoritesList::AddFavoritesItem( const FString& Item )
 	const FString CleanedName = FPaths::ConvertRelativePathToFull(Item);
 	if ( !FavoriteItems.Contains( CleanedName ) )
 	{
-		FavoriteItems.Add( CleanedName );
+		FavoriteItems.Insert( CleanedName, 0 );
 		WriteToINI();
 	}
 }
@@ -63,6 +65,21 @@ void FMainMRUFavoritesList::RemoveFavoritesItem( const FString& Item )
 	if ( ItemIndex != INDEX_NONE )
 	{
 		FavoriteItems.RemoveAt( ItemIndex );
+		WriteToINI();
+	}
+}
+
+/**
+ * Moves the specified favorites item to the head of the list
+ *
+ * @param	Item	Filename of the item to move
+ */
+void FMainMRUFavoritesList::MoveFavoritesItemToHead(const FString& Item)
+{
+	const FString CleanedName = FPaths::ConvertRelativePathToFull(Item);
+	if ( FavoriteItems.RemoveSingle(Item) == 1 )
+	{
+		FavoriteItems.Insert( CleanedName, 0 );
 		WriteToINI();
 	}
 }
@@ -111,7 +128,10 @@ bool FMainMRUFavoritesList::VerifyFavoritesFile( int32 ItemIndex )
 	// If the file doesn't exist any more, remove it from the favorites list and alert the user
 	if ( !bFileExists )
 	{
-		FMessageDialog::Open( EAppMsgType::Ok, FText::Format( NSLOCTEXT("UnrealEd", "Error_FavoritesFileDoesNotExist", "File does not exist: '{0}'. It will be removed from the Favorites list."), FText::FromString(CurFileName) ) );
+		FNotificationInfo Info(FText::Format(NSLOCTEXT("UnrealEd", "Error_FavoritesFileDoesNotExist", "Map '{0}' does not exist - it will be removed from the Favorites list."), FText::FromString(FPaths::GetCleanFilename(CurFileName))));
+		Info.bUseThrobber = false;
+		Info.ExpireDuration = 8.0f;
+		FSlateNotificationManager::Get().AddNotification(Info)->SetCompletionState(SNotificationItem::CS_Fail);
 		RemoveFavoritesItem( CurFileName );
 	}
 

@@ -88,6 +88,9 @@ public:
 		/** Delegate for when an item is about to show a tool tip */
 		SLATE_EVENT( FOnVisualizeAssetToolTip, OnVisualizeAssetToolTip)
 
+		/** Delegate for when an item's tooltip is about to close */
+		SLATE_EVENT( FOnAssetToolTipClosing, OnAssetToolTipClosing )
+
 	SLATE_END_ARGS()
 
 	/** Virtual destructor */
@@ -115,8 +118,11 @@ public:
 	/** Delegate handling when an asset is loaded */
 	void HandleAssetLoaded(UObject* InAsset) const;
 
-	/* About to show a tool tip */
+	/** About to show a tool tip */
 	virtual bool OnVisualizeTooltip( const TSharedPtr<SWidget>& TooltipContent ) override;
+
+	/** Tooltip is closing */
+	virtual void OnToolTipClosing() override;
 
 protected:
 	/** Used by OnDragEnter, OnDragOver, and OnDrop to check and update the validity of the drag operation */
@@ -224,6 +230,9 @@ protected:
 	/** Called if bound when about to show a tooltip */
 	FOnVisualizeAssetToolTip OnVisualizeAssetToolTip;
 
+	/** Called if bound when a tooltip is closing */
+	FOnAssetToolTipClosing OnAssetToolTipClosing;
+
 	/** The geometry last frame. Used when telling popup messages where to appear. */
 	FGeometry LastGeometry;
 
@@ -235,13 +244,6 @@ protected:
 
 	/** The substring to be highlighted in the name and tooltip path */
 	TAttribute<FText> HighlightText;
-
-	/**
-	 * A map of class names to their important asset registry tags and values.
-	 * Important tags will be featured in the tooltip if the value matches.
-	 * An empty string is interpreted as indicating that any value is always important.
-	 */
-	TMap< FName, TMap<FName, FString> > ImportantTagMap;
 
 	/** Cached brushes for the dirty state */
 	const FSlateBrush* AssetDirtyBrush;
@@ -346,6 +348,9 @@ public:
 		/* Delegate to signal when the item is about to show a tooltip */
 		SLATE_EVENT(FOnVisualizeAssetToolTip, OnVisualizeAssetToolTip)
 
+		/** Delegate for when an item's tooltip is about to close */
+		SLATE_EVENT( FOnAssetToolTipClosing, OnAssetToolTipClosing )
+
 	SLATE_END_ARGS()
 
 	/** Destructor */
@@ -449,6 +454,9 @@ public:
 		/* Delegate to signal when the item is about to show a tooltip */
 		SLATE_EVENT(FOnVisualizeAssetToolTip, OnVisualizeAssetToolTip)
 
+		/** Delegate for when an item's tooltip is about to close */
+		SLATE_EVENT( FOnAssetToolTipClosing, OnAssetToolTipClosing )
+
 	SLATE_END_ARGS()
 
 	/** Destructor */
@@ -484,7 +492,7 @@ private:
 	float ThumbnailPadding;
 };
 
-/** An item in the asset tile view */
+/** An item in the asset column view */
 class SAssetColumnItem : public SAssetViewItem
 {
 public:
@@ -522,6 +530,9 @@ public:
 
 		/* Delegate to signal when the item is about to show a tooltip */
 		SLATE_EVENT( FOnVisualizeAssetToolTip, OnVisualizeAssetToolTip)
+
+		/** Delegate for when an item's tooltip is about to close */
+		SLATE_EVENT( FOnAssetToolTipClosing, OnAssetToolTipClosing )
 
 	SLATE_END_ARGS()
 
@@ -591,12 +602,10 @@ public:
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
-		SMultiColumnTableRow< TSharedPtr<FAssetViewItem> >::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 		this->AssetColumnItem->Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 	}
 
-	virtual bool OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent)
+	virtual bool OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent) override
 	{
 		// We take the content from the asset column item during construction,
 		// so let the item handle the tooltip callback

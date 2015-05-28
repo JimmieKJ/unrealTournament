@@ -276,7 +276,7 @@ public:
 	 *
 	 * @return The desired size.
 	 */
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 
 	/**
 	 * All widgets must provide a way to access their children in a layout-agnostic way.
@@ -459,7 +459,7 @@ public:
 	
 private:
 
-	FString GetThemeName() const;
+	FText GetThemeName() const;
 
 	/** Text Block which shows the Color Theme's name */
 	TSharedPtr<STextBlock> ThemeNameText;

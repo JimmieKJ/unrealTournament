@@ -13,7 +13,8 @@ public class MetalRHI : ModuleRules
 				"Engine",
 				"RHI",
 				"RenderCore",
-				"ShaderCore"
+				"ShaderCore",
+				"UtilityShaders",
 			}
 			);
 			

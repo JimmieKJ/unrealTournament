@@ -62,10 +62,10 @@
 //DEFINE_CLSID(AudioReverb_Debug, 99a1c72e, 364c, 4c1b, 96, 23, fd, 5c, 8a, bd, 90, c7);
 
 // XAudio 2.7 (June 2010 SDK)
-DEFINE_CLSID(AudioVolumeMeter, cac1105f, 619b, 4d04, 83, 1a, 44, e1, cb, f1, 2d, 57);
-DEFINE_CLSID(AudioVolumeMeter_Debug, 2d9a0f9c, e67b, 4b24, ab, 44, 92, b3, e7, 70, c0, 20);
-DEFINE_CLSID(AudioReverb, 6a93130e, 1d53, 41d1, a9, cf, e7, 58, 80, 0b, b1, 79);
-DEFINE_CLSID(AudioReverb_Debug, c4f82dd4, cb4e, 4ce1, 8b, db, ee, 32, d4, 19, 82, 69);
+DEFINE_CLSID(AudioVolumeMeter,cac1105f,619b,4d04,83,1a,44,e1,cb,f1,2d,57);
+DEFINE_CLSID(AudioVolumeMeter_Debug,2d9a0f9c,e67b,4b24,ab,44,92,b3,e7,70,c0,20);
+DEFINE_CLSID(AudioReverb,6a93130e,1d53,41d1,a9,cf,e7,58,80,0b,b1,79);
+DEFINE_CLSID(AudioReverb_Debug,c4f82dd4,cb4e,4ce1,8b,db,ee,32,d4,19,82,69);
 
 // Ignore the rest of this header if only the GUID definitions were requested
 #ifndef GUID_DEFS_ONLY

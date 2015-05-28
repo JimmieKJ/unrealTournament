@@ -21,14 +21,17 @@ class ENGINE_API UAnimNotify : public UObject
 	FString GetNotifyName() const;
 
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual bool Received_Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation) const;
+	bool Received_Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation) const;
 
 #if WITH_EDITORONLY_DATA
 	/** Color of Notify in editor */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=AnimNotify)
 	FColor NotifyColor;
-
 #endif // WITH_EDITORONLY_DATA
+
+#if WITH_EDITOR
+	virtual void OnAnimNotifyCreatedInEditor(FAnimNotifyEvent& ContainingAnimNotifyEvent) {};
+#endif
 
 	virtual void Notify(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation);
 
@@ -49,14 +52,6 @@ class ENGINE_API UAnimNotify : public UObject
 	}
 
 	/**
-	 *	Called by the AnimSet viewer when the 'parent' FAnimNotifyEvent is edited.
-	 *
-	 *	@param	AnimSeq			The animation sequence this notify is associated with.
-	 *	@param	OwnerEvent		The event that 'owns' this AnimNotify.
-	 */
-	virtual void AnimNotifyEventChanged(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, FAnimNotifyEvent* OwnerEvent) {}
-
-	/**
 	 * We don't instance UAnimNotify objects along with the animations they belong to, but
 	 * we still need a way to see which world this UAnimNotify is currently operating on.
 	 * So this retrieves a contextual world pointer, from the triggering animation/mesh.  
@@ -66,7 +61,7 @@ class ENGINE_API UAnimNotify : public UObject
 	virtual class UWorld* GetWorld() const override;
 
 	/** UObject Interface */
-	virtual void PostLoad();
+	virtual void PostLoad() override;
 	/** End UObject Interface */
 
 private:

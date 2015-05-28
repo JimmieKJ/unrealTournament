@@ -67,7 +67,7 @@ FKey FKeyStructCustomization::GetCurrentKey() const
 		bool bMultipleValues = false;
 		for(int32 StructPtrIndex = 1; StructPtrIndex < StructPtrs.Num(); ++StructPtrIndex)
 		{
-			if(*(FKey*)StructPtrs[StructPtrIndex] != *SelectedKey)
+			if (SelectedKey && *(FKey*)StructPtrs[StructPtrIndex] != *SelectedKey)
 			{
 				bMultipleValues = true;
 				break;

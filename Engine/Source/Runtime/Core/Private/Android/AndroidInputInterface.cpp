@@ -53,6 +53,9 @@ FAndroidInputInterface::FAndroidInputInterface( const TSharedRef< FGenericApplic
 	ButtonMapping[14] = EControllerButtons::DPadLeft;
 	ButtonMapping[15] = EControllerButtons::DPadRight;
 	ButtonMapping[16] = EControllerButtons::AndroidBack;  // Technically just an alias for SpecialLeft
+	ButtonMapping[17] = EControllerButtons::AndroidVolumeUp;
+	ButtonMapping[18] = EControllerButtons::AndroidVolumeDown;
+	ButtonMapping[19] = EControllerButtons::AndroidMenu;  // Technically just an alias for SpecialRightNewControllerData[deviceId].ButtonStates[6] = buttonDown; 
 
 	InitialButtonRepeatDelay = 0.2f;
 	ButtonRepeatDelay = 0.1f;
@@ -803,7 +806,7 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 		case AKEYCODE_BUTTON_L1:     NewControllerData[deviceId].ButtonStates[4] = buttonDown; break;
 		case AKEYCODE_BUTTON_R1:     NewControllerData[deviceId].ButtonStates[5] = buttonDown; break;
 		case AKEYCODE_BUTTON_START:
-		case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[6] = buttonDown; break;
+		case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[6] = buttonDown; NewControllerData[deviceId].ButtonStates[19] = buttonDown;  break;
 		case AKEYCODE_BUTTON_SELECT: 
 		case AKEYCODE_BACK:          NewControllerData[deviceId].ButtonStates[7] = buttonDown; NewControllerData[deviceId].ButtonStates[16] = buttonDown;  break;
 		case AKEYCODE_BUTTON_THUMBL: NewControllerData[deviceId].ButtonStates[8] = buttonDown; break;

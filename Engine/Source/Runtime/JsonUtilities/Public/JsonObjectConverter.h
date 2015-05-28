@@ -19,7 +19,7 @@ public:
 	 * @param CheckFlags Only convert properties that match at least one of these flags. If 0 check all properties.
 	 * @param SkipFlags Skip properties that match any of these flags
 	 *
-	 * @return True if any properties were written
+	 * @return False if any properties failed to write
 	 */
 	static bool UStructToJsonObject(const UStruct* StructDefinition, const void* Struct, TSharedRef<FJsonObject> OutJsonObject, int64 CheckFlags, int64 SkipFlags);
 
@@ -33,9 +33,22 @@ public:
 	 * @param SkipFlags Skip properties that match any of these flags
 	 * @param Indent How many tabs to add to the json serializer
 	 *
-	 * @return True if any properties were written
+	 * @return False if any properties failed to write
 	 */
 	static bool UStructToJsonObjectString(const UStruct* StructDefinition, const void* Struct, FString& OutJsonString, int64 CheckFlags, int64 SkipFlags, int32 Indent = 0);
+
+	/**
+	 * Converts from a UStruct to a set of json attributes (possibly from within a JsonObject)
+	 *
+	 * @param StructDefinition UStruct definition that is looked over for properties
+	 * @param Struct The UStruct instance to copy out of
+	 * @param JsonAttributes Map of attributes to copy in to
+	 * @param CheckFlags Only convert properties that match at least one of these flags. If 0 check all properties.
+	 * @param SkipFlags Skip properties that match any of these flags
+	 *
+	 * @return False if any properties failed to write
+	 */
+	static bool UStructToJsonAttributes(const UStruct* StructDefinition, const void* Struct, TMap< FString, TSharedPtr<FJsonValue> >& OutJsonAttributes, int64 CheckFlags, int64 SkipFlags);
 
 	/**
 	 * Converts from a Json Object to a UStruct, using importText

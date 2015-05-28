@@ -15,7 +15,7 @@ This used to be [Movement Channel] because it is used when this object is moved.
 When you define collision property for object, you define 3 set ups.
 
 - Collision Enabled : Is there any collision? If there is collision, do you want this object to be simulated?
-- Object Type : Define what object type this will use when it's being moved
+- Object Type : Define what object type this will use when it is being moved
 - Collision Response : Response to other objects
 
 ![](CollisionResponse.png)
@@ -24,7 +24,7 @@ This is a lot of information to set up, so we implemented [Collision Presets] as
 
 ![](CollisionPreset.png)
 
-If you'd like to assign to object, you want this channel to be [Object Channel]
+If you would like to assign to object, you want this channel to be [Object Channel]
 
 Query functions also allow trace [Object Type]. For example, you can query finding all objects within this sphere when the Object Type is Pawn. 
 
@@ -42,10 +42,10 @@ Engine/Physics/Collision
 We distinguish Trace Channel vs Object Channel for major two reasons. 
 
 Object Channel is the one that can be assigned to object as Object Type and can be queried by Object Type when traced. Please check the above Object Channel tooltip. 
-Trace Channel is when you have a specific purpose of trace, for example, Weapon Trace. Even though it is possible to create bullet object that has object type as "Weapon", often most of games do direct ray cast to the target. When you trace using "Weapon" Trace type, each object can decide how you'd like to respond to it. 
+Trace Channel is when you have a specific purpose of trace, for example, Weapon Trace. Even though it is possible to create bullet object that has object type as "Weapon", often most of games do direct ray cast to the target. When you trace using "Weapon" Trace type, each object can decide how you would like to respond to it. 
 
 Another example is camera. You can decide to have camera object to contain their Object Type to be Camera, in which case Camera is Object Channel. 
-But also you can choose to use Camera as Trace Channel, and use it in your trace code to trace using that channel, and other objects can decide how they'd like to repond. 
+But also you can choose to use Camera as Trace Channel, and use it in your trace code to trace using that channel, and other objects can decide how they would like to repond. 
 
 The distinction is shown in below when using same functionality. 
 
@@ -78,7 +78,7 @@ We provide presets of collision settings for components to use.
 ![](CollisionPreset.png)
 
 If you modify this, note that it can change an existing object's behavior. 
-Please be careful when you modify these values. If you'd like to modify this, please go to Project Settings/Collision.
+Please be careful when you modify these values. If you would like to modify this, please go to Project Settings/Collision.
 
 You can also add your presets and assign them to components. 
 

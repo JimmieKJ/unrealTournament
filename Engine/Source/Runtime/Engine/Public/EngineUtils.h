@@ -58,7 +58,7 @@ struct HActor : public HHitProxy
 		Collector.AddReferencedObject( NonConstPrimComp );
 	}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}
@@ -119,12 +119,12 @@ struct HTranslucentActor : public HActor
 		: HActor(InActor, InPrimComponent, InPriority)
 		{}
 
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}
 
-	virtual bool AlwaysAllowsTranslucentPrimitives() const
+	virtual bool AlwaysAllowsTranslucentPrimitives() const override
 	{
 		return true;
 	}

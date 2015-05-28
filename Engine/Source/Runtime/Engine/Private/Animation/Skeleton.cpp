@@ -16,10 +16,10 @@
 
 #if WITH_EDITOR
 const FName USkeleton::AnimNotifyTag = FName(TEXT("AnimNotifyList"));
-const TCHAR USkeleton::AnimNotifyTagDelimiter = TEXT(';');
+const FString USkeleton::AnimNotifyTagDelimiter = TEXT(";");
 
 const FName USkeleton::CurveTag = FName(TEXT("CurveUIDList"));
-const TCHAR USkeleton::CurveTagDelimiter = TEXT(';');
+const FString USkeleton::CurveTagDelimiter = TEXT(";");
 
 const FName USkeleton::RigTag = FName(TEXT("Rig"));
 #endif 
@@ -94,6 +94,8 @@ void USkeleton::PostDuplicate(bool bDuplicateForPIE)
 
 void USkeleton::Serialize( FArchive& Ar )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("USkeleton::Serialize"), STAT_Skeleton_Serialize, STATGROUP_LoadTime );
+
 	Super::Serialize(Ar);
 
 	if( Ar.UE4Ver() >= VER_UE4_REFERENCE_SKELETON_REFACTOR )
@@ -162,6 +164,20 @@ void USkeleton::Serialize( FArchive& Ar )
 		PreviewAttachedAssetContainer.SaveAttachedObjectsFromDeprecatedProperties();
 	}
 #endif
+}
+
+void USkeleton::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
+{
+	USkeleton* This = CastChecked<USkeleton>(InThis);
+
+#if WITH_EDITORONLY_DATA
+	for (auto Iter = This->AnimRetargetSources.CreateIterator(); Iter; ++Iter)
+	{		
+		Collector.AddReferencedObject(Iter.Value().ReferenceMesh, This);
+	}
+#endif
+
+	Super::AddReferencedObjects( This, Collector );
 }
 
 /** Remove this function when VER_UE4_REFERENCE_SKELETON_REFACTOR is removed. */
@@ -298,43 +314,11 @@ bool USkeleton::IsCompatibleMesh(USkeletalMesh* InSkelMesh) const
 	return (NumOfBoneMatches > 0);
 }
 
-FString USkeleton::GetRetargetingModeString(const EBoneTranslationRetargetingMode::Type & RetargetingMode) const
-{
-	FText ModeNameText;
-
-	switch( RetargetingMode )
-	{
-	case EBoneTranslationRetargetingMode::Animation :
-		ModeNameText = LOCTEXT( "BoneRetargetingModeAnimation", "Animation" );
-		break;
-
-	case EBoneTranslationRetargetingMode::Skeleton :
-		ModeNameText = LOCTEXT( "BoneRetargetingModeSkeleton", "Skeleton" );
-		break;
-
-	case EBoneTranslationRetargetingMode::AnimationScaled :
-		ModeNameText = LOCTEXT( "BoneRetargetingMode", "AnimationScaled" );
-		break;
-
-	case EBoneTranslationRetargetingMode::AnimationRelative:
-		ModeNameText = LOCTEXT("BoneRetargetingModeAnimationRelative", "AnimationRelative");
-		break;
-
-	default:
-		// Unknown mode
-		check( 0 );
-		break;
-	}
-
-	return ModeNameText.ToString();
-}
-
 void USkeleton::ClearCacheData()
 {
 	LinkupCache.Empty();
 	SkelMesh2LinkupCache.Empty();
 }
-
 
 int32 USkeleton::GetMeshLinkupIndex(const USkeletalMesh* InSkelMesh)
 {
@@ -445,8 +429,6 @@ bool USkeleton::RecreateBoneTree(USkeletalMesh* InSkelMesh)
 					AnimAsset->ValidateSkeleton();
 				}
 			}
-			
-			return bResult;
 		}
 		
 		return bResult;
@@ -558,7 +540,6 @@ bool USkeleton::MergeBonesToBoneTree(USkeletalMesh * InSkeletalMesh, const TArra
 
 					ReferenceSkeleton.Add(NewMeshBoneInfo, InSkeletalMesh->RefSkeleton.GetRefBonePose()[MeshBoneIndex]);
 					BoneTree.AddZeroed(1);
-					MarkPackageDirty();
 				}
 			}
 
@@ -569,8 +550,13 @@ bool USkeleton::MergeBonesToBoneTree(USkeletalMesh * InSkeletalMesh, const TArra
 	// if succeed
 	if (bSuccess)
 	{
-		InSkeletalMesh->Skeleton = this;
-		InSkeletalMesh->MarkPackageDirty();
+		if (InSkeletalMesh->Skeleton != this)
+		{
+			InSkeletalMesh->Skeleton = this;
+			InSkeletalMesh->MarkPackageDirty();
+		}
+
+		MarkPackageDirty();
 		// make sure to refresh all base poses
 		// so that they have same number of bones of ref pose
 #if WITH_EDITORONLY_DATA
@@ -722,7 +708,7 @@ void USkeleton::CollectAnimationNotifies()
 			if (const FString* Value = Asset.TagsAndValues.Find(USkeleton::AnimNotifyTag))
 			{
 				TArray<FString> NotifyList;
-				Value->ParseIntoArray(&NotifyList, &AnimNotifyTagDelimiter, true);
+				Value->ParseIntoArray(NotifyList, *USkeleton::AnimNotifyTagDelimiter, true);
 				for (auto NotifyIter = NotifyList.CreateConstIterator(); NotifyIter; ++NotifyIter)
 				{
 					FString NotifyName = *NotifyIter;
@@ -995,15 +981,10 @@ void USkeleton::BuildSlotToGroupMap()
 
 FAnimSlotGroup* USkeleton::FindAnimSlotGroup(const FName& InGroupName)
 {
-	for (int32 GroupIndex = 0; GroupIndex < SlotGroups.Num(); GroupIndex++)
+	return SlotGroups.FindByPredicate([&InGroupName](const FAnimSlotGroup& Item)
 	{
-		FAnimSlotGroup& SlotGroup = SlotGroups[GroupIndex];
-		if (SlotGroup.GroupName == InGroupName)
-		{
-			return &SlotGroup;
-		}
-	}
-	return NULL;
+		return Item.GroupName == InGroupName;
+	});
 }
 
 bool USkeleton::ContainsSlotName(const FName& InSlotName) 
@@ -1078,6 +1059,43 @@ FName USkeleton::GetSlotGroupName(const FName& InSlotName) const
 
 	// If Group name cannot be found, use DefaultSlotGroupName.
 	return FAnimSlotGroup::DefaultGroupName;
+}
+
+void USkeleton::RemoveSlotName(const FName& InSlotName)
+{
+	FName GroupName = GetSlotGroupName(InSlotName);
+	
+	if(SlotToGroupNameMap.Remove(InSlotName) > 0)
+	{
+		FAnimSlotGroup* SlotGroup = FindAnimSlotGroup(GroupName);
+		SlotGroup->SlotNames.Remove(InSlotName);
+	}
+}
+
+void USkeleton::RemoveSlotGroup(const FName& InSlotGroupName)
+{
+	FAnimSlotGroup* SlotGroup = FindAnimSlotGroup(InSlotGroupName);
+	// Remove slot mappings
+	for(const FName& SlotName : SlotGroup->SlotNames)
+	{
+		SlotToGroupNameMap.Remove(SlotName);
+	}
+
+	// Remove group
+	SlotGroups.RemoveAll([&InSlotGroupName](const FAnimSlotGroup& Item)
+	{
+		return Item.GroupName == InSlotGroupName;
+	});
+}
+
+void USkeleton::RenameSlotName(const FName& OldName, const FName& NewName)
+{
+	// Can't rename a name that doesn't exist
+	check(ContainsSlotName(OldName))
+
+	FName GroupName = GetSlotGroupName(OldName);
+	RemoveSlotName(OldName);
+	SetSlotGroupName(NewName, GroupName);
 }
 
 void USkeleton::RegenerateGuid()
@@ -1246,5 +1264,6 @@ void USkeleton::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 
 	OutTags.Add(FAssetRegistryTag(USkeleton::RigTag, RigFullName, FAssetRegistryTag::TT_Hidden));
 }
+
 #endif //WITH_EDITOR
 #undef LOCTEXT_NAMESPACE 

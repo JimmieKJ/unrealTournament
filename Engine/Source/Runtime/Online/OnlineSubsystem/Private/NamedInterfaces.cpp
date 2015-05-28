@@ -22,7 +22,7 @@ void UNamedInterfaces::Initialize()
 			FNamedInterface& Interface = NamedInterfaces[AddIndex];
 			// Set the object and interface names
 			Interface.InterfaceName = Def.InterfaceName;
-			Interface.InterfaceObject = ConstructObject<UObject>(Class);
+			Interface.InterfaceObject = NewObject<UObject>(GetTransientPackage(), Class);
 			UE_LOG(LogOnline, Display,
 				TEXT("Created named interface (%s) of type (%s)"),
 				*Def.InterfaceName.ToString(),

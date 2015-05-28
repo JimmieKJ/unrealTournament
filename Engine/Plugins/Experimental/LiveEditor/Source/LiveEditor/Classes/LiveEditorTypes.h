@@ -70,5 +70,5 @@ class ULiveEditorTypes : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	ULiveEditorTypes(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer) {}
+	ULiveEditorTypes(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get()) : Super(ObjectInitializer) {}
 };

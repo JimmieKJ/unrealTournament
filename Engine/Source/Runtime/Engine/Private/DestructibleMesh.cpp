@@ -286,7 +286,7 @@ void FDestructibleSpecialHierarchyDepths::LoadDefaultDestructibleParametersFromA
 	verify(NxParameterized::getParamU32(*Params, "destructibleParameters.minimumFractureDepth", PMinimumFractureDepth));
 	MinimumFractureDepth = (int32)PMinimumFractureDepth;
 	verify(NxParameterized::getParamI32(*Params, "destructibleParameters.debrisDepth", DebrisDepth));
-	DebrisDepthToAPEX(bEnableDebris, DebrisDepth);
+	APEXToDebrisDepth(bEnableDebris, DebrisDepth);
 
 	physx::PxU32 PEssentialDepth;
 	verify(NxParameterized::getParamU32(*Params, "destructibleParameters.essentialDepth", PEssentialDepth));
@@ -457,7 +457,7 @@ void UDestructibleMesh::LoadDefaultDestructibleParametersFromApexAsset()
 		DefaultDestructibleParameters.DebrisParameters.LoadDefaultDestructibleParametersFromApexAsset(Params);
 		DefaultDestructibleParameters.SpecialHierarchyDepths.LoadDefaultDestructibleParametersFromApexAsset(Params);
 		DefaultDestructibleParameters.AdvancedParameters.LoadDefaultDestructibleParametersFromApexAsset(Params);
-		DefaultDestructibleParameters.DebrisParameters.LoadDefaultDestructibleParametersFromApexAsset(Params);
+		DefaultDestructibleParameters.DamageParameters.LoadDefaultDestructibleParametersFromApexAsset(Params);
 		DefaultDestructibleParameters.Flags.LoadDefaultDestructibleParametersFromApexAsset(Params);
 
 		// Depth parameters
@@ -479,7 +479,7 @@ void UDestructibleMesh::CreateFractureSettings()
 #if WITH_EDITORONLY_DATA
 	if (FractureSettings == NULL)
 	{
-		FractureSettings = CastChecked<UDestructibleFractureSettings>(StaticConstructObject(UDestructibleFractureSettings::StaticClass(), this));
+		FractureSettings = NewObject<UDestructibleFractureSettings>(this);
 		check(FractureSettings);
 	}
 #endif	// WITH_EDITORONLY_DATA

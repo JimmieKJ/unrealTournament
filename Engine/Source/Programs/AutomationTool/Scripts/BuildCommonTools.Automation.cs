@@ -25,7 +25,7 @@ public class BuildCommonTools : BuildCommand
 		foreach(string PlatformName in PlatformNames)
 		{
 			UnrealBuildTool.UnrealTargetPlatform Platform;
-			if(!UnrealBuildTool.UnrealTargetPlatform.TryParse(PlatformName, out Platform))
+			if(!UnrealBuildTool.UnrealTargetPlatform.TryParse(PlatformName, true, out Platform))
 			{
 				throw new AutomationException("Unknown platform specified on command line - '{0}' - valid platforms are {1}", PlatformName, String.Join("/", Enum.GetNames(typeof(UnrealBuildTool.UnrealTargetPlatform))));
 			}
@@ -146,6 +146,13 @@ public class BuildCommonTools : BuildCommand
 		if(Platforms.Contains(UnrealBuildTool.UnrealTargetPlatform.XboxOne))
 		{
 			Agenda.AddTarget("XboxOnePDBFileUtil", UnrealBuildTool.UnrealTargetPlatform.Win64, UnrealBuildTool.UnrealTargetConfiguration.Development);
+		}
+
+		// HTML5 binaries
+		if (Platforms.Contains(UnrealBuildTool.UnrealTargetPlatform.HTML5))
+		{
+			Agenda.DotNetProjects.Add(@"Engine/Source/Programs/HTML5/HTML5LaunchHelper/HTML5LaunchHelper.csproj");
+			ExtraBuildProducts.Add(CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, @"Engine/Binaries/DotNET/HTML5LaunchHelper.exe"));
 		}
 		
 		return Agenda;

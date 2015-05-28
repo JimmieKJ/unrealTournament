@@ -17,10 +17,14 @@ struct FPakCommandLineParameters
 	FPakCommandLineParameters()
 		: CompressionBlockSize(64*1024)
 		, FileSystemBlockSize(0)
+		, GeneratePatch(false)
 	{}
 
 	int32  CompressionBlockSize;
 	int64  FileSystemBlockSize;
+	bool   GeneratePatch;
+	FString SourcePatchPakFilename;
+	FString SourcePatchDiffDirectory;
 };
 
 struct FPakEntryPair
@@ -337,7 +341,7 @@ void ProcessOrderFile(int32 ArgC, TCHAR* ArgV[], TMap<FString, uint64>& OrderMap
 		{
 			// Read all lines
 			TArray<FString> Lines;
-			Text.ParseIntoArray(&Lines, TEXT("\n"), true);
+			Text.ParseIntoArray(Lines, TEXT("\n"), true);
 			for (int32 EntryIndex = 0; EntryIndex < Lines.Num(); EntryIndex++)
 			{
 				Lines[EntryIndex].ReplaceInline(TEXT("\r"), TEXT(""));
@@ -408,18 +412,12 @@ void ProcessCommandLine(int32 ArgC, TCHAR* ArgV[], TArray<FPakInputPair>& Entrie
 
 	if (FParse::Value(FCommandLine::Get(), TEXT("-create="), ResponseFile))
 	{
-		bool bCompress = false;
-		bool bEncrypt = false;
 		TArray<FString> Lines;
 
-		if (FParse::Param(FCommandLine::Get(), TEXT("compress")))
-		{
-			bCompress = true;
-		}
-		if (FParse::Param(FCommandLine::Get(), TEXT("encrypt")))
-		{
-			bEncrypt = true;
-		}
+		CmdLineParameters.GeneratePatch = FParse::Value(FCommandLine::Get(), TEXT("-generatepatch="), CmdLineParameters.SourcePatchPakFilename);
+
+		bool bCompress = FParse::Param(FCommandLine::Get(), TEXT("compress"));
+		bool bEncrypt = FParse::Param(FCommandLine::Get(), TEXT("encrypt"));
 
 		if (IFileManager::Get().DirectoryExists(*ResponseFile))
 		{
@@ -434,7 +432,7 @@ void ProcessCommandLine(int32 ArgC, TCHAR* ArgV[], TArray<FPakInputPair>& Entrie
 				// Remove all carriage return characters.
 				Text.ReplaceInline(TEXT("\r"), TEXT(""));
 				// Read all lines
-				Text.ParseIntoArray(&Lines, TEXT("\n"), true);
+				Text.ParseIntoArray(Lines, TEXT("\n"), true);
 			}
 			else
 			{
@@ -697,7 +695,7 @@ FArchive* CreatePakWriter(const TCHAR* Filename)
 		if (KeyFilename.StartsWith(TEXT("0x")))
 		{
 			TArray<FString> KeyValueText;
-			if (KeyFilename.ParseIntoArray(&KeyValueText, TEXT("+"), true) == 3)
+			if (KeyFilename.ParseIntoArray(KeyValueText, TEXT("+"), true) == 3)
 			{
 				Pair.PrivateKey.Exponent.Parse(KeyValueText[0]);
 				Pair.PrivateKey.Modulus.Parse(KeyValueText[1]);
@@ -767,10 +765,21 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 		{
 			if (CompressedFileBuffer.CompressFileToWorkingBuffer(FilesToAdd[FileIndex], ReadBuffer, BufferSize, CompressionMethod, CmdLineParameters.CompressionBlockSize))
 			{
-				NewEntry.Info.CompressionMethod = CompressionMethod;
-				NewEntry.Info.CompressionBlocks.AddUninitialized(CompressedFileBuffer.CompressedBlocks.Num());
-				RealFileSize = CompressedFileBuffer.TotalCompressedSize + NewEntry.Info.GetSerializedSize(FPakInfo::PakFile_Version_Latest);
-				NewEntry.Info.CompressionBlocks.Reset();
+				// Check the compression ratio, if it's too low just store uncompressed. Also take into account read size
+				// if we still save 64KB it's probably worthwhile compressing, as that saves a file read operation in the runtime.
+				// TODO: drive this threashold from the command line
+				float PercentLess = ((float)CompressedFileBuffer.TotalCompressedSize/(OriginalFileSize/100.f));
+				if (PercentLess > 90.f && (OriginalFileSize-CompressedFileBuffer.TotalCompressedSize) < 65536)
+				{
+					CompressionMethod = COMPRESS_None;
+				}
+				else
+				{
+					NewEntry.Info.CompressionMethod = CompressionMethod;
+					NewEntry.Info.CompressionBlocks.AddUninitialized(CompressedFileBuffer.CompressedBlocks.Num());
+					RealFileSize = CompressedFileBuffer.TotalCompressedSize + NewEntry.Info.GetSerializedSize(FPakInfo::PakFile_Version_Latest);
+					NewEntry.Info.CompressionBlocks.Reset();
+				}
 			}
 		}
 
@@ -800,9 +809,10 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 			// Update offset now and store it in the index (and only in index)
 			NewEntry.Info.Offset = NewEntryOffset;
 			Index.Add(NewEntry);
-			if (FilesToAdd[FileIndex].bNeedsCompression)
+			if (FilesToAdd[FileIndex].bNeedsCompression && CompressionMethod != COMPRESS_None)
 			{
-				UE_LOG(LogPakFile, Display, TEXT("Added compressed file \"%s\", Compressed Size %lld bytes, Original Size %lld bytes."), *NewEntry.Filename, NewEntry.Info.Size, NewEntry.Info.UncompressedSize);
+				float PercentLess = ((float)NewEntry.Info.Size/(NewEntry.Info.UncompressedSize/100.f));
+				UE_LOG(LogPakFile, Display, TEXT("Added compressed file \"%s\", %.2f%% of original size. Compressed Size %lld bytes, Original Size %lld bytes. "), *NewEntry.Filename, PercentLess, NewEntry.Info.Size, NewEntry.Info.UncompressedSize);
 			}
 			else
 			{
@@ -931,7 +941,7 @@ bool ListFilesInPak(const TCHAR * InPakFilename)
 	}
 }
 
-bool ExtractFilesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPath)
+bool ExtractFilesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPath, bool bUseMountPoint = false)
 {
 	FPakFile PakFile(InPakFilename, FParse::Param(FCommandLine::Get(), TEXT("signed")));
 	if (PakFile.IsValid())
@@ -945,6 +955,8 @@ bool ExtractFilesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPath)
 		int32 ErrorCount = 0;
 		int32 FileCount = 0;
 
+		FString PakMountPoint = bUseMountPoint ? PakFile.GetMountPoint().Replace( TEXT("../../../"), TEXT("")) : TEXT("");
+
 		for (FPakFile::FFileIterator It(PakFile); It; ++It, ++FileCount)
 		{
 			const FPakEntry& Entry = It.Info();
@@ -954,7 +966,8 @@ bool ExtractFilesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPath)
 			EntryInfo.Serialize(PakReader, PakFile.GetInfo().Version);
 			if (EntryInfo == Entry)
 			{
-				FString DestFilename(DestPath / It.Filename());
+				FString DestFilename(DestPath / PakMountPoint /  It.Filename());
+
 				TAutoPtr<FArchive> FileHandle(IFileManager::Get().CreateFileWriter(*DestFilename));
 				if (FileHandle.IsValid())
 				{
@@ -991,6 +1004,84 @@ bool ExtractFilesFromPak(const TCHAR* InPakFilename, const TCHAR* InDestPath)
 	{
 		UE_LOG(LogPakFile, Error, TEXT("Unable to open pak file \"%s\"."), InPakFilename);
 		return false;
+	}
+}
+
+bool GenerateHashForFile( FString Filename, uint8 FileHash[16])
+{
+	FArchive* File = IFileManager::Get().CreateFileReader(*Filename);
+
+	if ( File == NULL )
+		return false;
+
+	uint64 TotalSize = File->TotalSize();
+
+	uint8* ByteBuffer = new uint8[TotalSize];
+
+	File->Serialize(ByteBuffer, TotalSize);
+
+	delete File;
+	File = NULL;
+
+	FMD5 FileHasher;
+	FileHasher.Update(ByteBuffer, TotalSize);
+
+	delete[] ByteBuffer;
+
+	FileHasher.Final(FileHash);
+
+	return true;
+
+
+	// uint8 DestFileHash[20];
+
+}
+
+
+void RemoveIdenticalFiles( TArray<FPakInputPair>& FilesToPak, const FString& SourceDirectory )
+{
+	for ( int I = FilesToPak.Num()-1; I >= 0; --I )
+	{
+		const auto& NewFile = FilesToPak[I]; 
+
+		FString SourceFilename = SourceDirectory / NewFile.Dest.Replace(TEXT("../../../"), TEXT(""));
+		int64 SourceTotalSize = IFileManager::Get().FileSize(*SourceFilename);
+
+		FString DestFilename = NewFile.Source;
+		int64 DestTotalSize = IFileManager::Get().FileSize(*DestFilename);
+		
+		if ( SourceTotalSize != DestTotalSize )
+		{
+			// file size doesn't match 
+			UE_LOG(LogPakFile, Display, TEXT("Source file size for %s %d bytes doesn't match %s %d bytes"), *SourceFilename, SourceTotalSize, *DestFilename, DestTotalSize);
+			continue;
+		}
+
+		uint8 SourceFileHash[16];
+		if ( GenerateHashForFile(SourceFilename, SourceFileHash) == false )
+		{
+			// file size doesn't match 
+			UE_LOG(LogPakFile, Display, TEXT("Source file size %s doesn't exist will be included in build"), *SourceFilename);
+			continue;
+		}
+		uint8 DestFileHash[16];
+		if ( GenerateHashForFile( DestFilename, DestFileHash ) == false )
+		{
+			// destination file was removed don't really care about it
+			UE_LOG(LogPakFile, Display, TEXT("File was removed from destination cooked content %s not included in patch"), *DestFilename);
+			continue;
+		}
+
+		int32 Diff = FMemory::Memcmp( SourceFileHash, DestFileHash, sizeof( DestFileHash ) );
+		if ( Diff != 0 )
+		{
+			UE_LOG(LogPakFile, Display, TEXT("Source file hash for %s doesn't match dest file hash %s and will be included in patch"), *SourceFilename, *DestFilename);
+			continue;
+		}
+
+		UE_LOG(LogPakFile, Display, TEXT("Source file %s matches dest file %s and will not be included in patch"), *SourceFilename, *DestFilename);
+		// remove fromt eh files to pak list
+		FilesToPak.RemoveAt(I);
 	}
 }
 
@@ -1077,9 +1168,32 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 			}
 			else
 			{
+				if ( CmdLineParameters.GeneratePatch )
+				{
+					FString OutputPath = FPaths::GetPath(PakFilename) / FString(TEXT("TempFiles"));
+
+					IFileManager::Get().DeleteDirectory(*OutputPath);
+
+					UE_LOG(LogPakFile, Display, TEXT("Generating patch from %s."), *CmdLineParameters.SourcePatchPakFilename );
+
+					if ( ExtractFilesFromPak( *CmdLineParameters.SourcePatchPakFilename, *OutputPath, true ) == false )
+					{
+						UE_LOG(LogPakFile, Error, TEXT("Unable to extract files from source pak file for patch") );
+					}
+					CmdLineParameters.SourcePatchDiffDirectory = OutputPath;
+				}
+
+
 				// Start collecting files
 				TArray<FPakInputPair> FilesToAdd;
 				CollectFilesToAdd(FilesToAdd, Entries, OrderMap);
+
+				if ( CmdLineParameters.GeneratePatch )
+				{
+					// if we are generating a patch here we remove files which are already shipped...
+					RemoveIdenticalFiles(FilesToAdd, CmdLineParameters.SourcePatchDiffDirectory);
+				}
+
 
 				Result = CreatePakFile(*PakFilename, FilesToAdd, CmdLineParameters) ? 0 : 1;
 			}

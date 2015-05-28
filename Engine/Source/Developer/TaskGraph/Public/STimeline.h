@@ -35,7 +35,7 @@ public:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	FVector2D ComputeDesiredSize() const override;
+	FVector2D ComputeDesiredSize(float) const override;
 	// End of SWidget interface
 
 	/**

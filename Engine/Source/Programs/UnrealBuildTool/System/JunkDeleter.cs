@@ -17,7 +17,7 @@ namespace UnrealBuildTool
 		{
 			var JunkStartTime = DateTime.UtcNow;
 
-			if (UnrealBuildTool.RunningRocket() == false)
+			if (UnrealBuildTool.IsEngineInstalled() == false)
 			{
 				List<string> JunkManifest = LoadJunkManifest();
 				DeleteAllJunk(JunkManifest);
@@ -89,7 +89,9 @@ namespace UnrealBuildTool
 							if (bIsValidJunkLine)
 							{
 								// the entry is always the last element in the token array (after the final :)
-								JunkManifest.Add(Path.Combine(CurrentToRootDir, Tokens[Tokens.Length - 1]));
+								string FixedPath = Path.Combine(CurrentToRootDir, Tokens[Tokens.Length - 1]);
+								FixedPath = FixedPath.Replace('\\', Path.DirectorySeparatorChar);
+								JunkManifest.Add(FixedPath);
 							}
 						}
 					}

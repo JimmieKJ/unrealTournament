@@ -89,9 +89,9 @@ FColor FLinearColor::ToFColor(const bool bSRGB) const
 
 	if(bSRGB)
 	{
-		FloatR = FMath::Pow(FloatR, 1.0f / 2.2f);
-		FloatG = FMath::Pow(FloatG, 1.0f / 2.2f);
-		FloatB = FMath::Pow(FloatB, 1.0f / 2.2f);
+		FloatR = FloatR <= 0.0031308f ? FloatR * 12.92f : FMath::Pow( FloatR, 1.0f / 2.4f ) * 1.055f - 0.055f;
+		FloatG = FloatG <= 0.0031308f ? FloatG * 12.92f : FMath::Pow( FloatG, 1.0f / 2.4f ) * 1.055f - 0.055f;
+		FloatB = FloatB <= 0.0031308f ? FloatB * 12.92f : FMath::Pow( FloatB, 1.0f / 2.4f ) * 1.055f - 0.055f;
 	}
 
 	FColor ret;
@@ -255,6 +255,47 @@ FLinearColor FLinearColor::HSVToLinearRGB() const
 						A);
 }
 
+
+FLinearColor FLinearColor::LerpUsingHSV( const FLinearColor& From, const FLinearColor& To, const float Progress )
+{
+	const FLinearColor FromHSV = From.LinearRGBToHSV();
+	const FLinearColor ToHSV = To.LinearRGBToHSV();
+
+	float FromHue = FromHSV.R;
+	float ToHue = ToHSV.R;
+
+	// Take the shortest path to the new hue
+	if( FMath::Abs( FromHue - ToHue ) > 180.0f )
+	{
+		if( ToHue > FromHue )
+		{
+			FromHue += 360.0f;
+		}
+		else
+		{
+			ToHue += 360.0f;
+		}
+	}
+
+	float NewHue = FMath::Lerp( FromHue, ToHue, Progress );
+
+	NewHue = FMath::Fmod( NewHue, 360.0f );
+	if( NewHue < 0.0f )
+	{
+		NewHue += 360.0f;
+	}
+
+	const float NewSaturation = FMath::Lerp( FromHSV.G, ToHSV.G, Progress );
+	const float NewValue = FMath::Lerp( FromHSV.B, ToHSV.B, Progress );
+	FLinearColor Interpolated = FLinearColor( NewHue, NewSaturation, NewValue ).HSVToLinearRGB();
+
+	const float NewAlpha = FMath::Lerp( From.A, To.A, Progress );
+	Interpolated.A = NewAlpha;
+
+	return Interpolated;
+}
+
+
 /**
 * Makes a random but quite nice color.
 */
@@ -269,16 +310,43 @@ FColor FColor::MakeRandomColor()
 	return FColor(FLinearColor::MakeRandomColor());
 }
 
+FLinearColor FLinearColor::MakeFromColorTemperature( float Temp )
+{
+	Temp = FMath::Clamp( Temp, 1000.0f, 15000.0f );
+
+	// Approximate Planckian locus in CIE 1960 UCS
+	float u = ( 0.860117757f + 1.54118254e-4f * Temp + 1.28641212e-7f * Temp*Temp ) / ( 1.0f + 8.42420235e-4f * Temp + 7.08145163e-7f * Temp*Temp );
+	float v = ( 0.317398726f + 4.22806245e-5f * Temp + 4.20481691e-8f * Temp*Temp ) / ( 1.0f - 2.89741816e-5f * Temp + 1.61456053e-7f * Temp*Temp );
+
+	float x = 3.0f * u / ( 2.0f * u - 8.0f * v + 4.0f );
+	float y = 2.0f * v / ( 2.0f * u - 8.0f * v + 4.0f );
+	float z = 1.0f - x - y;
+
+	float Y = 1.0f;
+	float X = Y/y * x;
+	float Z = Y/y * z;
+
+	// XYZ to RGB with BT.709 primaries
+	float R =  3.2404542f * X + -1.5371385f * Y + -0.4985314f * Z;
+	float G = -0.9692660f * X +  1.8760108f * Y +  0.0415560f * Z;
+	float B =  0.0556434f * X + -0.2040259f * Y +  1.0572252f * Z;
+
+	return FLinearColor(R,G,B);
+}
+
+FColor FColor::MakeFromColorTemperature( float Temp )
+{
+	return FLinearColor::MakeFromColorTemperature( Temp ).ToFColor( true );
+}
+
 FColor FColor::MakeRedToGreenColorFromScalar(float Scalar)
 {
-	int32 R,G,B;
-	R=G=B=0;
-
 	float RedSclr = FMath::Clamp<float>((1.0f - Scalar)/0.5f,0.f,1.f);
 	float GreenSclr = FMath::Clamp<float>((Scalar/0.5f),0.f,1.f);
-	R = FMath::TruncToInt(255 * RedSclr);
-	G = FMath::TruncToInt(255 * GreenSclr);
-	return FColor(R,G,B);
+	int32 R = FMath::TruncToInt(255 * RedSclr);
+	int32 G = FMath::TruncToInt(255 * GreenSclr);
+	int32 B = 0;
+	return FColor(R, G, B);
 }
 
 void ComputeAndFixedColorAndIntensity(const FLinearColor& InLinearColor,FColor& OutColor,float& OutIntensity)

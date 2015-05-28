@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "Paper2DEditorPrivatePCH.h"
+#include "PaperFlipbookComponent.h"
 #include "FlipbookEditor.h"
 #include "SSingleObjectDetailsPanel.h"
 #include "SceneViewport.h"
@@ -59,6 +60,7 @@ public:
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() override;
 	virtual TSharedPtr<SWidget> MakeViewportToolbar() override;
 	virtual EVisibility GetTransformToolbarVisibility() const override;
+	virtual void OnFocusViewportToSelection() override;
 	// End of SEditorViewport interface
 
 	// ICommonEditorViewportToolbarInfoProvider interface
@@ -77,10 +79,6 @@ private:
 
 	// Viewport client
 	TSharedPtr<FFlipbookEditorViewportClient> EditorViewportClient;
-
-private:
-	// Returns true if the viewport is visible
-	bool IsVisible() const;
 };
 
 void SFlipbookEditorViewport::Construct(const FArguments& InArgs)
@@ -121,20 +119,19 @@ void SFlipbookEditorViewport::BindCommands()
 		FExecuteAction::CreateSP( EditorViewportClientRef, &FFlipbookEditorViewportClient::ToggleShowPivot ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( EditorViewportClientRef, &FFlipbookEditorViewportClient::IsShowPivotChecked ) );
+
+	CommandList->MapAction(
+		Commands.SetShowSockets,
+		FExecuteAction::CreateSP( EditorViewportClientRef, &FFlipbookEditorViewportClient::ToggleShowSockets ),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP( EditorViewportClientRef, &FFlipbookEditorViewportClient::IsShowSocketsChecked ) );
 }
 
 TSharedRef<FEditorViewportClient> SFlipbookEditorViewport::MakeEditorViewportClient()
 {
 	EditorViewportClient = MakeShareable(new FFlipbookEditorViewportClient(FlipbookBeingEdited));
 
-	EditorViewportClient->VisibilityDelegate.BindSP(this, &SFlipbookEditorViewport::IsVisible);
-
 	return EditorViewportClient.ToSharedRef();
-}
-
-bool SFlipbookEditorViewport::IsVisible() const
-{
-	return true;//@TODO: Determine this better so viewport ticking optimizations can take place
 }
 
 TSharedPtr<SWidget> SFlipbookEditorViewport::MakeViewportToolbar()
@@ -144,8 +141,12 @@ TSharedPtr<SWidget> SFlipbookEditorViewport::MakeViewportToolbar()
 
 EVisibility SFlipbookEditorViewport::GetTransformToolbarVisibility() const
 {
-	// Nothing to transform in the flipbook editor, yet...
-	return EVisibility::Hidden;
+	return EVisibility::Visible;
+}
+
+void SFlipbookEditorViewport::OnFocusViewportToSelection()
+{
+	EditorViewportClient->RequestFocusOnSelection(/*bInstant=*/ false);
 }
 
 TSharedRef<class SEditorViewport> SFlipbookEditorViewport::GetViewportWidget()
@@ -180,7 +181,7 @@ public:
 	{
 		FlipbookEditorPtr = InFlipbookEditor;
 
-		SSingleObjectDetailsPanel::Construct(SSingleObjectDetailsPanel::FArguments(), /*bAutomaticallyObserveViaGetObjectToObserve=*/ true, /*bAllowSearch=*/ true);
+		SSingleObjectDetailsPanel::Construct(SSingleObjectDetailsPanel::FArguments().HostCommandList(InFlipbookEditor->GetToolkitCommands()), /*bAutomaticallyObserveViaGetObjectToObserve=*/ true, /*bAllowSearch=*/ true);
 	}
 
 	// SSingleObjectDetailsPanel interface
@@ -246,25 +247,7 @@ TSharedRef<SDockTab> FFlipbookEditor::SpawnTab_Viewport(const FSpawnTabArgs& Arg
 			
 			+SVerticalBox::Slot()
 			[
-				SNew(SOverlay)
-
-				// The sprite editor viewport
-				+SOverlay::Slot()
-				[
-					ViewportPtr.ToSharedRef()
-				]
-
-				// Bottom-right corner text indicating the preview nature of the sprite editor
-				+SOverlay::Slot()
-				.Padding(10)
-				.VAlign(VAlign_Bottom)
-				.HAlign(HAlign_Right)
-				[
-					SNew(STextBlock)
-					.Visibility( EVisibility::HitTestInvisible )
-					.TextStyle( FEditorStyle::Get(), "Graph.CornerText" )
-					.Text(LOCTEXT("FlipbookEditorViewportExperimentalWarning", "Early access preview"))
-				]
+				ViewportPtr.ToSharedRef()
 			]
 
 			+SVerticalBox::Slot()
@@ -411,6 +394,9 @@ void FFlipbookEditor::BindCommands()
 	UICommandList->MapAction(Commands.AddNewFrameAfter,
 		FExecuteAction::CreateSP(this, &FFlipbookEditor::AddNewKeyFrameAfter),
 		FCanExecuteAction());
+
+	UICommandList->MapAction(Commands.AddKeyFrame,
+		FExecuteAction::CreateSP(this, &FFlipbookEditor::AddKeyFrameAtCurrentTime));
 }
 
 FName FFlipbookEditor::GetToolkitFName() const
@@ -465,11 +451,7 @@ void FFlipbookEditor::ExtendToolbar()
 		{
 			ToolbarBuilder.BeginSection("Command");
 			{
-				ToolbarBuilder.AddToolBarButton(FFlipbookEditorCommands::Get().SetShowGrid);
-				ToolbarBuilder.AddToolBarButton(FFlipbookEditorCommands::Get().SetShowBounds);
-				ToolbarBuilder.AddToolBarButton(FFlipbookEditorCommands::Get().SetShowCollision);
-
-				ToolbarBuilder.AddToolBarButton(FFlipbookEditorCommands::Get().SetShowPivot);
+				ToolbarBuilder.AddToolBarButton(FFlipbookEditorCommands::Get().AddKeyFrame);
 			}
 			ToolbarBuilder.EndSection();
 		}
@@ -480,7 +462,7 @@ void FFlipbookEditor::ExtendToolbar()
 	ToolbarExtender->AddToolBarExtension(
 		"Asset",
 		EExtensionHook::After,
-		ViewportPtr->GetCommandList(),
+		/*ViewportPtr->GetCommandList()*/ GetToolkitCommands(),
 		FToolBarExtensionDelegate::CreateStatic( &Local::FillToolbar )
 		);
 
@@ -520,6 +502,20 @@ void FFlipbookEditor::DuplicateSelection()
 	}
 }
 
+void FFlipbookEditor::AddKeyFrameAtCurrentTime()
+{
+	const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrame", "Insert Key Frame"));
+	FlipbookBeingEdited->Modify();
+
+	const float CurrentTime = GetPlaybackPosition();
+	const int32 KeyFrameIndex = FlipbookBeingEdited->GetKeyFrameIndexAtTime(CurrentTime);
+	const int32 ClampedIndex = FMath::Clamp<int32>(KeyFrameIndex, 0, FlipbookBeingEdited->GetNumFrames());
+
+	FScopedFlipbookMutator EditLock(FlipbookBeingEdited);
+	FPaperFlipbookKeyFrame NewFrame;
+	EditLock.KeyFrames.Insert(NewFrame, ClampedIndex);
+}
+
 void FFlipbookEditor::AddNewKeyFrameAtEnd()
 {
 	const FScopedTransaction Transaction(LOCTEXT("AddKeyFrame", "Add Key Frame"));
@@ -534,7 +530,7 @@ void FFlipbookEditor::AddNewKeyFrameBefore()
 {
 	if (FlipbookBeingEdited->IsValidKeyFrameIndex(CurrentSelectedKeyframe))
 	{
-		const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrame", "Insert Key Frame"));
+		const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrameBefore", "Insert Key Frame Before"));
 		FlipbookBeingEdited->Modify();
 
 		FScopedFlipbookMutator EditLock(FlipbookBeingEdited);
@@ -550,7 +546,7 @@ void FFlipbookEditor::AddNewKeyFrameAfter()
 {
 	if (FlipbookBeingEdited->IsValidKeyFrameIndex(CurrentSelectedKeyframe))
 	{
-		const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrame", "Insert Key Frame"));
+		const FScopedTransaction Transaction(LOCTEXT("InsertKeyFrameAfter", "Insert Key Frame After"));
 		FlipbookBeingEdited->Modify();
 
 		FScopedFlipbookMutator EditLock(FlipbookBeingEdited);

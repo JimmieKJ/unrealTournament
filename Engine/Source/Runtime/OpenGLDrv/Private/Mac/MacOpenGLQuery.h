@@ -5,10 +5,13 @@
 #include "SharedPointer.h"
 #include "MacOpenGLContext.h"
 
+class FMacOpenGLQueryEmu;
+typedef TMap<GLenum, TArray<GLuint>> FOpenGLQueryCache;
+
 class FMacOpenGLTimer : public TSharedFromThis<FMacOpenGLTimer, ESPMode::Fast>
 {
 public:
-	FMacOpenGLTimer(FPlatformOpenGLContext* InContext);
+	FMacOpenGLTimer(FPlatformOpenGLContext* InContext, FMacOpenGLQueryEmu* InEmu);
 	virtual ~FMacOpenGLTimer();
 	
 	void Begin(void);
@@ -26,6 +29,7 @@ private:
 	
 private:
 	FPlatformOpenGLContext* Context;
+	FMacOpenGLQueryEmu* Emu;
 	uint32 Name;
 	uint64 Result;
 	uint64 Accumulated;
@@ -37,7 +41,7 @@ private:
 class FMacOpenGLQuery : public TSharedFromThis<FMacOpenGLQuery, ESPMode::Fast>
 {
 public:
-	FMacOpenGLQuery(FPlatformOpenGLContext* InContext);
+	FMacOpenGLQuery(FPlatformOpenGLContext* InContext, FMacOpenGLQueryEmu* InEmu);
 	virtual ~FMacOpenGLQuery();
 	
 	void Begin(GLenum InTarget);
@@ -50,6 +54,7 @@ public:
 	
 private:
 	FPlatformOpenGLContext* Context;
+	FMacOpenGLQueryEmu* Emu;
 	uint64 Result;
 	uint32 Available;
 	bool Running;
@@ -61,6 +66,7 @@ private:
 class FMacOpenGLQueryEmu
 {
 	friend class FMacOpenGLQuery;
+	friend class FMacOpenGLTimer;
 public:
 	FMacOpenGLQueryEmu(FPlatformOpenGLContext* InContext);
 	~FMacOpenGLQueryEmu();
@@ -71,9 +77,10 @@ public:
 	void DeleteQuery(GLuint const QueryID);
 	void BeginQuery(GLenum const QueryType, GLuint const QueryID);
 	void EndQuery(GLenum const QueryType);
-	
+
 private:
 	FPlatformOpenGLContext* PlatformContext;
+	FOpenGLQueryCache FreeQueries;
 	TArray<TSharedPtr<FMacOpenGLQuery, ESPMode::Fast>> Queries;
 	TMap<GLenum, TSharedPtr<FMacOpenGLQuery, ESPMode::Fast>> RunningQueries;
 	TSharedPtr<FMacOpenGLTimer, ESPMode::Fast> LastTimer;

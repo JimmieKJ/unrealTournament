@@ -110,8 +110,6 @@ void SToolBarComboButtonBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet
 		Label = ToolBarComboButtonBlock->Label;
 	}
 
-	bool bBool = TEXT("Bool");
-
 	// Setup the string for the metatag
 	FName TagName;
 	if (ToolBarComboButtonBlock->GetTutorialHighlightName() == NAME_None)

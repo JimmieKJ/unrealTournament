@@ -4,14 +4,22 @@
 #include "PaperTileMapRenderSceneProxy.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PaperCustomVersion.h"
+#include "Engine/Canvas.h"
+#include "PaperTileMapComponent.h"
+#include "PaperTileMap.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
+
+DECLARE_CYCLE_STAT(TEXT("Rebuild Tile Map"), STAT_PaperRender_TileMapRebuild, STATGROUP_Paper2D);
 
 //////////////////////////////////////////////////////////////////////////
 // UPaperTileMapComponent
 
 UPaperTileMapComponent::UPaperTileMapComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, TileMapColor(FLinearColor::White)
+	, UseSingleLayerIndex(0)
+	, bUseSingleLayer(false)
 {
 	BodyInstance.SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 
@@ -20,17 +28,36 @@ UPaperTileMapComponent::UPaperTileMapComponent(const FObjectInitializer& ObjectI
 	TileWidth_DEPRECATED = 32;
 	TileHeight_DEPRECATED = 32;
 
-	static ConstructorHelpers::FObjectFinder<UMaterial> DefaultMaterial(TEXT("/Paper2D/DefaultSpriteMaterial"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DefaultMaterial(TEXT("/Paper2D/MaskedUnlitSpriteMaterial"));
 	Material_DEPRECATED = DefaultMaterial.Object;
 
 	CastShadow = false;
 	bUseAsOccluder = false;
+	bCanEverAffectNavigation = true;
+
+#if WITH_EDITORONLY_DATA
+	bShowPerTileGridWhenSelected = true;
+	bShowPerLayerGridWhenSelected = true;
+	bShowOutlineWhenUnselected = true;
+#endif
+
+#if WITH_EDITOR
+	NumBatches = 0;
+	NumTriangles = 0;
+#endif
 }
 
 FPrimitiveSceneProxy* UPaperTileMapComponent::CreateSceneProxy()
 {
-	FPaperTileMapRenderSceneProxy* Proxy = new FPaperTileMapRenderSceneProxy(this);
-	RebuildRenderData(Proxy);
+	SCOPE_CYCLE_COUNTER(STAT_PaperRender_TileMapRebuild);
+
+	TArray<FSpriteRenderSection>* Sections;
+	TArray<FPaperSpriteVertex>* Vertices;
+	FPaperTileMapRenderSceneProxy* Proxy = FPaperTileMapRenderSceneProxy::CreateTileMapProxy(this, /*out*/ Sections, /*out*/ Vertices);
+
+	RebuildRenderData(*Sections, *Vertices);
+
+	Proxy->FinishConstruction_GameThread();
 
 	return Proxy;
 }
@@ -71,13 +98,6 @@ FBoxSphereBounds UPaperTileMapComponent::CalcBounds(const FTransform& LocalToWor
 	}
 }
 
-void UPaperTileMapComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	// Indicate we need to send new dynamic data.
-	MarkRenderDynamicDataDirty();
-}
-
-#if WITH_EDITORONLY_DATA
 void UPaperTileMapComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -89,7 +109,6 @@ void UPaperTileMapComponent::PostLoad()
 {
 	Super::PostLoad();
 
-#if WITH_EDITORONLY_DATA
 	if (GetLinkerCustomVersion(FPaperCustomVersion::GUID) < FPaperCustomVersion::MovedTileMapDataToSeparateClass)
 	{
 		// Create a tile map object and move our old properties over to it
@@ -99,7 +118,7 @@ void UPaperTileMapComponent::PostLoad()
 		TileMap->MapHeight = MapHeight_DEPRECATED;
 		TileMap->TileWidth = TileWidth_DEPRECATED;
 		TileMap->TileHeight = TileHeight_DEPRECATED;
-		TileMap->PixelsPerUnit = 1.0f;
+		TileMap->PixelsPerUnrealUnit = 1.0f;
 		TileMap->SelectedTileSet = DefaultLayerTileSet_DEPRECATED;
 		TileMap->Material = Material_DEPRECATED;
 		TileMap->TileLayers = TileLayers_DEPRECATED;
@@ -116,7 +135,24 @@ void UPaperTileMapComponent::PostLoad()
 		Material_DEPRECATED = nullptr;
 		TileLayers_DEPRECATED.Empty();
 	}
-#endif
+}
+
+#if WITH_EDITOR
+void UPaperTileMapComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (TileMap != nullptr)
+	{
+		if (TileMap->TileLayers.Num() > 0)
+		{
+			UseSingleLayerIndex = FMath::Clamp(UseSingleLayerIndex, 0, TileMap->TileLayers.Num() - 1);
+		}
+		else
+		{
+			UseSingleLayerIndex = 0;
+		}
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif
 
@@ -137,9 +173,12 @@ void UPaperTileMapComponent::GetUsedTextures(TArray<UTexture*>& OutTextures, EMa
 				for (int32 X = 0; X < TileMap->MapWidth; ++X)
 				{
 					FPaperTileInfo TileInfo = Layer->GetCell(X, Y);
-					if (TileInfo.IsValid() && (TileInfo.TileSet != nullptr) && (TileInfo.TileSet->TileSheet != nullptr))
+					if (TileInfo.IsValid() && (TileInfo.TileSet != nullptr))
 					{
-						OutTextures.AddUnique(TileInfo.TileSet->TileSheet);
+						if (UTexture2D* TileSheet = TileInfo.TileSet->GetTileSheetTexture())
+						{
+							OutTextures.AddUnique(TileSheet);
+						}
 					}
 				}
 			}
@@ -182,14 +221,26 @@ const UObject* UPaperTileMapComponent::AdditionalStatObject() const
 	return nullptr;
 }
 
-void UPaperTileMapComponent::RebuildRenderData(FPaperTileMapRenderSceneProxy* Proxy)
+void UPaperTileMapComponent::RebuildRenderData(TArray<FSpriteRenderSection>& Sections, TArray<FPaperSpriteVertex>& Vertices)
 {
-	TArray<FSpriteDrawCallRecord> BatchedSprites;
-	
 	if (TileMap == nullptr)
 	{
 		return;
 	}
+
+	// Handles the rotation and flipping of UV coordinates in a tile
+	// 0123 = BL BR TR TL
+	const static uint8 PermutationTable[8][4] = 
+	{
+		{0, 1, 2, 3}, // 000 - normal
+		{2, 1, 0, 3}, // 001 - diagonal
+		{3, 2, 1, 0}, // 010 - flip Y
+		{3, 0, 1, 2}, // 011 - diagonal then flip Y
+		{1, 0, 3, 2}, // 100 - flip X
+		{1, 2, 3, 0}, // 101 - diagonal then flip X
+		{2, 3, 0, 1}, // 110 - flip X and flip Y
+		{0, 3, 2, 1}  // 111 - diagonal then flip X and Y
+	};
 
 	FVector CornerOffset;
 	FVector OffsetYFactor;
@@ -203,7 +254,33 @@ void UPaperTileMapComponent::RebuildRenderData(FPaperTileMapRenderSceneProxy* Pr
 	FVector2D SourceDimensionsUV(1.0f, 1.0f);
 	FVector2D TileSizeXY(0.0f, 0.0f);
 
-	for (int32 Z = 0; Z < TileMap->TileLayers.Num(); ++Z)
+	const float UnrealUnitsPerPixel = TileMap->GetUnrealUnitsPerPixel();
+
+
+	// Run thru the layers and estimate how big of an allocation we will need
+	int32 EstimatedNumVerts = 0;
+
+	for (int32 Z = TileMap->TileLayers.Num() - 1; Z >= 0; --Z)
+	{
+		UPaperTileLayer* Layer = TileMap->TileLayers[Z];
+
+		if ((Layer != nullptr) && (!bUseSingleLayer || (Z == UseSingleLayerIndex)))
+		{
+			const int32 NumOccupiedCells = Layer->GetNumOccupiedCells();
+			EstimatedNumVerts += 6 * NumOccupiedCells;
+		}
+	}
+
+ 	Vertices.Empty(EstimatedNumVerts);
+
+	UMaterialInterface* TileMapMaterial = GetMaterial(0);
+	if (TileMapMaterial == nullptr)
+	{
+		TileMapMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
+	}
+
+	// Actual pass
+	for (int32 Z = TileMap->TileLayers.Num() - 1; Z >= 0; --Z)
 	{
 		UPaperTileLayer* Layer = TileMap->TileLayers[Z];
 
@@ -212,17 +289,29 @@ void UPaperTileMapComponent::RebuildRenderData(FPaperTileMapRenderSceneProxy* Pr
 			continue;
 		}
 
-		FLinearColor DrawColor = FLinearColor::White;
+		if (bUseSingleLayer)
+		{
+			if (Z != UseSingleLayerIndex)
+			{
+				continue;
+			}
+		}
+
+		const FColor DrawColor(TileMapColor * Layer->GetLayerColor());
+
 #if WITH_EDITORONLY_DATA
-		if (Layer->bHiddenInEditor)
+		if (!Layer->ShouldRenderInEditor())
 		{
 			continue;
 		}
-
-		DrawColor.A = Layer->LayerOpacity;
 #endif
 
-		FSpriteDrawCallRecord* CurrentBatch = nullptr;
+		FSpriteRenderSection* CurrentBatch = nullptr;
+		FVector CurrentDestinationOrigin;
+		const FPaperTileInfo* CurrentCellPtr = Layer->PRIVATE_GetAllocatedCells();
+		check(Layer->GetLayerWidth() == TileMap->MapWidth);
+		check(Layer->GetLayerHeight() == TileMap->MapHeight);
+
 
 		for (int32 Y = 0; Y < TileMap->MapHeight; ++Y)
 		{
@@ -236,7 +325,7 @@ void UPaperTileMapComponent::RebuildRenderData(FPaperTileMapRenderSceneProxy* Pr
 				EffectiveTopLeftCorner = CornerOffset;
 				break;
 			case ETileMapProjectionMode::IsometricDiamond:
-				EffectiveTopLeftCorner = CornerOffset - StepPerTileX;
+				EffectiveTopLeftCorner = CornerOffset - 0.5f * StepPerTileX + 0.5f * StepPerTileY;
 				break;
 			case ETileMapProjectionMode::IsometricStaggered:
 			case ETileMapProjectionMode::HexagonalStaggered:
@@ -246,7 +335,7 @@ void UPaperTileMapComponent::RebuildRenderData(FPaperTileMapRenderSceneProxy* Pr
 
 			for (int32 X = 0; X < TileMap->MapWidth; ++X)
 			{
-				const FPaperTileInfo TileInfo = Layer->GetCell(X, Y);
+				const FPaperTileInfo& TileInfo = *CurrentCellPtr++;
 
 				// do stuff
 				const float TotalSeparation = (TileMap->SeparationPerLayer * Z) + (TileMap->SeparationPerTileX * X) + (TileMap->SeparationPerTileY * Y);
@@ -261,55 +350,55 @@ void UPaperTileMapComponent::RebuildRenderData(FPaperTileMapRenderSceneProxy* Pr
 					UTexture2D* SourceTexture = nullptr;
 
 					FVector2D SourceUV = FVector2D::ZeroVector;
-					if (Layer->bCollisionLayer)
+
+					if (TileInfo.TileSet == nullptr)
 					{
-						if (TileInfo.PackedTileIndex == 0)
-						{
-							continue;
-						}
-						SourceTexture = UCanvas::StaticClass()->GetDefaultObject<UCanvas>()->DefaultTexture;
+						continue;
 					}
-					else
+
+					if (!TileInfo.TileSet->GetTileUV(TileInfo.GetTileIndex(), /*out*/ SourceUV))
 					{
-						if (TileInfo.TileSet == nullptr)
-						{
-							continue;
-						}
+						continue;
+					}
 
-						if (!TileInfo.TileSet->GetTileUV(TileInfo.PackedTileIndex, /*out*/ SourceUV))
-						{
-							continue;
-						}
-
-						SourceTexture = TileInfo.TileSet->TileSheet;
-						if (SourceTexture == nullptr)
-						{
-							continue;
-						}
+					SourceTexture = TileInfo.TileSet->GetTileSheetTexture();
+					if (SourceTexture == nullptr)
+					{
+						continue;
 					}
 
 					if ((SourceTexture != LastSourceTexture) || (CurrentBatch == nullptr))
 					{
-						CurrentBatch = (new (BatchedSprites) FSpriteDrawCallRecord());
-						CurrentBatch->Texture = SourceTexture;
-						CurrentBatch->Color = DrawColor;
-						CurrentBatch->Destination = TopLeftCornerOfTile.ProjectOnTo(PaperAxisZ);
+						CurrentBatch = new (Sections) FSpriteRenderSection();
+						CurrentBatch->BaseTexture = SourceTexture;
+						//CurrentBatch->AdditionalTextures = ?; //@TODO: PAPER2D: Need to add multi-texture support to tile sets / tile maps
+						// Probably also need to change the batch check here to TileSet changing to avoid checking each texture in the array
+						CurrentBatch->Material = TileMapMaterial;
+						CurrentBatch->VertexOffset = Vertices.Num();
+						CurrentDestinationOrigin = TopLeftCornerOfTile.ProjectOnTo(PaperAxisZ);
 					}
 
 					if (SourceTexture != LastSourceTexture)
 					{
-						InverseTextureSize = FVector2D(1.0f / SourceTexture->GetSizeX(), 1.0f / SourceTexture->GetSizeY());
+						const FVector2D TextureSize(SourceTexture->GetImportedSize());
+						InverseTextureSize = FVector2D(1.0f / TextureSize.X, 1.0f / TextureSize.Y);
 
 						if (TileInfo.TileSet != nullptr)
 						{
-							SourceDimensionsUV = FVector2D(TileInfo.TileSet->TileWidth * InverseTextureSize.X, TileInfo.TileSet->TileHeight * InverseTextureSize.Y);
-							TileSizeXY = FVector2D(TileInfo.TileSet->TileWidth, TileInfo.TileSet->TileHeight);
-							TileSetOffset = (TileInfo.TileSet->DrawingOffset.X * PaperAxisX) + (TileInfo.TileSet->DrawingOffset.Y * PaperAxisY);
+							const FIntPoint TileSetTileSize(TileInfo.TileSet->GetTileSize());
+
+							SourceDimensionsUV = FVector2D(TileSetTileSize.X * InverseTextureSize.X, TileSetTileSize.Y * InverseTextureSize.Y);
+							TileSizeXY = FVector2D(UnrealUnitsPerPixel * TileSetTileSize.X, UnrealUnitsPerPixel * TileSetTileSize.Y);
+
+							const FIntPoint TileSetDrawingOffset = TileInfo.TileSet->GetDrawingOffset();
+							const float HorizontalCellOffset = TileSetDrawingOffset.X * UnrealUnitsPerPixel;
+							const float VerticalCellOffset = (-TileSetDrawingOffset.Y - TileHeight + TileSetTileSize.Y) * UnrealUnitsPerPixel;
+							TileSetOffset = (HorizontalCellOffset * PaperAxisX) + (VerticalCellOffset * PaperAxisY);
 						}
 						else
 						{
 							SourceDimensionsUV = FVector2D(TileWidth * InverseTextureSize.X, TileHeight * InverseTextureSize.Y);
-							TileSizeXY = FVector2D(TileWidth, TileHeight);
+							TileSizeXY = FVector2D(UnrealUnitsPerPixel * TileWidth, UnrealUnitsPerPixel * TileHeight);
 							TileSetOffset = FVector::ZeroVector;
 						}
 						LastSourceTexture = SourceTexture;
@@ -319,29 +408,41 @@ void UPaperTileMapComponent::RebuildRenderData(FPaperTileMapRenderSceneProxy* Pr
 					SourceUV.X *= InverseTextureSize.X;
 					SourceUV.Y *= InverseTextureSize.Y;
 
-					FSpriteDrawCallRecord& NewTile = *CurrentBatch;
-
 					const float WX0 = FVector::DotProduct(TopLeftCornerOfTile, PaperAxisX);
 					const float WY0 = FVector::DotProduct(TopLeftCornerOfTile, PaperAxisY);
 
-					const FVector4 BottomLeft(WX0, WY0 - TileSizeXY.Y, SourceUV.X, SourceUV.Y + SourceDimensionsUV.Y);
-					const FVector4 BottomRight(WX0 + TileSizeXY.X, WY0 - TileSizeXY.Y, SourceUV.X + SourceDimensionsUV.X, SourceUV.Y + SourceDimensionsUV.Y);
-					const FVector4 TopRight(WX0 + TileSizeXY.X, WY0, SourceUV.X + SourceDimensionsUV.X, SourceUV.Y);
-					const FVector4 TopLeft(WX0, WY0, SourceUV.X, SourceUV.Y);
+					const int32 Flags = TileInfo.GetFlagsAsIndex();
 
-					new (NewTile.RenderVerts) FVector4(BottomLeft);
-					new (NewTile.RenderVerts) FVector4(TopRight);
-					new (NewTile.RenderVerts) FVector4(BottomRight);
+					const FVector2D TileSizeWithFlip = TileInfo.HasFlag(EPaperTileFlags::FlipDiagonal) ? FVector2D(TileSizeXY.Y, TileSizeXY.X) : TileSizeXY;
+					const float UValues[4] = { SourceUV.X, SourceUV.X + SourceDimensionsUV.X, SourceUV.X + SourceDimensionsUV.X, SourceUV.X };
+					const float VValues[4] = { SourceUV.Y + SourceDimensionsUV.Y, SourceUV.Y + SourceDimensionsUV.Y, SourceUV.Y, SourceUV.Y };
 
-					new (NewTile.RenderVerts) FVector4(BottomLeft);
-					new (NewTile.RenderVerts) FVector4(TopLeft);
-					new (NewTile.RenderVerts) FVector4(TopRight);
+					const uint8 UVIndex0 = PermutationTable[Flags][0];
+					const uint8 UVIndex1 = PermutationTable[Flags][1];
+					const uint8 UVIndex2 = PermutationTable[Flags][2];
+					const uint8 UVIndex3 = PermutationTable[Flags][3];
+
+					const FVector4 BottomLeft(WX0, WY0 - TileSizeWithFlip.Y, UValues[UVIndex0], VValues[UVIndex0]);
+					const FVector4 BottomRight(WX0 + TileSizeWithFlip.X, WY0 - TileSizeWithFlip.Y, UValues[UVIndex1], VValues[UVIndex1]);
+					const FVector4 TopRight(WX0 + TileSizeWithFlip.X, WY0, UValues[UVIndex2], VValues[UVIndex2]);
+					const FVector4 TopLeft(WX0, WY0, UValues[UVIndex3], VValues[UVIndex3]);
+
+					CurrentBatch->AddVertex(BottomRight.X, BottomRight.Y, BottomRight.Z, BottomRight.W, CurrentDestinationOrigin, DrawColor, Vertices);
+					CurrentBatch->AddVertex(TopRight.X, TopRight.Y, TopRight.Z, TopRight.W, CurrentDestinationOrigin, DrawColor, Vertices);
+					CurrentBatch->AddVertex(BottomLeft.X, BottomLeft.Y, BottomLeft.Z, BottomLeft.W, CurrentDestinationOrigin, DrawColor, Vertices);
+
+					CurrentBatch->AddVertex(TopRight.X, TopRight.Y, TopRight.Z, TopRight.W, CurrentDestinationOrigin, DrawColor, Vertices);
+					CurrentBatch->AddVertex(TopLeft.X, TopLeft.Y, TopLeft.Z, TopLeft.W, CurrentDestinationOrigin, DrawColor, Vertices);
+					CurrentBatch->AddVertex(BottomLeft.X, BottomLeft.Y, BottomLeft.Z, BottomLeft.W, CurrentDestinationOrigin, DrawColor, Vertices);
 				}
 			}
 		}
 	}
 
-	Proxy->SetBatchesHack(BatchedSprites);
+#if WITH_EDITOR
+	NumBatches = Sections.Num();
+	NumTriangles = Vertices.Num() / 3;
+#endif
 }
 
 void UPaperTileMapComponent::CreateNewOwnedTileMap()
@@ -350,7 +451,27 @@ void UPaperTileMapComponent::CreateNewOwnedTileMap()
 
 	UPaperTileMap* NewTileMap = NewObject<UPaperTileMap>(this);
 	NewTileMap->SetFlags(RF_Transactional);
-	NewTileMap->AddNewLayer();
+	NewTileMap->InitializeNewEmptyTileMap();
+
+	SetTileMap(NewTileMap);
+}
+
+void UPaperTileMapComponent::CreateNewTileMap(int32 MapWidth, int32 MapHeight, int32 TileWidth, int32 TileHeight, float PixelsPerUnrealUnit, bool bCreateLayer)
+{
+	TGuardValue<TEnumAsByte<EComponentMobility::Type>> MobilitySaver(Mobility, EComponentMobility::Movable);
+
+	UPaperTileMap* NewTileMap = NewObject<UPaperTileMap>(this);
+	NewTileMap->SetFlags(RF_Transactional);
+	NewTileMap->MapWidth = MapWidth;
+	NewTileMap->MapHeight = MapHeight;
+	NewTileMap->TileWidth = TileWidth;
+	NewTileMap->TileHeight = TileHeight;
+	NewTileMap->PixelsPerUnrealUnit = PixelsPerUnrealUnit;
+
+	if (bCreateLayer)
+	{
+		NewTileMap->AddNewLayer();
+	}
 
 	SetTileMap(NewTileMap);
 }
@@ -386,6 +507,22 @@ bool UPaperTileMapComponent::SetTileMap(class UPaperTileMap* NewTileMap)
 	return false;
 }
 
+void UPaperTileMapComponent::GetMapSize(int32& MapWidth, int32& MapHeight, int32& NumLayers)
+{
+	if (TileMap != nullptr)
+	{
+		MapWidth = TileMap->MapWidth;
+		MapHeight = TileMap->MapHeight;
+		NumLayers = TileMap->TileLayers.Num();
+	}
+	else
+	{
+		MapWidth = 1;
+		MapHeight = 1;
+		NumLayers = 1;
+	}
+}
+
 FPaperTileInfo UPaperTileMapComponent::GetTile(int32 X, int32 Y, int32 Layer) const
 {
 	FPaperTileInfo Result;
@@ -409,6 +546,10 @@ void UPaperTileMapComponent::SetTile(int32 X, int32 Y, int32 Layer, FPaperTileIn
 			TileMap->TileLayers[Layer]->SetCell(X, Y, NewValue);
 
 			MarkRenderStateDirty();
+		}
+		else
+		{
+			UE_LOG(LogPaper2D, Warning, TEXT("Invalid layer index %d for %s"), Layer, *TileMap->GetPathName());
 		}
 	}
 }
@@ -441,5 +582,112 @@ UPaperTileLayer* UPaperTileMapComponent::AddNewLayer()
 	return Result;
 }
 
+FLinearColor UPaperTileMapComponent::GetTileMapColor() const
+{
+	return TileMapColor;
+}
+
+void UPaperTileMapComponent::SetTileMapColor(FLinearColor NewColor)
+{
+	TileMapColor = NewColor;
+	MarkRenderStateDirty();
+}
+
+FLinearColor UPaperTileMapComponent::GetLayerColor(int32 Layer) const
+{
+	if (TileMap->TileLayers.IsValidIndex(Layer))
+	{
+		return TileMap->TileLayers[Layer]->GetLayerColor();
+	}
+	else
+	{
+		return FLinearColor::White;
+	}
+}
+
+void UPaperTileMapComponent::SetLayerColor(FLinearColor NewColor, int32 Layer)
+{
+	if (OwnsTileMap())
+	{
+		if (TileMap->TileLayers.IsValidIndex(Layer))
+		{
+			TileMap->TileLayers[Layer]->SetLayerColor(NewColor);
+			MarkRenderStateDirty();
+		}
+	}
+}
+
+FLinearColor UPaperTileMapComponent::GetWireframeColor() const
+{
+	return TileMapColor;
+}
+
+void UPaperTileMapComponent::MakeTileMapEditable()
+{
+	if ((TileMap != nullptr) && !OwnsTileMap())
+	{
+		SetTileMap(TileMap->CloneTileMap(this));
+	}
+}
+
+#if WITH_EDITOR
+void UPaperTileMapComponent::GetRenderingStats(int32& OutNumTriangles, int32& OutNumBatches) const
+{
+	OutNumBatches = NumBatches;
+	OutNumTriangles = NumTriangles;
+}
+#endif
+
+FVector UPaperTileMapComponent::GetTileCornerPosition(int32 TileX, int32 TileY, int32 LayerIndex, bool bWorldSpace) const
+{
+	FVector Result(ForceInitToZero);
+
+	if (TileMap != nullptr)
+	{
+		Result = TileMap->GetTilePositionInLocalSpace(TileX, TileY, LayerIndex);
+	}
+
+	if (bWorldSpace)
+	{
+		Result = ComponentToWorld.TransformPosition(Result);
+	}
+	return Result;
+}
+
+FVector UPaperTileMapComponent::GetTileCenterPosition(int32 TileX, int32 TileY, int32 LayerIndex, bool bWorldSpace) const
+{
+	FVector Result(ForceInitToZero);
+
+	if (TileMap != nullptr)
+	{
+		Result = TileMap->GetTileCenterInLocalSpace(TileX, TileY, LayerIndex);
+	}
+
+	if (bWorldSpace)
+	{
+		Result = ComponentToWorld.TransformPosition(Result);
+	}
+	return Result;
+}
+
+void UPaperTileMapComponent::GetTilePolygon(int32 TileX, int32 TileY, TArray<FVector>& Points, int32 LayerIndex, bool bWorldSpace) const
+{
+	Points.Reset();
+
+	if (TileMap != nullptr)
+	{
+		TileMap->GetTilePolygon(TileX, TileY, LayerIndex, /*out*/ Points);
+	}
+
+	if (bWorldSpace)
+	{
+		for (FVector& Point : Points)
+		{
+			Point = ComponentToWorld.TransformPosition(Point);
+		}
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////
 
 #undef LOCTEXT_NAMESPACE

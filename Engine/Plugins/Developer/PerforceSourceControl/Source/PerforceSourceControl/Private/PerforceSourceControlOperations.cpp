@@ -890,12 +890,22 @@ bool FPerforceUpdateStatusWorker::Execute(FPerforceSourceControlCommand& InComma
 			// for full reference info on fstat command parameters...
 
 			TArray<FString> Parameters;
+
+			// We want to include integration record information:
+			Parameters.Add(TEXT("-Or"));
+
+			// Mandatory parameters (the list of files to stat):
+			for (FString& File : InCommand.Files)
 			{
-				// We want to include integration record information:
-				Parameters.Add(TEXT("-Or"));
-				// Mandatory parameters (the list of files to stat):
-				Parameters.Append(InCommand.Files);
+				if (IFileManager::Get().DirectoryExists(*File))
+				{
+					// If the file is a directory, do a recursive fstat on the contents
+					File /= TEXT("...");
+				}
+
+				Parameters.Add(File);
 			}
+
 			FP4RecordSet Records;
 			InCommand.bCommandSuccessful = Connection.RunCommand(TEXT("fstat"), Parameters, Records, InCommand.ErrorMessages, FOnIsCancelled::CreateRaw(&InCommand, &FPerforceSourceControlCommand::IsCanceled), InCommand.bConnectionDropped);
 			ParseUpdateStatusResults(Records, InCommand.ErrorMessages, OutStates);

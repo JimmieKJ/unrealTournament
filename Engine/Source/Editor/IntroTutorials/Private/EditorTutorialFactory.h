@@ -11,7 +11,7 @@ class UEditorTutorialFactory : public UFactory
 
 	// UFactory Interface
 	virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
-	virtual uint32 GetMenuCategories() const;
-	virtual FText GetDisplayName() const;
+	virtual uint32 GetMenuCategories() const override;
+	virtual FText GetDisplayName() const override;
 	// End of UFactory Interface
 };

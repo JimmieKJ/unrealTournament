@@ -45,7 +45,7 @@ private:
 	TSharedRef<class SGraphEditor> CreateGraphEditorWidget(UEdGraph* InGraph);
 
 	/** Spawns the tab with the update graph inside */
-	TSharedRef<SDockTab> SpawnTab_UpdateGraph(const FSpawnTabArgs& Args);
+	TSharedRef<SDockTab> SpawnTab_NodeGraph(const FSpawnTabArgs& Args);
 
 	/** Spawns the tab with the node details inside. */
 	TSharedRef<SDockTab> SpawnTab_NodeProperties(const FSpawnTabArgs& Args);
@@ -59,7 +59,7 @@ private:
 	/** Source of script being edited */
 	UNiagaraScriptSource*		Source;
 	/** */
-	TWeakPtr<SGraphEditor>		UpdateGraphEditorPtr;
+	TWeakPtr<SGraphEditor>		NodeGraphEditorPtr;
 
 	/** The command list for this editor */
 	TSharedPtr<FUICommandList> GraphEditorCommands;
@@ -68,7 +68,7 @@ private:
 	TSharedPtr<class IDetailsView> NiagaraDetailsView;
 
 	/**	The tab ids for the Niagara editor */
-	static const FName UpdateGraphTabId;
+	static const FName NodeGraphTabId;
 	static const FName PropertiesTabId;
 
 };

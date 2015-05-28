@@ -15,7 +15,7 @@ class UK2Node_StructOperation : public UK2Node_Variable
 	UScriptStruct* StructType;
 
 	// Begin UEdGraphNode interface
-	//virtual FLinearColor GetNodeTitleColor() const override;
+	virtual FString GetPinMetaData(FString InPinName, FName InKey) override;
 	// End UEdGraphNode interface
 
 	// UK2Node interface
@@ -36,7 +36,7 @@ protected:
 			Record.bShowPin = true;
 		}
 
-		virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, UProperty* Property) const;
+		virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, UProperty* Property) const override;
 		// End of FOptionalPinsUpdater interfac
 	};
 #if WITH_EDITOR

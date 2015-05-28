@@ -124,14 +124,19 @@ struct FOpenGLES2 : public FOpenGLBase
 	static FORCEINLINE bool SupportsCopyTextureLevels()					{ return bSupportsCopyTextureLevels; }
 	static FORCEINLINE GLenum GetDepthFormat()							{ return GL_DEPTH_COMPONENT; }
 	static FORCEINLINE GLenum GetShadowDepthFormat()					{ return GL_DEPTH_COMPONENT; }
+	static FORCEINLINE bool SupportsFramebufferSRGBEnable()				{ return false; }
+
 
 	static FORCEINLINE bool RequiresDontEmitPrecisionForTextureSamplers() { return bRequiresDontEmitPrecisionForTextureSamplers; }
 	static FORCEINLINE bool RequiresTextureCubeLodEXTToTextureCubeLodDefine() { return bRequiresTextureCubeLodEXTToTextureCubeLodDefine; }
 	static FORCEINLINE bool SupportsStandardDerivativesExtension()		{ return bSupportsStandardDerivativesExtension; }
+	static FORCEINLINE bool RequiresGLFragCoordVaryingLimitHack()		{ return bRequiresGLFragCoordVaryingLimitHack; }
+	static FORCEINLINE bool RequiresTexture2DPrecisionHack()			{ return bRequiresTexture2DPrecisionHack; }
 
 	static FORCEINLINE int32 GetReadHalfFloatPixelsEnum()				{ return GL_HALF_FLOAT_OES; }
 
 	static FORCEINLINE GLenum GetVertexHalfFloatFormat()				{ return GL_HALF_FLOAT_OES; }
+	static FORCEINLINE bool NeedsVertexAttribRemapTable()				{ return bNeedsVertexAttribRemap; }
 
 	// On iOS both glMapBufferOES() and glBufferSubData() for immediate vertex and index data
 	// is the slow path (they both hit GPU sync and data cache flush in driver according to profiling in driver symbols).
@@ -471,6 +476,8 @@ protected:
 	/** GL_OES_standard_derivations */
 	static bool bSupportsStandardDerivativesExtension;
 
+	/** Vertex attributes need remapping if GL_MAX_VERTEX_ATTRIBS < 16 */
+	static bool bNeedsVertexAttribRemap;
 public:
 	/* This is a hack to remove the calls to "precision sampler" defaults which are produced by the cross compiler however don't compile on some android platforms */
 	static bool bRequiresDontEmitPrecisionForTextureSamplers;
@@ -478,6 +485,11 @@ public:
 	/* Some android platforms require textureCubeLod to be used some require textureCubeLodEXT however they either inconsistently or don't use the GL_TextureCubeLodEXT extension definition */
 	static bool bRequiresTextureCubeLodEXTToTextureCubeLodDefine;
 
+	/* This is a hack to remove the gl_FragCoord if shader will fail to link if exceeding the max varying on android platforms */
+	static bool bRequiresGLFragCoordVaryingLimitHack;
+
+	/* This hack fixes an issue with SGX540 compiler which can get upset with some operations that mix highp and mediump */
+	static bool bRequiresTexture2DPrecisionHack;
 };
 
 

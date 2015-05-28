@@ -15,7 +15,7 @@ AGroupActor::AGroupActor(const FObjectInitializer& ObjectInitializer)
 {
 	bLocked = true;
 
-	USceneComponent* GroupComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("GroupComponent"));
+	USceneComponent* GroupComponent = CreateDefaultSubobject<USceneComponent>(TEXT("GroupComponent"));
 	RootComponent = GroupComponent;
 }
 
@@ -351,6 +351,12 @@ void PrivateDrawBracketsForGroups( FPrimitiveDrawInterface* PDI, FViewport* View
 
 void AGroupActor::DrawBracketsForGroups( FPrimitiveDrawInterface* PDI, FViewport* Viewport, bool bMustBeSelected/*=true*/ )
 {
+	// Don't draw group actor brackets in game view
+	if (Viewport->GetClient()->IsInGameView())
+	{
+		return;
+	}
+
 	if( GUnrealEd->bGroupingActive )
 	{
 		check(PDI);
@@ -547,6 +553,8 @@ void AGroupActor::AddSelectedActorsToSelectedGroup()
 							SelectedGroup->Add( *ActorsToAdd[ActorIndex] );
 						}
 					}
+
+					SelectedGroup->CenterGroupLocation();
 				}
 			}
 			else
@@ -773,7 +781,7 @@ void AGroupActor::PostRemove()
 			MarkPackageDirty();
 
 			// If not currently garbage collecting (changing maps, saving, etc), remove the group immediately
-			if(!GIsGarbageCollecting)
+			if(!IsGarbageCollecting())
 			{
 				// Refresh all editor browsers after removal
 				FScopedRefreshAllBrowsers LevelRefreshAllBrowsers;

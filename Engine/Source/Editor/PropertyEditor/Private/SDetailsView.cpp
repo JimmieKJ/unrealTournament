@@ -299,7 +299,7 @@ void SDetailsView::SetObjects( const TArray<UObject*>& InObjects, bool bForceRef
 			ObjectWeakPtrs.Add( *ObjectIter );
 		}
 
- 		if( bForceRefresh || ShouldSetNewObjects( ObjectWeakPtrs ) )
+		if( bForceRefresh || ShouldSetNewObjects( ObjectWeakPtrs ) )
 		{
 			SetObjectArrayPrivate( ObjectWeakPtrs );
 		}
@@ -402,15 +402,15 @@ void SDetailsView::SetObjectArrayPrivate( const TArray< TWeakObjectPtr< UObject 
 	// Selected actors for building SelectedActorInfo
 	TArray<AActor*> SelectedRawActors;
 
-	bViewingClassDefaultObject = false;
+	bViewingClassDefaultObject = InObjects.Num() > 0 ? true : false;
 	bool bOwnedByLockedLevel = false;
-	for( int32 ObjectIndex = 0 ; ObjectIndex < InObjects.Num() ; ++ObjectIndex )
+	for( int32 ObjectIndex = 0 ; ObjectIndex < InObjects.Num(); ++ObjectIndex )
 	{
 		TWeakObjectPtr< UObject > Object = InObjects[ObjectIndex];
 
 		if( Object.IsValid() )
 		{
-			bViewingClassDefaultObject |= Object->HasAnyFlags( RF_ClassDefaultObject );
+			bViewingClassDefaultObject &= Object->HasAnyFlags( RF_ClassDefaultObject );
 
 			RootPropertyNode->AddObject( Object.Get() );
 			SelectedObjects.Add( Object );
@@ -586,6 +586,21 @@ void SDetailsView::PostSetObject()
 	InitParams.ArrayIndex = INDEX_NONE;
 	InitParams.bAllowChildren = true;
 	InitParams.bForceHiddenPropertyVisibility =  FPropertySettings::Get().ShowHiddenProperties();
+
+	switch ( DetailsViewArgs.DefaultsOnlyVisibility )
+	{
+	case FDetailsViewArgs::EEditDefaultsOnlyNodeVisibility::Hide:
+		InitParams.bCreateDisableEditOnInstanceNodes = false;
+		break;
+	case FDetailsViewArgs::EEditDefaultsOnlyNodeVisibility::Show:
+		InitParams.bCreateDisableEditOnInstanceNodes = true;
+		break;
+	case FDetailsViewArgs::EEditDefaultsOnlyNodeVisibility::Automatic:
+		InitParams.bCreateDisableEditOnInstanceNodes = HasClassDefaultObject();
+		break;
+	default:
+		check(false);
+	}
 
 	RootPropertyNode->InitNode( InitParams );
 

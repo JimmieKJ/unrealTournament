@@ -14,7 +14,7 @@ UMovieSceneVectorTrack::UMovieSceneVectorTrack( const FObjectInitializer& Object
 
 UMovieSceneSection* UMovieSceneVectorTrack::CreateNewSection()
 {
-	return ConstructObject<UMovieSceneSection>( UMovieSceneVectorSection::StaticClass(), this );
+	return NewObject<UMovieSceneSection>(this, UMovieSceneVectorSection::StaticClass());
 }
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneVectorTrack::CreateInstance()

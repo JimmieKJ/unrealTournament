@@ -8,9 +8,10 @@
 
 AOnlineBeaconClient::AOnlineBeaconClient(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
-	BeaconOwner(NULL)
+	BeaconOwner(nullptr),
+	BeaconConnection(nullptr)
 {
-	NetDriverName = FName(TEXT("BeaconDriver"));
+	NetDriverName = FName(TEXT("BeaconDriverClient"));
 	bOnlyRelevantToOwner = true;
 }
 
@@ -22,6 +23,11 @@ AOnlineBeaconHostObject* AOnlineBeaconClient::GetBeaconOwner() const
 void AOnlineBeaconClient::SetBeaconOwner(AOnlineBeaconHostObject* InBeaconOwner)
 {
 	BeaconOwner = InBeaconOwner;
+}
+
+UNetConnection* AOnlineBeaconClient::GetNetConnection() const
+{
+	return BeaconConnection;
 }
 
 bool AOnlineBeaconClient::InitClient(FURL& URL)
@@ -37,8 +43,8 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 			{
 				NetDriver->SetWorld(GetWorld());
 				NetDriver->Notify = this;
-				NetDriver->InitialConnectTimeout = BEACON_CONNECTION_INITIAL_TIMEOUT;
-				NetDriver->ConnectionTimeout = BEACON_CONNECTION_INITIAL_TIMEOUT;
+				NetDriver->InitialConnectTimeout = BeaconConnectionInitialTimeout;
+				NetDriver->ConnectionTimeout = BeaconConnectionInitialTimeout;
 
 				// Send initial message.
 				uint8 IsLittleEndian = uint8(PLATFORM_LITTLE_ENDIAN);
@@ -64,6 +70,13 @@ bool AOnlineBeaconClient::InitClient(FURL& URL)
 	return bSuccess;
 }
 
+void AOnlineBeaconClient::OnFailure()
+{
+	UE_LOG(LogBeacon, Verbose, TEXT("Client beacon (%s) connection failure, handling connection timeout."), *GetName());
+	HostConnectionFailure.ExecuteIfBound();
+	Super::OnFailure();
+}
+
 void AOnlineBeaconClient::ClientOnConnected_Implementation()
 {
 	Role = ROLE_Authority;
@@ -76,8 +89,8 @@ void AOnlineBeaconClient::ClientOnConnected_Implementation()
 	if (NetDriver)
 	{
 		// Increase timeout while we are connected
-		NetDriver->InitialConnectTimeout = BEACON_CONNECTION_TIMEOUT;
-		NetDriver->ConnectionTimeout = BEACON_CONNECTION_TIMEOUT;
+		NetDriver->InitialConnectTimeout = BeaconConnectionTimeout;
+		NetDriver->ConnectionTimeout = BeaconConnectionTimeout;
 	}
 
 	// Call the overloaded function for this client class
@@ -86,8 +99,13 @@ void AOnlineBeaconClient::ClientOnConnected_Implementation()
 
 void AOnlineBeaconClient::DestroyBeacon()
 {
-	// Fail safe for connection to server but no client connection RPC
-	GetWorldTimerManager().ClearTimer(TimerHandle_OnFailure);
+	UWorld* World = GetWorld();
+	if (World)
+	{
+		// Fail safe for connection to server but no client connection RPC
+		GetWorldTimerManager().ClearTimer(TimerHandle_OnFailure);
+	}
+
 	Super::DestroyBeacon();
 }
 
@@ -144,7 +162,8 @@ void AOnlineBeaconClient::NotifyControlMessage(UNetConnection* Connection, uint8
 					// Server will send ClientOnConnected() when it gets this control message
 
 					// Fail safe for connection to server but no client connection RPC
-					GetWorldTimerManager().SetTimer(TimerHandle_OnFailure, this, &AOnlineBeaconClient::OnFailure, BEACON_RPC_TIMEOUT, false);
+					FTimerDelegate TimerDelegate = FTimerDelegate::CreateUObject(this, &AOnlineBeaconClient::OnFailure);
+					GetWorldTimerManager().SetTimer(TimerHandle_OnFailure, TimerDelegate, BEACON_RPC_TIMEOUT, false);
 				}
 				else
 				{

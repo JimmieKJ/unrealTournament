@@ -77,6 +77,8 @@ void FForwardShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLis
 */
 void FForwardShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FForwardShadingSceneRenderer_Render);
+
 	if(!ViewFamily.EngineShowFlags.Rendering)
 	{
 		return;
@@ -127,7 +129,7 @@ void FForwardShadingSceneRenderer::Render(FRHICommandListImmediate& RHICmdList)
 
 	if (GIsEditor)
 	{
-		RHICmdList.Clear(true, Views[0].BackgroundColor, false, 0, false, 0, FIntRect());
+		RHICmdList.Clear(true, Views[0].BackgroundColor, false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
 	}
 
 	RenderForwardShadingBasePass(RHICmdList);
@@ -233,7 +235,7 @@ void FForwardShadingSceneRenderer::BasicPostProcess(FRHICommandListImmediate& RH
 
 	if (bDoUpscale)
 	{	// simple bilinear upscaling for ES2.
-		FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(1));
+		FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(1, 0.0f));
 
 		Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
 		Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput));

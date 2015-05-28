@@ -41,6 +41,7 @@ void SVectorInputBox::ConstructX( const FArguments& InArgs, TSharedRef<SHorizont
 		.UndeterminedString( LOCTEXT("MultipleValues", "Multiple Values") )
 		.LabelPadding(0)
 		.ContextMenuExtender( InArgs._ContextMenuExtenderX )
+		.TypeInterface(InArgs._TypeInterface)
 		.Label()
 		[
 			SNumericEntryBox<float>::BuildLabel( LOCTEXT("X_Label", "X"), FLinearColor::White, LabelColor )
@@ -69,6 +70,7 @@ void SVectorInputBox::ConstructY( const FArguments& InArgs, TSharedRef<SHorizont
 		.UndeterminedString( LOCTEXT("MultipleValues", "Multiple Values") )
 		.LabelPadding(0)
 		.ContextMenuExtender( InArgs._ContextMenuExtenderY )
+		.TypeInterface(InArgs._TypeInterface)
 		.Label()
 		[
 			SNumericEntryBox<float>::BuildLabel( LOCTEXT("Y_Label", "Y"), FLinearColor::White, LabelColor )
@@ -96,6 +98,7 @@ void SVectorInputBox::ConstructZ( const FArguments& InArgs, TSharedRef<SHorizont
 		.UndeterminedString( LOCTEXT("MultipleValues", "Multiple Values") )
 		.LabelPadding(0)
 		.ContextMenuExtender( InArgs._ContextMenuExtenderZ )
+		.TypeInterface(InArgs._TypeInterface)
 		.Label()
 		[
 			SNumericEntryBox<float>::BuildLabel( LOCTEXT("Z_Label", "Z"), FLinearColor::White, LabelColor )

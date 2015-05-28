@@ -146,7 +146,7 @@ protected:
 template<class T>
 struct TPlayerControllerIterator
 {
-	typedef TBasePlayerControllerIterator<T, true>	LocalOnly;	// Only iterates locally controleld player controllers - can be used on client or server
+	typedef TBasePlayerControllerIterator<T, true>	LocalOnly;	// Only iterates locally controlled player controllers - can be used on client or server
 	typedef TBasePlayerControllerIterator<T, false> ServerAll;	// Iterates all player controllers - local or remote - only can be used on server
 };
 
@@ -398,9 +398,13 @@ public:
 	virtual void ClearPendingCleanupObjects() = 0;
 };
 
-/** Cache some of the scalability CVars to avoid some virtual function calls and to detect changes and act accordingly if needed.*/
+/**
+ * Cache some of the scalability CVars to avoid some virtual function calls and to detect changes and act accordingly if needed.
+ * read by rendering thread[s], written by main thread, uses FlushRenderingCommands() to avoid conflict
+ */
 struct FCachedSystemScalabilityCVars
 {
+	bool bInitialized;
 	int32 DetailMode;
 	EMaterialQualityLevel::Type MaterialQualityLevel;
 	int32 MaxAnisotropy;
@@ -408,6 +412,8 @@ struct FCachedSystemScalabilityCVars
 	float ViewDistanceScale;
 	float ViewDistanceScaleSquared;
 	float GaussianDOFNearThreshold;
+	// 0:off, 1:on, -1:unknown
+	int32 SimpleDynamicLighting;
 
 	FCachedSystemScalabilityCVars();
 };

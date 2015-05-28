@@ -3,6 +3,9 @@
 #include "SlateCorePrivatePCH.h"
 #include "SlateRenderer.h"
 
+DEFINE_STAT(STAT_SlateTextureGPUMemory);
+DEFINE_STAT(STAT_SlateTextureDataMemory);
+DECLARE_MEMORY_STAT(TEXT("Texture Atlas CPU Memory"), STAT_SlateTextureAtlasMemory, STATGROUP_SlateMemory);
 
 /* FSlateTextureAtlas helper class
  *****************************************************************************/

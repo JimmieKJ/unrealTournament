@@ -4,6 +4,8 @@
 #include "Kismet/HeadMountedDisplayFunctionLibrary.h"
 #include "HeadMountedDisplay.h"
 
+DEFINE_LOG_CATEGORY_STATIC(LogUHeadMountedDisplay, Log, All);
+
 UHeadMountedDisplayFunctionLibrary::UHeadMountedDisplayFunctionLibrary(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -14,12 +16,12 @@ bool UHeadMountedDisplayFunctionLibrary::IsHeadMountedDisplayEnabled()
 	return GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed();
 }
 
-bool UHeadMountedDisplayFunctionLibrary::EnableHMD(bool Enable)
+bool UHeadMountedDisplayFunctionLibrary::EnableHMD(bool bEnable)
 {
 	if (GEngine->HMDDevice.IsValid())
 	{
-		GEngine->HMDDevice->EnableHMD(Enable);
-		if (Enable)
+		GEngine->HMDDevice->EnableHMD(bEnable);
+		if (bEnable)
 		{
 			return GEngine->HMDDevice->EnableStereo(true);
 		}
@@ -61,17 +63,19 @@ bool UHeadMountedDisplayFunctionLibrary::HasValidTrackingPosition()
 	return false;
 }
 
-void UHeadMountedDisplayFunctionLibrary::GetPositionalTrackingCameraParameters(FVector& CameraOrigin, FRotator& CameraOrientation, float& HFOV, float& VFOV, float& CameraDistance, float& NearPlane, float&FarPlane)
+void UHeadMountedDisplayFunctionLibrary::GetPositionalTrackingCameraParameters(FVector& CameraOrigin, FRotator& CameraRotation, float& HFOV, float& VFOV, float& CameraDistance, float& NearPlane, float&FarPlane)
 {
 	if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed() && GEngine->HMDDevice->DoesSupportPositionalTracking())
 	{
+		FQuat CameraOrientation;
 		GEngine->HMDDevice->GetPositionalTrackingCameraProperties(CameraOrigin, CameraOrientation, HFOV, VFOV, CameraDistance, NearPlane, FarPlane);
+		CameraRotation = CameraOrientation.Rotator();
 	}
 	else
 	{
 		// No HMD, zero the values
 		CameraOrigin = FVector::ZeroVector;
-		CameraOrientation = FRotator::ZeroRotator;
+		CameraRotation = FRotator::ZeroRotator;
 		HFOV = VFOV = 0.f;
 		NearPlane = 0.f;
 		FarPlane = 0.f;
@@ -91,11 +95,11 @@ bool UHeadMountedDisplayFunctionLibrary::IsInLowPersistenceMode()
 	}
 }
 
-void UHeadMountedDisplayFunctionLibrary::EnableLowPersistenceMode(bool Enable)
+void UHeadMountedDisplayFunctionLibrary::EnableLowPersistenceMode(bool bEnable)
 {
 	if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed())
 	{
-		GEngine->HMDDevice->EnableLowPersistenceMode(Enable);
+		GEngine->HMDDevice->EnableLowPersistenceMode(bEnable);
 	}
 }
 
@@ -117,35 +121,37 @@ void UHeadMountedDisplayFunctionLibrary::ResetOrientationAndPosition(float Yaw, 
 	}
 }
 
-void UHeadMountedDisplayFunctionLibrary::SetClippingPlanes(float NCP, float FCP)
+void UHeadMountedDisplayFunctionLibrary::SetClippingPlanes(float Near, float Far)
 {
 	if (GEngine->HMDDevice.IsValid())
 	{
-		GEngine->HMDDevice->SetClippingPlanes(NCP, FCP);
+		GEngine->HMDDevice->SetClippingPlanes(Near, Far);
 	}
 }
 
-void UHeadMountedDisplayFunctionLibrary::SetBaseRotationAndPositionOffset(const FRotator& BaseRot, const FVector& PosOffset, EOrientPositionSelector::Type Options)
+/** 
+ * Sets screen percentage to be used in VR mode.
+ *
+ * @param ScreenPercentage	(in) Specifies the screen percentage to be used in VR mode. Use 0.0f value to reset to default value.
+ */
+void UHeadMountedDisplayFunctionLibrary::SetScreenPercentage(float ScreenPercentage)
 {
-	if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	if (GEngine->StereoRenderingDevice.IsValid())
 	{
-		if (Options == EOrientPositionSelector::Orientation || EOrientPositionSelector::OrientationAndPosition)
-		{
-			GEngine->HMDDevice->SetBaseRotation(BaseRot);
-		}
-		if (Options == EOrientPositionSelector::Position || EOrientPositionSelector::OrientationAndPosition)
-		{
-			GEngine->HMDDevice->SetPositionOffset(PosOffset);
-		}
+		GEngine->StereoRenderingDevice->SetScreenPercentage(ScreenPercentage);
 	}
 }
 
-void UHeadMountedDisplayFunctionLibrary::GetBaseRotationAndPositionOffset(FRotator& OutRot, FVector& OutPosOffset)
+/** 
+ * Returns screen percentage to be used in VR mode.
+ *
+ * @return (float)	The screen percentage to be used in VR mode.
+ */
+float UHeadMountedDisplayFunctionLibrary::GetScreenPercentage()
 {
-	if (GEngine->HMDDevice.IsValid() && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	if (GEngine->StereoRenderingDevice.IsValid())
 	{
-		OutRot = GEngine->HMDDevice->GetBaseRotation();
-		OutPosOffset = GEngine->HMDDevice->GetPositionOffset();
+		return GEngine->StereoRenderingDevice->GetScreenPercentage();
 	}
+	return 0.0f;
 }
-

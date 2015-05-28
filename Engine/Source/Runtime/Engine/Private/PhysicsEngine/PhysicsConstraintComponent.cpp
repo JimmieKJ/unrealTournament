@@ -87,10 +87,15 @@ UPrimitiveComponent* UPhysicsConstraintComponent::GetComponentInternal(EConstrai
 
 FTransform UPhysicsConstraintComponent::GetBodyTransformInternal(EConstraintFrame::Type Frame, FName InBoneName) const
 {
-	FTransform ResultTM = FTransform::Identity;
-
-	UPrimitiveComponent* PrimComp  = GetComponentInternal(Frame);
-
+	UPrimitiveComponent* PrimComp = GetComponentInternal(Frame);
+	if(!PrimComp)
+	{
+		return FTransform::Identity;
+	}
+	  
+	//Use ComponentToWorld by default for all components
+	FTransform ResultTM = PrimComp->ComponentToWorld;
+		
 	// Skeletal case
 	USkeletalMeshComponent* SkelComp = Cast<USkeletalMeshComponent>(PrimComp);
 	if(SkelComp != NULL)
@@ -100,11 +105,6 @@ FTransform UPhysicsConstraintComponent::GetBodyTransformInternal(EConstraintFram
 		{	
 			ResultTM = SkelComp->GetBoneTransform(BoneIndex);
 		}
-	}
-	// Non skeletal (ie single body) case.
-	else if(PrimComp != NULL)
-	{
-		ResultTM = PrimComp->ComponentToWorld;
 	}
 
 	return ResultTM;

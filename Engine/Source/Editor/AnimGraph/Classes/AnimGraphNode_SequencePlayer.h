@@ -26,7 +26,6 @@ class UAnimGraphNode_SequencePlayer : public UAnimGraphNode_Base
 	// End of UEdGraphNode interface
 
 	// UAnimGraphNode_Base interface
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual void ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog) override;
 	virtual void PreloadRequiredAssets() override;		
 	virtual void BakeDataDuringCompilation(class FCompilerResultsLog& MessageLog) override;

@@ -152,10 +152,12 @@ PACKAGE_SCOPE:
 	/**
 	 * Add/update a Steam P2P connection as being recently accessed
 	 *
-	 * @param SteanNetworkingPtr proper networking interface that this session is communicating on
+	 * @param SteamNetworkingPtr proper networking interface that this session is communicating on
 	 * @param SessionId P2P session recently heard from
+     *
+     * @return true if the connection is active, false if this is in the dead connections list
 	 */
-	void P2PTouch(ISteamNetworking* SteamNetworkingPtr, FUniqueNetIdSteam& SessionId);
+	bool P2PTouch(ISteamNetworking* SteamNetworkingPtr, FUniqueNetIdSteam& SessionId);
 
 	/**
 	 * Remove a Steam P2P session from tracking and close the connection

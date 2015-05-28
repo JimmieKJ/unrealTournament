@@ -12,6 +12,7 @@ class FDisplayedMorphTargetInfo
 public:
 	FName Name;
 	float Weight;
+	bool bAutoFillData;
 	int32 NumberOfVerts;
 
 	/** Static function for creating a new item, but ensures that you can only have a TSharedRef to one */
@@ -25,6 +26,7 @@ protected:
 	FDisplayedMorphTargetInfo(const FName& InSource, int32 InNumberOfVerts)
 		: Name( InSource )
 		, Weight( 0 )
+		, bAutoFillData(true)
 		, NumberOfVerts(InNumberOfVerts)
 	{}
 
@@ -106,7 +108,7 @@ public:
 	* @param Weight - How much of this morph target to apply (0.0 - 1.0)
 	*
 	*/
-	void AddMorphTargetOverride( FName& Name, float Weight );
+	void AddMorphTargetOverride( FName& Name, float Weight, bool bRemoveZeroWeight );
 
 	/**
 	* Tells the AnimInstance to reset all of its morph target curves

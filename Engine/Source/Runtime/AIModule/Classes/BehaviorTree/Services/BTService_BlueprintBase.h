@@ -19,8 +19,6 @@ class AIMODULE_API UBTService_BlueprintBase : public UBTService
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual void PostInitProperties() override;
-
 	virtual void DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const override;
 	virtual void OnInstanceDestroyed(UBehaviorTreeComponent& OwnerComp) override;
 
@@ -49,6 +47,10 @@ protected:
 	UPROPERTY(EditInstanceOnly, Category=Description)
 	uint32 bShowPropertyDetails : 1;
 
+	/** show detailed information about implemented events */
+	UPROPERTY(EditInstanceOnly, Category = Description)
+	uint32 bShowEventDetails : 1;
+
 	/** set if ReceiveTick is implemented by blueprint */
 	uint32 ReceiveTickImplementations : 2;
 	
@@ -70,53 +72,53 @@ protected:
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void ReceiveTick(AActor* OwnerActor, float DeltaSeconds);
+	void ReceiveTick(AActor* OwnerActor, float DeltaSeconds);
 
-	/** task search enters branch of tree, initial ReceiveTick won't be called if you implement this event!
+	/** task search enters branch of tree
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void ReceiveSearchStart(AActor* OwnerActor);
+	void ReceiveSearchStart(AActor* OwnerActor);
 
 	/** service became active
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void ReceiveActivation(AActor* OwnerActor);
+	void ReceiveActivation(AActor* OwnerActor);
 
 	/** service became inactive
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void ReceiveDeactivation(AActor* OwnerActor);
+	void ReceiveDeactivation(AActor* OwnerActor);
 
 	/** Alternative AI version of ReceiveTick function.
 	 *	@see ReceiveTick for more details
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent, Category = AI)
-	virtual void ReceiveTickAI(AAIController* OwnerController, APawn* ControlledPawn, float DeltaSeconds);
+	void ReceiveTickAI(AAIController* OwnerController, APawn* ControlledPawn, float DeltaSeconds);
 
 	/** Alternative AI version of ReceiveSearchStart function.
 	 *	@see ReceiveSearchStart for more details
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent, Category = AI)
-	virtual void ReceiveSearchStartAI(AAIController* OwnerController, APawn* ControlledPawn);
+	void ReceiveSearchStartAI(AAIController* OwnerController, APawn* ControlledPawn);
 
 	/** Alternative AI version of ReceiveActivation function.
 	 *	@see ReceiveActivation for more details
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent, Category = AI)
-	virtual void ReceiveActivationAI(AAIController* OwnerController, APawn* ControlledPawn);
+	void ReceiveActivationAI(AAIController* OwnerController, APawn* ControlledPawn);
 
 	/** Alternative AI version of ReceiveDeactivation function.
 	 *	@see ReceiveDeactivation for more details
 	 *	@Note that if both generic and AI event versions are implemented only the more
 	 *	suitable one will be called, meaning the AI version if called for AI, generic one otherwise */
 	UFUNCTION(BlueprintImplementableEvent, Category = AI)
-	virtual void ReceiveDeactivationAI(AAIController* OwnerController, APawn* ControlledPawn);
+	void ReceiveDeactivationAI(AAIController* OwnerController, APawn* ControlledPawn);
 
 	/** check if service is currently being active */
 	UFUNCTION(BlueprintCallable, Category="AI|BehaviorTree")

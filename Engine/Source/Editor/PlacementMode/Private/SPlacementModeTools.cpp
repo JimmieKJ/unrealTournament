@@ -692,12 +692,26 @@ TSharedRef< SWidget > SPlacementModeTools::BuildBasicWidget()
 	+SVerticalBox::Slot()
 	.AutoHeight()
 	[
+		BuildDraggableAssetWidget(UActorFactoryEmptyActor::StaticClass())
+	]
+	+SVerticalBox::Slot()
+	.AutoHeight()
+	[
+		BuildDraggableAssetWidget(UActorFactoryCharacter::StaticClass())
+	]
+	+SVerticalBox::Slot()
+	.AutoHeight()
+	[
+		BuildDraggableAssetWidget(UActorFactoryPawn::StaticClass())
+	]
+	.AutoHeight()
+	[
 		BuildDraggableAssetWidget(UActorFactoryPointLight::StaticClass())
 	]
 	+ SVerticalBox::Slot()
 	.AutoHeight()
 	[
-		BuildDraggableAssetWidget( UActorFactoryPlayerStart::StaticClass() )
+		BuildDraggableAssetWidget(UActorFactoryPlayerStart::StaticClass())
 	]
 	+ SVerticalBox::Slot()
 	.AutoHeight()
@@ -733,27 +747,6 @@ TSharedRef< SWidget > SPlacementModeTools::BuildBasicWidget()
 	[
 		BuildDraggableAssetWidget( UActorFactoryTriggerSphere::StaticClass() )
 	];
-
-	if( GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing )
-	{
-		VerticalBox->InsertSlot(0)
-		.AutoHeight()
-		[
-			BuildDraggableAssetWidget(UActorFactoryEmptyActor::StaticClass())
-		];
-
-		VerticalBox->InsertSlot(1)
-		.AutoHeight()
-		[
-			BuildDraggableAssetWidget(UActorFactoryCharacter::StaticClass())
-		];
-
-		VerticalBox->InsertSlot(2)
-		.AutoHeight()
-		[
-			BuildDraggableAssetWidget(UActorFactoryPawn::StaticClass())
-		];
-	}
 
 	return VerticalBox;
 }
@@ -997,8 +990,6 @@ void SPlacementModeTools::RefreshPlaceables()
 
 void SPlacementModeTools::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
 	if ( bPlaceablesRefreshRequested || bPlaceablesFullRefreshRequested )
 	{
 		RefreshPlaceables();

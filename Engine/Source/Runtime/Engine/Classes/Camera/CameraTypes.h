@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Engine/Scene.h"
+#include "Engine/EngineTypes.h"
 #include "CameraTypes.generated.h"
 
 //@TODO: Document
@@ -30,7 +31,7 @@ namespace ECameraAnimPlaySpace
  	};
 }
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FMinimalViewInfo
 {
 	GENERATED_USTRUCT_BODY()
@@ -51,7 +52,15 @@ struct FMinimalViewInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Camera)
 	float OrthoWidth;
 
-	// Aspect Ratio (Width/Height); ignored unless bConstrianAspectRatio is true
+	/** The near plane distance of the orthographic view (in world units) */
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=Camera)
+	float OrthoNearClipPlane;
+
+	/** The far plane distance of the orthographic view (in world units) */
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=Camera)
+	float OrthoFarClipPlane;
+
+	// Aspect Ratio (Width/Height); ignored unless bConstrainAspectRatio is true
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Camera)
 	float AspectRatio;
 
@@ -59,16 +68,20 @@ struct FMinimalViewInfo
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Camera)
 	uint32 bConstrainAspectRatio:1; 
 
+	// If true, account for the field of view angle when computing which level of detail to use for meshes.
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=CameraSettings)
+	uint32 bUseFieldOfViewForLOD:1;
+
 	// The type of camera
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Camera)
 	TEnumAsByte<ECameraProjectionMode::Type> ProjectionMode;
 
 	/** Indicates if PostProcessSettings should be applied. */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category = Camera)
 	float PostProcessBlendWeight;
 
 	/** Post-process settings to use if PostProcessBlendWeight is non-zero. */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category = Camera)
 	struct FPostProcessSettings PostProcessSettings;
 
 	FMinimalViewInfo()
@@ -76,8 +89,11 @@ struct FMinimalViewInfo
 		, Rotation(ForceInit)
 		, FOV(90.0f)
 		, OrthoWidth(512.0f)
+		, OrthoNearClipPlane(0.0f)
+		, OrthoFarClipPlane(WORLD_MAX)
 		, AspectRatio(1.33333333f)
 		, bConstrainAspectRatio(false)
+		, bUseFieldOfViewForLOD(true)
 		, ProjectionMode(ECameraProjectionMode::Perspective)
 		, PostProcessBlendWeight(0.0f)
 	{
@@ -95,4 +111,7 @@ struct FMinimalViewInfo
 
 	/** Combines this view with another one which will be weighted. Equals to this += OtherView * Weight. */
 	ENGINE_API void AddWeightedViewInfo(const FMinimalViewInfo& OtherView, const float& Weight);
+
+	/** Calculates the projection matrix (and potentially a constrained view rectangle) given a FMinimalViewInfo and partially configured projection data (must have the view rect already set) */
+	ENGINE_API static void CalculateProjectionMatrixGivenView(const FMinimalViewInfo& ViewInfo, TEnumAsByte<enum EAspectRatioAxisConstraint> AspectRatioAxisConstraint, class FViewport* Viewport, struct FSceneViewProjectionData& InOutProjectionData);
 };

@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30324.0
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrashReportWebSite", "CrashReportWebSite.csproj", "{7A6D44E8-D8F2-4540-8A4A-0EF1A87D65AB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrashReportCommon", "..\..\NotForLicensees\CrashReportServer\CrashReportCommon\CrashReportCommon.csproj", "{B83DE8C9-9429-4765-86BD-8EEEA89B138F}"

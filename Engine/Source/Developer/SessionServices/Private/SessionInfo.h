@@ -18,10 +18,7 @@ public:
 	 * @param InSessionId The session's identifier.
 	 * @param InMessageBus The message bus to use.
 	 */
-	FSessionInfo( const FGuid& InSessionId, const IMessageBusRef& InMessageBus )
-		: MessageBusPtr(InMessageBus)
-		, SessionId(InSessionId)
-	{ }
+	FSessionInfo( const FGuid& InSessionId, const IMessageBusRef& InMessageBus );
 
 public:
 
@@ -31,30 +28,7 @@ public:
 	 * @param Message The message containing engine information.
 	 * @param Context The message context.
 	 */
-	void UpdateFromMessage( const FEngineServicePong& Message, const IMessageContextRef& Context )
-	{
-		if (Message.SessionId != SessionId)
-		{
-			return;
-		}
-
-		// update instance
-		// @todo gmp: reconsider merging EngineService and SessionService
-		/*TSharedPtr<FSessionInstanceInfo> Instance = Instances.FindRef(Context->GetSender());
-
-		if (Instance.IsValid())
-		{
-			Instance->UpdateFromMessage(Message, Context);
-		}*/
-		for (TMap<FMessageAddress, TSharedPtr<FSessionInstanceInfo> >::TIterator It(Instances); It; ++It)
-		{
-			if (It.Value()->GetInstanceId() == Message.InstanceId)
-			{
-				It.Value()->UpdateFromMessage(Message, Context);
-				break;
-			}
-		}
-	}
+	void UpdateFromMessage( const FEngineServicePong& Message, const IMessageContextRef& Context );
 
 	/**
 	 * Updates this session info with the data in the specified message.
@@ -62,115 +36,38 @@ public:
 	 * @param Message The message containing session information.
 	 * @param Context The message context.
 	 */
-	void UpdateFromMessage( const FSessionServicePong& Message, const IMessageContextRef& Context )
-	{
-		if (Message.SessionId != SessionId)
-		{
-			return;
-		}
-
-		// update session info
-		Standalone = Message.Standalone;
-		SessionOwner = Message.SessionOwner;
-
-		if (SessionName.IsEmpty())
-		{
-			SessionName = Message.SessionName;
-		}
-
-		// update instance
-		TSharedPtr<FSessionInstanceInfo>& Instance = Instances.FindOrAdd(Context->GetSender());
-
-		if (Instance.IsValid())
-		{
-			Instance->UpdateFromMessage(Message, Context);
-		}
-		else
-		{
-			IMessageBusPtr MessageBus = MessageBusPtr.Pin();
-
-			if (MessageBus.IsValid())
-			{
-				Instance = MakeShareable(new FSessionInstanceInfo(Message.InstanceId, AsShared(), MessageBus.ToSharedRef()));
-				Instance->OnLogReceived().AddSP(this, &FSessionInfo::HandleLogReceived);
-				Instance->UpdateFromMessage(Message, Context);
-
-				InstanceDiscoveredDelegate.Broadcast(AsShared(), Instance.ToSharedRef());
-			}
-		}
-
-		LastUpdateTime = FDateTime::UtcNow();
-	}
+	void UpdateFromMessage( const FSessionServicePong& Message, const IMessageContextRef& Context );
 
 public:	
 
-	// SessionInfo interface
+	// ISessionInfo interface
 
-	virtual void GetInstances( TArray<ISessionInstanceInfoPtr>& OutInstances ) const override
+	virtual void GetInstances( TArray<ISessionInstanceInfoPtr>& OutInstances ) const override;
+	virtual const FDateTime& GetLastUpdateTime() const override;
+	virtual const int32 GetNumInstances() const override;
+	virtual const FGuid& GetSessionId() const override;
+	virtual const FString& GetSessionName() const override;
+	virtual const FString& GetSessionOwner() const override;
+	virtual const bool IsStandalone() const override;
+
+	DECLARE_DERIVED_EVENT(FSessionInfo, ISessionInfo::FInstanceDiscoveredEvent, FInstanceDiscoveredEvent)
+	virtual FInstanceDiscoveredEvent& OnInstanceDiscovered() override
 	{
-		OutInstances.Empty();
-
-		for (TMap<FMessageAddress, TSharedPtr<FSessionInstanceInfo> >::TConstIterator It(Instances); It; ++It)
-		{
-			OutInstances.Add(It.Value());
-		}
+		return InstanceDiscoveredEvent;
 	}
 
-	virtual FDateTime GetLastUpdateTime() override
+	DECLARE_DERIVED_EVENT(FSessionInfo, ISessionInfo::FLogReceivedEvent, FLogReceivedEvent)
+	virtual FLogReceivedEvent& OnLogReceived() override
 	{
-		return LastUpdateTime;
+		return LogReceivedEvent;
 	}
 
-	virtual const int32 GetNumInstances() const override
-	{
-		return Instances.Num();
-	}
-
-	virtual const FGuid& GetSessionId() const override
-	{
-		return SessionId;
-	}
-
-	virtual const FString& GetSessionName() const override
-	{
-		return SessionName;
-	}
-
-	virtual const FString& GetSessionOwner() const override
-	{
-		return SessionOwner;
-	}
-
-	virtual const bool IsStandalone() const override
-	{
-		return Standalone;
-	}
-
-	virtual FOnSessionInstanceDiscovered& OnInstanceDiscovered() override
-	{
-		return InstanceDiscoveredDelegate;
-	}
-
-	virtual FOnSessionLogReceived& OnLogReceived() override
-	{
-		return LogReceivedDelegate;
-	}
-
-	virtual void Terminate() override
-	{
-		for (TMap<FMessageAddress, TSharedPtr<FSessionInstanceInfo> >::TIterator It(Instances); It; ++It)
-		{
-			It.Value()->Terminate();
-		}
-	}
+	virtual void Terminate() override;
 
 private:
 
 	/** Handles received log messages. */
-	void HandleLogReceived( const ISessionInstanceInfoRef& Instance, const FSessionLogMessageRef& LogMessage )
-	{
-		LogReceivedDelegate.Broadcast(AsShared(), Instance, LogMessage);
-	}
+	void HandleLogReceived( const ISessionInstanceInfoRef& Instance, const FSessionLogMessageRef& LogMessage );
 
 private:
 
@@ -198,8 +95,8 @@ private:
 private:
 
 	/** Holds a delegate to be invoked when a new instance has been discovered. */
-	FOnSessionInstanceDiscovered InstanceDiscoveredDelegate;
+	FInstanceDiscoveredEvent InstanceDiscoveredEvent;
 
 	/** Holds a delegate to be invoked when an instance received a log message. */
-	FOnSessionLogReceived LogReceivedDelegate;
+	FLogReceivedEvent LogReceivedEvent;
 };

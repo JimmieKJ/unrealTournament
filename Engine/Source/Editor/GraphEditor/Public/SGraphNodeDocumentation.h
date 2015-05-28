@@ -11,12 +11,12 @@ public:
 	SLATE_END_ARGS()
 
 	// Begin SPanel Interface
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 	// End SPanel interface
 
 	// Begin SWidget Interface
 	void Construct( const FArguments& InArgs, UEdGraphNode* InNode );
-	virtual FReply OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
+	virtual FReply OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	// End SWidget Interface
 

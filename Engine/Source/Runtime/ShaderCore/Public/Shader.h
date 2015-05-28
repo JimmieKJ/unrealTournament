@@ -29,9 +29,10 @@ public:
 
 	FShaderResourceId() {}
 
-	FShaderResourceId(const FShaderCompilerOutput& Output) :
+	FShaderResourceId(const FShaderCompilerOutput& Output, const TCHAR* InSpecificShaderTypeName) :
 		Target(Output.Target),
-		OutputHash(Output.OutputHash)
+		OutputHash(Output.OutputHash),
+		SpecificShaderTypeName(InSpecificShaderTypeName)
 	{}
 
 	friend inline uint32 GetTypeHash( const FShaderResourceId& Id )
@@ -41,7 +42,10 @@ public:
 
 	friend bool operator==(const FShaderResourceId& X, const FShaderResourceId& Y)
 	{
-		return X.Target == Y.Target && X.OutputHash == Y.OutputHash;
+		return X.Target == Y.Target 
+			&& X.OutputHash == Y.OutputHash 
+			&& ((X.SpecificShaderTypeName == NULL && Y.SpecificShaderTypeName == NULL)
+				|| (FCString::Strcmp(X.SpecificShaderTypeName, Y.SpecificShaderTypeName) == 0));
 	}
 
 	friend bool operator!=(const FShaderResourceId& X, const FShaderResourceId& Y)
@@ -52,6 +56,25 @@ public:
 	friend FArchive& operator<<(FArchive& Ar, FShaderResourceId& Id)
 	{
 		Ar << Id.Target << Id.OutputHash;
+
+		if (Ar.IsSaving())
+		{
+			Id.SpecificShaderTypeStorage = Id.SpecificShaderTypeName ? Id.SpecificShaderTypeName : TEXT("");
+		}
+
+		Ar << Id.SpecificShaderTypeStorage;
+
+		if (Ar.IsLoading())
+		{
+			Id.SpecificShaderTypeName = *Id.SpecificShaderTypeStorage;
+
+			if (FCString::Strcmp(Id.SpecificShaderTypeName, TEXT("")) == 0)
+			{
+				// Store NULL for empty string to be consistent with FShaderResourceId's created at compile time
+				Id.SpecificShaderTypeName = NULL;
+			}
+		}
+
 		return Ar;
 	}
 
@@ -60,6 +83,12 @@ public:
 
 	/** Hash of the compiled shader output, which is used to create the FShaderResource. */
 	FSHAHash OutputHash;
+
+	/** NULL if type doesn't matter, otherwise the name of the type that this was created specifically for, which is used with geometry shader stream out. */
+	const TCHAR* SpecificShaderTypeName;
+
+	/** Stores the memory for SpecificShaderTypeName if this is a standalone Id, otherwise is empty and SpecificShaderTypeName points to an FShaderType name. */
+	FString SpecificShaderTypeStorage;
 };
 
 /** 
@@ -75,7 +104,7 @@ public:
 	SHADERCORE_API FShaderResource();
 
 	/** Constructor used when creating a new shader resource from compiled output. */
-	FShaderResource(const FShaderCompilerOutput& Output);
+	FShaderResource(const FShaderCompilerOutput& Output, FShaderType* InSpecificType);
 
 	~FShaderResource();
 
@@ -116,13 +145,7 @@ public:
 	/** @return the shader's compute shader */
 	const FComputeShaderRHIRef& GetComputeShader();
 
-	FShaderResourceId GetId() const
-	{
-		FShaderResourceId ShaderId;
-		ShaderId.Target = Target;
-		ShaderId.OutputHash = OutputHash;
-		return ShaderId;
-	}
+	SHADERCORE_API FShaderResourceId GetId() const;
 
 	uint32 GetSizeBytes() const
 	{
@@ -137,10 +160,13 @@ public:
 	virtual void FinishCleanup();
 
 	/** Finds a matching shader resource in memory if possible. */
-	SHADERCORE_API static FShaderResource* FindShaderResourceById(const FShaderResourceId& Id);
+	SHADERCORE_API static TRefCountPtr<FShaderResource> FindShaderResourceById(const FShaderResourceId& Id);
 
-	/** Finds a matching shader resource in memory or creates a new one with the given compiler output. */
-	SHADERCORE_API static FShaderResource* FindOrCreateShaderResource(const FShaderCompilerOutput& Output);
+	/** 
+	 * Finds a matching shader resource in memory or creates a new one with the given compiler output.  
+	 * SpecificType can be NULL
+	 */
+	SHADERCORE_API static FShaderResource* FindOrCreateShaderResource(const FShaderCompilerOutput& Output, class FShaderType* SpecificType);
 
 	/** Return a list of all shader Ids currently known */
 	SHADERCORE_API static void GetAllShaderResourceId(TArray<FShaderResourceId>& Ids);
@@ -170,6 +196,9 @@ private:
 	 */
 	FSHAHash OutputHash;
 
+	/** If not NULL, the shader type this resource must be used with. */
+	class FShaderType* SpecificType;
+
 	/** The number of instructions the shader takes to execute. */
 	uint32 NumInstructions;
 
@@ -179,6 +208,9 @@ private:
 	/** The number of references to this shader. */
 	mutable uint32 NumRefs;
 
+	/** A 'canary' used to detect when a stale shader resource is being rendered with. */
+	uint32 Canary;
+
 	/** Initialize the vertex shader RHI resource. */
 	void InitializeVertexShaderRHI();
 
@@ -187,6 +219,8 @@ private:
 
 	/** Tracks loaded shader resources by id. */
 	static TMap<FShaderResourceId, FShaderResource*> ShaderResourceIdMap;
+	/** Critical section for ShaderResourceIdMap. */
+	static FCriticalSection ShaderResourceIdMapCritical;
 };
 
 /** Encapsulates information about a shader's serialization behavior, used to detect when C++ serialization changes to auto-recompile. */
@@ -532,7 +566,10 @@ public:
 	// FDeferredCleanupInterface implementation.
 	virtual void FinishCleanup();
 
-	void InitializeResource()
+	/** Implement for geometry shaders that want to use stream out. */
+	static void GetStreamOutElements(FStreamOutElementList& ElementList, TArray<uint32>& StreamStrides, int32& RasterizedStream) {}
+
+	void BeginInitializeResources()
 	{
 		BeginInitResource(Resource);
 	}
@@ -618,6 +655,12 @@ protected:
 
 private:
 	
+	/** Locks the type's shader id map so that no other thread can add or remove shaders while we're deregistering. */
+	void LockShaderIdMap();
+
+	/** Unlocks the shader type's id map. */
+	void UnlockShaderIdMap();
+
 	/** 
 	 * Hash of the compiled output from this shader and the resulting parameter map.  
 	 * This is used to find a matching resource.
@@ -657,8 +700,11 @@ private:
 	/** A 'canary' used to detect when a stale shader is being rendered with. */
 	uint32 Canary;
 
+public:
 	/** Canary is set to this if the FShader is a valid pointer but uninitialized. */
 	static const uint32 ShaderMagic_Uninitialized = 0xbd9922df;
+	/** Canary is set to this if the FShader is a valid pointer but in the process of being cleaned up. */
+	static const uint32 ShaderMagic_CleaningUp = 0xdc67f93b;
 	/** Canary is set to this if the FShader is a valid pointer and initialized. */
 	static const uint32 ShaderMagic_Initialized = 0x335b43ab;
 };
@@ -668,6 +714,7 @@ class SHADERCORE_API FShaderType
 {
 public:
 	typedef class FShader* (*ConstructSerializedType)();
+	typedef void (*GetStreamOutElementsType)(FStreamOutElementList& ElementList, TArray<uint32>& StreamStrides, int32& RasterizedStream);
 
 	/** @return The global shader factory list. */
 	static TLinkedList<FShaderType*>*& GetTypeList();
@@ -693,7 +740,8 @@ public:
 		const TCHAR* InSourceFilename,
 		const TCHAR* InFunctionName,
 		uint32 InFrequency,
-		ConstructSerializedType InConstructSerializedRef);
+		ConstructSerializedType InConstructSerializedRef,
+		GetStreamOutElementsType InGetStreamOutElementsRef);
 
 	virtual ~FShaderType();
 
@@ -704,7 +752,7 @@ public:
 	 * Finds a shader of this type by ID.
 	 * @return NULL if no shader with the specified ID was found.
 	 */
-	FShader* FindShaderById(const FShaderId& Id) const;
+	TRefCountPtr<FShader> FindShaderById(const FShaderId& Id);
 
 	/** Constructs a new instance of the shader type for deserialization. */
 	FShader* ConstructForDeserialization() const;
@@ -771,9 +819,37 @@ public:
 		}
 	}
 
-	TMap<FShaderId,FShader*>& GetShaderIdMap()
+	void AddToShaderIdMap(FShaderId Id, FShader* Shader)
 	{
-		return ShaderIdMap;
+		FScopeLock MapLock(&ShaderIdMapCritical);
+		ShaderIdMap.Add(Id, Shader);
+	}
+
+	/** Locks the ShaderIdMap before deregistration */
+	void LockShaderIdMap()
+	{
+		ShaderIdMapCritical.Lock();
+	}
+
+	void RemoveFromShaderIdMap(FShaderId Id)
+	{
+		ShaderIdMap.Remove(Id);
+	}
+
+	/** Unlocks the ShaderIdMap after deregistration has completed */
+	void UnlockShaderIdMap()
+	{
+		ShaderIdMapCritical.Unlock();
+	}
+
+	bool LimitShaderResourceToThisType()
+	{
+		return GetStreamOutElementsRef != &FShader::GetStreamOutElements;
+	}
+
+	void GetStreamOutElements(FStreamOutElementList& ElementList, TArray<uint32>& StreamStrides, int32& RasterizedStream) 
+	{
+		(*GetStreamOutElementsRef)(ElementList, StreamStrides, RasterizedStream);
 	}
 
 private:
@@ -785,9 +861,11 @@ private:
 	uint32 Frequency;
 
 	ConstructSerializedType ConstructSerializedRef;
+	GetStreamOutElementsType GetStreamOutElementsRef;
 
 	/** A map from shader ID to shader.  A shader will be removed from it when deleted, so this doesn't need to use a TRefCountPtr. */
 	TMap<FShaderId,FShader*> ShaderIdMap;
+	FCriticalSection ShaderIdMapCritical;
 
 	TLinkedList<FShaderType*> GlobalListLink;
 
@@ -843,7 +921,8 @@ private:
 		ShaderClass::ConstructSerializedInstance, \
 		ShaderClass::ConstructCompiledInstance, \
 		ShaderClass::ModifyCompilationEnvironment, \
-		ShaderClass::ShouldCache \
+		ShaderClass::ShouldCache, \
+		ShaderClass::GetStreamOutElements \
 		);
 
 /** A macro to implement a templated shader type, the function name and the source filename comes from the class. */
@@ -857,7 +936,8 @@ private:
 	ShaderClass::ConstructSerializedInstance, \
 	ShaderClass::ConstructCompiledInstance, \
 	ShaderClass::ModifyCompilationEnvironment, \
-	ShaderClass::ShouldCache \
+	ShaderClass::ShouldCache, \
+	ShaderClass::GetStreamOutElements \
 	);
 
 
@@ -871,7 +951,8 @@ private:
 	ShaderClass::ConstructSerializedInstance, \
 	ShaderClass::ConstructCompiledInstance, \
 	ShaderClass::ModifyCompilationEnvironment, \
-	ShaderClass::ShouldCache \
+	ShaderClass::ShouldCache, \
+	ShaderClass::GetStreamOutElements \
 	);
 #endif
 
@@ -908,7 +989,13 @@ class FCompareShaderTypes
 public:		
 	FORCEINLINE bool operator()(const FShaderType& A, const FShaderType& B ) const
 	{
-		return FCString::Strncmp(A.GetName(), B.GetName(), FMath::Min(FCString::Strlen(A.GetName()), FCString::Strlen(B.GetName()))) > 0;
+		int32 AL = FCString::Strlen(A.GetName());
+		int32 BL = FCString::Strlen(B.GetName());
+		if ( AL == BL )
+		{
+			return FCString::Strncmp(A.GetName(), B.GetName(), AL) > 0;
+		}
+		return AL > BL;
 	}
 };
 
@@ -1070,12 +1157,12 @@ public:
 					check(Shader != NULL);
 					Shader->SerializeBase(Ar, bInlineShaderResource);
 
-					FShader* ExistingShader = Type->FindShaderById(Shader->GetId());
+					TRefCountPtr<FShader> ExistingShader = Type->FindShaderById(Shader->GetId());
 
-					if (ExistingShader)
+					if (ExistingShader.IsValid())
 					{
 						delete Shader;
-						Shader = ExistingShader;
+						Shader = ExistingShader.GetReference();
 					}
 					else
 					{

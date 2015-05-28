@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_CLOTHING_PHYSICAL_MESH_H
 #define NX_CLOTHING_PHYSICAL_MESH_H
@@ -38,14 +22,13 @@ namespace apex
 
 
 /**
-\brief replica of the 2.8.4 NxClothConstrainCoefficients.
+\brief Constrain coefficients of the physical mesh vertices
 */
 struct NxClothingConstrainCoefficients
 {
-	PxF32 maxDistance; ///< \brief Maximum distance a vertex is allowed to move
-	PxF32 maxDistanceBias; ///< \brief Turns max distance sphere into a capsule or disc
-	PxF32 collisionSphereRadius; ///< \brief Backstop sphere radius
-	PxF32 collisionSphereDistance; ///< \brief Backstop sphere distance
+	PxF32 maxDistance;				///< \brief Maximum distance a vertex is allowed to move
+	PxF32 collisionSphereRadius;	///< \brief Backstop sphere radius
+	PxF32 collisionSphereDistance;	///< \brief Backstop sphere distance
 };
 
 
@@ -57,11 +40,11 @@ PX_PUSH_PACK_DEFAULT
 struct NxClothingPhysicalMeshStats
 {
 	/// the number of bytes allocated for the physical mesh
-	physx::PxU32	totalBytes;
+	PxU32	totalBytes;
 	/// the number of vertices
-	physx::PxU32	numVertices;
+	PxU32	numVertices;
 	/// the number of indices
-	physx::PxU32	numIndices;
+	PxU32	numIndices;
 };
 
 
@@ -114,8 +97,9 @@ public:
 	\brief Create a physical mesh from scratch
 
 	Overwrites all vertices/indices, and invalidates all misc vertex buffers. vertices must be physx::PxVec3 and indices physx::PxU32.
+	If driveChannels is NULL, all vertices are assigned to all drive channels (initialized to 0xffffffff)
 	*/
-	virtual void setGeometry(bool tetraMesh, physx::PxU32 numVertices, physx::PxU32 vertexByteStride, const void* vertices, physx::PxU32 numIndices, physx::PxU32 indexByteStride, const void* indices) = 0;
+	virtual void setGeometry(bool tetraMesh, physx::PxU32 numVertices, physx::PxU32 vertexByteStride, const void* vertices, const PxU32* driveChannels, physx::PxU32 numIndices, physx::PxU32 indexByteStride, const void* indices) = 0;
 
 	// direct access to specific buffers
 	/**
@@ -167,6 +151,36 @@ public:
 	The bytestride is applied only after writing numBonesPerVertex and thus must be >= sizoef(physx::PxF32) * numBonesPerVertex
 	*/
 	virtual bool getBoneWeights(physx::PxF32* boneWeights, physx::PxU32 byteStride) const = 0;
+
+	/**
+	\brief Allocates and initializes the drive channels (master flags) of the physics mesh.
+
+	This allows to set the drive channels directly on the physics mesh.
+	*/
+	virtual void allocateMasterFlagsBuffer() = 0;
+
+	/**
+	\brief Returns the masterFlag buffer pointer in order to edit the values.
+
+	This allows to set values directly on the physics mesh.
+	*/
+	virtual PxU32* getMasterFlagsBuffer() = 0;
+
+	/**
+	\brief Allocates and initializes the constrain coefficients of the physics mesh.
+
+	This allows to set the constrain coefficients like maxDistance directly on the physics mesh.
+	If this is not called by the authoring tool, the constrain coefficients are read from the
+	graphical mesh.
+	*/
+	virtual void allocateConstrainCoefficientBuffer() = 0;
+
+	/**
+	\brief Returns the constrain coefficient buffer pointer in order to edit the values.
+
+	This allows to set the constrain coefficients like maxDistance directly on the physics mesh.
+	*/
+	virtual NxClothingConstrainCoefficients* getConstrainCoefficientBuffer() const = 0;
 
 	/**
 	\brief Writes the cloth constrain coefficients into a user specified buffer.

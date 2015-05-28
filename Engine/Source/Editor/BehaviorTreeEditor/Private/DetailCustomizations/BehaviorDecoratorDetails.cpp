@@ -68,9 +68,9 @@ void FBehaviorDecoratorDetails::UpdateAllowedAbortModes()
 	UBTDecorator* MyDecorator = Cast<UBTDecorator>(MyNode);
 	UBTCompositeNode* MyParentNode = MyDecorator ? MyDecorator->GetParentNode() : NULL;
 
-	const bool bAllowAbortNone = MyDecorator->bAllowAbortNone;
-	const bool bAllowAbortSelf = MyDecorator->bAllowAbortChildNodes && (MyParentNode == NULL || MyParentNode->CanAbortSelf());
-	const bool bAllowAbortLowerPriority = MyDecorator->bAllowAbortLowerPri && (MyParentNode == NULL || MyParentNode->CanAbortLowerPriority());
+	const bool bAllowAbortNone = MyDecorator == NULL || MyDecorator->bAllowAbortNone;
+	const bool bAllowAbortSelf = (MyDecorator == NULL || MyDecorator->bAllowAbortChildNodes) && (MyParentNode == NULL || MyParentNode->CanAbortSelf());
+	const bool bAllowAbortLowerPriority = (MyDecorator == NULL || MyDecorator->bAllowAbortLowerPri) && (MyParentNode == NULL || MyParentNode->CanAbortLowerPriority());
 
 	const bool AbortCondition[] = { bAllowAbortNone, bAllowAbortSelf, bAllowAbortLowerPriority, bAllowAbortSelf && bAllowAbortLowerPriority };
 	EBTFlowAbortMode::Type AbortValues[] = { EBTFlowAbortMode::None, EBTFlowAbortMode::Self, EBTFlowAbortMode::LowerPriority, EBTFlowAbortMode::Both };

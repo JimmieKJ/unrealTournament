@@ -1,0 +1,27 @@
+{
+	"FileVersion" : 3,
+
+	"FriendlyName" : "SteamVR",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Support for the SteamVR API",
+	"Category" : "Virtual Reality",
+	"EnabledByDefault" : true,
+
+	"Modules" :
+	[
+		{
+			"Name" : "SteamVR",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win64", "Win32" ]
+		},
+		{
+			"Name" : "SteamVRController",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win64", "Win32" ]
+		}
+	]
+}

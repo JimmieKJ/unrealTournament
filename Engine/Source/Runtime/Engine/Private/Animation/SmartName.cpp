@@ -149,6 +149,11 @@ bool FSmartNameMapping::Exists(const FName& Name)
 	return UidMap.FindKey(Name) != nullptr;
 }
 
+const FSmartNameMapping::UID* FSmartNameMapping::FindUID(const FName& Name)
+{
+	return UidMap.FindKey(Name);
+}
+
 FArchive& operator<<(FArchive& Ar, FSmartNameMapping& Elem)
 {
 	Elem.Serialize(Ar);

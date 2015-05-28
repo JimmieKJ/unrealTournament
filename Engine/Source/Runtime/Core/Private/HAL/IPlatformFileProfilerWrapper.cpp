@@ -77,7 +77,6 @@ bool FPlatformFileReadStats::Initialize( IPlatformFile* Inner, const TCHAR* Comm
 	LowerLevel = Inner;
 	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FPlatformFileReadStats::Tick), 0.f);
 
-	Timer = FPlatformTime::Seconds();
 	LifetimeReadSpeed = 0;
 	LifetimeReadSize = 0;
 	LifetimeReadCalls = 0;

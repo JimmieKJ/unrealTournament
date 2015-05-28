@@ -59,7 +59,7 @@ public:
 		// Animate ourselves in if we're running at the target frame rate
 		if (FSlateApplication::Get().IsRunningAtTargetFrameRate())
 		{
-			Sequence.Play();
+			Sequence.Play( this->AsShared() );
 		}
 		else
 		{
@@ -477,13 +477,13 @@ public:
 	}
 
 	/** Compute the desired size for this widget */
-	virtual FVector2D ComputeDesiredSize() const override
+	virtual FVector2D ComputeDesiredSize(float LayoutScaleMultiplier) const override
 	{
 		const float MinWidthVal = MinWidth.Get();
 
 		if (MinWidthVal == 0.0f)
 		{
-			return SCompoundWidget::ComputeDesiredSize();
+			return SCompoundWidget::ComputeDesiredSize(LayoutScaleMultiplier);
 		}
 		else
 		{

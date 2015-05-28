@@ -24,7 +24,7 @@ public:
 
 	/*ENGINE_API */void SetParameters(FRHICommandList& RHICmdList, const FMatrix& TransformValue, bool bSwitchVerticalAxis = false);
 
-	virtual bool Serialize(FArchive& Ar);
+	virtual bool Serialize(FArchive& Ar) override;
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment);
 
@@ -57,7 +57,7 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FTexture* TextureValue );
 
-	virtual bool Serialize(FArchive& Ar);
+	virtual bool Serialize(FArchive& Ar) override;
 
 private:
 	FShaderResourceParameter InTexture;
@@ -94,7 +94,7 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FTexture* Texture,float GammaValue,ESimpleElementBlendMode BlendMode);
 
-	virtual bool Serialize(FArchive& Ar);
+	virtual bool Serialize(FArchive& Ar) override;
 
 private:
 	FShaderParameter Gamma;
@@ -144,7 +144,7 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FTexture* Texture,float Gamma,float ClipRefValue,ESimpleElementBlendMode BlendMode);
 
-	virtual bool Serialize(FArchive& Ar);
+	virtual bool Serialize(FArchive& Ar) override;
 
 private:
 	FShaderParameter ClipRef;
@@ -230,7 +230,7 @@ public:
 	* @param Ar - archive to serialize to
 	* @return true if any of the parameters were outdated
 	*/
-	virtual bool Serialize(FArchive& Ar);
+	virtual bool Serialize(FArchive& Ar) override;
 	
 private:
 	/** The width to smooth the edge the texture */
@@ -272,7 +272,7 @@ public:
 
 	void SetParameters(FRHICommandList& RHICmdList, const FTexture* TextureValue);
 
-	virtual bool Serialize(FArchive& Ar);
+	virtual bool Serialize(FArchive& Ar) override;
 
 private:
 	FShaderResourceParameter InTexture;
@@ -308,7 +308,7 @@ public:
 	*/
 	void SetParameters(FRHICommandList& RHICmdList, const FTexture* TextureValue, const FMatrix& ColorWeightsValue, float GammaValue);
 
-	virtual bool Serialize(FArchive& Ar);
+	virtual bool Serialize(FArchive& Ar) override;
 
 private:
 	FShaderResourceParameter InTexture;

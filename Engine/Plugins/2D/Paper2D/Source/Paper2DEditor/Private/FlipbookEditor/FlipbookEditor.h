@@ -5,6 +5,9 @@
 #include "Toolkits/AssetEditorToolkit.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "Editor/EditorWidgets/Public/ITransportControl.h"
+#include "PaperFlipbookComponent.h"
+
+class SFlipbookEditorViewport;
 
 //////////////////////////////////////////////////////////////////////////
 // FFlipbookEditor
@@ -15,8 +18,8 @@ public:
 	FFlipbookEditor();
 
 	// IToolkit interface
-	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
-	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
+	virtual void RegisterTabSpawners(const TSharedRef<FTabManager>& TabManager) override;
+	virtual void UnregisterTabSpawners(const TSharedRef<FTabManager>& TabManager) override;
 	// End of IToolkit interface
 
 	// FAssetEditorToolkit
@@ -33,7 +36,7 @@ public:
 	// End of FSerializableObject interface
 
 public:
-	void InitFlipbookEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, class UPaperFlipbook* InitSprite);
+	void InitFlipbookEditor(const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UPaperFlipbook* InitSprite);
 
 	UPaperFlipbook* GetFlipbookBeingEdited() const { return FlipbookBeingEdited; }
 
@@ -41,7 +44,7 @@ public:
 protected:
 	UPaperFlipbook* FlipbookBeingEdited;
 
-	TSharedPtr<class SFlipbookEditorViewport> ViewportPtr;
+	TSharedPtr<SFlipbookEditorViewport> ViewportPtr;
 
 	// Selection set
 	int32 CurrentSelectedKeyframe;
@@ -84,6 +87,7 @@ protected:
 			SetPlaybackPosition(0.0f);
 		}
 	}
+
 protected:
 	void BindCommands();
 	void ExtendMenu();
@@ -96,6 +100,8 @@ protected:
 	void DuplicateSelection();
 	void SetSelection(int32 NewSelection);
 	bool HasValidSelection() const;
+
+	void AddKeyFrameAtCurrentTime();
 	void AddNewKeyFrameAtEnd();
 	void AddNewKeyFrameBefore();
 	void AddNewKeyFrameAfter();

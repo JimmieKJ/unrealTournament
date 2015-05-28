@@ -6,6 +6,7 @@
 ARGS=$@
 # cd to Engine root
 cd "$(dirname "$BASH_SOURCE")"/../../../..
+RESULT=0
 
 while : ; do
         mono Engine/Binaries/DotNET/GitDependencies.exe $ARGS
@@ -16,3 +17,5 @@ while : ; do
         [[ $RESULT -lt 129 ]] && break
         echo "mono GitDependencies.exe $ARGS crashed with return code $RESULT" >> GitDependencies.crash.log
 done
+
+exit $RESULT

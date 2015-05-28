@@ -57,13 +57,6 @@ static inline const TCHAR* GetSectionName(bool bIsEditor)
 /**
  * ctor
  */
-FSystemSettingsDataTextureDetail::FSystemSettingsDataTextureDetail()
-{
-}
-
-/**
- * ctor
- */
 FSystemSettingsData::FSystemSettingsData()
 {
 }
@@ -120,111 +113,6 @@ void FSystemSettingsData::LoadFromIni( const TCHAR* IniSection, const FString& I
 
 		IConsoleManager::Get().CallAllConsoleVariableSinks();
 	}
-
-
-	// Read the texture group LOD settings.
-	TextureLODSettings.Initialize( IniFilename, IniSection );
-}
-
-void FSystemSettingsData::SaveToIni( const TCHAR* IniSection )
-{
-	// Save the texture group LOD settings.
-	WriteTextureLODGroupsToIni( IniSection );
-
-	GConfig->Flush( false, GEngineIni );
-}
-
-/**
- * Writes all texture group LOD settings to the specified ini.
- *
- * @param	IniSection			The .ini section to save to.
- */
-void FSystemSettingsData::WriteTextureLODGroupsToIni(const TCHAR* IniSection)
-{
-#define WRITETEXTURELODGROUPTOINI(Group) WriteTextureLODGroupToIni(Group, TEXT(#Group), IniSection);
-	FOREACH_ENUM_TEXTUREGROUP(WRITETEXTURELODGROUPTOINI)
-#undef WRITETEXTURELODGROUPTOINI
-}
-
-/**
-* Returns a string for the specified texture group LOD settings to the specified ini.
-*
-* @param	TextureGroupID		Index/enum of the group
-* @param	GroupName			String representation of the texture group
-*/
-FString FSystemSettingsData::GetLODGroupString( TextureGroup TextureGroupID, const TCHAR* GroupName )
-{
-	const FExposedTextureLODSettings::FTextureLODGroup& Group = TextureLODSettings.GetTextureLODGroup(TextureGroupID);
-
-	const int32 MinLODSize = 1 << Group.MinLODMipCount;
-	const int32 MaxLODSize = 1 << Group.MaxLODMipCount;
-
-	FName MinMagFilter = NAME_Aniso;
-	FName MipFilter = NAME_Linear;
-	switch(Group.Filter)
-	{
-		case SF_Point:
-			MinMagFilter = NAME_Point;
-			MipFilter = NAME_Point;
-			break;
-		case SF_Bilinear:
-			MinMagFilter = NAME_Linear;
-			MipFilter = NAME_Point;
-			break;
-		case SF_Trilinear:
-			MinMagFilter = NAME_Linear;
-			MipFilter = NAME_Linear;
-			break;
-		case SF_AnisotropicPoint:
-			MinMagFilter = NAME_Aniso;
-			MipFilter = NAME_Point;
-			break;
-		case SF_AnisotropicLinear:
-			MinMagFilter = NAME_Aniso;
-			MipFilter = NAME_Linear;
-			break;
-	}
-
-	FString NumStreamedMipsText;
-	if ( Group.NumStreamedMips >= 0 )
-	{
-		NumStreamedMipsText = FString::Printf( TEXT(",NumStreamedMips=%i"), Group.NumStreamedMips );
-	}
-
-	return FString::Printf( TEXT("(MinLODSize=%i,MaxLODSize=%i,LODBias=%i,MinMagFilter=%s,MipFilter=%s%s,MipGenSettings=%s)"),
-		MinLODSize, MaxLODSize, Group.LODBias, *MinMagFilter.GetPlainNameString(), *MipFilter.GetPlainNameString(), *NumStreamedMipsText, UTexture::GetMipGenSettingsString(Group.MipGenSettings) );
-}
-
-/**
- * Writes the specified texture group LOD settings to the specified ini.
- *
- * @param	TextureGroupID		Index/enum of the group to parse
- * @param	GroupName			String representation of the texture group, to be used as the ini key.
- * @param	IniSection			The .ini section to save to.
- */
-void FSystemSettingsData::WriteTextureLODGroupToIni(TextureGroup TextureGroupID, const TCHAR* GroupName, const TCHAR* IniSection)
-{
-	const FString Entry = GetLODGroupString( TextureGroupID, GroupName );
-	GConfig->SetString( IniSection, GroupName, *Entry, GEngineIni );
-}
-
-/**
- * Dump helpers
- */
-void FSystemSettingsData::DumpTextureLODGroups()
-{
-#define DUMPTEXTURELODGROUP(Group) DumpTextureLODGroup(Group, TEXT(#Group));
-	FOREACH_ENUM_TEXTUREGROUP(DUMPTEXTURELODGROUP)
-#undef DUMPTEXTURELODGROUP
-}
-
-/**
- * Dump helpers
- */
-void FSystemSettingsData::DumpTextureLODGroup(TextureGroup TextureGroupID, const TCHAR* GroupName)
-{
-	const FString Entry = GetLODGroupString( TextureGroupID, GroupName );
-	UE_LOG(LogSystemSettings, Log, TEXT("\t%s: %s"), GroupName, *Entry );
 }
 
 /**
@@ -344,8 +232,8 @@ void FSystemSettings::Initialize( bool bSetupForEditor )
 	IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateRaw(this, &FSystemSettings::CVarSink));
 
 	// intialize a critical texture streaming value used by texture loading, etc
-	int32 MinTextureResidentMipCount = 1;
-	verify(GConfig->GetInt(TEXT("TextureStreaming"), TEXT("MinTextureResidentMipCount"), MinTextureResidentMipCount, GEngineIni));
+	int32 MinTextureResidentMipCount = 7;
+	GConfig->GetInt(TEXT("TextureStreaming"), TEXT("MinTextureResidentMipCount"), MinTextureResidentMipCount, GEngineIni);
 	UTexture2D::SetMinTextureResidentMipCount(MinTextureResidentMipCount);
 }
 
@@ -360,14 +248,6 @@ bool FSystemSettings::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar
 	return false;
 }
 
-void FSystemSettings::SetTextureLODGroup(TextureGroup TextureGroupID, int32 MinLODSize, int32 MaxLODSize, int32 LODBias, TextureMipGenSettings MipGenSettings)
-{
-	TextureLODSettings.GetTextureLODGroup(TextureGroupID).MinLODMipCount	= FMath::CeilLogTwo( MinLODSize );
-	TextureLODSettings.GetTextureLODGroup(TextureGroupID).MaxLODMipCount	= FMath::CeilLogTwo( MaxLODSize );
-	TextureLODSettings.GetTextureLODGroup(TextureGroupID).LODBias			= LODBias;
-	TextureLODSettings.GetTextureLODGroup(TextureGroupID).MipGenSettings	= MipGenSettings;
-}
-
 /*-----------------------------------------------------------------------------
 	Resolution.
 -----------------------------------------------------------------------------*/
@@ -378,102 +258,6 @@ void FSystemSettings::SetTextureLODGroup(TextureGroup TextureGroupID, int32 MinL
 void FSystemSettings::LoadFromIni()
 {
 	FSystemSettingsData::LoadFromIni(GetSectionName(bIsEditor));
-}
-
-void FSystemSettings::SaveToIni()
-{
-	// don't write changes in the editor
-	if (bIsEditor)
-	{
-		UE_LOG(LogSystemSettings, Log, TEXT("Can't save system settings to ini in an editor mode"));
-		return;
-	}
-	FSystemSettingsData::SaveToIni(GetSectionName(bIsEditor));
-}
-
-/**
- * Helper for ApplyNewSettings when the engine is running. Applies the changes needed for the runtime system.
- *
- * We can assume the game is running if this code is called.
- */
-void FSystemSettings::ApplySettingsAtRuntime(const FSystemSettingsData& NewSettings, bool bWriteToIni)
-{
-	// Some of these settings are shared between threads, so we
-	// must flush the rendering thread before changing anything.
-	FlushRenderingCommands();
-
-	// Track settings we might have to put back
-	FExposedTextureLODSettings InMemoryTextureLODSettings = TextureLODSettings;
-
-	// Read settings from .ini.  This is necessary because settings which need to wait for a restart
-	// will be on disk but may not be in memory.  Therefore, we read from disk before capturing old
-	// values to revert to.
-	LoadFromIni();
-
-	// see what settings are actually changing.
-	// Ugly casts because system settings is multi-inherited from all the consituent classes for backwards compatibility
-
-	// Texture Detail
-	bool bTextureDetailChanged = (const FSystemSettingsDataTextureDetail&)(*this) != (const FSystemSettingsDataTextureDetail&)NewSettings;
-
-	// Make a copy of the existing settings so we can compare for changes
-	FSystemSettingsData OldData = *this;
-
-	// Set new settings. Would look prettier if we didn't derive from the Data class...
-	(FSystemSettingsData&)(*this) = NewSettings;
-
-	// apply any runtime changes that need to be made
-	bool bUpdateTextureStreamingSucceeded = false;
-	if (bTextureDetailChanged)
-	{
-		bUpdateTextureStreamingSucceeded = UTexture::ForceUpdateTextureStreaming();
-	}
-
-	// If requested, save the settings to ini.
-	if ( bWriteToIni )
-	{
-		SaveToIni();
-	}
-
-	// If texture detail settings couldn't be applied because we're loading seekfree,
-	// revert the new settings to their previous in-memory values.
-	if ( bTextureDetailChanged && !bUpdateTextureStreamingSucceeded )
-	{
-		TextureLODSettings = InMemoryTextureLODSettings;
-	}
-}
-
-/**
- * Sets new system settings (optionally writes out to the ini). 
- */
-void FSystemSettings::ApplyNewSettings( const FSystemSettingsData& NewSettings, bool bWriteToIni )
-{
-	// we can set any setting before the engine is initialized so don't bother restoring values.
-	bool bEngineIsInitialized = GEngine != NULL;
-
-	// if the engine is running, there are certain values we can't set immediately
-	if (bEngineIsInitialized)
-	{
-		// apply settings to the runtime system.
-		ApplySettingsAtRuntime(NewSettings, bWriteToIni);
-
-		ApplyOverrides();
-	}
-	else
-	{
-		// if the engine is not initialized we don't need to worry about all the deferred settings etc. 
-		// as we do above.
-		// Set new settings. Would look prettier if we didn't derive from the Data class...
-		(FSystemSettingsData&)(*this) = NewSettings;
-
-		// If requested, save the settings to ini.
-		if ( bWriteToIni )
-		{
-			SaveToIni();
-		}
-
-		ApplyOverrides();
-	}
 }
 
 void FSystemSettings::ApplyOverrides()
@@ -529,17 +313,6 @@ void FSystemSettings::ApplyOverrides()
 		{
 			static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Shadow.PreShadowResolutionFactor"));
 			CVar->Set(1.0f, SetBy);
-		}
-
-		for (int32 GroupIndex = 0; GroupIndex < TEXTUREGROUP_MAX; GroupIndex++)
-		{
-			FTextureLODSettings::FTextureLODGroup& CurrentGroup = TextureLODSettings.GetTextureLODGroup(GroupIndex);
-			// Use the best quality texture filtering
-			CurrentGroup.Filter = SF_AnisotropicLinear;
-			// Raise texture max sizes to 4096
-			CurrentGroup.MinLODMipCount = 12;
-			CurrentGroup.MaxLODMipCount = 12;
-			CurrentGroup.LODBias = -1000;
 		}
 	}
 }

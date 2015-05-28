@@ -33,7 +33,7 @@ public:
 		uint32 NumPixelInstructions,
 		ERHIFeatureLevel::Type InFeatureLevel);
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << NormalizedComplexity;

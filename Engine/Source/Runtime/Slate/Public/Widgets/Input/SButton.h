@@ -53,6 +53,12 @@ public:
 		/** Called when the button is clicked */
 		SLATE_EVENT( FOnClicked, OnClicked )
 
+		/** Called when the button is pressed */
+		SLATE_EVENT( FSimpleDelegate, OnPressed )
+
+		/** Called when the button is released */
+		SLATE_EVENT( FSimpleDelegate, OnReleased )
+
 		/** Sets the rules to use for determining whether the button was clicked.  This is an advanced setting and generally should be left as the default. */
 		SLATE_ARGUMENT( EButtonClickMethod::Type, ClickMethod )
 
@@ -163,6 +169,12 @@ protected:
 	/** The delegate to execute when the button is clicked */
 	FOnClicked OnClicked;
 
+	/** The delegate to execute when the button is pressed */
+	FSimpleDelegate OnPressed;
+
+	/** The delegate to execute when the button is released */
+	FSimpleDelegate OnReleased;
+
 	/** Style resource for the button */
 	const FButtonStyle* Style;
 
@@ -185,6 +197,12 @@ protected:
 	/** Can this button be focused? */
 	bool bIsFocusable;
 
+	/** Press the button */
+	void Press();
+
+	/** Release the button */
+	void Release();
+
 	/** Utility function to determine if the incoming mouse event is for a precise tap or click */
 	bool IsPreciseTapOrClick(const FPointerEvent& MouseEvent) const;
 
@@ -202,5 +220,5 @@ protected:
 
 private:
 
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 };

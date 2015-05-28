@@ -18,7 +18,7 @@ float4 ShadowMapCoordinateScaleBias;
 #if USE_INSTANCING
 
 #if USE_DITHERED_LOD_TRANSITION
-    float4 InstancingViewZCompareZero;
+    float4 InstancingViewZCompareZero;  // w contains random lod scale 
     float4 InstancingViewZCompareOne;
     float4 InstancingViewZConstant;
     float4 InstancingWorldViewOriginZero;
@@ -33,9 +33,9 @@ float4 InstancingFadeOutParams;
 
 #if USE_INSTANCING_EMULATED
 	// Required for CPU emulation of Instancing
-	float4 CPUInstanceShadowMapBias;
-	float3x4 CPUInstanceTransform;
-	float4 CPUInstanceLightmapUVBias;
+	float4 CPUInstanceOrigin;  // per-instance random in w 
+	float3x4 CPUInstanceTransform; // hitproxy.r + 256 * selected in .w; hitproxy.g in .w; hitproxy.b in .w
+	float4 CPUInstanceLightmapAndShadowMapBias; 
 #endif	// USE_INSTANCING_EMULATED
 
 #else // USE_INSTANCING
@@ -111,11 +111,11 @@ struct FVertexFactoryInput
 #endif
 
 #if USE_INSTANCING && !USE_INSTANCING_EMULATED
-	float4 InstanceShadowMapBias : ATTRIBUTE8;
-	float4 InstanceTransform1 : ATTRIBUTE9;
-	float4 InstanceTransform2 : ATTRIBUTE10;
-	float4 InstanceTransform3 : ATTRIBUTE11;
-	float4 InstanceLightmapUVBias : ATTRIBUTE12; /* per-instance random in Z */
+	float4 InstanceOrigin : ATTRIBUTE8;  // per-instance random in w 
+	half4 InstanceTransform1 : ATTRIBUTE9;  // hitproxy.r + 256 * selected in .w
+	half4 InstanceTransform2 : ATTRIBUTE10; // hitproxy.g in .w
+	half4 InstanceTransform3 : ATTRIBUTE11; // hitproxy.b in .w
+	float4 InstanceLightmapAndShadowMapUVBias : ATTRIBUTE12; 
 #else
 
 #endif //USE_INSTANCING && !USE_INSTANCING_EMULATED
@@ -130,9 +130,10 @@ struct FPositionOnlyVertexFactoryInput
 	float4	Position	: ATTRIBUTE0;
 	
 #if USE_INSTANCING && !USE_INSTANCING_EMULATED
-	float4 InstanceTransform1 : ATTRIBUTE9;
-	float4 InstanceTransform2 : ATTRIBUTE10;
-	float4 InstanceTransform3 : ATTRIBUTE11;
+	float4 InstanceOrigin : ATTRIBUTE8;  // per-instance random in w 
+	half4 InstanceTransform1 : ATTRIBUTE9;  // hitproxy.r + 256 * selected in .w
+	half4 InstanceTransform2 : ATTRIBUTE10; // hitproxy.g in .w
+	half4 InstanceTransform3 : ATTRIBUTE11; // hitproxy.b in .w
 #endif	// USE_INSTANCING && !USE_INSTANCING_EMULATED
 };
 
@@ -153,29 +154,69 @@ struct FVertexFactoryIntermediates
 float4x4 GetInstanceTransform(FVertexFactoryInput Input)
 {
 	#if !USE_INSTANCING_EMULATED
-	return float4x4(Input.InstanceTransform1, Input.InstanceTransform2, Input.InstanceTransform3, float4(0, 0, 0, 1));
+	return float4x4(float4(Input.InstanceTransform1.xyz, Input.InstanceOrigin.x), float4(Input.InstanceTransform2.xyz, Input.InstanceOrigin.y), float4(Input.InstanceTransform3.xyz, Input.InstanceOrigin.z), float4(0, 0, 0, 1));
 	#else
-	return float4x4(CPUInstanceTransform[0], CPUInstanceTransform[1], CPUInstanceTransform[2], float4(0,0,0,1));
+	return float4x4(float4(CPUInstanceTransform[0].xyz, CPUInstanceOrigin.x), float4(CPUInstanceTransform[1].xyz, CPUInstanceOrigin.y), float4(CPUInstanceTransform[2].xyz, CPUInstanceOrigin.z), float4(0,0,0,1));
 	#endif	// !USE_INSTANCING_EMULATED
 }
 
 float4x4 GetInstanceTransform(FPositionOnlyVertexFactoryInput Input)
 {
 	#if !USE_INSTANCING_EMULATED
-	return float4x4(Input.InstanceTransform1, Input.InstanceTransform2, Input.InstanceTransform3, float4(0, 0, 0, 1));
+	return float4x4(float4(Input.InstanceTransform1.xyz, Input.InstanceOrigin.x), float4(Input.InstanceTransform2.xyz, Input.InstanceOrigin.y), float4(Input.InstanceTransform3.xyz, Input.InstanceOrigin.z), float4(0, 0, 0, 1));
 	#else
-	return float4x4(CPUInstanceTransform[0], CPUInstanceTransform[1], CPUInstanceTransform[2], float4(0,0,0,1));
+	return float4x4(float4(CPUInstanceTransform[0].xyz, CPUInstanceOrigin.x), float4(CPUInstanceTransform[1].xyz, CPUInstanceOrigin.y), float4(CPUInstanceTransform[2].xyz, CPUInstanceOrigin.z), float4(0,0,0,1));
 #endif	// !USE_INSTANCING_EMULATED
 }
 
-float4 GetInstanceShadowMapBias(FVertexFactoryInput Input)
+float2 GetInstanceShadowMapBias(FVertexFactoryInput Input)
 {
 	#if !USE_INSTANCING_EMULATED
-	return Input.InstanceShadowMapBias;
+	return Input.InstanceLightmapAndShadowMapUVBias.zw;
 	#else
-	return CPUInstanceShadowMapBias;
+	return CPUInstanceLightmapAndShadowMapBias.zw;
 	#endif	// !USE_INSTANCING_EMULATED
 }
+
+float2 GetInstanceLightMapBias(FVertexFactoryInput Input)
+{
+	#if !USE_INSTANCING_EMULATED
+	return Input.InstanceLightmapAndShadowMapUVBias.xy;
+	#else
+	return CPUInstanceLightmapAndShadowMapBias.xy;
+	#endif	// !USE_INSTANCING_EMULATED
+}
+
+float GetInstanceSelected(FVertexFactoryInput Input)
+{
+	#if !USE_INSTANCING_EMULATED
+		float SelectedValue = trunc(Input.InstanceTransform1.w * (1.0 / 256.0));
+	#else
+		float SelectedValue = trunc(CPUInstanceTransform[0].w * (1.0 / 256.0));
+	#endif	// !USE_INSTANCING_EMULATED
+	return SelectedValue;
+}
+
+float GetInstanceRandom(FVertexFactoryInput Input)
+{
+	#if !USE_INSTANCING_EMULATED
+		float RandomVal = Input.InstanceOrigin.w;
+	#else
+		float RandomVal = CPUInstanceOrigin.w;
+	#endif	// !USE_INSTANCING_EMULATED
+	return RandomVal;
+}
+
+float3 GetInstanceOrigin(FVertexFactoryInput Input)
+{
+	#if !USE_INSTANCING_EMULATED
+		float3 Origin = Input.InstanceOrigin.xyz;
+	#else
+		float3 Origin = CPUInstanceOrigin.xyz;
+	#endif	// !USE_INSTANCING_EMULATED
+	return Origin;
+}
+
 #endif	// USE_INSTANCING
 
 /** Converts from vertex factory specific interpolants to a FMaterialPixelParameters, which is used by material inputs. */
@@ -238,10 +279,11 @@ half3x3 CalcTangentToWorldNoScale(in half3x3 TangentToLocal)
 }
 
 /** Converts from vertex factory specific input to a FMaterialVertexParameters, which is used by vertex shader material inputs. */
-FMaterialVertexParameters GetMaterialVertexParameters( FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 WorldPosition, half3x3 TangentToLocal )
+FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates, float3 WorldPosition, half3x3 TangentToLocal)
 {
 	FMaterialVertexParameters Result = (FMaterialVertexParameters)0;
 	Result.WorldPosition = WorldPosition - View.PreViewTranslation;
+	Result.PrevWorldPosition = WorldPosition - View.PrevPreViewTranslation.xyz;
 	Result.VertexColor = Intermediates.Color;
 
 	// does not handle instancing!
@@ -455,20 +497,16 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	// x = per-instance random, y = per-instance fade out factor, z = zero or one depending of if it is shown at all, w is dither cutoff 
 
 	// PerInstanceParams.z stores a hide/show flag for this instance
-	float SelectedValue = trunc(GetInstanceShadowMapBias(Input).z * (1.0 / 256.0));
-	// InstancingFadeOutParams.z,w are RenderSelected and RenderDeselected respectively.
-	#if !USE_INSTANCING_EMULATED
-		Intermediates.PerInstanceParams.x = Input.InstanceLightmapUVBias.z;
-		float3 InstanceLocation = TransformLocalToWorld(float3(Input.InstanceTransform1.w, Input.InstanceTransform2.w, Input.InstanceTransform3.w)).xyz;
-	#else
-		Intermediates.PerInstanceParams.x = CPUInstanceLightmapUVBias.z;
-		float3 InstanceLocation = TransformLocalToWorld(float3(CPUInstanceTransform[0].w, CPUInstanceTransform[1].w, CPUInstanceTransform[2].w)).xyz;
-	#endif // !USE_INSTANCING_EMULATED
+	float SelectedValue = GetInstanceSelected(Input);
+	Intermediates.PerInstanceParams.x = GetInstanceRandom(Input);
+	float3 InstanceLocation = TransformLocalToWorld(GetInstanceOrigin(Input)).xyz;
 	Intermediates.PerInstanceParams.y = 1.0 - saturate((length(InstanceLocation + View.PreViewTranslation.xyz) - InstancingFadeOutParams.x) * InstancingFadeOutParams.y);
+	// InstancingFadeOutParams.z,w are RenderSelected and RenderDeselected respectively.
 	Intermediates.PerInstanceParams.z = InstancingFadeOutParams.z * SelectedValue + InstancingFadeOutParams.w * (1-SelectedValue);
 	#if USE_DITHERED_LOD_TRANSITION
-		float ViewZZero = length(InstanceLocation - InstancingWorldViewOriginZero.xyz);
-		float ViewZOne = length(InstanceLocation - InstancingWorldViewOriginOne.xyz);
+		float RandomLOD = InstancingViewZCompareZero.w * Intermediates.PerInstanceParams.x;
+		float ViewZZero = length(InstanceLocation - InstancingWorldViewOriginZero.xyz) + RandomLOD;
+		float ViewZOne = length(InstanceLocation - InstancingWorldViewOriginOne.xyz) + RandomLOD;
 		Intermediates.PerInstanceParams.w = 
 			dot(ViewZZero > InstancingViewZCompareZero.xyz, InstancingViewZConstant.xyz) * InstancingWorldViewOriginZero.w +
 			dot(ViewZOne > InstancingViewZCompareOne.xyz, InstancingViewZConstant.xyz) * InstancingWorldViewOriginOne.w;
@@ -535,18 +573,13 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	float2 ShadowMapCoordinate = 0;
 
 	#if USE_INSTANCING
-		#if !USE_INSTANCING_EMULATED
-		float2 InstanceLightmapUVBias = Input.InstanceLightmapUVBias.xy;
-		#else
-		float2 InstanceLightmapUVBias = CPUInstanceLightmapUVBias.xy;
-		#endif // !USE_INSTANCING_EMULATED
-		LightMapCoordinate = Input.LightMapCoordinate * LightMapCoordinateScaleBias.xy + InstanceLightmapUVBias;
+		LightMapCoordinate = Input.LightMapCoordinate * LightMapCoordinateScaleBias.xy + GetInstanceLightMapBias(Input);
 	#else
 		LightMapCoordinate = Input.LightMapCoordinate * LightMapCoordinateScaleBias.xy + LightMapCoordinateScaleBias.zw;
 	#endif
 	#if STATICLIGHTING_TEXTUREMASK
 		#if USE_INSTANCING
-			ShadowMapCoordinate = Input.LightMapCoordinate * ShadowMapCoordinateScaleBias.xy + GetInstanceShadowMapBias(Input).xy;
+			ShadowMapCoordinate = Input.LightMapCoordinate * ShadowMapCoordinateScaleBias.xy + GetInstanceShadowMapBias(Input);
 		#else
 			ShadowMapCoordinate = Input.LightMapCoordinate * ShadowMapCoordinateScaleBias.xy + ShadowMapCoordinateScaleBias.zw;
 		#endif
@@ -697,12 +730,15 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 #if USE_INSTANCING
 float4 VertexFactoryGetInstanceHitProxyId(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
-	// Unpack HitProxy color from InstanceShadowMapBias z and w
-	float4 InstanceShadowMapBias = GetInstanceShadowMapBias(Input);
-	float SelectedMask = trunc(InstanceShadowMapBias.z * (1.0 / 256.0));
-	float R = InstanceShadowMapBias.z - 256.0 * SelectedMask;
-	float G = trunc(InstanceShadowMapBias.w * (1.0/256.0));
-	float B = InstanceShadowMapBias.w - 256.0 * G;
+	#if !USE_INSTANCING_EMULATED
+		float R = Input.InstanceTransform1.w - 256.0 * GetInstanceSelected(Input);
+		float G = Input.InstanceTransform2.w;
+		float B = Input.InstanceTransform3.w;
+	#else
+		float R = CPUInstanceTransform[0].w - 256.0 * GetInstanceSelected(Input);
+		float G = CPUInstanceTransform[1].w;
+		float B = CPUInstanceTransform[2].w;
+	#endif
 	return float4(R/255.0, G/255.0, B/255.0, 0);
 }
 #endif	// USE_INSTANCING

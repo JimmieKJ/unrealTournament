@@ -80,10 +80,9 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 			SNew(SSpacer)
 		];
 
-	if (GameplayEffect && (GameplayEffect->ChanceToApplyToTarget.Value < 1.f || GameplayEffect->ChanceToExecuteOnGameplayEffect.Value < 1.f))
+	if (GameplayEffect && (GameplayEffect->ChanceToApplyToTarget.Value < 1.f))
 	{
 		FText ApplyToTargetText = FText::AsNumber(GameplayEffect->ChanceToApplyToTarget.Value);
-		FText ExecuteOnGEText = FText::AsNumber(GameplayEffect->ChanceToExecuteOnGameplayEffect.Value);
 
 		RightNodeBox->AddSlot()
 			[
@@ -99,23 +98,6 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 					[
 						SNew(STextBlock)
 						.Text(ApplyToTargetText)
-					]
-			];
-
-		RightNodeBox->AddSlot()
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.HAlign(HAlign_Left)
-				[
-					SNew(STextBlock)
-					.Text(LOCTEXT("ChanceToExecuteOnGE", "Chance to Execute on GE:"))
-				]
-				+ SHorizontalBox::Slot()
-					.HAlign(HAlign_Right)
-					[
-						SNew(STextBlock)
-						.Text(ExecuteOnGEText)
 					]
 			];
 
@@ -143,23 +125,7 @@ void SGraphNodeK2GameplayEffectVar::UpdateGraphNode()
 				.Text(FText::FromString(GameplayEffect->Modifiers[Idx].Attribute.GetName()))
 			];
 
-		FString ModOpString;
-		switch (GameplayEffect->Modifiers[Idx].ModifierOp)
-		{
-		case EGameplayModOp::Additive:
-			ModOpString = "Add";
-			break;
-		case EGameplayModOp::Multiplicitive:
-			ModOpString = "Multiply";
-			break;
-		case EGameplayModOp::Division:
-			ModOpString = "Divide";
-			break;
-		default:
-			ModOpString = "Other";
-			break;
-		}
-		FText ModString = FText::Format(LOCTEXT("ModOpAndValue", "{0}: {1}"), FText::FromString(ModOpString), FText::AsNumber(GameplayEffect->Modifiers[Idx].Magnitude.Value));
+		FText ModString = FText::Format(LOCTEXT("ModOpAndValue", "{0}: {1}"), FText::FromString(EGameplayModOpToString(GameplayEffect->Modifiers[Idx].ModifierOp)), FText::AsNumber(GameplayEffect->Modifiers[Idx].Magnitude.Value));
 
 		RightNodeBox->AddSlot()
 			.VAlign(VAlign_Center)

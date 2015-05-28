@@ -100,7 +100,7 @@ bool FFbxImporter::HasUnknownCameras( AMatineeActor* InMatineeActor ) const
 	for ( int32 NodeIndex = 0; NodeIndex < NodeCount; ++NodeIndex )
 	{
 		FbxNode* Node = RootNode->GetChild(NodeIndex);
-		if ( _HasUnknownCameras( InMatineeActor, Node, ANSI_TO_TCHAR(Node->GetName()) ) )
+		if ( _HasUnknownCameras( InMatineeActor, Node, UTF8_TO_TCHAR(Node->GetName()) ) )
 		{
 			return true;
 		}
@@ -110,7 +110,7 @@ bool FFbxImporter::HasUnknownCameras( AMatineeActor* InMatineeActor ) const
 		for( int32 ChildIndex = 0; ChildIndex < ChildNodeCount; ++ChildIndex )
 		{
 			FbxNode* ChildNode = Node->GetChild(ChildIndex);
-			if( _HasUnknownCameras( InMatineeActor, ChildNode, ANSI_TO_TCHAR(ChildNode->GetName() ) ) )
+			if( _HasUnknownCameras( InMatineeActor, ChildNode, UTF8_TO_TCHAR(ChildNode->GetName() ) ) )
 			{
 				return true;
 			}
@@ -238,7 +238,7 @@ bool FFbxImporter::ImportMatineeSequence(AMatineeActor* InMatineeActor)
 		// Attempt to name-match the scene node with one of the actors.
 		if( Actor == NULL )
 		{
-			Actor = FindObject<AActor>( ANY_PACKAGE, ANSI_TO_TCHAR(Node->GetName()) );
+			Actor = FindObject<AActor>( ANY_PACKAGE, UTF8_TO_TCHAR(Node->GetName()) );
 		}
 
 		FbxCamera* CameraNode = NULL;
@@ -248,7 +248,7 @@ bool FFbxImporter::ImportMatineeSequence(AMatineeActor* InMatineeActor)
 			if ( bCreateUnknownCameras && CameraNode != NULL )
 			{
 				Actor = GEditor->AddActor( InMatineeActor->GetWorld()->GetCurrentLevel(), ACameraActor::StaticClass(), FTransform::Identity );
-				Actor->SetActorLabel( ANSI_TO_TCHAR(CameraNode->GetName()) );
+				Actor->SetActorLabel( UTF8_TO_TCHAR(CameraNode->GetName()) );
 			}
 			else
 			{
@@ -387,9 +387,9 @@ void FFbxImporter::ImportAnimatedProperty(float* Value, const TCHAR* ValueName, 
 	// If a track for this property was not found, create one.
 	if (PropertyTrack == NULL)
 	{
-		PropertyTrack = ConstructObject<UInterpTrackFloatProp>( UInterpTrackFloatProp::StaticClass(), MatineeGroup->Group, NAME_None, RF_Transactional );
+		PropertyTrack = NewObject<UInterpTrackFloatProp>(MatineeGroup->Group, NAME_None, RF_Transactional);
 		MatineeGroup->Group->InterpTracks.Add(PropertyTrack);
-		UInterpTrackInstFloatProp* PropertyTrackInst = ConstructObject<UInterpTrackInstFloatProp>( UInterpTrackInstFloatProp::StaticClass(), MatineeGroup, NAME_None, RF_Transactional );
+		UInterpTrackInstFloatProp* PropertyTrackInst = NewObject<UInterpTrackInstFloatProp>(MatineeGroup, NAME_None, RF_Transactional);
 		MatineeGroup->TrackInst.Add(PropertyTrackInst);
 		PropertyTrack->PropertyName = ValueName;
 		PropertyTrack->TrackTitle = ValueName;
@@ -461,12 +461,12 @@ void FFbxImporter::ImportAnimatedProperty(float* Value, const TCHAR* ValueName, 
 UInterpGroupInst* FFbxImporter::CreateMatineeGroup(AMatineeActor* InMatineeActor, AActor* Actor, FString GroupName)
 {
 	// There are no groups for this actor: create the Matinee group data structure.
-	UInterpGroup* MatineeGroupData = ConstructObject<UInterpGroup>( UInterpGroup::StaticClass(), InMatineeActor->MatineeData, NAME_None, RF_Transactional );
+	UInterpGroup* MatineeGroupData = NewObject<UInterpGroup>(InMatineeActor->MatineeData, NAME_None, RF_Transactional);
 	MatineeGroupData->GroupName = FName( *GroupName );
 	InMatineeActor->MatineeData->InterpGroups.Add(MatineeGroupData);
 
 	// Instantiate the Matinee group data structure.
-	UInterpGroupInst* MatineeGroup = ConstructObject<UInterpGroupInst>( UInterpGroupInst::StaticClass(), InMatineeActor, NAME_None, RF_Transactional );
+	UInterpGroupInst* MatineeGroup = NewObject<UInterpGroupInst>(InMatineeActor, NAME_None, RF_Transactional);
 	InMatineeActor->GroupInst.Add(MatineeGroup);
 	MatineeGroup->InitGroupInst(MatineeGroupData, Actor);
 	MatineeGroup->SaveGroupActorState();
@@ -598,9 +598,9 @@ float FFbxImporter::ImportMatineeActor(FbxNode* Node, UInterpGroupInst* MatineeG
 	// Add a Movement track if the node is animated and the group does not already have one.
 	if (MovementTrack == NULL && bNodeAnimated)
 	{
-		MovementTrack = ConstructObject<UInterpTrackMove>( UInterpTrackMove::StaticClass(), MatineeGroup->Group, NAME_None, RF_Transactional );
+		MovementTrack = NewObject<UInterpTrackMove>(MatineeGroup->Group, NAME_None, RF_Transactional);
 		MatineeGroup->Group->InterpTracks.Add(MovementTrack);
-		UInterpTrackInstMove* MovementTrackInst = ConstructObject<UInterpTrackInstMove>( UInterpTrackInstMove::StaticClass(), MatineeGroup, NAME_None, RF_Transactional );
+		UInterpTrackInstMove* MovementTrackInst = NewObject<UInterpTrackInstMove>(MatineeGroup, NAME_None, RF_Transactional);
 		MatineeGroup->TrackInst.Add(MovementTrackInst);
 		MovementTrackInst->InitTrackInst(MovementTrack);
 	}
@@ -792,7 +792,7 @@ float FFbxImporter::ImportMatineeActor(FbxNode* Node, UInterpGroupInst* MatineeG
 			bIsCamera = true;
 		}
 
-		if( MovementTrack->SubTracks.Num() > 0 )
+		if (MovementTrack && MovementTrack->SubTracks.Num() > 0)
 		{
 			check (bIsCamera == false);
 			ImportMoveSubTrack(TransCurves[0], 0, SubTracks[0], 0, false, RealCurves[0], DefaultPos[0]);
@@ -817,7 +817,7 @@ float FFbxImporter::ImportMatineeActor(FbxNode* Node, UInterpGroupInst* MatineeG
 			// Scale the track timing to ensure that it is large enough
 			MovementTrack->GetTimeRange( StartTime, TimeLength );
 		}
-		else
+		else if (MovementTrack)
 		{
 			ImportMatineeAnimated(TransCurves[0], MovementTrack->PosTrack, 1, true, RealCurves[0], DefaultPos[0]);
 			ImportMatineeAnimated(TransCurves[1], MovementTrack->PosTrack, 0, true, RealCurves[0], DefaultPos[1]);

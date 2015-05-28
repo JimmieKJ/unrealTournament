@@ -295,7 +295,7 @@ TSharedPtr<FPropertyNode> FDetailLayoutBuilderImpl::GetPropertyNodeInternal( con
 {
 	FName PropertyName;
 	TArray<FString> PathList;
-	PropertyPath.ToString().ParseIntoArray( &PathList, TEXT("."), true );
+	PropertyPath.ToString().ParseIntoArray( PathList, TEXT("."), true );
 
 	if( PathList.Num() == 1 )
 	{

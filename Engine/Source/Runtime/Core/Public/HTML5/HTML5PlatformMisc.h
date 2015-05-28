@@ -10,6 +10,7 @@
 #include "HAL/Platform.h"
 #include "HTML5/HTML5DebugLogging.h"
 #include "HTML5/HTML5SystemIncludes.h"
+#include <emscripten.h>
 
 /**
  * HTML5 implementation of the misc OS functions
@@ -17,6 +18,7 @@
 struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 {
 	static void PlatformInit();
+	static void PlatformPostInit(bool ShowSplashScreen = false);
 	static class GenericApplication* CreateApplication();
 	static uint32 GetKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings);
 	static uint32 GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings);
@@ -49,6 +51,9 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 			__debugbreak();
 #else
 			emscripten_log(255, "DebugBreak() called!");
+			EM_ASM(
+				throw new Error('DebugBreak() called! Check Log for information');
+			);
 #endif
 		}
 	}
@@ -56,7 +61,24 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 	/** Break into debugger. Returning false allows this function to be used in conditionals. */
 	FORCEINLINE static bool DebugBreakReturningFalse()
 	{
+#if !UE_BUILD_SHIPPING
 		DebugBreak();
+#endif
+		return false;
+	}
+
+	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
+	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse()
+	{
+#if !UE_BUILD_SHIPPING
+		if (!IsDebuggerPresent())
+		{
+			PromptForRemoteDebugging(false);
+		}
+
+		DebugBreak();
+#endif
+
 		return false;
 	}
 
@@ -64,6 +86,8 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 	{
 		wprintf(TEXT("%ls"), Str);
 	}
+
+	static const void PreLoadMap(FString&, FString&, void*);
 };
 
 typedef FHTML5Misc FPlatformMisc;

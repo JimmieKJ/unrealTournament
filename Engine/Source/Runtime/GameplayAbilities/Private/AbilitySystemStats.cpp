@@ -9,10 +9,12 @@ DEFINE_STAT(STAT_GameplayEffectsTick);
 DEFINE_STAT(STAT_GameplayEffectsCanApplyAttributeModifiers);
 DEFINE_STAT(STAT_GameplayEffectsGetActiveEffectsTimeRemaining);
 DEFINE_STAT(STAT_GameplayEffectsGetActiveEffectsDuration);
+DEFINE_STAT(STAT_GameplayEffectsGetActiveEffects);
+DEFINE_STAT(STAT_GameplayEffectsModifyActiveEffectStartTime);
 DEFINE_STAT(STAT_GameplayAbilityGetCooldownTimeRemaining);
 DEFINE_STAT(STAT_GameplayAbilityGetCooldownTimeRemainingAndDuration);
 DEFINE_STAT(STAT_RemoveActiveGameplayEffect);
-DEFINE_STAT(STAT_CreateNewActiveGameplayEffect);
+DEFINE_STAT(STAT_ApplyGameplayEffectSpec);
 DEFINE_STAT(STAT_GetGameplayCueFunction);
 DEFINE_STAT(STAT_GetOutgoingSpec);
 DEFINE_STAT(STAT_InitAttributeSetDefaults);
@@ -20,5 +22,6 @@ DEFINE_STAT(STAT_TickAbilityTasks);
 DEFINE_STAT(STAT_FindAbilitySpecFromHandle);
 DEFINE_STAT(STAT_AggregatorEvaluate);
 DEFINE_STAT(STAT_HasApplicationImmunityToSpec);
-
-
+DEFINE_STAT(STAT_HasMatchingGameplayTag);
+DEFINE_STAT(STAT_HandleGameplayCueNotifyStatic);
+DEFINE_STAT(STAT_HandleGameplayCueNotifyActor);

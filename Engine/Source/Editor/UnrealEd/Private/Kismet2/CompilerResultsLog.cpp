@@ -280,15 +280,15 @@ void FCompilerResultsLog::InternalLogMessage(const EMessageSeverity::Type& Sever
 	{
 		if(Severity == EMessageSeverity::CriticalError || Severity == EMessageSeverity::Error)
 		{
-			UE_LOG(LogBlueprint, Error, TEXT("[compiler] %s"), *Line->ToText().ToString());
+			UE_LOG(LogBlueprint, Error, TEXT("[compiler %s] %s"), *SourceName, *Line->ToText().ToString());
 		}
 		else if(Severity == EMessageSeverity::Warning || Severity == EMessageSeverity::PerformanceWarning)
 		{
-			UE_LOG(LogBlueprint, Warning, TEXT("[compiler] %s"), *Line->ToText().ToString());
+			UE_LOG(LogBlueprint, Warning, TEXT("[compiler %s] %s"), *SourceName, *Line->ToText().ToString());
 		}
 		else
 		{
-			UE_LOG(LogBlueprint, Log, TEXT("[compiler] %s"), *Line->ToText().ToString());
+			UE_LOG(LogBlueprint, Log, TEXT("[compiler %s] %s"), *SourceName, *Line->ToText().ToString());
 		}
 	}
 }
@@ -344,7 +344,7 @@ TArray< TSharedRef<FTokenizedMessage> > FCompilerResultsLog::ParseCompilerLogDum
 	TArray< TSharedRef<FTokenizedMessage> > Messages;
 
 	TArray< FString > MessageLines;
-	LogDump.ParseIntoArray(&MessageLines, TEXT("\n"), false);
+	LogDump.ParseIntoArray(MessageLines, TEXT("\n"), false);
 
 	// delete any trailing empty lines
 	for (int32 i = MessageLines.Num()-1; i >= 0; --i)
@@ -397,6 +397,11 @@ TArray< TSharedRef<FTokenizedMessage> > FCompilerResultsLog::ParseCompilerLogDum
 			Message->AddToken( FTextToken::Create( FText::FromString( Link ) )->OnMessageTokenActivated(FOnMessageTokenActivated::CreateStatic(&FCompilerResultsLog::OnGotoError) ) );
 			Message->AddToken( FTextToken::Create( FText::FromString( RightStr ) ) );
 			Messages.Add(Message);
+
+			if (Severity == EMessageSeverity::Error)
+			{
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s"), *Line);
+			}
 		}
 		else
 		{
@@ -404,6 +409,7 @@ TArray< TSharedRef<FTokenizedMessage> > FCompilerResultsLog::ParseCompilerLogDum
 			if (Line.Contains(TEXT("error LNK"), ESearchCase::CaseSensitive))
 			{
 				Severity = EMessageSeverity::Error;
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s"), *Line);
 			}
 
 			TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create( Severity );

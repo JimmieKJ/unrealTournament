@@ -4,6 +4,9 @@
 	ShadowDepthVertexShader.usf: Vertex shader for writing shadow depth.
 =============================================================================*/
 
+// needs to before Common.usf
+#define SHADOW_DEPTH_SHADER 1
+
 #include "Common.usf"
 #include "Material.usf"
 #include "VertexFactory.usf"

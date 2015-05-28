@@ -728,7 +728,11 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, NxDestructibl
 {
 	DestructibleMesh.PreEditChange(NULL);
 
-	ExistingDestMeshData * ExistDestMeshDataPtr = SaveExistingDestMeshData(&DestructibleMesh);
+	ExistingDestMeshData * ExistDestMeshDataPtr = nullptr;
+	if(Options & EDestructibleImportOptions::PreserveSettings)
+	{
+		ExistDestMeshDataPtr = SaveExistingDestMeshData(&DestructibleMesh);
+	}
 	
 	// The asset is going away, which will destroy any actors created from it.  We must destroy the physics state of any destructible mesh components before we release the asset.
 	for(TObjectIterator<UDestructibleComponent> It; It; ++It)
@@ -932,13 +936,13 @@ UNREALED_API bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& D
 	if (DestructibleMesh.FractureSettings != NULL)
 	{
 		TArray<UMaterialInterface*> OverrideMaterials;
-		OverrideMaterials.Init(DestructibleMesh.Materials.Num());	//save old materials
+		OverrideMaterials.SetNumUninitialized(DestructibleMesh.Materials.Num());	//save old materials
 		for (int32 MaterialIndex = 0; MaterialIndex < DestructibleMesh.Materials.Num(); ++MaterialIndex)
 		{
 			OverrideMaterials[MaterialIndex] = DestructibleMesh.Materials[MaterialIndex].MaterialInterface;
 		}
 
-		DestructibleMesh.Materials.Init(DestructibleMesh.FractureSettings->Materials.Num());
+		DestructibleMesh.Materials.SetNumUninitialized(DestructibleMesh.FractureSettings->Materials.Num());
 
 		for (int32 MaterialIndex = 0; MaterialIndex < DestructibleMesh.Materials.Num(); ++MaterialIndex)
 		{
@@ -991,14 +995,14 @@ UDestructibleMesh* ImportDestructibleMeshFromApexDestructibleAsset(UObject* InPa
 	if (DestructibleMesh == NULL)
 	{
 		// Create the new UDestructibleMesh object if the one with the same name does not exist
-		DestructibleMesh = CastChecked<UDestructibleMesh>(StaticConstructObject(UDestructibleMesh::StaticClass(), InParent, Name, Flags));
+		DestructibleMesh = NewObject<UDestructibleMesh>(InParent, Name, Flags);
 	}
 	
 	if (!(Options & EDestructibleImportOptions::PreserveSettings))
 	{
 		// Store the current file path and timestamp for re-import purposes
 		// @todo AssetImportData make a data class for Apex destructible assets
-		DestructibleMesh->AssetImportData = ConstructObject<UAssetImportData>(UAssetImportData::StaticClass(), DestructibleMesh);
+		DestructibleMesh->AssetImportData = NewObject<UAssetImportData>(DestructibleMesh);
 		DestructibleMesh->AssetImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(UFactory::CurrentFilename, DestructibleMesh);
 		DestructibleMesh->AssetImportData->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*UFactory::CurrentFilename).ToString();
 		DestructibleMesh->AssetImportData->bDirty = false;

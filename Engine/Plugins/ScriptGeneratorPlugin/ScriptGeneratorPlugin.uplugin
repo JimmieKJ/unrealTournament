@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
 	"Description" : "An example of a script generator plugin.  This can be used as a starting point when creating your own plugin.",
-	"Category" : "UnrealHeaderTool.Code Generator.Generic",
+	"Category" : "Examples",
 	"EnabledByDefault" : true,
 
 	"Modules" :

@@ -1,10 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
-//=============================================================================
-
 #pragma once
+
 #include "DocumentationActor.generated.h"
+
 
 namespace EDocumentationActorType
 {
@@ -21,8 +20,10 @@ namespace EDocumentationActorType
 	};
 }
 
+
 UCLASS(hidecategories = (Sprite, MaterialSprite, Actor, Transform, Tags, Materials, Rendering, Components, Blueprint, bject, Collision, Display, Rendering, Physics, Input, Lighting, Layers))
-class ENGINE_API ADocumentationActor : public AActor
+class ENGINE_API ADocumentationActor
+	: public AActor
 {
 	GENERATED_UCLASS_BODY()
 
@@ -50,6 +51,7 @@ private_subobject:
 	UPROPERTY(Category = Sprite, VisibleAnywhere, BlueprintReadOnly, meta = (AllowPrivateAccess = "true"))
 	class UMaterialBillboardComponent* Billboard;
 #endif
+
 public:
 
 	/** Determine the type of link contained in the DocumentLink member */
@@ -62,13 +64,10 @@ private:
 
 	EDocumentationActorType::Type	LinkType;
 
-
 public:
+
 #if WITH_EDITORONLY_DATA
 	/** Returns Billboard subobject **/
 	class UMaterialBillboardComponent* GetBillboard() const;
 #endif
 };
-
-
-

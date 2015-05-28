@@ -10,6 +10,7 @@ IMPLEMENT_HIT_PROXY(HWidgetAxis,HHitProxy);
 
 static const float AXIS_LENGTH = 35.0f;
 static const float TRANSLATE_ROTATE_AXIS_CIRCLE_RADIUS = 20.0f;
+static const float TWOD_AXIS_CIRCLE_RADIUS = 10.0f;
 static const float INNER_AXIS_CIRCLE_RADIUS = 48.0f;
 static const float OUTER_AXIS_CIRCLE_RADIUS = 56.0f;
 static const float ROTATION_TEXT_RADIUS = 75.0f;
@@ -65,6 +66,7 @@ FWidget::FWidget()
 	bDragging = false;
 	bSnapEnabled = false;
 	bDefaultVisibility = true;
+	bIsOrthoDrawingFullRing = false;
 }
 
 extern ENGINE_API void StringSize(UFont* Font,int32& XL,int32& YL,const TCHAR* Text, FCanvas* Canvas);
@@ -185,6 +187,10 @@ void FWidget::Render( const FSceneView* View,FPrimitiveDrawInterface* PDI, FEdit
 			Render_TranslateRotateZ( View, PDI, ViewportClient, Loc, bDrawWidget );
 			break;
 
+		case WM_2D:
+			Render_2D( View, PDI, ViewportClient, Loc, bDrawWidget );
+			break;
+
 		default:
 			break;
 	}
@@ -193,16 +199,16 @@ void FWidget::Render( const FSceneView* View,FPrimitiveDrawInterface* PDI, FEdit
 /**
  * Draws an arrow head line for a specific axis.
  */
-void FWidget::Render_Axis( const FSceneView* View, FPrimitiveDrawInterface* PDI, EAxisList::Type InAxis, FMatrix& InMatrix, UMaterialInterface* InMaterial, const FLinearColor& InColor, FVector2D& OutAxisEnd, const FVector& InScale, bool bDrawWidget, bool bCubeHead )
+void FWidget::Render_Axis( const FSceneView* View, FPrimitiveDrawInterface* PDI, EAxisList::Type InAxis, FMatrix& InMatrix, UMaterialInterface* InMaterial, const FLinearColor& InColor, FVector2D& OutAxisDir, const FVector& InScale, bool bDrawWidget, bool bCubeHead )
 {
 	FMatrix AxisRotation = FMatrix::Identity;
 	if( InAxis == EAxisList::Y )
 	{
-		AxisRotation = FRotationMatrix( FRotator(0,90.f,0) );
+		AxisRotation = FRotationMatrix::MakeFromXZ(FVector(0, 1, 0), FVector(0, 0, 1));
 	}
 	else if( InAxis == EAxisList::Z )
 	{
-		AxisRotation = FRotationMatrix( FRotator(90.f,0,0) );
+		AxisRotation = FRotationMatrix::MakeFromXY(FVector(0, 0, 1), FVector(0, 1, 0));
 	}
 
 	FMatrix ArrowToWorld = AxisRotation * InMatrix;
@@ -266,10 +272,13 @@ void FWidget::Render_Axis( const FSceneView* View, FPrimitiveDrawInterface* PDI,
 		PDI->SetHitProxy( NULL );
 	}
 
-	if(!View->ScreenToPixel(View->WorldToScreen(ArrowToWorld.TransformPosition(FVector(64,0,0))),OutAxisEnd))
+	FVector2D AxisEnd;
+	if(!View->ScreenToPixel(View->WorldToScreen(ArrowToWorld.TransformPosition(FVector(64,0,0))),AxisEnd))
 	{
-		OutAxisEnd.X = OutAxisEnd.Y = 0;
+		AxisEnd.X = AxisEnd.Y = 0;
 	}
+
+	OutAxisDir = (AxisEnd - Origin).GetSafeNormal();
 }
 
 void FWidget::Render_Cube( FPrimitiveDrawInterface* PDI, const FMatrix& InMatrix, const UMaterialInterface* InMaterial, const FVector& InScale )
@@ -410,19 +419,19 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 	if( DrawAxis&EAxisList::X && (bIsPerspective || bIsLocalSpace || !bIsOrthoYZ) )
 	{
 		UMaterialInstanceDynamic* XMaterial = ( CurrentAxis&EAxisList::X ? CurrentAxisMaterial : AxisMaterialX );
-		Render_Axis( View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisEnd, Scale, bDrawWidget );
+		Render_Axis( View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisDir, Scale, bDrawWidget );
 	}
 
 	if( DrawAxis&EAxisList::Y && (bIsPerspective || bIsLocalSpace || !bIsOrthoXZ) )
 	{
 		UMaterialInstanceDynamic* YMaterial = ( CurrentAxis&EAxisList::Y ? CurrentAxisMaterial : AxisMaterialY );
-		Render_Axis( View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisEnd, Scale, bDrawWidget );
+		Render_Axis( View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisDir, Scale, bDrawWidget );
 	}
 
 	if( DrawAxis&EAxisList::Z && (bIsPerspective || bIsLocalSpace || !bIsOrthoXY) )
 	{
 		UMaterialInstanceDynamic* ZMaterial = ( CurrentAxis&EAxisList::Z ? CurrentAxisMaterial : AxisMaterialZ );
-		Render_Axis( View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisEnd, Scale, bDrawWidget );
+		Render_Axis( View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisDir, Scale, bDrawWidget );
 	}
 
 	// Draw the grabbers
@@ -437,7 +446,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 		// but in the ortho viewports it will prevent scaling in the direction of the camera and thus intersecting the near plane.
 		FVector FlattenScale = FVector(Scale.Component(0) == 1.0f ? 1.0f / UniformScale : 1.0f, Scale.Component(1) == 1.0f ? 1.0f / UniformScale : 1.0f, Scale.Component(2) == 1.0f ? 1.0f / UniformScale : 1.0f);
 
-		if( bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[2][1] == 0.f )
+		if (bIsPerspective || bIsLocalSpace || bIsOrthoXY)
 		{
 			if( (DrawAxis&EAxisList::XY) == EAxisList::XY )							// Top
 			{
@@ -452,7 +461,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 			}
 		}
 
-		if( bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[1][2] == -1.f )		// Front
+		if (bIsPerspective || bIsLocalSpace || bIsOrthoXZ)		// Front
 		{
 			if( (DrawAxis&EAxisList::XZ) == EAxisList::XZ ) 
 			{
@@ -467,7 +476,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 			}
 		}
 
-		if( bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[1][0] == 1.f )		// Side
+		if( bIsPerspective || bIsLocalSpace || bIsOrthoYZ )		// Side
 		{
 			if( (DrawAxis&EAxisList::YZ) == EAxisList::YZ ) 
 			{
@@ -506,13 +515,11 @@ void FWidget::Render_Rotate( const FSceneView* View,FPrimitiveDrawInterface* PDI
 	float Scale = View->WorldToScreen( InLocation ).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
 
 	//get the axes 
-	FVector XAxis = CustomCoordSystem.TransformVector(FVector(-1, 0, 0));
-	FVector YAxis = CustomCoordSystem.TransformVector(FVector(0, -1, 0));
+	FVector XAxis = CustomCoordSystem.TransformVector(FVector(1, 0, 0));
+	FVector YAxis = CustomCoordSystem.TransformVector(FVector(0, 1, 0));
 	FVector ZAxis = CustomCoordSystem.TransformVector(FVector(0, 0, 1));
 
 	EAxisList::Type DrawAxis = GetAxisToDraw( ViewportClient->GetWidgetMode() );
-
-	FMatrix XMatrix = FRotationMatrix( FRotator(0,90.f,0) ) * FTranslationMatrix( InLocation );
 
 	FVector DirectionToWidget = View->IsPerspectiveProjection() ? (InLocation - View->ViewMatrices.ViewOrigin) : -View->GetViewDirection();
 	DirectionToWidget.Normalize();
@@ -520,29 +527,24 @@ void FWidget::Render_Rotate( const FSceneView* View,FPrimitiveDrawInterface* PDI
 	// Draw a circle for each axis
 	if (bDrawWidget || bDragging)
 	{
+		bIsOrthoDrawingFullRing = false;
+
 		//no draw the arc segments
 		if( DrawAxis&EAxisList::X )
 		{
-			DrawRotationArc(View, PDI, EAxisList::X, InLocation, YAxis, ZAxis, DirectionToWidget, AxisColorX, Scale);
+			DrawRotationArc(View, PDI, EAxisList::X, InLocation, ZAxis, YAxis, DirectionToWidget, AxisColorX, Scale, XAxisDir);
 		}
 
 		if( DrawAxis&EAxisList::Y )
 		{
-			DrawRotationArc(View, PDI, EAxisList::Y, InLocation, ZAxis, XAxis, DirectionToWidget, AxisColorY, Scale);
+			DrawRotationArc(View, PDI, EAxisList::Y, InLocation, XAxis, ZAxis, DirectionToWidget, AxisColorY, Scale, YAxisDir);
 		}
 
 		if( DrawAxis&EAxisList::Z )
 		{
-			DrawRotationArc(View, PDI, EAxisList::Z, InLocation, XAxis, YAxis, DirectionToWidget, AxisColorZ, Scale);
+			DrawRotationArc(View, PDI, EAxisList::Z, InLocation, XAxis, YAxis, DirectionToWidget, AxisColorZ, Scale, ZAxisDir);
 		}
 	}
-
-	// Update Axis by projecting the axis vector to screenspace.
-	View->ScreenToPixel(View->WorldToScreen( XMatrix.TransformPosition( FVector(96,0,0) ) ), XAxisEnd);
-	// Update Axis by projecting the axis vector to screenspace.
-	View->ScreenToPixel(View->WorldToScreen( XMatrix.TransformPosition( FVector(0,96,0) ) ), YAxisEnd);
-	// Update Axis by projecting the axis vector to screenspace.
-	View->ScreenToPixel(View->WorldToScreen( XMatrix.TransformPosition( FVector(0,0,96) ) ), ZAxisEnd);
 }
 
 /**
@@ -597,17 +599,17 @@ void FWidget::Render_Scale( const FSceneView* View,FPrimitiveDrawInterface* PDI,
 	// Draw the axis lines with cube heads	
 	if( !bIsOrthoYZ && DrawAxis&EAxisList::X )
 	{
-		Render_Axis( View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisEnd, Scale, bDrawWidget, true );
+		Render_Axis( View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisDir, Scale, bDrawWidget, true );
 	}
 
 	if( !bIsOrthoXZ && DrawAxis&EAxisList::Y )
 	{
-		Render_Axis( View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisEnd, Scale, bDrawWidget, true );
+		Render_Axis( View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisDir, Scale, bDrawWidget, true );
 	}
 
 	if( !bIsOrthoXY &&  DrawAxis&EAxisList::Z )
 	{
-		Render_Axis( View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisEnd, Scale, bDrawWidget, true );
+		Render_Axis( View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisDir, Scale, bDrawWidget, true );
 	}
 
 	// Draw grabber handles and center cube
@@ -718,17 +720,17 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 		// Draw the axis lines with arrow heads
 		if( DrawAxis&EAxisList::X && (bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][2] != -1.f) )
 		{
-			Render_Axis( View, PDI, EAxisList::X, AxisMatrix, XMaterial, XColor, XAxisEnd, Scale, bDrawWidget );
+			Render_Axis( View, PDI, EAxisList::X, AxisMatrix, XMaterial, XColor, XAxisDir, Scale, bDrawWidget );
 		}
 
 		if( DrawAxis&EAxisList::Y && (bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[1][2] != -1.f) )
 		{
-			Render_Axis( View, PDI, EAxisList::Y, AxisMatrix, YMaterial, YColor, YAxisEnd, Scale, bDrawWidget );
+			Render_Axis( View, PDI, EAxisList::Y, AxisMatrix, YMaterial, YColor, YAxisDir, Scale, bDrawWidget );
 		}
 
 		if( DrawAxis&EAxisList::Z && (bIsPerspective || bIsLocalSpace || View->ViewMatrices.ViewMatrix.M[0][1] != 1.f) )
 		{
-			Render_Axis( View, PDI, EAxisList::Z, AxisMatrix, ZMaterial, ZColor, ZAxisEnd, Scale, bDrawWidget );
+			Render_Axis( View, PDI, EAxisList::Z, AxisMatrix, ZMaterial, ZColor, ZAxisDir, Scale, bDrawWidget );
 		}
 
 		const bool bDisabled = IsWidgetDisabled();
@@ -772,183 +774,309 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 }
 
 /**
- * Converts mouse movement on the screen to widget axis movement/rotation.
- */
-void FWidget::ConvertMouseMovementToAxisMovement( FEditorViewportClient* InViewportClient, const FVector& InLocation, const FVector& InDiff, FVector& InDrag, FRotator& InRotation, FVector& InScale )
+* Draws the 2D widget.
+*/
+
+void FWidget::Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FEditorViewportClient* ViewportClient, const FVector& InLocation, bool bDrawWidget)
 {
-	FSceneViewFamilyContext ViewFamily( FSceneViewFamily::ConstructionValues( InViewportClient->Viewport, InViewportClient->GetScene(), InViewportClient->EngineShowFlags ));
-	FSceneView* View = InViewportClient->CalcSceneView(&ViewFamily);
+	//////////////////////////////////////////////////////////////////////////
+	// Translation subwidget
+	//////////////////////////////////////////////////////////////////////////
 
-	FPlane Wk;
-	FVector2D AxisEnd;
-	FVector Diff = InDiff;
+	// Figure out axis colors
+	const FLinearColor& XColor = (CurrentAxis&EAxisList::X ? (FLinearColor)CurrentColor : AxisColorX);
+	const FLinearColor& YColor = (CurrentAxis&EAxisList::Y ? (FLinearColor)CurrentColor : AxisColorY);
+	const FLinearColor& ZColor = (CurrentAxis&EAxisList::Z ? (FLinearColor)CurrentColor : AxisColorZ);
+	FColor CurrentScreenColor = (CurrentAxis & EAxisList::Screen ? CurrentColor : ScreenSpaceColor);
 
-	InDrag = FVector::ZeroVector;
-	InRotation = FRotator::ZeroRotator;
-	InScale = FVector::ZeroVector; 
+	// Figure out axis matrices
+	FMatrix WidgetMatrix = CustomCoordSystem * FTranslationMatrix(InLocation);
 
-	// Get the end of the axis (in screen space) based on which axis is being pulled
+	bool bIsPerspective = (View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f);
+	const bool bIsOrthoXY = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[2][2]) > 0.0f;
+	const bool bIsOrthoXZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[1][2]) > 0.0f;
+	const bool bIsOrthoYZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f;
 
-	switch( CurrentAxis )
+	// For local space widgets, we always want to draw all three axis, since they may not be aligned with
+	// the orthographic projection anyway.
+	const bool bIsLocalSpace = (ViewportClient->GetWidgetCoordSystemSpace() == COORD_Local);
+
+	EAxisList::Type DrawAxis = EAxisList::None;
+	if (bIsOrthoXY)
 	{
-		case EAxisList::X:	AxisEnd = XAxisEnd;		break;
-		case EAxisList::Y:	AxisEnd = YAxisEnd;		break;
-		case EAxisList::Z:	AxisEnd = ZAxisEnd;		break;
-		case EAxisList::XY:	AxisEnd = Diff.X != 0 ? XAxisEnd : YAxisEnd;		break;
-		case EAxisList::XZ:	AxisEnd = Diff.X != 0 ? XAxisEnd : ZAxisEnd;		break;
-		case EAxisList::YZ:	AxisEnd = Diff.X != 0 ? YAxisEnd : ZAxisEnd;		break;
-		case EAxisList::XYZ:	AxisEnd = Diff.X != 0 ? YAxisEnd : ZAxisEnd;		break;
-		default:
-			break;
+		DrawAxis = EAxisList::X;
 	}
-
-	// Screen space Y axis is inverted
-
-	Diff.Y *= -1;
-
-	// Get the directions of the axis (on the screen) and the mouse drag direction (in screen space also).
-	if(!View->ScreenToPixel(View->WorldToScreen(InLocation),Origin))
+	else if (bIsOrthoXZ)
 	{
-		Origin.X = Origin.Y = 0;
+		DrawAxis = EAxisList::XZ;
 	}
-
-
-	FVector2D AxisDir = AxisEnd - Origin;
-	AxisDir.Normalize();
-
-	FVector2D DragDir( Diff.X, Diff.Y );
-	DragDir.Normalize();
-
-
-	// Use the most dominant axis the mouse is being dragged along -
-	// unless we are modifying a single axis in an Ortho viewport.
-	uint32 idx = GetDominantAxisIndex( Diff, InViewportClient );
-
-	float Val = Diff[idx];
-
-	FMatrix InputCoordSystem = InViewportClient->GetWidgetCoordSystem();
-
-	const int32 WidgetMode = InViewportClient->GetWidgetMode();
-
-
-	if( WidgetMode == FWidget::WM_Rotate && InViewportClient->IsPerspective() )
+	else if (bIsOrthoYZ)
 	{
-		FVector DirectionToWidget = InLocation - View->ViewMatrices.ViewOrigin;
-
-		FVector XAxis = InputCoordSystem.TransformVector(FVector(1, 0, 0));
-		FVector YAxis = InputCoordSystem.TransformVector(FVector(0, 1, 0));
-		FVector ZAxis = InputCoordSystem.TransformVector(FVector(0, 0, 1));
-
-		float XDot = XAxis|DirectionToWidget;
-		float YDot = YAxis|DirectionToWidget;
-		float ZDot = ZAxis|DirectionToWidget;
-
-		switch(CurrentAxis)
+		DrawAxis = EAxisList::Z;
+	}
+	else if (bIsPerspective)
+	{
+		// Find the best plane to move on
+		const FVector CameraZAxis = View->ViewMatrices.ViewMatrix.GetColumn(2);
+		const FVector LargestAxis = CameraZAxis.GetAbs();
+		if (LargestAxis.X > LargestAxis.Y)
 		{
-		case EAxisList::X:
-			if( FMath::IsNegativeFloat(XDot ) )
+			if (LargestAxis.Z > LargestAxis.X)
 			{
-				Val *= -1;
+				DrawAxis = EAxisList::X;
 			}
-			break;
-		case EAxisList::Y:
-			if( FMath::IsNegativeFloat(YDot) )
+			else
 			{
-				Val *= -1;
+				DrawAxis = EAxisList::Z;
 			}
-			break;
-		case EAxisList::Z:
-			if( FMath::IsNegativeFloat(ZDot) )
-			{
-				Val *= -1;
-			}
-			break;
 		}
+		else
+		{
+			if (LargestAxis.Y > LargestAxis.Z)
+			{
+				DrawAxis = EAxisList::XZ;
+			}
+			else
+			{
+				DrawAxis = EAxisList::X;
+			}
+		}
+	}
+
+	const bool bDisabled = IsWidgetDisabled();
+
+	FVector Scale;
+	float UniformScale = View->WorldToScreen(InLocation).W * (4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
+
+	if (bIsOrthoXY)
+	{
+		Scale = FVector(UniformScale, UniformScale, 1.0f);
+	}
+	else if (bIsOrthoXZ)
+	{
+		Scale = FVector(UniformScale, 1.0f, UniformScale);
+	}
+	else if (bIsOrthoYZ)
+	{
+		Scale = FVector(1.0f, UniformScale, UniformScale);
 	}
 	else
 	{
+		Scale = FVector(UniformScale, UniformScale, UniformScale);
+	}
 
-		// If the axis dir is negative, it is pointing in the negative screen direction.  In this situation, the mouse
-		// drag must be inverted so that you are still dragging in the right logical direction.
-		//
-		// For example, if the X axis is pointing left and you drag left, this will ensure that the widget moves left.
-		//Only valid for single axis movement.  For planar movement, this widget gets caught up at the origin and oscillates
-		
-		if(( AxisDir[idx] < 0 ) && ((CurrentAxis == EAxisList::X) || (CurrentAxis == EAxisList::Y) || (CurrentAxis == EAxisList::Z)))
+	// Radius
+	const float ScaledRadius = (TWOD_AXIS_CIRCLE_RADIUS * UniformScale) + GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment;
+	const int32 CircleSides = (GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment > 0)
+		? AXIS_CIRCLE_SIDES + (GetDefault<ULevelEditorViewportSettings>()->TransformWidgetSizeAdjustment / 5)
+		: AXIS_CIRCLE_SIDES;
+
+	// Draw the grabbers
+	if (bDrawWidget)
+	{
+		FVector CornerPos = FVector(7, 0, 7) * UniformScale;
+		FVector AxisSize = FVector(12, 1.2, 12) * UniformScale;
+		float CornerLength = 1.2f * UniformScale;
+
+		// Draw the axis lines with arrow heads
+		if (DrawAxis&EAxisList::X && (bIsPerspective || bIsLocalSpace || !bIsOrthoYZ))
 		{
-			Val *= -1;
+			UMaterialInstanceDynamic* XMaterial = (CurrentAxis&EAxisList::X ? CurrentAxisMaterial : AxisMaterialX);
+			Render_Axis(View, PDI, EAxisList::X, WidgetMatrix, XMaterial, XColor, XAxisDir, Scale, bDrawWidget);
+		}
+
+		if (DrawAxis&EAxisList::Y && (bIsPerspective || bIsLocalSpace || !bIsOrthoXZ))
+		{
+			UMaterialInstanceDynamic* YMaterial = (CurrentAxis&EAxisList::Y ? CurrentAxisMaterial : AxisMaterialY);
+			Render_Axis(View, PDI, EAxisList::Y, WidgetMatrix, YMaterial, YColor, YAxisDir, Scale, bDrawWidget);
+		}
+
+		if (DrawAxis&EAxisList::Z && (bIsPerspective || bIsLocalSpace || !bIsOrthoXY))
+		{
+			UMaterialInstanceDynamic* ZMaterial = (CurrentAxis&EAxisList::Z ? CurrentAxisMaterial : AxisMaterialZ);
+			Render_Axis(View, PDI, EAxisList::Z, WidgetMatrix, ZMaterial, ZColor, ZAxisDir, Scale, bDrawWidget);
+		}
+
+		// After the primitives have been scaled and transformed, we apply this inverse scale that flattens the dimension
+		// that was scaled up to prevent it from intersecting with the near plane.  In perspective this won't have any effect,
+		// but in the ortho viewports it will prevent scaling in the direction of the camera and thus intersecting the near plane.
+		FVector FlattenScale = FVector(Scale.Component(0) == 1.0f ? 1.0f / UniformScale : 1.0f, Scale.Component(1) == 1.0f ? 1.0f / UniformScale : 1.0f, Scale.Component(2) == 1.0f ? 1.0f / UniformScale : 1.0f);
+		float ArrowRadius = ScaledRadius * 2.0f;
+		float ArrowStartRadius = ScaledRadius * 1.3f;
+
+		uint8 HoverAlpha = 0xff;
+		uint8 NormalAlpha = 0x2f;
+
+		if (((DrawAxis&EAxisList::XZ) == EAxisList::XZ) && (bIsPerspective || bIsLocalSpace || bIsOrthoXZ)) // Front
+		{
+			uint8 Alpha = ((CurrentAxis&EAxisList::XZ) == EAxisList::XZ ? HoverAlpha : NormalAlpha);
+			PDI->SetHitProxy(new HWidgetAxis(EAxisList::XZ, bDisabled));
+			{
+				FColor Color = YColor;
+				DrawCircle(PDI, InLocation, CustomCoordSystem.TransformPosition(FVector(1, 0, 0)), CustomCoordSystem.TransformPosition(FVector(0, 0, 1)), Color, ScaledRadius, CircleSides, SDPG_Foreground);
+				Color.A = Alpha;
+				DrawDisc(PDI, InLocation, CustomCoordSystem.TransformPosition(FVector(1, 0, 0)), CustomCoordSystem.TransformPosition(FVector(0, 0, 1)), Color, ScaledRadius, CircleSides, TransparentPlaneMaterialXY->GetRenderProxy(false), SDPG_Foreground);
+			}
+			PDI->SetHitProxy(NULL);
+
+			PDI->SetHitProxy(new HWidgetAxis(EAxisList::Rotate2D, bDisabled));
+			{
+				FColor Color = YColor;
+				Color.A = ((CurrentAxis&EAxisList::Rotate2D) == EAxisList::Rotate2D ? HoverAlpha : NormalAlpha);
+
+				FVector XAxis = CustomCoordSystem.TransformPosition(FVector(1, 0, 0).RotateAngleAxis((EditorModeTools ? EditorModeTools->TranslateRotate2DAngle : 0), FVector(0, -1, 0)));
+				FVector YAxis = CustomCoordSystem.TransformPosition(FVector(0, 0, 1).RotateAngleAxis((EditorModeTools ? EditorModeTools->TranslateRotate2DAngle : 0), FVector(0, -1, 0)));
+				FVector BaseArrowPoint = InLocation + XAxis * ArrowStartRadius;
+				DrawFlatArrow(PDI, BaseArrowPoint, XAxis, YAxis, Color, ArrowRadius, ArrowRadius*.5f, TransparentPlaneMaterialXY->GetRenderProxy(false), SDPG_Foreground);
+			}
+			PDI->SetHitProxy(NULL);
 		}
 	}
+}
 
+/**
+ * Converts mouse movement on the screen to widget axis movement/rotation.
+ */
+void FWidget::ConvertMouseMovementToAxisMovement( FEditorViewportClient* InViewportClient, bool bInUsedDragModifier, FVector& InOutDelta, FVector& OutDrag, FRotator& OutRotation, FVector& OutScale )
+{
+	OutDrag = FVector::ZeroVector;
+	OutRotation = FRotator::ZeroRotator;
+	OutScale = FVector::ZeroVector; 
 
-	// Honor INI option to invert Z axis movement on the widget
+	const int32 WidgetMode = InViewportClient->GetWidgetMode();
 
-	if( idx == 1 && (CurrentAxis&EAxisList::Z) && GEditor->InvertwidgetZAxis && ((WidgetMode==WM_Translate) || (WidgetMode==WM_Rotate) || (WidgetMode==WM_TranslateRotateZ)) &&
-		// Don't apply this if the origin and the AxisEnd are the same
-		AxisDir.IsNearlyZero() == false)
+	// Get input delta as 2D vector, adjusted for inverted screen space Y axis
+	const FVector2D DragDir = FVector2D(InOutDelta.X, -InOutDelta.Y);
+
+	// Get offset of the drag start position from the widget origin
+	const FVector2D DirectionToMousePos = FVector2D(DragStartPos - Origin).GetSafeNormal();
+
+	// For rotations which display as a full ring, calculate the tangent direction representing a clockwise movement
+	FVector2D TangentDir;
+	if (bInUsedDragModifier)
 	{
-		Val *= -1;
+		// If a drag modifier has been used, this implies we are not actually touching the widget, so don't attempt to
+		// calculate the tangent dir based on the relative offset of the cursor from the widget location.
+		TangentDir = FVector2D(1, 1).GetSafeNormal();
+	}
+	else
+	{
+		// Treat the tangent dir as perpendicular to the relative offset of the cursor from the widget location.
+		TangentDir = FVector2D(-DirectionToMousePos.Y, DirectionToMousePos.X);
 	}
 
-
-
-	switch( WidgetMode )
+	switch (WidgetMode)
 	{
 		case WM_Translate:
-			switch( CurrentAxis )
-			{
-				case EAxisList::X:	InDrag = FVector( Val, 0, 0 );	break;
-				case EAxisList::Y:	InDrag = FVector( 0, Val, 0 );	break;
-				case EAxisList::Z:	InDrag = FVector( 0, 0, -Val );	break;
-				case EAxisList::XY:	InDrag = ( InDiff.X != 0 ? FVector( Val, 0, 0 ) : FVector( 0, Val, 0 ) );	break;
-				case EAxisList::XZ:	InDrag = ( InDiff.X != 0 ? FVector( Val, 0, 0 ) : FVector( 0, 0, Val ) );	break;
-				case EAxisList::YZ:	InDrag = ( InDiff.X != 0 ? FVector( 0, Val, 0 ) : FVector( 0, 0, Val ) );	break;
-			}
+		{
+			// Get drag delta in widget axis space
+			OutDrag = FVector(
+				(CurrentAxis & EAxisList::X) ? FVector2D::DotProduct(XAxisDir, DragDir) : 0.0f,
+				(CurrentAxis & EAxisList::Y) ? FVector2D::DotProduct(YAxisDir, DragDir) : 0.0f,
+				(CurrentAxis & EAxisList::Z) ? FVector2D::DotProduct(ZAxisDir, DragDir) : 0.0f
+				);
 
-			InDrag = InputCoordSystem.TransformPosition( InDrag );
-			break;
+			// Snap to grid in widget axis space
+			const FVector GridSize = FVector(GEditor->GetGridSize());
+			FSnappingUtils::SnapPointToGrid(OutDrag, GridSize);
+
+			// Convert to effective screen space delta, and replace input delta, adjusted for inverted screen space Y axis
+			const FVector2D EffectiveDelta = OutDrag.X * XAxisDir + OutDrag.Y * YAxisDir + OutDrag.Z * ZAxisDir;
+			InOutDelta = FVector(EffectiveDelta.X, -EffectiveDelta.Y, 0.0f);
+
+			// Transform drag delta into world space
+			OutDrag = CustomCoordSystem.TransformPosition(OutDrag);
+		}
+		break;
 
 		case WM_Rotate:
 			{
-				FVector WorldManDir;
-				FVector Axis;
-				switch( CurrentAxis )
-				{
-					case EAxisList::X:	
-						Axis = FVector( -1, 0, 0 );
-						break;
-					case EAxisList::Y:	
-						Axis = FVector( 0, -1, 0 );	
-						break;
-					case EAxisList::Z:	
-						Axis = FVector( 0, 0, 1 );	
-						break;
-					default:
-						// Prevent this from crashing when axis incorrect and
-						// make sure Axis is set to something sensible.
-						ensureMsgf( 0, TEXT("Axis not correctly set while rotating! Axis value was %d"), (uint32)CurrentAxis );
-						Axis = FVector( -1, 0, 0 );
-						break;
-				}
-			
-				Axis = InputCoordSystem.TransformVector( Axis );
+				FRotator Rotation;
+				FVector2D EffectiveDelta;
 
-				const float RotationSpeed = GetRotationSpeed();
-				const FQuat DeltaQ( Axis, Val*RotationSpeed );
-				CurrentDeltaRotation = Val;
-				
-				InRotation = FRotator(DeltaQ);
+				if (CurrentAxis == EAxisList::X)
+				{
+					// Get screen direction representing positive rotation
+					const FVector2D AxisDir = bIsOrthoDrawingFullRing ? TangentDir : XAxisDir;
+
+					// Get rotation in widget local space
+					Rotation = FRotator(0, 0, FVector2D::DotProduct(AxisDir, DragDir));
+					FSnappingUtils::SnapRotatorToGrid(Rotation);
+
+					// Record delta rotation (used by the widget to render the accumulated delta)
+					CurrentDeltaRotation = Rotation.Roll;
+
+					// Use to calculate the new input delta
+					EffectiveDelta = AxisDir * Rotation.Roll;
+				}
+				else if (CurrentAxis == EAxisList::Y)
+				{
+					// TODO: Determine why -TangentDir is necessary here, and fix whatever is causing it
+					const FVector2D AxisDir = bIsOrthoDrawingFullRing ? -TangentDir : YAxisDir;
+
+					Rotation = FRotator(FVector2D::DotProduct(AxisDir, DragDir), 0, 0);
+					FSnappingUtils::SnapRotatorToGrid(Rotation);
+
+					CurrentDeltaRotation = Rotation.Pitch;
+					EffectiveDelta = AxisDir * Rotation.Pitch;
+				}
+				else if (CurrentAxis == EAxisList::Z)
+				{
+					const FVector2D AxisDir = bIsOrthoDrawingFullRing ? TangentDir : ZAxisDir;
+
+					Rotation = FRotator(0, FVector2D::DotProduct(AxisDir, DragDir), 0);
+					FSnappingUtils::SnapRotatorToGrid(Rotation);
+
+					CurrentDeltaRotation = Rotation.Yaw;
+					EffectiveDelta = AxisDir * Rotation.Yaw;
+				}
+
+				// Adjust the input delta according to how much rotation was actually applied
+				InOutDelta = FVector(EffectiveDelta.X, -EffectiveDelta.Y, 0.0f);
+
+				// Need to get the delta rotation in the current coordinate space of the widget
+				OutRotation = (CustomCoordSystem.Inverse() * FRotationMatrix(Rotation) * CustomCoordSystem).Rotator();
 			}
 			break;
 
 		case WM_Scale:
 			{
-				FVector Axis;
-				Axis.X = (CurrentAxis & EAxisList::X) == 0 ? 0 : 1;
-				Axis.Y = (CurrentAxis & EAxisList::Y) == 0 ? 0 : 1;
-				Axis.Z = (CurrentAxis & EAxisList::Z) == 0 ? 0 : 1;
+				FVector2D AxisDir = FVector2D::ZeroVector;
 
-				InScale = Axis * Val;
+				if (CurrentAxis & EAxisList::X)
+				{
+					AxisDir += XAxisDir;
+				}
+
+				if (CurrentAxis & EAxisList::Y)
+				{
+					AxisDir += YAxisDir;
+				}
+
+				if (CurrentAxis & EAxisList::Z)
+				{
+					AxisDir += ZAxisDir;
+				}
+
+				AxisDir.Normalize();
+				const float ScaleDelta = FVector2D::DotProduct(AxisDir, DragDir);
+
+				OutScale = FVector(
+					(CurrentAxis & EAxisList::X) ? ScaleDelta : 0.0f,
+					(CurrentAxis & EAxisList::Y) ? ScaleDelta : 0.0f,
+					(CurrentAxis & EAxisList::Z) ? ScaleDelta : 0.0f
+					);
+
+				// Snap to grid in widget axis space
+				const FVector GridSize = FVector(GEditor->GetGridSize());
+				FSnappingUtils::SnapScale(OutScale, GridSize);
+
+				// Convert to effective screen space delta, and replace input delta, adjusted for inverted screen space Y axis
+				const float ScaleMax = OutScale.GetMax();
+				const float ScaleMin = OutScale.GetMin();
+				const float ScaleApplied = (ScaleMax > -ScaleMin) ? ScaleMax : ScaleMin;
+				const FVector2D EffectiveDelta = AxisDir * ScaleApplied;
+				InOutDelta = FVector(EffectiveDelta.X, -EffectiveDelta.Y, 0.0f);
 			}
 			break;
 
@@ -956,29 +1084,84 @@ void FWidget::ConvertMouseMovementToAxisMovement( FEditorViewportClient* InViewp
 			{
 				if( CurrentAxis == EAxisList::ZRotation )
 				{
-					FVector Axis = FVector( 0, 0, 1 );
-					Axis = InputCoordSystem.TransformVector( Axis );
 
-					const float RotationSpeed = GetRotationSpeed();
-					const FQuat DeltaQ( Axis, Val*RotationSpeed );
-					CurrentDeltaRotation = Val;
+					const FVector2D AxisDir = bIsOrthoDrawingFullRing ? TangentDir : ZAxisDir;
+					FRotator Rotation = FRotator(0, FVector2D::DotProduct(AxisDir, DragDir), 0);
+					FSnappingUtils::SnapRotatorToGrid(Rotation);
+					CurrentDeltaRotation = Rotation.Yaw;
 
-					InRotation = FRotator(DeltaQ);
+					const FVector2D EffectiveDelta = AxisDir * Rotation.Yaw;
+					InOutDelta = FVector(EffectiveDelta.X, -EffectiveDelta.Y, 0.0f);
+
+					OutRotation = (CustomCoordSystem.Inverse() * FRotationMatrix(Rotation) * CustomCoordSystem).Rotator();
 				}
 				else
 				{
-					switch( CurrentAxis )
-					{
-						case EAxisList::X:	InDrag = FVector( Val, 0, 0 );	break;
-						case EAxisList::Y:	InDrag = FVector( 0, Val, 0 );	break;
-						case EAxisList::Z:	InDrag = FVector( 0, 0, -Val );	break;
-						case EAxisList::XY:	InDrag = ( InDiff.X != 0 ? FVector( Val, 0, 0 ) : FVector( 0, Val, 0 ) );	break;
-					}
+					// Get drag delta in widget axis space
+					OutDrag = FVector(
+						(CurrentAxis & EAxisList::X) ? FVector2D::DotProduct(XAxisDir, DragDir) : 0.0f,
+						(CurrentAxis & EAxisList::Y) ? FVector2D::DotProduct(YAxisDir, DragDir) : 0.0f,
+						(CurrentAxis & EAxisList::Z) ? FVector2D::DotProduct(ZAxisDir, DragDir) : 0.0f
+						);
 
-					InDrag = InputCoordSystem.TransformPosition( InDrag );
+					// Snap to grid in widget axis space
+					const FVector GridSize = FVector(GEditor->GetGridSize());
+					FSnappingUtils::SnapPointToGrid(OutDrag, GridSize);
+
+					// Convert to effective screen space delta, and replace input delta, adjusted for inverted screen space Y axis
+					const FVector2D EffectiveDelta = OutDrag.X * XAxisDir + OutDrag.Y * YAxisDir + OutDrag.Z * ZAxisDir;
+					InOutDelta = FVector(EffectiveDelta.X, -EffectiveDelta.Y, 0.0f);
+
+					// Transform drag delta into world space
+					OutDrag = CustomCoordSystem.TransformPosition(OutDrag);
 				}
 			}
 			break;
+
+		case WM_2D:
+		{
+			if (CurrentAxis == EAxisList::Rotate2D)
+			{
+				// TODO: Determine why -TangentDir is necessary here, and fix whatever is causing it
+				const FVector2D AxisDir = bIsOrthoDrawingFullRing ? -TangentDir : YAxisDir;
+
+				FRotator Rotation = FRotator(FVector2D::DotProduct(AxisDir, DragDir), 0, 0);
+				FSnappingUtils::SnapRotatorToGrid(Rotation);
+
+				CurrentDeltaRotation = Rotation.Pitch;
+				FVector2D EffectiveDelta = AxisDir * Rotation.Pitch;
+
+
+				// Adjust the input delta according to how much rotation was actually applied
+				InOutDelta = FVector(EffectiveDelta.X, -EffectiveDelta.Y, 0.0f);
+
+				// Need to get the delta rotation in the current coordinate space of the widget
+				OutRotation = (CustomCoordSystem.Inverse() * FRotationMatrix(Rotation) * CustomCoordSystem).Rotator();
+			}
+			else
+			{
+				// Get drag delta in widget axis space
+				OutDrag = FVector(
+					(CurrentAxis & EAxisList::X) ? FVector2D::DotProduct(XAxisDir, DragDir) : 0.0f,
+					(CurrentAxis & EAxisList::Y) ? FVector2D::DotProduct(YAxisDir, DragDir) : 0.0f,
+					(CurrentAxis & EAxisList::Z) ? FVector2D::DotProduct(ZAxisDir, DragDir) : 0.0f
+					);
+
+				// Snap to grid in widget axis space
+				const FVector GridSize = FVector(GEditor->GetGridSize());
+				FSnappingUtils::SnapPointToGrid(OutDrag, GridSize);
+
+				// Convert to effective screen space delta, and replace input delta, adjusted for inverted screen space Y axis
+				const FVector2D EffectiveDelta = OutDrag.X * XAxisDir + OutDrag.Y * YAxisDir + OutDrag.Z * ZAxisDir;
+				InOutDelta = FVector(EffectiveDelta.X, -EffectiveDelta.Y, 0.0f);
+
+				// Transform drag delta into world space
+				OutDrag = CustomCoordSystem.TransformPosition(OutDrag);
+			}
+		}
+			break;
+
+
 		default:
 			break;
 	}
@@ -1035,11 +1218,6 @@ void GetPlaneNormalAndMask(const FVector& InAxis, FVector& OutPlaneNormal, FVect
  */
 void FWidget::AbsoluteTranslationConvertMouseMovementToAxisMovement(FSceneView* InView, FEditorViewportClient* InViewportClient, const FVector& InLocation, const FVector2D& InMousePosition, FVector& OutDrag, FRotator& OutRotation, FVector& OutScale )
 {
-	//reset all output variables
-	//OutDrag = FVector::ZeroVector;
-	//OutScale = FVector::ZeroVector;
-	//OutRotation = FRotator::ZeroRotator;
-
 	// Compute a world space ray from the screen space mouse coordinates
 	FViewportCursorLocation MouseViewportRay( InView, InViewportClient, InMousePosition.X, InMousePosition.Y );
 
@@ -1079,6 +1257,69 @@ void FWidget::AbsoluteTranslationConvertMouseMovementToAxisMovement(FSceneView* 
 			}
 
 			OutDrag = GetAbsoluteTranslationDelta(Params);
+
+			break;
+		}
+
+		case WM_2D:
+		{
+			switch (CurrentAxis)
+			{
+				case EAxisList::X:
+				{
+					GetAxisPlaneNormalAndMask(InputCoordSystem, Params.XAxis, Params.CameraDir, Params.PlaneNormal, Params.NormalToRemove);
+					OutDrag = GetAbsoluteTranslationDelta(Params);
+					break;
+				}
+				case EAxisList::Z:
+				{
+					GetAxisPlaneNormalAndMask(InputCoordSystem, Params.ZAxis, Params.CameraDir, Params.PlaneNormal, Params.NormalToRemove);
+					OutDrag = GetAbsoluteTranslationDelta(Params);
+					break;
+				}
+				case EAxisList::XZ:
+				{
+					GetPlaneNormalAndMask(Params.YAxis, Params.PlaneNormal, Params.NormalToRemove);
+					OutDrag = GetAbsoluteTranslationDelta(Params);
+					break;
+				}
+			
+				//Rotate about the y-axis
+				case EAxisList::Rotate2D:
+				{
+					//no position snapping, we'll handle the rotation snapping elsewhere
+					Params.bPositionSnapping = false;
+
+					GetPlaneNormalAndMask(Params.YAxis, Params.PlaneNormal, Params.NormalToRemove);
+					//No DAMPING
+					Params.bMovementLockedToCamera = false;
+					//this is the one movement type where we want to always use the widget origin and 
+					//NOT the "first click" origin
+					FVector XZPlaneProjectedPosition = GetAbsoluteTranslationDelta(Params) + InitialTranslationOffset;
+
+					//remove the component along the normal we want to mute
+					float MovementAlongMutedAxis = XZPlaneProjectedPosition | Params.NormalToRemove;
+					XZPlaneProjectedPosition = XZPlaneProjectedPosition - (Params.NormalToRemove*MovementAlongMutedAxis);
+
+					if (!XZPlaneProjectedPosition.Normalize())
+					{
+						XZPlaneProjectedPosition = Params.YAxis;
+					}
+
+					//NOW, find the rotation around the PlaneNormal to make the xaxis point at InDrag
+					OutRotation = FRotator::ZeroRotator;
+
+					float PitchDegrees = -FMath::Atan2(-XZPlaneProjectedPosition.Z, XZPlaneProjectedPosition.X) * 180.f / PI;
+					OutRotation.Pitch = PitchDegrees - (EditorModeTools ? EditorModeTools->TranslateRotate2DAngle : 0);
+
+					if (bSnapEnabled)
+					{
+						FSnappingUtils::SnapRotatorToGrid(OutRotation);
+					}
+
+					break;
+				}
+			}
 
 			break;
 		}
@@ -1151,13 +1392,17 @@ void FWidget::AbsoluteTranslationConvertMouseMovementToAxisMovement(FSceneView* 
 					break;
 			}
 		}
+
+		case WM_Rotate:
+		case WM_Scale:
+			break;
 	}
 }
 
 /** Only some modes support Absolute Translation Movement */
 bool FWidget::AllowsAbsoluteTranslationMovement(EWidgetMode WidgetMode)
 {
-	if ((WidgetMode == WM_Translate) || (WidgetMode == WM_TranslateRotateZ))
+	if ((WidgetMode == WM_Translate) || (WidgetMode == WM_TranslateRotateZ) || (WidgetMode == WM_2D))
 	{
 		return true;
 	}
@@ -1266,17 +1511,11 @@ FVector FWidget::GetAbsoluteTranslationInitialOffset(const FVector& InNewPositio
 
 
 /**
- * Returns true if we're in Local Space editing mode or editing BSP (which uses the World axes anyway
+ * Returns true if we're in Local Space editing mode
  */
 bool FWidget::IsRotationLocalSpace() const
 {
-	bool bIsLocalSpace = ( CustomCoordSystemSpace == COORD_Local );
-	//for bsp and things that don't have a "true" local space, they will always use world.  So do NOT invert.
-	if (bIsLocalSpace && CustomCoordSystem.Equals(FMatrix::Identity))
-	{
-		bIsLocalSpace = false;
-	}
-	return bIsLocalSpace;
+	return ( CustomCoordSystemSpace == COORD_Local );
 }
 
 void FWidget::UpdateDeltaRotation()
@@ -1293,8 +1532,7 @@ void FWidget::UpdateDeltaRotation()
  */
 float FWidget::GetDeltaRotation() const
 {
-	bool bIsLocalSpace = IsRotationLocalSpace();
-	return (bIsLocalSpace ? -1 : 1)*TotalDeltaRotation;
+	return TotalDeltaRotation;
 }
 
 
@@ -1316,12 +1554,13 @@ uint8 SmallOuterAlpha = 0x0f;
  * @param InColor - The color associated with the axis of rotation
  * @param InScale - Multiplier to maintain a constant screen size for rendering the widget
  */
-void FWidget::DrawRotationArc(const FSceneView* View, FPrimitiveDrawInterface* PDI, EAxisList::Type InAxis, const FVector& InLocation, const FVector& Axis0, const FVector& Axis1, const FVector& InDirectionToWidget, const FColor& InColor, const float InScale)
+void FWidget::DrawRotationArc(const FSceneView* View, FPrimitiveDrawInterface* PDI, EAxisList::Type InAxis, const FVector& InLocation, const FVector& Axis0, const FVector& Axis1, const FVector& InDirectionToWidget, const FColor& InColor, const float InScale, FVector2D& OutAxisDir)
 {
 	bool bIsPerspective = ( View->ViewMatrices.ProjMatrix.M[3][3] < 1.0f );
 	bool bIsOrtho = !bIsPerspective;
+
 	//if we're in an ortho viewport and the ring is perpendicular to the camera (both Axis0 & Axis1 are perpendicular)
-	bool bIsOrthoDrawingFullRing = bIsOrtho && (FMath::Abs(Axis0|InDirectionToWidget) < KINDA_SMALL_NUMBER) && (FMath::Abs(Axis1|InDirectionToWidget) < KINDA_SMALL_NUMBER);
+	bIsOrthoDrawingFullRing |= bIsOrtho && (FMath::Abs(Axis0|InDirectionToWidget) < KINDA_SMALL_NUMBER) && (FMath::Abs(Axis1|InDirectionToWidget) < KINDA_SMALL_NUMBER);
 
 	FColor ArcColor = InColor;
 	ArcColor.A = LargeOuterAlpha;
@@ -1331,11 +1570,12 @@ void FWidget::DrawRotationArc(const FSceneView* View, FPrimitiveDrawInterface* P
 		if ((CurrentAxis&InAxis) || (bIsOrthoDrawingFullRing))
 		{
 			float DeltaRotation = GetDeltaRotation();
-			float AbsRotation = FRotator::ClampAxis(fabs(DeltaRotation));
+			float AdjustedDeltaRotation = IsRotationLocalSpace() ? -DeltaRotation : DeltaRotation;
+			float AbsRotation = FRotator::ClampAxis(FMath::Abs(DeltaRotation));
 			float AngleOfChangeRadians (AbsRotation * PI / 180.f);
 
 			//always draw clockwise, so if we're negative we need to flip the angle
-			float StartAngle = DeltaRotation < 0.0f ? -AngleOfChangeRadians : 0.0f;
+			float StartAngle = AdjustedDeltaRotation < 0.0f ? -AngleOfChangeRadians : 0.0f;
 			float FilledAngle = AngleOfChangeRadians;
 
 			//the axis of rotation
@@ -1352,7 +1592,7 @@ void FWidget::DrawRotationArc(const FSceneView* View, FPrimitiveDrawInterface* P
 			DrawStartStopMarker(PDI, InLocation, Axis0, Axis1, 0, ArcColor, InScale);
 			//Filled Arrow
 			ArcColor.A = LargeOuterAlpha;
-			DrawStartStopMarker(PDI, InLocation, Axis0, Axis1, DeltaRotation, ArcColor, InScale);
+			DrawStartStopMarker(PDI, InLocation, Axis0, Axis1, AdjustedDeltaRotation, ArcColor, InScale);
 
 			ArcColor.A = 255;
 
@@ -1379,22 +1619,22 @@ void FWidget::DrawRotationArc(const FSceneView* View, FPrimitiveDrawInterface* P
 			//Rotate Colors to match Axis 0
 			Swap(AxisColor.R, AxisColor.G);
 			Swap(AxisColor.B, AxisColor.R);
-			AxisColor.A = (DeltaRotation == 0) ? MAX_uint8 : LargeOuterAlpha;
+			AxisColor.A = (AdjustedDeltaRotation == 0) ? MAX_uint8 : LargeOuterAlpha;
 			DrawSnapMarker(PDI, SnapLocation,  Axis0,  Axis1, AxisColor, InScale, .25f);
-			AxisColor.A = (DeltaRotation == 180.f) ? MAX_uint8 : LargeOuterAlpha;
+			AxisColor.A = (AdjustedDeltaRotation == 180.f) ? MAX_uint8 : LargeOuterAlpha;
 			DrawSnapMarker(PDI, SnapLocation, -Axis0, -Axis1, AxisColor, InScale, .25f);
 
 			//Rotate Colors to match Axis 1
 			Swap(AxisColor.R, AxisColor.G);
 			Swap(AxisColor.B, AxisColor.R);
-			AxisColor.A = (DeltaRotation == 90.f) ? MAX_uint8 : LargeOuterAlpha;
+			AxisColor.A = (AdjustedDeltaRotation == 90.f) ? MAX_uint8 : LargeOuterAlpha;
 			DrawSnapMarker(PDI, SnapLocation,  Axis1, -Axis0, AxisColor, InScale, .25f);
-			AxisColor.A = (DeltaRotation == 270.f) ? MAX_uint8 : LargeOuterAlpha;
+			AxisColor.A = (AdjustedDeltaRotation == 270.f) ? MAX_uint8 : LargeOuterAlpha;
 			DrawSnapMarker(PDI, SnapLocation, -Axis1,  Axis0, AxisColor, InScale, .25f);
 
 			if (bDragging)
 			{
-				float OffsetAngle = IsRotationLocalSpace() ? 0 : DeltaRotation;
+				float OffsetAngle = IsRotationLocalSpace() ? 0 : AdjustedDeltaRotation;
 
 				CacheRotationHUDText(View, PDI, InLocation, Axis0.RotateAngleAxis(OffsetAngle, ZAxis), Axis1.RotateAngleAxis(OffsetAngle, ZAxis), DeltaRotation, InScale);
 			}
@@ -1403,10 +1643,28 @@ void FWidget::DrawRotationArc(const FSceneView* View, FPrimitiveDrawInterface* P
 	else
 	{
 		//Reverse the axes based on camera view
-		FVector RenderAxis0 = ((Axis0|InDirectionToWidget) <= 0.0f) ? Axis0 : -Axis0;
-		FVector RenderAxis1 = ((Axis1|InDirectionToWidget) <= 0.0f) ? Axis1 : -Axis1;
+		bool bMirrorAxis0 = ((Axis0 | InDirectionToWidget) <= 0.0f);
+		bool bMirrorAxis1 = ((Axis1 | InDirectionToWidget) <= 0.0f);
+
+		FVector RenderAxis0 = bMirrorAxis0 ? Axis0 : -Axis0;
+		FVector RenderAxis1 = bMirrorAxis1 ? Axis1 : -Axis1;
+		float Direction = (bMirrorAxis0 ^ bMirrorAxis1) ? -1.0f : 1.0f;
 
 		DrawPartialRotationArc(View, PDI, InAxis, InLocation, RenderAxis0, RenderAxis1, 0, PI/2, ArcColor, InScale, InDirectionToWidget);
+
+		FVector2D Axis0ScreenLocation;
+		if (!View->ScreenToPixel(View->WorldToScreen(InLocation + RenderAxis0 * 64.0f), Axis0ScreenLocation))
+		{
+			Axis0ScreenLocation.X = Axis0ScreenLocation.Y = 0;
+		}
+
+		FVector2D Axis1ScreenLocation;
+		if (!View->ScreenToPixel(View->WorldToScreen(InLocation + RenderAxis1 * 64.0f), Axis1ScreenLocation))
+		{
+			Axis1ScreenLocation.X = Axis1ScreenLocation.Y = 0;
+		}
+
+		OutAxisDir = ((Axis1ScreenLocation - Axis0ScreenLocation) * Direction).GetSafeNormal();
 	}
 }
 

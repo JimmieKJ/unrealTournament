@@ -36,11 +36,6 @@ FEdModeGeometry::FEdModeGeometry()
 
 FEdModeGeometry::~FEdModeGeometry()
 {
-	for( int32 i=0; i<GeomObjects.Num(); i++ )
-	{
-		FGeomObject* GeomObject	= GeomObjects[i];
-		delete GeomObject;
-	}
 	GeomObjects.Empty();
 }
 
@@ -81,10 +76,10 @@ bool FEdModeGeometry::GetCustomDrawingCoordinateSystem( FMatrix& InMatrix, void*
 	if( InData )
 	{
 		FGeomBase* GeomBase = static_cast<FGeomBase*>(InData);
-		FGeomObject* GeomObject = GeomBase->GetParentObject();
-		check(GeomObject != nullptr);
+		FGeomObjectPtr GeomObject = GeomBase->GetParentObject();
+		check(GeomObject.IsValid());
 		ABrush* Brush = GeomObject->GetActualBrush();
-		InMatrix = FRotationMatrix(GeomBase->GetNormal().Rotation()) * FRotationMatrix(Brush->GetActorRotation());
+		InMatrix = FRotationMatrix(GeomBase->GetNormal().Rotation()) * FQuatRotationMatrix(Brush->GetActorQuat());
 	}
 	else
 	{
@@ -93,17 +88,17 @@ bool FEdModeGeometry::GetCustomDrawingCoordinateSystem( FMatrix& InMatrix, void*
 
 		for( int32 o = 0 ; o < GeomObjects.Num() ; ++o )
 		{
-			FGeomObject* go = GeomObjects[o];
+			FGeomObjectPtr go = GeomObjects[o];
 			go->CompileSelectionOrder();
 
 			if( go->SelectionOrder.Num() )
 			{
 				FGeomBase* GeomBase = go->SelectionOrder[go->SelectionOrder.Num() - 1];
 				check(GeomBase != nullptr);
-				FGeomObject* GeomObject = GeomBase->GetParentObject();
-				check(GeomObject != nullptr);
+				FGeomObjectPtr GeomObject = GeomBase->GetParentObject();
+				check(GeomObject.IsValid());
 				ABrush* Brush = GeomObject->GetActualBrush();
-				InMatrix = FRotationMatrix( go->SelectionOrder[ go->SelectionOrder.Num()-1 ]->GetWidgetRotation() ) * FRotationMatrix(Brush->GetActorRotation());
+				InMatrix = FRotationMatrix( go->SelectionOrder[ go->SelectionOrder.Num()-1 ]->GetWidgetRotation() ) * FQuatRotationMatrix(Brush->GetActorQuat());
 				return 1;
 			}
 		}
@@ -142,11 +137,6 @@ void FEdModeGeometry::Exit()
 
 	FEdMode::Exit();
 
-	for( int32 i=0; i<GeomObjects.Num(); i++ )
-	{
-		FGeomObject* GeomObject	= GeomObjects[i];
-		delete GeomObject;
-	}
 	GeomObjects.Empty();
 }
 
@@ -192,7 +182,7 @@ int32 FEdModeGeometry::CountSelectedPolygons()
 
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 
 		for( int32 P = 0 ; P < GeomObject->PolyPool.Num() ; ++P )
 		{
@@ -216,7 +206,7 @@ void FEdModeGeometry::GetSelectedPolygons( TArray<FGeomPoly*>& InPolygons )
 {
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 
 		for( int32 P = 0 ; P < GeomObject->PolyPool.Num() ; ++P )
 		{
@@ -236,7 +226,7 @@ bool FEdModeGeometry::HavePolygonsSelected()
 {
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 
 		for( int32 P = 0 ; P < GeomObject->PolyPool.Num() ; ++P )
 		{
@@ -260,7 +250,7 @@ int32 FEdModeGeometry::CountSelectedEdges()
 
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 
 		for( int32 E = 0 ; E < GeomObject->EdgePool.Num() ; ++E )
 		{
@@ -282,7 +272,7 @@ bool FEdModeGeometry::HaveEdgesSelected()
 {
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 
 		for( int32 E = 0 ; E < GeomObject->EdgePool.Num() ; ++E )
 		{
@@ -305,7 +295,7 @@ void FEdModeGeometry::GetSelectedEdges( TArray<FGeomEdge*>& InEdges )
 {
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 
 		for( int32 E = 0 ; E < GeomObject->EdgePool.Num() ; ++E )
 		{
@@ -327,7 +317,7 @@ int32 FEdModeGeometry::CountSelectedVertices()
 
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 
 		for( int32 V = 0 ; V < GeomObject->VertexPool.Num() ; ++V )
 		{
@@ -349,7 +339,7 @@ bool FEdModeGeometry::HaveVerticesSelected()
 {
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 
 		for( int32 V = 0 ; V < GeomObject->VertexPool.Num() ; ++V )
 		{
@@ -374,7 +364,7 @@ void FEdModeGeometry::GetSelectedVertices( TArray<FGeomVertex*>& InVerts )
 
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 
 		for( int32 V = 0 ; V < GeomObject->VertexPool.Num() ; ++V )
 		{
@@ -434,7 +424,7 @@ void FEdModeGeometry::GeometrySelectNone(bool bStoreSelection, bool bResetPivot)
 {
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 		GeomObject->Select( 0 );
 
 		for( int VertexIdx = 0 ; VertexIdx < GeomObject->EdgePool.Num() ; ++VertexIdx )
@@ -476,7 +466,7 @@ void FEdModeGeometry::RenderPoly( const FSceneView* View, FViewport* Viewport, F
 {
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		const FGeomObject* GeomObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
 		
 		FLinearColor UnselectedColor = GeomObject->GetActualBrush()->GetWireColor();
 		UnselectedColor.A = .1f;
@@ -495,7 +485,7 @@ void FEdModeGeometry::RenderPoly( const FSceneView* View, FViewport* Viewport, F
 		for( int32 PolyIdx = 0 ; PolyIdx < GeomObject->PolyPool.Num() ; ++PolyIdx )
 		{
 			const FGeomPoly* GeomPoly = &GeomObject->PolyPool[PolyIdx];
-			PDI->SetHitProxy( new HGeomPolyProxy(const_cast<FGeomObject*>(GeomPoly->GetParentObject()),PolyIdx) );
+			PDI->SetHitProxy( new HGeomPolyProxy(GeomPoly->GetParentObject(),PolyIdx) );
 			{
 				FDynamicMeshBuilder MeshBuilder;
 
@@ -561,7 +551,7 @@ void FEdModeGeometry::RenderEdge( const FSceneView* View, FPrimitiveDrawInterfac
 {
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		const FGeomObject* GeometryObject = GeomObjects[ObjectIdx];
+		FGeomObjectPtr GeometryObject = GeomObjects[ObjectIdx];
 		const FColor WireColor = GeometryObject->GetActualBrush()->GetWireColor();
 
 		// Edges
@@ -570,7 +560,7 @@ void FEdModeGeometry::RenderEdge( const FSceneView* View, FPrimitiveDrawInterfac
 			const FGeomEdge* GeometryEdge = &GeometryObject->EdgePool[EdgeIdx];
 			const FColor Color = GeometryEdge->IsSelected() ? FColor(255,128,64) : WireColor;
 
-			PDI->SetHitProxy( new HGeomEdgeProxy(const_cast<FGeomObject*>(GeometryObject),EdgeIdx) );
+			PDI->SetHitProxy( new HGeomEdgeProxy(GeometryObject,EdgeIdx) );
 			{
 				FVector V0 = GeometryObject->VertexPool[ GeometryEdge->VertexIndices[0] ];
 				FVector V1 = GeometryObject->VertexPool[ GeometryEdge->VertexIndices[1] ];
@@ -592,8 +582,8 @@ void FEdModeGeometry::RenderVertex( const FSceneView* View, FPrimitiveDrawInterf
 {
 	for( int32 ObjectIdx = 0 ; ObjectIdx < GeomObjects.Num() ; ++ObjectIdx )
 	{
-		const FGeomObject* GeomObject = GeomObjects[ObjectIdx];
-		check(GeomObject);
+		FGeomObjectPtr GeomObject = GeomObjects[ObjectIdx];
+		check(GeomObject.IsValid());
 
 		// Vertices
 
@@ -611,7 +601,7 @@ void FEdModeGeometry::RenderVertex( const FSceneView* View, FPrimitiveDrawInterf
 			Scale = View->WorldToScreen( Location ).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
 			Color = GeomVertex->IsSelected() ? FColor(255,128,64) : GeomObject->GetActualBrush()->GetWireColor();
 
-			PDI->SetHitProxy( new HGeomVertexProxy( const_cast<FGeomObject*>(GeomObject), VertIdx) );
+			PDI->SetHitProxy( new HGeomVertexProxy( GeomObject, VertIdx) );
 			PDI->DrawSprite( Location, 4.f * Scale, 4.f * Scale, GEngine->DefaultBSPVertexTexture->Resource, Color, SDPG_Foreground, 0.0, 0.0, 0.0, 0.0 );
 			PDI->SetHitProxy( NULL );
 		}
@@ -851,8 +841,8 @@ void FEdModeGeometry::GetFromSource()
 	// Go through each brush and update its components before updating below
 	for( int32 i=0; i<GeomObjects.Num(); i++ )
 	{
-		FGeomObject* GeomObject = GeomObjects[i];
-		if(GeomObject && GeomObject->ActualBrush)
+		FGeomObjectPtr GeomObject = GeomObjects[i];
+		if(GeomObject.IsValid() && GeomObject->ActualBrush)
 		{
 #ifdef BSP_RESELECT
 			// Cache any information that'll help us reselect the object after it's reconstructed
@@ -863,7 +853,6 @@ void FEdModeGeometry::GetFromSource()
 			{
 				GeomObject->ActualBrush->RegisterAllComponents();
 			}
-			delete GeomObject;
 		}		
 	}
 	GeomObjects.Empty();
@@ -882,7 +871,7 @@ void FEdModeGeometry::GetFromSource()
 		{
 			if( BrushActor->Brush != NULL )
 			{
-				FGeomObject* GeomObject			= new FGeomObject();
+				FGeomObjectPtr GeomObject			= MakeShareable( new FGeomObject() );
 				GeomObject->SetParentObjectIndex( GeomObjects.Add( GeomObject ) );
 				GeomObject->ActualBrush			= BrushActor;
 				GeomObject->GetFromSource();
@@ -919,7 +908,7 @@ void FEdModeGeometry::SendToSource()
 {
 	for( int32 o = 0 ; o < GeomObjects.Num() ; ++o )
 	{
-		FGeomObject* go = GeomObjects[o];
+		FGeomObjectPtr go = GeomObjects[o];
 
 		go->SendToSource();
 	}
@@ -931,7 +920,7 @@ bool FEdModeGeometry::FinalizeSourceData()
 
 	for( int32 o = 0 ; o < GeomObjects.Num() ; ++o )
 	{
-		FGeomObject* go = GeomObjects[o];
+		FGeomObjectPtr go = GeomObjects[o];
 
 		if( go->FinalizeSourceData() )
 		{
@@ -952,7 +941,7 @@ void FEdModeGeometry::PostUndo()
 	for( int32 o = 0 ; o < GeomObjects.Num() ; ++o )
 	{
 		int32 Idx = 0;
-		FGeomObject* go = GeomObjects[o];
+		FGeomObjectPtr go = GeomObjects[o];
 
 		ABrush* Actor = go->GetActualBrush();
 
@@ -1025,20 +1014,20 @@ FModeTool_GeometryModify::FModeTool_GeometryModify()
 {
 	ID = MT_GeometryModify;
 
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Edit::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Extrude::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Clip::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Pen::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Lathe::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Edit::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Extrude::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Clip::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Pen::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Lathe::StaticClass() ) );
 
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Create::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Delete::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Flip::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Split::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Triangulate::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Optimize::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Turn::StaticClass() ) );
-	Modifiers.Add( ConstructObject<UGeomModifier>( UGeomModifier_Weld::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Create::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Delete::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Flip::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Split::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Triangulate::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Optimize::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Turn::StaticClass() ) );
+	Modifiers.Add( NewObject<UGeomModifier>( GetTransientPackage(), UGeomModifier_Weld::StaticClass() ) );
 
 	CurrentModifier = NULL;
 	
@@ -1062,7 +1051,7 @@ bool FModeTool_GeometryModify::BoxSelect( FBox& InBox, bool InSelect )
 
 		for( FEdModeGeometry::TGeomObjectIterator Itor( mode->GeomObjectItor() ) ; Itor ; ++Itor )
 		{
-			FGeomObject* go = *Itor;
+			FGeomObjectPtr go = *Itor;
 			FTransform ActorToWorld = go->GetActualBrush()->ActorToWorld();
 
 			// Only verts for box selection
@@ -1091,7 +1080,7 @@ bool FModeTool_GeometryModify::FrustumSelect( const FConvexVolume& InFrustum, bo
 
 		for( FEdModeGeometry::TGeomObjectIterator Itor( mode->GeomObjectItor() ) ; Itor ; ++Itor )
 		{
-			FGeomObject* go = *Itor;
+			FGeomObjectPtr go = *Itor;
 			FTransform ActorToWorld = go->GetActualBrush()->ActorToWorld();
 			// Check each vertex to see if its inside the frustum
 			for( int32 v = 0 ; v < go->VertexPool.Num() ; ++v )
@@ -1173,7 +1162,7 @@ bool FModeTool_GeometryModify::EndModify()
 		// Update internals.
 		for( FEdModeGeometry::TGeomObjectIterator Itor( mode->GeomObjectItor() ) ; Itor ; ++Itor )
 		{
-			FGeomObject* go = *Itor;
+			FGeomObjectPtr go = *Itor;
 			go->ComputeData();
 			FBSPOps::bspUnlinkPolys( go->GetActualBrush()->Brush );			
 			
@@ -1234,7 +1223,7 @@ bool FModeTool_GeometryModify::InputKey(FEditorViewportClient* ViewportClient, F
 
 		for( FEdModeGeometry::TGeomObjectIterator Itor( mode->GeomObjectItor() ) ; Itor ; ++Itor )
 		{
-			FGeomObject* go = *Itor;
+			FGeomObjectPtr go = *Itor;
 
 			for( int32 p = 0 ; p < go->PolyPool.Num() ; ++p )
 			{

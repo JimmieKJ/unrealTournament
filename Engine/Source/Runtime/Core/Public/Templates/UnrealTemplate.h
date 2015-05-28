@@ -7,6 +7,7 @@
 #include "TypeWrapper.h"
 #include "HAL/Platform.h"
 #include "Templates/UnrealTypeTraits.h"
+#include "UnrealMemory.h"
 
 
 /*-----------------------------------------------------------------------------
@@ -14,48 +15,15 @@
 -----------------------------------------------------------------------------*/
 
 /** 
-* CanConvertPointerFromTo<From, To>::Result is an enum value equal to 1 if From* is automatically convertable to a To* (without regard to const!)
-**/
+ * CanConvertPointerFromTo<From, To>::Result is an enum value equal to 1 if From* is automatically convertable to a To* (without regard to const!)
+ **/
 template<class From, class To>
 class CanConvertPointerFromTo
 {
 public:
-	enum Type
-	{
-		Result = TPointerIsConvertibleFromTo<From, const To>::Value
-	};
+	DEPRECATED(4.8, "This trait is deprecated as it does not follow UE4 standards of syntax and hides a const conversion. Please use TPointerIsConvertibleFromTo instead.")
+	static const bool Result = TPointerIsConvertibleFromTo<From, const To>::Value;
 };
-
-class CanConvertPointerFromTo_TestBase
-{
-};
-
-class CanConvertPointerFromTo_TestDerived : public CanConvertPointerFromTo_TestBase
-{
-};
-
-class CanConvertPointerFromTo_Unrelated
-{
-};
-
-static_assert((CanConvertPointerFromTo<bool, bool>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert((CanConvertPointerFromTo<void, void>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert((CanConvertPointerFromTo<bool, void>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert((CanConvertPointerFromTo<const bool, void>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert((CanConvertPointerFromTo<CanConvertPointerFromTo_TestDerived, CanConvertPointerFromTo_TestBase>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert((CanConvertPointerFromTo<CanConvertPointerFromTo_TestDerived, const CanConvertPointerFromTo_TestBase>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert((CanConvertPointerFromTo<const CanConvertPointerFromTo_TestDerived, CanConvertPointerFromTo_TestBase>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert((CanConvertPointerFromTo<const CanConvertPointerFromTo_TestDerived, const CanConvertPointerFromTo_TestBase>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert((CanConvertPointerFromTo<CanConvertPointerFromTo_TestBase, CanConvertPointerFromTo_TestBase>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert((CanConvertPointerFromTo<CanConvertPointerFromTo_TestBase, void>::Result), "Platform CanConvertPointerFromTo test failed.");
-
-static_assert(!(CanConvertPointerFromTo<CanConvertPointerFromTo_TestBase, CanConvertPointerFromTo_TestDerived>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert(!(CanConvertPointerFromTo<CanConvertPointerFromTo_Unrelated, CanConvertPointerFromTo_TestBase>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert(!(CanConvertPointerFromTo<bool, CanConvertPointerFromTo_TestBase>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert(!(CanConvertPointerFromTo<void, CanConvertPointerFromTo_TestBase>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert(!(CanConvertPointerFromTo<CanConvertPointerFromTo_TestBase, bool>::Result), "Platform CanConvertPointerFromTo test failed.");
-static_assert(!(CanConvertPointerFromTo<void, bool>::Result), "Platform CanConvertPointerFromTo test failed.");
-
 
 
 /**
@@ -65,7 +33,8 @@ static_assert(!(CanConvertPointerFromTo<void, bool>::Result), "Platform CanConve
  * @param Alignment		Alignment, must be a power of two
  * @return				Aligned value
  */
-template< class T > inline T Align( const T Ptr, int32 Alignment )
+template <typename T>
+inline CONSTEXPR T Align( const T Ptr, int32 Alignment )
 {
 	return (T)(((PTRINT)Ptr + Alignment - 1) & ~(Alignment-1));
 }
@@ -166,13 +135,6 @@ char (&ArrayCountHelper(const T (&)[N]))[N];
 	#define VTABLE_OFFSET( Class, MultipleInheritenceParent )	( ((PTRINT) static_cast<MultipleInheritenceParent*>((Class*)1)) - 1)
 #endif
 
-
-/*-----------------------------------------------------------------------------
-	Allocators.
------------------------------------------------------------------------------*/
-
-template <class T> class TAllocator
-{};
 
 /**
  * works just like std::min_element.
@@ -406,13 +368,14 @@ FORCEINLINE T&& Forward(typename TRemoveReference<T>::Type&& Obj)
 /**
  * Swap two values, using moves if possible
  */
-template< class T > inline void Swap(T& A, T& B)
+template <typename T>
+inline void Swap(T& A, T& B)
 {
-	T Temp = MoveTemp(A);
-	A = MoveTemp(B);
-	B = MoveTemp(Temp);
+	FMemory::Memswap(&A, &B, sizeof(T));
 }
-template< class T > inline void Exchange(T& A, T& B)
+
+template <typename T>
+inline void Exchange(T& A, T& B)
 {
 	Swap(A, B);
 }
@@ -586,3 +549,12 @@ template <typename LHS, typename RHS>
 struct TOr : TOrValue<LHS::Value, RHS>
 {
 };
+
+
+/**
+ * Equivalent to std::declval.  
+ *
+ * Note that this function is unimplemented, and is only intended to be used in unevaluated contexts, like sizeof and trait expressions.
+ */
+template <typename T>
+T&& DeclVal();

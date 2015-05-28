@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "Engine/DeveloperSettings.h"
 #include "PhysicsSettings.generated.h"
 
 
@@ -37,14 +38,30 @@ namespace EFrictionCombineMode
 {
 	enum Type
 	{
-		//Uses the average friction of materials touching: (a+b) /2
+		//Uses the average value of the materials touching: (a+b) /2
 		Average = 0,	
-		//Uses the minimum friction of materials touching: min(a,b)
+		//Uses the minimum value of the materials touching: min(a,b)
 		Min = 1,		
-		//Uses the product of the friction of materials touching: a*b
+		//Uses the product of the values of the materials touching: a*b
 		Multiply = 2,	
-		//Uses the maximum friction of materials touching: max(a,b)
+		//Uses the maximum value of materials touching: max(a,b)
 		Max = 3
+	};
+}
+
+UENUM()
+namespace ESettingsDOF
+{
+	enum Type
+	{
+		/*Allows for full 3D movement and rotation*/
+		Full3D,
+		/*Allows 2D movement along the Y-Z plane.*/
+		YZPlane,
+		/*Allows 2D movement along the X-Z plane.*/
+		XZPlane,
+		/*Allows 2D movement along the X-Y plane.*/
+		XYPlane,
 	};
 }
 
@@ -60,17 +77,18 @@ namespace ESettingsLockedAxis
 		/*Lock movement along the y-axis*/
 		Y,
 		/*Lock movement along the z-axis*/
-		Z
+		Z,
+		/* Used for backwards compatibility. Indicates that we've updated into the new struct*/
+		Invalid
 	};
 }
 
 
 /**
- * Implements project settings for the physics sub-system.
+ * Default physics settings.
  */
-UCLASS(config=Engine, defaultconfig)
-class ENGINE_API UPhysicsSettings
-	: public UObject
+UCLASS(config=Engine, defaultconfig, meta=(DisplayName="Physics"))
+class ENGINE_API UPhysicsSettings : public UDeveloperSettings
 {
 	GENERATED_UCLASS_BODY()
 
@@ -98,18 +116,40 @@ class ENGINE_API UPhysicsSettings
 	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category=Simulation)
 	bool bEnableAsyncScene;
 
+	/** Enables shape sharing between sync and async scene for static rigid actors */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Simulation, meta = (editcondition="bEnableAsyncScene"))
+	bool bEnableShapeSharing;
+
+	/** Enables persistent contact manifolds. This will generate fewer contact points, but with more accuracy. Reduces stability of stacking, but can help energy conservation.*/
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Simulation)
+	bool bEnablePCM;
+
+	/** Whether to warn when physics locks are used incorrectly. Turning this off is not recommended and should only be used by very advanced users. */
+	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Simulation)
+	bool bWarnMissingLocks;
+
 	/** Can 2D physics be used (Box2D)? */
 	UPROPERTY(config, EditAnywhere, Category = Simulation)
 	bool bEnable2DPhysics;
 
-	/** Locks axis of movement for physical objects. (Useful for making 2D games in a 3D setting) */
+	UPROPERTY(config)
+	TEnumAsByte<ESettingsLockedAxis::Type> LockedAxis_DEPRECATED;
+
+	/** Useful for constraining all objects in the world, for example if you are making a 2D game using 3D environments.*/
 	UPROPERTY(config, EditAnywhere, Category = Simulation)
-	TEnumAsByte<ESettingsLockedAxis::Type> LockedAxis;
+	TEnumAsByte<ESettingsDOF::Type> DefaultDegreesOfFreedom;
 	
+	/** Minimum relative velocity required for an object to bounce. A typical value for simulation stability is about 0.2 * gravity*/
+	UPROPERTY(config, EditAnywhere, Category = Simulation, meta = (ClampMin = "0", UIMin = "0"))
+	float BounceThresholdVelocity;
 
 	/** Friction combine mode, controls how friction is computed for multiple materials. */
 	UPROPERTY(config, EditAnywhere, Category=Simulation)
 	TEnumAsByte<EFrictionCombineMode::Type> FrictionCombineMode;
+
+	/** Restitution combine mode, controls how restitution is computed for multiple materials. */
+	UPROPERTY(config, EditAnywhere, Category = Simulation)
+	TEnumAsByte<EFrictionCombineMode::Type> RestitutionCombineMode;
 
 	/** Max velocity which may be used to depenetrate simulated physics objects. 0 means no maximum. */
 	UPROPERTY(config, EditAnywhere, Category = Simulation)
@@ -121,12 +161,6 @@ class ENGINE_API UPhysicsSettings
 	*/
 	UPROPERTY(config, EditAnywhere, Category = Simulation)
 	bool bSimulateSkeletalMeshOnDedicatedServer;
-
-	/**
-	*  If true, kinematic pair contact reporting is enabled. This is needed for destruction.
-	*/
-	UPROPERTY(config, EditAnywhere, AdvancedDisplay, Category = Simulation)
-	bool bEnableKinematicContacts;
 
 
 	/** Max Physics Delta Time to be clamped. */

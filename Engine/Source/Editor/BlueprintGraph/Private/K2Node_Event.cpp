@@ -13,7 +13,7 @@ bool UK2Node_Event::IsCosmeticTickEvent() const
 {
 	// Special case for EventTick/ReceiveTick that is conditionally executed by a separate bool rather than function flag.
 	static const FName EventTickName(TEXT("ReceiveTick"));
-	if (EventSignatureName == EventTickName)
+	if (EventReference.GetMemberName() == EventTickName)
 	{
 		const UBlueprint* Blueprint = GetBlueprint();
 		if (Blueprint)
@@ -44,10 +44,18 @@ void UK2Node_Event::Serialize(FArchive& Ar)
 	Super::Serialize(Ar);
 
 	// Fix up legacy nodes that may not yet have a delegate pin
-	if(Ar.IsLoading() && !FindPin(DelegateOutputName))
+	if(Ar.IsLoading())
 	{
-		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-		CreatePin(EGPD_Output, K2Schema->PC_Delegate, TEXT(""), NULL, false, false, DelegateOutputName);
+		if(!FindPin(DelegateOutputName))
+		{
+			const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+			CreatePin(EGPD_Output, K2Schema->PC_Delegate, TEXT(""), NULL, false, false, DelegateOutputName);
+		}
+
+		if(Ar.UE4Ver() < VER_UE4_K2NODE_EVENT_MEMBER_REFERENCE)
+		{
+			EventReference.SetExternalMember(EventSignatureName_DEPRECATED, EventSignatureClass_DEPRECATED);
+		}
 	}
 }
 
@@ -66,20 +74,20 @@ FText UK2Node_Event::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	if (bOverrideFunction || (CustomFunctionName == NAME_None))
 	{
-		FString FunctionName = EventSignatureName.ToString(); // If we fail to find the function, still want to write something on the node.
+		FText FunctionName = FText::FromName(EventReference.GetMemberName()); // If we fail to find the function, still want to write something on the node.
 
-		if (UFunction* Function = FindField<UFunction>(EventSignatureClass, EventSignatureName))
+		if (UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()))
 		{
 			FunctionName = UEdGraphSchema_K2::GetFriendlySignatureName(Function);
 		}
 
 		FFormatNamedArguments Args;
-		Args.Add(TEXT("FunctionName"), FText::FromString(FunctionName));
+		Args.Add(TEXT("FunctionName"), FunctionName);
 		FText Title = FText::Format(NSLOCTEXT("K2Node", "Event_Name", "Event {FunctionName}"), Args);
 
-		if(TitleType == ENodeTitleType::FullTitle && EventSignatureClass != NULL && EventSignatureClass->IsChildOf(UInterface::StaticClass()))
+		if(TitleType == ENodeTitleType::FullTitle && EventReference.GetMemberParentClass(GetBlueprintClassFromNode()) != nullptr && EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->IsChildOf(UInterface::StaticClass()))
 		{
-			const FText SignatureClassAsText = FBlueprintEditorUtils::GetFriendlyClassDisplayName(EventSignatureClass);
+			const FText SignatureClassAsText = FBlueprintEditorUtils::GetFriendlyClassDisplayName(EventReference.GetMemberParentClass(GetBlueprintClassFromNode()));
 
 			FFormatNamedArguments FullTitleArgs;
 			FullTitleArgs.Add(TEXT("Title"), Title);
@@ -98,10 +106,10 @@ FText UK2Node_Event::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 FText UK2Node_Event::GetTooltipText() const
 {
-	UFunction* Function = FindField<UFunction>(EventSignatureClass, EventSignatureName);
-	if (CachedTooltip.IsOutOfDate() && (Function != nullptr))
+	UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode());
+	if (CachedTooltip.IsOutOfDate(this) && (Function != nullptr))
 	{
-		CachedTooltip = FText::FromString(UK2Node_CallFunction::GetDefaultTooltipForFunction(Function));
+		CachedTooltip.SetCachedText(FText::FromString(UK2Node_CallFunction::GetDefaultTooltipForFunction(Function)), this);
 
 		if (bOverrideFunction || (CustomFunctionName == NAME_None))
 		{
@@ -116,16 +124,16 @@ FText UK2Node_Event::GetTooltipText() const
 					NSLOCTEXT("K2Node", "ClientEvent", "\n\nCosmetic. This event is only for cosmetic, non-gameplay actions.")
 				);
 				// FText::Format() is slow, so we cache this to save on performance
-				CachedTooltip = FText::Format(LOCTEXT("Event_SubtitledTooltip", "{FunctionTooltip}\n\n{ClientString}"), Args);
+				CachedTooltip.SetCachedText(FText::Format(LOCTEXT("Event_SubtitledTooltip", "{FunctionTooltip}\n\n{ClientString}"), Args), this);
 			} 
 			else if(Function->HasAllFunctionFlags(FUNC_BlueprintAuthorityOnly))
 			{
 				Args.Add(
 					TEXT("ClientString"),
-					NSLOCTEXT("K2Node", "ServerEvent", "\n\nAuthority Only. This event only fires on the server.")
+					NSLOCTEXT("K2Node", "ServerEvent", "Authority Only. This event only fires on the server.")
 				);
 				// FText::Format() is slow, so we cache this to save on performance
-				CachedTooltip = FText::Format(LOCTEXT("Event_SubtitledTooltip", "{FunctionTooltip}\n\n{ClientString}"), Args);
+				CachedTooltip.SetCachedText(FText::Format(LOCTEXT("Event_SubtitledTooltip", "{FunctionTooltip}\n\n{ClientString}"), Args), this);
 			}			
 		}		
 	}
@@ -133,11 +141,11 @@ FText UK2Node_Event::GetTooltipText() const
 	return CachedTooltip;
 }
 
-FString UK2Node_Event::GetKeywords() const
+FText UK2Node_Event::GetKeywords() const
 {
-	FString Keywords;
+	FText Keywords;
 
-	UFunction* Function = FindField<UFunction>(EventSignatureClass, EventSignatureName);
+	UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode());
 	if (Function != NULL)
 	{
 		Keywords = UK2Node_CallFunction::GetKeywordsForFunction( Function );
@@ -148,7 +156,7 @@ FString UK2Node_Event::GetKeywords() const
 
 FString UK2Node_Event::GetDocumentationLink() const
 {
-	if ( EventSignatureClass != NULL )
+	if ( UClass* EventSignatureClass = EventReference.GetMemberParentClass(GetBlueprintClassFromNode()))
 	{
 		return FString::Printf(TEXT("Shared/Types/%s%s"), EventSignatureClass->GetPrefixCPP(), *EventSignatureClass->GetName());
 	}
@@ -158,7 +166,7 @@ FString UK2Node_Event::GetDocumentationLink() const
 
 FString UK2Node_Event::GetDocumentationExcerptName() const
 {
-	return EventSignatureName.ToString();
+	return EventReference.GetMemberName().ToString();
 }
 
 void UK2Node_Event::PostReconstructNode()
@@ -180,7 +188,7 @@ void UK2Node_Event::UpdateDelegatePin(bool bSilent)
 	UFunction* NewSignature = NULL;
 	if(bOverrideFunction)
 	{
-		NewSignature = EventSignatureClass->FindFunctionByName(EventSignatureName);
+		NewSignature = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode());
 	}
 	else if(UBlueprint* Blueprint = GetBlueprint())
 	{
@@ -210,26 +218,12 @@ void UK2Node_Event::PinConnectionListChanged(UEdGraphPin* Pin)
 
 FName UK2Node_Event::GetFunctionName() const
 {
-	return bOverrideFunction ? EventSignatureName : CustomFunctionName;
+	return bOverrideFunction ? EventReference.GetMemberName() : CustomFunctionName;
 }
 
 UFunction* UK2Node_Event::FindEventSignatureFunction()
 {
-	UFunction* Function = FindField<UFunction>(EventSignatureClass, EventSignatureName);
-
-	// First try remap table
-	if ((Function == NULL) && (EventSignatureClass != NULL))
-	{
-		Function = Cast<UFunction>(FindRemappedField(EventSignatureClass, EventSignatureName));
-		if( Function )
-		{
-			// Found a remapped property, update the node
-			EventSignatureName = Function->GetFName();
-			EventSignatureClass = Cast<UClass>(Function->GetOuter());
-		}
-	}
-
-	return Function;
+	return EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode());
 }
 
 void UK2Node_Event::AllocateDefaultPins()
@@ -254,17 +248,30 @@ void UK2Node_Event::ValidateNodeDuringCompilation(class FCompilerResultsLog& Mes
 {
 	Super::ValidateNodeDuringCompilation(MessageLog);
 
-	// If we are overriding a function, but we can;t find the function we are overriding, that is a compile error
-	if(bOverrideFunction && FindField<UFunction>(EventSignatureClass, EventSignatureName) == NULL)
+	UFunction* Function = nullptr;
+	if (bOverrideFunction)
 	{
-		MessageLog.Error(*FString::Printf(*NSLOCTEXT("KismetCompiler", "MissingEventSig_Error", "Missing Event '%s' for @@").ToString(), *EventSignatureName.ToString()), this);
+		Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode());
+		if (!Function)
+		{
+			// If we are overriding a function, but we can;t find the function we are overriding, that is a compile error
+			MessageLog.Error(*FString::Printf(*NSLOCTEXT("KismetCompiler", "MissingEventSig_Error", "Missing Event '%s' for @@").ToString(), *EventReference.GetMemberName().ToString()), this);
+		}
 	}
+	else if (UBlueprint* Blueprint = GetBlueprint())
+	{
+		Function = Blueprint->SkeletonGeneratedClass
+			? Blueprint->SkeletonGeneratedClass->FindFunctionByName(CustomFunctionName)
+			: nullptr;
+	}
+
+	FKismetCompilerUtilities::DetectValuesReturnedByRef(Function, this, MessageLog);
 }
 
 bool UK2Node_Event::NodeCausesStructuralBlueprintChange() const
 {
-	// will only change class structure when UGPF is disabled
-	return !UBlueprintGeneratedClass::UsePersistentUberGraphFrame();
+	// FBlueprintEditor::CanAddParentNode requires actual data in skel class
+	return true;
 }
 
 void UK2Node_Event::GetRedirectPinNames(const UEdGraphPin& Pin, TArray<FString>& RedirectPinNames) const
@@ -276,11 +283,14 @@ void UK2Node_Event::GetRedirectPinNames(const UEdGraphPin& Pin, TArray<FString>&
 		const FString& OldPinName = RedirectPinNames[0];
 
 		// first add functionname.param
-		RedirectPinNames.Add(FString::Printf(TEXT("%s.%s"), *EventSignatureName.ToString(), *OldPinName));
+		RedirectPinNames.Add(FString::Printf(TEXT("%s.%s"), *EventReference.GetMemberName().ToString(), *OldPinName));
 		// if there is class, also add an option for class.functionname.param
-		if ( EventSignatureClass!=NULL )
+		if ( EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()) != nullptr )
 		{
-			RedirectPinNames.Add(FString::Printf(TEXT("%s.%s.%s"), *EventSignatureClass->GetName(), *EventSignatureName.ToString(), *OldPinName));
+			if(const UClass* EventSignatureClass = EventReference.GetMemberParentClass(GetBlueprintClassFromNode()))
+			{
+				RedirectPinNames.Add(FString::Printf(TEXT("%s.%s.%s"), *EventSignatureClass->GetName(), *EventReference.GetMemberName().ToString(), *OldPinName));
+			}
 		}
 	}
 }
@@ -409,7 +419,7 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 			if(Blueprint->ParentClass->HasMetaData(*ExclusionListKeyName))
 			{
 				const FString ExcludedEventNameString = Blueprint->ParentClass->GetMetaData(*ExclusionListKeyName);
-				ExcludedEventNameString.ParseIntoArray(&ExcludedEventNames, TEXT(","), true);
+				ExcludedEventNameString.ParseIntoArray(ExcludedEventNames, TEXT(","), true);
 			}
 
 			// Gather all interfaces implemented by the Blueprint class
@@ -422,16 +432,14 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 				if(bOverrideFunction)
 				{
 					// If the function name is hidden by the parent class, don't paste this event
-					bDisallowPaste = EventSignatureClass == Blueprint->ParentClass
-						&& ExcludedEventNames.Contains(EventSignatureName.ToString());
+					bDisallowPaste = EventReference.GetMemberParentClass(GetBlueprintClassFromNode()) == Blueprint->ParentClass
+						&& ExcludedEventNames.Contains(EventReference.GetMemberName().ToString());
 					if(!bDisallowPaste)
 					{
 						// If the event function is already handled in this Blueprint, don't paste this event
 						for(int32 i = 0; i < ExistingEventNodes.Num() && !bDisallowPaste; ++i)
 						{
-							bDisallowPaste = ExistingEventNodes[i]->bOverrideFunction
-								&& ExistingEventNodes[i]->EventSignatureName == EventSignatureName
-								&& ExistingEventNodes[i]->EventSignatureClass == EventSignatureClass;
+							bDisallowPaste = ExistingEventNodes[i]->bOverrideFunction && ExistingEventNodes[i]->bIsNodeEnabled && AreEventNodesIdentical(this, ExistingEventNodes[i]);
 						}
 
 						// We need to also check for 'const' BPIE methods that might already be implemented as functions with a read-only 'self' context (these were previously implemented as events)
@@ -447,7 +455,7 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 								{
 									UK2Node_FunctionEntry* ExistingFunctionEntryNode = *NodeIt;
 									bDisallowPaste = ExistingFunctionEntryNode->bEnforceConstCorrectness
-										&& ExistingFunctionEntryNode->SignatureName == EventSignatureName;
+										&& ExistingFunctionEntryNode->SignatureName == EventReference.GetMemberName();
 								}
 							}
 						}
@@ -455,21 +463,21 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 						if(!bDisallowPaste)
 						{
 							// If the signature class is not implemented by the Blueprint parent class or an interface, don't paste this event
-							bDisallowPaste = !Blueprint->ParentClass->IsChildOf(EventSignatureClass)
-								&& !ImplementedInterfaceClasses.Contains(EventSignatureClass);
+							bDisallowPaste = !Blueprint->ParentClass->IsChildOf(EventReference.GetMemberParentClass(GetBlueprintClassFromNode()))
+								&& !ImplementedInterfaceClasses.Contains(EventReference.GetMemberParentClass(GetBlueprintClassFromNode()));
 							if(bDisallowPaste)
 							{
-								UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the event signature class (%s) is incompatible with this Blueprint."), *GetFName().ToString(), EventSignatureClass ? *EventSignatureClass->GetFName().ToString() : TEXT("NONE"));
+								UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the event signature class (%s) is incompatible with this Blueprint."), *GetFName().ToString(), EventReference.GetMemberParentClass(GetBlueprintClassFromNode()) ? *EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->GetFName().ToString() : TEXT("NONE"));
 							}
 						}
 						else
 						{
-							UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the event function (%s) is already handled."), *GetFName().ToString(), *EventSignatureName.ToString());
+							UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the event function (%s) is already handled."), *GetFName().ToString(), *EventReference.GetMemberName().ToString());
 						}
 					}
 					else
 					{
-						UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the event function (%s) is hidden by the Blueprint parent class (%s)."), *GetFName().ToString(), *EventSignatureName.ToString(), EventSignatureClass ? *EventSignatureClass->GetFName().ToString() : TEXT("NONE"));
+						UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the event function (%s) is hidden by the Blueprint parent class (%s)."), *GetFName().ToString(), *EventReference.GetMemberName().ToString(), EventReference.GetMemberParentClass(GetBlueprintClassFromNode()) ? *EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->GetFName().ToString() : TEXT("NONE"));
 					}
 				}
 				else if(CustomFunctionName != NAME_None)
@@ -480,14 +488,14 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 					if(!bDisallowPaste)
 					{
 						// Handle events that have a custom function name with an actual signature name/class that is not an override (e.g. AnimNotify events)
-						if(EventSignatureName != NAME_None)
+						if(EventReference.GetMemberName() != NAME_None)
 						{
 							// If the signature class is not implemented by the Blueprint parent class or an interface, don't paste this event
-							bDisallowPaste = !Blueprint->ParentClass->IsChildOf(EventSignatureClass)
-								&& !ImplementedInterfaceClasses.Contains(EventSignatureClass);
+							bDisallowPaste = !Blueprint->ParentClass->IsChildOf(EventReference.GetMemberParentClass(GetBlueprintClassFromNode()))
+								&& !ImplementedInterfaceClasses.Contains(EventReference.GetMemberParentClass(GetBlueprintClassFromNode()));
 							if(bDisallowPaste)
 							{
-								UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the custom event function (%s) with event signature name (%s) has an event signature class (%s) that is incompatible with this Blueprint."), *GetFName().ToString(), *CustomFunctionName.ToString(), *EventSignatureName.ToString(), EventSignatureClass ? *EventSignatureClass->GetFName().ToString() : TEXT("NONE"));
+								UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the custom event function (%s) with event signature name (%s) has an event signature class (%s) that is incompatible with this Blueprint."), *GetFName().ToString(), *CustomFunctionName.ToString(), *EventReference.GetMemberName().ToString(), EventReference.GetMemberParentClass(GetBlueprintClassFromNode()) ? *EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->GetFName().ToString() : TEXT("NONE"));
 							}
 						}
 					}
@@ -498,7 +506,7 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 				}
 				else
 				{
-					UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the event configuration is not specifically handled (EventSignatureName=%s, EventSignatureClass=%s)."), *GetFName().ToString(), *EventSignatureName.ToString(), EventSignatureClass ? *EventSignatureClass->GetFName().ToString() : TEXT("NONE"));
+					UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the event configuration is not specifically handled (EventSignatureName=%s, EventSignatureClass=%s)."), *GetFName().ToString(), *EventReference.GetMemberName().ToString(), EventReference.GetMemberParentClass(GetBlueprintClassFromNode()) ? *EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->GetFName().ToString() : TEXT("NONE"));
 				}
 			}
 			else
@@ -511,51 +519,50 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 	return !bDisallowPaste;
 }
 
-FString UK2Node_Event::GetLocalizedNetString(uint32 FunctionFlags, bool Calling)
+FText UK2Node_Event::GetLocalizedNetString(uint32 FunctionFlags, bool Calling)
 {
-	FString RPCString;
+	FText RPCString;
 	if (FunctionFlags & FUNC_Net)
 	{
-		RPCString = FString(TEXT("\n"));
-
-		if (FunctionFlags & FUNC_NetReliable)
-		{
-			RPCString += NSLOCTEXT("K2Node", "CustomEvent_ReplicatedReliable", "RELIABLE ").ToString();
-		}
-
 		if (FunctionFlags & FUNC_NetMulticast)
 		{
 			if (Calling)
 			{
-				RPCString += NSLOCTEXT("K2Node", "CustomEvent_ReplicatedMulticast", "Replicated To All (if server)").ToString();
+				RPCString = NSLOCTEXT("K2Node", "CustomEvent_ReplicatedMulticast", "Replicated To All (if server)");
 			}
 			else
 			{
-				RPCString += NSLOCTEXT("K2Node", "CustomEvent_ReplicatedMulticastFrom", "Replicated From Server\nExecutes On All").ToString();
+				RPCString = NSLOCTEXT("K2Node", "CustomEvent_ReplicatedMulticastFrom", "Replicated From Server\nExecutes On All");
 			}
-
 		}
 		else if (FunctionFlags & FUNC_NetServer)
 		{
 			if (Calling)
 			{
-				RPCString += NSLOCTEXT("K2Node", "CustomEvent_ReplicatedServer", "Replicated To Server (if owning client)").ToString();
+				RPCString = NSLOCTEXT("K2Node", "CustomEvent_ReplicatedServer", "Replicated To Server (if owning client)");
 			}
 			else
 			{
-				RPCString += NSLOCTEXT("K2Node", "CustomEvent_ReplicatedServerFrom", "Replicated From Client\nExecutes On Server").ToString();
+				RPCString = NSLOCTEXT("K2Node", "CustomEvent_ReplicatedServerFrom", "Replicated From Client\nExecutes On Server");
 			}
 		}
 		else if (FunctionFlags & FUNC_NetClient)
 		{
 			if (Calling)
 			{
-				RPCString += NSLOCTEXT("K2Node", "CustomEvent_ReplicatedClient", "Replicated To Owning Client (if server)").ToString();
+				RPCString = NSLOCTEXT("K2Node", "CustomEvent_ReplicatedClient", "Replicated To Owning Client (if server)");
 			}
 			else
 			{
-				RPCString += NSLOCTEXT("K2Node", "CustomEvent_ReplicatedClientFrom", "Replicated From Server\nExecutes on Owning Client").ToString();
+				RPCString = NSLOCTEXT("K2Node", "CustomEvent_ReplicatedClientFrom", "Replicated From Server\nExecutes on Owning Client");
 			}
+		}
+
+		if (FunctionFlags & FUNC_NetReliable)
+		{
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("RPCString"), RPCString);
+			RPCString = FText::Format(NSLOCTEXT("K2Node", "CustomEvent_ReplicatedReliable", "RELIABLE {RPCString}"), Args);
 		}
 	}
 	return RPCString;
@@ -590,7 +597,7 @@ void UK2Node_Event::ExpandNode(class FKismetCompilerContext& CompilerContext, UE
 
 FName UK2Node_Event::GetCornerIcon() const
 {
-	if (UFunction* Function = FindField<UFunction>(EventSignatureClass, EventSignatureName))
+	if (UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()))
 	{
 		if (bOverrideFunction || (CustomFunctionName == NAME_None))
 		{
@@ -611,7 +618,7 @@ FName UK2Node_Event::GetCornerIcon() const
 		return TEXT("Graph.Replication.AuthorityOnly");
 	}
 
-	if(EventSignatureClass != NULL && EventSignatureClass->IsChildOf(UInterface::StaticClass()))
+	if(EventReference.GetMemberParentClass(GetBlueprintClassFromNode()) != nullptr && EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->IsChildOf(UInterface::StaticClass()))
 	{
 		return TEXT("Graph.Event.InterfaceEventIcon");
 	}
@@ -624,7 +631,7 @@ FText UK2Node_Event::GetToolTipHeading() const
 	FText Heading = Super::GetToolTipHeading();
 
 	FText EventHeading = FText::GetEmpty();
-	if (UFunction* Function = FindField<UFunction>(EventSignatureClass, EventSignatureName))
+	if (UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()))
 	{
 		if (bOverrideFunction || (CustomFunctionName == NAME_None))
 		{
@@ -643,7 +650,7 @@ FText UK2Node_Event::GetToolTipHeading() const
 	{
 		EventHeading = LOCTEXT("ServerOnlyEvent", "Server Only");
 	}
-	else if(EventHeading.IsEmpty() && (EventSignatureClass != NULL) && EventSignatureClass->IsChildOf(UInterface::StaticClass()))
+	else if(EventHeading.IsEmpty() && (EventReference.GetMemberParentClass(GetBlueprintClassFromNode()) != nullptr) && EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->IsChildOf(UInterface::StaticClass()))
 	{
 		EventHeading = LOCTEXT("InterfaceEvent", "Interface Event");
 	}
@@ -670,7 +677,7 @@ void UK2Node_Event::GetNodeAttributes( TArray<TKeyValuePair<FString, FString>>& 
 FText UK2Node_Event::GetMenuCategory() const
 {
 	FString FuncSubCategory;
-	if (UFunction* Function = FindField<UFunction>(EventSignatureClass, EventSignatureName))
+	if (UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()))
 	{
 		FuncSubCategory = UK2Node_CallFunction::GetDefaultCategoryForFunction(Function, TEXT(""));
 	}
@@ -681,7 +688,7 @@ FText UK2Node_Event::GetMenuCategory() const
 
 bool UK2Node_Event::IsDeprecated() const
 {
-	if (UFunction* Function = FindField<UFunction>(EventSignatureClass, EventSignatureName))
+	if (UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()))
 	{
 		return Function->HasMetaData(FBlueprintMetadata::MD_DeprecatedFunction);
 	}
@@ -691,7 +698,7 @@ bool UK2Node_Event::IsDeprecated() const
 
 FString UK2Node_Event::GetDeprecationMessage() const
 {
-	if (UFunction* Function = FindField<UFunction>(EventSignatureClass, EventSignatureName))
+	if (UFunction* Function = EventReference.ResolveMember<UFunction>(GetBlueprintClassFromNode()))
 	{
 		if (Function->HasMetaData(FBlueprintMetadata::MD_DeprecationMessage))
 		{
@@ -704,14 +711,14 @@ FString UK2Node_Event::GetDeprecationMessage() const
 
 UObject* UK2Node_Event::GetJumpTargetForDoubleClick() const
 {
-	if(EventSignatureClass != NULL && EventSignatureClass->ClassGeneratedBy != NULL && EventSignatureClass->ClassGeneratedBy->IsA(UBlueprint::StaticClass()))
+	if(EventReference.GetMemberParentClass(GetBlueprintClassFromNode()) != NULL && EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->ClassGeneratedBy != NULL && EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->ClassGeneratedBy->IsA(UBlueprint::StaticClass()))
 	{
-		UBlueprint* Blueprint = CastChecked<UBlueprint>(EventSignatureClass->ClassGeneratedBy);
+		UBlueprint* Blueprint = CastChecked<UBlueprint>(EventReference.GetMemberParentClass(GetBlueprintClassFromNode())->ClassGeneratedBy);
 		TArray<UEdGraph*> Graphs;
 		Blueprint->GetAllGraphs(Graphs);
 		for(auto It(Graphs.CreateConstIterator()); It; It++)
 		{
-			if((*It)->GetFName() == EventSignatureName)
+			if((*It)->GetFName() == EventReference.GetMemberName())
 			{
 				return *It;
 			}
@@ -719,6 +726,12 @@ UObject* UK2Node_Event::GetJumpTargetForDoubleClick() const
 	}
 
 	return NULL;
+}
+
+bool UK2Node_Event::AreEventNodesIdentical(const UK2Node_Event* InNodeA, const UK2Node_Event* InNodeB)
+{
+	return InNodeA->EventReference.GetMemberName() == InNodeB->EventReference.GetMemberName()
+		&& InNodeA->EventReference.GetMemberParentClass(InNodeA->GetBlueprintClassFromNode()) == InNodeB->EventReference.GetMemberParentClass(InNodeB->GetBlueprintClassFromNode());
 }
 
 #undef LOCTEXT_NAMESPACE

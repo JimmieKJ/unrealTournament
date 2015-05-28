@@ -108,6 +108,9 @@ private:
 
 private:
 
+	/** Reference to the av asset, itself */
+	AVAssetTrack* VideoTrack;
+
     /** Access to the Avfoundations track information. */
     AVAssetReader* AVReader;
 

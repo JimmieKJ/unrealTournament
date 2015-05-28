@@ -277,13 +277,13 @@ bool FDateTime::Parse( const FString& DateTimeString, FDateTime& OutDateTime )
 	// first replace -, : and . with space
 	FString FixedString = DateTimeString.Replace(TEXT("-"), TEXT(" "));
 
-	FixedString.ReplaceInline(TEXT(":"), TEXT(" "));
-	FixedString.ReplaceInline(TEXT("."), TEXT(" "));
+	FixedString.ReplaceInline(TEXT(":"), TEXT(" "), ESearchCase::CaseSensitive);
+	FixedString.ReplaceInline(TEXT("."), TEXT(" "), ESearchCase::CaseSensitive);
 
 	TArray<FString> Tokens;
 
 	// split up on a single delimiter
-	FixedString.ParseIntoArray(&Tokens, TEXT(" "), true);
+	FixedString.ParseIntoArray(Tokens, TEXT(" "), true);
 
 	// make sure it parsed it properly (within reason)
 	if ((Tokens.Num() < 6) || (Tokens.Num() > 7))

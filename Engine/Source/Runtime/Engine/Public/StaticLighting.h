@@ -178,7 +178,7 @@ public:
 	 * @param OutV0 - Upon return, should contain the first vertex of the triangle.
 	 * @param OutV1 - Upon return, should contain the second vertex of the triangle.
 	 * @param OutV2 - Upon return, should contain the third vertex of the triangle.
-     */
+	 */
 	virtual void GetTriangle(int32 TriangleIndex,FStaticLightingVertex& OutV0,FStaticLightingVertex& OutV1,FStaticLightingVertex& OutV2) const = 0;
 
 	/**
@@ -188,7 +188,7 @@ public:
 	 * @param OutV1 - Upon return, should contain the second vertex of the triangle.
 	 * @param OutV2 - Upon return, should contain the third vertex of the triangle.
 	 * @param ElementIndex - Indicates the element index of the triangle.
-     */
+	 */
 	virtual void GetShadingTriangle(int32 TriangleIndex,FStaticLightingVertex& OutV0,FStaticLightingVertex& OutV1,FStaticLightingVertex& OutV2) const
 	{
 		checkSlow(NumTriangles == NumShadingTriangles);

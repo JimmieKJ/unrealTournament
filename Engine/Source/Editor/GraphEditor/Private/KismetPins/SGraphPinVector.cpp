@@ -4,7 +4,7 @@
 #include "GraphEditorCommon.h"
 #include "SGraphPinVector.h"
 #include "SNumericEntryBox.h"
-
+#include "Editor/UnrealEd/Public/ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "VectorTextBox"
 
@@ -151,7 +151,7 @@ void SGraphPinVector::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPi
 
 TSharedRef<SWidget>	SGraphPinVector::GetDefaultValueWidget()
 {
-	UScriptStruct* RotatorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Rotator"));
+	UScriptStruct* RotatorStruct = GetBaseStructure(TEXT("Rotator"));
 	bIsRotator = (GraphPinObj->PinType.PinSubCategoryObject == RotatorStruct) ? true : false;
 	
 	//Create widget
@@ -193,7 +193,7 @@ FString SGraphPinVector::GetValue( ETextBoxIndex Index ) const
 	//Parse string to split its contents separated by ','
 	DefaultString.Trim();
 	DefaultString.TrimTrailing();
-	DefaultString.ParseIntoArray(&ResultString, TEXT(","), true);
+	DefaultString.ParseIntoArray(ResultString, TEXT(","), true);
 
 	if(Index < ResultString.Num())
 	{
@@ -222,8 +222,14 @@ void SGraphPinVector::OnChangedValueTextBox_0(float NewValue, ETextCommit::Type 
 		DefaultValue = ValueStr + FString(TEXT(",")) + GetValue(TextBox_1) + FString(TEXT(",")) + GetValue(TextBox_2);
 	}
 
-	//Set new default value
-	GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, DefaultValue);
+	if(GraphPinObj->GetDefaultAsString() != DefaultValue)
+	{
+		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeVectorPinValue", "Change Vector Pin Value" ) );
+		GraphPinObj->Modify();
+
+		//Set new default value
+		GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, DefaultValue);
+	}
 }
 
 void SGraphPinVector::OnChangedValueTextBox_1(float NewValue, ETextCommit::Type CommitInfo)
@@ -242,8 +248,14 @@ void SGraphPinVector::OnChangedValueTextBox_1(float NewValue, ETextCommit::Type 
 		DefaultValue = GetValue(TextBox_0) + FString(TEXT(",")) + ValueStr + FString(TEXT(",")) + GetValue(TextBox_2);
 	}
 
-	//Set new default value
-	GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, DefaultValue);
+	if(GraphPinObj->GetDefaultAsString() != DefaultValue)
+	{
+		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeVectorPinValue", "Change Vector Pin Value" ) );
+		GraphPinObj->Modify();
+
+		//Set new default value
+		GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, DefaultValue);
+	}
 }
 
 void SGraphPinVector::OnChangedValueTextBox_2(float NewValue, ETextCommit::Type CommitInfo)
@@ -262,8 +274,14 @@ void SGraphPinVector::OnChangedValueTextBox_2(float NewValue, ETextCommit::Type 
 		DefaultValue = GetValue(TextBox_0) + FString(TEXT(",")) + GetValue(TextBox_1) + FString(TEXT(",")) + ValueStr;
 	}
 
-	//Set new default value
-	GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, DefaultValue);
+	if(GraphPinObj->GetDefaultAsString() != DefaultValue)
+	{
+		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeVectorPinValue", "Change Vector Pin Value" ) );
+		GraphPinObj->Modify();
+
+		//Set new default value
+		GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, DefaultValue);
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

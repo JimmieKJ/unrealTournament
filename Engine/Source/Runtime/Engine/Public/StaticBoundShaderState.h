@@ -54,6 +54,13 @@ private:
 
 	// FRenderResource interface.
 	ENGINE_API virtual void ReleaseRHI();
+
+#if DO_CHECK
+	FVertexDeclarationRHIParamRef BoundVertexDeclaration;
+	FVertexShaderRHIParamRef BoundVertexShader;
+	FPixelShaderRHIParamRef BoundPixelShader;
+	FGeometryShaderRHIParamRef BoundGeometryShader;
+#endif 
 };
 
 typedef TGlobalResource<FGlobalBoundShaderStateResource> FGlobalBoundShaderState_Internal;

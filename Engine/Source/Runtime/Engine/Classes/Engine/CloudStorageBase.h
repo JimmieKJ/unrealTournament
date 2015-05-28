@@ -1,12 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/**
- *
- * This is the base class for the various platform interface classes
- */
-
 #pragma once
+
 #include "CloudStorageBase.generated.h"
+
 
 /** All the types of delegate callbacks that a CloudStorage subclass may receive from C++ */
 UENUM()
@@ -28,9 +25,13 @@ enum ECloudStorageDelegate
 	CSD_MAX,
 };
 
-	// Full API exported so that platform modules can extend it (e.g. FacebookWindows in WinDrv)
+
+/**
+ * Base class for the various platform interface classes.
+ */
 UCLASS()
-class UCloudStorageBase : public UPlatformInterfaceBase
+class UCloudStorageBase
+	: public UPlatformInterfaceBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -42,32 +43,27 @@ class UCloudStorageBase : public UPlatformInterfaceBase
 	UPROPERTY()
 	uint32 bSuppressDelegateCalls:1;
 
-
-	/**
-	 * Perform any initialization
-	 */
+	/** Performs any initialization. */
 	virtual void Init();
 
 	/**
 	 * Initiate reading a key/value pair from cloud storage. A CSD_KeyValueReadComplete
-	 * delegate will be called when it completes (if this function returns true)
+	 * delegate will be called when it completes (if this function returns true).
 	 * 
-	 * @param KeyName String name of the key to retrieve
-	 * @param Type Type of data to retrieve 
-	 * @param SerializedObj If you are reading an object (PIDT_Object), it will de-serialize the binary blob into this object
-	 *
-	 * @return True if successful
+	 * @param KeyName String name of the key to retrieve.
+	 * @param Type Type of data to retrieve .
+	 * @param SerializedObj If you are reading an object (PIDT_Object), it will de-serialize the binary blob into this object.
+	 * @return true on success, false otherwise.
 	 */
-	virtual bool ReadKeyValue(const FString& KeyName, EPlatformInterfaceDataType Type, class UObject* SerializedObj = NULL);
+	virtual bool ReadKeyValue(const FString& KeyName, EPlatformInterfaceDataType Type, class UObject* SerializedObj = nullptr);
 
 	/**
 	 * Write a key/value pair to the cloud. A CSD_KeyValueWriteComplete
-	 * delegate will be called when it completes (if this function returns true)
+	 * delegate will be called when it completes (if this function returns true).
 	 *
-	 * @param KeyName String name of the key to write
-	 * @param Value The type and value to write
-	 *
-	 * @return True if successful
+	 * @param KeyName String name of the key to write.
+	 * @param Value The type and value to write.
+	 * @return true on success, false otherwise.
 	 */
 	virtual bool WriteKeyValue(const FString& KeyName, const FPlatformInterfaceData& Value);
 
@@ -78,7 +74,7 @@ class UCloudStorageBase : public UPlatformInterfaceBase
 	 * function returns true). Then use GetNumCloudDocuments() and GetCloudDocumentName() 
 	 * to get the information about any existing documents.
 	 *
-	 * @return True if successful
+	 * @return true on success, false otherwise.
 	 */
 	virtual bool QueryForCloudDocuments();
 
@@ -95,9 +91,8 @@ class UCloudStorageBase : public UPlatformInterfaceBase
 	/**
 	 * Create a new document in the cloud (uninitialized, unsaved, use the Write/Save functions)
 	 *
-	 * @param Filename Filename for the cloud document (with any extension you want)
-	 * 
-	 * @return Index of the new document, or -1 on failure
+	 * @param Filename Filename for the cloud document (with any extension you want).
+	 * @return Index of the new document, or -1 on failure.
 	 */
 	virtual int32 CreateCloudDocument(const FString& Filename);
 
@@ -107,7 +102,6 @@ class UCloudStorageBase : public UPlatformInterfaceBase
 	 * will be called (if this function returns true).
 	 *
 	 * @param Index index of the document to read
-	 *
 	 * @param True if successful
 	 */
 	virtual bool ReadCloudDocument(int32 Index, bool bIsForConflict = false);
@@ -118,31 +112,28 @@ class UCloudStorageBase : public UPlatformInterfaceBase
 	 * generate the document.
 	 *
 	 * @param Index index of the document to read
-	 *
 	 * @return The document as a string. It will be empty if anything went wrong.
 	 */
 	virtual FString ParseDocumentAsString(int32 Index, bool bIsForConflict = false);
 
 	/**
-	 * Once a document has been read in, use this to return a string representing the 
-	 * entire document. This should only be used if SaveDocumentWithString was used to
-	 * generate the document.
+	 * Once a document has been read in, use this to return a string representing the.
+	 * entire document. This should only be used if SaveDocumentWithString was used to generate the document.
 	 *
-	 * @param Index index of the document to read
-	 * @param ByteData The array of bytes to be filled out. It will be empty if anything went wrong
+	 * @param Index index of the document to read.
+	 * @param ByteData The array of bytes to be filled out. It will be empty if anything went wrong.
 	 */
 	virtual void ParseDocumentAsBytes(int32 Index, TArray<uint8>& ByteData, bool bIsForConflict = false);
 
 	/**
-	 * Once a document has been read in, use this to return a string representing the 
+	 * Once a document has been read in, use this to return a string representing the
 	 * entire document. This should only be used if SaveDocumentWithString was used to
 	 * generate the document.
 	 *
-	 * @param Index index of the document to read
-	 * @param ExpectedVersion Version number expected to be in the save data. If this doesn't match what's there, this function will return NULL
-	 * @param ObjectClass The class of the object to create
-	 *
-	 * @return The object deserialized from the document. It will be none if anything went wrongs
+	 * @param Index index of the document to read.
+	 * @param ExpectedVersion Version number expected to be in the save data. If this doesn't match what's there, this function will return nullptr.
+	 * @param ObjectClass The class of the object to create.
+	 * @return The object deserialized from the document. It will be none if anything went wrongs.
 	 */
 	virtual class UObject* ParseDocumentAsObject(int32 Index, TSubclassOf<class UObject> ObjectClass, int32 ExpectedVersion, bool bIsForConflict = false);
 
@@ -150,58 +141,50 @@ class UCloudStorageBase : public UPlatformInterfaceBase
 	 * Writes a document that has been already "saved" using the SaveDocumentWith* functions.
 	 * A CSD_DocumentWriteComplete delegate will be called (if this function returns true).
 	 *
-	 * @param Index index of the document to read
-	 *
-	 * @param True if successful
+	 * @param Index index of the document to read.
+	 * @param True if successful.
 	 */
 	virtual bool WriteCloudDocument(int32 Index);
 
 	/**
-	 * Prepare a document for writing to the cloud with a string as input data. This is
-	 * synchronous
+	 * Prepare a document for writing to the cloud with a string as input data. This is synchronous.
 	 *
-	 * @param Index index of the document to save
-	 * @param StringData The data to put into the document
-	 *
+	 * @param Index index of the document to save.
+	 * @param StringData The data to put into the document.
 	 * @param True if successful
 	 */
 	virtual bool SaveDocumentWithString(int32 Index, const FString& StringData);
 
 	/**
-	 * Prepare a document for writing to the cloud with an array of bytes as input data. This is
-	 * synchronous
+	 * Prepare a document for writing to the cloud with an array of bytes as input data. This is synchronous.
 	 *
-	 * @param Index index of the document to save
-	 * @param ByteData The array of generic bytes to put into the document
-	 *
-	 * @param True if successful
+	 * @param Index index of the document to save.
+	 * @param ByteData The array of generic bytes to put into the document.
+	 * @param True if successful.
 	 */
 	virtual bool SaveDocumentWithBytes(int32 Index, const TArray<uint8>& ByteData);
 
 	/**
-	 * Prepare a document for writing to the cloud with an object as input data. This is
-	 * synchronous
+	 * Prepare a document for writing to the cloud with an object as input data. This is synchronous.
 	 *
-	 * @param Index index of the document to save
-	 * @param ObjectData The object to serialize to bytes and put into the document
-	 *
-	 * @param True if successful
+	 * @param Index index of the document to save.
+	 * @param ObjectData The object to serialize to bytes and put into the document.
+	 * @param true on success, false otherwise.
 	 */
 	virtual bool SaveDocumentWithObject(int32 Index, class UObject* ObjectData, int32 SaveVersion);
 
 	/**
 	 * If there was a conflict notification, this will simply tell the cloud interface
-	 * to choose the most recently modified version, and toss any others
+	 * to choose the most recently modified version, and toss any others.
 	 */
 	virtual bool ResolveConflictWithNewestDocument();
 
 	/**
 	 * If there was a conflict notification, this will tell the cloud interface
 	 * to choose the version with a given Index to be the master version, and to
-	 * toss any others
+	 * toss any others.
 	 *
-	 * @param Index Conflict version index
+	 * @param Index Conflict version index.
 	 */
 	virtual bool ResolveConflictWithVersionIndex(int32 Index);
 };
-

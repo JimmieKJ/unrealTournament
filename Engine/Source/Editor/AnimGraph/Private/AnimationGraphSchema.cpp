@@ -9,7 +9,6 @@
 #include "GraphEditorActions.h"
 #include "ScopedTransaction.h"
 #include "AssetData.h"
-#include "K2ActionMenuBuilder.h" // for FK2ActionMenuBuilder::AddNewNodeAction()
 #include "AnimationGraphSchema.h"
 #include "K2Node_TransitionRuleGetter.h"
 #include "AnimStateNode.h"
@@ -37,44 +36,6 @@ UAnimationGraphSchema::UAnimationGraphSchema(const FObjectInitializer& ObjectIni
 	NAME_OnEvaluate = TEXT("OnEvaluate");
 	NAME_CustomizeProperty = TEXT("CustomizeProperty");
 	DefaultEvaluationHandlerName = TEXT("EvaluateGraphExposedInputs");
-}
-
-void UAnimationGraphSchema::GetStateMachineMenuItems(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	// Show state machine helpers
-	if ((ContextMenuBuilder.FromPin == NULL) || ((ContextMenuBuilder.FromPin->Direction == EGPD_Input) && (ContextMenuBuilder.FromPin->PinType.PinCategory == PC_Float)))
-	{
-		FString StateCategory(TEXT("State Machines"));
-
-		// Create the additional entries to get state information
-		TArray<UAnimStateNode*> States;
-		UBlueprint* CurrentBlueprint = FBlueprintEditorUtils::FindBlueprintForGraphChecked(ContextMenuBuilder.CurrentGraph);
-		FBlueprintEditorUtils::GetAllNodesOfClass(CurrentBlueprint, /*out*/ States);
-	
-		for (auto StateIt = States.CreateIterator(); StateIt; ++StateIt)
-		{
-			UAnimStateNode* StateNode = *StateIt;
-
-			UK2Node_TransitionRuleGetter* NodeTemplate = ContextMenuBuilder.CreateTemplateNode<UK2Node_TransitionRuleGetter>();
-			NodeTemplate->AssociatedStateNode = StateNode;
-			NodeTemplate->GetterType = ETransitionGetter::ArbitraryState_GetBlendWeight;
-
-			const FString OwnerName = StateNode->GetOuter()->GetName();
-			const FString Title = FString::Printf(TEXT("Current %s for state '%s.%s'"), *UK2Node_TransitionRuleGetter::GetFriendlyName(NodeTemplate->GetterType).ToString(), *OwnerName, *StateNode->GetStateName());
-
-			TSharedPtr<FEdGraphSchemaAction_K2NewNode> Action = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, StateCategory, FText::FromString(Title), NodeTemplate->GetTooltipText().ToString(), 0, NodeTemplate->GetKeywords());
-			Action->NodeTemplate = NodeTemplate;
-		}
-	}
-}
-
-void UAnimationGraphSchema::GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	// Add state machine info items
-	GetStateMachineMenuItems(ContextMenuBuilder);
-
-	// Inherited abilities
-	return Super::GetGraphContextActions(ContextMenuBuilder);
 }
 
 FLinearColor UAnimationGraphSchema::GetPinTypeColor(const FEdGraphPinType& PinType) const

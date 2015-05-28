@@ -74,7 +74,7 @@ public:
 	 *
 	 * @return The desired width and height.
 	 */
-	virtual FVector2D ComputeDesiredSize() const override
+	virtual FVector2D ComputeDesiredSize(float) const override
 	{
 		return ViewportSize.Get();
 	}
@@ -133,6 +133,13 @@ public:
 		WidgetToFocusOnActivate.Reset();
 	}
 
+	/** 
+	 * Sets whether this viewport is active. 
+	 * While active, a persistent Active Timer is registered and a Slate tick/paint pass is guaranteed every frame.
+	 * @param bActive Whether to set the viewport as active
+	 */
+	void SetActive(bool bActive);
+
 public:
 
 	// SWidget interface
@@ -163,7 +170,7 @@ public:
 	virtual TOptional<EPopupMethod> OnQueryPopupMethod() const override;
 	virtual void OnFinishedPointerInput() override;
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
-	virtual TSharedPtr<struct FVirtualPointerPosition> TranslateMouseCoordinateFor3DChild(const TSharedRef<SWidget>& ChildWidget, const FGeometry& MyGeometry, const FVector2D& ScreenSpaceMouseCoordinate, const FVector2D& LastScreenSpaceMouseCoordinate) const;
+	virtual TSharedPtr<struct FVirtualPointerPosition> TranslateMouseCoordinateFor3DChild(const TSharedRef<SWidget>& ChildWidget, const FGeometry& MyGeometry, const FVector2D& ScreenSpaceMouseCoordinate, const FVector2D& LastScreenSpaceMouseCoordinate) const override;
 	virtual FNavigationReply OnNavigation( const FGeometry& MyGeometry, const FNavigationEvent& InNavigationEvent ) override;
 
 private:
@@ -180,11 +187,16 @@ private:
 	}
 
 protected:
+	/** Empty active timer meant to ensure a tick/paint pass while this viewport is active */
+	EActiveTimerReturnType EnsureTick(double InCurrentTime, float InDeltaTime);
 
 	/** Interface to the rendering and I/O implementation of the viewport. */
 	TWeakPtr<ISlateViewport> ViewportInterface;
 	
 private:
+
+	/** The handle to the active EnsureTick() timer */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
 
 	/** Whether or not to show the disabled effect when this viewport is disabled. */
 	TAttribute<bool> ShowDisabledEffect;

@@ -32,12 +32,146 @@ FOnlineLeaderboardsIOS::~FOnlineLeaderboardsIOS()
 	}
 }
 
+bool FOnlineLeaderboardsIOS::ReadLeaderboardCompletionDelegate(NSArray* players, FOnlineLeaderboardReadRef& InReadObject)
+{
+    auto ReadObject = InReadObject;
+    bool bTriggeredReadRequest = false;
+
+    GKLeaderboard* LeaderboardRequest = nil;
+#ifdef __IPHONE_8_0
+    if ([GKLeaderboard respondsToSelector:@selector(initWithPlayers)] == YES)
+    {
+        LeaderboardRequest = [[GKLeaderboard alloc] initWithPlayers:players];
+    }
+    else
+#endif
+    {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_8_0
+        LeaderboardRequest = [[GKLeaderboard alloc] initWithPlayerIDs:players];
+#endif
+    }
+    if (LeaderboardRequest != nil)
+    {
+        const FString LeaderboardName = ReadObject->LeaderboardName.ToString();
+        
+        NSString* Category = [NSString stringWithFString:LeaderboardName];
+        UE_LOG(LogOnline, Display, TEXT("Attempting to read leaderboard: %s"), *LeaderboardName);
+        
+        LeaderboardRequest.playerScope = GKLeaderboardPlayerScopeGlobal;
+        LeaderboardRequest.timeScope = GKLeaderboardTimeScopeToday;
+#ifdef __IPHONE_7_0
+        if ([LeaderboardRequest respondsToSelector:@selector(identifier)] == YES)
+        {
+            LeaderboardRequest.identifier = Category;
+        }
+        else
+#endif
+        {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+            LeaderboardRequest.category = Category;
+#endif
+        }
+        LeaderboardRequest.range = NSMakeRange(1,10);
+        
+        bTriggeredReadRequest = true;
+        dispatch_async(dispatch_get_main_queue(), ^
+        {
+            [LeaderboardRequest loadScoresWithCompletionHandler: ^(NSArray *scores, NSError *Error)
+             {
+                bool bWasSuccessful = (Error == nil) && [scores count] > 0;
+                            
+                if (bWasSuccessful)
+                {
+                    bWasSuccessful = [scores count] > 0;
+                    UE_LOG(LogOnline, Display, TEXT("FOnlineLeaderboardsIOS::loadScoresWithCompletionHandler() - %s"), (bWasSuccessful ? TEXT("Success!") : TEXT("Failed!, no scores retrieved")));
+                    for (GKScore* score in scores)
+                    {
+                        FString PlayerIDString;
+                            
+#ifdef __IPHONE_8_0
+                        if ([GKScore respondsToSelector:@selector(player)] == YES)
+                        {
+                            PlayerIDString = FString(score.player.playerID);
+                        }
+                        else
+#endif
+                        {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_8_0
+                            PlayerIDString = FString(score.playerID);
+#endif
+                        }
+                            
+                        UE_LOG(LogOnline, Display, TEXT("----------------------------------------------------------------"));
+                        UE_LOG(LogOnline, Display, TEXT("PlayerId: %s"), *PlayerIDString);
+                        UE_LOG(LogOnline, Display, TEXT("Value: %d"), score.value);
+                        UE_LOG(LogOnline, Display, TEXT("----------------------------------------------------------------"));
+                            
+                        TSharedRef<FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(PlayerIDString));
+                            
+                        FOnlineStatsRow* UserRow = ReadObject.Get().FindPlayerRecord(UserId.Get());
+                        if (UserRow == NULL)
+                        {
+                            UserRow = new (ReadObject->Rows) FOnlineStatsRow(PlayerIDString, UserId);
+                        }
+                            
+                        for (int32 StatIdx = 0; StatIdx < ReadObject->ColumnMetadata.Num(); StatIdx++)
+                        {
+                            const FColumnMetaData& ColumnMeta = ReadObject->ColumnMetadata[StatIdx];
+                            
+                            switch (ColumnMeta.DataType)
+                            {
+                                case EOnlineKeyValuePairDataType::Int32:
+                                {
+                                    int32 Value = score.value;
+                                    UserRow->Columns.Add(ColumnMeta.ColumnName, FVariantData(Value));
+                                    bWasSuccessful = true;
+                                    break;
+                                }
+                            
+                                default:
+                                {
+                                    UE_LOG_ONLINE(Warning, TEXT("Unsupported key value pair during retrieval from GameCenter %s"), ColumnMeta.ColumnName);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                else if (Error)
+                {
+                    // if we have failed to read the leaderboard then report this
+                    NSDictionary *userInfo = [Error userInfo];
+                    NSString *errstr = [[userInfo objectForKey : NSUnderlyingErrorKey] localizedDescription];
+                    UE_LOG(LogOnline, Display, TEXT("FOnlineLeaderboardsIOS::loadScoresWithCompletionHandler() - Failed to read leaderboard with error: [%s]"), *FString(errstr));
+                    UE_LOG(LogOnline, Warning, TEXT("You should check that the leaderboard name matches that of one in ITunesConnect"));
+                }
+                            
+                // Report back to the game thread whether this succeeded.
+                [FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
+                 {
+                    ReadObject->ReadState = bWasSuccessful ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed;
+                    TriggerOnLeaderboardReadCompleteDelegates(bWasSuccessful);
+                    return true;
+                 }];
+            }];
+        });
+    }
+    
+    // If we have failed to kick off a read request, we should still tell whoever is listening.
+    if (!bTriggeredReadRequest)
+    {
+        UE_LOG(LogOnline, Display, TEXT("FOnlineLeaderboardsIOS::loadScoresWithCompletionHandler() - Failed!"));
+        TriggerOnLeaderboardReadCompleteDelegates(false);
+    }
+    
+    return bTriggeredReadRequest;
+}
+
 bool FOnlineLeaderboardsIOS::ReadLeaderboards(const TArray< TSharedRef<FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& InReadObject)
 {
 	auto ReadObject = InReadObject;
 
 	UE_LOG(LogOnline, Display, TEXT("FOnlineLeaderboardsIOS::ReadLeaderboards()"));
-	bool bTriggeredReadRequest = false;
 
 	ReadObject->ReadState = EOnlineAsyncTaskState::Failed;
 	ReadObject->Rows.Empty();
@@ -62,101 +196,30 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboards(const TArray< TSharedRef<FUniqueNe
 		}
 
 		// Kick off a game center read request for the list of users
-		GKLeaderboard* LeaderboardRequest = [[GKLeaderboard alloc] initWithPlayerIDs:FriendIds];
-		if (LeaderboardRequest != nil)
-		{
-			const FString LeaderboardName = ReadObject->LeaderboardName.ToString();
-
-			NSString* Category = [NSString stringWithFString:LeaderboardName];
-			UE_LOG(LogOnline, Display, TEXT("Attempting to read leaderboard: %s"), *LeaderboardName);
-
-			LeaderboardRequest.playerScope = GKLeaderboardPlayerScopeGlobal;
-			LeaderboardRequest.timeScope = GKLeaderboardTimeScopeToday;
-			LeaderboardRequest.category = Category;
-			LeaderboardRequest.range = NSMakeRange(1,10);
-
-			bTriggeredReadRequest = true;
-			dispatch_async(dispatch_get_main_queue(), ^
-			{
-				[LeaderboardRequest loadScoresWithCompletionHandler: ^(NSArray *scores, NSError *Error) 
-				{
-					bool bWasSuccessful = (Error == nil) && [scores count] > 0;
-
-					if (bWasSuccessful)
-					{
-						bool bWasSuccessful = [scores count] > 0;
-						UE_LOG(LogOnline, Display, TEXT("FOnlineLeaderboardsIOS::loadScoresWithCompletionHandler() - %s"), (bWasSuccessful ? TEXT("Success!") : TEXT("Failed!, no scores retrieved")));
-						for (GKScore* score in scores)
-						{
-							const FString PlayerIDString(score.playerID);
-
-							UE_LOG(LogOnline, Display, TEXT("----------------------------------------------------------------"));
-							UE_LOG(LogOnline, Display, TEXT("PlayerId: %s"), *PlayerIDString);
-							UE_LOG(LogOnline, Display, TEXT("Value: %d"), score.value);
-							UE_LOG(LogOnline, Display, TEXT("----------------------------------------------------------------"));
-
-							TSharedRef<FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(PlayerIDString));
-
-							FOnlineStatsRow* UserRow = ReadObject.Get().FindPlayerRecord(UserId.Get());
-							if (UserRow == NULL)
-							{
-								UserRow = new (ReadObject->Rows) FOnlineStatsRow(PlayerIDString, UserId);
-							}
-
-							for (int32 StatIdx = 0; StatIdx < ReadObject->ColumnMetadata.Num(); StatIdx++)
-							{
-								const FColumnMetaData& ColumnMeta = ReadObject->ColumnMetadata[StatIdx];
-
-								FVariantData* LastColumn = NULL;
-								switch (ColumnMeta.DataType)
-								{
-								case EOnlineKeyValuePairDataType::Int32:
-									{
-										int32 Value = score.value;
-										LastColumn = UserRow->Columns.Add(ColumnMeta.ColumnName, FVariantData(Value));
-										bWasSuccessful = true;
-										break;
-									}
-
-								default:
-									{
-										UE_LOG_ONLINE(Warning, TEXT("Unsupported key value pair during retrieval from GameCenter %s"), ColumnMeta.ColumnName);
-										break;
-									}
-								}
-							}
-						}
-					}
-					else if (Error)
-					{
-						// if we have failed to read the leaderboard then report this
-						NSDictionary *userInfo = [Error userInfo];
-						NSString *errstr = [[userInfo objectForKey : NSUnderlyingErrorKey] localizedDescription];
-						UE_LOG(LogOnline, Display, TEXT("FOnlineLeaderboardsIOS::loadScoresWithCompletionHandler() - Failed to read leaderboard with error: [%s]"), *FString(errstr));
-						UE_LOG(LogOnline, Warning, TEXT("You should check that the leaderboard name matches that of one in ITunesConnect"));
-					}
-
-					// Report back to the game thread whether this succeeded.
-					[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
-					{
-						ReadObject->ReadState = bWasSuccessful ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed;
-						TriggerOnLeaderboardReadCompleteDelegates(bWasSuccessful);
-						return true;
-					}];
-				}
-			];
-			});
-		}
-	}
-	
-	// If we have failed to kick off a read request, we should still tell whoever is listening.
-	if (!bTriggeredReadRequest)
-	{
-		UE_LOG(LogOnline, Display, TEXT("FOnlineLeaderboardsIOS::loadScoresWithCompletionHandler() - Failed!"));
-		TriggerOnLeaderboardReadCompleteDelegates(false);
+#ifdef __IPHONE_8_0
+        if ([GKLeaderboard respondsToSelector:@selector(initWithPlayers)] == YES)
+        {
+            [GKPlayer loadPlayersForIdentifiers:FriendIds withCompletionHandler:^(NSArray *players, NSError *Error)
+             {
+                bool bWasSuccessful = (Error == nil) && [players count] > 0;
+             
+                if (bWasSuccessful)
+                {
+                    bWasSuccessful = [players count] > 0;
+                    ReadLeaderboardCompletionDelegate(players, InReadObject);
+                }
+             }];
+        }
+        else
+#endif
+        {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_8_0
+            return ReadLeaderboardCompletionDelegate(FriendIds, InReadObject);
+#endif
+        }
 	}
 
-	return bTriggeredReadRequest;
+	return true;
 }
 
 
@@ -212,8 +275,20 @@ bool FOnlineLeaderboardsIOS::WriteLeaderboards(const FName& SessionName, const F
 		NSString* Category = [NSString stringWithFString:LeaderboardName];
 
 		// Create a leaderboard score object which should be posted to the [Category] leaderboard.
-		GKScore* Score = [[GKScore alloc] initWithCategory:Category];
-		
+        GKScore* Score = nil;
+#ifdef __IPHONE_7_0
+        if ([GKScore respondsToSelector:@selector(initWithLeaderboardIdentifier)] == YES)
+        {
+            Score = [[GKScore alloc] initWithLeaderboardIdentifier:Category];
+        }
+        else
+#endif
+        {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+            Score = [[GKScore alloc] initWithCategory:Category];
+#endif
+        }
+        
 		Score.context = 0;
 
 		bool bIsValidScore = false;

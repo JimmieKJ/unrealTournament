@@ -1,37 +1,52 @@
+
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "Paper2DPrivatePCH.h"
 #include "PaperSpriteSceneProxy.h"
 #include "PhysicsEngine/BodySetup2D.h"
+#include "SceneManagement.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
+#include "PaperSpriteComponent.h"
+#include "SpriteDrawCall.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperSpriteSceneProxy
 
-FPaperSpriteSceneProxy::FPaperSpriteSceneProxy(const UPaperSpriteComponent* InComponent)
+FPaperSpriteSceneProxy::FPaperSpriteSceneProxy(UPaperSpriteComponent* InComponent)
 	: FPaperRenderSceneProxy(InComponent)
-	, SourceSprite(nullptr)
+	, BodySetup(InComponent->GetBodySetup())
 {
 	WireframeColor = InComponent->GetWireframeColor();
+
 	Material = InComponent->GetMaterial(0);
+	if (Material == nullptr)
+	{
+		Material = UMaterial::GetDefaultMaterial(MD_Surface);
+	}
+
 	AlternateMaterial = InComponent->GetMaterial(1);
+	if (AlternateMaterial == nullptr)
+	{
+		AlternateMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
+	}
+
 	MaterialSplitIndex = INDEX_NONE;
 	MaterialRelevance = InComponent->GetMaterialRelevance(GetScene().GetFeatureLevel());
-
-	SourceSprite = InComponent->SourceSprite; //@TODO: This is totally not threadsafe, and won't keep up to date if the actor's sprite changes, etc....
 }
 
 void FPaperSpriteSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
-	if (SourceSprite != nullptr)
+	if (BodySetup != nullptr)
 	{
 		// Show 3D physics
 		if ((ViewFamily.EngineShowFlags.Collision /*@TODO: && bIsCollisionEnabled*/) && AllowDebugViewmodes())
 		{
-			if (UBodySetup2D* BodySetup2D = Cast<UBodySetup2D>(SourceSprite->BodySetup))
+			if (const UBodySetup2D* BodySetup2D = Cast<const UBodySetup2D>(BodySetup))
 			{
 				//@TODO: Draw 2D debugging geometry
 			}
-			else if (UBodySetup* BodySetup = SourceSprite->BodySetup)
+			else
 			{
 				if (FMath::Abs(GetLocalToWorld().Determinant()) < SMALL_NUMBER)
 				{
@@ -56,7 +71,7 @@ void FPaperSpriteSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 
 							Collector.RegisterOneFrameMaterialProxy(CollisionMaterialInstance);
 
-							// Draw the static mesh's body setup.
+							// Draw the sprite body setup.
 
 							// Get transform without scaling.
 							FTransform GeomTransform(GetLocalToWorld());
@@ -86,6 +101,8 @@ void FPaperSpriteSceneProxy::GetDynamicMeshElements(const TArray<const FSceneVie
 
 void FPaperSpriteSceneProxy::SetSprite_RenderThread(const FSpriteDrawCallRecord& NewDynamicData, int32 SplitIndex)
 {
+	SCOPE_CYCLE_COUNTER(STAT_PaperRender_SetSpriteRT);
+
 	BatchedSprites.Empty();
 	AlternateBatchedSprites.Empty();
 
@@ -96,12 +113,14 @@ void FPaperSpriteSceneProxy::SetSprite_RenderThread(const FSpriteDrawCallRecord&
 		
 		Record.Color = NewDynamicData.Color;
 		Record.Destination = NewDynamicData.Destination;
-		Record.Texture = NewDynamicData.Texture;
+		Record.BaseTexture = NewDynamicData.BaseTexture;
+		Record.AdditionalTextures = NewDynamicData.AdditionalTextures;
 		Record.RenderVerts.Append(NewDynamicData.RenderVerts.GetData(), SplitIndex);
 
 		AltRecord.Color = NewDynamicData.Color;
 		AltRecord.Destination = NewDynamicData.Destination;
-		AltRecord.Texture = NewDynamicData.Texture;
+		AltRecord.BaseTexture = NewDynamicData.BaseTexture;
+		AltRecord.AdditionalTextures = NewDynamicData.AdditionalTextures;
 		AltRecord.RenderVerts.Append(NewDynamicData.RenderVerts.GetData() + SplitIndex, NewDynamicData.RenderVerts.Num() - SplitIndex);
 	}
 	else
@@ -111,15 +130,15 @@ void FPaperSpriteSceneProxy::SetSprite_RenderThread(const FSpriteDrawCallRecord&
 	}
 }
 
-void FPaperSpriteSceneProxy::GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, bool bUseOverrideColor, const FLinearColor& OverrideColor, FMeshElementCollector& Collector) const
+void FPaperSpriteSceneProxy::GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector) const
 {
 	if (Material != nullptr)
 	{
-		GetBatchMesh(View, bUseOverrideColor, OverrideColor, Material, BatchedSprites, ViewIndex, Collector);
+		GetBatchMesh(View, Material, BatchedSprites, ViewIndex, Collector);
 	}
 
 	if ((AlternateMaterial != nullptr) && (AlternateBatchedSprites.Num() > 0))
 	{
-		GetBatchMesh(View, bUseOverrideColor, OverrideColor, AlternateMaterial, AlternateBatchedSprites, ViewIndex, Collector);
+		GetBatchMesh(View, AlternateMaterial, AlternateBatchedSprites, ViewIndex, Collector);
 	}
 }

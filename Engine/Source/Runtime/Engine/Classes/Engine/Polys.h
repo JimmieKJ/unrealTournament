@@ -586,10 +586,18 @@ class UPolys : public UObject
 	TTransArray<FPoly> Element;
 
 	// Constructors.
-	UPolys(const FObjectInitializer& ObjectInitializer)
+	UPolys(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
 	:  UObject(ObjectInitializer)
 	, Element( this )
 	{}
+
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	UPolys(FVTableHelper& Helper)
+		: Super(Helper)
+		, Element(this)
+	{}
+#endif // WITH_HOT_RELOAD_CTORS
 
 	// Begin UObject Interface
 	ENGINE_API virtual bool Modify(bool bAlwaysMarkDirty = false) override;	

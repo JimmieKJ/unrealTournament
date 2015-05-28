@@ -62,9 +62,6 @@ namespace UnrealBuildTool
 		/** True if this action is allowed to be run on a remote machine when a distributed build system is being used, such as XGE */
 		public bool bCanExecuteRemotely = false;
 
-		/** True if this action is using the Visual C++ compiler.  Some build systems may be able to optimize for this case. */
-		public bool bIsVCCompiler = false;
-
 		/** True if this action is using the GCC compiler.  Some build systems may be able to optimize for this case. */
 		public bool bIsGCCCompiler = false;
 
@@ -84,11 +81,11 @@ namespace UnrealBuildTool
 		public bool bProducesImportLibrary = false;
 
 		/** Optional custom event handler for standard output. */
-		public DataReceivedEventHandler OutputEventHandler = null;	// @todo ubtmake urgent: Delegate variables are not saved, but we are comparing against this in ExecutActions() for XGE!
+		public DataReceivedEventHandler OutputEventHandler = null;	// @todo ubtmake urgent: Delegate variables are not saved, but we are comparing against this in ExecuteActions() for XGE!
 
 		/** Callback used to perform a special action instead of a generic command line */
 		public delegate void BlockingActionHandler(Action Action, out int ExitCode, out string Output);
-		public BlockingActionHandler ActionHandler = null;		// @todo ubtmake urgent: Delegate variables are not saved, but we are comparing against this in ExecutActions() for XGE!
+		public BlockingActionHandler ActionHandler = null;		// @todo ubtmake urgent: Delegate variables are not saved, but we are comparing against this in ExecuteActions() for XGE!
 
 
 
@@ -202,8 +199,6 @@ namespace UnrealBuildTool
 
 		public static void FinalizeActionGraph()
 		{
-			// @todo fastubt: Can we use directory changed notifications or directory timestamps to accelerate C++ file outdatedness checking?
-			
 			// Link producing actions to the items they produce.
 			LinkActionsAndItems();
 
@@ -784,62 +779,67 @@ namespace UnrealBuildTool
 				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats && !String.IsNullOrEmpty( LatestUpdatedProducedItemName ),
 					TraceEventType.Verbose, "{0}: Oldest produced item is {1}", RootAction.StatusDescription, LatestUpdatedProducedItemName);
 
-				bool bFindCPPIncludePrerequisites = false;
+				bool bCheckIfIncludedFilesAreNewer = false;
+				bool bPerformExhaustiveIncludeSearchAndUpdateCache = false;
 				if( RootAction.ActionType == ActionType.Compile )
 				{
 					// Outdated targets don't need their headers scanned yet, because presumably they would already be out of dated based on already-cached
 					// includes before getting this far.  However, if we find them to be outdated after processing includes, we'll do a deep scan later
 					// on and cache all of the includes so that we have them for a quick outdatedness check the next run.
 					if( !bIsOutdated && 
-						BuildConfiguration.bUseExperimentalFastBuildIteration && 
+						BuildConfiguration.bUseUBTMakefiles && 
 						UnrealBuildTool.IsAssemblingBuild && 
 						RootAction.ActionType == ActionType.Compile )
 					{
-						bFindCPPIncludePrerequisites = true;
+						bCheckIfIncludedFilesAreNewer = true;
 					}
 
 					// Were we asked to force an update of our cached includes BEFORE we try to build?  This may be needed if our cache can no longer
 					// be trusted and we need to fill it with perfectly valid data (even if we're in assembler only mode)
-					if( BuildConfiguration.bUseExperimentalFastDependencyScan && 
+					if( BuildConfiguration.bUseUBTMakefiles && 
 						UnrealBuildTool.bNeedsFullCPPIncludeRescan )
 					{
-						bFindCPPIncludePrerequisites = true;
+						// This will be slow!
+						bPerformExhaustiveIncludeSearchAndUpdateCache = true;
 					}
 				}
 
 
-				if( bFindCPPIncludePrerequisites )
+				if( bCheckIfIncludedFilesAreNewer || bPerformExhaustiveIncludeSearchAndUpdateCache )
 				{
 					// Scan this file for included headers that may be out of date.  Note that it's OK if we break out early because we found
 					// the action to be outdated.  For outdated actions, we kick off a separate include scan in a background thread later on to
 					// catch all of the other includes and form an exhaustive set.
+					var BuildPlatform = UEBuildPlatform.GetBuildPlatform( Target.Platform );
 					foreach (FileItem PrerequisiteItem in RootAction.PrerequisiteItems)
 					{
 						// @todo ubtmake: Make sure we are catching RC files here too.  Anything that the toolchain would have tried it on.  Logic should match the CACHING stuff below
 						if( PrerequisiteItem.CachedCPPIncludeInfo != null )
 						{
-							var BuildPlatform = UEBuildPlatform.GetBuildPlatform( Target.GetTargetInfo().Platform );
-							var IncludedFileList = CPPEnvironment.FindAndCacheAllIncludedFiles( Target, PrerequisiteItem, BuildPlatform, PrerequisiteItem.CachedCPPIncludeInfo, bOnlyCachedDependencies:BuildConfiguration.bUseExperimentalFastDependencyScan );
-							foreach( var IncludedFile in IncludedFileList )	// @todo fastubt: @todo ubtmake: Optimization: This is "retesting" a lot of the same files over and over in a single run (common indirect includes)
-							{
-								if( IncludedFile.bExists )
+							var IncludedFileList = CPPEnvironment.FindAndCacheAllIncludedFiles( Target, PrerequisiteItem, BuildPlatform, PrerequisiteItem.CachedCPPIncludeInfo, bOnlyCachedDependencies:!bPerformExhaustiveIncludeSearchAndUpdateCache );
+							if( IncludedFileList != null )
+							{ 
+								foreach( var IncludedFile in IncludedFileList )
 								{
-									// allow a 1 second slop for network copies
-									TimeSpan TimeDifference = IncludedFile.LastWriteTime - LastExecutionTime;
-									bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
-									if (bPrerequisiteItemIsNewerThanLastExecution)
+									if( IncludedFile.bExists )
 									{
-										Log.TraceVerbose(
-											"{0}: Included file {1} is newer than the last execution of the action: {2} vs {3}",
-											RootAction.StatusDescription,
-											Path.GetFileName(IncludedFile.AbsolutePath),
-											IncludedFile.LastWriteTime.LocalDateTime,
-											LastExecutionTime.LocalDateTime
-											);
-										bIsOutdated = true;
+										// allow a 1 second slop for network copies
+										TimeSpan TimeDifference = IncludedFile.LastWriteTime - LastExecutionTime;
+										bool bPrerequisiteItemIsNewerThanLastExecution = TimeDifference.TotalSeconds > 1;
+										if (bPrerequisiteItemIsNewerThanLastExecution)
+										{
+											Log.TraceVerbose(
+												"{0}: Included file {1} is newer than the last execution of the action: {2} vs {3}",
+												RootAction.StatusDescription,
+												Path.GetFileName(IncludedFile.AbsolutePath),
+												IncludedFile.LastWriteTime.LocalDateTime,
+												LastExecutionTime.LocalDateTime
+												);
+											bIsOutdated = true;
 
-										// Don't bother checking every single include if we've found one that is out of date
-										break;
+											// Don't bother checking every single include if we've found one that is out of date
+											break;
+										}
 									}
 								}
 							}
@@ -915,12 +915,12 @@ namespace UnrealBuildTool
 				// know about the set of header files that are included for files that are already determined to be out of date (such as if the file
 				// is missing or was modified.)  In the case that the file is out of date, we'll perform a deep scan to update our cached set of
 				// includes for this file, so that we'll be able to determine whether it is out of date next time very quickly.
-				if( BuildConfiguration.bUseExperimentalFastDependencyScan )
+				if( BuildConfiguration.bUseUBTMakefiles )
 				{ 
 					var DeepIncludeScanStartTime = DateTime.UtcNow;
 
-					// @todo fastubt: we may be scanning more files than we need to here -- indirectly outdated files are bIsOutdated=true by this point (for example basemost includes when deeper includes are dirty)
-					if( bIsOutdated && RootAction.ActionType == ActionType.Compile )	// @todo fastubt: Does this work with RC files?  See above too.
+					// @todo ubtmake: we may be scanning more files than we need to here -- indirectly outdated files are bIsOutdated=true by this point (for example basemost includes when deeper includes are dirty)
+					if( bIsOutdated && RootAction.ActionType == ActionType.Compile )	// @todo ubtmake: Does this work with RC files?  See above too.
 					{
 						Log.TraceVerbose( "Outdated action: {0}", RootAction.StatusDescription );
 						foreach (FileItem PrerequisiteItem in RootAction.PrerequisiteItems)

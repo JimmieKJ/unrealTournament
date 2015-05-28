@@ -31,6 +31,7 @@ public class Leap : ModuleRules
 
 			PublicLibraryPaths.Add(LibraryPath);
 			PublicAdditionalLibraries.Add(LibraryName + ".lib");
+			RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/ThirdParty/Leap/" + Target.Platform.ToString() + "/" + LibraryName + ".dll"));
 		}
 	}
 }

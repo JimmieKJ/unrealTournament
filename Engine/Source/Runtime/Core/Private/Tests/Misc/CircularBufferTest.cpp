@@ -4,7 +4,7 @@
 #include "AutomationTest.h"
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCircularBufferTest, "Core.Misc.CircularBuffer", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FCircularBufferTest, "System.Core.Misc.CircularBuffer", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FCircularBufferTest::RunTest( const FString& Parameters )
 {

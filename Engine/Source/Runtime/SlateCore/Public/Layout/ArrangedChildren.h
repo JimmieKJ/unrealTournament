@@ -16,6 +16,8 @@ class SLATECORE_API FArrangedChildren
 	
 	public:
 
+	typedef TArray<FArrangedWidget, TInlineAllocator<16>> FArrangedWidgetArray;
+
 	/**
 	 * Construct a new container for arranged children that only accepts children that match the VisibilityFilter.
 	 * e.g.
@@ -85,17 +87,17 @@ class SLATECORE_API FArrangedChildren
 
 private:
 	/** Internal representation of the array widgets */
-	TArray<FArrangedWidget> Array;
+	FArrangedWidgetArray Array;
 
 	bool bAllow3DWidgets;
 public:
 
-	TArray<FArrangedWidget>& GetInternalArray()
+	FArrangedWidgetArray& GetInternalArray()
 	{
 		return Array;
 	}
 
-	const TArray<FArrangedWidget>& GetInternalArray() const
+	const FArrangedWidgetArray& GetInternalArray() const
 	{
 		return Array;
 	}

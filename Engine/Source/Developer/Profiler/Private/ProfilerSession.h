@@ -148,6 +148,8 @@ protected:
 				ProfilerUnit = EProfilerSampleTypes::HierarchicalTime;
 				break;
 			}
+		case STATTYPE_Error:
+			break;
 		}
 
 		return ProfilerUnit;
@@ -268,7 +270,7 @@ protected:
 	 */
 	void AddStat( FProfilerStat* ProfilerStat )
 	{
-		OwnedStats.AddUnique( ProfilerStat );
+		OwnedStats.Add( ProfilerStat );
 	}
 
 public:
@@ -392,42 +394,7 @@ protected:
 	 * @param StatMetaData - the stat metadata received from the connected profiler client
 	 *
 	 */
-	void Update( const FStatMetaData& ClientStatMetaData )
-	{
-		PROFILER_SCOPE_LOG_TIME( TEXT( "FProfilerStatMetaData.Update" ), );
-
-		FStatMetaData LocalCopy;
-		{
-			FScopeLock Lock( ClientStatMetaData.CriticalSection );
-			LocalCopy = ClientStatMetaData;
-		}
-
-		// Iterate through all thread descriptions.
-		ThreadDescriptions.Append( LocalCopy.ThreadDescriptions );
-
-		// Initialize fake stat for Self.
-		const uint32 NoGroupID = 0;
-
-		InitializeGroup( NoGroupID, "NoGroup" );
-		InitializeStat( 0, NoGroupID, TEXT( "Self" ), STATTYPE_CycleCounter );
-		InitializeStat( 1, NoGroupID, FStatConstants::NAME_ThreadRoot.GetPlainNameString(), STATTYPE_CycleCounter, FStatConstants::NAME_ThreadRoot );
-
-		// Iterate through all stat group descriptions.
-		for( auto It = LocalCopy.GroupDescriptions.CreateConstIterator(); It; ++It )
-		{
-			const FStatGroupDescription& GroupDesc = It.Value();
-			InitializeGroup( GroupDesc.ID, GroupDesc.Name );
-		}
-
-		// Iterate through all stat descriptions.
-		for( auto It = LocalCopy.StatDescriptions.CreateConstIterator(); It; ++It )
-		{
-			const FStatDescription& StatDesc = It.Value();
-			InitializeStat( StatDesc.ID, StatDesc.GroupID, StatDesc.Name, (EStatType)StatDesc.StatType );
-		}
-
-		SecondsPerCycle = LocalCopy.SecondsPerCycle;
-	}
+	void Update( const FStatMetaData& ClientStatMetaData );
 
 public:
 	/**
@@ -468,9 +435,6 @@ private:
 	 */
 	void InitializeStat( const uint32 StatID, const uint32 GroupID, const FString& StatName, const EStatType InType, FName StatFName = NAME_None )	
 	{
-		// @TODO yrx 2014-03-24 FindRef!
-		FProfilerGroup* GroupPtr = GroupDescriptions.FindRef( GroupID );
-
 		FProfilerStat* StatPtr = StatDescriptions.FindRef( StatID );
 		if( !StatPtr )
 		{
@@ -480,44 +444,49 @@ private:
 			{
 				StatFNameDescriptions.Add( StatFName, StatPtr );
 			}
-		}
-		StatPtr->Initialize( StatName, GroupPtr, InType );
 
-		if( StatFName == NAME_None && GroupPtr->Name() == TEXT( "Threads" ) )
-		{
-			// Check if this stat is a thread stat.
-			const uint32 ThreadID = FStatsUtils::ParseThreadID( StatPtr->Name().ToString() );
-			if( ThreadID != 0 )
+			// @TODO yrx 2014-03-24 FindRef!
+			FProfilerGroup* GroupPtr = GroupDescriptions.FindRef( GroupID );
+
+			StatPtr->Initialize( StatName, GroupPtr, InType );
+
+			static const FName NAME_Threads(TEXT("Threads"));
+			if( StatFName == NAME_None && GroupPtr->Name() == NAME_Threads )
 			{
-				const FString* ThreadDesc = GetThreadDescriptions().Find( ThreadID );
-				if( ThreadDesc )
+				// Check if this stat is a thread stat.
+				const uint32 ThreadID = FStatsUtils::ParseThreadID( StatPtr->Name().ToString() );
+				if( ThreadID != 0 )
 				{
-					// Replace the stat name with a thread name.
-					const FString UniqueThreadName = FString::Printf( TEXT( "%s [0x%x]" ), **ThreadDesc, ThreadID );
-					StatPtr->_Name = *UniqueThreadName;
-					ThreadIDtoStatID.Add( ThreadID, StatID );
+					const FString* ThreadDesc = GetThreadDescriptions().Find( ThreadID );
+					if( ThreadDesc )
+					{
+						// Replace the stat name with a thread name.
+						const FString UniqueThreadName = FString::Printf( TEXT( "%s [0x%x]" ), **ThreadDesc, ThreadID );
+						StatPtr->_Name = *UniqueThreadName;
+						ThreadIDtoStatID.Add( ThreadID, StatID );
 
-					// Game thread is always NAME_GameThread
-					if( **ThreadDesc == FName( NAME_GameThread ) )
-					{
-						GameThreadID = ThreadID;
-					}
-					// Rendering thread may be "Rendering thread" or NAME_RenderThread with an index
-					else if( ThreadDesc->Contains( FName( NAME_RenderThread ).GetPlainNameString() ) )
-					{
-						RenderThreadIDs.AddUnique( ThreadID );
-					}
-					else if( ThreadDesc->Contains( TEXT( "RenderingThread" ) ) )
-					{
-						RenderThreadIDs.AddUnique( ThreadID );
-					}
-				}			
+						// Game thread is always NAME_GameThread
+						if( **ThreadDesc == FName( NAME_GameThread ) )
+						{
+							GameThreadID = ThreadID;
+						}
+						// Rendering thread may be "Rendering thread" or NAME_RenderThread with an index
+						else if( ThreadDesc->Contains( FName( NAME_RenderThread ).GetPlainNameString() ) )
+						{
+							RenderThreadIDs.AddUnique( ThreadID );
+						}
+						else if( ThreadDesc->Contains( TEXT( "RenderingThread" ) ) )
+						{
+							RenderThreadIDs.AddUnique( ThreadID );
+						}
+					}			
+				}
 			}
-		}
 
-		if( GroupPtr != FProfilerGroup::GetDefaultPtr() )
-		{
-			GroupPtr->AddStat( StatPtr );
+			if( GroupPtr != FProfilerGroup::GetDefaultPtr() )
+			{
+				GroupPtr->AddStat( StatPtr );
+			}
 		}
 	}
 
@@ -1149,24 +1118,10 @@ protected:
 	);
 
 	/** Called when this profiler session receives a new profiler data. */
-	void UpdateProfilerData( const FProfilerDataFrame& Content )
-	{
-		FrameToProfilerDataMapping.FindOrAdd( Content.Frame ) = Content;
-		FrameToProcess.Add( Content.Frame );
-	}
+	void UpdateProfilerData( const FProfilerDataFrame& Content );
 
 	/** Called when this profiler session receives information that the meta data has been updated. @see FProfilerMetaDataUpdateDelegate and IProfilerClient */
-	void UpdateMetadata( const FStatMetaData& InClientStatMetaData )
-	{
-		const uint32 CurrentStatMetaDataSize = InClientStatMetaData.GetMetaDataSize();
-		if( CurrentStatMetaDataSize != StatMetaDataSize )
-		{
-			ClientStatMetadata = &InClientStatMetaData;
-			bRequestStatMetadataUpdate = true;
-
-			StatMetaDataSize = CurrentStatMetaDataSize;
-		}	
-	}
+	void UpdateMetadata( const FStatMetaData& InClientStatMetaData );
 
 	/**
 	 * Updates aggregated stats.
@@ -1189,7 +1144,7 @@ protected:
 	void EventGraphCombineAndAdd( const FEventGraphDataRef Current, const uint32 NumFrames );
 
 	/** Called when the capture file has been fully loaded. */
-	void LoadComplete() { bHasAllProfilerData = true; }
+	void LoadComplete();
 
 protected:
 	/** All aggregated stats, stored as StatID -> FProfilerAggregatedStat. */
@@ -1271,6 +1226,7 @@ public:
 	Profiler session for the raw stats files
 -----------------------------------------------------------------------------*/
 
+struct FAllocationInfo;
 
 class FRawProfilerSession : public FProfilerSession
 {
@@ -1286,6 +1242,12 @@ class FRawProfilerSession : public FProfilerSession
 
 	/** Index of the last processed data for the mini-view. */
 	int32 CurrentMiniViewFrame;
+
+	/** Basic memory profiling, only for debugging purpose. */
+	void ProcessMemoryOperations( const TMap<int64, FStatPacketArray>& CombinedHistory );
+
+	/** Generate a basic memory usage report and prints it to the log. */
+	void GenerateMemoryUsageReport( const TMap<uint64, FAllocationInfo>& AllocationMap );
 
 public:
 	/**

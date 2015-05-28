@@ -33,32 +33,42 @@ IOnlineIdentityPtr FOnlineSubsystemGooglePlay::GetIdentityInterface() const
 	return IdentityInterface;
 }
 
-
 IOnlineStorePtr FOnlineSubsystemGooglePlay::GetStoreInterface() const
 {
 	return StoreInterface;
 }
-
 
 IOnlineSessionPtr FOnlineSubsystemGooglePlay::GetSessionInterface() const
 {
 	return nullptr;
 }
 
-
 IOnlineFriendsPtr FOnlineSubsystemGooglePlay::GetFriendsInterface() const
 {
 	return nullptr;
 }
 
+IOnlinePartyPtr FOnlineSubsystemGooglePlay::GetPartyInterface() const
+{
+	return nullptr;
+}
+
+IOnlineGroupsPtr FOnlineSubsystemGooglePlay::GetGroupsInterface() const
+{
+	return nullptr;
+}
 
 IOnlineSharedCloudPtr FOnlineSubsystemGooglePlay::GetSharedCloudInterface() const
 {
 	return nullptr;
 }
 
-
 IOnlineUserCloudPtr FOnlineSubsystemGooglePlay::GetUserCloudInterface() const
+{
+	return nullptr;
+}
+
+IOnlineUserCloudPtr FOnlineSubsystemGooglePlay::GetUserCloudInterface(const FString& Key) const
 {
 	return nullptr;
 }
@@ -68,25 +78,17 @@ IOnlineLeaderboardsPtr FOnlineSubsystemGooglePlay::GetLeaderboardsInterface() co
 	return LeaderboardsInterface;
 }
 
-
 IOnlineVoicePtr FOnlineSubsystemGooglePlay::GetVoiceInterface() const
 {
 	return nullptr;
 }
-
 
 IOnlineExternalUIPtr FOnlineSubsystemGooglePlay::GetExternalUIInterface() const
 {
 	return ExternalUIInterface;
 }
 
-
 IOnlineTimePtr FOnlineSubsystemGooglePlay::GetTimeInterface() const
-{
-	return nullptr;
-}
-
-IOnlinePartyPtr FOnlineSubsystemGooglePlay::GetPartyInterface() const
 {
 	return nullptr;
 }
@@ -142,7 +144,7 @@ bool FOnlineSubsystemGooglePlay::Init()
 	WaitingForLogin = true;
 	WaitForLostFocus = false;
 
-	FJavaWrapper::OnActivityResultDelegate.AddRaw(this, &FOnlineSubsystemGooglePlay::OnActivityResult);
+	OnActivityResultDelegateHandle = FJavaWrapper::OnActivityResultDelegate.AddRaw(this, &FOnlineSubsystemGooglePlay::OnActivityResult);
 
 	// Create() returns a std::unqiue_ptr, but we convert it to a TUniquePtr.
 	GameServicesPtr.Reset( GameServices::Builder()
@@ -184,6 +186,11 @@ bool FOnlineSubsystemGooglePlay::Init()
 
 bool FOnlineSubsystemGooglePlay::Tick(float DeltaTime)
 {
+	if (!FOnlineSubsystemImpl::Tick(DeltaTime))
+	{
+		return false;
+	}
+
 	if (OnlineAsyncTaskThreadRunnable)
 	{
 		OnlineAsyncTaskThreadRunnable->GameTick();
@@ -197,7 +204,7 @@ bool FOnlineSubsystemGooglePlay::Shutdown()
 {
 	UE_LOG(LogOnline, Log, TEXT("FOnlineSubsystemAndroid::Shutdown()"));
 
-	FJavaWrapper::OnActivityResultDelegate.RemoveRaw(this, &FOnlineSubsystemGooglePlay::OnActivityResult);
+	FJavaWrapper::OnActivityResultDelegate.Remove(OnActivityResultDelegateHandle);
 
 #define DESTRUCT_INTERFACE(Interface) \
 	if (Interface.IsValid()) \

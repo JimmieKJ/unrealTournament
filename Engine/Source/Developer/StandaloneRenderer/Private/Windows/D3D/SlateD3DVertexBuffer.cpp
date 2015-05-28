@@ -37,7 +37,7 @@ void FSlateD3DVertexBuffer::CreateBuffer( uint32 InStride )
 	BufferDesc.MiscFlags = 0;
 
 	HRESULT Hr = GD3DDevice->CreateBuffer( &BufferDesc, NULL, Buffer.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 }
 
 /** Releases the vertex buffers RHI resource. */
@@ -73,7 +73,7 @@ void FSlateD3DVertexBuffer::ResizeBuffer( uint32 NewSize )
 		BufferDesc.MiscFlags = 0;
 
 		HRESULT Hr = GD3DDevice->CreateBuffer( &BufferDesc, NULL, Buffer.GetInitReference() );
-		check( SUCCEEDED(Hr) );
+		checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 		if( SavedVertices )
 		{

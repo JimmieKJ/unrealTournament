@@ -172,9 +172,9 @@ class CORE_API FLocMetadataValueString : public FLocMetadataValue
 {
 public:
 	FLocMetadataValueString(const FString& InString) : Value(InString) {Type = ELocMetadataType::String;}
-	virtual FString AsString() {return Value;}
+	virtual FString AsString() override {return Value;}
 
-	virtual TSharedRef<FLocMetadataValue> Clone() const;
+	virtual TSharedRef<FLocMetadataValue> Clone() const override;
 	void SetString( const FString& InString ) { Value = InString; }
 
 protected:
@@ -192,9 +192,9 @@ class CORE_API FLocMetadataValueBoolean : public FLocMetadataValue
 {
 public:
 	FLocMetadataValueBoolean(bool InBool) : Value(InBool) {Type = ELocMetadataType::Boolean;}
-	virtual bool AsBool() {return Value;}
+	virtual bool AsBool() override {return Value;}
 
-	virtual TSharedRef<FLocMetadataValue> Clone() const;
+	virtual TSharedRef<FLocMetadataValue> Clone() const override;
 	
 protected:
 	bool Value;
@@ -210,9 +210,9 @@ class CORE_API FLocMetadataValueArray : public FLocMetadataValue
 {
 public:
 	FLocMetadataValueArray(const TArray< TSharedPtr<FLocMetadataValue> >& InArray) : Value(InArray) {Type = ELocMetadataType::Array;}
-	virtual TArray< TSharedPtr<FLocMetadataValue> > AsArray() {return Value;}
+	virtual TArray< TSharedPtr<FLocMetadataValue> > AsArray() override {return Value;}
 
-	virtual TSharedRef<FLocMetadataValue> Clone() const;
+	virtual TSharedRef<FLocMetadataValue> Clone() const override;
 	
 protected:
 	TArray< TSharedPtr<FLocMetadataValue> > Value;
@@ -228,9 +228,9 @@ class CORE_API FLocMetadataValueObject : public FLocMetadataValue
 {
 public:
 	FLocMetadataValueObject(TSharedPtr<FLocMetadataObject> InObject) : Value(InObject) {Type = ELocMetadataType::Object;}
-	virtual TSharedPtr<FLocMetadataObject> AsObject() {return Value;}
+	virtual TSharedPtr<FLocMetadataObject> AsObject() override {return Value;}
 
-	virtual TSharedRef<FLocMetadataValue> Clone() const;
+	virtual TSharedRef<FLocMetadataValue> Clone() const override;
 	
 protected:
 	TSharedPtr<FLocMetadataObject> Value;

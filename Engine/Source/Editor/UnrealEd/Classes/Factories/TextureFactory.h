@@ -90,10 +90,10 @@ class UNREALED_API UTextureFactory : public UFactory
 	uint32 bUsingExistingSettings:1;
 
 public:
-	UTextureFactory(const FObjectInitializer& ObjectInitializer);
+	UTextureFactory(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	// Begin UObject Interface
-	virtual void PostInitProperties();
+	virtual void PostInitProperties() override;
 	// End UObject Interface
 
 	// Begin UFactory Interface
@@ -111,9 +111,6 @@ public:
 	 * This is primarily for reimporting textures.
 	 */
 	static void SuppressImportOverwriteDialog();
-
-	/* Suppresses any warning dialogs about import resolution from popping up during operations that aren't concerned with the warnings. */
-	static void SuppressImportResolutionWarningDialog();
 
 	/**
 	 *	Initializes the given texture from the TextureData text block supplied.
@@ -139,9 +136,6 @@ public:
 private:
 	/** This variable is static because in StaticImportObject() the type of the factory is not known. */
 	static bool bSuppressImportOverwriteDialog;
-
-	/** Whether to suppress one time warnings or not */
-	static bool bSuppressImportResolutionWarnings;
 
 	/**
 	*	Tests if the given height and width specify a supported texture resolution to import; Can optionally check if the height/width are powers of two

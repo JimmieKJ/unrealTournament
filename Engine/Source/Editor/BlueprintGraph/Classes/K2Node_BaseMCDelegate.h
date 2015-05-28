@@ -2,6 +2,7 @@
 #pragma once
 #include "K2Node.h"
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "Engine/MemberReference.h"
 #include "K2Node_BaseMCDelegate.generated.h"
 
 UCLASS(MinimalAPI, abstract)
@@ -40,7 +41,7 @@ public:
 
 	BLUEPRINTGRAPH_API UProperty* GetProperty() const
 	{
-		return DelegateReference.ResolveMember<UProperty>(this);
+		return DelegateReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
 	}
 
 	BLUEPRINTGRAPH_API FName GetPropertyName() const

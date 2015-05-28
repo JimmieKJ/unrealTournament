@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "NumericTypeInterface.h"
 
 /**
  * A Slate SpinBox resembles traditional spin boxes in that it is a widget that provides
@@ -50,7 +51,7 @@ public:
 		/** The maximum value that can be specified by using the slider, defaults to MaxValue */
 		SLATE_ATTRIBUTE( TOptional< NumericType >, MaxSliderValue )
 		/** Delta to increment the value as the slider moves.  If not specified will determine automatically */
-		SLATE_ATTRIBUTE( NumericType, Delta )
+		SLATE_ARGUMENT( NumericType, Delta )
 		/** Use exponential scale for the slider */
 		SLATE_ATTRIBUTE( float, SliderExponent )
 		/** Font used to display text in the slider */
@@ -71,6 +72,8 @@ public:
 		SLATE_ATTRIBUTE( bool, SelectAllTextOnCommit )
 		/** Minimum width that a spin box should be */
 		SLATE_ATTRIBUTE( float, MinDesiredWidth )
+		/** Provide custom type conversion functionality to this spin box */
+		SLATE_ARGUMENT( TSharedPtr< INumericTypeInterface<NumericType> >, TypeInterface )
 
 	SLATE_END_ARGS()
 
@@ -90,6 +93,7 @@ public:
 		Style = InArgs._Style;
 
 		ForegroundColor = InArgs._Style->ForegroundColor;
+		Interface = InArgs._TypeInterface.IsValid() ? InArgs._TypeInterface : MakeShareable( new TDefaultNumericTypeInterface<NumericType> );
 
 		ValueAttribute = InArgs._Value;
 		OnValueChanged = InArgs._OnValueChanged;
@@ -108,11 +112,9 @@ public:
 		SliderExponent = InArgs._SliderExponent;
 
 		DistanceDragged = 0.0f;
-		CachedExternalValue = 0;
-		InternalValue = 0;
 		PreDragValue = 0;
 
-		Delta = InArgs._Delta.Get();
+		Delta = InArgs._Delta;
 	
 		BackgroundHoveredBrush = &InArgs._Style->HoveredBackgroundBrush;
 		BackgroundBrush = &InArgs._Style->BackgroundBrush;
@@ -137,7 +139,7 @@ public:
 			[
 				SAssignNew(TextBlock, STextBlock)
 				.Font(InArgs._Font)
-				.Text( this, &SSpinBox<NumericType>::GetValueAsString )
+				.Text( this, &SSpinBox<NumericType>::GetValueAsText )
 				.MinDesiredWidth( this, &SSpinBox<NumericType>::GetTextMinDesiredWidth )
 			]
 
@@ -152,7 +154,7 @@ public:
 				.Font(InArgs._Font)
 				.SelectAllTextWhenFocused( true )
 				.Text( this, &SSpinBox<NumericType>::GetValueAsText )
-				.OnIsTypedCharValid_Static(TCharacterFilter<NumericType>::IsValid)
+				.OnIsTypedCharValid(this, &SSpinBox<NumericType>::IsCharacterValid)
 				.OnTextCommitted( this, &SSpinBox<NumericType>::TextField_OnTextCommitted )
 				.ClearKeyboardFocusOnCommit( InArgs._ClearKeyboardFocusOnCommit )
 				.SelectAllTextOnCommit( InArgs._SelectAllTextOnCommit )
@@ -275,7 +277,7 @@ public:
 			}
 
 			bDragging = false;
-			if ( DistanceDragged < FSlateApplication::Get().GetDragTriggerDistnace() )
+			if ( DistanceDragged < FSlateApplication::Get().GetDragTriggerDistance() )
 			{
 				EnterTextMode();
 				return FReply::Handled().ReleaseMouseCapture().SetUserFocus(EditableText.ToSharedRef(), EFocusCause::SetDirectly).SetMousePos(CachedMousePosition);
@@ -304,7 +306,7 @@ public:
 			if (!bDragging)
 			{
 				DistanceDragged += FMath::Abs(MouseEvent.GetCursorDelta().X);
-				if ( DistanceDragged > FSlateApplication::Get().GetDragTriggerDistnace() )
+				if ( DistanceDragged > FSlateApplication::Get().GetDragTriggerDistance() )
 				{
 					ExitTextMode();
 					bDragging = true;
@@ -378,7 +380,7 @@ public:
 			FCursorReply::Cursor( EMouseCursor::ResizeLeftRight );
 	}
 
-	virtual bool SupportsKeyboardFocus() const
+	virtual bool SupportsKeyboardFocus() const override
 	{
 		// SSpinBox is focusable.
 		return true;
@@ -432,7 +434,7 @@ public:
 		}
 	}
 	
-	virtual bool HasKeyboardFocus() const
+	virtual bool HasKeyboardFocus() const override
 	{
 		// The spinbox is considered focused when we are typing it text.
 		return SCompoundWidget::HasKeyboardFocus() || (EditableText.IsValid() && EditableText->HasKeyboardFocus());
@@ -514,7 +516,7 @@ protected:
 			CurrentValue = (NumericType)Snap(CurrentValue, Delta);
 		}
 		
-		return TTypeToString<NumericType>::ToSanitizedString(CurrentValue);
+		return Interface->ToString(CurrentValue);
 	}
 
 	/** @return the value being observed by the spinbox as FText - todo: spinbox FText support (reimplement me) */
@@ -536,25 +538,10 @@ protected:
 			ExitTextMode();
 		}
 
-		NumericType NewValue = 0;
-		bool bEvalResult = false;
-		FString NewString = NewText.ToString();
-		
-		if (NewString.IsNumeric())
+		TOptional<NumericType> NewValue = Interface->FromString(NewText.ToString());
+		if (NewValue.IsSet())
 		{
-			TTypeFromString<NumericType>::FromString( NewValue, *NewString );
-			bEvalResult = true;
-		}
-		else
-		{
-			float FloatValue = 0.f;
-			bEvalResult = FMath::Eval( *NewString, FloatValue  );
-			NewValue = NumericType(FloatValue);
-		}
-				
-		if (bEvalResult)
-		{
-			CommitValue( NewValue, CommittedViaTypeIn, CommitInfo );
+			CommitValue( NewValue.GetValue(), CommittedViaTypeIn, CommitInfo );
 		}
 	}
 
@@ -665,31 +652,6 @@ protected:
 		double Result = FMath::GridSnap(InValue, InGrid);
 		return FMath::Clamp<double>(Result, TNumericLimits<NumericType>::Lowest(), TNumericLimits<NumericType>::Max());
 	}
-	
-	/**
-	 * Helper structure to check if a given character is supported by underlying numeric type
-	 */
-	template<typename T, typename U = void>
-	struct TCharacterFilter
-	{
-		static bool IsValid(const TCHAR InChar)
-		{
-			static FString ValidChars(TEXT("1234567890-.")); // for integers and doubles
-			int32 OutUnused;
-			return ValidChars.FindChar( InChar, OutUnused );
-		}
-	};
-
-	template<typename U> // nested partial specialization is allowed
-	struct TCharacterFilter<float, U>
-	{
-		static bool IsValid(const TCHAR InChar)
-		{
-			static FString ValidChars(TEXT("1234567890()-+=\\/.,*^%%"));
-			int32 OutUnused;
-			return ValidChars.FindChar( InChar, OutUnused );		
-		}
-	};
 
 private:
 	TAttribute<NumericType> ValueAttribute;
@@ -699,6 +661,9 @@ private:
 	FOnValueChanged OnEndSliderMovement;
 	TSharedPtr<STextBlock> TextBlock;
 	TSharedPtr<SEditableText> EditableText;
+
+	/** Interface that defines conversion functionality for the templated type */
+	TSharedPtr< INumericTypeInterface<NumericType> > Interface;
 
 	/** True when no range is specified, spinner can be spun indefinitely */
 	bool bUnlimitedSpinRange;
@@ -727,6 +692,12 @@ private:
 	float GetTextMinDesiredWidth() const
 	{
 		return FMath::Max(0.0f, MinDesiredWidth.Get() - Style->ArrowsImage.ImageSize.X);
+	}
+
+	/** Check whether a typed character is valid */
+	bool IsCharacterValid(TCHAR InChar) const
+	{
+		return Interface->IsCharacterValid(InChar);
 	}
 
 	/** Whether the user is dragging the slider */

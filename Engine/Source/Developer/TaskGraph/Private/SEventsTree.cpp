@@ -128,7 +128,7 @@ void SEventsTree::Construct( const FArguments& InArgs )
 	this->ChildSlot
 	[
 		SNew( SVerticalBox )
-		+SVerticalBox::Slot().AutoHeight().Padding( 2.0f, 0.0f, 2.0f, 4.0f )
+		+SVerticalBox::Slot().AutoHeight().Padding( 1.0f, 0.0f, 1.0f, 2.0f )
 		[
 			SNew( SSearchBox )
 			.ToolTipText( NSLOCTEXT("TaskGraph", "FilterSearchHint", "Type here to search events.") )
@@ -143,7 +143,7 @@ void SEventsTree::Construct( const FArguments& InArgs )
 				// List of all events for the selected thread
 				SAssignNew( EventsListView, STreeView< TSharedPtr< FVisualizerEvent > > )
 				// List view items are this tall
-				.ItemHeight( 16 )
+				.ItemHeight( 12 )
 				// Tell the list view where to get its source data
 				.TreeItemsSource( &SelectedEventsView )
 				// When the list view needs to generate a widget for some data item, use this method
@@ -161,6 +161,7 @@ void SEventsTree::Construct( const FArguments& InArgs )
 					.DefaultLabel( NSLOCTEXT("TaskGraph", "ColumnName", "Name") ) 
 					.SortMode( TAttribute< EColumnSortMode::Type >::Create( TAttribute< EColumnSortMode::Type >::FGetter::CreateSP( this, &SEventsTree::GetColumnSortMode, NAME_NameColumn ) ) )
 					.OnSort( FOnSortModeChanged::CreateSP( this, &SEventsTree::OnColumnSortModeChanged ) )
+					.FillWidth( 1.0f )
 					.MenuContent()
 					[
 						NameMenuBuilder.MakeWidget()
@@ -170,6 +171,7 @@ void SEventsTree::Construct( const FArguments& InArgs )
 					.DefaultLabel( this, &SEventsTree::GetDurationColumnTitle ) 
 					.SortMode( TAttribute< EColumnSortMode::Type >::Create( TAttribute< EColumnSortMode::Type >::FGetter::CreateSP( this, &SEventsTree::GetColumnSortMode, NAME_DurationColumn ) ) )
 					.OnSort( FOnSortModeChanged::CreateSP( this, &SEventsTree::OnColumnSortModeChanged ) )
+					.FixedWidth( 128.0f )
 					.MenuContent()
 					[
 						MenuBuilder.MakeWidget()

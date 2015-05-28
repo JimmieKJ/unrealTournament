@@ -35,15 +35,7 @@ public:
 		return *StaticModule;
 	}
 
-	virtual class ISaveGameSystem* GetSaveGameSystem()
-	{
-		static FGenericSaveGameSystem GenericSaveGame;
-		return &GenericSaveGame;
-	}
+	ENGINE_API virtual class ISaveGameSystem* GetSaveGameSystem();
 
-	virtual class IDVRStreamingSystem *GetStreamingSystem()
-	{
-		static FGenericDVRStreamingSystem GenericStreamingSystem;
-		return &GenericStreamingSystem;
-	}
+	ENGINE_API virtual class IDVRStreamingSystem *GetStreamingSystem();
 };

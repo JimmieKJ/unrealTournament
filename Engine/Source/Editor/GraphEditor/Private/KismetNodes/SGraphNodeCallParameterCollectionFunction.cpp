@@ -8,6 +8,7 @@
 #include "SGraphNodeK2Default.h"
 #include "SGraphNodeCallParameterCollectionFunction.h"
 #include "SGraphPinNameList.h"
+#include "Materials/MaterialParameterCollection.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SGraphNodeCallParameterCollectionFunction

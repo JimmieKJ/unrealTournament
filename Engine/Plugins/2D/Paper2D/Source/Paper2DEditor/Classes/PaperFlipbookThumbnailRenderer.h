@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "PaperSpriteThumbnailRenderer.h"
 #include "PaperFlipbookThumbnailRenderer.generated.h"
 
 UCLASS()

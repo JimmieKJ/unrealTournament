@@ -33,16 +33,6 @@ public:
 
 	}
 
-	virtual uint32 GetThreadID ()
-	{
-		return 0;
-	}
-
-	virtual FString GetThreadName ()
-	{
-		return TEXT("");
-	}
-
 public:
 
 

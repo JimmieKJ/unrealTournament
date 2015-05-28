@@ -10,13 +10,10 @@
 #include "BlueprintFunctionNodeSpawner.h"
 #include "BlueprintDelegateNodeSpawner.h"
 #include "BlueprintVariableNodeSpawner.h"
-#include "K2ActionMenuBuilder.h"		// for FBlueprintPaletteListBuilder/FBlueprintGraphActionListBuilder
-#include "EdGraphSchema_K2.h"			// for StaticClass(), bUseLegacyActionMenus, etc.
 #include "BlueprintEditor.h"			// for GetMyBlueprintWidget(), and GetIsContextSensitive()
 #include "SMyBlueprint.h"				// for SelectionAsVar()
 #include "BlueprintEditorUtils.h"		// for FindBlueprintForGraphChecked()
 #include "BlueprintEditor.h"			// for GetFocusedGraph()
-#include "BlueprintEditorSettings.h"	// for bForceLegacyMenuingSystem
 
 #define LOCTEXT_NAMESPACE "BlueprintActionMenuBuilder"
 
@@ -252,17 +249,6 @@ namespace FBlueprintActionMenuBuilderImpl
 	};
 	
 	/**
-	 * To offer a fallback in case this menu system is unstable on release, this
-	 * method implements the old way we used collect blueprint menu actions (for
-	 * both the palette and context menu).
-	 *
-	 * @param  MenuSection		The primary section for the FBlueprintActionMenuBuilder.
-	 * @param  BlueprintEditor	
-	 * @param  MenuOut  		The menu builder we want all the legacy actions appended to.
-	 */
-	static void AppendLegacyItems(FMenuSectionDefinition const& MenuDef, TWeakPtr<FBlueprintEditor> BlueprintEditor, FBlueprintActionMenuBuilder& MenuOut);
-
-	/**
 	 * 
 	 * 
 	 * @param  Context	
@@ -431,69 +417,6 @@ void FBlueprintActionMenuBuilderImpl::FMenuSectionDefinition::Empty()
 }
 
 //------------------------------------------------------------------------------
-void FBlueprintActionMenuBuilderImpl::AppendLegacyItems(FMenuSectionDefinition const& MenuDef, TWeakPtr<FBlueprintEditor> BlueprintEditor, FBlueprintActionMenuBuilder& MenuOut)
-{
-	FBlueprintActionFilter const&  MenuFilter  = MenuDef.Filter;
-	FBlueprintActionContext const& MenuContext = MenuFilter.Context;
-	
-	// if this is for the context menu
-	if (MenuContext.Graphs.Num() > 0)
-	{
-		UEdGraph* Graph = MenuContext.Graphs[0];
-		UEdGraphSchema const* GraphSchema = GetDefault<UEdGraphSchema>(Graph->Schema);
-		
-		FBlueprintGraphActionListBuilder LegacyBuilder(Graph);
-		if (MenuContext.Pins.Num() > 0)
-		{
-			LegacyBuilder.FromPin = MenuContext.Pins[0];
-		}
-		
-		bool bIsContextSensitive = true;
-		if (BlueprintEditor.IsValid())
-		{
-			bIsContextSensitive = BlueprintEditor.Pin()->GetIsContextSensitive();
-			if (bIsContextSensitive)
-			{
-				FEdGraphSchemaAction_K2Var* SelectedVar = BlueprintEditor.Pin()->GetMyBlueprintWidget()->SelectionAsVar();
-				if ((SelectedVar != nullptr) && (SelectedVar->GetProperty() != nullptr))
-				{
-					LegacyBuilder.SelectedObjects.Add(SelectedVar->GetProperty());
-				}
-			}
-		}
-		
-		if (bIsContextSensitive)
-		{
-			GraphSchema->GetGraphContextActions(LegacyBuilder);
-			MenuOut.Append(LegacyBuilder);
-		}
-		else
-		{
-			UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraphChecked(Graph);
-			FBlueprintPaletteListBuilder ContextlessLegacyBuilder(Blueprint);
-			UEdGraphSchema_K2::GetAllActions(ContextlessLegacyBuilder);
-			MenuOut.Append(ContextlessLegacyBuilder);
-		}
-	}
-	else if (MenuContext.Blueprints.Num() > 0)
-	{
-		UBlueprint* Blueprint = MenuContext.Blueprints[0];
-		FBlueprintPaletteListBuilder LegacyBuilder(Blueprint, MenuDef.GetSectionHeading().ToString());
-		
-		UClass* ClassFilter = nullptr;
-		if (MenuFilter.TargetClasses.Num() > 0)
-		{
-			ClassFilter = MenuFilter.TargetClasses[0];
-		}
-		
-		UEdGraphSchema_K2 const* K2Schema = GetDefault<UEdGraphSchema_K2>();
-		FK2ActionMenuBuilder(K2Schema).GetPaletteActions(LegacyBuilder, ClassFilter);
-		
-		MenuOut.Append(LegacyBuilder);
-	}
-}
-
-//------------------------------------------------------------------------------
 static TArray<UObject*> FBlueprintActionMenuBuilderImpl::GetBindingCandidates(FBlueprintActionContext const& Context)
 {
 	return Context.SelectedObjects;
@@ -541,32 +464,24 @@ void FBlueprintActionMenuBuilder::RebuildActionList()
 		MenuSection->Empty();
 	}
 	
-	const UBlueprintEditorSettings* BlueprintSettings = GetDefault<UBlueprintEditorSettings>();
-	if (!BlueprintSettings->bForceLegacyMenuingSystem)
+	FBlueprintActionDatabase::FActionRegistry const& ActionDatabase = FBlueprintActionDatabase::Get().GetAllActions();
+	for (auto const& ActionEntry : ActionDatabase)
 	{
-		FBlueprintActionDatabase::FActionRegistry const& ActionDatabase = FBlueprintActionDatabase::Get().GetAllActions();
-		for (auto const& ActionEntry : ActionDatabase)
+		for (UBlueprintNodeSpawner const* NodeSpawner : ActionEntry.Value)
 		{
-			for (UBlueprintNodeSpawner const* NodeSpawner : ActionEntry.Value)
-			{
-				FBlueprintActionInfo BlueprintAction(ActionEntry.Key, NodeSpawner);
+			FBlueprintActionInfo BlueprintAction(ActionEntry.Key, NodeSpawner);
 
-				// @TODO: could probably have a super filter that spreads across 
-				//        all MenuSctions (to pair down on performance?)
-				for (TSharedRef<FMenuSectionDefinition> const& MenuSection : MenuSections)
+			// @TODO: could probably have a super filter that spreads across 
+			//        all MenuSctions (to pair down on performance?)
+			for (TSharedRef<FMenuSectionDefinition> const& MenuSection : MenuSections)
+			{
+				for (TSharedPtr<FEdGraphSchemaAction> MenuEntry : MenuSection->MakeMenuItems(BlueprintEditorPtr, BlueprintAction))
 				{
-					for (TSharedPtr<FEdGraphSchemaAction> MenuEntry : MenuSection->MakeMenuItems(BlueprintEditorPtr, BlueprintAction))
-					{
-						AddAction(MenuEntry);
-					}
+					AddAction(MenuEntry);
 				}
 			}
-		}	
-	}
-	else if (MenuSections.Num() > 0)
-	{
-		AppendLegacyItems(*MenuSections[0], BlueprintEditorPtr, *this);
-	}
+		}
+	}	
 }
 
 #undef LOCTEXT_NAMESPACE

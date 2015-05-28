@@ -48,7 +48,7 @@ static FText BlueprintComponentNodeSpawnerImpl::GetDefaultMenuCategory(TSubclass
 UBlueprintComponentNodeSpawner* UBlueprintComponentNodeSpawner::Create(const FComponentTypeEntry& Entry)
 {
 	UClass* ComponentClass = Entry.ComponentClass;
-	if (ComponentClass == nullptr )
+	if (ComponentClass == nullptr)
 	{
 		// unloaded class, must be blueprint created. Create an entry. We'll load the class when we spawn the node:
 
@@ -63,10 +63,15 @@ UBlueprintComponentNodeSpawner* UBlueprintComponentNodeSpawner::Create(const FCo
 		MenuSignature.MenuName = FText::Format(LOCTEXT("AddComponentMenuName", "Add {0}"), ComponentTypeName);
 		MenuSignature.Category = LOCTEXT("BlueprintComponentCategory", "Custom");
 		MenuSignature.Tooltip = FText::Format(LOCTEXT("AddComponentTooltip", "Spawn a {0}"), ComponentTypeName);
-		// add at least one character, so that PrimeDefaultMenuSignature() doesn't 
+		// add at least one character, so that PrimeDefaultUiSpec() doesn't 
 		// attempt to query the template node
-		MenuSignature.Keywords.AppendChar(TEXT(' '));
+		if (MenuSignature.Keywords.IsEmpty())
+		{
+			MenuSignature.Keywords = FText::FromString(TEXT(" "));
+		}
 		MenuSignature.IconName = FClassIconFinder::FindIconNameForClass(nullptr);
+		MenuSignature.DocLink  = TEXT("Shared/GraphNodes/Blueprint/UK2Node_AddComponent");
+		MenuSignature.DocExcerptTag = TEXT("AddComponent");
 
 		return NodeSpawner;
 	}
@@ -88,11 +93,16 @@ UBlueprintComponentNodeSpawner* UBlueprintComponentNodeSpawner::Create(const FCo
 	MenuSignature.MenuName = FText::Format(LOCTEXT("AddComponentMenuName", "Add {0}"), ComponentTypeName);
 	MenuSignature.Category = BlueprintComponentNodeSpawnerImpl::GetDefaultMenuCategory(AuthoritativeClass);
 	MenuSignature.Tooltip  = FText::Format(LOCTEXT("AddComponentTooltip", "Spawn a {0}"), ComponentTypeName);
-	MenuSignature.Keywords = AuthoritativeClass->GetMetaData(FBlueprintMetadata::MD_FunctionKeywords);
-	// add at least one character, so that PrimeDefaultMenuSignature() doesn't 
+	MenuSignature.Keywords = AuthoritativeClass->GetMetaDataText(*FBlueprintMetadata::MD_FunctionKeywords.ToString(), TEXT("UObjectKeywords"), AuthoritativeClass->GetFullGroupName(false));
+	// add at least one character, so that PrimeDefaultUiSpec() doesn't 
 	// attempt to query the template node
-	MenuSignature.Keywords.AppendChar(TEXT(' '));
+	if (MenuSignature.Keywords.IsEmpty())
+	{
+		MenuSignature.Keywords = FText::FromString(TEXT(" "));
+	}
 	MenuSignature.IconName = FClassIconFinder::FindIconNameForClass(AuthoritativeClass);
+	MenuSignature.DocLink  = TEXT("Shared/GraphNodes/Blueprint/UK2Node_AddComponent");
+	MenuSignature.DocExcerptTag = AuthoritativeClass->GetName();
 
 	return NodeSpawner;
 }
@@ -122,7 +132,7 @@ UEdGraphNode* UBlueprintComponentNodeSpawner::Invoke(UEdGraph* ParentGraph, FBin
 		UBlueprint* Blueprint = AddCompNode->GetBlueprint();
 		
 		UFunction* AddComponentFunc = FindFieldChecked<UFunction>(AActor::StaticClass(), UK2Node_AddComponent::GetAddComponentFunctionName());
-		AddCompNode->FunctionReference.SetFromField<UFunction>(AddComponentFunc, FBlueprintEditorUtils::IsActorBased(Blueprint));
+		AddCompNode->FunctionReference.SetFromField<UFunction>(AddComponentFunc, !bIsTemplateNode && FBlueprintEditorUtils::IsActorBased(Blueprint));
 
 		UserDelegate.ExecuteIfBound(NewNode, bIsTemplateNode);
 	};
@@ -168,8 +178,7 @@ UEdGraphNode* UBlueprintComponentNodeSpawner::Invoke(UEdGraph* ParentGraph, FBin
 		UBlueprint* Blueprint = NewNode->GetBlueprint();
 
 		FName DesiredComponentName = MakeUniqueObjectName(Blueprint->GeneratedClass, Class, *Class->GetDisplayNameText().ToString());
-		UActorComponent* ComponentTemplate = ConstructObject<UActorComponent>(Class, Blueprint->GeneratedClass, DesiredComponentName);
-		ComponentTemplate->SetFlags(RF_ArchetypeObject);
+		UActorComponent* ComponentTemplate = NewObject<UActorComponent>(Blueprint->GeneratedClass, Class, DesiredComponentName, RF_ArchetypeObject | RF_Public);
 
 		Blueprint->ComponentTemplates.Add(ComponentTemplate);
 

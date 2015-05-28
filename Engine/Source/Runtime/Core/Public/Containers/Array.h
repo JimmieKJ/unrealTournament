@@ -1,10 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Array.h: Dynamic array definitions.
-=============================================================================*/
-
 #pragma once
+
 #include "Containers/ContainerAllocationPolicies.h"
 #include "HAL/Platform.h"
 #include "Serialization/ArchiveBase.h"
@@ -12,7 +9,9 @@
 #include "Templates/Sorting.h"
 #include "Templates/UnrealTemplate.h"
 
+
 #define DEBUG_HEAP 0
+
 
 /**
  * Generic iterator which can operate on types that expose the following:
@@ -333,14 +332,14 @@ public:
 
 	FORCEINLINE bool operator()( ElementType* A, ElementType* B ) const 
 	{
-		check( A != NULL );
-		check( B != NULL );
+		check( A != nullptr );
+		check( B != nullptr );
 		return Predicate( *B, *A ); 
 	}
 	FORCEINLINE bool operator()( const ElementType* A, const ElementType* B ) const 
 	{
-		check( A != NULL );
-		check( B != NULL );
+		check( A != nullptr );
+		check( B != nullptr );
 		return Predicate( *B, *A ); 
 	}
 };
@@ -587,7 +586,7 @@ public:
 	/**
 	 * Helper function for returning a typed pointer to the first array entry.
 	 *
-	 * @returns Pointer to first array entry or NULL if ArrayMax == 0.
+	 * @returns Pointer to first array entry or nullptr if ArrayMax == 0.
 	 */
 	DEPRECATED(4.6, "This function is deprecated as it does the same as GetData(). Please use GetData() instead.")
 	FORCEINLINE ElementType* GetTypedData()
@@ -598,7 +597,7 @@ public:
 	/**
 	 * Helper function for returning a typed pointer to the first array entry.
 	 *
-	 * @returns Pointer to first array entry or NULL if ArrayMax == 0.
+	 * @returns Pointer to first array entry or nullptr if ArrayMax == 0.
 	 */
 	FORCEINLINE ElementType* GetData()
 	{
@@ -608,7 +607,7 @@ public:
 	/**
 	 * Helper function for returning a typed pointer to the first array entry.
 	 *
-	 * @returns Pointer to first array entry or NULL if ArrayMax == 0.
+	 * @returns Pointer to first array entry or nullptr if ArrayMax == 0.
 	 */
 	DEPRECATED(4.6, "This function is deprecated as it does the same as GetData(). Please use GetData() instead.")
 	FORCEINLINE const ElementType* GetTypedData() const
@@ -619,7 +618,7 @@ public:
 	/**
 	 * Helper function for returning a typed pointer to the first array entry.
 	 *
-	 * @returns Pointer to first array entry or NULL if ArrayMax == 0.
+	 * @returns Pointer to first array entry or nullptr if ArrayMax == 0.
 	 */
 	FORCEINLINE const ElementType* GetData() const
 	{
@@ -911,6 +910,42 @@ public:
 	}
 
 	/**
+	 * Finds element within the array starting from StartIndex and going backwards. Uses predicate to match element.
+	 *
+	 * @param Pred Predicate taking array element and returns true if element matches search criteria, false otherwise.
+	 * @param StartIndex Index of element from which to start searching.
+	 *
+	 * @returns Index of the found element. INDEX_NONE otherwise.
+	 */
+	template <typename Predicate>
+	int32 FindLastByPredicate(Predicate Pred, int32 StartIndex) const
+	{
+		const ElementType* RESTRICT End = GetData() + StartIndex;
+		for (const ElementType* RESTRICT Data = End, *RESTRICT DataStart = Data - StartIndex; Data != DataStart;)
+		{
+			--Data;
+			if (Pred(*Data))
+			{
+				return static_cast<int32>(Data - DataStart);
+			}
+		}
+		return INDEX_NONE;
+	}
+
+	/**
+	* Finds element within the array starting from the end. Uses predicate to match element.
+	*
+	* @param Pred Predicate taking array element and returns true if element matches search criteria, false otherwise.
+	*
+	* @returns Index of the found element. INDEX_NONE otherwise.
+	*/
+	template <typename Predicate>
+	int32 FindLastByPredicate(Predicate Pred) const
+	{
+		return FindLastByPredicate(Pred, ArrayNum);
+	}
+
+	/**
 	 * Finds element within the array that fulfills given predicate.
 	 *
 	 * @param MatchFunctorType A functor object with implemented
@@ -989,7 +1024,7 @@ public:
 	 *
 	 * @param Key The key to search by.
 	 *
-	 * @returns Pointer to the first matching element, or NULL if none is found.
+	 * @returns Pointer to the first matching element, or nullptr if none is found.
 	 */
 	template <typename KeyType>
 	FORCEINLINE const ElementType* FindByKey(const KeyType& Key) const
@@ -1003,7 +1038,7 @@ public:
 	 *
 	 * @param Key The key to search by.
 	 *
-	 * @returns Pointer to the first matching element, or NULL if none is found.
+	 * @returns Pointer to the first matching element, or nullptr if none is found.
 	 */
 	template <typename KeyType>
 	ElementType* FindByKey(const KeyType& Key)
@@ -1016,7 +1051,7 @@ public:
 			}
 		}
 
-		return NULL;
+		return nullptr;
 	}
 
 	/**
@@ -1025,7 +1060,7 @@ public:
 	 * @param Pred The functor to apply to each element.
 	 *
 	 * @returns Pointer to the first element for which the predicate returns
-	 *          true, or NULL if none is found.
+	 *          true, or nullptr if none is found.
 	 */
 	template <typename Predicate>
 	FORCEINLINE const ElementType* FindByPredicate(Predicate Pred) const
@@ -1039,7 +1074,7 @@ public:
 	 * @param Pred The functor to apply to each element.
 	 *
 	 * @return Pointer to the first element for which the predicate returns
-	 *         true, or NULL if none is found.
+	 *         true, or nullptr if none is found.
 	 */
 	template <typename Predicate>
 	ElementType* FindByPredicate(Predicate Pred)
@@ -1052,7 +1087,7 @@ public:
 			}
 		}
 
-		return NULL;
+		return nullptr;
 	}
 
 	/**
@@ -1082,7 +1117,8 @@ public:
 	 *
 	 * @returns	True if found. False otherwise.
 	 */
-	bool Contains(const ElementType& Item) const
+	template <typename ComparisonType>
+	bool Contains(const ComparisonType& Item) const
 	{
 		for (const ElementType* RESTRICT Data = GetData(), *RESTRICT DataEnd = Data + ArrayNum; Data != DataEnd; ++Data)
 		{
@@ -1104,7 +1140,7 @@ public:
 	template <typename Predicate>
 	FORCEINLINE bool ContainsByPredicate(Predicate Pred) const
 	{
-		return FindByPredicate(Pred) != NULL;
+		return FindByPredicate(Pred) != nullptr;
 	}
 
 	/**
@@ -1212,7 +1248,8 @@ public:
 
 		if (bForcePerElementSerialization
 			|| (Ar.IsSaving()			// if we are saving, we always do the ordinary serialize as a way to make sure it matches up with bulk serialization
-			&& !Ar.IsCooking())		// but cooking is performance critical, so we skip that
+			&& !Ar.IsCooking()			// but cooking and transacting is performance critical, so we skip that
+			&& !Ar.IsTransacting())		
 			|| Ar.IsByteSwapping()		// if we are byteswapping, we need to do that per-element
 			)
 		{
@@ -1354,7 +1391,7 @@ public:
 	 */
 	int32 Insert(const ElementType* Ptr, int32 Count, int32 Index)
 	{
-		check(Ptr != NULL);
+		check(Ptr != nullptr);
 
 		InsertUninitialized(Index, Count);
 		ConstructItems<ElementType>(GetData() + Index, Ptr, Count);
@@ -1653,7 +1690,7 @@ public:
 	 */
 	void Append(const ElementType* Ptr, int32 Count)
 	{
-		check(Ptr != NULL);
+		check(Ptr != nullptr);
 
 		int32 Pos = AddUninitialized(Count);
 		ConstructItems<ElementType>(GetData() + Pos, Ptr, Count);
@@ -1763,21 +1800,36 @@ public:
 	FORCEINLINE int32 Add(const ElementType& Item) { CheckAddress(&Item); return Emplace(Item); }
 
 	/**
-	 * Adds a new item to the end of the array, possibly reallocating the whole
-	 * array to fit. The new item will be zeroed.
+	 * Adds new items to the end of the array, possibly reallocating the whole
+	 * array to fit. The new items will be zeroed.
 	 *
 	 * Caution, AddZeroed() will create elements without calling the
 	 * constructor and this is not appropriate for element types that require
 	 * a constructor to function properly.
 	 *
-	 * @param Item The item to add.
+	 * @param  Count  The number of new items to add.
 	 *
-	 * @return Index to the new item.
+	 * @return Index to the first of the new items.
 	 */
 	int32 AddZeroed(int32 Count = 1)
 	{
 		const int32 Index = AddUninitialized(Count);
 		FMemory::Memzero((uint8*)AllocatorInstance.GetAllocation() + Index*sizeof(ElementType), Count*sizeof(ElementType));
+		return Index;
+	}
+
+	/**
+	 * Adds new items to the end of the array, possibly reallocating the whole
+	 * array to fit. The new items will be default-constructed.
+	 *
+	 * @param  Count  The number of new items to add.
+	 *
+	 * @return Index to the first of the new items.
+	 */
+	int32 AddDefaulted(int32 Count = 1)
+	{
+		const int32 Index = AddUninitialized(Count);
+		DefaultConstructItems<ElementType>((uint8*)AllocatorInstance.GetAllocation() + Index * sizeof(ElementType), Count);
 		return Index;
 	}
 
@@ -1843,6 +1895,7 @@ public:
 	 * @param Number The number of elements that the array should be able to
 	 *               contain after allocation.
 	 */
+	DEPRECATED(4.8, "Init is deprecated - please use SetNumUninitialized(Number) instead.")
 	void Init(int32 Number)
 	{
 		Empty(Number);
@@ -1969,13 +2022,13 @@ public:
 	 * @param Predicate Predicate class instance
 	 */
 	template <class PREDICATE_CLASS>
-	void RemoveAllSwap(const PREDICATE_CLASS& Predicate)
+	void RemoveAllSwap(const PREDICATE_CLASS& Predicate, bool bAllowShrinking = true)
 	{
 		for (int32 ItemIndex = 0; ItemIndex < Num();)
 		{
 			if (Predicate((*this)[ItemIndex]))
 			{
-				RemoveAtSwap(ItemIndex);
+				RemoveAtSwap(ItemIndex, 1, bAllowShrinking);
 			}
 			else
 			{
@@ -2079,18 +2132,18 @@ public:
 	 * @returns True if element was found. False otherwise.
 	 */
 	template<typename SearchType>
-	bool FindItemByClass(SearchType **Item = NULL, int32 *ItemIndex = NULL, int32 StartIndex = 0) const
+	bool FindItemByClass(SearchType **Item = nullptr, int32 *ItemIndex = nullptr, int32 StartIndex = 0) const
 	{
 		UClass* SearchClass = SearchType::StaticClass();
 		for (int32 Idx = StartIndex; Idx < ArrayNum; Idx++)
 		{
-			if ((*this)[Idx] != NULL && (*this)[Idx]->IsA(SearchClass))
+			if ((*this)[Idx] != nullptr && (*this)[Idx]->IsA(SearchClass))
 			{
-				if (Item != NULL)
+				if (Item != nullptr)
 				{
 					*Item = (SearchType*)((*this)[Idx]);
 				}
-				if (ItemIndex != NULL)
+				if (ItemIndex != nullptr)
 				{
 					*ItemIndex = Idx;
 				}
@@ -2610,34 +2663,6 @@ template <typename T,typename Allocator> void* operator new( size_t Size, TArray
 	return &Array[Index];
 }
 
-/**
- * A specialization of the exchange macro that avoids reallocating when
- * exchanging two arrays.
- *
- * @param FirstArrayToExchange First array to exchange.
- * @param SecondArrayToExchange Second array to exchange.
- */
-template <typename T>
-inline void Exchange(TArray<T>& FirstArrayToExchange, TArray<T>& SecondArrayToExchange)
-{
-	FMemory::Memswap(&FirstArrayToExchange, &SecondArrayToExchange, sizeof(TArray<T>));
-}
-
-/**
- * A specialization of the exchange macro that avoids reallocating when
- * exchanging two arrays.
- *
- * Non-default allocator version.
- *
- * @param FirstArrayToExchange First array to exchange.
- * @param SecondArrayToExchange Second array to exchange.
- */
-template<typename ElementType, typename Allocator>
-inline void Exchange(TArray<ElementType, Allocator>& FirstArrayToExchange, TArray<ElementType, Allocator>& SecondArrayToExchange)
-{
-	FMemory::Memswap(&FirstArrayToExchange, &SecondArrayToExchange, sizeof(TArray<ElementType, Allocator>));
-}
-
 /*-----------------------------------------------------------------------------
 	MRU array.
 -----------------------------------------------------------------------------*/
@@ -2880,7 +2905,7 @@ public:
 	/**
 	 * Helper function for returning a typed pointer to the first array entry.
 	 *
-	 * @returns Pointer to first array entry or NULL if this->ArrayMax == 0.
+	 * @returns Pointer to first array entry or nullptr if this->ArrayMax == 0.
 	 */
 	DEPRECATED(4.6, "This function is deprecated as it does the same as GetData(). Please use GetData() instead.")
 	FORCEINLINE T** GetTypedData()
@@ -2891,7 +2916,7 @@ public:
 	/**
 	 * Helper function for returning a typed pointer to the first array entry.
 	 *
-	 * @returns Pointer to first array entry or NULL if this->ArrayMax == 0.
+	 * @returns Pointer to first array entry or nullptr if this->ArrayMax == 0.
 	 */
 	FORCEINLINE T** GetData()
 	{
@@ -2901,7 +2926,7 @@ public:
 	/**
 	 * Helper function for returning a typed pointer to the first array entry.
 	 *
-	 * @returns Pointer to first array entry or NULL if this->ArrayMax == 0.
+	 * @returns Pointer to first array entry or nullptr if this->ArrayMax == 0.
 	 */
 	DEPRECATED(4.6, "This function is deprecated as it does the same as GetData(). Please use GetData() instead.")
 	FORCEINLINE const T** GetTypedData() const
@@ -2912,7 +2937,7 @@ public:
 	/**
 	 * Helper function for returning a typed pointer to the first array entry.
 	 *
-	 * @returns Pointer to first array entry or NULL if this->ArrayMax == 0.
+	 * @returns Pointer to first array entry or nullptr if this->ArrayMax == 0.
 	 */
 	FORCEINLINE const T** GetData() const
 	{
@@ -3325,34 +3350,6 @@ template <typename T,typename Allocator> void* operator new( size_t Size, TIndir
 	check(Size == sizeof(T));
 	Array.Insert((T*)FMemory::Malloc(Size), Index);
 	return &Array[Index];
-}
-
-/**
- * A specialization of the exchange macro that avoids reallocating when
- * exchanging two arrays.
- *
- * @param FirstArrayToExchange First array to exchange.
- * @param SecondArrayToExchange Second array to exchange.
- */
-template <typename T>
-inline void Exchange(TIndirectArray<T>& FirstArrayToExchange, TIndirectArray<T>& SecondArrayToExchange)
-{
-	FMemory::Memswap(&FirstArrayToExchange, &SecondArrayToExchange, sizeof(TIndirectArray<T>));
-}
-
-/**
- * A specialization of the exchange macro that avoids reallocating when
- * exchanging two arrays.
- *
- * Non-default allocator version.
- *
- * @param FirstArrayToExchange First array to exchange.
- * @param SecondArrayToExchange Second array to exchange.
- */
-template<typename ElementType,typename Allocator>
-inline void Exchange(TIndirectArray<ElementType, Allocator>& FirstArrayToExchange, TIndirectArray<ElementType, Allocator>& SecondArrayToExchange)
-{
-	FMemory::Memswap(&FirstArrayToExchange, &SecondArrayToExchange, sizeof(TIndirectArray<ElementType, Allocator>));
 }
 
 /*-----------------------------------------------------------------------------

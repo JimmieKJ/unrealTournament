@@ -216,20 +216,20 @@ void FLandscapeVertexBufferMobile::InitRHI()
 FLandscapeComponentSceneProxyMobile::FLandscapeComponentSceneProxyMobile(ULandscapeComponent* InComponent, FLandscapeEditToolRenderData* InEditToolRenderData)
 	:	FLandscapeComponentSceneProxy(InComponent, InEditToolRenderData)
 {
-		check(InComponent && InComponent->PlatformData.HasValidPlatformData());
-		InComponent->PlatformData.GetUncompressedData(PlatformData);
+	check(InComponent && InComponent->PlatformData.HasValidPlatformData());
+	InComponent->PlatformData.GetUncompressedData(PlatformData);
+
 #if WITH_EDITOR
-	if (InComponent->HeightmapTexture != NULL)
-	{
-		MaterialInterface = InComponent->GeneratePlatformPixelData(WeightmapTextures, false);
-		InComponent->MobileMaterialInterface = MaterialInterface;
-		InComponent->MobileNormalmapTexture = WeightmapTextures[0];
-	}
+	InComponent->GeneratePlatformPixelData(false);
 #endif
-	if (WeightmapTextures.Num() > 0)
-	{
-		NormalmapTexture = WeightmapTextures[0]; // Use Weightmap0 as Normal/Weightmap Texture
-	}
+	check(InComponent->MobileMaterialInterface);
+	check(InComponent->MobileWeightNormalmapTexture);
+	
+	MaterialInterface = InComponent->MobileMaterialInterface;
+
+	WeightmapTextures.Empty(1);
+	WeightmapTextures.Add(InComponent->MobileWeightNormalmapTexture);
+	NormalmapTexture = InComponent->MobileWeightNormalmapTexture;
 
 	BlendableLayerMask = InComponent->MobileBlendableLayerMask;
 }

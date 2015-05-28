@@ -7,6 +7,7 @@
 #include "Common.usf"
 #include "Material.usf"
 #include "VertexFactory.usf"
+#include "VelocityCommon.usf"
 
 #ifndef GPUSKIN_PASS_THROUGH
 #define GPUSKIN_PASS_THROUGH 0
@@ -143,7 +144,7 @@ void MainVertexShader(
 	float4 PrevTranslatedWorldPosition = VertexFactoryGetPreviousWorldPosition( Input, VFIntermediates );	
 
 	VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, PrevTranslatedWorldPosition.xyz, TangentToLocal);
-	PrevTranslatedWorldPosition.xyz += GetMaterialWorldPositionOffset(VertexParameters);
+	PrevTranslatedWorldPosition.xyz += GetMaterialPreviousWorldPositionOffset(VertexParameters);
 	
 #if USING_TESSELLATION
 	Output.Position = TranslatedWorldPosition;
@@ -198,14 +199,10 @@ void MainPixelShader(
 	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace, SvPosition);
 	GetMaterialCoverageAndClipping(MaterialParameters);
 
-	float2 ScreenPosition = Input.PackedVelocityA.xy / Input.PackedVelocityA.w - View.ViewToClip[2].xy;
-	float2 PrevScreenPosition = Input.PackedVelocityC.xy / Input.PackedVelocityC.w - View.PrevProjection[2].xy;
-
 	// 2d velocity, includes camera an object motion
-	float2 Velocity = ScreenPosition - PrevScreenPosition;
+	float2 Velocity = Calculate2DVelocity(Input.PackedVelocityA, Input.PackedVelocityC);
 
 	// Make sure not to touch 0,0 which is clear color
 	OutColor.xy = EncodeVelocityToTexture(Velocity);
 	OutColor.zw = float2(0, 0);
 }
-

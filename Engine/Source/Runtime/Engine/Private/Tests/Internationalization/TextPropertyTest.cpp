@@ -11,7 +11,7 @@ UTextPropertyTestObject::UTextPropertyTestObject(const FObjectInitializer& Objec
 {
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextPropertyTest, "Engine.Internationalization.Text Property Test", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTextPropertyTest, "System.Engine.Internationalization.Text Property Test", EAutomationTestFlags::ATF_SmokeTest)
 
 bool FTextPropertyTest::RunTest (const FString& Parameters)
 {
@@ -21,12 +21,12 @@ bool FTextPropertyTest::RunTest (const FString& Parameters)
 	UTextPropertyTestObject* const TextPropertyTestCDO = Cast<UTextPropertyTestObject>( TextPropertyTestObjectClass->ClassDefaultObject );
 
 	{
-		UTextPropertyTestObject* NewObject = Cast<UTextPropertyTestObject>( StaticConstructObject( TextPropertyTestObjectClass ) );
+		UTextPropertyTestObject* NewUObject = NewObject<UTextPropertyTestObject>(GetTransientPackage(), TextPropertyTestObjectClass);
 
 		// Test Identical - Newly constructed object properties should be identical to class default object properties.
-		if(	(DefaultedTextProperty->Identical(&(NewObject->DefaultedText), &(TextPropertyTestCDO->DefaultedText), 0) != true)
+		if ((DefaultedTextProperty->Identical(&(NewUObject->DefaultedText), &(TextPropertyTestCDO->DefaultedText), 0) != true)
 			||
-			(UndefaultedTextProperty->Identical(&(NewObject->UndefaultedText), &(TextPropertyTestCDO->UndefaultedText), 0) != true) )
+			(UndefaultedTextProperty->Identical(&(NewUObject->UndefaultedText), &(TextPropertyTestCDO->UndefaultedText), 0) != true))
 		{
 			AddError(TEXT("UTextProperty::Identical failed to return true comparing a newly constructed object and the class default object."));
 		}
@@ -34,8 +34,8 @@ bool FTextPropertyTest::RunTest (const FString& Parameters)
 		// Test ExportText - Export text should provide the localized form of the text.
 		{
 			FString ExportedStringValue;
-			DefaultedTextProperty->ExportTextItem(ExportedStringValue, &(NewObject->DefaultedText), NULL, NULL, 0, NULL);
-			if( ExportedStringValue != NewObject->DefaultedText.ToString() )
+			DefaultedTextProperty->ExportTextItem(ExportedStringValue, &(NewUObject->DefaultedText), NULL, NULL, 0, NULL);
+			if (ExportedStringValue != NewUObject->DefaultedText.ToString())
 			{
 				AddError(TEXT("UTextProperty::ExportTextItem failed to provide the display string."));
 			}
@@ -44,8 +44,8 @@ bool FTextPropertyTest::RunTest (const FString& Parameters)
 		// Test ImportText - Import text should set the source string to the input string.
 		{
 			FString ImportedStringValue = TEXT("ImportValue");
-			DefaultedTextProperty->ImportText(*ImportedStringValue, &(NewObject->DefaultedText), 0, NULL);
-			const FString* const SourceString = FTextInspector::GetSourceString(NewObject->DefaultedText);
+			DefaultedTextProperty->ImportText(*ImportedStringValue, &(NewUObject->DefaultedText), 0, NULL);
+			const FString* const SourceString = FTextInspector::GetSourceString(NewUObject->DefaultedText);
 			if( !SourceString || ImportedStringValue != *SourceString )
 			{
 				AddError(TEXT("UTextProperty::ImportText failed to alter the source string to the provided value."));
@@ -55,14 +55,14 @@ bool FTextPropertyTest::RunTest (const FString& Parameters)
 
 	// Test Identical - Altered text properties should not be identical to class default object properties.
 	{
-		UTextPropertyTestObject* NewObject = Cast<UTextPropertyTestObject>( StaticConstructObject( TextPropertyTestObjectClass ) );
+		UTextPropertyTestObject* NewUObject = NewObject<UTextPropertyTestObject>(GetTransientPackage(), TextPropertyTestObjectClass);
 
-		NewObject->DefaultedText = LOCTEXT("ModifiedDefaultedText", "Modified DefaultedText Value");
-		NewObject->UndefaultedText = LOCTEXT("ModifiedUndefaultedText", "Modified UndefaultedText Value");
+		NewUObject->DefaultedText = LOCTEXT("ModifiedDefaultedText", "Modified DefaultedText Value");
+		NewUObject->UndefaultedText = LOCTEXT("ModifiedUndefaultedText", "Modified UndefaultedText Value");
 		if( 
-			DefaultedTextProperty->Identical(&(NewObject->DefaultedText), &(TextPropertyTestCDO->DefaultedText), 0)
+			DefaultedTextProperty->Identical(&(NewUObject->DefaultedText), &(TextPropertyTestCDO->DefaultedText), 0)
 			||
-			UndefaultedTextProperty->Identical(&(NewObject->UndefaultedText), &(TextPropertyTestCDO->UndefaultedText), 0)
+			UndefaultedTextProperty->Identical(&(NewUObject->UndefaultedText), &(TextPropertyTestCDO->UndefaultedText), 0)
 		  )
 		{
 			AddError(TEXT("UTextProperty::Identical failed to return false comparing a modified object and the class default object."));
@@ -72,7 +72,7 @@ bool FTextPropertyTest::RunTest (const FString& Parameters)
 	{
 		TArray<uint8> BackingStore;
 		
-		UTextPropertyTestObject* SavedObject = Cast<UTextPropertyTestObject>(StaticConstructObject(UTextPropertyTestObject::StaticClass()));
+		auto SavedObject = NewObject<UTextPropertyTestObject>();
 
 		FText::FindText( TEXT("TextPropertyTest"), TEXT("DefaultedText"), /*OUT*/SavedObject->DefaultedText );
 		SavedObject->UndefaultedText = LOCTEXT("ModifiedUndefaultedText", "Modified UndefaultedText Value");
@@ -91,7 +91,7 @@ bool FTextPropertyTest::RunTest (const FString& Parameters)
 			SavedObject->Serialize(MemoryWriter);
 		}
 
-		UTextPropertyTestObject* LoadedObject = Cast<UTextPropertyTestObject>(StaticConstructObject(UTextPropertyTestObject::StaticClass()));
+		auto LoadedObject = NewObject<UTextPropertyTestObject>();
 
 		// Load.
 		{

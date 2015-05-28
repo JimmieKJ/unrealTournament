@@ -2,6 +2,7 @@
 
 #include "GameplayTagsEditorModulePrivatePCH.h"
 #include "GameplayTagsGraphPanelPinFactory.h"
+#include "GameplayTagsGraphPanelNodeFactory.h"
 #include "GameplayTagContainerCustomization.h"
 #include "GameplayTagCustomization.h"
 #include "GameplayTagsSettings.h"
@@ -28,6 +29,9 @@ public:
 
 		TSharedPtr<FGameplayTagsGraphPanelPinFactory> GameplayTagsGraphPanelPinFactory = MakeShareable( new FGameplayTagsGraphPanelPinFactory() );
 		FEdGraphUtilities::RegisterVisualPinFactory(GameplayTagsGraphPanelPinFactory);
+
+		TSharedPtr<FGameplayTagsGraphPanelNodeFactory> GameplayTagsGraphPanelNodeFactory = MakeShareable(new FGameplayTagsGraphPanelNodeFactory());
+		FEdGraphUtilities::RegisterVisualNodeFactory(GameplayTagsGraphPanelNodeFactory);
 
 		if (UGameplayTagsManager::ShouldImportTagsFromINI())
 		{

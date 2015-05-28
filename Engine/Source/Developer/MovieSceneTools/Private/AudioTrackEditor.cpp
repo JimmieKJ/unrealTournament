@@ -175,9 +175,13 @@ void FAudioThumbnail::GenerateWaveformPreview(TArray<uint8>& OutData, TRange<flo
 	{
 		// @todo Sequencer optimize - We might want to generate the data when we generate the texture
 		// and then discard the data afterwards, though that might be a perf hit traded for better memory usage
-		SoundWave->InitAudioResource(GEngine->GetAudioDevice()->GetRuntimeFormat(SoundWave));
-		FAsyncAudioDecompress TempDecompress(SoundWave);
-		TempDecompress.StartSynchronousTask();
+		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+		if (AudioDevice)
+		{
+			SoundWave->InitAudioResource(AudioDevice->GetRuntimeFormat(SoundWave));
+			FAsyncAudioDecompress TempDecompress(SoundWave);
+			TempDecompress.StartSynchronousTask();
+		}
 	}
 
 	int16* LookupData = (int16*)SoundWave->RawPCMData;

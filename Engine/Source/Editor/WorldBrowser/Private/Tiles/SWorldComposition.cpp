@@ -131,8 +131,6 @@ public:
 		//	FCanExecuteAction::CreateSP(this, &SWorldCompositionGrid::AreAnyItemsSelected));
 
 		//
-		BounceCurve.AddCurve(0.0f, 1.0f);
-		BounceCurve.Play();
 		WorldModel = InArgs._InWorldModel;
 		bUpdatingSelection = false;
 	
@@ -183,7 +181,7 @@ public:
 	}
 		
 	/**  SWidget interface */
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
+	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
 		SNodePanel::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
@@ -206,7 +204,7 @@ public:
 	
 		WorldModel->UpdateStreamingPreview(WorldMouseLocation, bShowPotentiallyVisibleLevels);
 			
-		// deffered scroll and zooming requests
+		// deferred scroll and zooming requests
 		if (bHasScrollToRequest || bHasScrollByRequest)
 		{
 			// zoom to
@@ -377,6 +375,33 @@ public:
 					FSlateDrawElement::RelativeToElement
 					);
 			}
+
+			FVector PlayerPosition;
+			FRotator PlayerRotation;
+			if (WorldModel->GetPlayerView(PlayerPosition, PlayerRotation))
+			{
+				FVector2D PlayerPositionScreen = GraphCoordToPanelCoord(FVector2D(PlayerPosition.X, PlayerPosition.Y));
+				const FSlateBrush* CameraImage = FEditorStyle::GetBrush(TEXT("WorldBrowser.SimulationViewPositon"));
+	
+				FPaintGeometry PaintGeometry = AllottedGeometry.ToPaintGeometry(
+					PlayerPositionScreen - CameraImage->ImageSize*0.5f, 
+					CameraImage->ImageSize
+					);
+
+				FSlateDrawElement::MakeRotatedBox(
+					OutDrawElements,
+					++LayerId,
+					PaintGeometry,
+					CameraImage,
+					MyClippingRect,
+					ESlateDrawEffect::None,
+					FMath::DegreesToRadians(PlayerRotation.Yaw),
+					CameraImage->ImageSize*0.5f,
+					FSlateDrawElement::RelativeToElement,
+					FLinearColor(FColorList::Orange)
+					);
+			}
+
 		}
 
 		LayerId = PaintScaleRuler(AllottedGeometry, MyClippingRect, OutDrawElements, LayerId);
@@ -423,7 +448,7 @@ public:
 					// Update the amount to pan panel
 					UpdateViewOffset(MyGeometry, MouseEvent.GetScreenSpacePosition());
 
-					const bool bCursorInDeadZone = TotalMouseDelta <= FSlateApplication::Get().GetDragTriggerDistnace();
+					const bool bCursorInDeadZone = TotalMouseDelta <= FSlateApplication::Get().GetDragTriggerDistance();
 
 					if ( NodeBeingDragged.IsValid() )
 					{
@@ -596,7 +621,7 @@ protected:
 	}
 	
 	/**  SNodePanel interface */
-	TSharedPtr<SWidget> OnSummonContextMenu(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+	TSharedPtr<SWidget> OnSummonContextMenu(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override
 	{
 		if (WorldModel->IsReadOnly())
 		{
@@ -655,8 +680,8 @@ protected:
 		for (int32 ChildIndex=0; ChildIndex < Children.Num(); ++ChildIndex)
 		{
 			const auto Child = StaticCastSharedRef<SWorldTileItem>(Children[ChildIndex]);
-		
-			if (WorldModel->PassesAllFilters(Child->GetLevelModel()))
+			const auto LevelModel = Child->GetLevelModel();
+			if (LevelModel->IsVisibleInCompositionView())
 			{
 				FSlateRect ChildRect = Child->GetItemRect();
 				FVector2D ChildSize = ChildRect.GetSize();
@@ -896,8 +921,7 @@ private:
 
 	/** Geometry cache */
 	mutable FVector2D						CachedAllottedGeometryScaledSize;
-	/** Bouncing curve */
-	FCurveSequence							BounceCurve;
+
 	bool									bUpdatingSelection;
 	TArray<FIntRect>						OccupiedCells;
 	const TSharedRef<FUICommandList>		CommandList;

@@ -28,6 +28,18 @@ protected:
 	/** age past which stimulus of this sense are "forgotten"*/
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "AI Perception", config)
 	float DefaultExpirationAge;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI Perception", config)
+	EAISenseNotifyType NotifyType;
+
+	/** whether this sense is interested in getting notified about new Pawns being spawned 
+	 *	this can be used for example for automated sense sources registration */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI Perception", config)
+	uint32 bWantsNewPawnNotification : 1;
+
+	/** If true all newly spawned pawns will get auto registered as source for this sense. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "AI Perception", config)
+	uint32 bAutoRegisterAllPawnsAsSources : 1;
 	
 private:
 	UPROPERTY()
@@ -63,6 +75,8 @@ public:
 	}
 	FORCEINLINE FAISenseID GetSenseID() const { return SenseID; }
 
+	FORCEINLINE bool WantsUpdateOnlyOnPerceptionValueChange() const { return (NotifyType == EAISenseNotifyType::OnPerceptionChange); }
+
 	virtual void PostInitProperties() override;
 
 	/** 
@@ -84,6 +98,10 @@ public:
 
 	//virtual void RegisterSources(TArray<AActor&> SourceActors) {}
 	virtual void RegisterSource(AActor& SourceActors){}
+	virtual void UnregisterSource(AActor& SourceActors){}
+	// @note this function should not be needed once AActor.OnEndPlay broadcast includes instigator as one of its params
+	// since implementations on this function would end up being more expensive then precise UnregisterSource calls
+	virtual void CleanseInvalidSources() {}
 	virtual void RegisterWrappedEvent(UAISenseEvent& PerceptionEvent);
 	virtual FAISenseID UpdateSenseID();
 
@@ -93,7 +111,15 @@ public:
 
 	FORCEINLINE float GetDefaultExpirationAge() const { return DefaultExpirationAge; }
 
+	bool WantsNewPawnNotification() const { return bWantsNewPawnNotification; }
+	bool ShouldAutoRegisterAllPawnsAsSources() const { return bAutoRegisterAllPawnsAsSources; }
+
 protected:
+	friend UAIPerceptionSystem;
+	/** gets called when perception system gets notified about new spawned pawn. 
+	 *	@Note: do not call super implementation. It's used to detect when subclasses don't override it */
+	virtual void OnNewPawn(APawn& NewPawn);
+
 	/** @return time until next update */
 	virtual float Update() { return FLT_MAX; }
 

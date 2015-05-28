@@ -3,28 +3,28 @@
 #include "SlatePrivatePCH.h"
 
 
-/* FUserDefinedGestures helper class
+/* FUserDefinedChords helper class
  *****************************************************************************/
 
-/** An identifier for a user defined gesture */
-struct FUserDefinedGestureKey
+/** An identifier for a user defined chord */
+struct FUserDefinedChordKey
 {
-	FUserDefinedGestureKey()
+	FUserDefinedChordKey()
 	{
 	}
 
-	FUserDefinedGestureKey(const FName InBindingContext, const FName InCommandName)
+	FUserDefinedChordKey(const FName InBindingContext, const FName InCommandName)
 		: BindingContext(InBindingContext)
 		, CommandName(InCommandName)
 	{
 	}
 
-	bool operator==(const FUserDefinedGestureKey& Other) const
+	bool operator==(const FUserDefinedChordKey& Other) const
 	{
 		return BindingContext == Other.BindingContext && CommandName == Other.CommandName;
 	}
 
-	bool operator!=(const FUserDefinedGestureKey& Other) const
+	bool operator!=(const FUserDefinedChordKey& Other) const
 	{
 		return !(*this == Other);
 	}
@@ -33,61 +33,68 @@ struct FUserDefinedGestureKey
 	FName CommandName;
 };
 
-uint32 GetTypeHash( const FUserDefinedGestureKey& Key )
+uint32 GetTypeHash( const FUserDefinedChordKey& Key )
 {
 	return GetTypeHash(Key.BindingContext) ^ GetTypeHash(Key.CommandName);
 }
 
-class FUserDefinedGestures
+class FUserDefinedChords
 {
 public:
-	void LoadGestures();
-	void SaveGestures() const;
-	bool GetUserDefinedGesture( const FName BindingContext, const FName CommandName, FInputGesture& OutUserDefinedGesture ) const;
-	void SetUserDefinedGesture( const FUICommandInfo& CommandInfo );
-	/** Remove all user defined gestures */
+	void LoadChords();
+	void SaveChords() const;
+	bool GetUserDefinedChord( const FName BindingContext, const FName CommandName, FInputChord& OutUserDefinedChord ) const;
+	void SetUserDefinedChord( const FUICommandInfo& CommandInfo );
+	/** Remove all user defined chords */
 	void RemoveAll();
 private:
-	/* Mapping from a gesture key to the user defined gesture */
-	typedef TMap<FUserDefinedGestureKey, FInputGesture> FGesturesMap;
-	TSharedPtr<FGesturesMap> Gestures;
+	/* Mapping from a chord key to the user defined chord */
+	typedef TMap<FUserDefinedChordKey, FInputChord> FChordsMap;
+	TSharedPtr<FChordsMap> Chords;
 };
 
-void FUserDefinedGestures::LoadGestures()
+void FUserDefinedChords::LoadChords()
 {
-	if( !Gestures.IsValid() )
+	if( !Chords.IsValid() )
 	{
-		Gestures = MakeShareable( new FGesturesMap );
+		Chords = MakeShareable( new FChordsMap );
 
-		// First, try and load the gestures from their new location in the ini file
+		// First, try and load the chords from their new location in the ini file
 		// Failing that, try and load them from the older txt file
-		TArray<FString> GestureJsonArray;
-		if( GConfig->GetArray(TEXT("UserDefinedGestures"), TEXT("UserDefinedGestures"), GestureJsonArray, GEditorKeyBindingsIni) )
+		TArray<FString> ChordJsonArray;
+		bool bFoundChords = (GConfig->GetArray(TEXT("UserDefinedChords"), TEXT("UserDefinedChords"), ChordJsonArray, GEditorKeyBindingsIni) > 0);
+		if (!bFoundChords)
 		{
-			// This loads an array of JSON strings representing the FUserDefinedGestureKey and FInputGesture in a single JSON object
-			for(const FString& GestureJson : GestureJsonArray)
-			{
-				const FString UnescapedContent = FRemoteConfig::ReplaceIniSpecialCharWithChar(GestureJson).ReplaceEscapedCharWithChar();
+			// Backwards compat for when it was named gestures
+			bFoundChords = (GConfig->GetArray(TEXT("UserDefinedGestures"), TEXT("UserDefinedGestures"), ChordJsonArray, GEditorKeyBindingsIni) > 0);
+		}
 
-				TSharedPtr<FJsonObject> GestureInfoObj;
+		if(bFoundChords)
+		{
+			// This loads an array of JSON strings representing the FUserDefinedChordKey and FInputChord in a single JSON object
+			for(const FString& ChordJson : ChordJsonArray)
+			{
+				const FString UnescapedContent = FRemoteConfig::ReplaceIniSpecialCharWithChar(ChordJson).ReplaceEscapedCharWithChar();
+
+				TSharedPtr<FJsonObject> ChordInfoObj;
 				auto JsonReader = TJsonReaderFactory<>::Create( UnescapedContent );
-				if( FJsonSerializer::Deserialize( JsonReader, GestureInfoObj ) )
+				if( FJsonSerializer::Deserialize( JsonReader, ChordInfoObj ) )
 				{
-					const TSharedPtr<FJsonValue> BindingContextObj = GestureInfoObj->Values.FindRef( TEXT("BindingContext") );
-					const TSharedPtr<FJsonValue> CommandNameObj = GestureInfoObj->Values.FindRef( TEXT("CommandName") );
-					const TSharedPtr<FJsonValue> CtrlObj = GestureInfoObj->Values.FindRef( TEXT("Control") );
-					const TSharedPtr<FJsonValue> AltObj = GestureInfoObj->Values.FindRef( TEXT("Alt") );
-					const TSharedPtr<FJsonValue> ShiftObj = GestureInfoObj->Values.FindRef( TEXT("Shift") );
-					const TSharedPtr<FJsonValue> CmdObj = GestureInfoObj->Values.FindRef( TEXT("Command") );
-					const TSharedPtr<FJsonValue> KeyObj = GestureInfoObj->Values.FindRef( TEXT("Key") );
+					const TSharedPtr<FJsonValue> BindingContextObj = ChordInfoObj->Values.FindRef( TEXT("BindingContext") );
+					const TSharedPtr<FJsonValue> CommandNameObj = ChordInfoObj->Values.FindRef( TEXT("CommandName") );
+					const TSharedPtr<FJsonValue> CtrlObj = ChordInfoObj->Values.FindRef( TEXT("Control") );
+					const TSharedPtr<FJsonValue> AltObj = ChordInfoObj->Values.FindRef( TEXT("Alt") );
+					const TSharedPtr<FJsonValue> ShiftObj = ChordInfoObj->Values.FindRef( TEXT("Shift") );
+					const TSharedPtr<FJsonValue> CmdObj = ChordInfoObj->Values.FindRef( TEXT("Command") );
+					const TSharedPtr<FJsonValue> KeyObj = ChordInfoObj->Values.FindRef( TEXT("Key") );
 
 					const FName BindingContext = *BindingContextObj->AsString();
 					const FName CommandName = *CommandNameObj->AsString();
 
-					const FUserDefinedGestureKey GestureKey(BindingContext, CommandName);
-					FInputGesture& UserDefinedGesture = Gestures->FindOrAdd(GestureKey);
+					const FUserDefinedChordKey ChordKey(BindingContext, CommandName);
+					FInputChord& UserDefinedChord = Chords->FindOrAdd(ChordKey);
 
-					UserDefinedGesture = FInputGesture(*KeyObj->AsString(), EModifierKey::FromBools(
+					UserDefinedChord = FInputChord(*KeyObj->AsString(), EModifierKey::FromBools(
 																				CtrlObj->AsBool(), 
 																				AltObj->AsBool(), 
 																				ShiftObj->AsBool(), 
@@ -98,32 +105,38 @@ void FUserDefinedGestures::LoadGestures()
 		}
 		else
 		{
-			TSharedPtr<FJsonObject> GesturesObj;
+			TSharedPtr<FJsonObject> ChordsObj;
 
-			// This loads a JSON object containing BindingContexts, containing objects of CommandNames, containing the FInputGesture information
+			// This loads a JSON object containing BindingContexts, containing objects of CommandNames, containing the FInputChord information
 			FString Content;
-			if( GConfig->GetString(TEXT("UserDefinedGestures"), TEXT("Content"), Content, GEditorKeyBindingsIni) )
+			bool bFoundContent = (GConfig->GetArray(TEXT("UserDefinedChords"), TEXT("Content"), ChordJsonArray, GEditorKeyBindingsIni) > 0);
+			if (!bFoundContent)
+			{
+				// Backwards compat for when it was named gestures
+				bFoundChords = (GConfig->GetArray(TEXT("UserDefinedGestures"), TEXT("Content"), ChordJsonArray, GEditorKeyBindingsIni) > 0);
+			}
+			if (bFoundContent)
 			{
 				const FString UnescapedContent = FRemoteConfig::ReplaceIniSpecialCharWithChar(Content).ReplaceEscapedCharWithChar();
 
 				auto JsonReader = TJsonReaderFactory<>::Create( UnescapedContent );
-				FJsonSerializer::Deserialize( JsonReader, GesturesObj );
+				FJsonSerializer::Deserialize( JsonReader, ChordsObj );
 			}
 
-			if (!GesturesObj.IsValid())
+			if (!ChordsObj.IsValid())
 			{
-				// Gestures have not been loaded from the ini file, try reading them from the txt file now
+				// Chords have not been loaded from the ini file, try reading them from the txt file now
 				TSharedPtr<FArchive> Ar = MakeShareable( IFileManager::Get().CreateFileReader( *( FPaths::GameSavedDir() / TEXT("Preferences/EditorKeyBindings.txt") ) ) );
 				if( Ar.IsValid() )
 				{
 					auto TextReader = TJsonReaderFactory<ANSICHAR>::Create( Ar.Get() );
-					FJsonSerializer::Deserialize( TextReader, GesturesObj );
+					FJsonSerializer::Deserialize( TextReader, ChordsObj );
 				}
 			}
 
-			if (GesturesObj.IsValid())
+			if (ChordsObj.IsValid())
 			{
-				for(const auto& BindingContextInfo : GesturesObj->Values)
+				for(const auto& BindingContextInfo : ChordsObj->Values)
 				{
 					const FName BindingContext = *BindingContextInfo.Key;
 					TSharedPtr<FJsonObject> BindingContextObj = BindingContextInfo.Value->AsObject();
@@ -138,10 +151,10 @@ void FUserDefinedGestures::LoadGestures()
 						const TSharedPtr<FJsonValue> CmdObj = CommandObj->Values.FindRef( TEXT("Command") );
 						const TSharedPtr<FJsonValue> KeyObj = CommandObj->Values.FindRef( TEXT("Key") );
 
-						const FUserDefinedGestureKey GestureKey(BindingContext, CommandName);
-						FInputGesture& UserDefinedGesture = Gestures->FindOrAdd(GestureKey);
+						const FUserDefinedChordKey ChordKey(BindingContext, CommandName);
+						FInputChord& UserDefinedChord = Chords->FindOrAdd(ChordKey);
 
-						UserDefinedGesture = FInputGesture(*KeyObj->AsString(), EModifierKey::FromBools(
+						UserDefinedChord = FInputChord(*KeyObj->AsString(), EModifierKey::FromBools(
 																					CtrlObj->AsBool(), 
 																					AltObj->AsBool(), 
 																					ShiftObj->AsBool(), 
@@ -154,51 +167,53 @@ void FUserDefinedGestures::LoadGestures()
 	}
 }
 
-void FUserDefinedGestures::SaveGestures() const
+void FUserDefinedChords::SaveChords() const
 {
-	if( Gestures.IsValid() )
+	if( Chords.IsValid() )
 	{
-		FString GestureRawJsonContent;
-		TArray<FString> GestureJsonArray;
-		for(const auto& GestureInfo : *Gestures)
+		FString ChordRawJsonContent;
+		TArray<FString> ChordJsonArray;
+		for(const auto& ChordInfo : *Chords)
 		{
-			TSharedPtr<FJsonValueObject> GestureInfoValueObj = MakeShareable( new FJsonValueObject( MakeShareable( new FJsonObject ) ) );
-			TSharedPtr<FJsonObject> GestureInfoObj = GestureInfoValueObj->AsObject();
+			TSharedPtr<FJsonValueObject> ChordInfoValueObj = MakeShareable( new FJsonValueObject( MakeShareable( new FJsonObject ) ) );
+			TSharedPtr<FJsonObject> ChordInfoObj = ChordInfoValueObj->AsObject();
 
-			// Set the gesture values for the command
-			GestureInfoObj->Values.Add( TEXT("BindingContext"), MakeShareable( new FJsonValueString( GestureInfo.Key.BindingContext.ToString() ) ) );
-			GestureInfoObj->Values.Add( TEXT("CommandName"), MakeShareable( new FJsonValueString( GestureInfo.Key.CommandName.ToString() ) ) );
-			GestureInfoObj->Values.Add( TEXT("Control"), MakeShareable( new FJsonValueBoolean( GestureInfo.Value.NeedsControl() ) ) );
-			GestureInfoObj->Values.Add( TEXT("Alt"), MakeShareable( new FJsonValueBoolean( GestureInfo.Value.NeedsAlt() ) ) );
-			GestureInfoObj->Values.Add( TEXT("Shift"), MakeShareable( new FJsonValueBoolean( GestureInfo.Value.NeedsShift() ) ) );
-			GestureInfoObj->Values.Add( TEXT("Command"), MakeShareable( new FJsonValueBoolean( GestureInfo.Value.NeedsCommand() ) ) );
-			GestureInfoObj->Values.Add( TEXT("Key"), MakeShareable( new FJsonValueString( GestureInfo.Value.Key.ToString() ) ) );
+			// Set the chord values for the command
+			ChordInfoObj->Values.Add( TEXT("BindingContext"), MakeShareable( new FJsonValueString( ChordInfo.Key.BindingContext.ToString() ) ) );
+			ChordInfoObj->Values.Add( TEXT("CommandName"), MakeShareable( new FJsonValueString( ChordInfo.Key.CommandName.ToString() ) ) );
+			ChordInfoObj->Values.Add( TEXT("Control"), MakeShareable( new FJsonValueBoolean( ChordInfo.Value.NeedsControl() ) ) );
+			ChordInfoObj->Values.Add( TEXT("Alt"), MakeShareable( new FJsonValueBoolean( ChordInfo.Value.NeedsAlt() ) ) );
+			ChordInfoObj->Values.Add( TEXT("Shift"), MakeShareable( new FJsonValueBoolean( ChordInfo.Value.NeedsShift() ) ) );
+			ChordInfoObj->Values.Add( TEXT("Command"), MakeShareable( new FJsonValueBoolean( ChordInfo.Value.NeedsCommand() ) ) );
+			ChordInfoObj->Values.Add( TEXT("Key"), MakeShareable( new FJsonValueString( ChordInfo.Value.Key.ToString() ) ) );
 
-			auto JsonWriter = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create( &GestureRawJsonContent );
-			FJsonSerializer::Serialize( GestureInfoObj.ToSharedRef(), JsonWriter );
+			auto JsonWriter = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create( &ChordRawJsonContent );
+			FJsonSerializer::Serialize( ChordInfoObj.ToSharedRef(), JsonWriter );
 
-			const FString EscapedContent = FRemoteConfig::ReplaceIniCharWithSpecialChar(GestureRawJsonContent).ReplaceCharWithEscapedChar();
-			GestureJsonArray.Add(EscapedContent);
+			const FString EscapedContent = FRemoteConfig::ReplaceIniCharWithSpecialChar(ChordRawJsonContent).ReplaceCharWithEscapedChar();
+			ChordJsonArray.Add(EscapedContent);
 		}
 
-		GConfig->SetArray(TEXT("UserDefinedGestures"), TEXT("UserDefinedGestures"), GestureJsonArray, GEditorKeyBindingsIni);
+		GConfig->SetArray(TEXT("UserDefinedChords"), TEXT("UserDefinedChords"), ChordJsonArray, GEditorKeyBindingsIni);
 
-		// Clean up the old Content key (if it still exists)
-		GConfig->RemoveKey(TEXT("UserDefinedGestures"), TEXT("Content"), GEditorKeyBindingsIni);
+		// Clean up old keys (if they still exist)
+		GConfig->RemoveKey(TEXT("UserDefinedGestures"), TEXT("UserDefinedGestures"), GEditorKeyBindingsIni);
+		GConfig->RemoveKey(TEXT("UserDefinedChords"), TEXT("Content"), GEditorKeyBindingsIni);
+		GConfig->RemoveKey(TEXT("UserDefinedChords"), TEXT("Content"), GEditorKeyBindingsIni);
 	}
 }
 
-bool FUserDefinedGestures::GetUserDefinedGesture( const FName BindingContext, const FName CommandName, FInputGesture& OutUserDefinedGesture ) const
+bool FUserDefinedChords::GetUserDefinedChord( const FName BindingContext, const FName CommandName, FInputChord& OutUserDefinedChord ) const
 {
 	bool bResult = false;
 
-	if( Gestures.IsValid() )
+	if( Chords.IsValid() )
 	{
-		const FUserDefinedGestureKey GestureKey(BindingContext, CommandName);
-		const FInputGesture* const UserDefinedGesturePtr = Gestures->Find(GestureKey);
-		if( UserDefinedGesturePtr )
+		const FUserDefinedChordKey ChordKey(BindingContext, CommandName);
+		const FInputChord* const UserDefinedChordPtr = Chords->Find(ChordKey);
+		if( UserDefinedChordPtr )
 		{
-			OutUserDefinedGesture = *UserDefinedGesturePtr;
+			OutUserDefinedChord = *UserDefinedChordPtr;
 			bResult = true;
 		}
 	}
@@ -206,27 +221,27 @@ bool FUserDefinedGestures::GetUserDefinedGesture( const FName BindingContext, co
 	return bResult;
 }
 
-void FUserDefinedGestures::SetUserDefinedGesture( const FUICommandInfo& CommandInfo )
+void FUserDefinedChords::SetUserDefinedChord( const FUICommandInfo& CommandInfo )
 {
-	if( Gestures.IsValid() )
+	if( Chords.IsValid() )
 	{
 		const FName BindingContext = CommandInfo.GetBindingContext();
 		const FName CommandName = CommandInfo.GetCommandName();
 
 		// Find or create the command context
-		const FUserDefinedGestureKey GestureKey(BindingContext, CommandName);
-		FInputGesture& UserDefinedGesture = Gestures->FindOrAdd(GestureKey);
+		const FUserDefinedChordKey ChordKey(BindingContext, CommandName);
+		FInputChord& UserDefinedChord = Chords->FindOrAdd(ChordKey);
 
-		// Save an empty invalid gesture if one was not set
-		// This is an indication that the user doesn't want this bound and not to use the default gesture
-		const TSharedPtr<const FInputGesture> InputGesture = CommandInfo.GetActiveGesture();
-		UserDefinedGesture = (InputGesture.IsValid()) ? *InputGesture : FInputGesture();
+		// Save an empty invalid chord if one was not set
+		// This is an indication that the user doesn't want this bound and not to use the default chord
+		const TSharedPtr<const FInputChord> InputChord = CommandInfo.GetActiveChord();
+		UserDefinedChord = (InputChord.IsValid()) ? *InputChord : FInputChord();
 	}
 }
 
-void FUserDefinedGestures::RemoveAll()
+void FUserDefinedChords::RemoveAll()
 {
-	Gestures = MakeShareable( new FGesturesMap );
+	Chords = MakeShareable( new FChordsMap );
 }
 
 
@@ -249,88 +264,88 @@ FInputBindingManager& FInputBindingManager::Get()
  *****************************************************************************/
 
 /**
- * Gets the user defined gesture (if any) from the provided command name
+ * Gets the user defined chord (if any) from the provided command name
  * 
  * @param InBindingContext	The context in which the command is active
- * @param InCommandName		The name of the command to get the gesture from
+ * @param InCommandName		The name of the command to get the chord from
  */
-bool FInputBindingManager::GetUserDefinedGesture( const FName InBindingContext, const FName InCommandName, FInputGesture& OutUserDefinedGesture )
+bool FInputBindingManager::GetUserDefinedChord( const FName InBindingContext, const FName InCommandName, FInputChord& OutUserDefinedChord )
 {
-	if( !UserDefinedGestures.IsValid() )
+	if( !UserDefinedChords.IsValid() )
 	{
-		UserDefinedGestures = MakeShareable( new FUserDefinedGestures );
-		UserDefinedGestures->LoadGestures();
+		UserDefinedChords = MakeShareable( new FUserDefinedChords );
+		UserDefinedChords->LoadChords();
 	}
 
-	return UserDefinedGestures->GetUserDefinedGesture( InBindingContext, InCommandName, OutUserDefinedGesture );
+	return UserDefinedChords->GetUserDefinedChord( InBindingContext, InCommandName, OutUserDefinedChord );
 }
 
-void FInputBindingManager::CheckForDuplicateDefaultGestures( const FBindingContext& InBindingContext, TSharedPtr<FUICommandInfo> InCommandInfo ) const
+void FInputBindingManager::CheckForDuplicateDefaultChords( const FBindingContext& InBindingContext, TSharedPtr<FUICommandInfo> InCommandInfo ) const
 {
 	const bool bCheckDefault = true;
-	TSharedPtr<FUICommandInfo> ExistingInfo = GetCommandInfoFromInputGesture( InBindingContext.GetContextName(), InCommandInfo->DefaultGesture, bCheckDefault );
+	TSharedPtr<FUICommandInfo> ExistingInfo = GetCommandInfoFromInputChord( InBindingContext.GetContextName(), InCommandInfo->DefaultChord, bCheckDefault );
 	if( ExistingInfo.IsValid() )
 	{
 		if( ExistingInfo->CommandName != InCommandInfo->CommandName )
 		{
 			// Two different commands with the same name in the same context or parent context
-			UE_LOG(LogSlate, Fatal, TEXT("The command '%s.%s' has the same default gesture as '%s.%s' [%s]"), 
+			UE_LOG(LogSlate, Fatal, TEXT("The command '%s.%s' has the same default chord as '%s.%s' [%s]"), 
 				*InCommandInfo->BindingContext.ToString(),
 				*InCommandInfo->CommandName.ToString(), 
 				*ExistingInfo->BindingContext.ToString(),
 				*ExistingInfo->CommandName.ToString(), 
-				*InCommandInfo->DefaultGesture.GetInputText().ToString() );
+				*InCommandInfo->DefaultChord.GetInputText().ToString() );
 		}
 	}
 }
 
 
-void FInputBindingManager::NotifyActiveGestureChanged( const FUICommandInfo& CommandInfo )
+void FInputBindingManager::NotifyActiveChordChanged( const FUICommandInfo& CommandInfo )
 {
 	FContextEntry& ContextEntry = ContextMap.FindChecked( CommandInfo.GetBindingContext() );
 
 	// Slow but doesn't happen frequently
-	for( FGestureMap::TIterator It( ContextEntry.GestureToCommandInfoMap ); It; ++It )
+	for( FChordMap::TIterator It( ContextEntry.ChordToCommandInfoMap ); It; ++It )
 	{
-		// Remove the currently active gesture from the map if one exists
+		// Remove the currently active chord from the map if one exists
 		if( It.Value() == CommandInfo.GetCommandName() )
 		{
 			It.RemoveCurrent();
-			// There should only be one active gesture
+			// There should only be one active chord
 			break;
 		}
 	}
 
-	if( CommandInfo.GetActiveGesture()->IsValidGesture() )
+	if( CommandInfo.GetActiveChord()->IsValidChord() )
 	{
-		checkSlow( !ContextEntry.GestureToCommandInfoMap.Contains( *CommandInfo.GetActiveGesture() ) )
-		ContextEntry.GestureToCommandInfoMap.Add( *CommandInfo.GetActiveGesture(), CommandInfo.GetCommandName() );
+		checkSlow( !ContextEntry.ChordToCommandInfoMap.Contains( *CommandInfo.GetActiveChord() ) )
+		ContextEntry.ChordToCommandInfoMap.Add( *CommandInfo.GetActiveChord(), CommandInfo.GetCommandName() );
 	}
 	
 
-	// The user defined gestures should have already been created
-	check( UserDefinedGestures.IsValid() );
+	// The user defined chords should have already been created
+	check( UserDefinedChords.IsValid() );
 
-	UserDefinedGestures->SetUserDefinedGesture( CommandInfo );
+	UserDefinedChords->SetUserDefinedChord( CommandInfo );
 
-	// Broadcast the gesture event when a new one is added
-	OnUserDefinedGestureChanged.Broadcast(CommandInfo);
+	// Broadcast the chord event when a new one is added
+	OnUserDefinedChordChanged.Broadcast(CommandInfo);
 }
 
 void FInputBindingManager::SaveInputBindings()
 {
-	if( UserDefinedGestures.IsValid() )
+	if( UserDefinedChords.IsValid() )
 	{
-		UserDefinedGestures->SaveGestures();
+		UserDefinedChords->SaveChords();
 	}
 }
 
-void FInputBindingManager::RemoveUserDefinedGestures()
+void FInputBindingManager::RemoveUserDefinedChords()
 {
-	if( UserDefinedGestures.IsValid() )
+	if( UserDefinedChords.IsValid() )
 	{
-		UserDefinedGestures->RemoveAll();
-		UserDefinedGestures->SaveGestures();
+		UserDefinedChords->RemoveAll();
+		UserDefinedChords->SaveChords();
 	}
 }
 
@@ -346,8 +361,8 @@ void FInputBindingManager::CreateInputCommand( const TSharedRef<FBindingContext>
 	// The command name should be valid
 	check( InCommandInfo->CommandName != NAME_None );
 
-	// Should not have already created a gesture for this command
-	check( !InCommandInfo->ActiveGesture->IsValidGesture() );
+	// Should not have already created a chord for this command
+	check( !InCommandInfo->ActiveChord->IsValidChord() );
 	
 	const FName ContextName = InBindingContext->GetContextName();
 
@@ -370,9 +385,9 @@ void FInputBindingManager::CreateInputCommand( const TSharedRef<FBindingContext>
 		ParentToChildMap.AddUnique( InBindingContext->GetContextParent(), InBindingContext->GetContextName() );
 	}
 
-	if( InCommandInfo->DefaultGesture.IsValidGesture() )
+	if( InCommandInfo->DefaultChord.IsValidChord() )
 	{
-		CheckForDuplicateDefaultGestures( *InBindingContext, InCommandInfo );
+		CheckForDuplicateDefaultChords( *InBindingContext, InCommandInfo );
 	}
 	
 	{
@@ -383,62 +398,62 @@ void FInputBindingManager::CreateInputCommand( const TSharedRef<FBindingContext>
 	// Add the command info to the list of known infos.  It can only exist once.
 	CommandInfoMap.Add( InCommandInfo->CommandName, InCommandInfo );
 
-	// See if there are user defined gestures for this command
-	FInputGesture UserDefinedGesture;
-	bool bFoundUserDefinedGesture = GetUserDefinedGesture( ContextName, InCommandInfo->CommandName, UserDefinedGesture );
+	// See if there are user defined chords for this command
+	FInputChord UserDefinedChord;
+	bool bFoundUserDefinedChord = GetUserDefinedChord( ContextName, InCommandInfo->CommandName, UserDefinedChord );
 
 	
-	if( !bFoundUserDefinedGesture && InCommandInfo->DefaultGesture.IsValidGesture() )
+	if( !bFoundUserDefinedChord && InCommandInfo->DefaultChord.IsValidChord() )
 	{
-		// Find any existing command with the same gesture 
-		// This is for inconsistency between default and user defined gesture.  We need to make sure that if default gestures are changed to a gesture that a user set to a different command, that the default gesture doesn't replace
-		// the existing commands gesture. Note: Duplicate default gestures are found above in CheckForDuplicateDefaultGestures
-		FName ExisingCommand = ContextEntry.GestureToCommandInfoMap.FindRef( InCommandInfo->DefaultGesture );
+		// Find any existing command with the same chord 
+		// This is for inconsistency between default and user defined chord.  We need to make sure that if default chords are changed to a chord that a user set to a different command, that the default chord doesn't replace
+		// the existing commands chord. Note: Duplicate default chords are found above in CheckForDuplicateDefaultChords
+		FName ExisingCommand = ContextEntry.ChordToCommandInfoMap.FindRef( InCommandInfo->DefaultChord );
 
 		if( ExisingCommand == NAME_None )
 		{
-			// No existing command has a user defined gesture and no user defined gesture is available for this command 
-			TSharedRef<FInputGesture> NewGesture = MakeShareable( new FInputGesture( InCommandInfo->DefaultGesture ) );
-			InCommandInfo->ActiveGesture = NewGesture;
+			// No existing command has a user defined chord and no user defined chord is available for this command 
+			TSharedRef<FInputChord> NewChord = MakeShareable( new FInputChord( InCommandInfo->DefaultChord ) );
+			InCommandInfo->ActiveChord = NewChord;
 		}
 
 	}
-	else if( bFoundUserDefinedGesture )
+	else if( bFoundUserDefinedChord )
 	{
-		// Find any existing command with the same gesture 
-		// This is for inconsistency between default and user defined gesture.  We need to make sure that if default gestures are changed to a gesture that a user set to a different command, that the default gesture doesn't replace
-		// the existing commands gesture.
-		FName ExisingCommandName = ContextEntry.GestureToCommandInfoMap.FindRef( UserDefinedGesture );
+		// Find any existing command with the same chord 
+		// This is for inconsistency between default and user defined chord.  We need to make sure that if default chords are changed to a chord that a user set to a different command, that the default chord doesn't replace
+		// the existing commands chord.
+		FName ExisingCommandName = ContextEntry.ChordToCommandInfoMap.FindRef( UserDefinedChord );
 
 		if( ExisingCommandName != NAME_None )
 		{
-			// Get the command with using the same gesture
+			// Get the command with using the same chord
 			TSharedPtr<FUICommandInfo> ExistingInfo = CommandInfoMap.FindRef( ExisingCommandName );
-			if( *ExistingInfo->ActiveGesture != ExistingInfo->DefaultGesture )
+			if( *ExistingInfo->ActiveChord != ExistingInfo->DefaultChord )
 			{
-				// two user defined gestures are the same within a context.  If the keybinding editor was used this wont happen so this must have been directly a modified user setting file
-				UE_LOG(LogSlate, Error, TEXT("Duplicate user defined gestures found: [%s,%s].  Gesture for %s being removed"), *InCommandInfo->GetLabel().ToString(), *ExistingInfo->GetLabel().ToString(), *ExistingInfo->GetLabel().ToString() );
+				// two user defined chords are the same within a context.  If the keybinding editor was used this wont happen so this must have been directly a modified user setting file
+				UE_LOG(LogSlate, Error, TEXT("Duplicate user defined chords found: [%s,%s].  Chord for %s being removed"), *InCommandInfo->GetLabel().ToString(), *ExistingInfo->GetLabel().ToString(), *ExistingInfo->GetLabel().ToString() );
 			}
-			ContextEntry.GestureToCommandInfoMap.Remove( *ExistingInfo->ActiveGesture );
-			// Remove the existing gesture. 
-			ExistingInfo->ActiveGesture = MakeShareable( new FInputGesture() );
+			ContextEntry.ChordToCommandInfoMap.Remove( *ExistingInfo->ActiveChord );
+			// Remove the existing chord. 
+			ExistingInfo->ActiveChord = MakeShareable( new FInputChord() );
 		
 		}
 
-		TSharedRef<FInputGesture> NewGesture = MakeShareable( new FInputGesture( UserDefinedGesture ) );
-		// Set the active gesture on the command info
-		InCommandInfo->ActiveGesture = NewGesture;
+		TSharedRef<FInputChord> NewChord = MakeShareable( new FInputChord( UserDefinedChord ) );
+		// Set the active chord on the command info
+		InCommandInfo->ActiveChord = NewChord;
 	}
 
-	// If the active gesture is valid, map the gesture to the map for fast lookup when processing bindings
-	if( InCommandInfo->ActiveGesture->IsValidGesture() )
+	// If the active chord is valid, map the chord to the map for fast lookup when processing bindings
+	if( InCommandInfo->ActiveChord->IsValidChord() )
 	{
-		checkSlow( !ContextEntry.GestureToCommandInfoMap.Contains( *InCommandInfo->GetActiveGesture() ) );
-		ContextEntry.GestureToCommandInfoMap.Add( *InCommandInfo->GetActiveGesture(), InCommandInfo->GetCommandName() );
+		checkSlow( !ContextEntry.ChordToCommandInfoMap.Contains( *InCommandInfo->GetActiveChord() ) );
+		ContextEntry.ChordToCommandInfoMap.Add( *InCommandInfo->GetActiveChord(), InCommandInfo->GetCommandName() );
 	}
 }
 
-const TSharedPtr<FUICommandInfo> FInputBindingManager::FindCommandInContext( const FName InBindingContext, const FInputGesture& InGesture, bool bCheckDefault ) const
+const TSharedPtr<FUICommandInfo> FInputBindingManager::FindCommandInContext( const FName InBindingContext, const FInputChord& InChord, bool bCheckDefault ) const
 {
 	const FContextEntry& ContextEntry = ContextMap.FindRef( InBindingContext );
 	
@@ -450,7 +465,7 @@ const TSharedPtr<FUICommandInfo> FInputBindingManager::FindCommandInContext( con
 		for( FCommandInfoMap::TConstIterator It(InfoMap); It && !FoundCommand.IsValid(); ++It )
 		{
 			const FUICommandInfo& CommandInfo = *It.Value();
-			if( CommandInfo.DefaultGesture == InGesture )
+			if( CommandInfo.DefaultChord == InChord )
 			{
 				FoundCommand = It.Value();
 			}	
@@ -458,8 +473,8 @@ const TSharedPtr<FUICommandInfo> FInputBindingManager::FindCommandInContext( con
 	}
 	else
 	{
-		// faster lookup for active gestures
-		FName CommandName = ContextEntry.GestureToCommandInfoMap.FindRef( InGesture );
+		// faster lookup for active chords
+		FName CommandName = ContextEntry.ChordToCommandInfoMap.FindRef( InChord );
 		if( CommandName != NAME_None )
 		{
 			FoundCommand = ContextEntry.CommandInfoMap.FindChecked( CommandName );
@@ -489,7 +504,7 @@ void FInputBindingManager::GetAllChildContexts( const FName InBindingContext, TA
 	}
 }
 
-const TSharedPtr<FUICommandInfo> FInputBindingManager::GetCommandInfoFromInputGesture( const FName InBindingContext, const FInputGesture& InGesture, bool bCheckDefault ) const
+const TSharedPtr<FUICommandInfo> FInputBindingManager::GetCommandInfoFromInputChord( const FName InBindingContext, const FInputChord& InChord, bool bCheckDefault ) const
 {
 	TSharedPtr<FUICommandInfo> FoundCommand = NULL;
 
@@ -498,7 +513,7 @@ const TSharedPtr<FUICommandInfo> FInputBindingManager::GetCommandInfoFromInputGe
 	{
 		const FContextEntry& ContextEntry = ContextMap.FindRef( CurrentContext );
 
-		FoundCommand = FindCommandInContext( CurrentContext, InGesture, bCheckDefault );
+		FoundCommand = FindCommandInContext( CurrentContext, InChord, bCheckDefault );
 
 		CurrentContext = ContextEntry.BindingContext->GetContextParent();
 	}
@@ -510,7 +525,7 @@ const TSharedPtr<FUICommandInfo> FInputBindingManager::GetCommandInfoFromInputGe
 
 		for( int32 ContextIndex = 0; ContextIndex < Children.Num() && !FoundCommand.IsValid(); ++ContextIndex )
 		{
-			FoundCommand = FindCommandInContext( Children[ContextIndex], InGesture, bCheckDefault );
+			FoundCommand = FindCommandInContext( Children[ContextIndex], InChord, bCheckDefault );
 		}
 	}
 	

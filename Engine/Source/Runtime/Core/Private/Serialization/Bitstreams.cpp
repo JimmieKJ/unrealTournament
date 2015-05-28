@@ -266,7 +266,7 @@ void FBitWriterMark::Copy( FBitWriter& Writer, TArray<uint8> &Buffer )
 	int32 Bytes = (Writer.Num - Num + 7) >> 3;
 	if( Bytes > 0 )
 	{
-		Buffer.Init(Bytes);		// This makes room but doesnt zero
+		Buffer.SetNumUninitialized(Bytes);		// This makes room but doesnt zero
 		Buffer[Bytes-1] = 0;	// Make sure the last byte is 0 out, because appBitsCpy wont touch the last bits
 		appBitsCpy(Buffer.GetData(), 0, Writer.Buffer.GetData(), Num, Writer.Num - Num);
 	}
@@ -464,7 +464,7 @@ void FBitReaderMark::Copy( FBitReader& Reader, TArray<uint8> &Buffer )
 	int32 Bytes = (Reader.Pos - Pos + 7) >> 3;
 	if( Bytes > 0 )
 	{
-		Buffer.Init(Bytes);		// This makes room but doesnt zero
+		Buffer.SetNumUninitialized(Bytes);		// This makes room but doesnt zero
 		Buffer[Bytes-1] = 0;	// Make sure the last byte is 0 out, because appBitsCpy wont touch the last bits
 		appBitsCpy(Buffer.GetData(), 0, Reader.Buffer.GetData(), Pos, Reader.Pos - Pos);
 	}

@@ -37,6 +37,12 @@ void FAnimNode_SpringBone::Update(const FAnimationUpdateContext& Context)
 	FAnimNode_SkeletalControlBase::Update(Context);
 
 	RemainingTime += Context.GetDeltaTime();
+
+	const USkeletalMeshComponent* SkelComp = Context.AnimInstance->GetSkelMeshComponent();
+	const UWorld* World = SkelComp->GetWorld();
+	check(World->GetWorldSettings());
+	// Fixed step simulation at 120hz
+	FixedTimeStep = (1.f / 120.f) * World->GetWorldSettings()->GetEffectiveTimeDilation();
 }
 
 void FAnimNode_SpringBone::GatherDebugData(FNodeDebugData& DebugData)
@@ -57,7 +63,7 @@ void FAnimNode_SpringBone::EvaluateBoneTransforms(USkeletalMeshComponent* SkelCo
 
 	// Location of our bone in world space
 	FTransform SpaceBase = MeshBases.GetComponentSpaceTransform(SpringBone.BoneIndex);
-	FTransform  BoneTransformInWorldSpace = SpaceBase * SkelComp->GetComponentToWorld();
+	FTransform  BoneTransformInWorldSpace = (SkelComp != NULL) ? SpaceBase * SkelComp->GetComponentToWorld() : SpaceBase;
 
 	FVector const TargetPos = BoneTransformInWorldSpace.GetLocation();
 
@@ -74,10 +80,6 @@ void FAnimNode_SpringBone::EvaluateBoneTransforms(USkeletalMeshComponent* SkelCo
 		BoneVelocity = FVector::ZeroVector;
 	}
 		
-	UWorld* World = SkelComp->GetWorld();
-	check(World->GetWorldSettings());
-	// Fixed step simulation at 120hz
-	float const FixedTimeStep = (1.f/120.f) * World->GetWorldSettings()->GetEffectiveTimeDilation();
 	while (RemainingTime > FixedTimeStep)
 	{
 		// Update location of our base by how much our base moved this frame.

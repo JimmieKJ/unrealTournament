@@ -15,7 +15,15 @@ UGameplayCueNotify_Static::UGameplayCueNotify_Static(const FObjectInitializer& P
 #if WITH_EDITOR
 void UGameplayCueNotify_Static::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	UAbilitySystemGlobals::Get().GetGameplayCueManager()->bAccelerationMapOutdated = true;
+	const UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
+	UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(GetClass());
+
+	if (PropertyThatChanged && PropertyThatChanged->GetFName() == FName(TEXT("GameplayCueTag")))
+	{
+		DeriveGameplayCueTagFromAssetName();
+		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleAssetDeleted(Blueprint);
+		UAbilitySystemGlobals::Get().GetGameplayCueManager()->HandleAssetAdded(Blueprint);
+	}
 }
 #endif
 
@@ -52,6 +60,8 @@ bool UGameplayCueNotify_Static::HandlesEvent(EGameplayCueEvent::Type EventType) 
 
 void UGameplayCueNotify_Static::HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
 {
+	SCOPE_CYCLE_COUNTER(STAT_HandleGameplayCueNotifyStatic);
+
 	if (MyTarget && !MyTarget->IsPendingKill())
 	{
 		K2_HandleGameplayCue(MyTarget, EventType, Parameters);
@@ -60,6 +70,10 @@ void UGameplayCueNotify_Static::HandleGameplayCue(AActor* MyTarget, EGameplayCue
 		{
 		case EGameplayCueEvent::OnActive:
 			OnActive(MyTarget, Parameters);
+			break;
+
+		case EGameplayCueEvent::WhileActive:
+			WhileActive(MyTarget, Parameters);
 			break;
 
 		case EGameplayCueEvent::Executed:
@@ -87,6 +101,11 @@ bool UGameplayCueNotify_Static::OnExecute_Implementation(AActor* MyTarget, FGame
 }
 
 bool UGameplayCueNotify_Static::OnActive_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters) const
+{
+	return false;
+}
+
+bool UGameplayCueNotify_Static::WhileActive_Implementation(AActor* MyTarget, FGameplayCueParameters Parameters) const
 {
 	return false;
 }

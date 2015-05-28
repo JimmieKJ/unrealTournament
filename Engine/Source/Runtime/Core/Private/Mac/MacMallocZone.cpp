@@ -179,7 +179,9 @@ bool FMacMallocCrashHandler::IsOnCrashedThread( void )
 	}
 	else
 	{
-		FPlatformProcess::SleepInfinite();
+		do {
+			FPlatformProcess::SleepInfinite();
+		} while (true);
 		return false;
 	}
 }

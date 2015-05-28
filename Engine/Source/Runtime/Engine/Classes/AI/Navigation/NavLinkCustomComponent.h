@@ -39,8 +39,8 @@ class ENGINE_API UNavLinkCustomComponent : public UNavRelevantComponent, public 
 	// END INavLinkCustomInterface
 
 	// BEGIN UNavRelevantComponent Interface
-	virtual void GetNavigationData(FNavigationRelevantData& Data) const;
-	virtual void CalcBounds();
+	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
+	virtual void CalcAndCacheBounds() const override;
 	// END UNavRelevantComponent Interface
 
 	// BEGIN UActorComponent Interface

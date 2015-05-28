@@ -147,12 +147,12 @@ void SExpandableArea::OnToggleContentVisibility()
 	if( !bAreaCollapsed )
 	{
 		RolloutCurve = FCurveSequence( 0.0f, 0.1f, ECurveEaseFunction::CubicOut );
-		RolloutCurve.Play();
+		RolloutCurve.Play( this->AsShared() );
 	}
 	else
 	{
 		RolloutCurve = FCurveSequence( 0.0f, 0.1f, ECurveEaseFunction::CubicIn );
-		RolloutCurve.PlayReverse();
+		RolloutCurve.PlayReverse( this->AsShared() );
 	}
 
 	// Allow some section-specific code to be executed when the section becomes visible or collapsed
@@ -170,7 +170,7 @@ FVector2D SExpandableArea::GetSectionScale() const
 	return FVector2D( 1.0f, Scale );
 }
 
-FVector2D SExpandableArea::ComputeDesiredSize() const
+FVector2D SExpandableArea::ComputeDesiredSize( float ) const
 {
 	EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
 	if ( ChildVisibility != EVisibility::Collapsed )

@@ -219,7 +219,7 @@ void FCrashUpload::CompressAndSendData()
 	// Copy compressed data into the array.
 	TArray<uint8> CompressedData;
 	CompressedData.Append( CompressedDataRaw, CompressedSize );
-	delete CompressedDataRaw;
+	delete [] CompressedDataRaw;
 	CompressedDataRaw = nullptr;
 
 	// Set up request for upload

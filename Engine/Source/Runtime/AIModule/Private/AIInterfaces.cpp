@@ -9,7 +9,7 @@ UAIResourceInterface::UAIResourceInterface(const FObjectInitializer& ObjectIniti
 {
 }
 
-FGenericTeamId FGenericTeamId::NoTeam(FGenericTeamId::NoTeamId);
+const FGenericTeamId FGenericTeamId::NoTeam(FGenericTeamId::NoTeamId);
 
 FGenericTeamId FGenericTeamId::GetTeamIdentifier(const AActor* TeamMember)
 {
@@ -22,6 +22,19 @@ FGenericTeamId FGenericTeamId::GetTeamIdentifier(const AActor* TeamMember)
 	return FGenericTeamId::NoTeam;
 }
 
+//----------------------------------------------------------------------//
+// FGenericTeamId
+//----------------------------------------------------------------------//
+namespace
+{
+	ETeamAttitude::Type DefaultTeamAttitudeSolver(FGenericTeamId A, FGenericTeamId B)
+	{
+		return A != B ? ETeamAttitude::Hostile : ETeamAttitude::Friendly;
+	}
+}
+
+FGenericTeamId::FAttitudeSolverFunction* FGenericTeamId::AttitudeSolverImpl = &DefaultTeamAttitudeSolver;
+
 ETeamAttitude::Type FGenericTeamId::GetAttitude(const AActor* A, const AActor* B)
 {
 	const IGenericTeamAgentInterface* TeamAgentA = Cast<const IGenericTeamAgentInterface>(A);
@@ -29,6 +42,14 @@ ETeamAttitude::Type FGenericTeamId::GetAttitude(const AActor* A, const AActor* B
 	return TeamAgentA == NULL || B == NULL ? ETeamAttitude::Neutral : TeamAgentA->GetTeamAttitudeTowards(*B);
 }
 
+void FGenericTeamId::SetAttitudeSolver(FGenericTeamId::FAttitudeSolverFunction* Solver)
+{
+	AttitudeSolverImpl = Solver;
+}
+
+//----------------------------------------------------------------------//
+// UGenericTeamAgentInterface
+//----------------------------------------------------------------------//
 UGenericTeamAgentInterface::UGenericTeamAgentInterface(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {

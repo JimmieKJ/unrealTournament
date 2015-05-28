@@ -20,4 +20,5 @@ class IEQSQueryResultSourceInterface
 	// debugging
 	virtual bool GetShouldDebugDrawLabels() const { return true; }
 	virtual bool GetShouldDrawFailedItems() const { return true; }
+	virtual float GetHighlightRangePct() const { return 1.0f; }
 };

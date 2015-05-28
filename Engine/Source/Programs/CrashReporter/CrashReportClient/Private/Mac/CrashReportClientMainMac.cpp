@@ -6,28 +6,13 @@
 #include "CocoaThread.h"
 
 /**
- * Because crash reporters can crash, too
+ * Because crash reporters can crash, too - only used for Sandboxed applications
  */
 void CrashReporterCrashHandler(const FGenericCrashContext& GenericContext)
 {
-	const FMacCrashContext& Context = static_cast< const FMacCrashContext& >( GenericContext );
-
-	Context.ReportCrash();
-	if (GLog)
-	{
-		GLog->SetCurrentThreadAsMasterThread();
-		GLog->Flush();
-	}
-	if (GWarn)
-	{
-		GWarn->Flush();
-	}
-	if (GError)
-	{
-		GError->Flush();
-		GError->HandleError();
-	}
-	FPlatformMisc::RequestExit(true);
+	// We never emit a crash report in Sandboxed builds from CRC as if we do, then the crashed application's
+	// crash report is overwritten by the CRC's when trampolining into the Apple Crash Reporter.
+	_Exit(0);
 }
 
 static FString GSavedCommandLine;
@@ -54,7 +39,11 @@ static FString GSavedCommandLine;
 - (void) runGameThread:(id)Arg
 {
 	FPlatformMisc::SetGracefulTerminationHandler();
-	FPlatformMisc::SetCrashHandler(&CrashReporterCrashHandler);
+	// For sandboxed applications CRC can never report a crash, or we break trampolining into Apple's crash reporter.
+	if(FPlatformProcess::IsSandboxedApplication())
+	{
+		FPlatformMisc::SetCrashHandler(CrashReporterCrashHandler);
+	}
 	
 	RunCrashReportClient(*GSavedCommandLine);
 	

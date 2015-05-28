@@ -3,9 +3,10 @@
 #include "Paper2DEditorPrivatePCH.h"
 #include "SPaperEditorViewport.h"
 #include "PaperEditorViewportClient.h"
+#include "PaperStyle.h"
 
-const int32 DefaultZoomLevel = 5;
-const int32 NumZoomLevels = 13;
+const int32 DefaultZoomLevel = 7;
+const int32 NumZoomLevels = 17;
 
 struct FZoomLevelEntry
 {
@@ -21,6 +22,8 @@ struct FZoomLevelEntry
 
 static const FZoomLevelEntry ZoomLevels[NumZoomLevels] =
 {
+	FZoomLevelEntry(0.03125f, NSLOCTEXT("PaperEditor", "ZoomLevel", "1:32")),
+	FZoomLevelEntry(0.0625f, NSLOCTEXT("PaperEditor", "ZoomLevel", "1:16")),
 	FZoomLevelEntry(0.125f, NSLOCTEXT("PaperEditor", "ZoomLevel", "1:8")),
 	FZoomLevelEntry(0.250f, NSLOCTEXT("PaperEditor", "ZoomLevel", "1:4")),
 	FZoomLevelEntry(0.500f, NSLOCTEXT("PaperEditor", "ZoomLevel", "1:2")),
@@ -33,7 +36,9 @@ static const FZoomLevelEntry ZoomLevels[NumZoomLevels] =
 	FZoomLevelEntry(5.000f, NSLOCTEXT("PaperEditor", "ZoomLevel", "5x")),
 	FZoomLevelEntry(6.000f, NSLOCTEXT("PaperEditor", "ZoomLevel", "6x")),
 	FZoomLevelEntry(7.000f, NSLOCTEXT("PaperEditor", "ZoomLevel", "7x")),
-	FZoomLevelEntry(8.000f, NSLOCTEXT("PaperEditor", "ZoomLevel", "8x"))
+	FZoomLevelEntry(8.000f, NSLOCTEXT("PaperEditor", "ZoomLevel", "8x")),
+	FZoomLevelEntry(16.000f, NSLOCTEXT("PaperEditor", "ZoomLevel", "16x")),
+	FZoomLevelEntry(32.000f, NSLOCTEXT("PaperEditor", "ZoomLevel", "32x"))
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -41,46 +46,40 @@ static const FZoomLevelEntry ZoomLevels[NumZoomLevels] =
 
 SPaperEditorViewport::~SPaperEditorViewport()
 {
-	// Close viewport
-	if (ViewportClient.IsValid())
-	{
-		ViewportClient->Viewport = nullptr;
-	}
+	PaperViewportClient.Reset();
+}
 
-	Viewport.Reset();
-	ViewportClient.Reset();
+TSharedRef<FEditorViewportClient> SPaperEditorViewport::MakeEditorViewportClient()
+{
+	return PaperViewportClient.ToSharedRef();
 }
 
 void SPaperEditorViewport::Construct(const FArguments& InArgs, TSharedRef<FPaperEditorViewportClient> InViewportClient)
 {
 	OnSelectionChanged = InArgs._OnSelectionChanged;
 
-	this->ChildSlot
-	[
-		SNew(SOverlay)
-		+SOverlay::Slot()
-		[
-			SAssignNew(ViewportWidget, SViewport)
-			//.Visibility(EVisibility::HitTestInvisible)
-			.EnableGammaCorrection(false)
-			.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
-			.ShowEffectWhenDisabled(false)
-		]
-		// Indicator of current zoom level
-		+SOverlay::Slot()
+	PaperViewportClient = InViewportClient;
+	PaperViewportClient->SetRealtime(false);
+
+	SEditorViewport::Construct(SEditorViewport::FArguments());
+
+	// Indicator of current zoom level
+	ViewportOverlay->AddSlot()
 		.Padding(5)
 		.VAlign(VAlign_Top)
 		[
 			SNew(STextBlock)
-			.Font(FSlateFontInfo( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-BoldCondensed"), 16))
+			.TextStyle(FPaperStyle::Get(), "Paper2D.Common.ViewportZoomTextStyle")
 			.Text(this, &SPaperEditorViewport::GetZoomText)
 			.ColorAndOpacity(this, &SPaperEditorViewport::GetZoomTextColorAndOpacity)
-		]
-		+SOverlay::Slot()
+		];
+
+	// Title for the viewport
+	ViewportOverlay->AddSlot()
 		.VAlign(VAlign_Top)
 		[
 			SNew(SBorder)
-			.BorderImage( FEditorStyle::GetBrush( TEXT("Graph.TitleBackground") ) )
+			.BorderImage(FPaperStyle::Get()->GetBrush("Paper2D.Common.ViewportTitleBackground"))
 			.HAlign(HAlign_Fill)
 			.Visibility(EVisibility::HitTestInvisible)
 			[
@@ -95,44 +94,28 @@ void SPaperEditorViewport::Construct(const FArguments& InArgs, TSharedRef<FPaper
 					.FillWidth(1.f)
 					[
 						SNew(STextBlock)
-						.Font( FSlateFontInfo( FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Regular.ttf"), 18 ) )
-						.ColorAndOpacity( FLinearColor(1,1,1,0.5) )
-						.Text( this, &SPaperEditorViewport::GetTitleText )
+						.TextStyle(FPaperStyle::Get(), "Paper2D.Common.ViewportTitleTextStyle")
+						.Text(this, &SPaperEditorViewport::GetTitleText)
 					]
 				]
 			]
-		]
-	];
-
-	ViewportClient = InViewportClient;
-	ViewportClient->SetRealtime(false);
-
-	Viewport = MakeShareable(new FSceneViewport(ViewportClient.Get(), ViewportWidget));
-	ViewportClient->Viewport = Viewport.Get();
-
-	// The viewport widget needs an interface so it knows what should render
-	ViewportWidget->SetViewportInterface( Viewport.ToSharedRef() );
-
+		];
 
 	ZoomLevel = DefaultZoomLevel;
 	PreviousZoomLevel = DefaultZoomLevel;
 	ViewOffset = FVector2D::ZeroVector;
 	TotalMouseDelta = 0;
-	//bAllowContinousZoomInterpolation = false;
 
 	bIsPanning = false;
 
 	ZoomLevelFade = FCurveSequence( 0.0f, 0.75f );
-	ZoomLevelFade.Play();
-
-	ZoomLevelGraphFade = FCurveSequence( 0.0f, 0.5f );
-	ZoomLevelGraphFade.Play();
+	ZoomLevelFade.Play(this->AsShared());
 
 	DeferredPanPosition = FVector2D::ZeroVector;
 	bRequestDeferredPan = false;
 }
 
-void SPaperEditorViewport::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SPaperEditorViewport::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	// Handle any deferred panning
 	if (bRequestDeferredPan)
@@ -147,9 +130,8 @@ void SPaperEditorViewport::Tick(const FGeometry& AllottedGeometry, const double 
 		bIsPanning = false;
 	}
 
-
-	ViewportClient->SetZoomPos(ViewOffset, GetZoomAmount());
-	ViewportClient->bNeedsRedraw = true;
+	PaperViewportClient->SetZoomPos( ViewOffset, GetZoomAmount() );
+	PaperViewportClient->bNeedsRedraw = true;
 
 	bool bSelectionModified = false;
 	if (Marquee.IsValid())
@@ -162,11 +144,11 @@ void SPaperEditorViewport::Tick(const FGeometry& AllottedGeometry, const double 
 	if (bSelectionModified || bIsPanning || FSlateThrottleManager::Get().IsAllowingExpensiveTasks())
 	{
 		// Setup the selection set for the viewport
-		ViewportClient->SelectionRectangles.Empty();
+		PaperViewportClient->SelectionRectangles.Empty();
 
 		if (Marquee.IsValid())
 		{
-			FViewportSelectionRectangle& Rect = *(new (ViewportClient->SelectionRectangles) FViewportSelectionRectangle);
+			FViewportSelectionRectangle& Rect = *(new (PaperViewportClient->SelectionRectangles) FViewportSelectionRectangle);
 			Rect.Color = FColorList::Yellow;
 			Rect.Color.A = 0.45f;
 			Rect.TopLeft = Marquee.Rect.GetUpperLeft();
@@ -174,12 +156,9 @@ void SPaperEditorViewport::Tick(const FGeometry& AllottedGeometry, const double 
 		}
 
 		// Tick and render the viewport
-		ViewportClient->Tick(InDeltaTime);
-		GEditor->UpdateSingleViewportClient(ViewportClient.Get(), /*bInAllowNonRealtimeViewportToDraw=*/ true, /*bLinkedOrthoMovement=*/ false);
+		PaperViewportClient->Tick(InDeltaTime);
+		GEditor->UpdateSingleViewportClient(PaperViewportClient.Get(), /*bInAllowNonRealtimeViewportToDraw=*/ true, /*bLinkedOrthoMovement=*/ false);
 	}
-
-	//
-	SWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 FReply SPaperEditorViewport::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
@@ -208,7 +187,7 @@ FReply SPaperEditorViewport::OnMouseButtonDown(const FGeometry& MyGeometry, cons
 
 		// Trigger a selection update now so that single-clicks without a drag still select something
 		OnSelectionChanged.ExecuteIfBound(Marquee, true);
-		ViewportClient->Invalidate();
+		PaperViewportClient->Invalidate();
 
 		return FReply::Handled().CaptureMouse( SharedThis(this) );
 	}
@@ -223,13 +202,13 @@ FReply SPaperEditorViewport::OnMouseButtonUp(const FGeometry& MyGeometry, const 
 	// Did the user move the cursor sufficiently far, or is it in a dead zone?
 	// In Dead zone     - implies actions like summoning context menus and general clicking.
 	// Out of Dead Zone - implies dragging actions like moving nodes and marquee selection.
-	const bool bCursorInDeadZone = TotalMouseDelta <= FSlateApplication::Get().GetDragTriggerDistnace();
+	const bool bCursorInDeadZone = TotalMouseDelta <= FSlateApplication::Get().GetDragTriggerDistance();
 
 	if (MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
 	{
 		FReply ReplyState = FReply::Handled();
 
-		if (this->HasMouseCapture())
+		if (HasMouseCapture())
 		{
 			FSlateRect ThisPanelScreenSpaceRect = MyGeometry.GetClippingRect();
 			const FVector2D ScreenSpaceCursorPos = MyGeometry.LocalToAbsolute( GraphCoordToPanelCoord( SoftwareCursorPosition ) );
@@ -253,7 +232,7 @@ FReply SPaperEditorViewport::OnMouseButtonUp(const FGeometry& MyGeometry, const 
 
 		bShowSoftwareCursor = false;
 
-		this->bIsPanning = false;
+		bIsPanning = false;
 		return (WidgetToFocus.IsValid())
 			? ReplyState.ReleaseMouseCapture().SetUserFocus(WidgetToFocus.ToSharedRef(), EFocusCause::SetDirectly)
 			: ReplyState.ReleaseMouseCapture();
@@ -278,7 +257,7 @@ FReply SPaperEditorViewport::OnMouseButtonUp(const FGeometry& MyGeometry, const 
 // 				NodeUnderMousePtr.Reset();
 // 			}
 // 			else 
-			if (this->HasMouseCapture())
+			if (HasMouseCapture())
  			{
  				// We clicked on the panel background
 
@@ -318,7 +297,7 @@ FReply SPaperEditorViewport::OnMouseMove(const FGeometry& MyGeometry, const FPoi
 	const bool bIsRightMouseButtonDown = MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton);
 	const bool bIsLeftMouseButtonDown = MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton);
 	
-	if (this->HasMouseCapture())
+	if (HasMouseCapture())
 	{
 		// Track how much the mouse moved since the mouse down.
 		const FVector2D CursorDelta = MouseEvent.GetCursorDelta();
@@ -345,50 +324,13 @@ FReply SPaperEditorViewport::OnMouseMove(const FGeometry& MyGeometry, const FPoi
 			// Update the amount to pan panel
 			UpdateViewOffset(MyGeometry, MouseEvent.GetScreenSpacePosition());
 
-			const bool bCursorInDeadZone = TotalMouseDelta <= FSlateApplication::Get().GetDragTriggerDistnace();
+			const bool bCursorInDeadZone = TotalMouseDelta <= FSlateApplication::Get().GetDragTriggerDistance();
 
-// 			if (NodeBeingDragged.IsValid())
-// 			{
-// 				if (!bCursorInDeadZone)
-// 				{
-// 					// Note, NodeGrabOffset() comes from the node itself, so it's already scaled correctly.
-// 					FVector2D AnchorNodeNewPos = PanelCoordToGraphCoord( MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ) ) - NodeGrabOffset;
-// 
-// 					// Snap to grid
-// 					const float SnapSize = GetSnapGridSize();
-// 					AnchorNodeNewPos.X = SnapSize * FMath::RoundToInt(AnchorNodeNewPos.X/SnapSize);
-// 					AnchorNodeNewPos.Y = SnapSize * FMath::RoundToInt(AnchorNodeNewPos.Y/SnapSize);
-// 
-// 					// Dragging an unselected node automatically selects it.
-// 					SelectionManager.StartDraggingNode(NodeBeingDragged->GetObjectBeingDisplayed(), MouseEvent);
-// 
-// 					// Move all the selected nodes.
-// 					{
-// 						const FVector2D AnchorNodeOldPos = NodeBeingDragged->GetPosition();
-// 						const FVector2D DeltaPos = AnchorNodeNewPos - AnchorNodeOldPos;
-// 
-// 						for (FGraphPanelSelectionSet::TIterator NodeIt(SelectionManager.SelectedNodes); NodeIt; ++NodeIt)
-// 						{
-// 							TSharedRef<SNode>* pWidget = NodeToWidgetLookup.Find(*NodeIt);
-// 							if (pWidget != nullptr)
-// 							{
-// 								SNode& Widget = pWidget->Get();
-// 								Widget.MoveTo(Widget.GetPosition() + DeltaPos);
-// 							}
-// 						}
-// 					}
-// 				}
-// 
-// 				return FReply::Handled();
-// 			}
-// 
-// 			if (!NodeBeingDragged.IsValid())
 			{
 				// We are marquee selecting
 				const FVector2D GraphMousePos = PanelCoordToGraphCoord( MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ) );
 				Marquee.Rect.UpdateEndPoint(GraphMousePos);
 
-//				FindNodesAffectedByMarquee( /*out*/ Marquee.AffectedNodes );
 				return FReply::Handled();
 			}
 		}
@@ -407,12 +349,6 @@ FReply SPaperEditorViewport::OnMouseWheel(const FGeometry& MyGeometry, const FPo
 	const int32 ZoomLevelDelta = FMath::FloorToInt(MouseEvent.GetWheelDelta());
 
 	const bool bAllowFullZoomRange = true;
-/*
-		// To zoom out past 1:1 the user must press control
-		(ZoomLevel == DefaultZoomLevel && (ZoomLevelDelta > 0) && MouseEvent.IsControlDown()) ||
-		// If they are already zoomed out past 1:1, user may zoom freely
-		(ZoomLevel > DefaultZoomLevel);
-*/
 	const float OldZoomLevel = ZoomLevel;
 
 	if (bAllowFullZoomRange)
@@ -425,19 +361,11 @@ FReply SPaperEditorViewport::OnMouseWheel(const FGeometry& MyGeometry, const FPo
 		ZoomLevel = FMath::Clamp( ZoomLevel + ZoomLevelDelta, 0, DefaultZoomLevel );
 	}
 
-	ZoomLevelFade.Play();
+	ZoomLevelFade.Play(this->AsShared());
 
 
 	// Re-center the screen so that it feels like zooming around the cursor.
-	{
- 		FSlateRect GraphBounds = ComputeSensibleGraphBounds();
- 		// Make sure we are not zooming into/out into emptiness; otherwise the user will get lost..
- 		const FVector2D ClampedPointToMaintainGraphSpace(
- 			FMath::Clamp(PointToMaintainGraphSpace.X, GraphBounds.Left, GraphBounds.Right),
- 			FMath::Clamp(PointToMaintainGraphSpace.Y, GraphBounds.Top, GraphBounds.Bottom)
- 			);
-		this->ViewOffset = ClampedPointToMaintainGraphSpace - WidgetSpaceCursorPos / GetZoomAmount();
-	}
+	ViewOffset = PointToMaintainGraphSpace - WidgetSpaceCursorPos / GetZoomAmount();
 
 	return FReply::Handled();
 }
@@ -449,37 +377,41 @@ FCursorReply SPaperEditorViewport::OnCursorQuery( const FGeometry& MyGeometry, c
 		FCursorReply::Cursor( EMouseCursor::Default );
 }
 
-void SPaperEditorViewport::RefreshViewport()
+int32 SPaperEditorViewport::FindNearestZoomLevel(float InZoomAmount, bool bRoundDown) const
 {
-	Viewport->Invalidate();
-	Viewport->InvalidateDisplay();
-}
+	bool bFoundItem = false;
+	int32 Result = 0;
 
-/** Search through the list of zoom levels and find the one closest to what was passed in. */
-int32 SPaperEditorViewport::FindNearestZoomLevel(int32 CurrentZoomLevel, float InZoomAmount) const
-{
 	for (int32 ZoomLevelIndex=0; ZoomLevelIndex < NumZoomLevels; ++ZoomLevelIndex)
 	{
 		if (InZoomAmount <= ZoomLevels[ZoomLevelIndex].ZoomAmount)
 		{
-			return ZoomLevelIndex;
+			Result = ZoomLevelIndex;
+			bFoundItem = true;
+			break;
 		}
 	}
 
-	return DefaultZoomLevel;
-}
-
-
-float SPaperEditorViewport::GetZoomAmount() const
-{
-	if (false)//bAllowContinousZoomInterpolation)
+	if (!bFoundItem)
 	{
-		return FMath::Lerp(ZoomLevels[PreviousZoomLevel].ZoomAmount, ZoomLevels[ZoomLevel].ZoomAmount, ZoomLevelGraphFade.GetLerp());
+		return DefaultZoomLevel;
 	}
 	else
 	{
-		return ZoomLevels[ZoomLevel].ZoomAmount;
+		if (bFoundItem && bRoundDown && (Result > 0))
+		{
+			return Result - 1;
+		}
+		else
+		{
+			return Result;
+		}
 	}
+}
+
+float SPaperEditorViewport::GetZoomAmount() const
+{
+	return ZoomLevels[ZoomLevel].ZoomAmount;
 }
 
 FText SPaperEditorViewport::GetZoomText() const
@@ -505,7 +437,7 @@ FVector2D SPaperEditorViewport::ComputeEdgePanAmount(const FGeometry& MyGeometry
 	// Never pan slower than this, it's just unpleasant.
 	static const float MinPanSpeed = 5.0f;
 
-	// Start panning before we rech the edge of the graph panel.
+	// Start panning before we reach the edge of the graph panel.
 	static const float EdgePanForgivenessZone = 30.0f;
 
 	const FVector2D LocalCursorPos = MyGeometry.AbsoluteToLocal( TargetPosition );
@@ -590,21 +522,6 @@ int32 SPaperEditorViewport::OnPaint(const FPaintArgs& Args, const FGeometry& All
 	PaintSoftwareCursor(AllottedGeometry, MyClippingRect, OutDrawElements, MaxLayerId);
 
 	return MaxLayerId;
-}
-
-FSlateRect SPaperEditorViewport::ComputeSensibleGraphBounds() const
-{
-	float Left = 0.0f;
-	float Top = 0.0f;
-
-	//@TODO: PAPER: Use real values!
-	float Right = 512.0f;//0.0f;
-	float Bottom = 1024.0f;
-
-	// Pad it out in every direction, to roughly account for nodes being of non-zero extent
-	const float Padding = 100.0f;
-
-	return FSlateRect( Left - Padding, Top - Padding, Right + Padding, Bottom + Padding );
 }
 
 FText SPaperEditorViewport::GetTitleText() const

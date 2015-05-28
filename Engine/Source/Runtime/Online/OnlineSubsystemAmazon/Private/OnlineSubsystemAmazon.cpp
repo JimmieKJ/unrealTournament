@@ -71,6 +71,11 @@ IOnlineIdentityPtr FOnlineSubsystemAmazon::GetIdentityInterface() const
 
 bool FOnlineSubsystemAmazon::Tick(float DeltaTime)
 {
+	if (!FOnlineSubsystemImpl::Tick(DeltaTime))
+	{
+		return false;
+	}
+
 	if (IdentityInterface.IsValid())
 	{
 		TickToggle ^= 1;

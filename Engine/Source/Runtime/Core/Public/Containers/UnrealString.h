@@ -1,18 +1,17 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	UnrealString.h: Dynamic string definitions.  This needed to be 
-		UnrealString.h to avoid conflicting with the Windows platform 
-		SDK string.h
-=============================================================================*/
+// This needed to be UnrealString.h to avoid conflicting with
+// the Windows platform SDK string.h
 
 #pragma once
+
 #include "Containers/Array.h"
 #include "Math/NumericLimits.h"
 #include "Math/UnrealMathUtility.h"
 #include "Misc/Crc.h"
 #include "Misc/CString.h"
 #include "Templates/MemoryOps.h"
+
 
 /** Determines case sensitivity options for string comparisons. */
 namespace ESearchCase
@@ -121,7 +120,7 @@ public:
 	 * @param In array of TCHAR
 	 */
 	template <typename CharType>
-	FORCEINLINE FString(const CharType* Src, typename TEnableIf<TIsCharType<CharType>::Value>::Type* Dummy = NULL) // This TEnableIf is to ensure we don't instantiate this constructor for non-char types, like id* in Obj-C
+	FORCEINLINE FString(const CharType* Src, typename TEnableIf<TIsCharType<CharType>::Value>::Type* Dummy = nullptr) // This TEnableIf is to ensure we don't instantiate this constructor for non-char types, like id* in Obj-C
 	{
 		if (Src && *Src)
 		{
@@ -166,7 +165,7 @@ public:
 #else
 			FMemory::Memcpy(Data.GetData(), [In cStringUsingEncoding:NSUTF16StringEncoding], Len * sizeof(TCHAR));
 #endif
-			// for non-UTF-8 encodings this may not be terminated with a NULL!
+			// for non-UTF-8 encodings this may not be terminated with a nullptr!
 			Data[Len-1] = '\0';
 		}
 	}
@@ -240,8 +239,8 @@ private:
 	 */
 	FORCEINLINE friend TIterator      begin(      FString& Str) { return begin(Str.Data); }
 	FORCEINLINE friend TConstIterator begin(const FString& Str) { return begin(Str.Data); }
-	FORCEINLINE friend TIterator      end  (      FString& Str) { return end  (Str.Data); }
-	FORCEINLINE friend TConstIterator end  (const FString& Str) { return end  (Str.Data); }
+	FORCEINLINE friend TIterator      end  (      FString& Str) { TIterator      Result = end(Str.Data); if (Str.Data.Num()) { --Result; } return Result; }
+	FORCEINLINE friend TConstIterator end  (const FString& Str) { TConstIterator Result = end(Str.Data); if (Str.Data.Num()) { --Result; } return Result; }
 
 public:
 	FORCEINLINE uint32 GetAllocatedSize() const
@@ -278,6 +277,17 @@ public:
 	FORCEINLINE bool IsEmpty() const
 	{
 		return Data.Num() <= 1;
+	}
+
+	/**
+	 * Empties the string, but doesn't change memory allocation, unless the new size is larger than the current string.
+	 *
+	 * @param NewReservedSize The expected usage size (in characters, not including the terminator) after calling this function.
+	 */
+	FORCEINLINE void Reset(int32 NewReservedSize = 0)
+	{
+		const int32 NewSizeIncludingTerminator = (NewReservedSize > 0) ? (NewReservedSize + 1) : 0;
+		Data.Reset(NewSizeIncludingTerminator);
 	}
 
 	/**
@@ -1039,6 +1049,34 @@ public:
 	}
 
 	/**
+	* Searches the string for the last occurrence of a character
+	*
+	* @param Pred Predicate that takes TCHAR and returns true if TCHAR matches search criteria, false otherwise.
+	* @param StartIndex Index of element from which to start searching. Defaults to last TCHAR in string.
+	*
+	* @return Index of found TCHAR, INDEX_NONE otherwise.
+	*/
+	template <typename Predicate>
+	FORCEINLINE int32 FindLastCharByPredicate(Predicate Pred, int32 StartIndex) const
+	{
+		return Data.FindLastByPredicate(Pred, StartIndex);
+	}
+
+	/**
+	* Searches the string for the last occurrence of a character
+	*
+	* @param Pred Predicate that takes TCHAR and returns true if TCHAR matches search criteria, false otherwise.
+	* @param StartIndex Index of element from which to start searching. Defaults to last TCHAR in string.
+	*
+	* @return Index of found TCHAR, INDEX_NONE otherwise.
+	*/
+	template <typename Predicate>
+	FORCEINLINE int32 FindLastCharByPredicate(Predicate Pred) const
+	{
+		return Data.FindLastByPredicate(Pred, Data.Num() - 1);
+	}
+
+	/**
 	 * Lexicographically tests whether this string is equivalent to the Other given string
 	 * 
 	 * @param Other 	The string test against
@@ -1086,16 +1124,16 @@ public:
 	 * @param SearchDir			Indicates whether the search starts at the begining or at the end ( defaults to ESearchDir::FromStart )
 	 * @return true if string is split, otherwise false
 	 */
-	bool Split( const FString& InS, FString* LeftS, FString* RightS, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase, 
-				ESearchDir::Type SearchDir = ESearchDir::FromStart) const
+	bool Split(const FString& InS, FString* LeftS, FString* RightS, ESearchCase::Type SearchCase = ESearchCase::IgnoreCase,
+		ESearchDir::Type SearchDir = ESearchDir::FromStart) const
 	{
 		int32 InPos = Find(InS, SearchCase, SearchDir);
-		
-		if( InPos < 0 )	{ return false; }
 
-		if( LeftS )		{ *LeftS  = Left(InPos); }
-		if( RightS )	{ *RightS = Mid(InPos + InS.Len()); }
-		
+		if (InPos < 0)	{ return false; }
+
+		if (LeftS)		{ *LeftS = Left(InPos); }
+		if (RightS)	{ *RightS = Mid(InPos + InS.Len()); }
+
 		return true;
 	}
 
@@ -1192,7 +1230,7 @@ public:
 	/**
 	 * Returns a copy of this string with wrapping quotation marks removed.
 	 */
-	FString TrimQuotes( bool* bQuotesRemoved=NULL ) const;
+	FString TrimQuotes( bool* bQuotesRemoved = nullptr ) const;
 
 	/**
 	 * Breaks up a delimited string into elements of a string array.
@@ -1203,7 +1241,7 @@ public:
 	 *
 	 * @return	The number of elements in InArray
 	 */
-	int32 ParseIntoArray( TArray<FString>* InArray, const TCHAR* pchDelim, bool InCullEmpty ) const;
+	int32 ParseIntoArray( TArray<FString>& OutArray, const TCHAR* pchDelim, bool InCullEmpty = true ) const;
 
 	/**
 	 * Breaks up a delimited string into elements of a string array, using any whitespace and an 
@@ -1215,7 +1253,7 @@ public:
 	 *
 	 * @return	The number of elements in InArray
 	 */
-	int32 ParseIntoArrayWS( TArray<FString>* InArray, const TCHAR* pchExtraDelim = NULL ) const;
+	int32 ParseIntoArrayWS( TArray<FString>& OutArray, const TCHAR* pchExtraDelim = nullptr, bool InCullEmpty = true ) const;
 
 	/**
 	* Breaks up a delimited string into elements of a string array, using line ending characters
@@ -1225,7 +1263,7 @@ public:
 	*
 	* @return	The number of elements in InArray
 	*/
-	int32 ParseIntoArrayLines(TArray<FString>* InArray) const;
+	int32 ParseIntoArrayLines(TArray<FString>& OutArray, bool InCullEmpty = true) const;
 
 	/**
 	* Breaks up a delimited string into elements of a string array, using the given delimiters
@@ -1237,7 +1275,7 @@ public:
 	*
 	* @return	The number of elements in InArray
 	*/
-	int32 ParseIntoArray(TArray<FString>* InArray, const TCHAR** DelimArray, int32 NumDelims) const;
+	int32 ParseIntoArray(TArray<FString>& OutArray, const TCHAR** DelimArray, int32 NumDelims, bool InCullEmpty = true) const;
 
 	/**
 	 * Takes an array of strings and removes any zero length entries.
@@ -1292,14 +1330,14 @@ public:
 	 *
 	 * @return	a string with all control characters replaced by the escaped version.
 	 */
-	FString ReplaceCharWithEscapedChar( const TArray<TCHAR>* Chars=NULL ) const;
+	FString ReplaceCharWithEscapedChar( const TArray<TCHAR>* Chars = nullptr ) const;
 
 	/**
 	 * Removes the escape backslash for all supported characters, replacing the escape and character with the non-escaped version.  (i.e.
 	 * replaces "\\n" with "\n".  Counterpart to ReplaceCharWithEscapedChar().
 	 * @return copy of this string with replacement made
 	 */
-	FString ReplaceEscapedCharWithChar( const TArray<TCHAR>* Chars=NULL ) const;
+	FString ReplaceEscapedCharWithChar( const TArray<TCHAR>* Chars = nullptr ) const;
 
 	/** 
 	 * Replaces all instances of '\t' with TabWidth number of spaces
@@ -1348,7 +1386,7 @@ public:
 	bool ToBool() const;
 
 	/**
-	 * Converts a buffer to a string by hex-ifying the elements
+	 * Converts a buffer to a string
 	 *
 	 * @param SrcBuffer the buffer to stringify
 	 * @param SrcSize the number of bytes to convert
@@ -1361,11 +1399,31 @@ public:
 	 * Converts a string into a buffer
 	 *
 	 * @param DestBuffer the buffer to fill with the string data
-	 * @param DestSize the size of the buffer in bytes (must be at least string len / 2)
+	 * @param DestSize the size of the buffer in bytes (must be at least string len / 3)
 	 *
 	 * @return true if the conversion happened, false otherwise
 	 */
 	static bool ToBlob(const FString& Source,uint8* DestBuffer,const uint32 DestSize);
+
+	/**
+	 * Converts a buffer to a string by hex-ifying the elements
+	 *
+	 * @param SrcBuffer the buffer to stringify
+	 * @param SrcSize the number of bytes to convert
+	 *
+	 * @return the blob in string form
+	 */
+	static FString FromHexBlob(const uint8* SrcBuffer,const uint32 SrcSize);
+
+	/**
+	 * Converts a string into a buffer
+	 *
+	 * @param DestBuffer the buffer to fill with the string data
+	 * @param DestSize the size of the buffer in bytes (must be at least string len / 2)
+	 *
+	 * @return true if the conversion happened, false otherwise
+	 */
+	static bool ToHexBlob(const FString& Source,uint8* DestBuffer,const uint32 DestSize);
 
 	/**
 	 * Converts a float string with the trailing zeros stripped
@@ -1405,17 +1463,12 @@ public:
 
 		return Result;
 	}
-
-	FORCEINLINE friend void Exchange(FString& A, FString& B)
-	{
-		Exchange(A.Data, B.Data);
-	}
 };
 
 template<>
 struct TContainerTraits<FString> : public TContainerTraitsBase<FString>
 {
-	enum { MoveWillEmptyContainer = PLATFORM_COMPILER_HAS_RVALUE_REFERENCES && TContainerTraits<FString::DataType>::MoveWillEmptyContainer };
+	enum { MoveWillEmptyContainer = TContainerTraits<FString::DataType>::MoveWillEmptyContainer };
 };
 
 template<> struct TIsZeroConstructType<FString> { enum { Value = true }; };
@@ -1566,167 +1619,95 @@ inline int32 HexToBytes( const FString& HexString, uint8* OutBytes )
 	return NumBytes - 1;
 }
 
-/** A little helper to avoid trying to compile a printf with types that are not accepted by printf **/
-
-template<typename T, bool TIsNumeric>
-struct TTypeToString_Internal
+/** Namespace that houses lexical conversion for various types. User defined conversions can be implemented externally */
+namespace LexicalConversion
 {
-	static FString ToString(T Value)
-	{
-		check(0); // you are asking us to convert a non-numeric type to a string
-		return FString();
-	}
+	/**
+	 *	Expected functions in this namespace are as follows:
+	 *		static bool		TryParseString(T& OutValue, const TCHAR* Buffer);
+	 *		static void 	FromString(T& OutValue, const TCHAR* Buffer);
+	 *		static FString	ToString(const T& OutValue);
+	 *
+	 *	Implement custom functionality externally.
+	 */
 
-	static FString ToSanitizedString(T Value)
-	{
-		check(0); // you are asking us to convert a non-numeric type to a string
-		return FString();
-	}
-};
+	/** Covert a string buffer to intrinsic types */
+	inline void FromString(int8& OutValue, 		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+	inline void FromString(int16& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+	inline void FromString(int32& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+	inline void FromString(int64& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi64(Buffer);	}
+	inline void FromString(uint8& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+	inline void FromString(uint16& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atoi(Buffer);		}
+	inline void FromString(uint32& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atoi64(Buffer);	}	//64 because this unsigned and so Atoi might overflow
+	inline void FromString(uint64& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Strtoui64(Buffer, nullptr, 0); }
+	inline void FromString(float& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atof(Buffer);		}
+	inline void FromString(double& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atod(Buffer);		}
+	inline void FromString(bool& OutValue, 		const TCHAR* Buffer)	{	OutValue = FCString::ToBool(Buffer);	}
+	inline void FromString(FString& OutValue,   const TCHAR* Buffer)	{	OutValue = FString(Buffer);				}
 
-template<typename T>
-struct TTypeToString_Internal<T, true>
-{
-	static FString ToString(T Value)
+	/** Convert numeric types to a string */
+	template<typename T>
+	typename TEnableIf<TIsArithmeticType<T>::Value, FString>::Type
+		ToString(const T& Value)
 	{
 		return FString::Printf( TFormatSpecifier<T>::GetFormatSpecifier(), Value );
 	}
-	
-	static FString ToSanitizedString(T Value)
+
+	/** Helper template to convert to sanitized strings */
+	template<typename T>
+	FString ToSanitizedString(const T& Value)
 	{
 		return ToString(Value);
 	}
-};
 
-template<>
-struct TTypeToString_Internal<float, true>
-{
-	static FString ToString(float Value)
-	{
-		return FString::Printf( TFormatSpecifier<float>::GetFormatSpecifier(), Value );
-	}
-
-	static FString ToSanitizedString(float Value)
+	/** Specialized for floats */
+	template<>
+	inline FString ToSanitizedString<float>(const float& Value)
 	{
 		return FString::SanitizeFloat( Value );
 	}
-};
+	
+	/** Specialized for FString */
+	template<>
+	inline FString ToSanitizedString<FString>(const FString& value)
+	{
+		return FString(value);
+	}
 
+	/** Parse a string into this type, returning whether it was successful */
+	/** Specialization for arithmetic types */
+	template<typename T>
+	static typename TEnableIf<TIsArithmeticType<T>::Value, bool>::Type
+		TryParseString(T& OutValue, const TCHAR* Buffer)
+	{
+		if (FCString::IsNumeric(Buffer))
+		{
+			FromString(OutValue, Buffer);
+			return true;
+		}
+		return false;
+	}
+	
+	/** Try and parse a bool - always returns true */
+	static bool TryParseString(bool& OutValue, const TCHAR* Buffer)
+	{
+		FromString(OutValue, Buffer);
+		return true;
+	}
+}
+
+/** Shorthand legacy use for LexicalConversion functions */
 template<typename T>
-struct TTypeToString : public TTypeToString_Internal<T, TIsArithmeticType<T>::Value>
+struct TTypeToString
 {
+	static FString ToString(const T& Value)				{ return LexicalConversion::ToString(Value); }
+	static FString ToSanitizedString(const T& Value)	{ return LexicalConversion::ToSanitizedString(Value); }
 };
-
-/** A little helper to convert from a string to known numeric types **/
-
 template<typename T>
 struct TTypeFromString
 {
-	static void FromString(T& OutValue, const TCHAR* String)
-	{
-		check(0); // you are asking us to convert a string to unknown type
-	}
+	static void FromString(T& Value, const TCHAR* Buffer) { return LexicalConversion::FromString(Value, Buffer); }
 };
-
-template<>
-struct TTypeFromString<int8>
-{
-	static void FromString(int8& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::Atoi(Buffer);
-	}
-};
-
-template<>
-struct TTypeFromString<int16>
-{
-	static void FromString(int16& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::Atoi(Buffer);
-	}
-};
-
-template<>
-struct TTypeFromString<int32>
-{
-	static void FromString(int32& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::Atoi(Buffer);
-	}
-};
-
-template<>
-struct TTypeFromString<int64>
-{
-	static void FromString(int64& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::Atoi64(Buffer);
-	}
-};
-
-template<>
-struct TTypeFromString<uint8>
-{
-	static void FromString(uint8& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::Atoi(Buffer);
-	}
-};
-
-template<>
-struct TTypeFromString<uint16>
-{
-	static void FromString(uint16& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::Atoi(Buffer);
-	}
-};
-
-template<>
-struct TTypeFromString<uint32>
-{
-	static void FromString(uint32& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::Atoi64(Buffer); //64 because this unsigned and so Atoi might overflow
-	}
-};
-
-template<>
-struct TTypeFromString<uint64>
-{
-	static void FromString(uint64& OutValue, const TCHAR* Buffer)
-	{
-		OutValue =  FCString::Strtoui64(Buffer, NULL, 0);
-	}
-};
-
-template<>
-struct TTypeFromString<float>
-{
-	static void FromString(float& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::Atof(Buffer);
-	}
-};
-
-template<>
-struct TTypeFromString<double>
-{
-	static void FromString(double& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::Atod(Buffer);
-	}
-};
-
-template<>
-struct TTypeFromString<bool>
-{
-	static void FromString(bool& OutValue, const TCHAR* Buffer)
-	{
-		OutValue = FCString::ToBool(Buffer);
-	}
-};
-
 
 /*----------------------------------------------------------------------------
 	Special archivers.
@@ -1754,22 +1735,30 @@ public:
 
 #if PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
 
+	FStringOutputDevice(FStringOutputDevice&&) = default;
 	FStringOutputDevice(const FStringOutputDevice&) = default;
+	FStringOutputDevice& operator=(FStringOutputDevice&&) = default;
 	FStringOutputDevice& operator=(const FStringOutputDevice&) = default;
 
-	#if PLATFORM_COMPILER_HAS_RVALUE_REFERENCES
-
-		FStringOutputDevice(FStringOutputDevice&&) = default;
-		FStringOutputDevice& operator=(FStringOutputDevice&&) = default;
-
-	#endif
-
 #else
+
+	FORCEINLINE FStringOutputDevice(FStringOutputDevice&& Other)
+		: FString      ((FString&&)Other)
+		, FOutputDevice((FOutputDevice&&)Other)
+	{
+	}
 
 	FORCEINLINE FStringOutputDevice(const FStringOutputDevice& Other)
 		: FString      ((const FString&)Other)
 		, FOutputDevice((const FOutputDevice&)Other)
 	{
+	}
+
+	FORCEINLINE FStringOutputDevice& operator=(FStringOutputDevice&& Other)
+	{
+		(FString&)*this       = (FString&&)Other;
+		(FOutputDevice&)*this = (FOutputDevice&&)Other;
+		return *this;
 	}
 
 	FORCEINLINE FStringOutputDevice& operator=(const FStringOutputDevice& Other)
@@ -1778,23 +1767,6 @@ public:
 		(FOutputDevice&)*this = (const FOutputDevice&)Other;
 		return *this;
 	}
-
-	#if PLATFORM_COMPILER_HAS_RVALUE_REFERENCES
-
-		FORCEINLINE FStringOutputDevice(FStringOutputDevice&& Other)
-			: FString      ((FString&&)Other)
-			, FOutputDevice((FOutputDevice&&)Other)
-		{
-		}
-
-		FORCEINLINE FStringOutputDevice& operator=(FStringOutputDevice&& Other)
-		{
-			(FString&)*this       = (FString&&)Other;
-			(FOutputDevice&)*this = (FOutputDevice&&)Other;
-			return *this;
-		}
-
-	#endif
 
 #endif
 	// Make += operator virtual.
@@ -1831,7 +1803,7 @@ public:
 			}
 			LineCount++;
 			InData += TermLength;
-		} while (InData);
+		}
 
 		if (bAutoEmitLineTerminator)
 		{
@@ -1889,8 +1861,6 @@ public:
 
 #endif
 
-#if PLATFORM_COMPILER_HAS_RVALUE_REFERENCES
-
 	FORCEINLINE FStringOutputDeviceCountLines(FStringOutputDeviceCountLines&& Other)
 		: Super    ((Super&&)Other)
 		, LineCount(Other.LineCount)
@@ -1909,6 +1879,4 @@ public:
 		}
 		return *this;
 	}
-
-#endif
 };

@@ -17,6 +17,9 @@ class UUserWidget;
 class FWidgetBlueprintEditor : public FBlueprintEditor
 {
 public:
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnHoveredWidgetSet, const FWidgetReference&)
+	DECLARE_MULTICAST_DELEGATE(FOnHoveredWidgetCleared);
+
 	DECLARE_MULTICAST_DELEGATE(FOnSelectedWidgetsChanging)
 	DECLARE_MULTICAST_DELEGATE(FOnSelectedWidgetsChanged)
 
@@ -111,15 +114,20 @@ public:
 
 	void ClearHoveredWidget();
 
-	FWidgetReference GetHoveredWidget() const;
-
-	float GetHoveredWidgetTime() const;
+	/** @return The widget that is currently being hovered over (either in the designer or hierarchy) */
+	const FWidgetReference& GetHoveredWidget() const;
 
 	void AddPostDesignerLayoutAction(TFunction<void()> Action);
 
 	TArray< TFunction<void()> >& GetQueuedDesignerActions();
 
 public:
+	/** Fires whenever a new widget is being hovered over */
+	FOnHoveredWidgetSet OnHoveredWidgetSet;
+
+	/** Fires when there is no longer any widget being hovered over */
+	FOnHoveredWidgetCleared OnHoveredWidgetCleared;	
+
 	/** Fires whenever the selected set of widgets changing */
 	FOnSelectedWidgetsChanged OnSelectedWidgetsChanging;
 
@@ -135,7 +143,7 @@ public:
 protected:
 	// Begin FBlueprintEditor
 	virtual void RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated = false) override;
-	virtual FGraphAppearanceInfo GetGraphAppearance() const override;
+	virtual FGraphAppearanceInfo GetGraphAppearance(class UEdGraph* InGraph) const override;
 	// End FBlueprintEditor
 
 private:
@@ -174,6 +182,9 @@ private:
 	/** Overlay used to display UI on top of sequencer */
 	TWeakPtr<SOverlay> SequencerOverlay;
 
+	/** A text block which is displayed in the overlay when no animation is selected. */
+	TWeakPtr<STextBlock> NoAnimationTextBlock;
+
 	/** Manager for handling bindings to sequence animations */
 	TSharedPtr<class FUMGSequencerObjectBindingManager> SequencerObjectBindingManager;
 
@@ -201,10 +212,7 @@ private:
 	/** The widget references out in the ether that may need to be updated after being issued. */
 	TArray< TWeakPtr<FWidgetHandle> > WidgetHandlePool;
 
-	/** The wall clock time the user has been hovering over a single widget */
-	float HoverTime;
-
-	/** The current widget being hovered */
+	/** The widget currently being hovered over */
 	FWidgetReference HoveredWidget;
 
 	/** The preview becomes invalid and needs to be rebuilt on the next tick. */

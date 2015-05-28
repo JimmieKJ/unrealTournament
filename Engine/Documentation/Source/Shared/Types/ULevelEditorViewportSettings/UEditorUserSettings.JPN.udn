@@ -1,4 +1,5 @@
-﻿Title:
+﻿INTSourceChangelist:2308810
+Title:
 Crumbs:
 Description:
 Availability:
@@ -17,6 +18,10 @@ Availability:
 ![](selection_outline.png)
 
 ![](selection_highlight.png)
+[VAR:ToolTipFullLink]
+Engine/UI/EditorSettings#viewportlookandfeel
+[/VAR]
+
 [/EXCERPT:bUseSelectionOutline]
 
 [EXCERPT:SelectionHighlightIntensity]
@@ -25,6 +30,10 @@ Availability:
 ![](selection_highlight.png)
 
 ![](selection_highlight_full.png)
+[VAR:ToolTipFullLink]
+Engine/UI/EditorSettings#viewportlookandfeel
+[/VAR]
+
 [/EXCERPT:SelectionHighlightIntensity]
 
 [EXCERPT:bAllowTranslateRotateZWidget]

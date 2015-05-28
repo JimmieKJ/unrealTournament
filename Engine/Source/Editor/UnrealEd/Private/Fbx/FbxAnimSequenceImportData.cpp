@@ -16,7 +16,7 @@ UFbxAnimSequenceImportData* UFbxAnimSequenceImportData::GetImportDataForAnimSequ
 	UFbxAnimSequenceImportData* ImportData = Cast<UFbxAnimSequenceImportData>(AnimSequence->AssetImportData);
 	if ( !ImportData )
 	{
-		ImportData = ConstructObject<UFbxAnimSequenceImportData>(UFbxAnimSequenceImportData::StaticClass(), AnimSequence, NAME_None, RF_NoFlags, TemplateForCreation);
+		ImportData = NewObject<UFbxAnimSequenceImportData>(AnimSequence, NAME_None, RF_NoFlags, TemplateForCreation);
 
 		// Try to preserve the source file path if possible
 		if ( AnimSequence->AssetImportData != NULL )

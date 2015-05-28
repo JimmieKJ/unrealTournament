@@ -43,6 +43,7 @@ public class GraphEditor : ModuleRules
                 "EditorStyle",
 				"UnrealEd",
 				"AssetRegistry",
+				"ClassViewer",
 				"KismetWidgets",
 				"BlueprintGraph",
 				"AnimGraph",

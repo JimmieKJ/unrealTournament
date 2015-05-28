@@ -5,7 +5,6 @@
 #include "GraphEditorActions.h"
 #include "ScopedTransaction.h"
 #include "CompilerResultsLog.h"
-#include "K2ActionMenuBuilder.h" // for FK2ActionMenuBuilder::AddNewNodeAction()
 #include "AnimGraphNode_BlendListByEnum.h"
 #include "AnimationGraphSchema.h"
 #include "BlueprintActionDatabaseRegistrar.h"
@@ -41,12 +40,12 @@ FText UAnimGraphNode_BlendListByEnum::GetNodeTitle(ENodeTitleType::Type TitleTyp
 	// @TODO: don't know enough about this node type to comfortably assert that
 	//        the BoundEnum won't change after the node has spawned... until
 	//        then, we'll leave this optimization off
-	else //if (CachedNodeTitle.IsOutOfDate())
+	else //if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("EnumName"), FText::FromString(BoundEnum->GetName()));
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(LOCTEXT("AnimGraphNode_BlendListByEnum_Title", "Blend Poses ({EnumName})"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(LOCTEXT("AnimGraphNode_BlendListByEnum_Title", "Blend Poses ({EnumName})"), Args), this);
 	}
 	return CachedNodeTitle;
 }
@@ -55,27 +54,6 @@ void UAnimGraphNode_BlendListByEnum::PostPlacedNewNode()
 {
 	// Make sure we start out with a pin
 	Node.AddPose();
-}
-
-void UAnimGraphNode_BlendListByEnum::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	const UAnimationGraphSchema* Schema = GetDefault<UAnimationGraphSchema>();
-
-	// add all blendlist enum entries
-	for (TObjectIterator<UEnum> EnumIt; EnumIt; ++EnumIt)
-	{
-		UEnum* CurrentEnum = *EnumIt;
-
-		const bool bIsBlueprintType = UEdGraphSchema_K2::IsAllowableBlueprintVariableType(CurrentEnum);
-		if (bIsBlueprintType)
-		{
-			UAnimGraphNode_BlendListByEnum* EnumTemplate = NewObject<UAnimGraphNode_BlendListByEnum>();
-			EnumTemplate->BoundEnum = CurrentEnum;
-
-			TSharedPtr<FEdGraphSchemaAction_K2NewNode> Action = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, EnumTemplate->GetNodeCategory(), EnumTemplate->GetNodeTitle(ENodeTitleType::ListView), EnumTemplate->GetTooltipText().ToString(), 0, EnumTemplate->GetKeywords());
-			Action->NodeTemplate = EnumTemplate;
-		}
-	}
 }
 
 void UAnimGraphNode_BlendListByEnum::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const

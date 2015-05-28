@@ -20,7 +20,6 @@
 #include "GameMapsSettingsCustomization.h"
 #include "LevelEditorPlaySettingsCustomization.h"
 #include "ProjectPackagingSettingsCustomization.h"
-#include "ISourceControlModule.h"
 #include "Editor/StatsViewer/Public/StatsViewerModule.h"
 #include "SnappingUtils.h"
 #include "PackageAutoSaver.h"
@@ -30,6 +29,13 @@
 #include "Editor/EditorLiveStreaming/Public/IEditorLiveStreaming.h"
 #include "SourceCodeNavigation.h"
 #include "AutoReimport/AutoReimportManager.h"
+#include "NotificationManager.h"
+#include "SNotificationList.h"
+#include "UObject/UObjectThreadContext.h"
+#include "Components/BillboardComponent.h"
+#include "Components/ArrowComponent.h"
+#include "Engine/Selection.h"
+#include "EngineUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdEngine, Log, All);
 
@@ -45,7 +51,7 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 	PackageAutoSaver->LoadRestoreFile();
 
 #if !UE_BUILD_DEBUG
-	if( !GEditorGameAgnosticIni.IsEmpty() )
+	if( !GEditorSettingsIni.IsEmpty() )
 	{
 		// We need the game agnostic ini for this code
 		PerformanceMonitor = new FPerformanceMonitor;
@@ -102,8 +108,10 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 
 	if (FPaths::IsProjectFilePathSet())
 	{
-		AutoReimportManager = ConstructObject<UAutoReimportManager>(UAutoReimportManager::StaticClass());
+		AutoReimportManager = NewObject<UAutoReimportManager>();
 		AutoReimportManager->Initialize();
+		
+		GetMutableDefault<UEditorLoadingSavingSettings>()->CheckSourceControlCompatability();
 	}
 
 	// register details panel customizations
@@ -118,11 +126,15 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 	}
 
 	UEditorExperimentalSettings const* ExperimentalSettings =  GetDefault<UEditorExperimentalSettings>();
-	ECookInitializationFlags BaseCookingFlags = ECookInitializationFlags::AutoTick | ECookInitializationFlags::AsyncSave;
+	ECookInitializationFlags BaseCookingFlags = ECookInitializationFlags::AutoTick | ECookInitializationFlags::AsyncSave | ECookInitializationFlags::Compressed;
 	BaseCookingFlags |= ExperimentalSettings->bIterativeCookingForLaunchOn ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
-	if ( ExperimentalSettings->bCookOnTheSide )
+
+	bool bEnableCookOnTheSide = false;
+	GConfig->GetBool(TEXT("/Script/UnrealEd.CookerSettings"), TEXT("bEnableCookOnTheSide"), bEnableCookOnTheSide, GEngineIni);
+
+	if ( bEnableCookOnTheSide )
 	{
-		CookServer = ConstructObject<UCookOnTheFlyServer>( UCookOnTheFlyServer::StaticClass() );
+		CookServer = NewObject<UCookOnTheFlyServer>();
 		CookServer->Initialize( ECookMode::CookOnTheFlyFromTheEditor, BaseCookingFlags );
 		CookServer->StartNetworkFileServer( false );
 
@@ -132,7 +144,7 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 	}
 	else if ( !ExperimentalSettings->bDisableCookInEditor)
 	{
-		CookServer = ConstructObject<UCookOnTheFlyServer>( UCookOnTheFlyServer::StaticClass() );
+		CookServer = NewObject<UCookOnTheFlyServer>();
 		CookServer->Initialize( ECookMode::CookByTheBookFromTheEditor, BaseCookingFlags );
 
 		FCoreUObjectDelegates::OnObjectPropertyChanged.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectPropertyChanged);
@@ -147,12 +159,18 @@ bool CanCookForPlatformInThisProcess( const FString& PlatformName )
 	// hack remove this hack when we properly support changing the mobileHDR setting 
 	// check if our mobile hdr setting in memory is different from the one which is saved in the config file
 	
+	
+	FConfigFile PlatformEngineIni;
+	GConfig->LoadLocalIniFile(PlatformEngineIni, TEXT("Engine"), true, *PlatformName );
+
+	FString IniValueString;
 	bool ConfigSetting = false;
-	if ( !GConfig->GetBool( TEXT("/Script/Engine.RendererSettings"), TEXT("r.MobileHDR"), ConfigSetting, GEngineIni) )
+	if ( PlatformEngineIni.GetString( TEXT("/Script/Engine.RendererSettings"), TEXT("r.MobileHDR"), IniValueString ) == false )
 	{
-		// if we can't get the config setting then don't risk it
-		return false;
+		// must always match the RSetting setting because we don't have a config setting
+		return true; 
 	}
+	ConfigSetting = IniValueString.ToBool();
 
 	// this was stolen from void IsMobileHDR()
 	static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
@@ -160,6 +178,7 @@ bool CanCookForPlatformInThisProcess( const FString& PlatformName )
 
 	if ( CurrentRSetting != ConfigSetting )
 	{
+		UE_LOG(LogUnrealEdEngine, Warning, TEXT("Unable to use cook in editor because r.MobileHDR from Engine ini doesn't match console value r.MobileHDR"));
 		return false;
 	}
 	////////////////////////////////////////
@@ -422,7 +441,7 @@ void UUnrealEdEngine::OnPackageDirtyStateUpdated( UPackage* Pkg)
 
 	// Alert the user if they have modified a package that won't be able to be saved because
 	// it's already been saved with an engine version that is newer than the current one.
-	if ( !GIsRoutingPostLoad && Package->IsDirty() && !PackagesCheckedForEngineVersion.Contains( PackageName ) )
+	if (!FUObjectThreadContext::Get().IsRoutingPostLoad && Package->IsDirty() && !PackagesCheckedForEngineVersion.Contains(PackageName))
 	{
 		EWriteDisallowedWarningState WarningStateToSet = WDWS_WarningUnnecessary;
 				
@@ -436,7 +455,7 @@ void UUnrealEdEngine::OnPackageDirtyStateUpdated( UPackage* Pkg)
 				FPackageFileSummary Summary;
 				*PackageReader << Summary;
 
-				if ( Summary.GetFileVersionUE4() > GPackageFileUE4Version || !GEngineVersion.IsCompatibleWith(Summary.EngineVersion) )
+				if ( Summary.GetFileVersionUE4() > GPackageFileUE4Version || !GEngineVersion.IsCompatibleWith(Summary.CompatibleWithEngineVersion) )
 				{
 					WarningStateToSet = WDWS_PendingWarn;
 					bNeedWarningForPkgEngineVer = true;
@@ -449,7 +468,7 @@ void UUnrealEdEngine::OnPackageDirtyStateUpdated( UPackage* Pkg)
 
 	// Alert the user if they have modified a package that they do not have sufficient permission to write to disk.
 	// This can be due to the content being in the "Program Files" folder and the user does not have admin privileges.
-	if ( !GIsRoutingPostLoad && Package->IsDirty() && !PackagesCheckedForWritePermission.Contains( PackageName ) )
+	if (!FUObjectThreadContext::Get().IsRoutingPostLoad && Package->IsDirty() && !PackagesCheckedForWritePermission.Contains(PackageName))
 	{
 		EWriteDisallowedWarningState WarningStateToSet = GetWarningStateForWritePermission(PackageName);
 
@@ -467,35 +486,112 @@ void UUnrealEdEngine::OnPackageDirtyStateUpdated( UPackage* Pkg)
 		const uint8* PromptState = PackageToNotifyState.Find( Package );
 		const bool bAlreadyAsked = PromptState != NULL;
 
-		// Get the source control state of the package
-		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
-		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Package, EStateCacheUsage::Use);
-
 		// During an autosave, packages are saved in the autosave directory which switches off their dirty flags.
 		// To preserve the pre-autosave state, any saved package is then remarked as dirty because it wasn't saved in the normal location where it would be picked up by source control.
-		// Any callback that happens during an autosave is bogus since a package wasnt  marked dirty due to a user modification.
+		// Any callback that happens during an autosave is bogus since a package wasn't marked dirty due to a user modification.
 		const bool bIsAutoSaving = PackageAutoSaver.Get() && PackageAutoSaver->IsAutoSaving();
+
+		const UEditorLoadingSavingSettings* Settings = GetDefault<UEditorLoadingSavingSettings>();
+
 		if( !bIsAutoSaving && 
 			!GIsEditorLoadingPackage && // Don't ask if the package was modified as a result of a load
 			!bAlreadyAsked && // Don't ask if we already asked once!
-			GetDefault<UEditorLoadingSavingSettings>()->bPromptForCheckoutOnAssetModification && // Only prompt if the user has specified to be prompted on modification
-			SourceControlState.IsValid() && 
-			(SourceControlState->CanCheckout() || !SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther()) )
+			(Settings->bPromptForCheckoutOnAssetModification || Settings->bAutomaticallyCheckoutOnAssetModification) )
 		{
-			// Allow packages that are not checked out to pass through.
-			// Allow packages that are not current or checked out by others pass through.  
-			// The user wont be able to checkout these packages but the checkout dialog will show up with a special icon 
-			// to let the user know they wont be able to checkout the package they are modifying.
+			// Force source control state to be updated
+			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 
-			PackageToNotifyState.Add( Package, NS_PendingPrompt );
-			// We need to prompt since a new package was added
-			bNeedToPromptForCheckout = true;
+			TArray<FString> Files;
+			Files.Add(SourceControlHelpers::PackageFilename(Package));
+			SourceControlProvider.Execute(ISourceControlOperation::Create<FUpdateStatus>(), SourceControlHelpers::AbsoluteFilenames(Files), EConcurrency::Asynchronous, FSourceControlOperationComplete::CreateUObject(this, &UUnrealEdEngine::OnSourceControlStateUpdated, TWeakObjectPtr<UPackage>(Package)));
 		}
 	}
 	else
 	{
 		// This package was saved, the user should be prompted again if they checked in the package
 		PackageToNotifyState.Remove( Package );
+	}
+}
+
+
+void UUnrealEdEngine::OnSourceControlStateUpdated(const FSourceControlOperationRef& SourceControlOp, ECommandResult::Type ResultType, TWeakObjectPtr<UPackage> Package)
+{
+	if (ResultType == ECommandResult::Succeeded && Package.IsValid())
+	{
+		// Get the source control state of the package
+		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Package.Get(), EStateCacheUsage::Use);
+
+		if (SourceControlState.IsValid())
+		{
+			const UEditorLoadingSavingSettings* Settings = GetDefault<UEditorLoadingSavingSettings>();
+			check(Settings->bPromptForCheckoutOnAssetModification || Settings->bAutomaticallyCheckoutOnAssetModification);
+
+			if (Settings->bAutomaticallyCheckoutOnAssetModification && SourceControlState->CanCheckout())
+			{
+				// Automatically check out asset
+				TArray<FString> Files;
+				Files.Add(SourceControlHelpers::PackageFilename(Package.Get()));
+				SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), SourceControlHelpers::AbsoluteFilenames(Files), EConcurrency::Asynchronous, FSourceControlOperationComplete::CreateUObject(this, &UUnrealEdEngine::OnPackageCheckedOut, TWeakObjectPtr<UPackage>(Package)));
+			}
+			else
+			{
+				if (SourceControlState->CanCheckout() || !SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther())
+				{
+					// To get here, either "prompt for checkout on asset modification" is set, or "automatically checkout on asset modification"
+					// is set, but it failed.
+
+			// Allow packages that are not checked out to pass through.
+			// Allow packages that are not current or checked out by others pass through.  
+			// The user wont be able to checkout these packages but the checkout dialog will show up with a special icon 
+			// to let the user know they wont be able to checkout the package they are modifying.
+
+					PackageToNotifyState.Add(Package, SourceControlState->CanCheckout() ? NS_PendingPrompt : NS_PendingWarning);
+			// We need to prompt since a new package was added
+			bNeedToPromptForCheckout = true;
+		}
+	}
+		}
+	}
+}
+
+
+void UUnrealEdEngine::OnPackageCheckedOut(const FSourceControlOperationRef& SourceControlOp, ECommandResult::Type ResultType, TWeakObjectPtr<UPackage> Package)
+{
+	if (Package.IsValid())
+	{
+		// Get the source control state of the package
+		ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Package.Get(), EStateCacheUsage::Use);
+
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("Package"), FText::FromString(Package->GetName()));
+
+		if (ResultType == ECommandResult::Succeeded)
+		{
+			if (SourceControlState.IsValid() && SourceControlState->IsCheckedOut())
+	{
+				FNotificationInfo Notification(FText::Format(NSLOCTEXT("SourceControl", "AutoCheckOutNotification", "Package '{Package}' automatically checked out."), Arguments));
+				Notification.bFireAndForget = true;
+				Notification.ExpireDuration = 4.0f;
+				Notification.bUseThrobber = true;
+
+				FSlateNotificationManager::Get().AddNotification(Notification);
+
+				return;
+			}
+		}
+
+		FNotificationInfo ErrorNotification(FText::Format(NSLOCTEXT("SourceControl", "AutoCheckOutFailedNotification", "Unable to automatically check out Package '{Package}'."), Arguments));
+		ErrorNotification.bFireAndForget = true;
+		ErrorNotification.ExpireDuration = 4.0f;
+		ErrorNotification.bUseThrobber = true;
+
+		FSlateNotificationManager::Get().AddNotification(ErrorNotification);
+
+		// Automatic checkout failed - pop up the notification for manual checkout
+		PackageToNotifyState.Add(Package, SourceControlState->CanCheckout() ? NS_PendingPrompt : NS_PendingWarning);
+		bNeedToPromptForCheckout = true;
 	}
 }
 
@@ -692,7 +788,7 @@ void UUnrealEdOptions::PostInitProperties()
 	Super::PostInitProperties();
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		EditorKeyBindings = ConstructObject<UUnrealEdKeyBindings>(UUnrealEdKeyBindings::StaticClass(), this, FName("EditorKeyBindingsInst"));
+		EditorKeyBindings = NewObject<UUnrealEdKeyBindings>(this, FName("EditorKeyBindingsInst"));
 	}
 }
 
@@ -701,7 +797,7 @@ UUnrealEdOptions* UUnrealEdEngine::GetUnrealEdOptions()
 {
 	if(EditorOptionsInst == NULL)
 	{
-		EditorOptionsInst = ConstructObject<UUnrealEdOptions>(UUnrealEdOptions::StaticClass());
+		EditorOptionsInst = NewObject<UUnrealEdOptions>();
 	}
 
 	return EditorOptionsInst;
@@ -728,7 +824,7 @@ void UUnrealEdEngine::CloseEditor()
 
 bool UUnrealEdEngine::AllowSelectTranslucent() const
 {
-	return GEditor->GetEditorUserSettings().bAllowSelectTranslucent;
+	return GetDefault<UEditorPerProjectUserSettings>()->bAllowSelectTranslucent;
 }
 
 
@@ -737,6 +833,10 @@ bool UUnrealEdEngine::OnlyLoadEditorVisibleLevelsInPIE() const
 	return GetDefault<ULevelEditorPlaySettings>()->bOnlyLoadVisibleLevelsInPIE;
 }
 
+bool UUnrealEdEngine::PreferToStreamLevelsInPIE() const
+{
+	return GetDefault<ULevelEditorPlaySettings>()->bPreferToStreamLevelsInPIE;
+}
 
 void UUnrealEdEngine::RedrawLevelEditingViewports(bool bInvalidateHitProxies)
 {

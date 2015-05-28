@@ -23,7 +23,7 @@ public:
 	USlateBrushAsset* Image_DEPRECATED;
 
 	/** Image to draw */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FSlateBrush Brush;
 
 	/** A bindable delegate for the Image. */
@@ -31,7 +31,7 @@ public:
 	FGetSlateBrush BrushDelegate;
 
 	/** Color and opacity */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FLinearColor ColorAndOpacity;
 
 	/** A bindable delegate for the ColorAndOpacity. */
@@ -40,7 +40,7 @@ public:
 
 public:
 
-	UPROPERTY(EditDefaultsOnly, Category=Events)
+	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))
 	FOnPointerEvent OnMouseButtonDownEvent;
 
 public:
@@ -52,6 +52,10 @@ public:
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
 	void SetOpacity(float InOpacity);
+
+	/**  */
+	UFUNCTION(BlueprintCallable, Category="Appearance")
+	void SetBrush(const FSlateBrush& InBrush);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")

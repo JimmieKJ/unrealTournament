@@ -498,7 +498,7 @@ void SThemeColorBlocksBar::OnArrangeChildren( const FGeometry& AllottedGeometry,
 *
 * @return The desired size.
 */
-FVector2D SThemeColorBlocksBar::ComputeDesiredSize() const
+FVector2D SThemeColorBlocksBar::ComputeDesiredSize( float ) const
 {
 	return FVector2D(64, 16);
 }
@@ -739,9 +739,9 @@ void SColorThemeBar::Construct(const FArguments& InArgs)
 	];
 }
 
-FString SColorThemeBar::GetThemeName() const
+FText SColorThemeBar::GetThemeName() const
 {
-	return ColorTheme.Pin()->Name;
+	return FText::FromString(ColorTheme.Pin()->Name);
 }
 
 FReply SColorThemeBar::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
@@ -1108,13 +1108,13 @@ TSharedRef<ITableRow> SColorThemesViewer::OnGenerateColorThemeBars(TSharedPtr<FC
 
 void SColorThemesViewer::LoadColorThemesFromIni()
 {
-	if (FPaths::FileExists(GEditorUserSettingsIni))
+	if (FPaths::FileExists(GEditorPerProjectIni))
 	{
 		bool bThemesRemaining = true;
 		int32 ThemeID = 0;
 		while (bThemesRemaining)
 		{
-			const FString ThemeName = GConfig->GetStr(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%i"), ThemeID), GEditorUserSettingsIni);
+			const FString ThemeName = GConfig->GetStr(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%i"), ThemeID), GEditorPerProjectIni);
 			if (!ThemeName.IsEmpty())
 			{
 				TSharedPtr<FColorTheme> ColorTheme = GetColorTheme( ThemeName );
@@ -1123,7 +1123,7 @@ void SColorThemesViewer::LoadColorThemesFromIni()
 				int32 ColorID = 0;
 				while (bColorsRemaining)
 				{
-					const FString ColorString = GConfig->GetStr(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%iColor%i"), ThemeID, ColorID), GEditorUserSettingsIni);
+					const FString ColorString = GConfig->GetStr(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%iColor%i"), ThemeID, ColorID), GEditorPerProjectIni);
 					if (!ColorString.IsEmpty())
 					{
 						// Add the color if it hasn't already
@@ -1158,19 +1158,19 @@ void SColorThemesViewer::LoadColorThemesFromIni()
 
 void SColorThemesViewer::SaveColorThemesToIni()
 {
-	if (FPaths::FileExists(GEditorUserSettingsIni))
+	if (FPaths::FileExists(GEditorPerProjectIni))
 	{
-		GConfig->EmptySection(TEXT("ColorThemes"), GEditorUserSettingsIni);
+		GConfig->EmptySection(TEXT("ColorThemes"), GEditorPerProjectIni);
 		for (int32 ThemeIndex = 0; ThemeIndex < ColorThemes.Num(); ++ThemeIndex)
 		{
 			const TSharedPtr<FColorTheme>& Theme = ColorThemes[ThemeIndex];
-			GConfig->SetString(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%i"), ThemeIndex), *Theme->Name, GEditorUserSettingsIni);
+			GConfig->SetString(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%i"), ThemeIndex), *Theme->Name, GEditorPerProjectIni);
 
 			const TArray< TSharedPtr<FLinearColor> >& Colors = Theme->GetColors();
 			for (int32 ColorIndex = 0; ColorIndex < Colors.Num(); ++ColorIndex)
 			{
 				const TSharedPtr<FLinearColor>& Color = Colors[ColorIndex];
-				GConfig->SetString(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%iColor%i"), ThemeIndex, ColorIndex), *Color->ToString(), GEditorUserSettingsIni);
+				GConfig->SetString(TEXT("ColorThemes"), *FString::Printf(TEXT("Theme%iColor%i"), ThemeIndex, ColorIndex), *Color->ToString(), GEditorPerProjectIni);
 			}
 		}
 	}

@@ -13,7 +13,7 @@
 /**
  * Implements the Level Editor's loading and saving settings.
  */
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class UNREALED_API UContentBrowserSettings
 	: public UObject
 {
@@ -44,7 +44,7 @@ public:
 	/** Gets whether we are allowed to display the engine folder or not, optional flag ignoring the override */
 	bool GetDisplayEngineFolder( bool bExcludeOverride = false ) const
 	{ 
-		return ( ( bExcludeOverride ? false : OverrideDisplayEngineFolder ) | DisplayEngineFolder );
+		return ( ( bExcludeOverride ? false : OverrideDisplayEngineFolder ) || DisplayEngineFolder );
 	}
 
 	/** Sets whether we are allowed to display the developers folder or not, optional flag for setting override instead */
@@ -56,7 +56,7 @@ public:
 	/** Gets whether we are allowed to display the developers folder or not, optional flag ignoring the override */
 	bool GetDisplayDevelopersFolder( bool bExcludeOverride = false ) const
 	{ 
-		return ( ( bExcludeOverride ? false : OverrideDisplayDevelopersFolder ) | DisplayDevelopersFolder );
+		return ( ( bExcludeOverride ? false : OverrideDisplayDevelopersFolder ) || DisplayDevelopersFolder );
 	}
 
 	/** Sets whether we are allowed to display the plugin folders or not, optional flag for setting override instead */
@@ -68,7 +68,7 @@ public:
 	/** Gets whether we are allowed to display the plugin folders or not, optional flag ignoring the override */
 	bool GetDisplayPluginFolders( bool bExcludeOverride = false ) const
 	{ 
-		return ( ( bExcludeOverride ? false : OverrideDisplayPluginFolders ) | DisplayPluginFolders );
+		return ( ( bExcludeOverride ? false : OverrideDisplayPluginFolders ) || DisplayPluginFolders );
 	}
 
 	/** Sets whether we are allowed to display collection folders or not */

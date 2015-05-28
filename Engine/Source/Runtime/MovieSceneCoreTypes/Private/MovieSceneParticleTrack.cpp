@@ -69,7 +69,7 @@ void UMovieSceneParticleTrack::AddNewParticleSystem(float KeyTime, bool bTrigger
 	// @todo Instead of a 0.1 second event, this should be 0 seconds, requires handling 0 size sections
 	float Duration = KeyType == EParticleKey::Trigger ? 0.1f : 1.f;
 
-	UMovieSceneParticleSection* NewSection = ConstructObject<UMovieSceneParticleSection>( UMovieSceneParticleSection::StaticClass(), this );
+	UMovieSceneParticleSection* NewSection = NewObject<UMovieSceneParticleSection>(this);
 	NewSection->InitialPlacement(ParticleSections, KeyTime, KeyTime + Duration, SupportsMultipleRows());
 	NewSection->SetKeyType(KeyType);
 

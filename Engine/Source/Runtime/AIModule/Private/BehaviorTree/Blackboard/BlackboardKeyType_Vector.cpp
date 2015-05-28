@@ -11,46 +11,55 @@ UBlackboardKeyType_Vector::UBlackboardKeyType_Vector(const FObjectInitializer& O
 	SupportedOp = EBlackboardKeyOperation::Basic;
 }
 
-FVector UBlackboardKeyType_Vector::GetValue(const uint8* RawData)
+FVector UBlackboardKeyType_Vector::GetValue(const UBlackboardKeyType_Vector* KeyOb, const uint8* RawData)
 {
 	return GetValueFromMemory<FVector>(RawData);
 }
 
-bool UBlackboardKeyType_Vector::SetValue(uint8* RawData, const FVector& Value)
+bool UBlackboardKeyType_Vector::SetValue(UBlackboardKeyType_Vector* KeyOb, uint8* RawData, const FVector& Value)
 {
 	return SetValueInMemory<FVector>(RawData, Value);
 }
 
-bool UBlackboardKeyType_Vector::Clear(uint8* RawData) const 
+EBlackboardCompare::Type UBlackboardKeyType_Vector::CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+	const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const
 {
-	return SetValueInMemory<FVector>(RawData, FAISystem::InvalidLocation);
+	const FVector MyValue = GetValue(this, MemoryBlock);
+	const FVector OtherValue = GetValue((UBlackboardKeyType_Vector*)OtherKeyOb, OtherMemoryBlock);
+
+	return MyValue.Equals(OtherValue) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
 }
 
-FString UBlackboardKeyType_Vector::DescribeValue(const uint8* RawData) const
+void UBlackboardKeyType_Vector::Clear(UBlackboardComponent& OwnerComp, uint8* RawData)
 {
-	const FVector Location = GetValue(RawData);
+	SetValueInMemory<FVector>(RawData, FAISystem::InvalidLocation);
+}
+
+bool UBlackboardKeyType_Vector::IsEmpty(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
+{
+	const FVector Location = GetValue(this, RawData);
+	return !FAISystem::IsValidLocation(Location);
+}
+
+FString UBlackboardKeyType_Vector::DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
+{
+	const FVector Location = GetValue(this, RawData);
 	return FAISystem::IsValidLocation(Location) ? Location.ToString() : TEXT("(invalid)");
 }
 
-bool UBlackboardKeyType_Vector::GetLocation(const uint8* RawData, FVector& Location) const
+bool UBlackboardKeyType_Vector::GetLocation(const UBlackboardComponent& OwnerComp, const uint8* RawData, FVector& Location) const
 {
-	Location = GetValue(RawData);
+	Location = GetValue(this, RawData);
 	return FAISystem::IsValidLocation(Location);
 }
 
-void UBlackboardKeyType_Vector::Initialize(uint8* RawData) const
+void UBlackboardKeyType_Vector::InitializeMemory(UBlackboardComponent& OwnerComp, uint8* RawData)
 {
-	SetValue(RawData, FAISystem::InvalidLocation);
+	SetValue(this, RawData, FAISystem::InvalidLocation);
 }
 
-EBlackboardCompare::Type UBlackboardKeyType_Vector::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
+bool UBlackboardKeyType_Vector::TestBasicOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
 {
-	return GetValueFromMemory<FVector>(MemoryBlockA).Equals(GetValueFromMemory<FVector>(MemoryBlockB))
-		? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
-}
-
-bool UBlackboardKeyType_Vector::TestBasicOperation(const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
-{
-	const FVector Location = GetValue(MemoryBlock);
+	const FVector Location = GetValue(this, MemoryBlock);
 	return (Op == EBasicKeyOperation::Set) ? FAISystem::IsValidLocation(Location) : !FAISystem::IsValidLocation(Location);
 }

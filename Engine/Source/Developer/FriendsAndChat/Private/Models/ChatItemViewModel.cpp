@@ -9,70 +9,156 @@ class FChatItemViewModelImpl
 {
 public:
 
-	virtual FText GetMessage() override
+	virtual FText GetMessage() const override
 	{
-		return ChatMessage->Message;
+		return ComposedMessage;
 	}
 
 	virtual const EChatMessageType::Type GetMessageType() const override
 	{
-		return ChatMessage->MessageType;
+		return ChatMessages[0]->MessageType;
 	}
 
-	virtual FText GetMessageTypeText() override
+	virtual FText GetMessageTimeText() const override
 	{
-		return EChatMessageType::ToText(ChatMessage->MessageType);
+		return MessageTimeAsText;
 	}
 
-	virtual const FText GetFriendNameDisplayText() const override
+	virtual FDateTime GetMessageTime() const override
 	{
-		FFormatNamedArguments Args;
-		Args.Add(TEXT("Username"), ChatMessage->FromName);
-		const FText DisplayName = FText::Format(NSLOCTEXT("FChatItemViewModel", "DisplayName", "{Username}: "), Args);
-		return DisplayName;
+		return ChatMessages.Last()->MessageTime;
 	}
 
-	virtual const FText GetFriendName() const override
+	virtual void AddMessage(const TSharedRef<FFriendChatMessage>& ChatMessage) override
 	{
-		return ChatMessage->FromName;
+		ChatMessages.Add(ChatMessage);
+
+		//Display the time of the latest message only
+		FTicker::GetCoreTicker().RemoveTicker(TickerHandle);
+
+		FTextBuilder MessageBuilder;
+		for (int32 Index = 0; Index < ChatMessages.Num(); Index++)
+		{
+			if (Index > 0)
+			{
+				static FString MessageBreak(TEXT("<MessageBreak></>"));
+				MessageBuilder.AppendLine(MessageBreak);
+			}
+
+			MessageBuilder.AppendLine(ChatMessages[Index]->Message);
+		}
+
+		ComposedMessage = MessageBuilder.ToText();
+
+		if (UpdateTimeStamp(60)) //this will broadcast a changed event
+		{
+			TickerHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateSP(this, &FChatItemViewModelImpl::UpdateTimeStamp), 60);
+		}
+	}
+
+	virtual FText GetSenderName() const override
+	{
+		return ChatMessages[0]->FromName;
+	}
+
+	virtual FText GetRecipientName() const override
+	{
+		return ChatMessages[0]->ToName;
 	}
 
 	virtual const TSharedPtr<FUniqueNetId> GetSenderID() const override
 	{
-		return ChatMessage->SenderId;
+		return ChatMessages[0]->SenderId;
 	}
 
-	virtual FText GetMessageTime() override
+	virtual const TSharedPtr<FUniqueNetId> GetRecipientID() const override
 	{
-		return ChatMessage->MessageTimeText;
-	}
-
-	virtual const FDateTime GetExpireTime() override
-	{
-		return ChatMessage->ExpireTime;
+		return ChatMessages[0]->RecipientId;
 	}
 
 	const bool IsFromSelf() const override
 	{
-		return ChatMessage->bIsFromSelf;
+		return ChatMessages[0]->bIsFromSelf;
 	}
 
-private:
+	DECLARE_DERIVED_EVENT(FChatItemViewModelImpl, FChatItemViewModel::FChangedEvent, FChangedEvent)
+	virtual FChatItemViewModel::FChangedEvent& OnChanged() override { return ChangedEvent; }
 
-	FChatItemViewModelImpl(TSharedRef<FFriendChatMessage> ChatMessage)
-	: ChatMessage(ChatMessage)
+	virtual ~FChatItemViewModelImpl()
 	{
+		FTicker::GetCoreTicker().RemoveTicker(TickerHandle);
 	}
 
 private:
-	TSharedRef<FFriendChatMessage> ChatMessage;
+
+	FChatItemViewModelImpl()
+	{}
+
+	bool UpdateTimeStamp(float Delay)
+	{
+		bool ContinueTicking = true;
+
+		TSharedRef<FFriendChatMessage> Message = ChatMessages.Last();
+		FDateTime Now = FDateTime::UtcNow();
+
+		if ((Now - Message->MessageTime).GetDuration() <= FTimespan::FromMinutes(1.0))
+		{
+			static FText NowTimeStamp = NSLOCTEXT("SChatWindow", "Now_TimeStamp", "Now");
+			MessageTimeAsText = NowTimeStamp;
+		}
+		else if ((Now - Message->MessageTime).GetDuration() <= FTimespan::FromMinutes(2.0))
+		{
+			static FText OneMinuteTimeStamp = NSLOCTEXT("SChatWindow", "1_Minute_TimeStamp", "1 min");
+			MessageTimeAsText = OneMinuteTimeStamp;
+		}
+		else if ((Now - Message->MessageTime).GetDuration() <= FTimespan::FromMinutes(3.0))
+		{
+			static FText TwoMinuteTimeStamp = NSLOCTEXT("SChatWindow", "2_Minute_TimeStamp", "2 min");
+			MessageTimeAsText = TwoMinuteTimeStamp;
+		}
+		else if ((Now - Message->MessageTime).GetDuration() <= FTimespan::FromMinutes(4.0))
+		{
+			static FText ThreeMinuteTimeStamp = NSLOCTEXT("SChatWindow", "3_Minute_TimeStamp", "3 min");
+			MessageTimeAsText = ThreeMinuteTimeStamp;
+		}
+		else if ((Now - Message->MessageTime).GetDuration() <= FTimespan::FromMinutes(5.0))
+		{
+			static FText FourMinuteTimeStamp = NSLOCTEXT("SChatWindow", "4_Minute_TimeStamp", "4 min");
+			MessageTimeAsText = FourMinuteTimeStamp;
+		}
+		else if ((Now - Message->MessageTime).GetDuration() <= FTimespan::FromMinutes(6.0))
+		{
+			static FText FiveMinuteTimeStamp = NSLOCTEXT("SChatWindow", "5_Minute_TimeStamp", "5 min");
+			MessageTimeAsText = FiveMinuteTimeStamp;
+		}
+		else
+		{
+			MessageTimeAsText = FText::AsTime(ChatMessages.Last()->MessageTime, EDateTimeStyle::Short);
+			ContinueTicking = false;
+		}
+
+		OnChanged().Broadcast(SharedThis(this));
+		return ContinueTicking;
+	}
 
 private:
+
+	TArray<TSharedRef<FFriendChatMessage>> ChatMessages;
+
+	FText ComposedMessage;
+	FText MessageTimeAsText;
+	FDelegateHandle TickerHandle;
+
+	FChangedEvent ChangedEvent;
+
 	friend FChatItemViewModelFactory;
 };
 
-TSharedRef< FChatItemViewModel > FChatItemViewModelFactory::Create(const TSharedRef<FFriendChatMessage>& ChatMessage)
+TSharedRef< FChatItemViewModel > FChatItemViewModelFactory::Create(
+	const TSharedRef<FFriendChatMessage>& ChatMessage)
 {
-	TSharedRef< FChatItemViewModelImpl > ViewModel(new FChatItemViewModelImpl(ChatMessage));
+	TSharedRef< FChatItemViewModelImpl > ViewModel = MakeShareable(new FChatItemViewModelImpl());
+
+	ViewModel->AddMessage(ChatMessage);
 	return ViewModel;
 }

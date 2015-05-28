@@ -49,7 +49,7 @@ public:
 	 * @param  TargetScriptContainer    The struct that the script should ultimately be serialized into
 	 * @param  ScriptLoader				The script serialization helper that contains info on the script's serializtion offset (buffer size, etc.)
 	 */
-	void AddDeferredScriptObject(ULinkerLoad* Linker, UStruct* TargetScriptContainer, const FStructScriptLoader& ScriptLoader);
+	void AddDeferredScriptObject(FLinkerLoad* Linker, UStruct* TargetScriptContainer, const FStructScriptLoader& ScriptLoader);
 
 	/**
 	 * Goes through every deferred script load associated with the specified 
@@ -59,16 +59,16 @@ public:
 	 * @param  Linker    The linker that may have deferred script serialization (possibly for many functions).
 	 * @return The number of script loads that were successfully resolved.
 	 */
-	int32 ResolveDeferredScripts(ULinkerLoad* Linker);
+	int32 ResolveDeferredScripts(FLinkerLoad* Linker);
 
 private:
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 	/** Used to catch any deferred script loads that are added during a call to ResolveDeferredScripts() */
-	ULinkerLoad* ResolvingLinker;
+	FLinkerLoad* ResolvingLinker;
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
 	/** Keeps track of scripts (and their target containers) that need to be serialized in later */
-	TMultiMap<ULinkerLoad*, FDeferredScriptLoader> DeferredScriptLoads;
+	TMultiMap<FLinkerLoad*, FDeferredScriptLoader> DeferredScriptLoads;
 };
 
 //------------------------------------------------------------------------------
@@ -80,7 +80,7 @@ FDeferredScriptTracker::FDeferredScriptTracker()
 }
 
 //------------------------------------------------------------------------------
-void FDeferredScriptTracker::AddDeferredScriptObject(ULinkerLoad* Linker, UStruct* TargetScriptContainer, const FStructScriptLoader& ScriptLoader)
+void FDeferredScriptTracker::AddDeferredScriptObject(FLinkerLoad* Linker, UStruct* TargetScriptContainer, const FStructScriptLoader& ScriptLoader)
 {
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 	check(ResolvingLinker == nullptr);
@@ -90,7 +90,7 @@ void FDeferredScriptTracker::AddDeferredScriptObject(ULinkerLoad* Linker, UStruc
 }
 
 //------------------------------------------------------------------------------
-int32 FDeferredScriptTracker::ResolveDeferredScripts(ULinkerLoad* Linker)
+int32 FDeferredScriptTracker::ResolveDeferredScripts(FLinkerLoad* Linker)
 {
 	FArchive& Ar = *Linker;
 	if (FStructScriptLoader::ShouldDeferScriptSerialization(Ar))
@@ -99,7 +99,7 @@ int32 FDeferredScriptTracker::ResolveDeferredScripts(ULinkerLoad* Linker)
 	}
 
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-	TGuardValue<ULinkerLoad*> ScopedResolvingLinker(ResolvingLinker, Linker);
+	TGuardValue<FLinkerLoad*> ScopedResolvingLinker(ResolvingLinker, Linker);
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
 	TArray<FDeferredScriptLoader> DefferedLinkerScripts;
@@ -178,7 +178,7 @@ bool FStructScriptLoader::ShouldDeferScriptSerialization(FArchive& Ar)
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	if (Ar.IsLoading() && Ar.IsPersistent())
 	{
-		if (ULinkerLoad* Linker = Cast<ULinkerLoad>(Ar.GetLinker()))
+		if (auto Linker = Cast<FLinkerLoad>(Ar.GetLinker()))
 		{
 			return ((Linker->LoadFlags & LOAD_DeferDependencyLoads) != 0);
 		}
@@ -225,7 +225,7 @@ bool FStructScriptLoader::LoadStructWithScript(UStruct* DestScriptContainer, FAr
 	bAllowDeferredSerialization &= bIsLinkerLoader;
 	if (bAllowDeferredSerialization && ShouldDeferScriptSerialization(Ar))
 	{
-		ULinkerLoad* Linker = CastChecked<ULinkerLoad>(Ar.GetLinker());
+		FLinkerLoad* Linker = CastChecked<FLinkerLoad>(Ar.GetLinker());
 		FDeferredScriptTracker::Get().AddDeferredScriptObject(Linker, DestScriptContainer, *this);
 
 		// we have to at least move the archiver forward, so it is positioned 
@@ -237,7 +237,7 @@ bool FStructScriptLoader::LoadStructWithScript(UStruct* DestScriptContainer, FAr
 	Ar.Seek(ScriptSerializationOffset);
 	if (bIsLinkerLoader)
 	{
-		ULinkerLoad* LinkerLoad = CastChecked<ULinkerLoad>(Ar.GetLinker());
+		auto LinkerLoad = CastChecked<FLinkerLoad>(Ar.GetLinker());
 
 		TArray<uint8> ShaScriptBuffer;
 		ShaScriptBuffer.AddUninitialized(SerializedScriptSize);
@@ -260,7 +260,7 @@ bool FStructScriptLoader::LoadStructWithScript(UStruct* DestScriptContainer, FAr
 	ensure(ScriptEndOffset == Ar.Tell());
 	checkf(BytecodeIndex == BytecodeBufferSize, TEXT("'%s' script expression-count mismatch; Expected: %i, Got: %i"), *DestScriptContainer->GetName(), BytecodeBufferSize, BytecodeIndex);
 
-	if (!GUObjectArray.IsDisregardForGC(DestScriptContainer))
+	if (!GetUObjectArray().IsDisregardForGC(DestScriptContainer))
 	{
 		DestScriptContainer->ScriptObjectReferences.Empty();
 		FArchiveScriptReferenceCollector ObjRefCollector(DestScriptContainer->ScriptObjectReferences);
@@ -277,7 +277,7 @@ bool FStructScriptLoader::LoadStructWithScript(UStruct* DestScriptContainer, FAr
 }
 
 //------------------------------------------------------------------------------
-int32 FStructScriptLoader::ResolveDeferredScriptLoads(ULinkerLoad* Linker)
+int32 FStructScriptLoader::ResolveDeferredScriptLoads(FLinkerLoad* Linker)
 {
 	return FDeferredScriptTracker::Get().ResolveDeferredScripts(Linker);
 }

@@ -60,6 +60,7 @@
 		{
 			FString ReceiptData;
 
+#ifdef __IPHONE_7_0
 			if( [IOSAppDelegate GetDelegate].OSVersion >= 7.0 )
 			{
 				NSURL* nsReceiptUrl = [[NSBundle mainBundle] appStoreReceiptURL];
@@ -69,10 +70,13 @@
 				ReceiptData = nsEncodedReceiptData;
 			}
 			else
+#endif
 			{
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
 				// If earlier than IOS 7, we will need to use the transactionReceipt
 				NSString* nsEncodedReceiptData = [transaction.transactionReceipt base64EncodedStringWithOptions:NSDataBase64EncodingEndLineWithLineFeed];
 				ReceiptData = nsEncodedReceiptData;
+#endif
 			}
 
 			StoreInterface->CachedPurchaseStateObject->ProvidedProductInformation.ReceiptData = ReceiptData;

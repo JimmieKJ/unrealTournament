@@ -41,7 +41,7 @@ bool FWaitForProcessToCompleteLatentCommand::Update()
 		if( ProcessOutput.Len() > 0 )
 		{
 			TArray<FString> OutputLines;
-			ProcessOutput.ParseIntoArray(&OutputLines, TEXT("\n"), false);
+			ProcessOutput.ParseIntoArray(OutputLines, TEXT("\n"), false);
 			for( int32 i = 0; i < OutputLines.Num(); i++ )
 			{
 				UE_LOG(LogBaseAutomationTests, Log, TEXT("%s"), *OutputLines[i]);
@@ -130,7 +130,7 @@ void FRunExternalToolTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray 
 bool FRunExternalToolTest::RunTest(const FString& Parameters)
 {
 	TArray<FString> Commands;
-	Parameters.ParseIntoArray(&Commands,TEXT(";"),false);
+	Parameters.ParseIntoArray(Commands,TEXT(";"),false);
 
 	if( Commands.Num() != 3 )
 	{

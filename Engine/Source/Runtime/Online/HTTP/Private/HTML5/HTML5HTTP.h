@@ -59,6 +59,7 @@ public:
 	virtual EHttpRequestStatus::Type GetStatus() override;
 	virtual const FHttpResponsePtr GetResponse() const override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual float GetElapsedTime() override;
 	// End IHttpRequest interface
 
 	/**

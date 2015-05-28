@@ -86,7 +86,7 @@ class UMaterialExpressionLandscapeLayerBlend : public UMaterialExpression
 	/**
 	 * Get list of parameter names for static parameter sets
 	 */
-	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
+	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
 };
 
 

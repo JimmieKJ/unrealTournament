@@ -12,7 +12,8 @@ public:
 
 	virtual void EnumerateActions(TArray<EFriendActionType::Type>& Actions, bool bFromChat = false) override
 	{
-		bool bIsFriendInSameSession = FriendItem->GetSessionId() == FFriendsAndChatManager::Get()->GetGameSessionId();
+		bool bIsFriendInSameSession = FFriendsAndChatManager::Get()->IsFriendInSameSession(FriendItem);
+
 		if(FriendItem->IsGameRequest())
 		{
 			if (FriendItem->IsGameJoinable())
@@ -50,7 +51,7 @@ public:
 							Actions.Add(EFriendActionType::JoinGame);
 						}
 					}
-					if (FriendItem->IsOnline() && FriendItem->CanInvite() && !bIsFriendInSameSession && FFriendsAndChatManager::Get()->IsInJoinableGameSession())
+					if (FriendItem->IsOnline() && !bIsFriendInSameSession && FriendItem->CanInvite() && FFriendsAndChatManager::Get()->IsInJoinableGameSession())
 					{
 						Actions.Add(EFriendActionType::InviteToGame);
 					}
@@ -84,9 +85,11 @@ public:
 	
 	virtual const bool HasChatAction() const override
 	{
+		bool bIsFriendInSameSession = FFriendsAndChatManager::Get()->IsFriendInSameSession(FriendItem);
+
 		return FriendItem->GetInviteStatus() != EInviteStatus::Accepted
 			|| FriendItem->IsGameJoinable()
-			|| FFriendsAndChatManager::Get()->IsInJoinableGameSession();
+			|| (FFriendsAndChatManager::Get()->IsInJoinableGameSession() && !bIsFriendInSameSession);
 	}
 
 	virtual void PerformAction(const EFriendActionType::Type ActionType) override
@@ -104,7 +107,7 @@ public:
 			case EFriendActionType::RejectFriendRequest:
 			case EFriendActionType::CancelFriendRequest:
 			{
-				RemoveFriend();
+				RemoveFriend(EFriendActionType::ToText(ActionType).ToString());
 				break;
 			}
 			case EFriendActionType::SendFriendRequest : 
@@ -177,9 +180,9 @@ public:
 		Uninitialize();
 	}
 
-	virtual FText GetFriendName() const override
+	virtual const FString GetName() const override
 	{
-		return FText::FromString(FriendItem->GetName());
+		return FriendItem->GetName();
 	}
 
 	virtual FText GetFriendLocation() const override
@@ -197,21 +200,21 @@ public:
 		return FFriendsAndChatManager::Get()->IsInGameSession();
 	}
 
-	virtual EOnlinePresenceState::Type GetOnlineStatus() const override
+	virtual const EOnlinePresenceState::Type GetOnlineStatus() const override
 	{
 		return FriendItem.IsValid() ? FriendItem->GetOnlineStatus() : EOnlinePresenceState::Offline;
 	}
 
-	virtual FString GetClientId() const override
+	virtual const FString GetClientId() const override
 	{
 		return FriendItem.IsValid() ? FriendItem->GetClientId() : FString();
 	}
 
 private:
 
-	void RemoveFriend() const
+	void RemoveFriend(const FString& Action) const
 	{
-		FFriendsAndChatManager::Get()->DeleteFriend( FriendItem );
+		FFriendsAndChatManager::Get()->DeleteFriend(FriendItem, Action);
 	}
 
 	void AcceptFriend() const
@@ -271,9 +274,9 @@ private:
 	}
 
 	FFriendViewModelImpl(
-		const TSharedRef<IFriendItem>& FriendItem
+		const TSharedRef<IFriendItem>& InFriendItem
 		)
-		: FriendItem(FriendItem)
+		: FriendItem(InFriendItem)
 	{
 	}
 

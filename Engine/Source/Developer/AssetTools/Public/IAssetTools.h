@@ -26,6 +26,44 @@ struct FAssetRenameData
 	}
 };
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FAssetPostRenameEvent, const TArray<FAssetRenameData>&);
+
+// The list of categories for Asset Type Actions and UFactory subclasses
+namespace EAssetTypeCategories
+{
+	enum Type
+	{
+		None					= 0,
+		Basic					= 1 << 0,
+		Animation				= 1 << 1,
+		MaterialsAndTextures	= 1 << 2,
+		Sounds					= 1 << 3,
+		Physics					= 1 << 4,
+		UI						= 1 << 5,
+		Misc					= 1 << 6,
+		Gameplay				= 1 << 7,
+		Blueprint				= 1 << 8,
+
+		// Items below this will be allocated at runtime via RegisterAdvancedAssetCategory
+		FirstUser				= 1 << 9,
+		LastUser				= 1 << 31,
+		// Last allowed value is 1 << 31
+	};
+}
+
+
+struct FAdvancedAssetCategory
+{
+	EAssetTypeCategories::Type CategoryType;
+	FText CategoryName;
+
+	FAdvancedAssetCategory(EAssetTypeCategories::Type InCategoryType, FText InCategoryName)
+		: CategoryType(InCategoryType)
+		, CategoryName(InCategoryName)
+	{
+	}
+};
+
 class IAssetTools
 {
 public:
@@ -43,6 +81,18 @@ public:
 
 	/** Gets the appropriate AssetTypeActions for the supplied class */
 	virtual TWeakPtr<IAssetTypeActions> GetAssetTypeActionsForClass( UClass* Class ) const = 0;
+
+	/**
+	 * Allocates a Category bit for a user-defined Category, or EAssetTypeCategories::Misc if all available bits are allocated.
+	 * Ignores duplicate calls with the same CategoryKey (returns the existing bit but does not change the display name).
+	 */
+	virtual EAssetTypeCategories::Type RegisterAdvancedAssetCategory(FName CategoryKey, FText CategoryDisplayName) = 0;
+
+	/** Returns the allocated Category bit for a user-specified Category, or EAssetTypeCategories::Misc if it doesn't exist */
+	virtual EAssetTypeCategories::Type FindAdvancedAssetCategory(FName CategoryKey) const = 0;
+	
+	/** Returns the list of all advanced asset categories */
+	virtual void GetAllAdvancedAssetCategories(TArray<FAdvancedAssetCategory>& OutCategoryList) const = 0;
 
 	/** Registers a class type actions object so it can provide information about and actions for class asset types. */
 	virtual void RegisterClassTypeActions(const TSharedRef<IClassTypeActions>& NewActions) = 0;
@@ -86,6 +136,9 @@ public:
 
 	/** Renames assets using the specified names. */
 	virtual void RenameAssets(const TArray<FAssetRenameData>& AssetsAndNames) const = 0;
+
+	/** Event issued at the end of the rename process */
+	virtual FAssetPostRenameEvent& OnAssetPostRename() = 0;
 
 	/** Opens a file open dialog to choose files to import to the destination path. */
 	virtual TArray<UObject*> ImportAssets(const FString& DestinationPath) = 0;

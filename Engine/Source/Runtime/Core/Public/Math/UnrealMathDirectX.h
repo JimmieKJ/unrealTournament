@@ -266,6 +266,15 @@ FORCEINLINE float VectorGetComponent( VectorRegister Vec, uint32 ComponentIndex 
  */
 #define VectorMultiply( Vec1, Vec2 )	DirectX::XMVectorMultiply( Vec1, Vec2 )
 
+ /**
+ * Divides two vectors (component-wise) and returns the result.
+ *
+ * @param Vec1	1st vector
+ * @param Vec2	2nd vector
+ * @return		VectorRegister( Vec1.x/Vec2.x, Vec1.y/Vec2.y, Vec1.z/Vec2.z, Vec1.w/Vec2.w )
+ */
+#define VectorDivide( Vec1, Vec2 )	DirectX::XMVectorDivide( Vec1, Vec2 )
+
 /**
  * Multiplies two vectors (component-wise), adds in the third vector and returns the result.
  *
@@ -369,6 +378,16 @@ FORCEINLINE float VectorGetComponent( VectorRegister Vec, uint32 ComponentIndex 
  * @return		VectorRegister( for each bit i: Vec1[i] ^ Vec2[i] )
  */
 #define VectorBitwiseXor( Vec1, Vec2 )	DirectX::XMVectorXorInt( Vec1, Vec2 )
+
+ /**
+ * Returns an integer bit-mask (0x00 - 0x0f) based on the sign-bit for each component in a vector.
+ *
+ * @param VecMask		Vector
+ * @return				Bit 0 = sign(VecMask.x), Bit 1 = sign(VecMask.y), Bit 2 = sign(VecMask.z), Bit 3 = sign(VecMask.w)
+ */
+#define VectorMaskBits( VecMask )			_mm_movemask_ps( VecMask )
+
+
 
 /**
  * Calculates the cross product of two vectors (XYZ components). W is set to 0.
@@ -684,6 +703,102 @@ FORCEINLINE void VectorQuaternionMultiply( VectorRegister *VResult, const Vector
 	*VResult = VectorQuaternionMultiply2(*VQuat1, *VQuat2);
 }
 
+FORCEINLINE void VectorQuaternionVector3Rotate( FVector *Result, const FVector* Vec, const FQuat* Quat)
+{	
+	VectorRegister XMVec = VectorLoad(Vec);
+	VectorRegister XMQuat = VectorLoadAligned(Quat);
+	VectorRegister XMResult = DirectX::XMVector3Rotate(XMVec, XMQuat);
+	VectorStoreFloat3(XMResult, Result);
+}
+
+FORCEINLINE void VectorQuaternionVector3InverseRotate( FVector *Result, const FVector* Vec, const FQuat* Quat)
+{	
+	VectorRegister XMVec = VectorLoad(Vec);
+	VectorRegister XMQuat = VectorLoadAligned(Quat);
+	VectorRegister XMResult = DirectX::XMVector3InverseRotate(XMVec, XMQuat);
+	VectorStoreFloat3(XMResult, Result);
+}
+
+
+/**
+* Computes the sine and cosine of each component of a Vector.
+*
+* @param VSinAngles	VectorRegister Pointer to where the Sin result should be stored
+* @param VCosAngles	VectorRegister Pointer to where the Cos result should be stored
+* @param VAngles VectorRegister Pointer to the input angles 
+*/
+FORCEINLINE void VectorSinCos(  VectorRegister* VSinAngles, VectorRegister* VCosAngles, const VectorRegister* VAngles )
+{
+	using namespace DirectX;
+	// Force the value within the bounds of pi	
+	XMVECTOR x = XMVectorModAngles(*VAngles);
+
+	// Map in [-pi/2,pi/2] with sin(y) = sin(x), cos(y) = sign*cos(x).
+	XMVECTOR sign = _mm_and_ps(x, g_XMNegativeZero);
+	__m128 c = _mm_or_ps(g_XMPi, sign);  // pi when x >= 0, -pi when x < 0
+	__m128 absx = _mm_andnot_ps(sign, x);  // |x|
+	__m128 rflx = _mm_sub_ps(c, x);
+	__m128 comp = _mm_cmple_ps(absx, g_XMHalfPi);
+	__m128 select0 = _mm_and_ps(comp, x);
+	__m128 select1 = _mm_andnot_ps(comp, rflx);
+	x = _mm_or_ps(select0, select1);
+	select0 = _mm_and_ps(comp, g_XMOne);
+	select1 = _mm_andnot_ps(comp, g_XMNegativeOne);
+	sign = _mm_or_ps(select0, select1);
+
+	__m128 x2 = _mm_mul_ps(x, x);
+
+	// Compute polynomial approximation of sine
+	const XMVECTOR SC1 = g_XMSinCoefficients1;
+	XMVECTOR vConstants = XM_PERMUTE_PS( SC1, _MM_SHUFFLE(0, 0, 0, 0) );
+	__m128 Result = _mm_mul_ps(vConstants, x2);
+
+	const XMVECTOR SC0 = g_XMSinCoefficients0;
+	vConstants = XM_PERMUTE_PS( SC0, _MM_SHUFFLE(3, 3, 3, 3) );
+	Result = _mm_add_ps(Result, vConstants);
+	Result = _mm_mul_ps(Result, x2);
+
+	vConstants = XM_PERMUTE_PS( SC0, _MM_SHUFFLE(2, 2, 2, 2) );
+	Result = _mm_add_ps(Result, vConstants);
+	Result = _mm_mul_ps(Result, x2);
+
+	vConstants = XM_PERMUTE_PS( SC0, _MM_SHUFFLE(1, 1, 1, 1) );
+	Result = _mm_add_ps(Result, vConstants);
+	Result = _mm_mul_ps(Result, x2);
+
+	vConstants = XM_PERMUTE_PS( SC0, _MM_SHUFFLE(0, 0, 0, 0) );
+	Result = _mm_add_ps(Result, vConstants);
+	Result = _mm_mul_ps(Result, x2);
+	Result = _mm_add_ps(Result, g_XMOne);
+	Result = _mm_mul_ps(Result, x);
+	*VSinAngles = Result;
+
+	// Compute polynomial approximation of cosine
+	const XMVECTOR CC1 = g_XMCosCoefficients1;
+	vConstants = XM_PERMUTE_PS( CC1, _MM_SHUFFLE(0, 0, 0, 0) );
+	Result = _mm_mul_ps(vConstants, x2);
+
+	const XMVECTOR CC0 = g_XMCosCoefficients0;
+	vConstants = XM_PERMUTE_PS( CC0, _MM_SHUFFLE(3, 3, 3, 3) );
+	Result = _mm_add_ps(Result, vConstants);
+	Result = _mm_mul_ps(Result, x2);
+
+	vConstants = XM_PERMUTE_PS( CC0,  _MM_SHUFFLE(2, 2, 2, 2) );
+	Result = _mm_add_ps(Result, vConstants);
+	Result = _mm_mul_ps(Result, x2);
+
+	vConstants = XM_PERMUTE_PS( CC0,  _MM_SHUFFLE(1, 1, 1, 1) );
+	Result = _mm_add_ps(Result, vConstants);
+	Result = _mm_mul_ps(Result, x2);
+
+	vConstants = XM_PERMUTE_PS( CC0, _MM_SHUFFLE(0, 0, 0, 0) );
+	Result = _mm_add_ps(Result, vConstants);
+	Result = _mm_mul_ps(Result, x2);
+	Result = _mm_add_ps(Result, g_XMOne);
+	Result = _mm_mul_ps(Result, sign);
+	*VCosAngles = Result;
+}
+
 
 // Returns true if the vector contains a component that is either NAN or +/-infinite.
 inline bool VectorContainsNaNOrInfinite(const VectorRegister& Vec)
@@ -785,13 +900,9 @@ FORCEINLINE VectorRegister VectorFractional(const VectorRegister& X)
 	return VectorSubtract(X, VectorTruncate(X));
 }
 
-//TODO: Vectorize
 FORCEINLINE VectorRegister VectorMod(const VectorRegister& X, const VectorRegister& Y)
 {
-	return MakeVectorRegister((float)fmod(VectorGetComponent(X, 0), VectorGetComponent(Y, 0)),
-		(float)fmod(VectorGetComponent(X, 1), VectorGetComponent(Y, 1)),
-		(float)fmod(VectorGetComponent(X, 2), VectorGetComponent(Y, 2)),
-		(float)fmod(VectorGetComponent(X, 3), VectorGetComponent(Y, 3)));
+	return DirectX::XMVectorMod(X, Y);
 }
 
 //TODO: Vectorize

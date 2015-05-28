@@ -14,7 +14,7 @@ public:
 		SLATE_ARGUMENT(TWeakPtr<FPhAT>, PhATPtr)
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs);
+	void Construct(const FArguments& InArgs, TSharedPtr<class SEditorViewport> InRealViewport);
 
 private:
 

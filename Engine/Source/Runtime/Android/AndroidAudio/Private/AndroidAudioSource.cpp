@@ -80,7 +80,7 @@ bool FSLESSoundSource::CreatePlayer()
 																	&SoundDataSource, &AudioSink, sizeof(ids) / sizeof(SLInterfaceID), ids, req );
 	if(result != SL_RESULT_SUCCESS)
 	{
-		UE_LOG( LogAndroidAudio, Fatal,TEXT("FAILED OPENSL BUFFER CreateAudioPlayer 0x%x"), result);
+		UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER CreateAudioPlayer 0x%x"), result);
 		return false;
 	}
 		
@@ -88,18 +88,18 @@ bool FSLESSoundSource::CreatePlayer()
 		
 	// realize the player
 	result = (*SL_PlayerObject)->Realize(SL_PlayerObject, SL_BOOLEAN_FALSE);
-	if(result != SL_RESULT_SUCCESS) { UE_LOG( LogAndroidAudio, Fatal,TEXT("FAILED OPENSL BUFFER Realize 0x%x"), result); return false; }
+	if (result != SL_RESULT_SUCCESS) { UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER Realize 0x%x"), result); return false; }
 		
 	// get the play interface
 	result = (*SL_PlayerObject)->GetInterface(SL_PlayerObject, SL_IID_PLAY, &SL_PlayerPlayInterface);
-	if(result != SL_RESULT_SUCCESS) { UE_LOG( LogAndroidAudio, Fatal,TEXT("FAILED OPENSL BUFFER GetInterface SL_IID_PLAY 0x%x"), result); bFailedSetup |= true; }
+	if (result != SL_RESULT_SUCCESS) { UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER GetInterface SL_IID_PLAY 0x%x"), result); bFailedSetup |= true; }
 	// volume
 	result = (*SL_PlayerObject)->GetInterface(SL_PlayerObject, SL_IID_VOLUME, &SL_VolumeInterface);
-	if(result != SL_RESULT_SUCCESS) { UE_LOG( LogAndroidAudio, Fatal,TEXT("FAILED OPENSL BUFFER GetInterface SL_IID_VOLUME 0x%x"), result); bFailedSetup |= true; }
+	if (result != SL_RESULT_SUCCESS) { UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER GetInterface SL_IID_VOLUME 0x%x"), result); bFailedSetup |= true; }
 	// buffer system
 	result = (*SL_PlayerObject)->GetInterface(SL_PlayerObject, SL_IID_BUFFERQUEUE, &SL_PlayerBufferQueue);
-	if(result != SL_RESULT_SUCCESS) { UE_LOG( LogAndroidAudio, Fatal,TEXT("FAILED OPENSL BUFFER GetInterface SL_IID_BUFFERQUEUE 0x%x"), result); bFailedSetup |= true; }
-
+	if (result != SL_RESULT_SUCCESS) { UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER GetInterface SL_IID_BUFFERQUEUE 0x%x"), result); bFailedSetup |= true; }
+	
 	return bFailedSetup == false;
 }
 
@@ -123,11 +123,11 @@ bool FSLESSoundSource::EnqueuePCMBuffer( bool bLoop)
 	if( bLoop ) 
 	{
 		result = (*SL_PlayerBufferQueue)->RegisterCallback(SL_PlayerBufferQueue, OpenSLBufferQueueCallback, (void*)this);
-		if(result != SL_RESULT_SUCCESS) { UE_LOG( LogAndroidAudio, Fatal,TEXT("FAILED OPENSL BUFFER QUEUE RegisterCallback 0x%x "), result); return false;}
+		if (result != SL_RESULT_SUCCESS) { UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER QUEUE RegisterCallback 0x%x "), result); return false; }
 	}
 	
 	result = (*SL_PlayerBufferQueue)->Enqueue(SL_PlayerBufferQueue, Buffer->AudioData, Buffer->GetSize() );
-	if(result != SL_RESULT_SUCCESS) { UE_LOG( LogAndroidAudio, Fatal,TEXT("FAILED OPENSL BUFFER Enqueue SL_PlayerBufferQueue 0x%x params( %p, %d)"), result, Buffer->AudioData, int32(Buffer->GetSize())); return false;}
+	if (result != SL_RESULT_SUCCESS) { UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER Enqueue SL_PlayerBufferQueue 0x%x params( %p, %d)"), result, Buffer->AudioData, int32(Buffer->GetSize())); return false; }
 
 	bStreamedSound = false;
 	bHasLooped = false;
@@ -192,7 +192,7 @@ bool FSLESSoundSource::EnqueuePCMRTBuffer( bool bLoop )
 	if(result == SL_RESULT_SUCCESS) 
 	{
 		result = (*SL_PlayerBufferQueue)->Enqueue(SL_PlayerBufferQueue, AudioBuffers[0].AudioData, AudioBuffers[0].AudioDataSize );
-		if(result != SL_RESULT_SUCCESS) { UE_LOG( LogAndroidAudio, Fatal,TEXT("FAILED OPENSL BUFFER Enqueue SL_PlayerBufferQueue 0x%x params( %p, %d)"), result, Buffer->AudioData, int32(Buffer->GetSize())); return false;}
+		if (result != SL_RESULT_SUCCESS) { UE_LOG(LogAndroidAudio, Warning, TEXT("FAILED OPENSL BUFFER Enqueue SL_PlayerBufferQueue 0x%x params( %p, %d)"), result, Buffer->AudioData, int32(Buffer->GetSize())); return false; }
 	}
 	else
 	{
@@ -209,7 +209,7 @@ bool FSLESSoundSource::EnqueuePCMRTBuffer( bool bLoop )
 /**
  * Initializes a source with a given wave instance and prepares it for playback.
  *
- * @param	WaveInstance	wave instace being primed for playback
+ * @param	WaveInstance	wave instance being primed for playback
  * @return	TRUE if initialization was successful, FALSE otherwise
  */
 bool FSLESSoundSource::Init( FWaveInstance* InWaveInstance )
@@ -232,8 +232,6 @@ bool FSLESSoundSource::Init( FWaveInstance* InWaveInstance )
 		UE_LOG( LogAndroidAudio, Warning, TEXT(" InitSoundSouce with PlayerObject not NULL, possible leak"));
 	}
 	
-	WaveInstance = InWaveInstance;
-
 	// Find matching buffer.
 	Buffer = FSLESSoundBuffer::Init( (FSLESAudioDevice *)AudioDevice, InWaveInstance->WaveData );
 
@@ -245,6 +243,8 @@ bool FSLESSoundSource::Init( FWaveInstance* InWaveInstance )
 
 		if (CreatePlayer())
 		{
+			WaveInstance = InWaveInstance;
+
 			switch( Buffer->Format)
 			{
 				case SoundFormat_PCM:
@@ -301,6 +301,7 @@ FSLESSoundSource::FSLESSoundSource( class FAudioDevice* InAudioDevice )
 		bBuffersToFlush(false),
 		BufferSize(0),
 		BufferInUse(0),
+		VolumePreviousUpdate(-1.0f),
 		bHasLooped(false),
 		SL_PlayerObject(NULL),
 		SL_PlayerPlayInterface(NULL),
@@ -348,16 +349,27 @@ void FSLESSoundSource::Update( void )
 		return;
 	}
 	
-	float Volume = WaveInstance->Volume * WaveInstance->VolumeMultiplier;
-	if( SetStereoBleed() )
+	float Volume = 1.0f;
+
+	// If the audio device is muted, then mute our sound source
+	if (AudioDevice->bIsDeviceMuted)
 	{
-		// Emulate the bleed to rear speakers followed by stereo fold down
-		Volume *= 1.25f;
+		Volume = 0.0f;
 	}
-	Volume *= FApp::GetVolumeMultiplier();
-	Volume = FMath::Clamp(Volume, 0.0f, MAX_VOLUME);
+	else
+	{
+		float Volume = WaveInstance->Volume * WaveInstance->VolumeMultiplier;
+		if (SetStereoBleed())
+		{
+			// Emulate the bleed to rear speakers followed by stereo fold down
+			Volume *= 1.25f;
+		}
+		Volume *= FApp::GetVolumeMultiplier();
+		Volume = FMath::Clamp(Volume, 0.0f, MAX_VOLUME);
+	}
 	
-	const float Pitch = FMath::Clamp<float>(WaveInstance->Pitch, MIN_PITCH, MAX_PITCH);
+	// Pitch is *not* currently supported on android... but this is commented out rather than deleted for reference
+	// const float Pitch = FMath::Clamp<float>(WaveInstance->Pitch, MIN_PITCH, MAX_PITCH);
 
 	// Set whether to apply reverb
 	SetReverbApplied(true);
@@ -383,18 +395,29 @@ void FSLESSoundSource::Update( void )
 		Location = FVector( 0.f, 0.f, 0.f );
 	}
 	
-	// Set volume & Pitch
+	// Set volume (Pitch changes are not supported on current Android platforms!)
 	// also Location & Velocity
-	
-	// Convert volume to millibels.
-	SLmillibel MaxMillibel = 0;
-	SLmillibel MinMillibel = -3000;
-	(*SL_VolumeInterface)->GetMaxVolumeLevel( SL_VolumeInterface, &MaxMillibel );
-	SLmillibel VolumeMillibel = (Volume * (MaxMillibel - MinMillibel)) + MinMillibel;
-	VolumeMillibel = FMath::Clamp(VolumeMillibel, MinMillibel, MaxMillibel);
-	
-	SLresult result = (*SL_VolumeInterface)->SetVolumeLevel(SL_VolumeInterface, VolumeMillibel);
-	check(SL_RESULT_SUCCESS == result);
+
+	// Avoid doing the log calculation each update by only doing it if the volume changed
+	if (Volume != VolumePreviousUpdate)
+	{
+		VolumePreviousUpdate = Volume;
+		static const int64 MinVolumeMillibel = -12000;
+		if (Volume > 0.0f)
+		{
+			// Convert volume to millibels.
+			SLmillibel MaxMillibel = 0;
+			(*SL_VolumeInterface)->GetMaxVolumeLevel(SL_VolumeInterface, &MaxMillibel);
+			SLmillibel VolumeMillibel = (SLmillibel)FMath::Clamp<int64>((int64)(2000.0f * log10f(Volume)), MinVolumeMillibel, (int64)MaxMillibel);
+			SLresult result = (*SL_VolumeInterface)->SetVolumeLevel(SL_VolumeInterface, VolumeMillibel);
+			check(SL_RESULT_SUCCESS == result);
+		}
+		else
+		{
+			SLresult result = (*SL_VolumeInterface)->SetVolumeLevel(SL_VolumeInterface, MinVolumeMillibel);
+			check(SL_RESULT_SUCCESS == result);
+		}
+	}
 
 }
 

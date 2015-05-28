@@ -2,7 +2,7 @@
 
 #pragma once 
 #include "Commandlets/Commandlet.h"
-#include "GatherTextFromMetaDataCommandlet.generated.h"
+#include "GatherTextFromMetadataCommandlet.generated.h"
 
 /**
  *	UGatherTextFromMetaDataCommandlet: Localization commandlet that collects all text to be localized from generated metadata.

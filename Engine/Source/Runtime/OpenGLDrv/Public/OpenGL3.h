@@ -130,7 +130,7 @@ struct FOpenGL3 : public FOpenGLBase
 				break;
 			case RLM_WriteOnly:
 				Access = (GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_WRITE_BIT);
-#if !PLATFORM_MAC // On OS X using the UNSYNCHRONIZED_BIT here is unsafe & out-of-spec. which will lead to corrupt rendering when using MTGL.
+#if 1
 				// Temp workaround for synchrnoization when a UBO is discarded while being referenced
 				Access |= GL_MAP_UNSYNCHRONIZED_BIT;
 #endif
@@ -413,15 +413,15 @@ struct FOpenGL3 : public FOpenGLBase
 	{
 		glCopyBufferSubData(ReadTarget, WriteTarget, ReadOffset, WriteOffset, Size);
 	}
-
+	
 	static FORCEINLINE GLuint CreateShader(GLenum Type)
 	{
 #if USE_OPENGL_NAME_CACHE
 		static TMap<GLenum, TArray<GLuint>> ShaderNames;
 		TArray<GLuint>& Shaders = ShaderNames.FindOrAdd(Type);
-		if (!Shaders.Num())
+		if(!Shaders.Num())
 		{
-			while (Shaders.Num() < OPENGL_NAME_CACHE_SIZE)
+			while(Shaders.Num() < OPENGL_NAME_CACHE_SIZE)
 			{
 				GLuint Resource = glCreateShader(Type);
 				Shaders.Add(Resource);
@@ -432,14 +432,14 @@ struct FOpenGL3 : public FOpenGLBase
 		return glCreateShader(Type);
 #endif
 	}
-
+	
 	static FORCEINLINE GLuint CreateProgram()
 	{
 #if USE_OPENGL_NAME_CACHE
 		static TArray<GLuint> ProgramNames;
-		if (!ProgramNames.Num())
+		if(!ProgramNames.Num())
 		{
-			while (ProgramNames.Num() < OPENGL_NAME_CACHE_SIZE)
+			while(ProgramNames.Num() < OPENGL_NAME_CACHE_SIZE)
 			{
 				GLuint Resource = glCreateProgram();
 				ProgramNames.Add(Resource);
@@ -719,9 +719,15 @@ struct FOpenGL3 : public FOpenGLBase
 
 	static FORCEINLINE ERHIFeatureLevel::Type GetFeatureLevel()
 	{
-		if (FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES2")) && !GIsEditor)
+		static bool bForceES2 = FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES2"));
+		static bool bForceES3_1 = FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES31")) || FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES3_1"));
+		if (bForceES2 && !GIsEditor)
 		{
 			return ERHIFeatureLevel::ES2;
+		}
+		else if (bForceES3_1 && !GIsEditor)
+		{
+			return ERHIFeatureLevel::ES3_1;
 		}
 		// Shader platform & RHI feature level
 		switch(GetMajorVersion())
@@ -743,6 +749,12 @@ struct FOpenGL3 : public FOpenGLBase
 		if (bForceFeatureLevelES2)
 		{
 			return SP_OPENGL_PCES2;
+		}
+
+		static bool bForceFeatureLevelES3_1 = (FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES31")) || FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES3_1"))) && !GIsEditor;
+		if (bForceFeatureLevelES3_1)
+		{
+			return SP_OPENGL_PCES3_1;
 		}
 
 		// Shader platform

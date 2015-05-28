@@ -155,9 +155,9 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 		int32 LatentTargetParamIndex = INDEX_NONE;
 
 		// Grab the special case structs that use their own literal path
-		UScriptStruct* VectorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Vector"));
-		UScriptStruct* RotatorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Rotator"));
-		UScriptStruct* TransformStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Transform"));
+		UScriptStruct* VectorStruct = GetBaseStructure(TEXT("Vector"));
+		UScriptStruct* RotatorStruct = GetBaseStructure(TEXT("Rotator"));
+		UScriptStruct* TransformStruct = GetBaseStructure(TEXT("Transform"));
 
 		// Check each property
 		bool bMatchedAllParams = true;
@@ -234,7 +234,7 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 									// insert a cast op before a call to the function (and replace
 									// the param with the result from the cast)
 									FBlueprintCompiledStatement& CastStatement = Context.AppendStatementForNode(Node);
-									CastStatement.Type = KCST_CastObjToInterface;
+									CastStatement.Type = InterfaceClass->HasAnyClassFlags(CLASS_Interface) ? KCST_CastObjToInterface : KCST_CastInterfaceToObj;
 									CastStatement.LHS = *InterfaceTerm;
 									CastStatement.RHS.Add(ClassTerm);
 									CastStatement.RHS.Add(*Term);
@@ -502,7 +502,7 @@ UClass* FKCHandler_CallFunction::GetCallingContext(FKismetFunctionContext& Conte
 		else
 		{
 			// Final functions need the call context to be the specified class, so don't bother checking for the self pin.   The schema should enforce this.
-			return CallFuncNode->FunctionReference.GetMemberParentClass(CallFuncNode);
+			return CallFuncNode->FunctionReference.GetMemberParentClass(CallFuncNode->GetBlueprintClassFromNode());
 		}
 	}
 	else
@@ -577,7 +577,7 @@ void FKCHandler_CallFunction::RegisterNets(FKismetFunctionContext& Context, UEdG
 			// if this pin could use a default (it doesn't have a connection or default of its own)
 			if (!bIsConnected && (Pin->DefaultObject == NULL))
 			{
-				if (DefaultToSelfParamNames.Contains(Pin->PinName))
+				if (DefaultToSelfParamNames.Contains(Pin->PinName) && FKismetCompilerUtilities::ValidateSelfCompatibility(Pin, Context))
 				{
 					ensure(Pin->PinType.PinSubCategoryObject != NULL);
 					ensure((Pin->PinType.PinCategory == K2Schema->PC_Object) || (Pin->PinType.PinCategory == K2Schema->PC_Interface));
@@ -604,7 +604,8 @@ void FKCHandler_CallFunction::RegisterNets(FKismetFunctionContext& Context, UEdG
 		// if we have an object plugged into an interface pin, let's create a 
 		// term that'll be used as an intermediate, holding the result of a cast 
 		// from object to interface
-		if ((Pin->PinType.PinCategory == K2Schema->PC_Interface) && (Pin->LinkedTo[0]->PinType.PinCategory == K2Schema->PC_Object))
+		if (((Pin->PinType.PinCategory == K2Schema->PC_Interface) && (Pin->LinkedTo[0]->PinType.PinCategory == K2Schema->PC_Object)) ||
+			((Pin->PinType.PinCategory == K2Schema->PC_Object) && (Pin->LinkedTo[0]->PinType.PinCategory == K2Schema->PC_Interface)))
 		{
 			FBPTerminal* InterfaceTerm = Context.CreateLocalTerminal();
 			InterfaceTerm->CopyFromPin(Pin, Context.NetNameMap->MakeValidName(Pin) + TEXT("_CastInput"));
@@ -671,8 +672,7 @@ void FKCHandler_CallFunction::Transform(FKismetFunctionContext& Context, UEdGrap
 		if ((OldOutPin != NULL) && (OldOutPin->LinkedTo.Num() > 0))
 		{
 			// Create a dummy execution sequence that will be the target of the return call from the latent action
-			UK2Node_ExecutionSequence* DummyNode = CallFuncNode->GetGraph()->CreateBlankNode<UK2Node_ExecutionSequence>();
-			CompilerContext.MessageLog.NotifyIntermediateObjectCreation(DummyNode, CallFuncNode);
+			UK2Node_ExecutionSequence* DummyNode = CompilerContext.SpawnIntermediateNode<UK2Node_ExecutionSequence>(CallFuncNode);
 			DummyNode->AllocateDefaultPins();
 
 			// Wire in the dummy node

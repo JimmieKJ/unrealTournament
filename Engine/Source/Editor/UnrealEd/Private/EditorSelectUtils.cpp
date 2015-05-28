@@ -8,6 +8,8 @@
 #include "SnappingUtils.h"
 #include "MessageLog.h"
 #include "ComponentEditorUtils.h"
+#include "Components/ChildActorComponent.h"
+#include "Components/DecalComponent.h"
 
 #define LOCTEXT_NAMESPACE "EditorSelectUtils"
 
@@ -179,7 +181,10 @@ void UUnrealEdEngine::SetPivot( FVector NewPivot, bool bSnapPivotToGrid, bool bI
 
 	//default to using the x axis for the translate rotate widget
 	EditorModeTools.TranslateRotateXAxisAngle = 0.0f;
+	EditorModeTools.TranslateRotate2DAngle = 0.0f;
 	FVector TranslateRotateWidgetWorldXAxis;
+
+	FVector Widget2DWorldXAxis;
 
 	AActor* LastSelectedActor = NULL;
 	for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
@@ -195,6 +200,13 @@ void UUnrealEdEngine::SetPivot( FVector NewPivot, bool bSnapPivotToGrid, bool bI
 			if (!TranslateRotateWidgetWorldXAxis.Normalize())
 			{
 				TranslateRotateWidgetWorldXAxis = FVector(1.0f, 0.0f, 0.0f);
+			}
+
+			Widget2DWorldXAxis = Actor->ActorToWorld().TransformVector(FVector(1, 0, 0));
+			Widget2DWorldXAxis.Y = 0;
+			if (!Widget2DWorldXAxis.Normalize())
+			{
+				Widget2DWorldXAxis = FVector(1, 0, 0);
 			}
 		}
 
@@ -213,10 +225,11 @@ void UUnrealEdEngine::SetPivot( FVector NewPivot, bool bSnapPivotToGrid, bool bI
 		}
 	}
 
-	//if there are multiple actors selected, just use the x-axis for the "translate/rotate" widget
+	//if there are multiple actors selected, just use the x-axis for the "translate/rotate" or 2D widgets
 	if (Count == 1)
 	{
 		EditorModeTools.TranslateRotateXAxisAngle = TranslateRotateWidgetWorldXAxis.Rotation().Yaw;
+		EditorModeTools.TranslateRotate2DAngle = FMath::RadiansToDegrees(FMath::Atan2(Widget2DWorldXAxis.Z, Widget2DWorldXAxis.X));
 	}
 
 	// Update showing.
@@ -281,23 +294,25 @@ void UUnrealEdEngine::UpdatePivotLocationForSelection( bool bOnChange )
 		{
 			UActorComponent* Component = CastChecked<UActorComponent>(*It);
 			AActor* ComponentOwner = Component->GetOwner();
-			check(ComponentOwner);
 
-			auto SelectedActors = GetSelectedActors();
-			const bool bIsOwnerSelected = SelectedActors->IsSelected(ComponentOwner);
-			check(bIsOwnerSelected);
-
-			if (ComponentOwner->GetWorld() == GWorld)
+			if (ComponentOwner != nullptr)
 			{
-				SingleActor = ComponentOwner;
-				if (Component->IsA<USceneComponent>())
-				{
-					SingleComponent = CastChecked<USceneComponent>(Component);
-				}
+				auto SelectedActors = GetSelectedActors();
+				const bool bIsOwnerSelected = SelectedActors->IsSelected(ComponentOwner);
+				check(bIsOwnerSelected);
 
-				const bool IsTemplate = ComponentOwner->IsTemplate();
-				const bool LevelLocked = !FLevelUtils::IsLevelLocked(ComponentOwner->GetLevel());
-				check(IsTemplate || LevelLocked);
+				if (ComponentOwner->GetWorld() == GWorld)
+				{
+					SingleActor = ComponentOwner;
+					if (Component->IsA<USceneComponent>())
+					{
+						SingleComponent = CastChecked<USceneComponent>(Component);
+					}
+
+					const bool IsTemplate = ComponentOwner->IsTemplate();
+					const bool LevelLocked = !FLevelUtils::IsLevelLocked(ComponentOwner->GetLevel());
+					check(IsTemplate || LevelLocked);
+				}
 			}
 		}
 	}
@@ -492,7 +507,7 @@ bool UUnrealEdEngine::CanSelectActor(AActor* Actor, bool bInSelected, bool bSele
 	return bSelectionAllowed;
 }
 
-void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify, bool bSelectEvenIfHidden)
+void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify, bool bSelectEvenIfHidden, bool bForceRefresh)
 {
 	const bool bWarnIfLevelLocked = true;
 	if( !CanSelectActor( Actor, bInSelected, bSelectEvenIfHidden, bWarnIfLevelLocked ) )
@@ -597,10 +612,10 @@ void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify,
 		}
 		else
 		{
-			if( bNotify )
+			if (bNotify || bForceRefresh)
 			{
 				//reset the property windows.  In case something has changed since previous selection
-				UpdateFloatingPropertyWindows();
+				UpdateFloatingPropertyWindows(bForceRefresh);
 			}
 		}
 	}

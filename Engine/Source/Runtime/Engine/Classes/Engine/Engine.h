@@ -1,12 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
-// Engine: The base class of the global application object classes.
-//=============================================================================
-
 #pragma once
+
 #include "World.h"
 #include "Engine.generated.h"
+
 
 class FScreenSaverInhibitor;
 class UDeviceProfileManager;
@@ -15,6 +13,9 @@ class FCommonViewportClient;
 class FCanvas;
 
 
+/**
+ * Enumerats types of fully loaded packages.
+ */
 UENUM()
 enum EFullyLoadPackageType
 {
@@ -31,8 +32,9 @@ enum EFullyLoadPackageType
 	FULLYLOAD_MAX,
 };
 
+
 /**
- * A transition type.
+ * Enumerates transition types.
  */
 UENUM()
 enum ETransitionType
@@ -47,6 +49,7 @@ enum ETransitionType
 	TT_MAX,
 };
 
+
 UENUM()
 enum EConsoleType
 {
@@ -54,6 +57,7 @@ enum EConsoleType
 	CONSOLE_Mobile,
 	CONSOLE_MAX,
 };
+
 
 /** Struct to help hold information about packages needing to be fully-loaded for DLC, etc */
 USTRUCT()
@@ -84,6 +88,7 @@ struct FFullyLoadedPackagesInfo
 	}
 
 };
+
 
 /** level streaming updates that should be applied immediately after committing the map change */
 USTRUCT()
@@ -116,6 +121,7 @@ struct FLevelStreamingStatus
 	
 };
 
+
 /**
  * Container for describing various types of netdrivers available to the engine
  * The engine will try to construct a netdriver of a given type and, failing that,
@@ -146,6 +152,7 @@ struct FNetDriverDefinition
 	}
 };
 
+
 /**
  * Active and named net drivers instantiated from an FNetDriverDefinition
  * The net driver will remain instantiated on this struct until it is destroyed
@@ -174,6 +181,7 @@ struct FNamedNetDriver
 
 	~FNamedNetDriver() {}
 };
+
 
 /** FWorldContext
  *	A context for dealing with UWorlds at the engine level. As the engine brings up and destroys world, we need a way to keep straight
@@ -275,6 +283,9 @@ struct FWorldContext
 	/** Is this world context waiting for an online login to complete (for PIE) */
 	bool	bWaitingOnOnlineSubsystem;
 
+	/** Handle to this world context's audio device.*/
+	uint32 AudioDeviceHandle;
+
 	/**************************************************************/
 
 	/** Outside pointers to CurrentWorld that should be kept in sync if current world changes  */
@@ -295,18 +306,7 @@ struct FWorldContext
 	}
 
 	/** Set CurrentWorld and update external reference pointers to reflect this*/
-	void SetCurrentWorld(UWorld *World)
-	{
-		for(int32 idx=0; idx < ExternalReferences.Num(); ++idx)
-		{
-			if (ExternalReferences[idx] && *ExternalReferences[idx] == ThisCurrentWorld)
-			{
-				*ExternalReferences[idx] = World;
-			}
-		}
-
-		ThisCurrentWorld = World;
-	}
+	ENGINE_API void SetCurrentWorld(UWorld *World);
 
 	/** Collect FWorldContext references for garbage collection */
 	void AddReferencedObjects(FReferenceCollector& Collector, const UObject* ReferencingObject);
@@ -328,9 +328,9 @@ struct FWorldContext
 		, PIEInstance(INDEX_NONE)
 		, RunAsDedicated(false)
 		, bWaitingOnOnlineSubsystem(false)
+		, AudioDeviceHandle(INDEX_NONE)
 		, ThisCurrentWorld(nullptr)
-	{
-	}
+	{ }
 
 private:
 
@@ -358,6 +358,7 @@ struct FStatColorMapEntry
 
 };
 
+
 USTRUCT()
 struct FStatColorMapping
 {
@@ -379,6 +380,7 @@ struct FStatColorMapping
 	}
 
 };
+
 
 /** Info about one note dropped in the map during PIE. */
 USTRUCT()
@@ -407,7 +409,6 @@ struct FDropNoteInfo
 
 };
 
-/************************************/
 
 /** On-screen debug message handling */
 /** Helper struct for tracking on screen messages. */
@@ -448,6 +449,7 @@ struct FScreenMessageString
 	
 };
 
+
 UENUM()
 namespace EMatineeCaptureType
 {
@@ -459,6 +461,7 @@ namespace EMatineeCaptureType
 		JPEG	UMETA(DisplayName="JPEG Image Sequence")
 	};
 }
+
 
 USTRUCT()
 struct FGameNameRedirect
@@ -497,6 +500,7 @@ struct FClassRedirect
 	bool InstanceOnly;
 };
 
+
 USTRUCT()
 struct FStructRedirect
 {
@@ -508,6 +512,7 @@ struct FStructRedirect
 	UPROPERTY()
 	FString NewStructName;
 };
+
 
 USTRUCT()
 struct FPluginRedirect
@@ -521,10 +526,48 @@ struct FPluginRedirect
 	FString NewPluginName;
 };
 
+
 class IAnalyticsProvider;
 
 DECLARE_DELEGATE_OneParam(FBeginStreamingPauseDelegate, FViewport*);
 DECLARE_DELEGATE(FEndStreamingPauseDelegate);
+
+USTRUCT()
+struct FMatineeScreenshotOptions
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** determines if we should start the matinee capture as soon as the game loads */
+	UPROPERTY(transient)
+	uint32 bStartWithMatineeCapture:1;
+
+	/** should we compress the capture */
+	UPROPERTY(transient)
+	uint32 bCompressMatineeCapture:1;
+
+	/** the name of the matine that we want to record */
+	UPROPERTY(transient)
+	FString MatineeCaptureName;
+
+	/** The package name where the matinee belongs to */
+	UPROPERTY(transient)
+	FString MatineePackageCaptureName;
+
+	/** the fps of the matine that we want to record */
+	UPROPERTY(transient)
+	int32 MatineeCaptureFPS;
+
+	/** The capture type, e.g. AVI or Screen Shots */
+	UPROPERTY(transient)
+	TEnumAsByte<EMatineeCaptureType::Type> MatineeCaptureType;
+
+	/** Whether or not to disable texture streaming during matinee movie capture */
+	UPROPERTY(transient)
+	bool bNoTextureStreaming;
+
+	UPROPERTY(transient)
+	bool bHideHud;
+};
 
 /**
  * Abstract base class of all Engine classes, responsible for management of systems critical to editor or game systems.
@@ -1133,12 +1176,20 @@ public:
 	UPROPERTY(config)
 	uint32 bEnableEditorPSysRealtimeLOD:1;
 
+	/** Whether to use a fixed framerate. */
+	UPROPERTY(config, EditAnywhere, Category = Framerate)
+	uint32 bUseFixedFrameRate : 1;
+	
+	/** The fixed framerate to use. */
+	UPROPERTY(config, EditAnywhere, Category = Framerate, meta=(EditCondition="bUseFixedFrameRate"))
+	float FixedFrameRate;
+
 	/** Whether to enable framerate smoothing.																		*/
-	UPROPERTY(config, EditAnywhere, Category=Framerate)
+	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(EditCondition="!bUseFixedFrameRate"))
 	uint32 bSmoothFrameRate:1;
 
 	/** Range of framerates in which smoothing will kick in */
-	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(UIMin=0, UIMax=200))
+	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(UIMin=0, UIMax=200, EditCondition="!bUseFixedFrameRate"))
 	FFloatRange SmoothedFrameRateRange;
 
 	/** 
@@ -1259,10 +1310,6 @@ public:
 	UPROPERTY(config)
 	float MaxOcclusionPixelsFraction;
 
-	/** Do not use Ageia PhysX hardware */
-	UPROPERTY(globalconfig)
-	uint32 bDisablePhysXHardwareSupport:1;
-
 	/** Whether to pause the game if focus is lost. */
 	UPROPERTY(config)
 	uint32 bPauseOnLossOfFocus:1;
@@ -1299,7 +1346,7 @@ public:
 	float DisplayGamma;
 
 	/** Minimum desired framerate setting */
-	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(UIMin=0, ClampMin=0))
+	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(UIMin=0, ClampMin=0, EditCondition="!bUseFixedFrameRate"))
 	float MinDesiredFrameRate;
 
 private:
@@ -1356,21 +1403,6 @@ public:
 
 private:
 
-	/** Used to hold the device profile manager and device profiles */
-	UPROPERTY(transient)
-	UDeviceProfileManager* DeviceProfileManager;
-
-public:
-
-	/**
-	 * Get the reference to the engines device profile manager
-	 *
-	 * return A reference to the dpm singleton, initializes if not already.
-	 */
-	UDeviceProfileManager* GetDeviceProfileManager();
-
-private:
-
 	/** Whether the engine should be playing sounds.  If false at initialization time the AudioDevice will not be created */
 	uint32 bUseSound:1;
 
@@ -1379,34 +1411,8 @@ private:
 	int32 ScreenSaverInhibitorSemaphore;
 
 public:
-
-	/** determines if we should start the matinee capture as soon as the game loads */
 	UPROPERTY(transient)
-	uint32 bStartWithMatineeCapture:1;
-
-	/** should we compress the capture */
-	UPROPERTY(transient)
-	uint32 bCompressMatineeCapture:1;
-
-	/** the name of the matine that we want to record */
-	UPROPERTY(transient)
-	FString MatineeCaptureName;
-
-	/** The package name where the matinee belongs to */
-	UPROPERTY(transient)
-	FString MatineePackageCaptureName;
-
-	/** the fps of the matine that we want to record */
-	UPROPERTY(transient)
-	int32 MatineeCaptureFPS;
-
-	/** The capture type, e.g. AVI or Screen Shots */
-	UPROPERTY(transient)
-	TEnumAsByte<EMatineeCaptureType::Type> MatineeCaptureType;
-
-	/** Whether or not to disable texture streaming during matinee movie capture */
-	UPROPERTY(transient)
-	bool bNoTextureStreaming;
+	FMatineeScreenshotOptions MatineeScreenshotOptions;
 
 	/** true if the the user cannot modify levels that are read only. */
 	UPROPERTY(transient)
@@ -1499,19 +1505,25 @@ public:
 	 * Restores the selected material color back to the user setting
 	 */
 	void RestoreSelectedMaterialColor();
+
+protected:
+
+	/** The audio device manager */
+	class FAudioDeviceManager* AudioDeviceManager;
+
+	/** Audio device handle to the main audio device. */
+	uint32 MainAudioDeviceHandle;
+
 public:
 
 	/** A collection of messages to display on-screen. */
 	TMap<int32, FScreenMessageString> ScreenMessages;
 
-	/** The audio device */
-	class FAudioDevice* AudioDevice;
-
 	/** Reference to the stereoscopic rendering interace, if any */
-	TSharedPtr< class IStereoRendering > StereoRenderingDevice;
+	TSharedPtr< class IStereoRendering, ESPMode::ThreadSafe > StereoRenderingDevice;
 
 	/** Reference to the HMD device that is attached, if any */
-	TSharedPtr< class IHeadMountedDisplay > HMDDevice;
+	TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > HMDDevice;
 	
 	/** Triggered when a world is added. */	
 	DECLARE_EVENT_OneParam( UEngine, FWorldAddedEvent , UWorld* );
@@ -1627,7 +1639,7 @@ public:
 
 	/** Called at shutdown, just before the exit purge.	 */
 	virtual void PreExit();
-	virtual void ShutdownAudioDevice();
+	virtual void ShutdownAudioDeviceManager();
 
 	/** Called at startup, in the middle of FEngineLoop::Init.	 */
 	void ParseCommandline();
@@ -1891,6 +1903,14 @@ public:
 	}
 
 	/**
+	 * @return true if level streaming should prefer to stream levels from disk instead of duplicating them from editor world
+	 */
+	virtual bool PreferToStreamLevelsInPIE() const
+	{
+		return false;
+	}
+
+	/**
 	 * Enables or disables the ScreenSaver (PC only)
 	 *
 	 * @param bEnable	If true the enable the screen saver, if false disable it.
@@ -1913,7 +1933,7 @@ public:
 	/** Looks up the GUID of a package on disk. The package must NOT be in the auto-download cache.
 	 * This may require loading the header of the package in question and is therefore slow.
 	 */
-	static FGuid GetPackageGuid(FName PackageName);
+	static FGuid GetPackageGuid(FName PackageName, bool bForPIE);
 
 	/**
 	 * Returns whether we are running on a console platform or on the PC.
@@ -1966,6 +1986,11 @@ public:
 private:
 
 	/**
+	* Calculates the range of FPS values for the given bucket index
+	*/
+	void CalcQuantisedFPSRange(int32 BucketIndex, int32& StartFPS, int32& EndFPS);
+
+	/**
 	 * Dumps the FPS chart information to HTML.
 	 */
 	virtual void DumpFPSChartToHTML( float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName  );
@@ -2014,16 +2039,26 @@ public:
 	/** @return the GIsEditor flag setting */
 	bool IsEditor();
 
-	/** @return the audio device (will be None if sound is disabled) */
-	virtual class FAudioDevice* GetAudioDevice()
-	{
-		return AudioDevice;
-	}
+	/** @return the audio device manager of the UEngine, this allows the creation and management of multiple audio devices. */
+	class FAudioDeviceManager* GetAudioDeviceManager();
+
+	/** @return the main audio device handle used by the engine. */
+	uint32 GetAudioDeviceHandle() const;
+
+	/** @return the main audio device. */
+	class FAudioDevice* GetMainAudioDevice();
+
+	/** @return the currently active audio device */
+	class FAudioDevice* GetActiveAudioDevice();
+
+	DEPRECATED(4.8, "GetAudioDevice is deprecated UEngine::GetMainAudioDevice instead.")
+	/** @return the main audio device. */
+	class FAudioDevice* GetAudioDevice();
 
 	/** @return whether we're currently running in split screen (more than one local player) */
 	bool IsSplitScreen(UWorld *InWorld);
 
-	/** @return whether we're currently running with stereoscopic 3D enabled for the specified viewport (or globally, if viewport is NULL) */
+	/** @return whether we're currently running with stereoscopic 3D enabled for the specified viewport (or globally, if viewport is nullptr) */
 	bool IsStereoscopic3D(FViewport* InViewport = nullptr);
 
 	/**
@@ -2142,11 +2177,15 @@ public:
 		bool bAggressiveDefaultSubobjectReplacement;
 		bool bDoDelta;
 		bool bReplaceObjectClassReferences;
+		bool bCopyDeprecatedProperties;
+		bool bPreserveRootComponent;
 
 		FCopyPropertiesForUnrelatedObjectsParams()
 			: bAggressiveDefaultSubobjectReplacement(false)
 			, bDoDelta(true)
 			, bReplaceObjectClassReferences(true)
+			, bCopyDeprecatedProperties(false)
+			, bPreserveRootComponent(true)
 		{}
 	};
 	static void CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* NewObject, FCopyPropertiesForUnrelatedObjectsParams Params = FCopyPropertiesForUnrelatedObjectsParams());//bool bAggressiveDefaultSubobjectReplacement = false, bool bDoDelta = true);
@@ -2161,11 +2200,11 @@ public:
 protected:
 
 	/**
-	 *	Initialize the audio device
+	 *	Initialize the audio device manager
 	 *
 	 *	@return	true on success, false otherwise.
 	 */
-	virtual bool InitializeAudioDevice();
+	virtual bool InitializeAudioDeviceManager();
 
 	/**
 	 *	Detects and initializes any attached HMD devices
@@ -2258,8 +2297,8 @@ public:
 	 * Notification of network error messages, allows the engine to handle the failure
 	 *
 	 * @param	World associated with failure
+	 * @param	NetDriver associated with failure
 	 * @param	FailureType	the type of error
-	 * @param	NetDriverName name of the network driver generating the error
 	 * @param	ErrorString	additional string detailing the error
 	 */
 	virtual void HandleNetworkFailure(UWorld *World, UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString);
@@ -2302,14 +2341,35 @@ public:
 	ENetMode GetNetMode(const UWorld *World) const;
 
 	/**
+	 * Creates a UNetDriver with an engine assigned name
+	 *
+	 * @param InWorld the world context
+	 * @param NetDriverDefinition The name of the definition to use
+	 *
+	 * @return new netdriver if successful, nullptr otherwise
+	 */
+	UNetDriver* CreateNetDriver(UWorld *InWorld, FName NetDriverDefinition);
+
+	/**
 	 * Creates a UNetDriver and associates a name with it.
 	 *
+	 * @param InWorld the world context
 	 * @param NetDriverName The name to associate with the driver.
 	 * @param NetDriverDefinition The name of the definition to use
 	 *
 	 * @return True if the driver was created successfully, false if there was an error.
 	 */
 	bool CreateNamedNetDriver(UWorld *InWorld, FName NetDriverName, FName NetDriverDefinition);
+
+	/**
+	 * Creates a UNetDriver and associates a name with it.
+	 *
+	 * @param PendingNetGame the pending net game context
+	 * @param NetDriverName The name to associate with the driver.
+	 * @param NetDriverDefinition The name of the definition to use
+	 *
+	 * @return True if the driver was created successfully, false if there was an error.
+	 */
 	bool CreateNamedNetDriver(UPendingNetGame *PendingNetGame, FName NetDriverName, FName NetDriverDefinition);
 	
 	/**
@@ -2366,7 +2426,7 @@ public:
 	/** Browse to a specified URL, relative to the current one. */
 	virtual EBrowseReturnVal::Type Browse( FWorldContext& WorldContext, FURL URL, FString& Error );
 
-	bool TickWorldTravel(FWorldContext& WorldContext, float DeltaSeconds);
+	void TickWorldTravel(FWorldContext& WorldContext, float DeltaSeconds);
 
 	void BrowseToDefaultMap( FWorldContext& WorldContext );
 
@@ -2593,87 +2653,87 @@ private:
 
 public:
 	/**
-	 * Delegate we fire every time a new stat has been registered
+	 * Delegate we fire every time a new stat has been registered.
 	 *
-	 * @param FName	- The name of the new stat
-	 * @param FName - The category of the new stat
-	 * @param FText - The description of the new stat
+	 * @param FName The name of the new stat.
+	 * @param FName The category of the new stat.
+	 * @param FText The description of the new stat.
 	 */
 	DECLARE_EVENT_ThreeParams(UEngine, FOnNewStatRegistered, const FName&, const FName&, const FText&);
 	static FOnNewStatRegistered NewStatDelegate;
 	
 	/**
-	 * Wrapper for firing a simple stat exec
+	 * Wrapper for firing a simple stat exec.
 	 *
-	 * @param World	- The world to apply the exec to
-	 * @param ViewportClient - The viewport to apply the exec to
-	 * @param InName - The exec string
+	 * @param World	The world to apply the exec to.
+	 * @param ViewportClient The viewport to apply the exec to.
+	 * @param InName The exec string.
 	 */
 	void ExecEngineStat(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* InName);
 
 	/**
-	 * Check to see if the specified stat name is a simple stat
+	 * Check to see if the specified stat name is a simple stat.
 	 *
-	 * @param InName - The name of the stat we're checking
-	 * @returns true if the stat is a registered simple stat
+	 * @param InName The name of the stat we're checking.
+	 * @returns true if the stat is a registered simple stat.
 	 */
 	bool IsEngineStat(const FString& InName);
 
 	/**
-	 * Set the state of the specified stat
+	 * Set the state of the specified stat.
 	 *
-	 * @param World	- The world to apply the exec to
-	 * @param ViewportClient - The viewport to apply the exec to
-	 * @param InName - The stat name
-	 * @param bShow - The state we would like the stat to be in
+	 * @param World	The world to apply the exec to.
+	 * @param ViewportClient The viewport to apply the exec to.
+	 * @param InName The stat name.
+	 * @param bShow The state we would like the stat to be in.
 	 */
 	void SetEngineStat(UWorld* World, FCommonViewportClient* ViewportClient, const FString& InName, const bool bShow);
 
 	/**
-	 * Set the state of the specified stats (note: array processed in reverse order when !bShow)
+	 * Set the state of the specified stats (note: array processed in reverse order when !bShow).
 	 *
-	 * @param World	- The world to apply the exec to
-	 * @param ViewportClient - The viewport to apply the exec to
-	 * @param InNames - The stat names
-	 * @param bShow - The state we would like the stat to be in
+	 * @param World	The world to apply the exec to.
+	 * @param ViewportClient The viewport to apply the exec to.
+	 * @param InNames The stat names.
+	 * @param bShow The state we would like the stat to be in.
 	 */
 	void SetEngineStats(UWorld* World, FCommonViewportClient* ViewportClient, const TArray<FString>& InNames, const bool bShow);
 
 	/**
 	 * Function to render all the simple stats
 	 *
-	 * @param World	- The world being drawn to
-	 * @param ViewportClient - The viewport being drawn to
-	 * @param Canvas - The canvas to use when drawing
-	 * @param LHSX - The left hand side X position to start drawing from
-	 * @param InOutLHSY - The left hand side Y position to start drawing from
-	 * @param RHSX - The right hand side X position to start drawing from
-	 * @param InOutRHSY - The right hand side Y position to start drawing from
-	 * @param ViewLocation - The world space view location
-	 * @param ViewRotation - The world space view rotation
+	 * @param World	The world being drawn to.
+	 * @param ViewportClient The viewport being drawn to.
+	 * @param Canvas The canvas to use when drawing.
+	 * @param LHSX The left hand side X position to start drawing from.
+	 * @param InOutLHSY The left hand side Y position to start drawing from.
+	 * @param RHSX The right hand side X position to start drawing from.
+	 * @param InOutRHSY The right hand side Y position to start drawing from.
+	 * @param ViewLocation The world space view location.
+	 * @param ViewRotation The world space view rotation.
 	 */
 	void RenderEngineStats(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 LHSX, int32& InOutLHSY, int32 RHSX, int32& InOutRHSY, const FVector* ViewLocation, const FRotator* ViewRotation);
 
 private:
 	/**
-	 * Function definition for those stats which have their own render funcsions (or affect another render functions)
+	 * Function definition for those stats which have their own render funcsions (or affect another render functions).
 	 *
-	 * @param World	- The world being drawn to
-	 * @param ViewportClient - The viewport being drawn to
-	 * @param Canvas - The canvas to use when drawing
-	 * @param X - The X position to draw to
-	 * @param Y - The Y position to draw to
-	 * @param ViewLocation - The world space view location
-	 * @param ViewRotation - The world space view rotation
+	 * @param World	The world being drawn to.
+	 * @param ViewportClient The viewport being drawn to.
+	 * @param Canvas The canvas to use when drawing.
+	 * @param X The X position to draw to.
+	 * @param Y The Y position to draw to.
+	 * @param ViewLocation The world space view location.
+	 * @param ViewRotation The world space view rotation.
 	 */
 	typedef int32 (UEngine::*EngineStatRender)(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation, const FRotator* ViewRotation);
 
 	/**
-	 * Function definition for those stats which have their own toggle funcsions (or toggle other stats)
+	 * Function definition for those stats which have their own toggle funcsions (or toggle other stats).
 	 *
-	 * @param World	- The world being drawn to
-	 * @param ViewportClient - The viewport being drawn to
-	 * @param Stream - The remaining characters from the Exec call
+	 * @param World	The world being drawn to.
+	 * @param ViewportClient The viewport being drawn to.
+	 * @param Stream The remaining characters from the Exec call.
 	 */
 	typedef bool (UEngine::*EngineStatToggle)(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream);
 
@@ -2682,6 +2742,9 @@ private:
 	{
 		/** The name of the command, e.g. STAT FPS would just have FPS as it's CommandName */
 		FName CommandName;
+
+		/** A string version of CommandName without STAT_ at the beginning. Cached for optimization. */
+		FString CommandNameString;
 
 		/** The category the command falls into (only used by UI) */
 		FName CategoryName;
@@ -2703,12 +2766,14 @@ private:
 		/** Constructor */
 		FEngineStatFuncs(const FName& InCommandName, const FName& InCategoryName, const FText& InDescriptionString, EngineStatRender InRenderFunc = nullptr, EngineStatToggle InToggleFunc = nullptr, const bool bInIsRHS = false)
 			: CommandName(InCommandName)
+			, CommandNameString(InCommandName.ToString())
 			, CategoryName(InCategoryName)
 			, DescriptionString(InDescriptionString)
 			, RenderFunc(InRenderFunc)
 			, ToggleFunc(InToggleFunc)
 			, bIsRHS(bInIsRHS)
 		{
+			CommandNameString.RemoveFromStart(TEXT("STAT_"));
 		}
 	};
 
@@ -2716,12 +2781,13 @@ private:
 	TArray<FEngineStatFuncs> EngineStats;
 
 private:
+
 	/**
-	 * Functions for performing other actions when the stat is toggled, should only be used when registering with EngineStats
+	 * Functions for performing other actions when the stat is toggled, should only be used when registering with EngineStats.
 	 *
-	 * @param World	- The world being drawn to
-	 * @param ViewportClient - The viewport being drawn to
-	 * @param Stream - The remaining characters from the Exec call (optional)
+	 * @param World	The world being drawn to.
+	 * @param ViewportClient The viewport being drawn to.
+	 * @param Stream The remaining characters from the Exec call (optional).
 	 */
 	bool ToggleStatFPS(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
 	bool ToggleStatDetailed(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
@@ -2737,15 +2803,15 @@ private:
 	bool ToggleStatSounds(UWorld* World, FCommonViewportClient* ViewportClient, const TCHAR* Stream = nullptr);
 
 	/**
-	 * Functions for rendering the various simple stats, should only be used when registering with EngineStats
+	 * Functions for rendering the various simple stats, should only be used when registering with EngineStats.
 	 *
-	 * @param World	- The world being drawn to
-	 * @param ViewportClient - The viewport being drawn to
-	 * @param Canvas - The canvas to use when drawing
-	 * @param X - The X position to draw to
-	 * @param Y - The Y position to draw to
-	 * @param ViewLocation - The world space view location
-	 * @param ViewRotation - The world space view rotation
+	 * @param World	The world being drawn to.
+	 * @param ViewportClient The viewport being drawn to.
+	 * @param Canvas The canvas to use when drawing.
+	 * @param X The X position to draw to.
+	 * @param Y The Y position to draw to.
+	 * @param ViewLocation The world space view location.
+	 * @param ViewRotation The world space view rotation.
 	 */
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	int32 RenderStatVersion(UWorld* World, FViewport* Viewport, FCanvas* Canvas, int32 X, int32 Y, const FVector* ViewLocation = nullptr, const FRotator* ViewRotation = nullptr);

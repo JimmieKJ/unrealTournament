@@ -7,6 +7,7 @@
 class ALevelBounds;
 class UTexture2D;
 class UNavigationDataChunk;
+class AInstancedFoliageActor;
 
 /**
  * Structure containing all information needed for determining the screen space
@@ -234,37 +235,60 @@ struct ENGINE_API FLevelSimplificationDetails
 {
 	GENERATED_USTRUCT_BODY()
 
-	// Percentage of details relative to main tile details
-	UPROPERTY(Category=ReductionSettings, EditAnywhere, meta=(ClampMin = "0", ClampMax = "100", UIMin = "0", UIMax = "100"))	
+	// Whether to create separate packages for each generated asset. All in map package otherwise
+	UPROPERTY(Category=General, EditAnywhere)
+	bool bCreatePackagePerAsset;
+
+	// Percentage of details for static mesh proxy
+	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Details Percentage", ClampMin = "0", ClampMax = "100", UIMin = "0", UIMax = "100"))	
 	float DetailsPercentage;
 
-	// Whether to create separate packages for each generated asset. All in map package otherwise
-	UPROPERTY(Category=Landscape, EditAnywhere)
-	bool bCreatePackagePerAsset;
+	// Whether to generate normal map for static mesh proxy
+	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Normal Map"))
+	bool bGenerateMeshNormalMap;
 	
-	// Landscape LOD to use for static mesh generation
-	UPROPERTY(Category=Landscape, EditAnywhere, meta=(ClampMin = "0", ClampMax = "7", UIMin = "0", UIMax = "7"))
+	// Whether to generate metallic map for static mesh proxy
+	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Metallic Map"))
+	bool bGenerateMeshMetallicMap;
+
+	// Whether to generate roughness map for static mesh proxy
+	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Roughness Map"))
+	bool bGenerateMeshRoughnessMap;
+	
+	// Whether to generate specular map for static mesh proxy
+	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Specular Map"))
+	bool bGenerateMeshSpecularMap;
+
+	UPROPERTY()
+	bool bOverrideLandscapeExportLOD;
+
+	// Landscape LOD to use for static mesh generation, when not specified 'Max LODLevel' from landscape actor will be used
+	UPROPERTY(Category=Landscape, EditAnywhere, meta=(ClampMin = "0", ClampMax = "7", UIMin = "0", UIMax = "7", editcondition = "bOverrideLandscapeExportLOD"))
 	int32 LandscapeExportLOD;
 
 	// Whether to generate normal map for landscape static mesh
-	UPROPERTY(Category=Landscape, EditAnywhere)
+	UPROPERTY(Category=Landscape, EditAnywhere, meta=(DisplayName="Landscape Normal Map"))
 	bool bGenerateLandscapeNormalMap;
 
 	// Whether to generate metallic map for landscape static mesh
-	UPROPERTY(Category=Landscape, EditAnywhere)
+	UPROPERTY(Category=Landscape, EditAnywhere, meta=(DisplayName="Landscape Metallic Map"))
 	bool bGenerateLandscapeMetallicMap;
 
 	// Whether to generate roughness map for landscape static mesh
-	UPROPERTY(Category=Landscape, EditAnywhere)
+	UPROPERTY(Category=Landscape, EditAnywhere, meta=(DisplayName="Landscape Roughness Map"))
 	bool bGenerateLandscapeRoughnessMap;
 	
 	// Whether to generate specular map for landscape static mesh
-	UPROPERTY(Category=Landscape, EditAnywhere)
+	UPROPERTY(Category=Landscape, EditAnywhere, meta=(DisplayName="Landscape Specular Map"))
 	bool bGenerateLandscapeSpecularMap;
 	
 	// Whether to bake foliage into landscape static mesh texture
 	UPROPERTY(Category=Landscape, EditAnywhere)
 	bool bBakeFoliageToLandscape;
+
+	// Whether to bake grass into landscape static mesh texture
+	UPROPERTY(Category=Landscape, EditAnywhere)
+	bool bBakeGrassToLandscape;
 
 	FLevelSimplificationDetails();
 
@@ -299,7 +323,7 @@ public:
 	TTransArray<AActor*> Actors;
 
 	/** Set before calling LoadPackage for a streaming level to ensure that OwningWorld is correct on the Level */
-	ENGINE_API static TMap<FName, UWorld*> StreamedLevelsOwningWorld;
+	ENGINE_API static TMap<FName, TWeakObjectPtr<UWorld> > StreamedLevelsOwningWorld;
 		
 	/** 
 	 * The World that has this level in its Levels array. 
@@ -434,25 +458,31 @@ public:
 		return (OwningWorld && this == OwningWorld->CurrentLevelPendingVisibility);
 	}
 
+	// Event on level transform changes
+	DECLARE_MULTICAST_DELEGATE_OneParam(FLevelTransformEvent, const FTransform&);
+	FLevelTransformEvent OnApplyLevelTransform;
+
 #if WITH_EDITORONLY_DATA
 	/** Level simplification settings for each LOD */
 	UPROPERTY()
 	FLevelSimplificationDetails LevelSimplification[WORLDTILE_LOD_MAX_INDEX];
 #endif //WITH_EDITORONLY_DATA
 
-#if PERF_TRACK_DETAILED_ASYNC_STATS
-	/** Mapping of how long each actor class takes to have UpdateComponents called on it */
-	TMap<const UClass*,struct FMapTimeEntry>		UpdateComponentsTimePerActorClass;
-#endif // PERF_TRACK_DETAILED_ASYNC_STATS
-
 	/** Actor which defines level logical bounding box				*/
 	TWeakObjectPtr<ALevelBounds>				LevelBoundsActor;
+
+	/** Cached pointer to Foliage actor		*/
+	TWeakObjectPtr<AInstancedFoliageActor>		InstancedFoliageActor;
 
 	/** Called when Level bounds actor has been updated */
 	DECLARE_EVENT( ULevel, FLevelBoundsActorUpdatedEvent );
 	FLevelBoundsActorUpdatedEvent& LevelBoundsActorUpdated() { return LevelBoundsActorUpdatedEvent; }
 	/**	Broadcasts that Level bounds actor has been updated */ 
 	void BroadcastLevelBoundsActorUpdated() { LevelBoundsActorUpdatedEvent.Broadcast(); }
+
+	/** Marks level bounds as dirty so they will be recalculated  */
+	ENGINE_API void MarkLevelBoundsDirty();
+
 private:
 	FLevelBoundsActorUpdatedEvent LevelBoundsActorUpdatedEvent; 
 
@@ -482,7 +512,16 @@ public:
 
 	// Constructor.
 	ENGINE_API void Initialize(const FURL& InURL);
-	ULevel(const FObjectInitializer& ObjectInitializer);
+	ULevel(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	ULevel(FVTableHelper& Helper)
+		: Super(Helper)
+		, Actors(this)
+	{}
+#endif // WITH_HOT_RELOAD_CTORS
+
 	~ULevel();
 
 	// Begin UObject interface.
@@ -705,10 +744,6 @@ public:
 
 	/** Push any pending auto receive input actor's input components on to the player controller's input stack */
 	void PushPendingAutoReceiveInput(APlayerController* PC);
-
-	/** Increments number of steaming objects referring this level */
-	ENGINE_API void IncStreamingLevelRefs();
-	
 	
 	// Begin IInterface_AssetUserData Interface
 	virtual void AddAssetUserData(UAssetUserData* InUserData) override;

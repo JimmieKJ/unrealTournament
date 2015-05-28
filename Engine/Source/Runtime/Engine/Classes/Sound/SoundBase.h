@@ -33,10 +33,12 @@ class ENGINE_API USoundBase : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
+protected:
 	/** Sound class this sound belongs to */
 	UPROPERTY(EditAnywhere, Category=Sound, meta=(DisplayName = "Sound Class"))
 	USoundClass* SoundClassObject;
 
+public:
 	/** When "stat sounds -debug" has been specified, draw this sound's attenuation shape when the sound is audible. For debugging purpose only. */
 	UPROPERTY(EditAnywhere, Category=Playback)
 	uint32 bDebug:1;
@@ -82,7 +84,7 @@ public:
 	 * @param Location				Location to check against
 	 * @param AttenuationSettings	Optional Attenuation override if not using settings from the sound
 	 */
-	bool IsAudibleSimple( const FVector Location, USoundAttenuation* AttenuationSettings = NULL );
+	bool IsAudibleSimple( class FAudioDevice* AudioDevice, const FVector Location, USoundAttenuation* AttenuationSettings = NULL );
 
 	/** 
 	 * Returns the farthest distance at which the sound could be heard
@@ -101,5 +103,10 @@ public:
 	 * Parses the Sound to generate the WaveInstances to play
 	 */
 	virtual void Parse( class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) { }
+
+	/**
+	 * Returns the SoundClass used for this sound
+	 */
+	virtual USoundClass* GetSoundClass() const;
 };
 

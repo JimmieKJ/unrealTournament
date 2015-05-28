@@ -336,7 +336,7 @@ FReply FSkelMeshReductionSettingsLayout::OnApplyChanges()
 {
 	if (ParentLODSettings.IsValid())
 	{
-		ParentLODSettings.Pin()->ApplyChanges();
+		ParentLODSettings.Pin()->ApplyChanges(false);
 	}
 	return FReply::Handled();
 }
@@ -584,10 +584,10 @@ void FPersonaMeshDetails::CustomizeLODSettingsCategories(IDetailLayoutBuilder& D
 		[
 			SNew(SButton)
 			.OnClicked(this, &FPersonaMeshDetails::OnApplyChanges)
-			.IsEnabled(this, &FPersonaMeshDetails::IsApplyNeeded)
+			.IsEnabled(this, &FPersonaMeshDetails::IsGenerateAvailable)
 			[
 				SNew(STextBlock)
-				.Text(LOCTEXT("ApplyChanges", "Apply Changes"))
+				.Text(this, &FPersonaMeshDetails::GetApplyButtonText)
 				.Font(DetailLayout.GetDetailFont())
 			]
 		];
@@ -626,8 +626,22 @@ void FPersonaMeshDetails::OnLODCountCommitted(int32 InValue, ETextCommit::Type C
 
 FReply FPersonaMeshDetails::OnApplyChanges()
 {
-	ApplyChanges();
+	ApplyChanges(true);
 	return FReply::Handled();
+}
+
+FText FPersonaMeshDetails::GetApplyButtonText() const
+{
+	if (IsApplyNeeded())	
+	{
+		return LOCTEXT("ApplyChanges", "Apply Changes");
+	}
+	else if (IsGenerateAvailable())
+	{
+		return LOCTEXT("Regenerate", "Regenerate");
+	}
+
+	return LOCTEXT("ApplyChanges", "Apply Changes");
 }
 
 void FPersonaMeshDetails::RefreshBonesToRemove(TArray<FBoneReference>& InOutBonesToRemove, int32 LODIndex)
@@ -696,10 +710,12 @@ void FPersonaMeshDetails::RefreshBonesToRemove(TArray<FBoneReference>& InOutBone
 	}
 }
 
-void FPersonaMeshDetails::ApplyChanges()
+void FPersonaMeshDetails::ApplyChanges(bool bForceUpdate)
 {
 	USkeletalMesh* SkelMesh = PersonaPtr->GetMesh();
 	check(SkelMesh);
+
+	const bool bForceUpdateLOD = (IsApplyNeeded() == false && bForceUpdate);
 
 	FSkeletalMeshUpdateContext UpdateContext;
 	UpdateContext.SkeletalMesh = SkelMesh;
@@ -747,7 +763,7 @@ void FPersonaMeshDetails::ApplyChanges()
 			SettingIndex = Settings.Add(Setting);
 		}
 
-		FLODUtilities::SimplifySkeletalMesh(UpdateContext, Settings);
+		FLODUtilities::SimplifySkeletalMesh(UpdateContext, Settings, bForceUpdateLOD);
 
 		// save reduction settings
 		for (int32 LODIdx = 1; LODIdx < LODCount; ++LODIdx)
@@ -774,6 +790,16 @@ void FPersonaMeshDetails::UpdateLODNames()
 	LODNames.Add(MakeShareable(new FString(FText::Format(NSLOCTEXT("LODSettingsLayout", "LODLevel_Import", "Import LOD Level {0}"), FText::AsNumber(LODCount)).ToString())));
 }
 
+bool FPersonaMeshDetails::IsGenerateAvailable() const
+{
+	if (IsApplyNeeded())
+	{
+		return true;
+	}
+
+	// if you have LOD
+	return (LODCount > 1);
+}
 bool FPersonaMeshDetails::IsApplyNeeded() const
 {
 	USkeletalMesh* SkelMesh = PersonaPtr->GetMesh();
@@ -1205,7 +1231,7 @@ void FPersonaMeshDetails::OnMaterialChanged(UMaterialInterface* NewMaterial, UMa
 				GEditor->BeginTransaction(LOCTEXT("PersonaReplaceMaterial", "Replace material on mesh"));
 				bMadeTransaction = true;
 			}
-
+			Mesh->Modify();
 			Mesh->Materials[MaterialIndex].MaterialInterface = NewMaterial;
 		}
 	}
@@ -1248,6 +1274,7 @@ void FPersonaMeshDetails::OnMaterialChanged(UMaterialInterface* NewMaterial, UMa
 				GEditor->BeginTransaction(LOCTEXT("PersonaReplaceMaterial", "Replace material on mesh"));
 				bMadeTransaction = true;
 			}
+			Mesh->Modify();
 			Mesh->Materials[MaterialIndex].MaterialInterface = NewMaterial;
 		}
 	}
@@ -1607,6 +1634,8 @@ FReply FPersonaMeshDetails::OnReimportApexFileClicked(int32 AssetIndex, IDetailL
 	case ApexClothingUtils::CURT_Fail:
 		// Failed to create or import
 		FMessageDialog::Open( EAppMsgType::Ok, FText::Format( LOCTEXT("ReimportFailed", "Failed to re-import APEX clothing asset from {0}."), FText::FromString( FileName ) ) );
+		break;
+	case ApexClothingUtils::CURT_Cancel:
 		break;
 	}
 

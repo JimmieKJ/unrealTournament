@@ -13,9 +13,7 @@ Blueprints
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Blueprints]
-**Blueprints** are a visual gameplay scripting system based on the concept of using a node-based interface to create gameplay elements from within Unreal Editor. This system is extremely flexible and powerful as it provides the ability to use virtually the full range of concepts and tools generally only available to programmers, through programming languages and the features they support.
-
-There are several kinds of Blueprints, including Level Blueprints, Blueprint Classes, Blueprint Macro Libraries, and Animation Blueprints.
+The **Blueprints Visual Scripting** system (or **Blueprints** for short) is a visual scripting system based on the concept of adding and connecting nodes together to create gameplay elements all from within the Unreal Editor. Flexible and powerful enough to create an entire game without ever having to touch a single line of code, Blueprints provide the ability to use virtually the full range of concepts and tools generally only available to programmers. 
 [/EXCERPT:Glossary_Blueprints]
 
 	[/PARAM]
@@ -78,7 +76,10 @@ Brush
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Brush]
-A **Brush** is a 3D volume used to define geometry and gameplay volumes. Also, a user-interface apparatus that you can use to paint values (such as color) onto a surface or a scene.
+A **Brush** is an Actor that describes a 3D volume that is placed in a level in order to define level geometry (referred to as BSPs) and gameplay volumes. Typically you will use BSP Brushes to prototype or block-out your levels for gameplay testing. 
+
+Volumes on the other hand have several uses depending upon the effects attached to them such as: Blocking Volumes (which are invisible and used to prevent Actors from passing through them), Pain Causing Volumes (which causes damage over time to any Actor that overlaps it) or Trigger Volumes (which are used as a way to cause events when an Actor enters or exits them).  
+
 [/EXCERPT:Glossary_Brush]
  
 	[/PARAM]

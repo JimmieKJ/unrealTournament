@@ -79,8 +79,14 @@ FString CreateProfileFilename( const FString& InFileExtension, bool bIncludeDate
 	FString MapNameStr;
 
 #if WITH_ENGINE
-	checkf(GGetMapNameDelegate.IsBound());
-	MapNameStr = GGetMapNameDelegate.Execute();
+	if(GGetMapNameDelegate.IsBound())
+	{
+		MapNameStr = GGetMapNameDelegate.Execute();
+	}
+	else
+	{
+		MapNameStr = TEXT( "LoadTimeFile" );
+	}
 #endif		// WITH_ENGINE
 
 	const FString PlatformStr(FPlatformProperties::PlatformName());
@@ -139,7 +145,7 @@ FString CreateProfileDirectoryAndFilename( const FString& InSubDirectoryName, co
 {
 	FString MapNameStr;
 #if WITH_ENGINE
-	checkf(GGetMapNameDelegate.IsBound());
+	check(GGetMapNameDelegate.IsBound());
 	MapNameStr = GGetMapNameDelegate.Execute();
 #endif		// WITH_ENGINE
 	const FString PlatformStr = FString(TEXT("PC"));

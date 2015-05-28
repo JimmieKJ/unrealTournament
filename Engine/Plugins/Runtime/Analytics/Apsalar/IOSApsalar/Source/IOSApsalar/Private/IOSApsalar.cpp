@@ -6,12 +6,15 @@ DEFINE_LOG_CATEGORY_STATIC(LogAnalytics, Display, All);
 
 IMPLEMENT_MODULE( FAnalyticsIOSApsalar, IOSApsalar )
 
+TSharedPtr<IAnalyticsProvider> FAnalyticsProviderApsalar::Provider;
+
 void FAnalyticsIOSApsalar::StartupModule()
 {
 }
 
 void FAnalyticsIOSApsalar::ShutdownModule()
 {
+	FAnalyticsProviderApsalar::Destroy();
 }
 
 TSharedPtr<IAnalyticsProvider> FAnalyticsIOSApsalar::CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const
@@ -23,8 +26,8 @@ TSharedPtr<IAnalyticsProvider> FAnalyticsIOSApsalar::CreateAnalyticsProvider(con
 		const FString SendInterval = GetConfigValue.Execute(TEXT("SendInterval"), false);
 		const FString MaxBufferSize = GetConfigValue.Execute(TEXT("MaxBufferSize"), false);
 		const FString ManuallyReportRevenue = GetConfigValue.Execute(TEXT("ManuallyReportRevenue"), false);
-		const bool bWantsManualRevenueReporting = ManuallyReportRevenue.Compare(TEXT("true"), ESearchCase::IgnoreCase);
-		return TSharedPtr<IAnalyticsProvider>(new FAnalyticsProviderApsalar(Key, Secret, FCString::Atoi(*SendInterval), FCString::Atoi(*MaxBufferSize), bWantsManualRevenueReporting));
+		const bool bWantsManualRevenueReporting = ManuallyReportRevenue.Compare(TEXT("true"), ESearchCase::IgnoreCase) == 0;
+		return FAnalyticsProviderApsalar::Create(Key, Secret, FCString::Atoi(*SendInterval), FCString::Atoi(*MaxBufferSize), bWantsManualRevenueReporting);
 	}
 	else
 	{
@@ -219,7 +222,7 @@ void FAnalyticsProviderApsalar::RecordEvent(const FString& EventName, const TArr
 			for	(auto Attr : Attributes)
 			{
 				NSString* AttrName = [NSString stringWithFString : Attr.AttrName];
-				NSString* AttrValue = [NSString stringWithFString : Attr.AttrName];
+				NSString* AttrValue = [NSString stringWithFString : Attr.AttrValue];
 				[AttributesDict setValue:AttrValue forKey:AttrName];
 			}
 			[Apsalar event:ConvertedEventName withArgs:AttributesDict];

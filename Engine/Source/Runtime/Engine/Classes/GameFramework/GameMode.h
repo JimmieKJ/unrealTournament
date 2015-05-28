@@ -69,7 +69,7 @@ class ENGINE_API AGameMode : public AInfo
 
 	/** Returns the current match state, this is an accessor to protect the state machine flow */
 	UFUNCTION(BlueprintCallable, Category="Game")
-	FName GetMatchState() const;
+	FName GetMatchState() const { return MatchState; }
 
 	/** Returns true if the match state is InProgress or later */
 	UFUNCTION(BlueprintCallable, Category="Game")
@@ -228,10 +228,6 @@ public:
 	/** The pawn class used by the PlayerController for players when spectating. */
 	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category=Classes)
 	TSubclassOf<class ASpectatorPawn> SpectatorClass;
-
-	/** The PlayerController class used when spectating a network replay. */
-	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category = Classes)
-	TSubclassOf<class APlayerController> ReplaySpectatorPlayerControllerClass;
 
 	/** A PlayerState of this class will be associated with every player to replicate relevant player information to all clients. */
 	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category=Classes)
@@ -481,7 +477,7 @@ public:
 
 	/** returns default pawn class for given controller */
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
-	TSubclassOf<APawn> GetDefaultPawnClassForController(AController* InController);
+	UClass* GetDefaultPawnClassForController(AController* InController);
 
 	/** Called when StartSpot is selected for spawning NewPlayer to allow optional initialization. */
 	UFUNCTION(BlueprintNativeEvent, Category="Game")

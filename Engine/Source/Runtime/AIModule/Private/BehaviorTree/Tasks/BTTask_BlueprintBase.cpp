@@ -23,12 +23,6 @@ UBTTask_BlueprintBase::UBTTask_BlueprintBase(const FObjectInitializer& ObjectIni
 	}
 }
 
-void UBTTask_BlueprintBase::PostInitProperties()
-{
-	Super::PostInitProperties();
-	NodeName = BlueprintNodeHelpers::GetNodeName(this);
-}
-
 void UBTTask_BlueprintBase::SetOwner(AActor* InActorOwner) 
 { 
 	ActorOwner = InActorOwner;

@@ -37,6 +37,11 @@ namespace AutomationTool
 		public bool bUsesSteam;
 
 		/// <summary>
+		/// Whether the project uses CEF3
+		/// </summary>
+		public bool bUsesCEF3;
+
+		/// <summary>
 		/// Whether the project uses visual Slate UI (as opposed to the low level windowing/messaging which is always used)
 		/// </summary>
 		public bool bUsesSlate = true;
@@ -76,6 +81,11 @@ namespace AutomationTool
 		/// </summary>
 		public List<SingleTargetProperties> Programs = new List<SingleTargetProperties>();
 
+		/// <summary>
+		/// Specifies if the target files were generated
+		/// </summary>
+		public bool bWasGenerated = false;
+
 		internal ProjectProperties()
 		{
 		}
@@ -104,7 +114,7 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="RawProjectPath">Full project path.</param>
 		/// <returns>Properties of the project.</returns>
-		public static ProjectProperties GetProjectProperties(string RawProjectPath)
+		public static ProjectProperties GetProjectProperties(string RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms = null)
 		{
 			string ProjectKey = "UE4";
 			if (!String.IsNullOrEmpty(RawProjectPath))
@@ -114,7 +124,7 @@ namespace AutomationTool
 			ProjectProperties Properties;
 			if (PropertiesCache.TryGetValue(ProjectKey, out Properties) == false)
 			{
-				Properties = DetectProjectProperties(RawProjectPath);
+				Properties = DetectProjectProperties(RawProjectPath, ClientTargetPlatforms);
 				PropertiesCache.Add(ProjectKey, Properties);
 			}
 			return Properties;
@@ -127,7 +137,7 @@ namespace AutomationTool
 		/// <returns>True if the project is a UProject file with source code.</returns>
 		public static bool IsCodeBasedUProjectFile(string RawProjectPath)
 		{
-			return GetProjectProperties(RawProjectPath).bIsCodeBasedProject;
+			return GetProjectProperties(RawProjectPath, null).bIsCodeBasedProject;
 		}
 
 		/// <summary>
@@ -145,19 +155,134 @@ namespace AutomationTool
 			return ProjectClientBinariesPath;
 		}
 
+		private static bool RequiresTempTarget(string RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms)
+		{
+			// check to see if we already have a Target.cs file
+			if (File.Exists (Path.Combine (Path.GetDirectoryName (RawProjectPath), "Source", Path.GetFileNameWithoutExtension (RawProjectPath) + ".Target.cs")))
+			{
+				return false;
+			}
+			else 
+			{
+				// wasn't one in the main Source directory, let's check all sub-directories
+				//@todo: may want to read each target.cs to see if it has a target corresponding to the project name as a final check
+				FileInfo[] Files = (new DirectoryInfo (Path.GetDirectoryName (RawProjectPath)).GetFiles ("*.Target.cs", SearchOption.AllDirectories));
+				if (Files.Length > 0)
+				{
+					return false;
+				}
+			}
+
+			// no Target file, now check to see if build settings have changed
+			List<UnrealTargetPlatform> TargetPlatforms = ClientTargetPlatforms;
+			if (ClientTargetPlatforms == null || ClientTargetPlatforms.Count < 1)
+			{
+				// No client target platforms, add all in
+				TargetPlatforms = new List<UnrealTargetPlatform>();
+				foreach (UnrealTargetPlatform TargetPlatformType in Enum.GetValues(typeof(UnrealTargetPlatform)))
+				{
+					if (TargetPlatformType != UnrealTargetPlatform.Unknown)
+					{
+						TargetPlatforms.Add(TargetPlatformType);
+					}
+				}
+			}
+
+			// Change the working directory to be the Engine/Source folder. We are running from Engine/Binaries/DotNET
+			string oldCWD = Directory.GetCurrentDirectory();
+			if (BuildConfiguration.RelativeEnginePath == "../../Engine/")
+			{
+				string EngineSourceDirectory = Path.Combine(UnrealBuildTool.Utils.GetExecutingAssemblyDirectory(), "..", "..", "..", "Engine", "Source");
+				if (!Directory.Exists(EngineSourceDirectory)) // only set the directory if it exists, this should only happen if we are launching the editor from an artist sync
+				{
+					EngineSourceDirectory = Path.Combine(UnrealBuildTool.Utils.GetExecutingAssemblyDirectory(), "..", "..", "..", "Engine", "Binaries");
+				}
+				Directory.SetCurrentDirectory(EngineSourceDirectory);
+			}
+
+			// Read the project descriptor, and find all the plugins available to this project
+			ProjectDescriptor Project = ProjectDescriptor.FromFile(RawProjectPath);
+			List<PluginInfo> AvailablePlugins = Plugins.ReadAvailablePlugins(RawProjectPath);
+
+			// check the target platforms for any differences in build settings or additional plugins
+			bool RetVal = false;
+			foreach (UnrealTargetPlatform TargetPlatformType in TargetPlatforms)
+			{
+				IUEBuildPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(TargetPlatformType, true);
+				if (!GlobalCommandLine.Rocket && BuildPlat != null && !(BuildPlat as UEBuildPlatform).HasDefaultBuildConfig(TargetPlatformType, Path.GetDirectoryName(RawProjectPath)))
+				{
+					RetVal = true;
+					break;
+				}
+
+				// find if there are any plugins enabled or disabled which differ from the default
+				foreach(PluginInfo Plugin in AvailablePlugins)
+				{
+					if(UProjectInfo.IsPluginEnabledForProject(Plugin, Project, TargetPlatformType) != Plugin.Descriptor.bEnabledByDefault)
+					{
+						if(Plugin.Descriptor.Modules.Any(Module => Module.IsCompiledInConfiguration(TargetPlatformType, TargetRules.TargetType.Game, bBuildDeveloperTools: false, bBuildEditor: false)))
+						{
+							RetVal = true;
+							break;
+						}
+					}
+				}
+			}
+
+			// Change back to the original directory
+			Directory.SetCurrentDirectory(oldCWD);
+			return RetVal;
+		}
+
+		private static void GenerateTempTarget(string RawProjectPath)
+		{
+			// read in the template target cs file
+			var TempCSFile = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Build", "Target.cs.template");
+			string TargetCSFile = File.ReadAllText(TempCSFile);
+
+			// replace {GAME_NAME} with the game name
+			TargetCSFile = TargetCSFile.Replace("{GAME_NAME}", Path.GetFileNameWithoutExtension(RawProjectPath));
+
+			// write out the file in a new Source directory
+			string FileName = CommandUtils.CombinePaths(Path.GetDirectoryName(RawProjectPath), "Intermediate", "Source", Path.GetFileNameWithoutExtension(RawProjectPath) + ".Target.cs");
+			if (!Directory.Exists(Path.GetDirectoryName(FileName)))
+			{
+				Directory.CreateDirectory(Path.GetDirectoryName(FileName));
+			}
+
+			File.WriteAllText(FileName, TargetCSFile);
+		}
+
 		/// <summary>
 		/// Attempts to autodetect project properties.
 		/// </summary>
 		/// <param name="RawProjectPath">Full project path.</param>
 		/// <returns>Project properties.</returns>
-		private static ProjectProperties DetectProjectProperties(string RawProjectPath)
+		private static ProjectProperties DetectProjectProperties(string RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms)
 		{
 			var Properties = new ProjectProperties();
 			Properties.RawProjectPath = RawProjectPath;
 
+			// detect if the project is content only, but has non-default build settings
+			List<string> ExtraSearchPaths = null;
+			if (!string.IsNullOrEmpty(RawProjectPath))
+			{
+				if (RequiresTempTarget(RawProjectPath, ClientTargetPlatforms))
+				{
+					GenerateTempTarget(RawProjectPath);
+					Properties.bWasGenerated = true;
+					ExtraSearchPaths = new List<string>();
+					ExtraSearchPaths.Add(CommandUtils.CombinePaths(Path.GetDirectoryName(RawProjectPath), "Intermediate", "Source"));
+				}
+				else if (File.Exists(Path.Combine(Path.GetDirectoryName(RawProjectPath), "Intermediate", "Source", Path.GetFileNameWithoutExtension(RawProjectPath) + ".Target.cs")))
+				{
+					File.Delete(Path.Combine(Path.GetDirectoryName(RawProjectPath), "Intermediate", "Source", Path.GetFileNameWithoutExtension(RawProjectPath) + ".Target.cs"));
+				}
+			}
+
 			if (CommandUtils.CmdEnv.HasCapabilityToCompile)
 			{
-				DetectTargetsForProject(Properties);
+				DetectTargetsForProject(Properties, ExtraSearchPaths);
 				Properties.bIsCodeBasedProject = !CommandUtils.IsNullOrEmpty(Properties.Targets) || !CommandUtils.IsNullOrEmpty(Properties.Programs);
 			}
 			else
@@ -168,14 +293,14 @@ namespace AutomationTool
 					throw new AutomationException("Cannot dtermine engine targets if we can't compile.");
 				}
 
-				Properties.bIsCodeBasedProject = false;
+				Properties.bIsCodeBasedProject = Properties.bWasGenerated;
 				// if there's a Source directory with source code in it, then mark us as having source code
 				string SourceDir = CommandUtils.CombinePaths(Path.GetDirectoryName(RawProjectPath), "Source");
 				if (Directory.Exists(SourceDir))
 				{
 					string[] CppFiles = Directory.GetFiles(SourceDir, "*.cpp", SearchOption.AllDirectories);
 					string[] HFiles = Directory.GetFiles(SourceDir, "*.h", SearchOption.AllDirectories);
-					Properties.bIsCodeBasedProject = CppFiles.Length > 0 || HFiles.Length > 0;
+					Properties.bIsCodeBasedProject |= (CppFiles.Length > 0 || HFiles.Length > 0);
 				}
 			}
 
@@ -359,11 +484,6 @@ namespace AutomationTool
 		{
 			CommandUtils.Log("Compiling targets DLL: {0}", TargetsDllFilename);
 
-			if (!DoNotCompile && GlobalCommandLine.NoCodeProject)
-			{
-				//throw new AutomationException("Building is not supported when -nocodeproject flag is provided.");
-			}
-
 			var ReferencedAssemblies = new List<string>() 
 					{ 
 						"System.dll", 
@@ -372,7 +492,7 @@ namespace AutomationTool
 						typeof(UnrealBuildTool.UnrealBuildTool).Assembly.Location
 					};
 			var TargetsDLL = DynamicCompilation.CompileAndLoadAssembly(TargetsDllFilename, TargetScripts, ReferencedAssemblies, null, DoNotCompile);
-			var DummyTargetInfo = new TargetInfo(UnrealTargetPlatform.Win64, UnrealTargetConfiguration.Development);
+			var DummyTargetInfo = new TargetInfo(BuildHostPlatform.Current.Platform, UnrealTargetConfiguration.Development);
 			var AllCompiledTypes = TargetsDLL.GetTypes();
 			foreach (Type TargetType in AllCompiledTypes)
 			{
@@ -398,6 +518,7 @@ namespace AutomationTool
 					}
 
 					Properties.bUsesSteam |= Rules.bUsesSteam;
+					Properties.bUsesCEF3 |= Rules.bUsesCEF3;
 					Properties.bUsesSlate |= Rules.bUsesSlate;
                     Properties.bDebugBuildsActuallyUseDebugCRT |= Rules.bDebugBuildsActuallyUseDebugCRT;
 					Properties.bUsesSlateEditorStyle |= Rules.bUsesSlateEditorStyle;
@@ -515,6 +636,11 @@ namespace AutomationTool
                     var Target = Properties.Targets[TargetRules.TargetType.Editor];
                     Options = Target.Rules.GUBP_IncludeProjectInPromotedBuild_EditorTypeOnly(HostPlatform);
                 }
+				else if(Properties.Targets.ContainsKey(TargetRules.TargetType.Game))
+				{
+					var Target = Properties.Targets[TargetRules.TargetType.Game];
+					Options = Target.Rules.GUBP_IncludeProjectInPromotedBuild_EditorTypeOnly(HostPlatform);
+				}
                 return Options;
             }
             public void Dump(List<UnrealTargetPlatform> InHostPlatforms)
@@ -523,6 +649,7 @@ namespace AutomationTool
                 CommandUtils.Log("      FilePath          : " + FilePath);
                 CommandUtils.Log("      bIsCodeBasedProject  : " + (Properties.bIsCodeBasedProject ? "YES" : "NO"));
                 CommandUtils.Log("      bUsesSteam  : " + (Properties.bUsesSteam ? "YES" : "NO"));
+                CommandUtils.Log("      bUsesCEF3   : " + (Properties.bUsesCEF3 ? "YES" : "NO"));
                 CommandUtils.Log("      bUsesSlate  : " + (Properties.bUsesSlate ? "YES" : "NO"));
                 foreach (var HostPlatform in InHostPlatforms)
                 {
@@ -539,6 +666,7 @@ namespace AutomationTool
                         CommandUtils.Log("            TargetName          : " + ThisTarget.Value.TargetName);
                         CommandUtils.Log("              Type          : " + ThisTarget.Key.ToString());
                         CommandUtils.Log("              bUsesSteam  : " + (ThisTarget.Value.Rules.bUsesSteam ? "YES" : "NO"));
+                        CommandUtils.Log("              bUsesCEF3   : " + (ThisTarget.Value.Rules.bUsesCEF3 ? "YES" : "NO"));
                         CommandUtils.Log("              bUsesSlate  : " + (ThisTarget.Value.Rules.bUsesSlate ? "YES" : "NO"));
                         if (Array.IndexOf(MonolithicKinds, ThisTarget.Key) >= 0)
                         {
@@ -561,13 +689,15 @@ namespace AutomationTool
                     {
                         bool bInternalToolOnly;
                         bool SeparateNode;
-                        bool Tool = ThisTarget.Rules.GUBP_AlwaysBuildWithTools(HostPlatform, false, out bInternalToolOnly, out SeparateNode);
+						bool CrossCompile;
+                        bool Tool = ThisTarget.Rules.GUBP_AlwaysBuildWithTools(HostPlatform, out bInternalToolOnly, out SeparateNode, out CrossCompile);
 
                         CommandUtils.Log("            TargetName                    : " + ThisTarget.TargetName);
                         CommandUtils.Log("              Build With Editor           : " + (ThisTarget.Rules.GUBP_AlwaysBuildWithBaseEditor() ? "YES" : "NO"));
                         CommandUtils.Log("              Build With Tools            : " + (Tool && !bInternalToolOnly ? "YES" : "NO"));
                         CommandUtils.Log("              Build With Internal Tools   : " + (Tool && bInternalToolOnly ? "YES" : "NO"));
                         CommandUtils.Log("              Separate Node               : " + (Tool && SeparateNode ? "YES" : "NO"));
+						CommandUtils.Log("              Cross Compile               : " + (Tool && CrossCompile ? "YES" : "NO"));
                     }
                 }
             }
@@ -642,6 +772,15 @@ namespace AutomationTool
             }
             return null;
         }
+		public BranchUProject FindGameChecked(string GameName)
+		{
+			BranchUProject Project = FindGame(GameName);
+			if(Project == null)
+			{
+				throw new AutomationException("Cannot find project '{0}' in branch", GameName);
+			}
+			return Project;
+		}
         public SingleTargetProperties FindProgram(string ProgramName)
         {
             foreach (var Proj in BaseEngineProject.Properties.Programs)

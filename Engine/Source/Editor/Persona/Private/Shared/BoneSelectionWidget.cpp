@@ -23,6 +23,13 @@ void SBoneSelectionWidget::Construct(const FArguments& InArgs)
 
 	FText FinalTooltip = FText::Format(LOCTEXT("BoneClickToolTip", "{0}\nClick to choose a different bone"), InArgs._Tooltip);
 
+	SAssignNew(TreeView, STreeView<TSharedPtr<FBoneNameInfo>>)
+		.TreeItemsSource(&SkeletonTreeInfo)
+		.OnGenerateRow(this, &SBoneSelectionWidget::MakeTreeRowWidget)
+		.OnGetChildren(this, &SBoneSelectionWidget::GetChildrenForInfo)
+		.OnSelectionChanged(this, &SBoneSelectionWidget::OnSelectionChanged)
+		.SelectionMode(ESelectionMode::Single);
+
 	this->ChildSlot
 	[
 		SAssignNew(BonePickerButton, SComboButton)
@@ -39,13 +46,6 @@ void SBoneSelectionWidget::Construct(const FArguments& InArgs)
 
 TSharedRef<SWidget> SBoneSelectionWidget::CreateSkeletonWidgetMenu()
 {
-	SAssignNew(TreeView, STreeView<TSharedPtr<FBoneNameInfo>>)
-		.TreeItemsSource(&SkeletonTreeInfo)
-		.OnGenerateRow(this, &SBoneSelectionWidget::MakeTreeRowWidget)
-		.OnGetChildren(this, &SBoneSelectionWidget::GetChildrenForInfo)
-		.OnSelectionChanged(this, &SBoneSelectionWidget::OnSelectionChanged)
-		.SelectionMode(ESelectionMode::Single);
-
 	RebuildBoneList();
 
 	TSharedPtr<SSearchBox> SearchWidgetToFocus = NULL;
@@ -84,9 +84,9 @@ TSharedRef<SWidget> SBoneSelectionWidget::CreateSkeletonWidgetMenu()
 					.HintText(NSLOCTEXT("BonePicker", "Search", "Search..."))
 				]
 				+SVerticalBox::Slot()
-					[
-						TreeView->AsShared()
-					]
+				[
+					TreeView->AsShared()
+				]
 			]
 		];
 
@@ -182,12 +182,16 @@ void SBoneSelectionWidget::OnSelectionChanged(TSharedPtr<FBoneNameInfo> BoneInfo
 {
 	FilterText = FText::FromString("");
 
-	if(OnBoneSelectionChanged.IsBound())
+	//Because we recreate all our items on tree refresh we will get a spurious null selection event initially.
+	if (BoneInfo.IsValid())
 	{
-		OnBoneSelectionChanged.Execute(BoneInfo->BoneName);
-	}
+		if (OnBoneSelectionChanged.IsBound())
+		{
+			OnBoneSelectionChanged.Execute(BoneInfo->BoneName);
+		}
 
-	BonePickerButton->SetIsOpen(false);
+		BonePickerButton->SetIsOpen(false);
+	}
 }
 
 FText SBoneSelectionWidget::GetCurrentBoneName() const

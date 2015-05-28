@@ -8,6 +8,7 @@
 #include "Tickable.h"
 #include "SProfileVisualizer.h"
 #include "SDockTab.h"
+#include "TaskGraphStyle.h"
 
 /**
  * Creates Visualizer using Visualizer profile data format
@@ -15,7 +16,7 @@
  * @param ProfileData Visualizer data
  * @return Visualizer window
  */
-void MakeTaskGraphVisualizerWindow( TSharedPtr< FVisualizerEvent > ProfileData, const FText& WindowTitle, const FText& ProfilerType )
+void MakeTaskGraphVisualizerWindow( TSharedPtr< FVisualizerEvent > ProfileData, const FText& WindowTitle, const FText& ProfilerType, const FText& HeaderMessageText = FText::GetEmpty(), const FLinearColor& HeaderMessageTextColor = FLinearColor::White )
 {
 	FGlobalTabmanager::Get()->InsertNewDocumentTab
 		(
@@ -27,6 +28,8 @@ void MakeTaskGraphVisualizerWindow( TSharedPtr< FVisualizerEvent > ProfileData, 
 				SNew( SProfileVisualizer )
 				.ProfileData( ProfileData )
 				.ProfilerType( ProfilerType )
+				.HeaderMessageText( HeaderMessageText )
+				.HeaderMessageTextColor( HeaderMessageTextColor )
 			]
 		);
 }
@@ -68,7 +71,7 @@ public:
 
 	// FTickableGameObject interface
 
-	void Tick(float DeltaTime)
+	void Tick(float DeltaTime) override
 	{
 		DataLock.Lock();
 
@@ -84,13 +87,13 @@ public:
 	}
 
 	/** We should call Tick on this object */
-	virtual bool IsTickable() const
+	virtual bool IsTickable() const override
 	{
 		return true;
 	}
 
 	/** Need this to be ticked when paused (that is the point!) */
-	virtual bool IsTickableWhenPaused() const
+	virtual bool IsTickableWhenPaused() const override
 	{
 		return true;
 	}
@@ -112,6 +115,7 @@ static TSharedPtr< FDelayedVisualizerSpawner > GDelayedVisualizerSpawner;
 
 void InitProfileVisualizer()
 {
+	FTaskGraphStyle::Initialize();
 	if( GDelayedVisualizerSpawner.IsValid() == false )
 	{
 		GDelayedVisualizerSpawner = MakeShareable( new FDelayedVisualizerSpawner() );
@@ -120,12 +124,13 @@ void InitProfileVisualizer()
 
 void ShutdownProfileVisualizer()
 {
+	FTaskGraphStyle::Shutdown();
 	GDelayedVisualizerSpawner.Reset();
 }
 
 static bool GHasRegisteredVisualizerLayout = false;
 
-void DisplayProfileVisualizer( TSharedPtr< FVisualizerEvent > InProfileData, const TCHAR* InProfilerType )
+void DisplayProfileVisualizer(TSharedPtr< FVisualizerEvent > InProfileData, const TCHAR* InProfilerType, const FText& HeaderMessageText = FText::GetEmpty(), const FLinearColor& HeaderMessageTextColor = FLinearColor::White)
 {
 	check( IsInGameThread() );
 
@@ -152,8 +157,7 @@ void DisplayProfileVisualizer( TSharedPtr< FVisualizerEvent > InProfileData, con
 	const FText WindowTitle = FText::Format( NSLOCTEXT("TaskGraph", "WindowTitle", "{ProfilerType} Visualizer"), Args );
 	const FText ProfilerType = FText::Format( NSLOCTEXT("TaskGraph", "ProfilerType", "{ProfilerType} Profile"), Args );
 
-
-	MakeTaskGraphVisualizerWindow( InProfileData, WindowTitle, ProfilerType );
+	MakeTaskGraphVisualizerWindow( InProfileData, WindowTitle, ProfilerType, HeaderMessageText, HeaderMessageTextColor );
 	
 }
 
@@ -171,10 +175,10 @@ public:
 	{
 		::ShutdownProfileVisualizer();
 	}
-	virtual void DisplayProfileVisualizer( TSharedPtr< FVisualizerEvent > InProfileData, const TCHAR* InProfilerType ) override
+	virtual void DisplayProfileVisualizer(TSharedPtr< FVisualizerEvent > InProfileData, const TCHAR* InProfilerType, const FText& HeaderMessageText, const FLinearColor& HeaderMessageTextColor) override
 	{
 #if	WITH_EDITOR
-		::DisplayProfileVisualizer( InProfileData, InProfilerType );
+		::DisplayProfileVisualizer( InProfileData, InProfilerType, HeaderMessageText, HeaderMessageTextColor );
 #endif // WITH_EDITOR
 	}
 };

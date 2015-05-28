@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Windows Specific Movie Player using Media Foundation",
-	"Category" : "Movie.Windows",
+	"Category" : "Media Players",
 	"EnabledByDefault" : true,
 	
 	"Modules" :

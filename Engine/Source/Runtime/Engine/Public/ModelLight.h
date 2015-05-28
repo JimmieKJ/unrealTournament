@@ -36,9 +36,9 @@ public:
 		);
 
 	// FStaticLightingMesh interface.
-	virtual void GetTriangle(int32 TriangleIndex,FStaticLightingVertex& OutV0,FStaticLightingVertex& OutV1,FStaticLightingVertex& OutV2) const;
-	virtual void GetTriangleIndices(int32 TriangleIndex,int32& OutI0,int32& OutI1,int32& OutI2) const;
-	virtual FLightRayIntersection IntersectLightRay(const FVector& Start,const FVector& End,bool bFindNearestIntersection) const;
+	virtual void GetTriangle(int32 TriangleIndex,FStaticLightingVertex& OutV0,FStaticLightingVertex& OutV1,FStaticLightingVertex& OutV2) const override;
+	virtual void GetTriangleIndices(int32 TriangleIndex,int32& OutI0,int32& OutI1,int32& OutI2) const override;
+	virtual FLightRayIntersection IntersectLightRay(const FVector& Start,const FVector& End,bool bFindNearestIntersection) const override;
 	//FStaticLightingTextureMapping interface.
 
 	virtual bool IsValidMapping() const override
@@ -47,26 +47,26 @@ public:
 	}
 
 #if WITH_EDITOR
-	virtual void Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData);
-	virtual bool DebugThisMapping() const;
+	virtual void Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData) override;
+	virtual bool DebugThisMapping() const override;
 
 	/** 
 	* Export static lighting mapping instance data to an exporter 
 	* @param Exporter - export interface to process static lighting data
 	**/
-	UNREALED_API virtual void ExportMapping(class FLightmassExporter* Exporter);
+	UNREALED_API virtual void ExportMapping(class FLightmassExporter* Exporter) override;
 #endif	//WITH_EDITOR
 
 	/**
 	 * Returns the Guid used for static lighting.
 	 * @return FGuid that identifies the mapping
 	 **/
-	virtual const FGuid& GetLightingGuid() const
+	virtual const FGuid& GetLightingGuid() const override
 	{
 		return Guid;
 	}
 
-	virtual FString GetDescription() const
+	virtual FString GetDescription() const override
 	{
 		return FString(TEXT("BSPMapping"));
 	}
@@ -80,7 +80,7 @@ public:
 	/**
 	 *	@return	UOject*		The object that is mapped by this mapping
 	 */
-	UNREALED_API virtual UObject* GetMappedObject() const;
+	UNREALED_API virtual UObject* GetMappedObject() const override;
 #endif	//WITH_EDITOR
 
 private:

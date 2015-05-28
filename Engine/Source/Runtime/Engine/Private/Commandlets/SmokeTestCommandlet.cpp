@@ -29,7 +29,7 @@ int32 USmokeTestCommandlet::Main( const FString& Params )
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRunServer, "Core.Misc.Run Server", EAutomationTestFlags::ATF_Commandlet | EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRunServer, "System.Core.Misc.Run Server", EAutomationTestFlags::ATF_Commandlet | EAutomationTestFlags::ATF_SmokeTest)
 
 bool FRunServer::RunTest(const FString& Parameters)
 {

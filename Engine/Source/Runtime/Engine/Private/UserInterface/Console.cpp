@@ -239,6 +239,35 @@ void UConsole::BuildRuntimeAutoCompleteList(bool bForce)
 	}
 #endif
 
+	// Add all showflag commands.
+	{
+		struct FIterSink
+		{
+			FIterSink(TArray<FAutoCompleteCommand>& InAutoCompleteList)
+				: AutoCompleteList(InAutoCompleteList)
+			{
+			}
+			
+			bool OnEngineShowFlag(uint32 InIndex, const FString& InName)
+			{
+				// Get localized name.
+				FText LocName;
+				FEngineShowFlags::FindShowFlagDisplayName(InName, LocName);
+				
+				int32 NewIdx = AutoCompleteList.AddZeroed(1);
+				AutoCompleteList[NewIdx].Command = TEXT("show ") + InName;
+				AutoCompleteList[NewIdx].Desc = FString::Printf(TEXT("show %s (toggles the %s showflag)"),*InName, *LocName.ToString());
+				
+				return true;
+			}
+			
+			TArray<FAutoCompleteCommand>& AutoCompleteList;
+		};
+		
+		FIterSink Sink(AutoCompleteList);
+		FEngineShowFlags::IterateAllFlags(Sink);
+	}
+
 	// build the magic tree!
 	for (int32 ListIdx = 0; ListIdx < AutoCompleteList.Num(); ListIdx++)
 	{
@@ -328,6 +357,7 @@ void UConsole::UpdateCompleteIndices()
 		{
 			AutoComplete.Add(AutoCompleteList[Leaf[i]]);
 		}
+		AutoComplete.Sort();
 	}
 }
 
@@ -372,28 +402,27 @@ void UConsole::ConsoleCommand(const FString& Command)
 
 	OutputText(FString::Printf(TEXT("\n>>> %s <<<"), *Command));
 
-	UWorld* World = GetOuterUGameViewportClient()->GetWorld();
-	if (ConsoleTargetPlayer != NULL)
+	UWorld *World = GetOuterUGameViewportClient()->GetWorld();
+	if(ConsoleTargetPlayer != NULL)
 	{
 		// If there is a console target player, execute the command in the player's context.
 		ConsoleTargetPlayer->PlayerController->ConsoleCommand(Command);
 	}
-	else
+	else if(World && World->GetPlayerControllerIterator())
 	{
-		if (World != NULL && World->GetPlayerControllerIterator())
+		// If there are any players, execute the command in the first player's context that has a non-null Player.
+		for (auto PCIter = World->GetPlayerControllerIterator(); PCIter; ++PCIter)
 		{
-			// If there are any players, execute the command in the first player's context that has a non-null Player.
-			for (auto PCIter = World->GetPlayerControllerIterator(); PCIter; ++PCIter)
+			APlayerController* PC = *PCIter;
+			if (PC && PC->Player)
 			{
-				APlayerController* PC = *PCIter;
-				if (PC != NULL && PC->Player != NULL)
-				{
-					PC->ConsoleCommand(Command);
-					return;
-				}
+				PC->ConsoleCommand(Command);
+				break;
 			}
 		}
-
+	}
+	else
+	{
 		// Otherwise, execute the command in the context of the viewport.
 		GetOuterUGameViewportClient()->ConsoleCommand(Command);
 	}
@@ -434,7 +463,7 @@ void UConsole::OutputText(const FString& Text)
 	while(StringLength > 0)
 	{
 		// Find the number of characters in the next line of text.
-		int32 LineLength = RemainingText.Find(TEXT("\n"));
+		int32 LineLength = RemainingText.Find(TEXT("\n"), ESearchCase::CaseSensitive);
 		if(LineLength == -1)
 		{
 			// There aren't any more newlines in the string, assume there's a newline at the end of the string.
@@ -1114,7 +1143,7 @@ void UConsole::PostRender_InputLine(UCanvas* Canvas, FIntPoint UserInputLinePos)
 
 	if (GEngine->IsStereoscopic3D())
 	{
-		ClipX -= 150;
+		ClipX = Canvas->ClipX - UserInputLinePos.X;
 		ClipY = ClipY * 0.60;
 	}
 
@@ -1296,7 +1325,7 @@ void UConsole::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const c
 
 		if(CVar)
 		{
-			int MinVerbosity = CVar->GetValueOnGameThread();
+			int MinVerbosity = CVar->GetValueOnAnyThread();
 
 			if((int)Verbosity <= MinVerbosity)
 			{

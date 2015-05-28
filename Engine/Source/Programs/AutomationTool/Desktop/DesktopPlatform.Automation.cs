@@ -1,0 +1,144 @@
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.IO;
+using System.Diagnostics;
+using System.Net.NetworkInformation;
+using System.Threading;
+using AutomationTool;
+using UnrealBuildTool;
+using Ionic.Zip;
+
+public class DesktopPlatform : Platform
+{
+	public DesktopPlatform()
+		: base(UnrealTargetPlatform.Desktop)
+	{
+	}
+
+	public override bool CanBeCompiled()
+	{
+		return false;
+	}
+
+
+	public override UnrealTargetPlatform[] GetStagePlatforms()
+	{
+		return new UnrealTargetPlatform[] 
+		{
+			UnrealTargetPlatform.Win32,
+//			UnrealTargetPlatform.Win64,
+			UnrealTargetPlatform.Mac,
+			UnrealTargetPlatform.Linux,
+		};
+	}
+
+	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
+	{
+		SC.bIsCombiningMultiplePlatforms = true;
+		string SavedPlatformDir = SC.PlatformDir;
+		foreach (UnrealTargetPlatform DesktopPlatform in GetStagePlatforms())
+		{
+			Platform SubPlatform = Platform.Platforms[DesktopPlatform];
+			SC.PlatformDir = DesktopPlatform.ToString();
+			SubPlatform.Package(Params, SC, WorkingCL);
+		}
+		SC.PlatformDir = SavedPlatformDir;
+		SC.bIsCombiningMultiplePlatforms = false;
+	}
+
+	public override void GetFilesToArchive(ProjectParams Params, DeploymentContext SC)
+	{
+		SC.bIsCombiningMultiplePlatforms = true;
+		string SavedPlatformDir = SC.PlatformDir;
+		foreach (UnrealTargetPlatform DesktopPlatform in GetStagePlatforms())
+		{
+			Platform SubPlatform = Platform.Platforms[DesktopPlatform];
+			SC.PlatformDir = DesktopPlatform.ToString();
+			SubPlatform.GetFilesToArchive(Params, SC);
+		}
+		SC.PlatformDir = SavedPlatformDir;
+		SC.bIsCombiningMultiplePlatforms = false;
+	}
+
+	public override void GetConnectedDevices(ProjectParams Params, out List<string> Devices)
+	{
+		Devices = new List<string>();
+	}
+
+	public override ProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
+	{
+		return null;
+	}
+
+	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
+	{
+		SC.bIsCombiningMultiplePlatforms = true;
+		string SavedPlatformDir = SC.PlatformDir;
+		foreach (UnrealTargetPlatform DesktopPlatform in GetStagePlatforms())
+		{
+			Platform SubPlatform = Platform.Platforms[DesktopPlatform];
+			SC.PlatformDir = DesktopPlatform.ToString();
+			SubPlatform.GetFilesToDeployOrStage(Params, SC);
+		}
+		SC.PlatformDir = SavedPlatformDir;
+		SC.bIsCombiningMultiplePlatforms = false;
+	}
+
+	public override void ProcessArchivedProject(ProjectParams Params, DeploymentContext SC)
+	{
+		Console.WriteLine("***************************** PROCESSING ARCHIVED PROJECT ****************");
+
+		SC.bIsCombiningMultiplePlatforms = true;
+		string SavedPlatformDir = SC.PlatformDir;
+		foreach (UnrealTargetPlatform DesktopPlatform in GetStagePlatforms())
+		{
+			Platform SubPlatform = Platform.Platforms[DesktopPlatform];
+			SC.PlatformDir = DesktopPlatform.ToString();
+			SubPlatform.ProcessArchivedProject(Params, SC);
+		}
+		SC.PlatformDir = SavedPlatformDir;
+		SC.bIsCombiningMultiplePlatforms = false;
+
+		Console.WriteLine("***************************** DONE PROCESSING ARCHIVED PROJECT ****************");
+	}
+
+	/// <summary>
+	/// Gets cook platform name for this platform.
+	/// </summary>
+	/// <param name="CookFlavor">Additional parameter used to indicate special sub-target platform.</param>
+	/// <returns>Cook platform string.</returns>
+	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly, string CookFlavor)
+	{
+		return "Desktop";
+	}
+
+	public override bool DeployPakInternalLowerCaseFilenames()
+	{
+		return false;
+	}
+
+	public override bool DeployLowerCaseFilenames(bool bUFSFile)
+	{
+		return false;
+	}
+
+	public override bool IsSupported { get { return true; } }
+
+	public override string Remap(string Dest)
+	{
+		return Dest;
+	}
+
+	public override PakType RequiresPak(ProjectParams Params)
+	{
+		return PakType.DontCare;
+	}
+    
+	public override List<string> GetDebugFileExtentions()
+	{
+		return new List<string> { };
+	}
+}

@@ -134,6 +134,7 @@ void UBlackboardData::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 {
 	static const FName NAME_Parent = GET_MEMBER_NAME_CHECKED(UBlackboardData, Parent);
 	static const FName NAME_InstanceSynced = GET_MEMBER_NAME_CHECKED(FBlackboardEntry, bInstanceSynced);
+	static const FName NAME_Keys = GET_MEMBER_NAME_CHECKED(UBlackboardData, Keys);
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
@@ -156,6 +157,27 @@ void UBlackboardData::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		if (PropertyChangedEvent.Property->GetFName() == NAME_InstanceSynced || PropertyChangedEvent.Property->GetFName() == NAME_Parent)
 		{
 			UpdateIfHasSynchronizedKeys();
+		}
+	}
+	if (PropertyChangedEvent.MemberProperty)
+	{
+		if (PropertyChangedEvent.MemberProperty->GetFName() == NAME_Keys)
+		{
+			// look for BB assets using this one as a parent and update them as well
+			PropagateKeyChangesToDerivedBlackboardAssets();
+		}
+	}
+}
+
+void UBlackboardData::PropagateKeyChangesToDerivedBlackboardAssets()
+{
+	for (TObjectIterator<UBlackboardData> It; It; ++It)
+	{
+		if (It->Parent == this)
+		{
+			It->UpdateParentKeys();
+			It->UpdateIfHasSynchronizedKeys();
+			It->PropagateKeyChangesToDerivedBlackboardAssets();
 		}
 	}
 }
@@ -223,4 +245,20 @@ void UBlackboardData::UpdateParentKeys()
 void UBlackboardData::UpdateKeyIDs()
 {
 	FirstKeyID = Parent ? Parent->GetNumKeys() : 0;
+}
+
+void UBlackboardData::UpdateDeprecatedKeys()
+{
+	for (int32 KeyIndex = 0; KeyIndex < Keys.Num(); KeyIndex++)
+	{
+		FBlackboardEntry& Entry = Keys[KeyIndex];
+		if (Entry.KeyType)
+		{
+			UBlackboardKeyType* UpdatedKey = Entry.KeyType->UpdateDeprecatedKey();
+			if (UpdatedKey)
+			{
+				Entry.KeyType = UpdatedKey;
+			}
+		}
+	}
 }

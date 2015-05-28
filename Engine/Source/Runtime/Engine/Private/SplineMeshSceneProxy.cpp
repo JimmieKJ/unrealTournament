@@ -6,6 +6,8 @@
 FSplineMeshSceneProxy::FSplineMeshSceneProxy(USplineMeshComponent* InComponent) :
 	FStaticMeshSceneProxy(InComponent)
 {
+	bSupportsDistanceFieldRepresentation = false;
+
 	// make sure all the materials are okay to be rendered as a spline mesh
 	for (FStaticMeshSceneProxy::FLODInfo& LODInfo : LODs)
 	{
@@ -25,9 +27,17 @@ FSplineMeshSceneProxy::FSplineMeshSceneProxy(USplineMeshComponent* InComponent) 
 	ForwardAxis = InComponent->ForwardAxis;
 
 	// Fill in info about the mesh
-	FBoxSphereBounds StaticMeshBounds = StaticMesh->GetBounds();
-	SplineMeshScaleZ = 0.5f / USplineMeshComponent::GetAxisValue(StaticMeshBounds.BoxExtent, ForwardAxis); // 1/(2 * Extent)
-	SplineMeshMinZ = USplineMeshComponent::GetAxisValue(StaticMeshBounds.Origin, ForwardAxis) * SplineMeshScaleZ - 0.5f;
+	if (FMath::IsNearlyEqual(InComponent->SplineBoundaryMin, InComponent->SplineBoundaryMax))
+	{
+		FBoxSphereBounds StaticMeshBounds = StaticMesh->GetBounds();
+		SplineMeshScaleZ = 0.5f / USplineMeshComponent::GetAxisValue(StaticMeshBounds.BoxExtent, ForwardAxis); // 1/(2 * Extent)
+		SplineMeshMinZ = USplineMeshComponent::GetAxisValue(StaticMeshBounds.Origin, ForwardAxis) * SplineMeshScaleZ - 0.5f;
+	}
+	else
+	{
+		SplineMeshScaleZ = 1.0f / (InComponent->SplineBoundaryMax - InComponent->SplineBoundaryMin);
+		SplineMeshMinZ = InComponent->SplineBoundaryMin * SplineMeshScaleZ;
+	}
 
 	LODResources.Reset(InComponent->StaticMesh->RenderData->LODResources.Num());
 

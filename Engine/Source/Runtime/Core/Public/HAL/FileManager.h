@@ -24,6 +24,7 @@ enum EFileRead
 {
 	FILEREAD_NoFail             = 0x01,
 	FILEREAD_Silent				= 0x02,
+	FILEREAD_AllowWrite			= 0x04,
 };
 
 

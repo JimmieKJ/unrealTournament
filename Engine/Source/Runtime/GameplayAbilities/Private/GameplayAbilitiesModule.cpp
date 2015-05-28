@@ -2,7 +2,7 @@
 
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemGlobals.h"
-
+#include "AbilitySystemComponent.h"
 
 class FGameplayAbilitiesModule : public IGameplayAbilitiesModule
 {
@@ -11,7 +11,7 @@ class FGameplayAbilitiesModule : public IGameplayAbilitiesModule
 	virtual void ShutdownModule() override;
 	// End IModuleInterface
 
-	virtual UAbilitySystemGlobals* GetAbilitySystemGlobals()
+	virtual UAbilitySystemGlobals* GetAbilitySystemGlobals() override
 	{
 		// Defer loading of globals to the first time it is requested
 		if (!AbilitySystemGlobals)
@@ -22,7 +22,7 @@ class FGameplayAbilitiesModule : public IGameplayAbilitiesModule
 
 			checkf(SingletonClass != NULL, TEXT("Ability config value AbilitySystemGlobalsClassName is not a valid class name."));
 
-			AbilitySystemGlobals = ConstructObject<UAbilitySystemGlobals>(SingletonClass, GetTransientPackage(), NAME_None, RF_RootSet);
+			AbilitySystemGlobals = NewObject<UAbilitySystemGlobals>(GetTransientPackage(), SingletonClass, NAME_None, RF_RootSet);
 		}
 
 		check(AbilitySystemGlobals);
@@ -30,6 +30,8 @@ class FGameplayAbilitiesModule : public IGameplayAbilitiesModule
 	}
 
 	UAbilitySystemGlobals *AbilitySystemGlobals;
+
+	void GetActiveAbilitiesDebugDataForActor(AActor* Actor, FString& AbilityString, bool& bIsUsingAbilities);
 
 private:
 	
@@ -49,4 +51,39 @@ void FGameplayAbilitiesModule::ShutdownModule()
 	// we call this function before unloading the module.
 
 	AbilitySystemGlobals = NULL;
+}
+
+void FGameplayAbilitiesModule::GetActiveAbilitiesDebugDataForActor(AActor* Actor, FString& AbilityString, bool& bIsUsingAbilities)
+{
+	UAbilitySystemComponent* AbilityComp = Actor->FindComponentByClass<UAbilitySystemComponent>();
+	bIsUsingAbilities = (AbilityComp != nullptr);
+	  
+	int32 NumActive = 0;
+	if (AbilityComp)
+	{
+		AbilityString = TEXT("");
+	  
+		for (const FGameplayAbilitySpec& AbilitySpec : AbilityComp->GetActivatableAbilities())
+		{
+	  		if (AbilitySpec.Ability && AbilitySpec.IsActive())
+	  		{
+	  			if (NumActive)
+	  			{
+					AbilityString += TEXT(", ");
+	  			}
+	  
+	  			UClass* AbilityClass = AbilitySpec.Ability->GetClass();
+	  			FString AbClassName = GetNameSafe(AbilityClass);
+	  			AbClassName.RemoveFromEnd(TEXT("_c"));
+	  
+				AbilityString += AbClassName;
+	  			NumActive++;
+	  		}
+		}
+	}
+	  
+	if (NumActive == 0)
+	{
+		AbilityString = TEXT("None");
+	}
 }

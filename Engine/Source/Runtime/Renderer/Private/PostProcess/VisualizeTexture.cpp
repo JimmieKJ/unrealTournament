@@ -56,7 +56,7 @@ public:
 	}
 
 	/** Serializer */
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << VisualizeTexture2D;
@@ -171,7 +171,7 @@ public:
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << VisualizeTexture2D << VisualizeTexture2DSampler;
@@ -223,9 +223,10 @@ template<uint32 TextureType> void VisualizeTextureForTextureType(FRHICommandList
 
 void RenderVisualizeTexture(FRHICommandListImmediate& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, const FVisualizeTextureData& Data)
 {
+	RHICmdList.CopyToResolveTarget(Data.RenderTargetItem.ShaderResourceTexture, Data.RenderTargetItem.ShaderResourceTexture, true, FResolveParams());
 	if(Data.Desc.Is2DTexture())
 	{
-		// 2D
+		// 2D		
 		if(Data.Desc.NumSamples > 1)
 		{
 			// MSAA
@@ -238,12 +239,11 @@ void RenderVisualizeTexture(FRHICommandListImmediate& RHICmdList, ERHIFeatureLev
 		}
 	}
 	else if(Data.Desc.Is3DTexture())
-	{
-		// Volume
+	{		
 		VisualizeTextureForTextureType<3>(RHICmdList, FeatureLevel, Data);
 	}
 	else if(Data.Desc.IsCubemap())
-	{
+	{		
 		if(Data.Desc.IsArray())
 		{
 			// Cube[]
@@ -653,7 +653,8 @@ void FVisualizeTexture::SetCheckPoint(FRHICommandList& RHICmdList, const IPooled
 	}
 
 	// is this is the name we are observing with visualize texture?
-	if(ObservedDebugName == DebugName)
+	// First check if we need to find anything to avoid string the comparison
+	if (!ObservedDebugName.IsEmpty() && ObservedDebugName == DebugName)
 	{
 		// if multiple times reused during the frame, is that the one we want to look at?
 		if(*UsageCountPtr == ObservedDebugNameReusedGoal || ObservedDebugNameReusedGoal == 0xffffffff)
@@ -827,9 +828,9 @@ void FVisualizeTexture::DebugLog(bool bExtended)
 		TArray<FString> Entries;
 				
 		// sorted by pointer for efficiency, now we want to print sorted alphabetically
-		for (TMap<FString, uint32>:: TIterator It(GRenderTargetPool.VisualizeTexture.VisualizeTextureCheckpoints); It; ++It)
+		for (TMap<const TCHAR*, uint32>:: TIterator It(GRenderTargetPool.VisualizeTexture.VisualizeTextureCheckpoints); It; ++It)
 		{
-			const FString& Key = It.Key();
+			const TCHAR* Key = It.Key();
 			uint32 Value = It.Value();
 
 /*					if(Value)
@@ -922,7 +923,7 @@ void FVisualizeTexture::OnStartFrame(const FSceneView& View)
 
 	// only needed for VisualizeTexture (todo: optimize out when possible)
 	{
-		for (TMap<FString, uint32>:: TIterator It(VisualizeTextureCheckpoints); It; ++It)
+		for (TMap<const TCHAR*, uint32>:: TIterator It(VisualizeTextureCheckpoints); It; ++It)
 		{
 			uint32& Value = It.Value();
 

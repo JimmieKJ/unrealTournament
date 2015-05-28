@@ -76,6 +76,17 @@ void UBTAuxiliaryNode::SetNextTickTime(uint8* NodeMemory, float RemainingTime) c
 	}
 }
 
+float UBTAuxiliaryNode::GetNextTickRemainingTime(uint8* NodeMemory) const
+{
+	if (bTickIntervals)
+	{
+		FBTAuxiliaryMemory* AuxMemory = GetSpecialNodeMemory<FBTAuxiliaryMemory>(NodeMemory);
+		return FMath::Max(0.0f, AuxMemory->NextTickRemainingTime);
+	}
+
+	return 0.0f;
+}
+
 void UBTAuxiliaryNode::DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const
 {
 	Super::DescribeRuntimeValues(OwnerComp, NodeMemory, Verbosity, Values);

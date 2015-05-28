@@ -7,7 +7,6 @@
 
 class UBlackboardData;
 struct FBlackboardEntry;
-class FEdGraphSchemaAction_BlackboardEntry;
 
 /** Delegate executed when an entry is selected */
 DECLARE_DELEGATE_TwoParams( FOnEntrySelected, const FBlackboardEntry*, bool );
@@ -29,6 +28,30 @@ DECLARE_DELEGATE_RetVal_OneParam(float, FOnGetDebugTimeStamp, bool /* bUseCurren
 
 /** Delegate for when a blackboard key changes (added, removed, renamed) */
 DECLARE_DELEGATE_TwoParams(FOnBlackboardKeyChanged, UBlackboardData* /*InBlackboardData*/, FBlackboardEntry* const /*InKey*/);
+
+/** Blackboard entry in the list */
+class FEdGraphSchemaAction_BlackboardEntry : public FEdGraphSchemaAction_Dummy
+{
+public:
+	static FName StaticGetTypeId();
+	virtual FName GetTypeId() const;
+
+	FEdGraphSchemaAction_BlackboardEntry( UBlackboardData* InBlackboardData, FBlackboardEntry& InKey, bool bInIsInherited );
+
+	void Update();
+
+	/** Blackboard we reference our key in */
+	UBlackboardData* BlackboardData;
+
+	/** Actual key */
+	FBlackboardEntry& Key;
+
+	/** Whether this entry came from a parent blackboard */
+	bool bIsInherited;
+
+	/** Temp flag for new items */
+	bool bIsNew;
+};
 
 /** Displays blackboard entries */
 class SBehaviorTreeBlackboardView : public SCompoundWidget, public FGCObject
@@ -83,7 +106,7 @@ protected:
 	FText HandleGetSectionTitle(int32 SectionID) const;
 
 	/** Delegate handler used when an action is selected */
-	void HandleActionSelected(const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedActions) const;
+	void HandleActionSelected(const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedActions, ESelectInfo::Type InSelectionType) const;
 
 	/** Delegate handler used to generate an action's context menu */
 	TSharedPtr<SWidget> HandleContextMenuOpening(TSharedRef<FUICommandList> ToolkitCommands) const;

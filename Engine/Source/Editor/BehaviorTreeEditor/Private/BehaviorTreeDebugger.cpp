@@ -8,6 +8,8 @@
 #include "BehaviorTreeDelegates.h"
 #include "GameplayDebuggingReplicator.h"
 #include "GameplayDebuggingComponent.h"
+#include "Engine/Selection.h"
+#include "EngineUtils.h"
 
 FBehaviorTreeDebugger::FBehaviorTreeDebugger()
 {
@@ -24,6 +26,10 @@ FBehaviorTreeDebugger::FBehaviorTreeDebugger()
 
 	FEditorDelegates::BeginPIE.AddRaw(this, &FBehaviorTreeDebugger::OnBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FBehaviorTreeDebugger::OnEndPIE);
+
+#if USE_BEHAVIORTREE_DEBUGGER
+	UBehaviorTreeComponent::ActiveDebuggerCounter++;
+#endif
 }
 
 FBehaviorTreeDebugger::~FBehaviorTreeDebugger()
@@ -34,6 +40,10 @@ FBehaviorTreeDebugger::~FBehaviorTreeDebugger()
 	FBehaviorTreeDelegates::OnTreeStarted.RemoveAll(this);
 	FBehaviorTreeDelegates::OnDebugLocked.RemoveAll(this);
 	FBehaviorTreeDelegates::OnDebugSelected.RemoveAll(this);
+
+#if USE_BEHAVIORTREE_DEBUGGER
+	UBehaviorTreeComponent::ActiveDebuggerCounter--;
+#endif
 }
 
 void FBehaviorTreeDebugger::CacheRootNode()
@@ -403,11 +413,11 @@ void FBehaviorTreeDebugger::SetCompositeDecoratorFlags(const struct FBehaviorTre
 				Node->bDebuggerMarkSearchFailedTrigger = SearchStep.bDiscardedTrigger;
 				bTriggerOnly = true;
 			}
-			else if (bMatchesNodeIndex)
-			{
-				SearchPathIdx = i;
-				bTriggerOnly = false;
-			}
+		}
+		else if (bMatchesNodeIndex)
+		{
+			SearchPathIdx = i;
+			bTriggerOnly = false;
 		}
 	}
 
@@ -1104,7 +1114,7 @@ void FBehaviorTreeDebugger::OnInstanceSelectedInDropdown(UBehaviorTreeComponent*
 
 		AController* OldController = TreeInstance.IsValid() ? Cast<AController>(TreeInstance->GetOwner()) : NULL;
 		APawn* OldPawn = OldController != NULL ? OldController->GetPawn() : NULL;
-		USelection* SelectedActors = GEditor->GetSelectedActors();
+		USelection* SelectedActors = GEditor ? GEditor->GetSelectedActors() : NULL;
 		if (SelectedActors && OldPawn)
 		{
 			SelectedActors->Deselect(OldPawn);
@@ -1112,7 +1122,7 @@ void FBehaviorTreeDebugger::OnInstanceSelectedInDropdown(UBehaviorTreeComponent*
 
 		TreeInstance = SelectedInstance;
 
-		if (SelectedActors && GEditor && SelectedInstance && SelectedInstance->GetOwner())
+		if (SelectedActors && SelectedInstance && SelectedInstance->GetOwner())
 		{
 			AController* TestController = Cast<AController>(SelectedInstance->GetOwner());
 			APawn* Pawn = TestController != NULL ? TestController->GetPawn() : NULL;

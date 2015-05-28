@@ -63,7 +63,7 @@ FIndexBufferRHIRef FD3D11DynamicRHI::RHICreateIndexBuffer(uint32 Stride,uint32 S
 
 void* FD3D11DynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRHI,uint32 Offset,uint32 Size,EResourceLockMode LockMode)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(IndexBuffer,IndexBuffer);
+	FD3D11IndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 	
 	// If this resource is bound to the device, unbind it
 	ConditionalClearShaderResource(IndexBuffer);
@@ -128,7 +128,7 @@ void* FD3D11DynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRH
 
 void FD3D11DynamicRHI::RHIUnlockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRHI)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(IndexBuffer,IndexBuffer);
+	FD3D11IndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 
 	// Determine whether the index buffer is dynamic or not.
 	D3D11_BUFFER_DESC Desc;

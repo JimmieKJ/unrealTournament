@@ -247,7 +247,7 @@ namespace UnrealBuildTool
 		 *	
 		 *	@return	string				The custom property import lines for the project file; Empty string if it doesn't require one
 		 */
-		public virtual string GetVisualStudioLayoutDirSection(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, string InConditionString, TargetRules.TargetType TargetType, string TargetRulesPath, string ProjectFilePath)
+		public virtual string GetVisualStudioLayoutDirSection(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, string InConditionString, TargetRules.TargetType TargetType, string TargetRulesPath, string ProjectFilePath, string NMakeOutputPath)
 		{
 			return "";
 		}
@@ -259,7 +259,7 @@ namespace UnrealBuildTool
 		 *	
 		 *	@return	string				The output manifest section for the project file; Empty string if it doesn't require one
 		 */
-		public virtual string GetVisualStudioOutputManifestSection(UnrealTargetPlatform InPlatform, TargetRules.TargetType TargetType, string TargetRulesPath, string ProjectFilePath)
+        public virtual string GetVisualStudioOutputManifestSection(UnrealTargetPlatform InPlatform, TargetRules.TargetType TargetType, string TargetRulesPath, string ProjectFilePath)
 		{
 			return "";
 		}

@@ -1,5 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
+#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "BlackboardKeyType.generated.h"
 
 class UBlackboardComponent;
@@ -62,48 +63,102 @@ namespace ETextKeyOperation
 	};
 }
 
+namespace BlackboardKeyUtils
+{
+	bool CalculateComparisonResult(EArithmeticKeyOperation::Type Operator, float A, float B);
+}
+
+struct FBlackboardInstancedKeyMemory
+{
+	/** index of instanced key in UBlackboardComponent::InstancedKeys */
+	int32 KeyIdx;
+};
+
 UCLASS(EditInlineNew, Abstract, CollapseCategories, AutoExpandCategories=(Blackboard))
 class AIMODULE_API UBlackboardKeyType : public UObject
 {
 	GENERATED_UCLASS_BODY()
-		
-	/** get ValueSize */
-	FORCEINLINE uint16 GetValueSize() const { return ValueSize; }
 
-	/** get test supported by this type */
-	FORCEINLINE EBlackboardKeyOperation::Type GetTestOperation() const { return SupportedOp; }
+	/** handle dynamic data size */
+	virtual void PreInitialize(UBlackboardComponent& OwnerComp);
 
-	/** initialize memory */
-	virtual void Initialize(uint8* MemoryBlock) const;
+	/** handle instancing if needed */
+	void InitializeKey(UBlackboardComponent& OwnerComp, FBlackboard::FKey KeyID);
 
 	/** does it match settings in filter? */
 	virtual bool IsAllowedByFilter(UBlackboardKeyType* FilterOb) const;
 
-	/** extract location from entry */
-	virtual bool GetLocation(const uint8* MemoryBlock, FVector& Location) const;
+	/** extract location from entry, supports instanced keys */
+	bool WrappedGetLocation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, FVector& Location) const;
 
-	/** extract rotation from entry */
-	virtual bool GetRotation(const uint8* MemoryBlock, FRotator& Rotation) const;
+	/** extract rotation from entry, supports instanced keys */
+	bool WrappedGetRotation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, FRotator& Rotation) const;
 
-	/** sets value to the default */
-	virtual bool Clear(uint8* MemoryBlock) const;
+	/** free value before removing from blackboard, supports instanced keys */
+	void WrappedFree(UBlackboardComponent& OwnerComp, uint8* MemoryBlock);
 
-	/** interprets given two memory blocks as "my" type and compares them */
-	virtual EBlackboardCompare::Type Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const;
+	/** sets value to the default, supports instanced keys */
+	void WrappedClear(const UBlackboardComponent& OwnerComp, uint8* MemoryBlock) const;
 
-	/** various value testing, used by decorators */
-	virtual bool TestBasicOperation(const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const;
-	virtual bool TestArithmeticOperation(const uint8* MemoryBlock, EArithmeticKeyOperation::Type Op, int32 OtherIntValue, float OtherFloatValue) const;
-	virtual bool TestTextOperation(const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const;
+	/** check if key has stored value, supports instanced keys */
+	bool WrappedIsEmpty(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock) const;
+
+	/** various value testing, used by decorators, supports instanced keys */
+	bool WrappedTestBasicOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const;
+	bool WrappedTestArithmeticOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EArithmeticKeyOperation::Type Op, int32 OtherIntValue, float OtherFloatValue) const;
+	bool WrappedTestTextOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const;
 
 	/** describe params of arithmetic test */
 	virtual FString DescribeArithmeticParam(int32 IntValue, float FloatValue) const;
 
-	/** convert value to text */
-	virtual FString DescribeValue(const uint8* MemoryBlock) const;
+	/** convert value to text, supports instanced keys */
+	FString WrappedDescribeValue(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock) const;
 
 	/** description of params for property view */
 	virtual FString DescribeSelf() const;
+
+	/** create replacement key for deprecated data */
+	virtual UBlackboardKeyType* UpdateDeprecatedKey();
+
+	/** @return key instance if bCreateKeyInstance was set */
+	const UBlackboardKeyType* GetKeyInstance(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock) const;
+	UBlackboardKeyType* GetKeyInstance(UBlackboardComponent& OwnerComp, const uint8* MemoryBlock) const;
+
+	/** compares two values */
+	virtual EBlackboardCompare::Type CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+		const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const;
+
+	/** @return true if key wants to be instanced */
+	bool HasInstance() const;
+
+	/** @return true if this object is instanced key */
+	bool IsInstanced() const;
+
+	/** get ValueSize */
+	uint16 GetValueSize() const;
+
+	/** get test supported by this type */
+	EBlackboardKeyOperation::Type GetTestOperation() const;
+
+	// DEPRECATED FUNCTION
+	DEPRECATED(4.8, "This function now requires an extra UBlackboardComponent parameter.")
+	virtual void Initialize(uint8* MemoryBlock) const;
+	DEPRECATED(4.8, "This function is deprecated. Please use WrappedGetLocation for external access and version with extra UBlackboardComponent parameter for overrides.")
+	virtual bool GetLocation(const uint8* MemoryBlock, FVector& Location) const;
+	DEPRECATED(4.8, "This function is deprecated. Please use WrappedGetLocation for external access and version with extra UBlackboardComponent parameter for overrides.")
+	virtual bool GetRotation(const uint8* MemoryBlock, FRotator& Rotation) const;
+	DEPRECATED(4.8, "This function is deprecated. Please use WrappedClear/WrappedIsEmpty for external access and versions with extra UBlackboardComponent parameter for overrides.")
+	virtual bool Clear(uint8* MemoryBlock) const;
+	DEPRECATED(4.8, "This function is deprecated. Please use CompareValues instead.")
+	virtual EBlackboardCompare::Type Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const;
+	DEPRECATED(4.8, "This function is deprecated. Please use WrappedTestBasicOperation for external access and version with extra UBlackboardComponent parameter for overrides.")
+	virtual bool TestBasicOperation(const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const;
+	DEPRECATED(4.8, "This function is deprecated. Please use WrappedTestArithmeticOperation for external access and version with extra UBlackboardComponent parameter for overrides.")
+	virtual bool TestArithmeticOperation(const uint8* MemoryBlock, EArithmeticKeyOperation::Type Op, int32 OtherIntValue, float OtherFloatValue) const;
+	DEPRECATED(4.8, "This function is deprecated. Please use WrappedTestTextOperation for external access and version with extra UBlackboardComponent parameter for overrides.")
+	virtual bool TestTextOperation(const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const;
+	DEPRECATED(4.8, "This function is deprecated. Please use WrappedDescribeValue for external access and version with extra UBlackboardComponent parameter for overrides.")
+	virtual FString DescribeValue(const uint8* MemoryBlock) const;
 
 protected:
 
@@ -112,6 +167,12 @@ protected:
 
 	/** decorator operation supported with this type */
 	TEnumAsByte<EBlackboardKeyOperation::Type> SupportedOp;
+
+	/** set automatically for node instances */
+	uint8 bIsInstanced : 1;
+
+	/** if set, key will be instanced instead of using memory block */
+	uint8 bCreateKeyInstance : 1;
 
 	/** helper function for reading typed data from memory block */
 	template<typename T>
@@ -146,8 +207,56 @@ protected:
 	}
 
 	friend UBlackboardComponent;
-	void CopyValue(uint8* To, const uint8* From) const
-	{
-		FMemory::Memcpy(To, From, GetValueSize());
-	}
+	
+	/** copy value from other key, works directly on provided memory/properties */
+	virtual void CopyValues(UBlackboardComponent& OwnerComp, uint8* MemoryBlock, const UBlackboardKeyType* SourceKeyOb, const uint8* SourceBlock);
+
+	/** initialize memory, works directly on provided memory/properties */
+	virtual void InitializeMemory(UBlackboardComponent& OwnerComp, uint8* MemoryBlock);
+
+	/** free value before removing from blackboard, works directly on provided memory/properties */
+	virtual void FreeMemory(UBlackboardComponent& OwnerComp, uint8* MemoryBlock);
+
+	/** extract location from entry, works directly on provided memory/properties */
+	virtual bool GetLocation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, FVector& Location) const;
+	
+	/** extract rotation from entry, works directly on provided memory/properties */
+	virtual bool GetRotation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, FRotator& Rotation) const;
+
+	/** sets value to the default, works directly on provided memory/properties */
+	virtual void Clear(UBlackboardComponent& OwnerComp, uint8* MemoryBlock);
+
+	/** check if key has stored value, works directly on provided memory/properties */
+	virtual bool IsEmpty(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock) const;
+
+	/** various value testing, works directly on provided memory/properties */
+	virtual bool TestBasicOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const;
+	virtual bool TestArithmeticOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EArithmeticKeyOperation::Type Op, int32 OtherIntValue, float OtherFloatValue) const;
+	virtual bool TestTextOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const;
+
+	/** convert value to text, works directly on provided memory/properties */
+	virtual FString DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock) const;
 };
+
+//////////////////////////////////////////////////////////////////////////
+// Inlines
+
+FORCEINLINE uint16 UBlackboardKeyType::GetValueSize() const
+{
+	return ValueSize;
+}
+
+FORCEINLINE EBlackboardKeyOperation::Type UBlackboardKeyType::GetTestOperation() const
+{
+	return SupportedOp; 
+}
+
+FORCEINLINE bool UBlackboardKeyType::HasInstance() const
+{
+	return bCreateKeyInstance;
+}
+
+FORCEINLINE bool UBlackboardKeyType::IsInstanced() const
+{
+	return bIsInstanced;
+}

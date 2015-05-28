@@ -13,7 +13,7 @@ COREUOBJECT_API void CastLogError(const TCHAR* FromType, const TCHAR* ToType);
  *
  * Otherwise, assume it's an IInterface.
  */
-template <typename T, bool bIsAUObject_IMPL = CanConvertPointerFromTo<T, UObject>::Result>
+template <typename T, bool bIsAUObject_IMPL = TPointerIsConvertibleFromTo<T, const volatile UObject>::Value>
 struct TIsIInterface
 {
 	enum { Value = false };
@@ -32,7 +32,7 @@ template <typename T>
 struct TIsCastable
 {
 	// It's from-castable if it's an interface or a UObject-derived type
-	enum { Value = TIsIInterface<T>::Value || CanConvertPointerFromTo<T, const volatile UObject>::Result };
+	enum { Value = TIsIInterface<T>::Value || TPointerIsConvertibleFromTo<T, const volatile UObject>::Value };
 };
 
 template <typename T>
@@ -71,7 +71,11 @@ struct TCastFlags
 template <typename From, typename To, bool bFromInterface = TIsIInterface<From>::Value, bool bToInterface = TIsIInterface<To>::Value, uint64 CastClass = TCastFlags<To>::Value>
 struct TGetCastType
 {
+#if UCLASS_FAST_ISA_IMPL == 2
+	static const ECastType Value = ECastType::UObjectToUObject;
+#else
 	static const ECastType Value = ECastType::FromCastFlags;
+#endif
 };
 
 template <typename From, typename To                  > struct TGetCastType<From, To, false, false, CASTCLASS_None> { static const ECastType Value = ECastType::UObjectToUObject;     };
@@ -82,13 +86,21 @@ template <typename From, typename To, uint64 CastClass> struct TGetCastType<From
 template <typename To, typename From>
 To* Cast(From* Src);
 
+template <typename To, typename From>
+To* CastChecked(From* Src, ECastCheckedType::Type CheckType = ECastCheckedType::NullChecked);
+
 template <typename From, typename To, ECastType CastType = TGetCastType<From, To>::Value>
 struct TCastImpl
 {
 	// This is the cast flags implementation
 	FORCEINLINE static To* DoCast( UObject* Src )
 	{
-		return Src->GetClass()->HasAnyCastFlag(TCastFlags<To>::Value) ? (To*)Src : nullptr;
+		return Src && Src->GetClass()->HasAnyCastFlag(TCastFlags<To>::Value) ? (To*)Src : nullptr;
+	}
+
+	FORCEINLINE static To* DoCastCheckedWithoutTypeCheck( UObject* Src )
+	{
+		return (To*)Src;
 	}
 };
 
@@ -97,7 +109,12 @@ struct TCastImpl<From, To, ECastType::UObjectToUObject>
 {
 	FORCEINLINE static To* DoCast( UObject* Src )
 	{
-		return Src->IsA<To>() ? (To*)Src : nullptr;
+		return Src && Src->IsA<To>() ? (To*)Src : nullptr;
+	}
+
+	FORCEINLINE static To* DoCastCheckedWithoutTypeCheck( UObject* Src )
+	{
+		return (To*)Src;
 	}
 };
 
@@ -106,7 +123,21 @@ struct TCastImpl<From, To, ECastType::InterfaceToUObject>
 {
 	FORCEINLINE static To* DoCast( From* Src )
 	{
-		return Cast<To>(Src->_getUObject());
+		To* Result = nullptr;
+		if (Src)
+		{
+			UObject* Obj = Src->_getUObject();
+			if (Obj->IsA<To>())
+			{
+				Result = (To*)Obj;
+			}
+		}
+		return Result;
+	}
+
+	FORCEINLINE static To* DoCastCheckedWithoutTypeCheck( From* Src )
+	{
+		return Src ? (To*)Src->_getUObject() : nullptr;
 	}
 };
 
@@ -115,7 +146,12 @@ struct TCastImpl<From, To, ECastType::UObjectToInterface>
 {
 	FORCEINLINE static To* DoCast( UObject* Src )
 	{
-		return (To*)Src->GetInterfaceAddress(To::UClassType::StaticClass());
+		return Src ? (To*)Src->GetInterfaceAddress(To::UClassType::StaticClass()) : nullptr;
+	}
+
+	FORCEINLINE static To* DoCastCheckedWithoutTypeCheck( UObject* Src )
+	{
+		return Src ? (To*)Src->GetInterfaceAddress(To::UClassType::StaticClass()) : nullptr;
 	}
 };
 
@@ -124,7 +160,12 @@ struct TCastImpl<From, To, ECastType::InterfaceToInterface>
 {
 	FORCEINLINE static To* DoCast( From* Src )
 	{
-		return Cast<To>(Src->_getUObject());
+		return Src ? (To*)Src->_getUObject()->GetInterfaceAddress(To::UClassType::StaticClass()) : nullptr;
+	}
+
+	FORCEINLINE static To* DoCastCheckedWithoutTypeCheck( From* Src )
+	{
+		return Src ? (To*)Src->_getUObject()->GetInterfaceAddress(To::UClassType::StaticClass()) : nullptr;
 	}
 };
 
@@ -132,7 +173,7 @@ struct TCastImpl<From, To, ECastType::InterfaceToInterface>
 template <typename To, typename From>
 FORCEINLINE To* Cast(From* Src)
 {
-	return Src ? TCastImpl<From, To>::DoCast(Src) : nullptr;
+	return TCastImpl<From, To>::DoCast(Src);
 }
 
 template< class T >
@@ -141,11 +182,11 @@ FORCEINLINE T* ExactCast( UObject* Src )
 	return Src && (Src->GetClass() == T::StaticClass()) ? (T*)Src : nullptr;
 }
 
-template <typename To, typename From>
-To* CastChecked(From* Src, ECastCheckedType::Type CheckType = ECastCheckedType::NullChecked)
-{
-	#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if DO_CHECK
 
+	template <typename To, typename From>
+	To* CastChecked(From* Src, ECastCheckedType::Type CheckType)
+	{
 		if (Src)
 		{
 			To* Result = Cast<To>(Src);
@@ -163,13 +204,17 @@ To* CastChecked(From* Src, ECastCheckedType::Type CheckType = ECastCheckedType::
 		}
 
 		return nullptr;
+	}
 
-	#else
+#else
 
-		return (To*)Src;
+	template <typename To, typename From>
+	FORCEINLINE To* CastChecked(From* Src, ECastCheckedType::Type CheckType)
+	{
+		return TCastImpl<From, To>::DoCastCheckedWithoutTypeCheck(Src);
+	}
 
-	#endif
-}
+#endif
 
 
 template <typename InterfaceType>
@@ -211,6 +256,11 @@ template< class T, class U > FORCEINLINE const T* CastChecked( const U      * Sr
 	struct TCastFlags<ClassName> \
 	{ \
 		static const uint64 Value = CASTCLASS_##ClassName; \
+	}; \
+	template <> \
+	struct TCastFlags<const ClassName> \
+	{ \
+		static const uint64 Value = CASTCLASS_##ClassName; \
 	};
 
 #define DECLARE_CAST_BY_FLAG(ClassName) \
@@ -221,6 +271,7 @@ template< class T, class U > FORCEINLINE const T* CastChecked( const U      * Sr
 
 // Define a macro that declares all the cast flags.
 // This allows us to reuse these declarations elsewhere to define other properties for these classes.
+// Note: When adding an item to this list, you must also add a CASTCLASS_ flag in ObjectBase.h and rebuild UnrealHeaderTool.
 #define DECLARE_ALL_CAST_FLAGS \
 DECLARE_CAST_BY_FLAG(UField)							\
 DECLARE_CAST_BY_FLAG(UEnum)								\
@@ -259,6 +310,8 @@ DECLARE_CAST_BY_FLAG(UPrimitiveComponent)				\
 DECLARE_CAST_BY_FLAG(USkinnedMeshComponent)				\
 DECLARE_CAST_BY_FLAG(USkeletalMeshComponent)			\
 DECLARE_CAST_BY_FLAG(UBlueprint)						\
+DECLARE_CAST_BY_FLAG(UDelegateFunction)					\
+DECLARE_CAST_BY_FLAG(UStaticMeshComponent)				\
 FINISH_DECLARING_CAST_FLAGS		// This is here to hopefully remind people to include the "\" in all declarations above, especially when copy/pasting the final line.
 
 // Now actually declare the flags

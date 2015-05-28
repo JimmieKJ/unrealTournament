@@ -3,6 +3,11 @@
 #pragma once
 
 #define LAUNCHERSERVICES_ADDEDINCREMENTALDEPLOYVERSION 11
+#define LAUNCHERSERVICES_ADDEDPATCHSOURCECONTENTPATH 12
+#define LAUNCHERSERVICES_ADDEDRELEASEVERSION 13
+#define LAUNCHERSERVICES_REMOVEDPATCHSOURCECONTENTPATH 14
+#define LAUNCHERSERVICES_ADDEDDLCINCLUDEENGINECONTENT 15
+#define LAUNCHERSERVICES_ADDEDGENERATECHUNKS 16
 
 /**
 * Implements a simple profile which controls the desired output of the Launcher for simple
@@ -273,6 +278,74 @@ public:
 		return DeployedDeviceGroup;
 	}
 
+	virtual bool IsGeneratingPatch() const override
+	{
+		return GeneratePatch;
+	}
+
+
+	virtual bool IsCreatingDLC() const override
+	{
+		return CreateDLC;
+	}
+	virtual void SetCreateDLC(bool InBuildDLC) override
+	{
+		CreateDLC = InBuildDLC;
+	}
+
+	virtual FString GetDLCName() const override
+	{
+		return DLCName;
+	}
+	virtual void SetDLCName(const FString& InDLCName) override
+	{
+		DLCName = InDLCName;
+	}
+
+	virtual bool IsDLCIncludingEngineContent() const
+	{
+		return DLCIncludeEngineContent;
+	}
+	virtual void SetDLCIncludeEngineContent(bool InDLCIncludeEngineContent)
+	{
+		DLCIncludeEngineContent = InDLCIncludeEngineContent;
+	}
+
+
+
+	virtual bool IsCreatingReleaseVersion() const override
+	{
+		return CreateReleaseVersion;
+	}
+
+	virtual void SetCreateReleaseVersion(bool InCreateReleaseVersion) override
+	{
+		CreateReleaseVersion = InCreateReleaseVersion;
+	}
+
+	virtual FString GetCreateReleaseVersionName() const override
+	{
+		return CreateReleaseVersionName;
+	}
+
+	virtual void SetCreateReleaseVersionName(const FString& InCreateReleaseVersionName) override
+	{
+		CreateReleaseVersionName = InCreateReleaseVersionName;
+	}
+
+
+	virtual FString GetBasedOnReleaseVersionName() const override
+	{
+		return BasedOnReleaseVersionName;
+	}
+
+	virtual void SetBasedOnReleaseVersionName(const FString& InBasedOnReleaseVersionName) override
+	{
+		BasedOnReleaseVersionName = InBasedOnReleaseVersionName;
+	}
+
+
+
 	virtual ELauncherProfileDeploymentModes::Type GetDeploymentMode( ) const override
 	{
 		return DeploymentMode;
@@ -414,6 +487,11 @@ public:
 		return false;
 	}
 
+	virtual bool IsCompressed() const override
+	{
+		return Compressed;
+	}
+
 	virtual bool IsCookingUnversioned( ) const override
 	{
 		return CookUnversioned;
@@ -447,6 +525,26 @@ public:
 	virtual bool IsPackingWithUnrealPak( ) const  override
 	{
 		return DeployWithUnrealPak;
+	}
+
+	virtual bool IsGeneratingChunks() const override
+	{
+		return bGenerateChunks;
+	}
+
+	virtual bool IsGenerateHttpChunkData() const override
+	{
+		return bGenerateHttpChunkData;
+	}
+
+	virtual FString GetHttpChunkDataDirectory() const override
+	{
+		return HttpChunkDataDirectory;
+	}
+
+	virtual FString GetHttpChunkDataReleaseName() const override
+	{
+		return HttpChunkDataReleaseName;
 	}
 
 	virtual bool IsValidForLaunch( ) override
@@ -537,6 +635,61 @@ public:
 			Archive << DeployIncremental;
 		}
 
+		if ( Version >= LAUNCHERSERVICES_REMOVEDPATCHSOURCECONTENTPATH )
+		{
+			Archive << GeneratePatch;
+		}
+		else if ( Version >= LAUNCHERSERVICES_ADDEDPATCHSOURCECONTENTPATH)
+		{
+			FString Temp;
+			Archive << Temp;
+			Archive << GeneratePatch;
+		}
+		else if ( Archive.IsLoading() )
+		{
+			GeneratePatch = false;
+		}
+
+		if (Version >= LAUNCHERSERVICES_ADDEDDLCINCLUDEENGINECONTENT)
+		{
+			Archive << DLCIncludeEngineContent;
+		}
+		else if (Archive.IsLoading())
+		{
+			DLCIncludeEngineContent = false;
+		}
+		
+
+		if ( Version >= LAUNCHERSERVICES_ADDEDRELEASEVERSION )
+		{
+			Archive << CreateReleaseVersion;
+			Archive << CreateReleaseVersionName;
+			Archive << BasedOnReleaseVersionName;
+			
+			Archive << CreateDLC;
+			Archive << DLCName;
+		}
+		else if ( Archive.IsLoading() )
+		{
+			CreateReleaseVersion = false;
+			CreateDLC = false;
+		}
+
+		if (Version >= LAUNCHERSERVICES_ADDEDGENERATECHUNKS)
+		{
+			Archive << bGenerateChunks;
+			Archive << bGenerateHttpChunkData;
+			Archive << HttpChunkDataDirectory;
+			Archive << HttpChunkDataReleaseName;
+		}
+		else if (Archive.IsLoading())
+		{
+			bGenerateChunks = false;
+			bGenerateHttpChunkData = false;
+			HttpChunkDataDirectory = TEXT("");
+			HttpChunkDataReleaseName = TEXT("");
+		}
+
 		DefaultLaunchRole->Serialize(Archive);
 
 		// serialize launch roles
@@ -603,7 +756,8 @@ public:
 		CookMode = ELauncherProfileCookModes::OnTheFly;
 		CookOptions = FString();
 		CookIncremental = false;
-		CookUnversioned = false;
+		CookUnversioned = true;
+		Compressed = false;
 		CookedCultures.Reset();
 		CookedCultures.Add(I18N.GetCurrentCulture()->GetName());
 		CookedMaps.Reset();
@@ -624,6 +778,16 @@ public:
 		DeployedDeviceGroupId = FGuid();
 		HideFileServerWindow = false;
 		DeployIncremental = false;
+
+		CreateReleaseVersion = false;
+		GeneratePatch = false;
+		CreateDLC = false;
+		DLCIncludeEngineContent = false;
+
+		bGenerateChunks = false;
+		bGenerateHttpChunkData = false;
+		HttpChunkDataDirectory = TEXT("");
+		HttpChunkDataReleaseName = TEXT("");
 
 		// default launch settings
 		LaunchMode = ELauncherProfileLaunchModes::DefaultRole;
@@ -714,6 +878,42 @@ public:
 		}
 	}
 
+	virtual void SetGenerateChunks(bool bInGenerateChunks) override
+	{
+		if (bGenerateChunks != bInGenerateChunks)
+		{
+			bGenerateChunks = bInGenerateChunks;
+			Validate();
+		}
+	}
+
+	virtual void SetGenerateHttpChunkData(bool bInGenerateHttpChunkData) override
+	{
+		if (bGenerateHttpChunkData != bInGenerateHttpChunkData)
+		{
+			bGenerateHttpChunkData = bInGenerateHttpChunkData;
+			Validate();
+		}
+	}
+
+	virtual void SetHttpChunkDataDirectory(const FString& InHttpChunkDataDirectory) override
+	{
+		if (HttpChunkDataDirectory != InHttpChunkDataDirectory)
+		{
+			HttpChunkDataDirectory = InHttpChunkDataDirectory;
+			Validate();
+		}
+	}
+
+	virtual void SetHttpChunkDataReleaseName(const FString& InHttpChunkDataReleaseName) override
+	{
+		if (HttpChunkDataReleaseName != InHttpChunkDataReleaseName)
+		{
+			HttpChunkDataReleaseName = InHttpChunkDataReleaseName;
+			Validate();
+		}
+	}
+
 	virtual void SetDeployedDeviceGroup( const ILauncherDeviceGroupPtr& DeviceGroup ) override
 	{
 		if(DeployedDeviceGroup.IsValid())
@@ -775,6 +975,16 @@ public:
 		if (CookIncremental != Incremental)
 		{
 			CookIncremental = Incremental;
+
+			Validate();
+		}
+	}
+
+	virtual void SetCompressed( bool Enabled ) override
+	{
+		if (Compressed != Enabled)
+		{
+			Compressed = Enabled;
 
 			Validate();
 		}
@@ -912,6 +1122,11 @@ public:
 		}
 	}
 
+	virtual void SetGeneratePatch( bool InGeneratePatch ) override
+	{
+		GeneratePatch = InGeneratePatch;
+	}
+
 	virtual bool SupportsEngineMaps( ) const override
 	{
 		return false;
@@ -1007,6 +1222,37 @@ protected:
 					break;
 				}
 			}
+		}
+
+		if ( CookUnversioned && CookIncremental )
+		{
+			ValidationErrors.Add(ELauncherProfileValidationErrors::UnversionedAndIncrimental);
+		}
+
+
+		if ( IsGeneratingPatch() && (CookMode != ELauncherProfileCookModes::ByTheBook) )
+		{
+			ValidationErrors.Add(ELauncherProfileValidationErrors::GeneratingPatchesCanOnlyRunFromByTheBookCookMode);
+		}
+
+		if ( IsGeneratingChunks() && (CookMode != ELauncherProfileCookModes::ByTheBook) )
+		{
+			ValidationErrors.Add(ELauncherProfileValidationErrors::GeneratingChunksRequiresCookByTheBook);
+		}
+
+		if (IsGeneratingChunks() && !IsPackingWithUnrealPak())
+		{
+			ValidationErrors.Add(ELauncherProfileValidationErrors::GeneratingChunksRequiresUnrealPak);
+		}
+
+		if (IsGenerateHttpChunkData() && !IsGeneratingChunks())
+		{
+			ValidationErrors.Add(ELauncherProfileValidationErrors::GeneratingHttpChunkDataRequiresGeneratingChunks);
+		}
+
+		if (IsGenerateHttpChunkData() && (GetHttpChunkDataReleaseName().IsEmpty() || !FPaths::DirectoryExists(*GetHttpChunkDataDirectory())))
+		{
+			ValidationErrors.Add(ELauncherProfileValidationErrors::GeneratingHttpChunkDataRequiresValidDirectoryAndName);
 		}
 
 		// Launch: when launching, all devices that the build is launched on must have content cooked for their platform
@@ -1120,6 +1366,9 @@ private:
 	// Holds a flag indicating whether UAT should be built
 	bool BuildUAT;
 
+	// Generate compressed content
+	bool Compressed;
+
 	// Holds a flag indicating whether only modified content should be cooked.
 	bool CookIncremental;
 
@@ -1143,6 +1392,41 @@ private:
 
 	// Holds a flag indicating whether content should be packaged with UnrealPak.
 	bool DeployWithUnrealPak;
+
+	// Flag indicating if content should be split into chunks
+	bool bGenerateChunks;
+	
+	// Flag indicating if chunked content should be used to generate HTTPChunkInstall data
+	bool bGenerateHttpChunkData;
+	
+	// Where to store HTTPChunkInstall data
+	FString HttpChunkDataDirectory;
+	
+	// Version name of the HTTPChunkInstall data
+	FString HttpChunkDataReleaseName;
+
+	// create a release version of the content (this can be used to base dlc / patches from)
+	bool CreateReleaseVersion;
+
+	// name of the release version
+	FString CreateReleaseVersionName;
+
+	// name of the release version to base this dlc / patch on
+	FString BasedOnReleaseVersionName;
+
+	// This build generate a patch based on some source content seealso PatchSourceContentPath
+	bool GeneratePatch;
+
+	// This build will cook content for dlc See also DLCName
+	bool CreateDLC;
+
+	// name of the dlc we are going to build (the name of the dlc plugin)
+	FString DLCName;
+
+	// should the dlc include engine content in the current dlc 
+	//  engine content which was not referenced by original release
+	//  otherwise error on any access of engine content during dlc cook
+	bool DLCIncludeEngineContent;
 
 	// Holds a flag indicating whether to use incremental deployment
 	bool DeployIncremental;

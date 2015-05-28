@@ -13,7 +13,7 @@
 
 SLevelEditorToolBox::~SLevelEditorToolBox()
 {
-	GEditor->AccessEditorUserSettings().OnUserSettingChanged().RemoveAll( this );
+	GetMutableDefault<UEditorPerProjectUserSettings>()->OnUserSettingChanged().RemoveAll( this );
 }
 
 void SLevelEditorToolBox::Construct( const FArguments& InArgs, const TSharedRef< class ILevelEditor >& OwningLevelEditor )
@@ -23,7 +23,7 @@ void SLevelEditorToolBox::Construct( const FArguments& InArgs, const TSharedRef<
 	// Important: We use a raw binding here because we are releasing our binding in our destructor (where a weak pointer would be invalid)
 	// It's imperative that our delegate is removed in the destructor for the level editor module to play nicely with reloading.
 
-	GEditor->AccessEditorUserSettings().OnUserSettingChanged().AddRaw( this, &SLevelEditorToolBox::HandleUserSettingsChange );
+	GetMutableDefault<UEditorPerProjectUserSettings>()->OnUserSettingChanged().AddRaw( this, &SLevelEditorToolBox::HandleUserSettingsChange );
 
 	ChildSlot
 	[

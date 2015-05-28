@@ -10,6 +10,15 @@
 #include "SDockTab.h"
 
 
+
+void SCascadePreviewViewport::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	SEditorViewport::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+
+	JustTicked = true;
+}
+
+
 SCascadePreviewViewport::~SCascadePreviewViewport()
 {
 	if (ViewportClient.IsValid())
@@ -32,7 +41,7 @@ void SCascadePreviewViewport::RefreshViewport()
 
 bool SCascadePreviewViewport::IsVisible() const
 {
-	return ViewportWidget.IsValid() && (!ParentTab.IsValid() || ParentTab.Pin()->IsForeground());
+	return ViewportWidget.IsValid() && (!ParentTab.IsValid() || ParentTab.Pin()->IsForeground()) && SEditorViewport::IsVisible();
 }
 
 TSharedPtr<FSceneViewport> SCascadePreviewViewport::GetViewport() const

@@ -2,11 +2,14 @@
 
 
 #include "CorePrivatePCH.h"
+#include "EventPool.h"
 #include "LockFreeList.h"
 #include "StatsData.h"
 
+
 /** The global thread pool */
-FQueuedThreadPool*		GThreadPool						= NULL;
+FQueuedThreadPool* GThreadPool = nullptr;
+
 
 CORE_API bool IsInGameThread()
 {
@@ -23,7 +26,7 @@ CORE_API bool IsInSlateThread()
 
 CORE_API int32 GIsRenderingThreadSuspended = 0;
 
-CORE_API FRunnableThread* GRenderingThread = NULL;
+CORE_API FRunnableThread* GRenderingThread = nullptr;
 
 CORE_API bool IsInActualRenderingThread()
 {
@@ -44,11 +47,19 @@ CORE_API bool IsInRHIThread()
 {
 	return GRHIThread && FPlatformTLS::GetCurrentThreadId() == GRHIThread->GetThreadID();
 }
-CORE_API FRunnableThread* GRHIThread = NULL;
+CORE_API FRunnableThread* GRHIThread = nullptr;
 // Fake threads
 
+// Core version of IsInAsyncLoadingThread
+static bool IsInAsyncLoadingThreadCoreInternal()
+{
+	// No async loading in Core
+	return false;
+}
+bool(*IsInAsyncLoadingThread)() = &IsInAsyncLoadingThreadCoreInternal;
+
 /**
- * Fake thread created when multithreading is disabled.
+ * Fake thread created when multi-threading is disabled.
  */
 class FFakeThread : public FRunnableThread
 {
@@ -57,39 +68,30 @@ class FFakeThread : public FRunnableThread
 
 	/** Thread is suspended. */
 	bool bIsSuspended;
-	/** Name of this thread. */
-	FString Name;
+
 	/** Runnable object associated with this thread. */
 	FSingleThreadRunnable* Runnable;
-	/** Thread Id. */
-	uint32 ThreadId;
 
 public:
 
-	/**
-	 * Constructor.
-	 */
+	/** Constructor. */
 	FFakeThread()
 		: bIsSuspended(false)
-		, Runnable(NULL)
-		, ThreadId(ThreadIdCounter++)
+		, Runnable(nullptr)
 	{
+		ThreadID = ThreadIdCounter++;
 		// Auto register with single thread manager.
 		FSingleThreadManager::Get().AddThread(this);
 	}
 
-	/**
-	 * Destructor
-	 */
+	/** Virtual destructor. */
 	virtual ~FFakeThread()
 	{
 		// Remove from the manager.
 		FSingleThreadManager::Get().RemoveThread(this);
 	}
 
-	/**
-	 * Tick one time per frame
-	 */
+	/** Tick one time per frame. */
 	void Tick()
 	{
 		if (Runnable && !bIsSuspended)
@@ -98,7 +100,10 @@ public:
 		}
 	}
 
+public:
+
 	// FRunnableThread interface
+
 	virtual void SetThreadPriority(EThreadPriority NewPriority) override
 	{
 		// Not relevant.
@@ -109,7 +114,7 @@ public:
 		bIsSuspended = bShouldPause;
 	}
 
-	virtual bool Kill(bool bShouldWait)
+	virtual bool Kill(bool bShouldWait) override
 	{
 		FSingleThreadManager::Get().RemoveThread(this);
 		return true;
@@ -120,19 +125,9 @@ public:
 		FSingleThreadManager::Get().RemoveThread(this);
 	}
 
-	virtual uint32 GetThreadID() override
-	{
-		return ThreadId;
-	}
-
-	virtual FString GetThreadName() override
-	{
-		return Name;
-	}
-
 	virtual bool CreateInternal(FRunnable* InRunnable, const TCHAR* ThreadName,
 		uint32 InStackSize,
-		EThreadPriority InThreadPri, uint64 InThreadAffinityMask)
+		EThreadPriority InThreadPri, uint64 InThreadAffinityMask) override
 
 	{
 		Runnable = InRunnable->GetSingleThreadInterface();
@@ -140,10 +135,11 @@ public:
 		{
 			InRunnable->Init();
 		}		
-		return Runnable != NULL;
+		return Runnable != nullptr;
 	}
 };
 uint32 FFakeThread::ThreadIdCounter = 0xffff;
+
 
 void FSingleThreadManager::AddThread(FFakeThread* Thread)
 {
@@ -157,6 +153,8 @@ void FSingleThreadManager::RemoveThread(FFakeThread* Thread)
 
 void FSingleThreadManager::Tick()
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FSingleThreadManager_Tick);
+
 	// Tick all registered threads.
 	for (int32 RunnableIndex = 0; RunnableIndex < ThreadList.Num(); ++RunnableIndex)
 	{
@@ -170,45 +168,38 @@ FSingleThreadManager& FSingleThreadManager::Get()
 	return Singleton;
 }
 
-class FEventPool
-{
-	TLockFreePointerList<FEvent> Pool;
-public:
-	static FEventPool& Get()
-	{
-		static FEventPool Singleton;
-		return Singleton;
-	}
-	FEvent* GetEventFromPool()
-	{
-		FEvent* Result = Pool.Pop();
-		if (!Result)
-		{
-			Result = FPlatformProcess::CreateSynchEvent();
-		}
-		check(Result);
-		return Result;
-	}
-	void ReturnToPool(FEvent* Event)
-	{
-		check(Event);
-		Pool.Push(Event);
-	}
-};
+FScopedEvent::FScopedEvent()
+	: Event(FEventPool<EEventPoolTypes::AutoReset>::Get().GetEventFromPool())
+{ }
 
-FEvent* FScopedEvent::GetEventFromPool()
+FScopedEvent::~FScopedEvent()
 {
-	return FEventPool::Get().GetEventFromPool();
+	Event->Wait();
+	FEventPool<EEventPoolTypes::AutoReset>::Get().ReturnToPool(Event);
+	Event = nullptr;
 }
 
-void FScopedEvent::ReturnToPool(FEvent* Event)
+/*-----------------------------------------------------------------------------
+	FRunnableThread
+-----------------------------------------------------------------------------*/
+
+uint32 FRunnableThread::RunnableTlsSlot = FRunnableThread::GetTlsSlot();
+
+uint32 FRunnableThread::GetTlsSlot()
 {
-	FEventPool::Get().ReturnToPool(Event);
+	check( IsInGameThread() );
+	uint32 TlsSlot = FPlatformTLS::AllocTlsSlot();
+	check( FPlatformTLS::IsValidTlsSlot( TlsSlot ) );
+	return TlsSlot;
 }
 
-FRunnableThread::~FRunnableThread()
+FRunnableThread::FRunnableThread()
+	: Runnable(nullptr)
+	, ThreadInitSyncEvent(nullptr)
+	, ThreadAffinityMask(FPlatformAffinity::GetNoAffinityMask())
+	, ThreadPriority(TPri_Normal)
+	, ThreadID(0)
 {
-	ThreadDestroyedDelegate.Broadcast();
 }
 
 FRunnableThread* FRunnableThread::Create(
@@ -230,7 +221,7 @@ FRunnableThread* FRunnableThread::Create(
 	EThreadPriority InThreadPri, 
 	uint64 InThreadAffinityMask)
 {
-	FRunnableThread* NewThread = NULL;
+	FRunnableThread* NewThread = nullptr;
 	if (FPlatformProcess::SupportsMultithreading())
 	{
 		check(InRunnable);
@@ -243,7 +234,7 @@ FRunnableThread* FRunnableThread::Create(
 			{
 				// We failed to start the thread correctly so clean up
 				delete NewThread;
-				NewThread = NULL;
+				NewThread = nullptr;
 			}
 		}
 	}
@@ -255,21 +246,46 @@ FRunnableThread* FRunnableThread::Create(
 		{
 			// We failed to start the thread correctly so clean up
 			delete NewThread;
-			NewThread = NULL;
+			NewThread = nullptr;
 		}
 	}
 
+#if	STATS
 	if( NewThread )
 	{
-		FRunnableThread::GetThreadRegistry().Add( NewThread->GetThreadID(), NewThread );
-#if	STATS
 		FStartupMessages::Get().AddThreadMetadata( FName( *NewThread->GetThreadName() ), NewThread->GetThreadID() );
-#endif // STATS
 	}
+#endif // STATS
 
 	return NewThread;
-
 }
+
+void FRunnableThread::SetTls()
+{
+	// Make sure it's called from the owning thread.
+	check( ThreadID == FPlatformTLS::GetCurrentThreadId() );
+	check( RunnableTlsSlot );
+	FPlatformTLS::SetTlsValue( RunnableTlsSlot, this );
+}
+
+void FRunnableThread::FreeTls()
+{
+	// Make sure it's called from the owning thread.
+	check( ThreadID == FPlatformTLS::GetCurrentThreadId() );
+	check( RunnableTlsSlot );
+	FPlatformTLS::SetTlsValue( RunnableTlsSlot, nullptr );
+
+	// Delete all FTlsAutoCleanup objects created for this thread.
+	for( auto& Instance : TlsInstances )
+	{
+		delete Instance;
+		Instance = nullptr;
+	}
+}
+
+/*-----------------------------------------------------------------------------
+	FQueuedThread
+-----------------------------------------------------------------------------*/
 
 /**
  * This is the interface used for all poolable threads. The usage pattern for
@@ -278,27 +294,21 @@ FRunnableThread* FRunnableThread::Create(
  * for work to do. When signaled they perform a job and then return themselves
  * to their owning pool via a callback and go back to an idle state.
  */
-class FQueuedThread : public FRunnable
+class FQueuedThread
+	: public FRunnable
 {
 protected:
-	/**
-	 * The event that tells the thread there is work to do
-	 */
+
+	/** The event that tells the thread there is work to do. */
 	FEvent* DoWorkEvent;
 
-	/**
-	 * If true, the thread should exit
-	 */
+	/** If true, the thread should exit. */
 	volatile int32 TimeToDie;
 
-	/**
-	 * The work this thread is doing
-	 */
-	FQueuedWork* volatile QueuedWork;
+	/** The work this thread is doing. */
+	IQueuedWork* volatile QueuedWork;
 
-	/**
-	 * The pool this thread belongs to
-	 */
+	/** The pool this thread belongs to. */
 	class FQueuedThreadPool* OwningThreadPool;
 
 	/** My Thread  */
@@ -314,8 +324,8 @@ protected:
 		{
 			// Wait for some work to do
 			DoWorkEvent->Wait();
-			FQueuedWork* LocalQueuedWork = QueuedWork;
-			QueuedWork = NULL;
+			IQueuedWork* LocalQueuedWork = QueuedWork;
+			QueuedWork = nullptr;
 			FPlatformMisc::MemoryBarrier();
 			check(LocalQueuedWork || TimeToDie); // well you woke me up, where is the job or termination request?
 			while (LocalQueuedWork)
@@ -331,26 +341,22 @@ protected:
 
 public:
 
-	/** Constructor **/
+	/** Default constructor **/
 	FQueuedThread()
-		: DoWorkEvent(NULL)
+		: DoWorkEvent(nullptr)
 		, TimeToDie(0)
-		, QueuedWork(NULL)
-		, OwningThreadPool(NULL)
-		, Thread(NULL)
-	{
-	}
+		, QueuedWork(nullptr)
+		, OwningThreadPool(nullptr)
+		, Thread(nullptr)
+	{ }
 
 	/**
 	 * Creates the thread with the specified stack size and creates the various
 	 * events to be able to communicate with it.
 	 *
-	 * @param InPool The thread pool interface used to place this thread
-	 * back into the pool of available threads when its work is done
-	 * @param InStackSize The size of the stack to create. 0 means use the
-	 * current thread's stack size
+	 * @param InPool The thread pool interface used to place this thread back into the pool of available threads when its work is done
+	 * @param InStackSize The size of the stack to create. 0 means use the current thread's stack size
 	 * @param ThreadPriority priority of new thread
-	 *
 	 * @return True if the thread and all of its initialization was successful, false otherwise
 	 */
 	virtual bool Create(class FQueuedThreadPool* InPool,uint32 InStackSize = 0,EThreadPriority ThreadPriority=TPri_Normal)
@@ -360,7 +366,7 @@ public:
 		PoolThreadIndex++;
 
 		OwningThreadPool = InPool;
-		DoWorkEvent = FPlatformProcess::CreateSynchEvent();
+		DoWorkEvent = FPlatformProcess::GetSynchEventFromPool();
 		Thread = FRunnableThread::Create(this, *PoolThreadName, InStackSize, ThreadPriority, FPlatformAffinity::GetPoolThreadMask());
 		check(Thread);
 		return true;
@@ -386,9 +392,8 @@ public:
 		// brute force kill that thread. Very bad as that might leak.
 		Thread->WaitForCompletion();
 		// Clean up the event
-		delete DoWorkEvent;
-		DoWorkEvent = NULL;
-		delete DoWorkEvent;
+		FPlatformProcess::ReturnSynchEventToPool(DoWorkEvent);
+		DoWorkEvent = nullptr;
 		delete Thread;
 		return bDidExitOK;
 	}
@@ -399,9 +404,9 @@ public:
 	 *
 	 * @param InQueuedWork The queued work to perform
 	 */
-	void DoWork(FQueuedWork* InQueuedWork)
+	void DoWork(IQueuedWork* InQueuedWork)
 	{
-		check(QueuedWork == NULL && "Can't do more than one task at a time");
+		check(QueuedWork == nullptr && "Can't do more than one task at a time");
 		// Tell the thread the work to be done
 		QueuedWork = InQueuedWork;
 		FPlatformMisc::MemoryBarrier();
@@ -411,48 +416,38 @@ public:
 
 };
 
+
 /**
  * Implementation of a queued thread pool.
  */
 class FQueuedThreadPoolBase : public FQueuedThreadPool
 {
 protected:
-	/**
-	 * The work queue to pull from
-	 */
-	TArray<FQueuedWork*> QueuedWork;
 
-	/**
-	 * The thread pool to dole work out to
-	 */
+	/** The work queue to pull from. */
+	TArray<IQueuedWork*> QueuedWork;
+	
+	/** The thread pool to dole work out to. */
 	TArray<FQueuedThread*> QueuedThreads;
 
-	/**
-	 * All threads in the pool
-	 */
+	/** All threads in the pool. */
 	TArray<FQueuedThread*> AllThreads;
 
-	/**
-	 * The synchronization object used to protect access to the queued work
-	 */
+	/** The synchronization object used to protect access to the queued work. */
 	FCriticalSection* SynchQueue;
 
-	/**
-	 * If true, indicates the destruction process has taken place
-	 */
+	/** If true, indicates the destruction process has taken place. */
 	bool TimeToDie;
 
 public:
 
+	/** Default constructor. */
 	FQueuedThreadPoolBase()
-		: SynchQueue(NULL)
+		: SynchQueue(nullptr)
 		, TimeToDie(0)
-	{
-	}
+	{ }
 
-	/**
-	 * Clean up the synch objects
-	 */
+	/** Virtual destructor (cleans up the synchronization objects). */
 	virtual ~FQueuedThreadPoolBase()
 	{
 		Destroy();
@@ -462,7 +457,7 @@ public:
 	{
 		// Make sure we have synch objects
 		bool bWasSuccessful = true;
-		check(SynchQueue == NULL);
+		check(SynchQueue == nullptr);
 		SynchQueue = new FCriticalSection();
 		FScopeLock Lock(SynchQueue);
 		// Presize the array so there is no extra memory allocated
@@ -541,19 +536,19 @@ public:
 				AllThreads.Empty();
 			}
 			delete SynchQueue;
-			SynchQueue = NULL;
+			SynchQueue = nullptr;
 		}
 	}
 
-	void AddQueuedWork(FQueuedWork* InQueuedWork) override
+	void AddQueuedWork(IQueuedWork* InQueuedWork) override
 	{
 		if (TimeToDie)
 		{
 			InQueuedWork->Abandon();
 			return;
 		}
-		check(InQueuedWork != NULL);
-		FQueuedThread* Thread = NULL;
+		check(InQueuedWork != nullptr);
+		FQueuedThread* Thread = nullptr;
 		// Check to see if a thread is available. Make sure no other threads
 		// can manipulate the thread pool while we do this.
 		check(SynchQueue);
@@ -568,7 +563,7 @@ public:
 			QueuedThreads.RemoveAt(Index);
 		}
 		// Was there a thread ready?
-		if (Thread != NULL)
+		if (Thread != nullptr)
 		{
 			// We have a thread, so tell it to do the work
 			Thread->DoWork(InQueuedWork);
@@ -581,22 +576,22 @@ public:
 		}
 	}
 
-	virtual bool RetractQueuedWork(FQueuedWork* InQueuedWork) override
+	virtual bool RetractQueuedWork(IQueuedWork* InQueuedWork) override
 	{
 		if (TimeToDie)
 		{
 			return false; // no special consideration for this, refuse the retraction and let shutdown proceed
 		}
-		check(InQueuedWork != NULL);
+		check(InQueuedWork != nullptr);
 		check(SynchQueue);
 		FScopeLock sl(SynchQueue);
 		return !!QueuedWork.RemoveSingle(InQueuedWork);
 	}
 
-	virtual FQueuedWork* ReturnToPoolOrGetNextJob(FQueuedThread* InQueuedThread) override
+	virtual IQueuedWork* ReturnToPoolOrGetNextJob(FQueuedThread* InQueuedThread) override
 	{
-		check(InQueuedThread != NULL);
-		FQueuedWork* Work = NULL;
+		check(InQueuedThread != nullptr);
+		IQueuedWork* Work = nullptr;
 		// Check to see if there is any work to be done
 		FScopeLock sl(SynchQueue);
 		if (TimeToDie)
@@ -628,32 +623,83 @@ FQueuedThreadPool* FQueuedThreadPool::Allocate()
 	return new FQueuedThreadPoolBase;
 }
 
+
 /*-----------------------------------------------------------------------------
 	FThreadSingletonInitializer
 -----------------------------------------------------------------------------*/
 
-FThreadSingleton* FThreadSingletonInitializer::Get( const FThreadSingleton::TCreateSingletonFuncPtr CreateFunc, const FThreadSingleton::TDestroySingletonFuncPtr DestroyFunc, uint32& TlsSlot )
+FTlsAutoCleanup* FThreadSingletonInitializer::Get( const TFunctionRef<FTlsAutoCleanup*()>& CreateInstance, uint32& TlsSlot )
 {
-	check( CreateFunc != nullptr );
-	check( DestroyFunc != nullptr );
 	if( TlsSlot == 0 )
 	{
-		check( IsInGameThread() );
-		TlsSlot = FPlatformTLS::AllocTlsSlot();
+		const uint32 ThisTlsSlot = FPlatformTLS::AllocTlsSlot();
+		check( FPlatformTLS::IsValidTlsSlot( ThisTlsSlot ) );
+		const uint32 PrevTlsSlot = FPlatformAtomics::InterlockedCompareExchange( (int32*)&TlsSlot, (int32)ThisTlsSlot, 0 );
+		if( PrevTlsSlot != 0 )
+		{
+			FPlatformTLS::FreeTlsSlot( ThisTlsSlot );
+		}
 	}
-	FThreadSingleton* ThreadSingleton = (FThreadSingleton*)FPlatformTLS::GetTlsValue( TlsSlot );
+	FTlsAutoCleanup* ThreadSingleton = (FTlsAutoCleanup*)FPlatformTLS::GetTlsValue( TlsSlot );
 	if( !ThreadSingleton )
 	{
-		const uint32 ThreadId = FPlatformTLS::GetCurrentThreadId();
-		ThreadSingleton = (*CreateFunc)();
-		FRunnableThread::GetThreadRegistry().Lock();
-		FRunnableThread* RunnableThread = FRunnableThread::GetThreadRegistry().GetThread( ThreadId );
-		if( RunnableThread )
-		{
-			RunnableThread->OnThreadDestroyed().AddRaw( ThreadSingleton, DestroyFunc );
-		}
-		FRunnableThread::GetThreadRegistry().Unlock();
+		ThreadSingleton = CreateInstance();
+		ThreadSingleton->Register();
 		FPlatformTLS::SetTlsValue( TlsSlot, ThreadSingleton );
 	}
 	return ThreadSingleton;
+}
+
+void FTlsAutoCleanup::Register()
+{
+	FRunnableThread* RunnableThread = FRunnableThread::GetRunnableThread();
+	if( RunnableThread )
+	{
+		RunnableThread->TlsInstances.Add( this );
+	}
+}
+
+
+
+FMultiReaderSingleWriterGT::FMultiReaderSingleWriterGT()
+{
+	CanRead = TFunction<bool()>([=]() { return FPlatformAtomics::InterlockedCompareExchange(&CriticalSection.Action, ReadingAction, NoAction) == ReadingAction; });
+	CanWrite = TFunction<bool()>([=]() { return FPlatformAtomics::InterlockedCompareExchange(&CriticalSection.Action, WritingAction, NoAction) == WritingAction; });
+}
+
+void FMultiReaderSingleWriterGT::LockRead()
+{
+	if (!IsInGameThread())
+	{
+		FPlatformProcess::ConditionalSleep(CanRead);
+	}
+	CriticalSection.ReadCounter.Increment();
+}
+
+void FMultiReaderSingleWriterGT::UnlockRead()
+{
+	if (CriticalSection.ReadCounter.Decrement() != 0)
+	{
+		return;
+	}
+
+	if (!IsInGameThread())
+	{
+		FPlatformAtomics::InterlockedExchange(&CriticalSection.Action, NoAction);
+	}
+}
+
+void FMultiReaderSingleWriterGT::LockWrite()
+{
+	check(IsInGameThread());
+	FPlatformProcess::ConditionalSleep(CanWrite);
+	CriticalSection.WriteCounter.Increment();
+}
+
+void FMultiReaderSingleWriterGT::UnlockWrite()
+{
+	if (CriticalSection.WriteCounter.Decrement() == 0)
+	{
+		FPlatformAtomics::InterlockedExchange(&CriticalSection.Action, NoAction);
+	}
 }

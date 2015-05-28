@@ -84,6 +84,8 @@ public:
 
 private:
 
+	void LogActiveIMEInfo();
+
 	// IMM Implementation
 
 	bool InitializeIMM();

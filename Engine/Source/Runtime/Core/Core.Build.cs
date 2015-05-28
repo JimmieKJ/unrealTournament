@@ -79,15 +79,15 @@ public class Core : ModuleRules
 			AddThirdPartyPrivateStaticDependencies(Target, 
 				"IntelTBB",
 				"zlib",
-				"OpenGL"
+				"OpenGL",
+				"PLCrashReporter"
 				);
-			PublicFrameworks.AddRange(new string[] { "Cocoa", "Carbon", "IOKit" });
+			PublicFrameworks.AddRange(new string[] { "Cocoa", "Carbon", "IOKit", "Security" });
 			
 			if (UEBuildConfiguration.bBuildEditor == true)
 			{
 				PublicAdditionalLibraries.Add("/System/Library/PrivateFrameworks/MultitouchSupport.framework/Versions/Current/MultitouchSupport");
 			}
-			PublicAdditionalLibraries.Add("/System/Library/PrivateFrameworks/CoreSymbolication.framework/Versions/Current/CoreSymbolication");
 		}
 		else if (Target.Platform == UnrealTargetPlatform.IOS)
 		{
@@ -130,16 +130,6 @@ public class Core : ModuleRules
                 AddThirdPartyPrivateStaticDependencies(Target, "FreeType2");
 				AddThirdPartyPrivateStaticDependencies(Target, "OpenGL");
 			}
-
-			/* [RCL] 2014-09-18: disabling SteamController temporarily until redist/deployment problems are cleared
-            // add steam controller dependency for game and client only
-            if (UEBuildConfiguration.bCompileAgainstEngine == true && 
-                (Target.Type == TargetRules.TargetType.Game || Target.Type == TargetRules.TargetType.Client) &&
-                UEBuildConfiguration.bCompileSteamOSS)
-            {
-                AddThirdPartyPrivateStaticDependencies(Target, "SteamController");
-            }
-			*/
         }
 		else if (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32")
 		{
@@ -151,6 +141,7 @@ public class Core : ModuleRules
         {
             AddThirdPartyPrivateStaticDependencies(Target, "SDL2");
             PrivateDependencyModuleNames.Add("HTML5JS");
+            PrivateDependencyModuleNames.Add("MapPakDownloader");
         }
 
         if ( UEBuildConfiguration.bCompileICU == true ) 

@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	CircularBuffer.h: Declares the TCircularBuffer template class.
-=============================================================================*/
-
 #pragma once
 
 
@@ -77,7 +73,7 @@ public:
 	 *
 	 * @return Buffer capacity.
 	 */
-	FORCEINLINE uint32 Capacity( ) const
+	FORCEINLINE uint32 Capacity() const
 	{
 		return Elements.Num();
 	}
@@ -95,9 +91,9 @@ public:
 
 private:
 
-	// Holds the mask for indexing the buffer's elements.
+	/** Holds the mask for indexing the buffer's elements. */
 	uint32 IndexMask;
 
-	// Holds the buffer's elements.
+	/** Holds the buffer's elements. */
 	TArray<ElementType> Elements;
 };

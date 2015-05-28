@@ -59,14 +59,30 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 	int32 ClientHeight = FMath::TruncToInt( HeightInitial );
 	int32 WindowWidth = ClientWidth;
 	int32 WindowHeight = ClientHeight;
+	const bool bApplicationSupportsPerPixelBlending =
+#if ALPHA_BLENDED_WINDOWS
+		Application->GetWindowTransparencySupport() == EWindowTransparency::PerPixel;
+#else
+		false;
+#endif
 
 	if( !Definition->HasOSWindowBorder )
 	{
 		WindowExStyle = WS_EX_WINDOWEDGE;
-		if (Definition->SupportsTransparency)
+
+		if( Definition->TransparencySupport == EWindowTransparency::PerWindow )
 		{
 			WindowExStyle |= WS_EX_LAYERED;
 		}
+#if ALPHA_BLENDED_WINDOWS
+		else if( Definition->TransparencySupport == EWindowTransparency::PerPixel )
+		{
+			if( bApplicationSupportsPerPixelBlending )
+			{
+				WindowExStyle |= WS_EX_COMPOSITED;
+			}
+		}
+#endif
 
 		WindowStyle = WS_POPUP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
 		if ( Definition->AppearsInTaskbar )
@@ -94,7 +110,17 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 	{
 		// OS Window border setup
 		WindowExStyle = WS_EX_APPWINDOW;
-		WindowStyle = WS_POPUP | WS_OVERLAPPED | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_BORDER | WS_CAPTION;
+		WindowStyle = WS_POPUP | WS_OVERLAPPED | WS_SYSMENU | WS_BORDER | WS_CAPTION;
+
+		if (Definition->SupportsMaximize)
+		{
+			WindowStyle |= WS_MAXIMIZEBOX;
+		}
+
+		if (Definition->SupportsMinimize)
+		{
+			WindowStyle |= WS_MINIMIZEBOX;
+		}
 
 		// Note SizeX and SizeY should be the size of the client area.  We need to get the actual window size by adjusting the client size to account for standard windows border around the window
 		RECT WindowRect = { 0, 0, ClientWidth, ClientWidth };
@@ -134,7 +160,7 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 		return;
 	}
 
-	if ( Definition->SupportsTransparency )
+	if ( Definition->TransparencySupport == EWindowTransparency::PerWindow )
 	{
 		SetOpacity( Definition->Opacity );
 	}
@@ -149,7 +175,16 @@ void FWindowsWindow::Initialize( FWindowsApplication* const Application, const T
 
 		const BOOL bEnableNCPaint = false;
 		verify(SUCCEEDED(DwmSetWindowAttribute(HWnd, DWMWA_ALLOW_NCPAINT, &bEnableNCPaint, sizeof(bEnableNCPaint))));
+
+	#if ALPHA_BLENDED_WINDOWS
+		if ( bApplicationSupportsPerPixelBlending && Definition->TransparencySupport == EWindowTransparency::PerPixel )
+		{
+			MARGINS Margins = {-1};
+			verify(SUCCEEDED(::DwmExtendFrameIntoClientArea(HWnd, &Margins)));
+		}
+	#endif
 	}
+
 #endif	// WINVER
 
 	// No region for non regular windows or windows displaying the os window border
@@ -189,16 +224,41 @@ FWindowsWindow::FWindowsWindow()
 	, OLEReferenceCount(0)
 	, bIsVisible( false )
 {
-	FMemory::MemZero(PreFullscreenWindowPlacement);
+	FMemory::Memzero(PreFullscreenWindowPlacement);
 	PreFullscreenWindowPlacement.length = sizeof(WINDOWPLACEMENT);
 
-	FMemory::MemZero(PreParentMinimizedWindowPlacement);
+	FMemory::Memzero(PreParentMinimizedWindowPlacement);
 	PreParentMinimizedWindowPlacement.length = sizeof(WINDOWPLACEMENT);
 }
 
 HWND FWindowsWindow::GetHWnd() const
 {
 	return HWnd;
+}
+
+void FWindowsWindow::OnTransparencySupportChanged(EWindowTransparency NewTransparency)
+{
+#if ALPHA_BLENDED_WINDOWS
+	if ( Definition->TransparencySupport == EWindowTransparency::PerPixel )
+	{
+		const auto Style = GetWindowLong( HWnd, GWL_EXSTYLE );
+
+		if( NewTransparency == EWindowTransparency::PerPixel )
+		{
+			SetWindowLong( HWnd, GWL_EXSTYLE, Style | WS_EX_COMPOSITED );
+
+			MARGINS Margins = {-1};
+			verify(SUCCEEDED(::DwmExtendFrameIntoClientArea(HWnd, &Margins)));
+		}
+		else
+		{
+			SetWindowLong( HWnd, GWL_EXSTYLE, Style & ~WS_EX_COMPOSITED );
+		}
+
+		// Must call SWP_FRAMECHANGED when updating the style attribute of a window in order to update internal caches (according to MSDN)
+		SetWindowPos( HWnd, NULL, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSIZE | SWP_NOSENDCHANGING | SWP_NOZORDER );
+	}
+#endif
 }
 
 HRGN FWindowsWindow::MakeWindowRegionObject() const
@@ -213,7 +273,14 @@ HRGN FWindowsWindow::MakeWindowRegionObject() const
 		}
 		else
 		{
-			if( Definition->CornerRadius > 0 )
+			const bool bUseCornerRadius  = 
+#if ALPHA_BLENDED_WINDOWS
+				// Corner radii cause DWM window composition blending to fail, so we always set regions to full size rectangles
+				Definition->TransparencySupport != EWindowTransparency::PerPixel &&
+#endif
+				Definition->CornerRadius > 0;
+
+			if( bUseCornerRadius )
 			{
 				// @todo mac: Corner radius not applied on Mac platform yet
 
@@ -255,7 +322,7 @@ void FWindowsWindow::AdjustWindowRegion( int32 Width, int32 Height )
 void FWindowsWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int32 NewHeight )
 {
 	WINDOWINFO WindowInfo;
-	FMemory::MemZero( WindowInfo );
+	FMemory::Memzero( WindowInfo );
 	WindowInfo.cbSize = sizeof( WindowInfo );
 	::GetWindowInfo( HWnd, &WindowInfo );
 
@@ -297,7 +364,7 @@ void FWindowsWindow::ReshapeWindow( int32 NewX, int32 NewY, int32 NewWidth, int3
 		NewHeight = FMath::Max( NewHeight, FMath::Min( OldHeight, MinRetainedHeight ) );
 	}
 
-	// NOTE: SetWindowPos will trigger a WM_SIZE and our SWindow's cached size will be updated
+		
 	// We use SWP_NOSENDCHANGING when in fullscreen mode to prevent Windows limiting our window size to the current resolution, as that 
 	// prevents us being able to change to a higher resolution while in fullscreen mode
 	::SetWindowPos( HWnd, nullptr, WindowX, WindowY, NewWidth, NewHeight, SWP_NOZORDER | SWP_NOACTIVATE | ((WindowMode == EWindowMode::Fullscreen) ? SWP_NOSENDCHANGING : 0) );
@@ -646,7 +713,7 @@ bool FWindowsWindow::IsPointInWindow( int32 X, int32 Y ) const
 int32 FWindowsWindow::GetWindowBorderSize() const
 {
 	WINDOWINFO WindowInfo;
-	FMemory::MemZero( WindowInfo );
+	FMemory::Memzero( WindowInfo );
 	WindowInfo.cbSize = sizeof( WindowInfo );
 	::GetWindowInfo( HWnd, &WindowInfo );
 

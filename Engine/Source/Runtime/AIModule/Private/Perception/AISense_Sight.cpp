@@ -5,6 +5,16 @@
 #include "Perception/AISense_Sight.h"
 #include "Perception/AISenseConfig_Sight.h"
 
+#define DO_SIGHT_VLOGGING (0 && ENABLE_VISUAL_LOG)
+
+#if DO_SIGHT_VLOGGING
+	#define SIGHT_LOG_SEGMENT UE_VLOG_SEGMENT
+	#define SIGHT_LOG_LOCATION UE_VLOG_LOCATION
+#else
+	#define SIGHT_LOG_SEGMENT(...)
+	#define SIGHT_LOG_LOCATION(...)
+#endif // DO_SIGHT_VLOGGING
+
 DECLARE_CYCLE_STAT(TEXT("Perception Sense: Sight"),STAT_AI_Sense_Sight,STATGROUP_AI);
 DECLARE_CYCLE_STAT(TEXT("Perception Sense: Sight, Listener Update"), STAT_AI_Sense_Sight_ListenerUpdate, STATGROUP_AI);
 
@@ -51,10 +61,12 @@ UAISense_Sight::FDigestedSightProperties::FDigestedSightProperties(const UAISens
 	LoseSightRadiusSq = FMath::Square(SenseConfig.LoseSightRadius);
 	PeripheralVisionAngleCos = FMath::Cos(FMath::DegreesToRadians(SenseConfig.PeripheralVisionAngleDegrees));
 	AffiliationFlags = SenseConfig.DetectionByAffiliation.GetAsFlags();
+	// keep the special value of FAISystem::InvalidRange (-1.f) if it's set.
+	AutoSuccessRangeSqFromLastSeenLocation = (SenseConfig.AutoSuccessRangeFromLastSeenLocation == FAISystem::InvalidRange) ? FAISystem::InvalidRange : FMath::Square(SenseConfig.AutoSuccessRangeFromLastSeenLocation);
 }
 
 UAISense_Sight::FDigestedSightProperties::FDigestedSightProperties()
-	: PeripheralVisionAngleCos(0.f), SightRadiusSq(-1.f), LoseSightRadiusSq(-1.f), AffiliationFlags(-1)
+	: PeripheralVisionAngleCos(0.f), SightRadiusSq(-1.f), AutoSuccessRangeSqFromLastSeenLocation(FAISystem::InvalidRange), LoseSightRadiusSq(-1.f), AffiliationFlags(-1)
 {}
 
 //----------------------------------------------------------------------//
@@ -76,6 +88,9 @@ UAISense_Sight::UAISense_Sight(const FObjectInitializer& ObjectInitializer)
 
 	DebugDrawColor = FColor::Green;
 	DebugName = TEXT("Sight");
+	NotifyType = EAISenseNotifyType::OnPerceptionChange;
+	
+	bAutoRegisterAllPawnsAsSources = true;
 }
 
 FORCEINLINE_DEBUGGABLE float UAISense_Sight::CalcQueryImportance(const FPerceptionListener& Listener, const FVector& TargetLocation, const float SightRadiusSq) const
@@ -89,6 +104,19 @@ void UAISense_Sight::PostInitProperties()
 {
 	Super::PostInitProperties();
 	HighImportanceDistanceSquare = FMath::Square(HighImportanceQueryDistanceThreshold);
+}
+
+bool UAISense_Sight::ShouldAutomaticallySeeTarget(const FDigestedSightProperties& PropDigest, FAISightQuery* SightQuery, FPerceptionListener& Listener, AActor* TargetActor, float& OutStimulusStrength) const
+{
+	OutStimulusStrength = 1.0f;
+
+	if ((PropDigest.AutoSuccessRangeSqFromLastSeenLocation != FAISystem::InvalidRange) && (SightQuery->LastSeenLocation != FAISystem::InvalidLocation))
+	{
+		const float DistanceToLastSeenLocationSq = FVector::DistSquared(TargetActor->GetActorLocation(), SightQuery->LastSeenLocation);
+		return (DistanceToLastSeenLocationSq <= PropDigest.AutoSuccessRangeSqFromLastSeenLocation);
+	}
+
+	return false;
 }
 
 float UAISense_Sight::Update()
@@ -132,24 +160,34 @@ float UAISense_Sight::Update()
 				const FVector TargetLocation = TargetActor->GetActorLocation();
 				const FDigestedSightProperties& PropDigest = DigestedProperties[SightQuery->ObserverId];
 				const float SightRadiusSq = SightQuery->bLastResult ? PropDigest.LoseSightRadiusSq : PropDigest.SightRadiusSq;
+				
+				float StimulusStrength = 1.f;
 
-				if (CheckIsTargetInSightPie(Listener, PropDigest, TargetLocation, SightRadiusSq))
+				if (ShouldAutomaticallySeeTarget(PropDigest, SightQuery, Listener, TargetActor, StimulusStrength))
 				{
-//					UE_VLOG_SEGMENT(Listener.Listener.Get()->GetOwner(), Listener.CachedLocation, TargetLocation, FColor::Green, TEXT("%s"), *(Target.TargetId.ToString()));
+					// Pretend like we've seen this target where we last saw them
+					Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, StimulusStrength, SightQuery->LastSeenLocation, Listener.CachedLocation));
+					SightQuery->bLastResult = true;
+				}
+				else if (CheckIsTargetInSightPie(Listener, PropDigest, TargetLocation, SightRadiusSq))
+				{
+					SIGHT_LOG_SEGMENT(Listener.Listener.Get()->GetOwner(), Listener.CachedLocation, TargetLocation, FColor::Green, TEXT("%s"), *(Target.TargetId.ToString()));
 
 					FVector OutSeenLocation(0.f);
 					// do line checks
 					if (Target.SightTargetInterface != NULL)
 					{
 						int32 NumberOfLoSChecksPerformed = 0;
-						if (Target.SightTargetInterface->CanBeSeenFrom(Listener.CachedLocation, OutSeenLocation, NumberOfLoSChecksPerformed, Listener.Listener->GetBodyActor()) == true)
+						// defaulting to 1 to have "full strength" by default instead of "no strength"
+						if (Target.SightTargetInterface->CanBeSeenFrom(Listener.CachedLocation, OutSeenLocation, NumberOfLoSChecksPerformed, StimulusStrength, Listener.Listener->GetBodyActor()) == true)
 						{
-							Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 1.f, OutSeenLocation, Listener.CachedLocation));
+							Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, StimulusStrength, OutSeenLocation, Listener.CachedLocation));
 							SightQuery->bLastResult = true;
+							SightQuery->LastSeenLocation = OutSeenLocation;
 						}
 						else
 						{
-//							UE_VLOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
+							SIGHT_LOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
 							Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 0.f, TargetLocation, Listener.CachedLocation, FAIStimulus::SensingFailed));
 							SightQuery->bLastResult = false;
 						}
@@ -159,13 +197,10 @@ float UAISense_Sight::Update()
 					else
 					{
 						// we need to do tests ourselves
-						/*const bool bHit = World->LineTraceTest(Listener.CachedLocation, TargetLocation
-							, FCollisionQueryParams(NAME_AILineOfSight, true, Listener.Listener->GetBodyActor())
-							, FCollisionObjectQueryParams(ECC_WorldStatic));*/
 						FHitResult HitResult;
-						const bool bHit = World->LineTraceSingle(HitResult, Listener.CachedLocation, TargetLocation
-							, FCollisionQueryParams(NAME_AILineOfSight, true, Listener.Listener->GetBodyActor())
-							, FCollisionObjectQueryParams(ECC_WorldStatic));
+						const bool bHit = World->LineTraceSingleByObjectType(HitResult, Listener.CachedLocation, TargetLocation
+							, FCollisionObjectQueryParams(ECC_WorldStatic)
+							, FCollisionQueryParams(NAME_AILineOfSight, true, Listener.Listener->GetBodyActor()));
 
 						++TracesCount;
 
@@ -173,10 +208,11 @@ float UAISense_Sight::Update()
 						{
 							Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 1.f, TargetLocation, Listener.CachedLocation));
 							SightQuery->bLastResult = true;
+							SightQuery->LastSeenLocation = TargetLocation;
 						}
 						else
 						{
-//							UE_VLOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
+							SIGHT_LOG_LOCATION(Listener.Listener.Get()->GetOwner(), TargetLocation, 25.f, FColor::Red, TEXT(""));
 							Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 0.f, TargetLocation, Listener.CachedLocation, FAIStimulus::SensingFailed));
 							SightQuery->bLastResult = false;
 						}
@@ -184,7 +220,7 @@ float UAISense_Sight::Update()
 				}
 				else
 				{
-//					UE_VLOG_SEGMENT(Listener.Listener.Get()->GetOwner(), Listener.CachedLocation, TargetLocation, FColor::Red, TEXT("%s"), *(Target.TargetId.ToString()));
+					SIGHT_LOG_SEGMENT(Listener.Listener.Get()->GetOwner(), Listener.CachedLocation, TargetLocation, FColor::Red, TEXT("%s"), *(Target.TargetId.ToString()));
 					Listener.RegisterStimulus(TargetActor, FAIStimulus(*this, 0.f, TargetLocation, Listener.CachedLocation, FAIStimulus::SensingFailed));
 					SightQuery->bLastResult = false;
 				}
@@ -223,6 +259,9 @@ float UAISense_Sight::Update()
 
 		if (InvalidTargets.Num() > 0)
 		{
+			// this should not be happening since UAIPerceptionSystem::OnPerceptionStimuliSourceEndPlay introduction
+			UE_VLOG(GetPerceptionSystem(), LogAIPerception, Error, TEXT("Invalid sight targets found during UAISense_Sight::Update call"));
+
 			for (const auto& TargetId : InvalidTargets)
 			{
 				// remove affected queries
@@ -253,6 +292,44 @@ void UAISense_Sight::RegisterSource(AActor& SourceActor)
 	RegisterTarget(SourceActor, Sort);
 }
 
+void UAISense_Sight::UnregisterSource(AActor& SourceActor)
+{
+	const FAISightTarget::FTargetId AsTargetId = SourceActor.GetFName();
+	FAISightTarget* AsTarget = ObservedTargets.Find(AsTargetId);
+	if (AsTarget != nullptr)
+	{
+		RemoveAllQueriesToTarget(AsTargetId, DontSort);
+	}
+}
+
+void UAISense_Sight::CleanseInvalidSources()
+{
+	bool bInvalidSourcesFound = false;
+	for (TMap<FName, FAISightTarget>::TIterator ItTarget(ObservedTargets); ItTarget; ++ItTarget)
+	{
+		if (ItTarget->Value.Target.IsValid() == false)
+		{
+			// remove affected queries
+			RemoveAllQueriesToTarget(ItTarget->Key, DontSort);
+			// remove target itself
+			ItTarget.RemoveCurrent();
+
+			bInvalidSourcesFound = true;
+		}
+	}
+
+	if (bInvalidSourcesFound)
+	{
+		// remove holes
+		ObservedTargets.Compact();
+		SortQueries();
+	}
+	else
+	{
+		UE_VLOG(GetPerceptionSystem(), LogAIPerception, Error, TEXT("UAISense_Sight::CleanseInvalidSources called and no invalid targets were found"));
+	}
+}
+
 bool UAISense_Sight::RegisterTarget(AActor& TargetActor, FQueriesOperationPostProcess PostProcess)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_Sense_Sight);
@@ -280,16 +357,18 @@ bool UAISense_Sight::RegisterTarget(AActor& TargetActor, FQueriesOperationPostPr
 		const FPerceptionListener& Listener = ItListener->Value;
 		const IGenericTeamAgentInterface* ListenersTeamAgent = Listener.GetTeamAgent();
 
-		// @todo add configuration here
-		if (Listener.HasSense(GetSenseID()) && (ListenersTeamAgent == NULL || ListenersTeamAgent->GetTeamAttitudeTowards(TargetActor) == ETeamAttitude::Hostile))
+		if (Listener.HasSense(GetSenseID()) && Listener.GetBodyActor() != &TargetActor)
 		{
-			// create a sight query		
-			FAISightQuery SightQuery(ItListener->Key, SightTarget->TargetId);
 			const FDigestedSightProperties& PropDigest = DigestedProperties[Listener.GetListenerID()];
-			SightQuery.Importance = CalcQueryImportance(ItListener->Value, TargetLocation, PropDigest.SightRadiusSq);
+			if (FAISenseAffiliationFilter::ShouldSenseTeam(ListenersTeamAgent, TargetActor, PropDigest.AffiliationFlags))
+			{
+				// create a sight query		
+				FAISightQuery SightQuery(ItListener->Key, SightTarget->TargetId);
+				SightQuery.Importance = CalcQueryImportance(ItListener->Value, TargetLocation, PropDigest.SightRadiusSq);
 
-			SightQueryQueue.Add(SightQuery);
-			bNewQueriesAdded = true;
+				SightQueryQueue.Add(SightQuery);
+				bNewQueriesAdded = true;
+			}
 		}
 	}
 
@@ -318,18 +397,18 @@ void UAISense_Sight::GenerateQueriesForListener(const FPerceptionListener& Liste
 {
 	bool bNewQueriesAdded = false;
 	const IGenericTeamAgentInterface* ListenersTeamAgent = Listener.GetTeamAgent();
+	const AActor* Avatar = Listener.GetBodyActor();
 
 	// create sight queries with all legal targets
 	for (TMap<FName, FAISightTarget>::TConstIterator ItTarget(ObservedTargets); ItTarget; ++ItTarget)
 	{
 		const AActor* TargetActor = ItTarget->Value.GetTargetActor();
-		if (TargetActor == NULL)
+		if (TargetActor == NULL || TargetActor == Avatar)
 		{
 			continue;
 		}
 
-		// @todo this should be configurable - some AI might want to observe Neutrals and Friendlies as well
-		if (ListenersTeamAgent == NULL || ListenersTeamAgent->GetTeamAttitudeTowards(*TargetActor) == ETeamAttitude::Hostile)
+		if (FAISenseAffiliationFilter::ShouldSenseTeam(ListenersTeamAgent, *TargetActor, PropertyDigest.AffiliationFlags))
 		{
 			// create a sight query		
 			FAISightQuery SightQuery(Listener.GetListenerID(), ItTarget->Key);
@@ -394,20 +473,9 @@ void UAISense_Sight::OnListenerRemovedImpl(const FPerceptionListener& UpdatedLis
 
 	DigestedProperties.FindAndRemoveChecked(UpdatedListener.GetListenerID());
 
-	if (UpdatedListener.Listener.IsValid())
-	{
-		// see if this listener is a Target as well
-		const FAISightTarget::FTargetId AsTargetId = UpdatedListener.GetBodyActorName();
-		FAISightTarget* AsTarget = ObservedTargets.Find(AsTargetId);
-		if (AsTarget != NULL)
-		{
-			RemoveAllQueriesToTarget(AsTargetId, Sort);			
-		}
-	}
-	else
-	{
-		//@todo quite possible there are left over sight queries with this listener as target
-	}
+	// note: there use to be code to remove all queries _to_ listener here as well
+	// but that was wrong - the fact that a listener gets unregistered doesn't have to
+	// mean it's being removed from the game altogether.
 }
 
 void UAISense_Sight::RemoveAllQueriesByListener(const FPerceptionListener& Listener, FQueriesOperationPostProcess PostProcess)
@@ -438,7 +506,7 @@ void UAISense_Sight::RemoveAllQueriesByListener(const FPerceptionListener& Liste
 	}
 }
 
-void UAISense_Sight::RemoveAllQueriesToTarget(const FName& TargetId, FQueriesOperationPostProcess PostProcess)
+void UAISense_Sight::RemoveAllQueriesToTarget(const FAISightTarget::FTargetId& TargetId, FQueriesOperationPostProcess PostProcess)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_Sense_Sight);
 

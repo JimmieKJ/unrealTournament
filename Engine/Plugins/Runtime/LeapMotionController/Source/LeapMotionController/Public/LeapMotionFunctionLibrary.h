@@ -22,79 +22,101 @@ class LEAPMOTIONCONTROLLER_API ULeapMotionFunctionLibrary : public UBlueprintFun
 
 	/** 
 	 * Checks whether a Leap Motion controller is connected.
-	 * @return			True if controller is connected, false otherwise.
+	 * @returns			True if controller is connected, false otherwise.
 	 */
 	UFUNCTION(BlueprintPure, Category = LeapMotion)
 	static bool IsConnected();
 
 	/**
-	 * Returns list of IDs of all hands seen by the device
-	 * @param OutAllHandIds		Array of all visible hand IDs.
-	 * @param UseReferenceFrame	Use saved reference frame, rather then the volatile newest one from the device.
-	 * @return					True if the device is connected 
+	 * Returns list of IDs of all hands tracked by the device.
+	 * @param OutAllHandIds		Output array which is filled with all the tracked hand IDs.
+	 * @returns					True, if the device is connected.
 	 */
 	UFUNCTION(BlueprintPure, Category = LeapMotion)
 	static bool GetAllHandsIds(TArray<int32>& OutAllHandIds);
 
 	/** 
-	 * Returns the id of the oldest left or right hand, if one exists. 
-	 * @param LeapSide	Query for left or right hands
-	 * @param OutHandId	The Id of the oldest left/right hand, or -1 otherwise.
-	 * @return			True if hand is found, false otherwise.
+	 * Returns the oldest left- or right-hand actor, if one exists, nullptr otherwise. 
+	 *
+	 * If more than one left or right hand is being tracked, this function returns 
+	 * the one that has been tracked the longest.
+	 * @param LeapSide	Look for a left or a right hand.
+	 * @param OutHandId	An integer set to the Leap Motion id of the oldest left
+	 *					or right hand. If no hand is found, this is set to -1.
+	 * @returns			True if a hand of the specified type exists, false otherwise.
 	 */
 	UFUNCTION(BlueprintPure, Category = LeapMotion)
 	static bool GetOldestLeftOrRightHandId(ELeapSide LeapSide, int32& OutHandId);
 
 	/**
-	 * Gets the position and orientation of the specified hand from the device
-	 * @param HandId			Which hand to query
-	 * @param LeapBone			Which hand bone to get position & orientation for
-	 * @param OutPosition		(out) The relative position of the hand, or zero if the hand wasn't detected this frame
-	 * @param OutOrientation	(out) The relative orientation of the hand, or zero if the hand wasn't detected this frame
-	 * @param UseReferenceFrame	Use saved reference frame, rather then the volatile newest one from the device. 
-	 * @return					True if the hand was detected, false otherwise
+	 * Gets the position and orientation of the specified bone of the specified hand.
+	 * Data returned by this function is relative to the Unreal Engine origin rather than
+	 * a particular LeapMotionControllerComponent or LeapMotionHandActor instance.
+	 * Get the properties of a LeapMotionBoneActor instance to get the data
+	 * relative to that actor's parent hand actor and controller component. In this
+	 * case, use the standard Unreal Actor location and rotation properties.
+	 *
+	 * @param HandId			The id of the hand of interest.
+	 * @param LeapBone			The bone of interest.
+	 * @param OutPosition		An FVector set to the relative position of the hand, 
+	 *							or a zero vector if a hand with the specified id does not exist.
+	 * @param OutOrientation	An FRotator set to the relative orientation of 
+	 *							the specified bone, or a zero rotation if a hand 
+	 *							with the specified id does not exist.
+	 * @returns					True, if the hand with the specified id exists, false otherwise.
 	 */
 	UFUNCTION(BlueprintPure, Category = LeapMotion)
 	static bool GetBonePostionAndOrientation(int32 HandId, ELeapBone LeapBone, FVector& OutPosition, FRotator& OutOrientation);
 
 	/**
-	 * Gets the width and length of the specified bone of a hand from the device
-	 * @param HandId			Which hand to query
-	 * @param LeapBone			Which hand bone to get position & orientation for
-	 * @param OutWidth			Bone's width (in centimeters)
-	 * @param OutWidth			Bone's length (in centimeters)
-	 * @param UseReferenceFrame	Use saved reference frame, rather then the volatile newest one from the device.
-	 * @return					True if the hand was detected and bone was identified, false otherwise
+	 * Gets the width and length of the specified bone of the specified hand.
+	 * @param HandId			The id of the hand of interest.
+	 * @param LeapBone			The bone of interest.
+	 * @param OutWidth			A float set to the bone's width (in centimeters).
+	 * @param OutLength			A float set to the bone's length (in centimeters).
+	 * @returns					True, if the hand with the specified id exists, false otherwise.
 	 */
 	UFUNCTION(BlueprintPure, Category = LeapMotion)
 	static bool GetBoneWidthAndLength(int32 HandId, ELeapBone LeapBone, float& OutWidth, float& OutLength);
 
 	/**
-	 * Queries grabbing strength of the hand
-	 * @param HandId			Which hand to query
-	 * @param OutGrabStrength	Hand's grabbing strength as reported by Leap API
-	 * @param UseReferenceFrame	Use saved reference frame, rather then the volatile newest one from the device.
-	 * @return					True if the hand was detected, false otherwise
+	 * The grab strength rating of the specified hand.
+	 *
+	 * Grab strength is a rating of how the hand's posture resembles a fist.
+	 * A strength of 0 is close to an open, flat hand; a strength of 1 is close 
+	 * to a fist.
+	 * @param HandId			The id of the hand of interest.
+	 * @param GrabStrength		A float set to the hand's grabbing strength as reported by Leap API.
+	 * @returns					True, if the hand with the specified id exists, false otherwise.
 	 */
 	UFUNCTION(BlueprintPure, Category = LeapMotion)
 	static bool GetGrabStrength(int32 HandId, float& GrabStrength);
 
 	/**
-	 * Queries pinching strength of the hand
-	 * @param HandId			Which hand to query
-	 * @param OutPinchStrength	Hand's pinch strength as reported by Leap API
-	 * @param UseReferenceFrame	Use saved reference frame, rather then the volatile newest one from the device.
-	 * @return					True if the hand was detected, false otherwise
+	 * The pinch strength rating of the specified hand.
+	 *
+	 * Pinch strength is a rating of whether the hand is in a pinching posture.
+	 * Pinch strength starts at 0 and increases to 1 as any finger tip approaches
+	 * the tip of the thumb. Note that pinch and grab strength are not independent.
+	 * A grabbing hand will generally have a non-zero pinch strength as well.
+	 *
+	 * @param HandId			The id of the hand of interest.
+	 * @param PinchStrength		A float set to the hand's pinch strength as reported by Leap API
+	 * @returns					True, if the hand with the specified id exists, false otherwise.
 	 */
 	UFUNCTION(BlueprintPure, Category = LeapMotion)
 	static bool GetPinchStrength(int32 HandId, float& PinchStrength);
 
 	/**
-	* Set LeapController policy that improves tracking for HMD-mounted controller
-	* @param UseHmdPolicy		True for HMD-mounted mode, false otherwise
-	* @return					True if the device is connected
-	*/
-	UFUNCTION(BlueprintPure, Category = LeapMotion)
+	 * Enables or disables the Leap Motion Controller policy that improves tracking for an
+	 * HMD-mounted controller.
+	 * Note that calling this function does not change the transforms of any 
+	 * LeapMotionControllerComponent instances that may exist.
+	 *
+	 * @param UseHmdPolicy		True to enable for HMD-mounted mode, false to disable.
+	 * @returns					True if the device is connected.
+	 */
+	UFUNCTION(BlueprintCallable, Category = LeapMotion)
 	static bool SetHmdPolicy(bool UseHmdPolicy);
 };
 

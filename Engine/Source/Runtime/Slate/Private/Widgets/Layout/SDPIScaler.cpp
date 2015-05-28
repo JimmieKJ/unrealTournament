@@ -35,7 +35,7 @@ void SDPIScaler::OnArrangeChildren( const FGeometry& AllottedGeometry, FArranged
 	}
 }
 	
-FVector2D SDPIScaler::ComputeDesiredSize() const
+FVector2D SDPIScaler::ComputeDesiredSize( float ) const
 {
 	return DPIScale.Get() * ChildSlot.GetWidget()->GetDesiredSize();
 }
@@ -56,4 +56,9 @@ void SDPIScaler::SetContent(TSharedRef<SWidget> InContent)
 void SDPIScaler::SetDPIScale(TAttribute<float> InDPIScale)
 {
 	DPIScale = InDPIScale;
+}
+
+float SDPIScaler::GetRelativeLayoutScale(const FSlotBase& Child) const
+{
+	return DPIScale.Get();
 }

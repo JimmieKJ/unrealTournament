@@ -362,6 +362,7 @@ static void BuildMetalShaderOutput(
 		verify(Match(ShaderSource, '('));
 		uint16 BufferIndex = ParseNumber(ShaderSource);
 		check(BufferIndex == Header.Bindings.NumUniformBuffers);
+		UsedUniformBufferSlots[BufferIndex] = true;
 		verify(Match(ShaderSource, ')'));
 		ParameterMap.AddParameterAllocation(*BufferName, Header.Bindings.NumUniformBuffers++, 0, 0);
 
@@ -591,6 +592,25 @@ static void BuildMetalShaderOutput(
 				);
 
 			verify(Match(ShaderSource, ')'));
+
+			if (Match(ShaderSource, '\n'))
+			{
+				break;
+			}
+
+			// Skip the comma.
+			verify(Match(ShaderSource, ','));
+		}
+	}
+
+	if (FCStringAnsi::Strncmp(ShaderSource, SamplerStatesPrefix, SamplerStatesPrefixLen) == 0)
+	{
+		ShaderSource += SamplerStatesPrefixLen;
+		while (*ShaderSource && *ShaderSource != '\n')
+		{
+			int32 Index = ParseNumber(ShaderSource);
+			verify(Match(ShaderSource, ':'));
+			FString SamplerState = ParseIdentifier(ShaderSource);
 
 			if (Match(ShaderSource, '\n'))
 			{
@@ -923,18 +943,19 @@ void CompileShader_Metal(const FShaderCompilerInput& Input,FShaderCompilerOutput
 
 		FMetalCodeBackend MetalBackEnd(CCFlags);
 		FMetalLanguageSpec MetalLanguageSpec;
-		int32 Result = HlslCrossCompile(
-			TCHAR_TO_ANSI(*Input.SourceFilename),
-			TCHAR_TO_ANSI(*PreprocessedShader),
-			TCHAR_TO_ANSI(*Input.EntryPointName),
-			Frequency,
-			&MetalBackEnd,
-			&MetalLanguageSpec,
-			CCFlags,
-			HlslCompilerTarget,
-			&MetalShaderSource,
-			&ErrorLog
-			);
+
+		int32 Result = 0;
+		FHlslCrossCompilerContext CrossCompilerContext(CCFlags, Frequency, HlslCompilerTarget);
+		if (CrossCompilerContext.Init(TCHAR_TO_ANSI(*Input.SourceFilename), &MetalLanguageSpec))
+		{
+			Result = CrossCompilerContext.Run(
+				TCHAR_TO_ANSI(*PreprocessedShader),
+				TCHAR_TO_ANSI(*Input.EntryPointName),
+				&MetalBackEnd,
+				&MetalShaderSource,
+				&ErrorLog
+				) ? 1 : 0;
+		}
 
 		int32 SourceLen = MetalShaderSource ? FCStringAnsi::Strlen(MetalShaderSource) : 0;
 		if (bDumpDebugInfo)
@@ -960,7 +981,7 @@ void CompileShader_Metal(const FShaderCompilerInput& Input,FShaderCompilerOutput
 		{
 			FString Tmp = ANSI_TO_TCHAR(ErrorLog);
 			TArray<FString> ErrorLines;
-			Tmp.ParseIntoArray(&ErrorLines, TEXT("\n"), true);
+			Tmp.ParseIntoArray(ErrorLines, TEXT("\n"), true);
 			for (int32 LineIndex = 0; LineIndex < ErrorLines.Num(); ++LineIndex)
 			{
 				const FString& Line = ErrorLines[LineIndex];

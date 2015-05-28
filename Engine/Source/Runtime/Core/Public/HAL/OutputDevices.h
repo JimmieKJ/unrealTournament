@@ -361,14 +361,14 @@ public:
 	/**
 	 * Passes on the flush request to all current output devices.
 	 */
-	void Flush();
+	void Flush() override;
 
 	/**
 	 * Closes output device and cleans up. This can't happen in the destructor
 	 * as we might have to call "delete" which cannot be done for static/ global
 	 * objects.
 	 */
-	void TearDown();
+	void TearDown() override;
 };
 
 /*-----------------------------------------------------------------------------
@@ -400,13 +400,13 @@ public:
 	 * as we have to call "delete" which cannot be done for static/ global
 	 * objects.
 	 */
-	void TearDown();
+	void TearDown() override;
 
 	/**
 	 * Flush the write cache so the file isn't truncated in case we crash right
 	 * after calling this function.
 	 */
-	void Flush();
+	void Flush() override;
 
 	virtual void Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category ) override;
 
@@ -514,7 +514,7 @@ public:
 	 * Error handling function that is being called from within the system wide global
 	 * error handler, e.g. using structured exception handling on the PC.
 	 */
-	void HandleError();
+	void HandleError() override;
 
 private:
 
@@ -536,6 +536,7 @@ CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogNetPackageMap, Warning, All);
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogNetSerialization, Warning, All);
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogMemory, Log, All);
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogProfilingDebugging, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogCore, Log, All);
 
 // Temporary log category, generally you should not check things in that use this
 CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogTemp, Log, All);

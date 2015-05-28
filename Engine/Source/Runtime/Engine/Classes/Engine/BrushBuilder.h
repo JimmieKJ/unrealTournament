@@ -1,27 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/**
- *
- */
-
-
-//=============================================================================
-// BrushBuilder: Base class of UnrealEd brush builders.
-//
-// Tips for writing brush builders:
-//
-// * Always validate the user-specified and call BadParameters function
-//   if anything is wrong, instead of actually building geometry.
-//   If you build an invalid brush due to bad user parameters, you'll
-//   cause an extraordinary amount of pain for the poor user.
-//
-// * When generating polygons with more than 3 vertices, BE SURE all the
-//   polygon's vertices are coplanar!  Out-of-plane polygons will cause
-//   geometry to be corrupted.
-//=============================================================================
-
 #pragma once
+
 #include "BrushBuilder.generated.h"
+
 
 // Internal state, not accessible to script.
 USTRUCT()
@@ -46,8 +28,25 @@ struct FBuilderPoly
 	{}
 };
 
+
+/**
+ * Base class of UnrealEd brush builders.
+ *
+ *
+ * Tips for writing brush builders:
+ *
+ * - Always validate the user-specified and call BadParameters function
+ *   if anything is wrong, instead of actually building geometry.
+ *   If you build an invalid brush due to bad user parameters, you'll
+ *   cause an extraordinary amount of pain for the poor user.
+ *
+ * - When generating polygons with more than 3 vertices, BE SURE all the
+ *   polygon's vertices are coplanar!  Out-of-plane polygons will cause
+ *   geometry to be corrupted.
+ */
 UCLASS(abstract, hidecategories=(Object), MinimalAPI)
-class UBrushBuilder : public UObject
+class UBrushBuilder
+	: public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -63,6 +62,7 @@ class UBrushBuilder : public UObject
 	uint32 NotifyBadParams:1;
 
 protected:
+
 	UPROPERTY()
 	TArray<FVector> Vertices;
 
@@ -76,6 +76,7 @@ protected:
 	uint32 MergeCoplanars:1;
 
 public:
+
 	// @ todo document all below
 	virtual void BeginBrush( bool InMergeCoplanars, FName InLayer ) {}
 	virtual bool EndBrush( UWorld* InWorld, ABrush* InBrush ) { return false; }
@@ -92,13 +93,13 @@ public:
 	virtual void PolyEnd() {}
 
 	/**
-	 * Builds the brush shape for the specified ABrush or, if Brush==NULL, the builder brush.
+	 * Builds the brush shape for the specified ABrush or the builder brush if Brush is nullptr.
 	 * @param InWorld The world to operate in
-	 * @param InBrush The brush to change shape, or NULL to specify the builder brush
+	 * @param InBrush The brush to change shape, or nullptr to specify the builder brush
 	 * @return true if the brush shape was updated.
 	 */
-	ENGINE_API virtual bool Build( UWorld* InWorld, ABrush* InBrush = NULL ) { return false; }
+	ENGINE_API virtual bool Build( UWorld* InWorld, ABrush* InBrush = nullptr )
+	{
+		return false;
+	}
 };
-
-
-

@@ -257,7 +257,12 @@ public:
 
 		// launch the game
 		FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*ExecutablePath, *Params, true, false, false, OutProcessId, 0, nullptr, nullptr);
-		return ProcessHandle.Close();
+		if (ProcessHandle.IsValid())
+		{
+			FPlatformProcess::CloseProc(ProcessHandle);
+			return true;
+		}
+		return false;
 	}
 
 	virtual bool PowerOff( bool Force ) override
@@ -288,7 +293,12 @@ public:
 	virtual bool Run( const FString& ExecutablePath, const FString& Params, uint32* OutProcessId )
 	{
 		FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*ExecutablePath, *Params, true, false, false, OutProcessId, 0, nullptr, nullptr);
-		return ProcessHandle.Close();
+		if (ProcessHandle.IsValid())
+		{
+			FPlatformProcess::CloseProc(ProcessHandle);
+			return true;
+		}
+		return false;
 	}
 
 	virtual bool SupportsFeature( ETargetDeviceFeatures Feature ) const override

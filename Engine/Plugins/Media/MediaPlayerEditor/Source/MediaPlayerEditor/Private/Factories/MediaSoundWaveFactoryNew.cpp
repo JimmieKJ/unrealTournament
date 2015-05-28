@@ -20,7 +20,7 @@ UMediaSoundWaveFactoryNew::UMediaSoundWaveFactoryNew( const FObjectInitializer& 
 
 UObject* UMediaSoundWaveFactoryNew::FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn )
 {
-	UMediaSoundWave* MediaSoundWave = ConstructObject<UMediaSoundWave>(InClass, InParent, InName, Flags);
+	UMediaSoundWave* MediaSoundWave = NewObject<UMediaSoundWave>(InParent, InClass, InName, Flags);
 
 	if ((MediaSoundWave != nullptr) && (InitialMediaPlayer != nullptr))
 	{

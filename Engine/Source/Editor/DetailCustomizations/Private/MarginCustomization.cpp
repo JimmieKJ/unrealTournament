@@ -10,9 +10,9 @@ TSharedRef<IPropertyTypeCustomization> FMarginStructCustomization::MakeInstance(
 	return MakeShareable( new FMarginStructCustomization() );
 }
 
-void FMarginStructCustomization::CustomizeHeader( TSharedRef<class IPropertyHandle> StructPropertyHandle, class FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
+void FMarginStructCustomization::CustomizeHeader( TSharedRef<class IPropertyHandle> InStructPropertyHandle, class FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
 {
-	this->StructPropertyHandle = StructPropertyHandle;
+	StructPropertyHandle = InStructPropertyHandle;
 
 	const FString UVSpaceString( StructPropertyHandle->GetProperty()->GetMetaData( TEXT( "UVSpace" ) ) );
 	bIsMarginUsingUVSpace = UVSpaceString.Len() > 0 && UVSpaceString == TEXT( "true" );
@@ -44,7 +44,7 @@ void FMarginStructCustomization::CustomizeHeader( TSharedRef<class IPropertyHand
 	];
 }
 
-void FMarginStructCustomization::CustomizeChildren( TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
+void FMarginStructCustomization::CustomizeChildren( TSharedRef<class IPropertyHandle> InStructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
 {
 	const uint32 NumChildren = ChildPropertyHandles.Num();
 

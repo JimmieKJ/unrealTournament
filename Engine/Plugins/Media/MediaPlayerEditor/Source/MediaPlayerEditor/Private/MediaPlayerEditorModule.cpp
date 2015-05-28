@@ -20,7 +20,7 @@ public:
 
 	// IHasMenuExtensibility interface
 
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager()
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() override
 	{
 		return MenuExtensibilityManager;
 	}
@@ -29,7 +29,7 @@ public:
 
 	// IHasToolBarExtensibility interface
 
-	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager()
+	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() override
 	{
 		return ToolBarExtensibilityManager;
 	}

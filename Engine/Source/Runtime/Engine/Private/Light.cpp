@@ -15,7 +15,7 @@
 ALight::ALight(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	LightComponent = ObjectInitializer.CreateAbstractDefaultSubobject<ULightComponent>(this, TEXT("LightComponent0"));
+	LightComponent = CreateAbstractDefaultSubobject<ULightComponent>(TEXT("LightComponent0"));
 
 	bHidden = true;
 	bCollideWhenPlacing = true;
@@ -29,6 +29,12 @@ ELightingBuildQuality FLightingBuildOptions::HalfResolutionLightmapQualityLevel 
  */
 bool FLightingBuildOptions::ShouldBuildLightingForLevel(ULevel* Level) const
 {
+	// Reject NULL levels.
+	if (Level == NULL)
+	{
+		return false;
+	}
+
 	if ( bOnlyBuildCurrentLevel )
 	{
 		// Reject non-current levels.
@@ -46,8 +52,7 @@ bool FLightingBuildOptions::ShouldBuildLightingForLevel(ULevel* Level) const
 		}
 	}
 
-	// Reject NULL levels.
-	return Level != NULL;
+	return true;
 }
 
 void ALight::Destroyed()
@@ -230,7 +235,7 @@ ADirectionalLight::ADirectionalLight(const FObjectInitializer& ObjectInitializer
 	RootComponent = DirectionalLightComponent;
 
 #if WITH_EDITORONLY_DATA
-	ArrowComponent = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("ArrowComponent0"));
+	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("ArrowComponent0"));
 	if (ArrowComponent)
 	{
 		ArrowComponent->ArrowColor = FColor(150, 200, 255);

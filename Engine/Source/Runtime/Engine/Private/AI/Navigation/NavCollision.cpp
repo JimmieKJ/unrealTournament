@@ -157,7 +157,7 @@ void UNavCollision::Setup(UBodySetup* BodySetup)
 	ClearCollision(); 
 
 	bool bCalculated = false;
-	if (bGatherConvexGeometry)
+	if (ShouldUseConvexCollision())
 	{
 		// Find or create cooked navcollision data
 		FByteBulkData* FormatData = GetCookedData(NAVCOLLISION_FORMAT);
@@ -208,7 +208,12 @@ void UNavCollision::ClearCollision()
 
 void UNavCollision::GetNavigationModifier(FCompositeNavModifier& Modifier, const FTransform& LocalToWorld)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_NavCollision_GetNavigationModifier);
+
 	const TSubclassOf<UNavArea> UseAreaClass = AreaClass ? AreaClass : UNavigationSystem::GetDefaultObstacleArea();
+
+	Modifier.ReserveForAdditionalAreas(CylinderCollision.Num() + BoxCollision.Num()
+		+ (ConvexCollision.VertexBuffer.Num() > 0 ? ConvexShapeIndices.Num() : 0));
 
 	for (int32 i = 0; i < CylinderCollision.Num(); i++)
 	{
@@ -232,25 +237,28 @@ void UNavCollision::GetNavigationModifier(FCompositeNavModifier& Modifier, const
 		Modifier.Add(AreaMod);
 	}
 
-	// rebuild collision data if needed
-	if (!bHasConvexGeometry)
+	if (ShouldUseConvexCollision())
 	{
-		bHasConvexGeometry = GatherCollision();
-	}
-
-	if (ConvexCollision.VertexBuffer.Num() > 0)
-	{
-		int32 LastVertIndex = 0;
-		TArray<FVector> Verts(ConvexCollision.VertexBuffer);
-
-		for (int32 i = 0; i < ConvexShapeIndices.Num(); i++)
+		// rebuild collision data if needed
+		if (!bHasConvexGeometry)
 		{
-			int32 FirstVertIndex = LastVertIndex;
-			LastVertIndex = ConvexShapeIndices.IsValidIndex(i + 1) ? ConvexShapeIndices[i + 1] : ConvexCollision.VertexBuffer.Num();
+			bHasConvexGeometry = GatherCollision();
+		}
 
-			FAreaNavModifier AreaMod(Verts, FirstVertIndex, LastVertIndex, ENavigationCoordSystem::Unreal, LocalToWorld, UseAreaClass);
-			AreaMod.SetIncludeAgentHeight(true);
-			Modifier.Add(AreaMod);
+		if (ConvexCollision.VertexBuffer.Num() > 0)
+		{
+			int32 LastVertIndex = 0;
+			TArray<FVector> Verts(ConvexCollision.VertexBuffer);
+
+			for (int32 i = 0; i < ConvexShapeIndices.Num(); i++)
+			{
+				int32 FirstVertIndex = LastVertIndex;
+				LastVertIndex = ConvexShapeIndices.IsValidIndex(i + 1) ? ConvexShapeIndices[i + 1] : ConvexCollision.VertexBuffer.Num();
+
+				FAreaNavModifier AreaMod(Verts, FirstVertIndex, LastVertIndex, ENavigationCoordSystem::Unreal, LocalToWorld, UseAreaClass);
+				AreaMod.SetIncludeAgentHeight(true);
+				Modifier.Add(AreaMod);
+			}
 		}
 	}
 }
@@ -371,7 +379,7 @@ void UNavCollision::Serialize(FArchive& Ar)
 		UE_LOG(LogNavigation, Fatal, TEXT("This platform requires cooked packages, and NavCollision data was not cooked into %s."), *GetFullName());
 	}
 
-	if (bCooked && bGatherConvexGeometry)
+	if (bCooked && ShouldUseConvexCollision())
 	{
 		if (Ar.IsCooking())
 		{

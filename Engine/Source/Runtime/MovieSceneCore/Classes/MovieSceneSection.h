@@ -45,7 +45,11 @@ public:
 	/**
 	 * @return The range of times of the section
 	 */
-	TRange<float> GetRange() const {return TRange<float>(StartTime, EndTime);}
+	TRange<float> GetRange() const 
+	{
+		// Uses an inclusive range so that sections that start and end on the same value aren't considered empty ranges.
+		return TRange<float>( TRange<float>::BoundsType::Inclusive( StartTime ), TRange<float>::BoundsType::Inclusive( EndTime ) );
+	}
 	
 	/**
 	 * Sets a new range of times for this section

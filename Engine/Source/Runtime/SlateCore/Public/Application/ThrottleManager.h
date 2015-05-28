@@ -80,12 +80,11 @@ public:
 	static FSlateThrottleManager& Get( );
 
 private:
+	/** CVar variable to check if we allow throttling (int32 for compatibility) */
+	int32 bShouldThrottle;
 
 	/** CVar allowing us to toggle throttling ability */
 	FAutoConsoleVariableRef CVarAllowThrottle;
-
-	/** CVar variable to check if we allow throttling (int32 for compatibility) */
-	int32 bShouldThrottle;
 
 	/** Number of active throttle requests */
 	uint32 ThrottleCount;

@@ -35,6 +35,7 @@ namespace APIDocTool
 		public bool IsStatic = false;
 
 		public List<string> Warnings = new List<string>();
+		public List<string> SnippetText = null;
 
 		public APIVariable(APIPage InParent, XmlNode InNode)
 			: base(InParent, InNode.SelectSingleNode("name").InnerText)
@@ -100,6 +101,8 @@ namespace APIDocTool
 						break;
 				}
 			}
+
+			SnippetText = APISnippets.LoadSnippetTextForSymbol(FullName);			
 		}
 
 		private void WriteDefinition(UdnWriter Writer)
@@ -153,6 +156,9 @@ namespace APIDocTool
 					Writer.WriteLine(FullDescription);
 					Writer.LeaveSection();
 				}
+
+				//Write code snippets
+				WriteSnippetSection(Writer, SnippetText);
 			}
         }
 

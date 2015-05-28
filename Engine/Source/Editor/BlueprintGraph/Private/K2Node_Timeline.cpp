@@ -84,14 +84,14 @@ void UK2Node_Timeline::AllocateDefaultPins()
 		for(int32 i=0; i<Timeline->VectorTracks.Num(); i++)
 		{
 			FTTVectorTrack& VectorTrack = Timeline->VectorTracks[i];
-			UScriptStruct* VectorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Vector"));
+			UScriptStruct* VectorStruct = GetBaseStructure(TEXT("Vector"));
 			CreatePin(EGPD_Output, K2Schema->PC_Struct, TEXT(""), VectorStruct, false, false, VectorTrack.TrackName.ToString());			
 		}
 
 		for(int32 i=0; i<Timeline->LinearColorTracks.Num(); i++)
 		{
 			FTTLinearColorTrack& LinearColorTrack = Timeline->LinearColorTracks[i];
-			UScriptStruct* LinearColorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("LinearColor"));
+			UScriptStruct* LinearColorStruct = GetBaseStructure(TEXT("LinearColor"));
 			CreatePin(EGPD_Output, K2Schema->PC_Struct, TEXT(""), LinearColorStruct, false, false, LinearColorTrack.TrackName.ToString());			
 		}
 

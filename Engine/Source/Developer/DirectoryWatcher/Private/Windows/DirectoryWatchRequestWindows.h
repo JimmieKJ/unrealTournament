@@ -5,7 +5,7 @@
 class FDirectoryWatchRequestWindows
 {
 public:
-	FDirectoryWatchRequestWindows();
+	FDirectoryWatchRequestWindows(bool bIncludeDirectoryEvents);
 	virtual ~FDirectoryWatchRequestWindows();
 
 	/** Sets up the directory handle and request information */

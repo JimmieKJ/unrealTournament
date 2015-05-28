@@ -9,14 +9,12 @@ UPawnAction_Move::UPawnAction_Move(const FObjectInitializer& ObjectInitializer)
 	, AcceptableRadius(30.f)
 	, bFinishOnOverlap(true)
 	, bUsePathfinding(true)
+	, bAllowPartialPath(true)
 	, bProjectGoalToNavigation(false)
 	, bUpdatePathToGoal(true)
 	, bAbortChildActionOnPathChange(false)
 {
-	if (HasAnyFlags(RF_ClassDefaultObject) == false)
-	{
-		PathObserver = FNavigationPath::FPathObserverDelegate::FDelegate::CreateUObject(this, &UPawnAction_Move::OnPathUpdated);
-	}
+	bShouldPauseMovement = true;
 }
 
 void UPawnAction_Move::BeginDestroy()
@@ -73,19 +71,36 @@ bool UPawnAction_Move::Start()
 EPathFollowingRequestResult::Type UPawnAction_Move::RequestMove(AAIController& Controller)
 {
 	EPathFollowingRequestResult::Type RequestResult = EPathFollowingRequestResult::Failed;
+	
+	FAIMoveRequest MoveReq;
+	MoveReq.SetUsePathfinding(bUsePathfinding);
+	MoveReq.SetAllowPartialPath(bAllowPartialPath);
+	MoveReq.SetProjectGoalLocation(bProjectGoalToNavigation);
+	MoveReq.SetNavigationFilter(FilterClass);
+	MoveReq.SetAcceptanceRadius(AcceptableRadius);
+	MoveReq.SetStopOnOverlap(bFinishOnOverlap);
+	MoveReq.SetCanStrafe(bAllowStrafe);
 
 	if (GoalActor != NULL)
 	{
 		const bool bAtGoal = CheckAlreadyAtGoal(Controller, *GoalActor, AcceptableRadius);
-		RequestResult = bAtGoal ? EPathFollowingRequestResult::AlreadyAtGoal : 
-			bUpdatePathToGoal ? Controller.MoveToActor(GoalActor, AcceptableRadius, bFinishOnOverlap, bUsePathfinding, bAllowStrafe, FilterClass) :
-			Controller.MoveToLocation(GoalActor->GetActorLocation(), AcceptableRadius, bFinishOnOverlap, bUsePathfinding, bProjectGoalToNavigation, bAllowStrafe);
+		if (bUpdatePathToGoal)
+		{
+			MoveReq.SetGoalActor(GoalActor);
+		}
+		else
+		{
+			MoveReq.SetGoalLocation(GoalActor->GetActorLocation());
+		}
+
+		RequestResult = bAtGoal ? EPathFollowingRequestResult::AlreadyAtGoal : Controller.MoveTo(MoveReq);
 	}
 	else if (FAISystem::IsValidLocation(GoalLocation))
 	{
 		const bool bAtGoal = CheckAlreadyAtGoal(Controller, GoalLocation, AcceptableRadius);
-		RequestResult = bAtGoal ? EPathFollowingRequestResult::AlreadyAtGoal :
-			Controller.MoveToLocation(GoalLocation, AcceptableRadius, bFinishOnOverlap, bUsePathfinding, bProjectGoalToNavigation, bAllowStrafe, FilterClass);
+		MoveReq.SetGoalLocation(GoalLocation);
+		
+		RequestResult = bAtGoal ? EPathFollowingRequestResult::AlreadyAtGoal : Controller.MoveTo(MoveReq);
 	}
 	else
 	{
@@ -237,7 +252,7 @@ void UPawnAction_Move::SetPath(FNavPathSharedRef InPath)
 	{
 		ClearPath();
 		Path = InPath;
-		PathObserverDelegateHandle = Path->AddObserver(PathObserver);
+		PathObserverDelegateHandle = Path->AddObserver(FNavigationPath::FPathObserverDelegate::FDelegate::CreateUObject(this, &UPawnAction_Move::OnPathUpdated));
 
 		// skip auto updates, it will be handled manually to include controller's ShouldPostponePathUpdates()
 		Path->EnableRecalculationOnInvalidation(false);
@@ -264,6 +279,15 @@ void UPawnAction_Move::OnPathUpdated(FNavigationPath* UpdatedPath, ENavPathEvent
 	if (Event == ENavPathEvent::Invalidated)
 	{
 		TryToRepath();
+	}
+
+	// log new path when action is paused, otherwise it will be logged by path following component's update
+	if (Event == ENavPathEvent::UpdatedDueToGoalMoved || Event == ENavPathEvent::UpdatedDueToNavigationChanged)
+	{
+		if (IsPaused() && UpdatedPath)
+		{
+			UPathFollowingComponent::LogPathHelper(MyOwner, UpdatedPath, UpdatedPath->GetGoalActor());
+		}
 	}
 }
 

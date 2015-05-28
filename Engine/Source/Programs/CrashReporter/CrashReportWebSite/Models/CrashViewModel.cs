@@ -11,5 +11,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		public Crash Crash { get; set; }
 		/// <summary>The callstack associated with the crash.</summary>
 		public CallStackContainer CallStack { get; set; }
+
+		/// <summary></summary>
+		public string GenerationTime { get; set; }
 	}
 }

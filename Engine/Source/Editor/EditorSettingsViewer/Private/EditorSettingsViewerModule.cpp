@@ -109,6 +109,7 @@ protected:
 			RegionAndLanguageSettingsSection->OnImport().BindRaw(this, &FEditorSettingsViewerModule::HandleRegionAndLanguageImport);
 			RegionAndLanguageSettingsSection->OnSaveDefaults().BindRaw(this, &FEditorSettingsViewerModule::HandleRegionAndLanguageSaveDefaults);
 			RegionAndLanguageSettingsSection->OnResetDefaults().BindRaw(this, &FEditorSettingsViewerModule::HandleRegionAndLanguageResetToDefault);
+			GetMutableDefault<UInternationalizationSettingsModel>()->OnSettingChanged().AddRaw(this, &FEditorSettingsViewerModule::HandleRegionAndLanguageSettingChanged);
 		}
 
 		// input bindings
@@ -141,7 +142,7 @@ protected:
 		SettingsModule.RegisterSettings("Editor", "General", "UserSettings",
 			LOCTEXT("UserSettingsName", "Miscellaneous"),
 			LOCTEXT("UserSettingsDescription", "Customize the behavior, look and feel of the editor."),
-			&GEditor->AccessEditorUserSettings()
+			GetMutableDefault<UEditorPerProjectUserSettings>()
 		);
 
 		// experimental features
@@ -171,13 +172,6 @@ protected:
 			LOCTEXT("LevelEditorViewportSettingsName", "Viewports"),
 			LOCTEXT("LevelEditorViewportSettingsDescription", "Configure the look and feel of the Level Editor view ports."),
 			GetMutableDefault<ULevelEditorViewportSettings>()
-		);
-
-		// miscellaneous settings
-		SettingsModule.RegisterSettings("Editor", "LevelEditor", "Misc",
-			LOCTEXT("LevelEditorMiscSettingsName", "Miscellaneous"),
-			LOCTEXT("LevelEditorMiscSettingsDescription", "Configure miscellaneous settings for the Level Editor."),
-			GetMutableDefault<ULevelEditorMiscSettings>()
 		);
 	}
 
@@ -215,6 +209,13 @@ protected:
 			LOCTEXT("ContentEditorsGraphBlueprintSettingsDescription", "Customize Blueprint Editors."),
 			GetMutableDefault<UBlueprintEditorSettings>()
 		);
+
+		// Persona editors
+		SettingsModule.RegisterSettings("Editor", "ContentEditors", "Persona",
+			LOCTEXT("ContentEditorsPersonaSettingsName", "Animation Editor"),
+			LOCTEXT("ContentEditorsPersonaSettingsDescription", "Customize Persona Editor."),
+			GetMutableDefault<UPersonaOptions>()
+		);
 	}
 
 	/** Unregisters all settings. */
@@ -232,6 +233,7 @@ protected:
 			SettingsModule->UnregisterSettings("Editor", "General", "GameAgnostic");
 			SettingsModule->UnregisterSettings("Editor", "General", "UserSettings");
 			SettingsModule->UnregisterSettings("Editor", "General", "AutomationTest");
+			SettingsModule->UnregisterSettings("Editor", "General", "Internationalization");
 			SettingsModule->UnregisterSettings("Editor", "General", "Experimental");
 
 			// level editor settings
@@ -242,6 +244,7 @@ protected:
 			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "ContentBrowser");
 //			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "DestructableMeshEditor");
 			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "GraphEditor");
+			SettingsModule->UnregisterSettings("Editor", "ContentEditors", "Persona");
 		}
 	}
 
@@ -344,7 +347,7 @@ private:
 	{
 		if( EAppReturnType::Ok == ShowRestartWarning(LOCTEXT("ResetKeyBindings_Title", "Reset Key Bindings")))
 		{
-			FInputBindingManager::Get().RemoveUserDefinedGestures();
+			FInputBindingManager::Get().RemoveUserDefinedChords();
 			GConfig->Flush(false, GEditorKeyBindingsIni);
 			FUnrealEdMisc::Get().RestartEditor(false);
 
@@ -360,7 +363,7 @@ private:
 	// overwrite the imported settings just copied across.
 	bool HandleInputBindingsSave()
 	{
-		FInputBindingManager::Get().RemoveUserDefinedGestures();
+		FInputBindingManager::Get().RemoveUserDefinedChords();
 		GConfig->Flush(false, GEditorKeyBindingsIni);
 		return true;
 	}
@@ -392,6 +395,12 @@ private:
 	{
 		GetMutableDefault<UInternationalizationSettingsModel>()->ResetToDefault();
 		return true;
+	}
+
+	void HandleRegionAndLanguageSettingChanged()
+	{
+		ISettingsEditorModule& SettingsEditorModule = FModuleManager::GetModuleChecked<ISettingsEditorModule>("SettingsEditor");
+		SettingsEditorModule.OnApplicationRestartRequired();
 	}
 
 private:

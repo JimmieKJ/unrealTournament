@@ -60,6 +60,7 @@ loop_variable_state *
 loop_state::insert(ir_loop *ir)
 {
 	loop_variable_state *ls = new(this->mem_ctx) loop_variable_state;
+	ralloc_set_destructor(ls, ralloc_cpp_destructor<loop_variable_state>);
 
 	hash_table_insert(this->ht, ls, ir);
 	this->loop_found = true;

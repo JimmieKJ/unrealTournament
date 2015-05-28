@@ -131,19 +131,19 @@ public:
 	}
 
 	// Manual RTTI - not particularly elegant! :-(
-	virtual void* GetData() { return &BoneName; }
-	virtual ESkeletonTreeRowType::Type GetType() const { return ESkeletonTreeRowType::Bone; }
+	virtual void* GetData() override { return &BoneName; }
+	virtual ESkeletonTreeRowType::Type GetType() const override { return ESkeletonTreeRowType::Bone; }
 
 	/** Builds the table row widget to display this info */
 	virtual TSharedRef<ITableRow> MakeTreeRowWidget(
 		const TSharedRef<STableViewBase>& InOwnerTable,
-		FText InFilterText );
+		FText InFilterText ) override;
 
 	/** Builds the slate widget for the name column */
-	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected );
+	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected ) override;
 
 	/** Builds the slate widget for the data column */
-	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn();
+	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn() override;
 
 	/** Handle dragging a bone */
 	FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
@@ -210,19 +210,19 @@ public:
 	}
 
 	// Manual RTTI - not particularly elegant! :-(
-	virtual void* GetData() { return SocketData; }
-	virtual ESkeletonTreeRowType::Type GetType() const { return ESkeletonTreeRowType::Socket; }
+	virtual void* GetData() override { return SocketData; }
+	virtual ESkeletonTreeRowType::Type GetType() const override { return ESkeletonTreeRowType::Socket; }
 
 	/** Builds the table row widget to display this info */
 	virtual TSharedRef<ITableRow> MakeTreeRowWidget(
 		const TSharedRef<STableViewBase>& InOwnerTable,
-		FText InFilterText );
+		FText InFilterText ) override;
 
 	/** Builds the slate widget for the name column */
-	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected );
+	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected ) override;
 
 	/** Builds the slate widget for the data column */
-	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn();
+	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn() override;
 
 	ESocketParentType::Type GetParentType() const { return ParentType; }
 
@@ -233,7 +233,7 @@ public:
 	virtual FName GetRowItemName() const override {return SocketData->SocketName;}
 
 	/** Handle double clicking a socket */
-	virtual void OnItemDoubleClicked();
+	virtual void OnItemDoubleClicked() override;
 
 	/** Is this socket customized */
 	bool IsSocketCustomized() const { return bIsCustomized; }
@@ -307,25 +307,25 @@ public:
 	}
 
 	// Manual RTTI - not particularly elegant! :-(
-	virtual void* GetData() { return NULL; }
-	virtual ESkeletonTreeRowType::Type GetType() const { return ESkeletonTreeRowType::AttachedAsset; }
+	virtual void* GetData() override { return NULL; }
+	virtual ESkeletonTreeRowType::Type GetType() const override { return ESkeletonTreeRowType::AttachedAsset; }
 
 	/** Builds the table row widget to display this info */
 	virtual TSharedRef<ITableRow> MakeTreeRowWidget(
 		const TSharedRef<STableViewBase>& InOwnerTable,
-		FText InFilterText );
+		FText InFilterText ) override;
 
 	/** Builds the slate widget for the name column */
-	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected );
+	virtual void GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected ) override;
 
 	/** Builds the slate widget for the data column */
-	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn();
+	virtual TSharedRef< SWidget > GenerateWidgetForDataColumn() override;
 
 	/** Return the name of the asset */
 	virtual FName GetRowItemName() const override {return FName( *Asset->GetName() ) ;}
 
 	/** Return the name used to attach to this item (in assets case return the item we are attached to */
-	virtual FName GetAttachName() const { return GetParentName(); }
+	virtual FName GetAttachName() const override { return GetParentName(); }
 
 	/** Returns the name of the socket/bone this asset is attached to */
 	const FName& GetParentName() const { return AttachedTo; }
@@ -343,7 +343,7 @@ public:
 	const FSlateBrush* OnGetAssetDisplayedButtonImage() const;
 
 	/** Handler for when the user double clicks on this item in the tree */
-	virtual void OnItemDoubleClicked();
+	virtual void OnItemDoubleClicked() override;
 
 	virtual ~FDisplayedAttachedAssetInfo() {}
 
@@ -535,10 +535,10 @@ private:
 	bool IsAddingSocketsAllowed() const;
 
 	/** Handler for "Show Retargeting Options" check box IsChecked functionality */
-	ECheckBoxState IsShowingRetargetingOptions() const;
+	ECheckBoxState IsShowingAdvancedOptions() const;
 
 	/**  Handler for when we change the "Show Retargeting Options" check box */
-	void OnChangeShowingRetargetingOptions(ECheckBoxState NewState);
+	void OnChangeShowingAdvancedOptions(ECheckBoxState NewState);
 
 	/** This replicates the socket filter to the previewcomponent so that the viewport can use the same settings */
 	void SetPreviewComponentSocketFilter() const;
@@ -597,7 +597,7 @@ private:
 	/** Current type of sockets to show */
 	ESocketFilter::Type SocketFilter;
 
-	bool bShowingRetargetingOptions;
+	bool bShowingAdvancedOptions;
 
 	/** Points to an item that is being requested to be renamed */
 	TSharedPtr<FDisplayedTreeRowInfo> DeferredRenameRequest;

@@ -135,6 +135,34 @@ bool AFunctionalAITest::WantsToRunAgain() const
 	return bSingleSetRun == false && CurrentSpawnSetIndex + 1 < SpawnSets.Num();
 }
 
+void AFunctionalAITest::GatherRelevantActors(TArray<AActor*>& OutActors) const
+{
+	Super::GatherRelevantActors(OutActors);
+
+	for (auto SpawnSet : SpawnSets)
+	{
+		if (SpawnSet.FallbackSpawnLocation)
+		{
+			OutActors.AddUnique(SpawnSet.FallbackSpawnLocation);
+		}
+
+		for (auto SpawnInfo : SpawnSet.SpawnInfoContainer)
+		{
+			if (SpawnInfo.SpawnLocation)
+			{
+				OutActors.AddUnique(SpawnInfo.SpawnLocation);
+			}
+		}
+	}
+
+	for (auto Pawn : SpawnedPawns)
+	{
+		if (Pawn)
+		{
+			OutActors.Add(Pawn);
+		}
+	}
+}
 
 void AFunctionalAITest::CleanUp()
 {

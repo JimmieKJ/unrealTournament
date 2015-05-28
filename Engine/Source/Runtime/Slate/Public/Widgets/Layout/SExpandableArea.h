@@ -98,7 +98,7 @@ protected:
 	/**
 	 * Computes the desired size of this area. Optionally clamping to Max height
 	 */
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 
 protected:
 

@@ -8,7 +8,9 @@
 UCLASS()
 class UTestObject : public UObject
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
+public:
+	UTestObject(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	UFUNCTION(BlueprintCallable, Category="Random")
 	void TestForNullPtrDefaults(UObject* Obj1 = NULL, UObject* Obj2 = nullptr, UObject* Obj3 = 0);
@@ -19,8 +21,31 @@ class UTestObject : public UObject
 	UPROPERTY()
 	ECppEnum EnumProperty;
 
+	UPROPERTY()
+	TMap<int32, FString> TestMap;
+
 	UFUNCTION()
 	void CodeGenTestForEnumClasses(ECppEnum Val);
+
+	UFUNCTION(Category="Xyz", BlueprintCallable)
+	TArray<UClass*> ReturnArrayOfUClassPtrs();
+
+	UFUNCTION()
+	int32 InlineFunc()
+	{
+		return FString("Hello").Len();
+	}
+
+	UFUNCTION()
+	int32 InlineFuncWithCppMacros()
+#if CPP
+	{
+		return FString("Hello").Len();
+	}
+#endif
+
+	UFUNCTION(BlueprintNativeEvent, Category="Game")
+	UClass* BrokenReturnTypeForFunction();
 
 #if 0
 	UPROPERTY()

@@ -9,7 +9,7 @@ DECLARE_DELEGATE_RetVal(bool, FOnIsCancelled);
 /**
  * Used to execute Perforce commands multi-threaded.
  */
-class FPerforceSourceControlCommand : public FQueuedWork
+class FPerforceSourceControlCommand : public IQueuedWork
 {
 public:
 

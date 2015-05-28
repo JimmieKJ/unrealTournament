@@ -7,20 +7,20 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogLeapMotion, All, All);
 
 /**
- * The public interface to this module
+ * The public interface to the Leap Motion Controller plugin module.
  */
 class FLeapMotionControllerPlugin : public IModuleInterface, public IModularFeature
 {
 
 public:
 
-    // IModuleInterface implementation.
-    virtual void StartupModule();
-    virtual void ShutdownModule();
+	// IModuleInterface implementation.
+	virtual void StartupModule();
+	virtual void ShutdownModule();
 
 	/**
-	 * Singleton-like access to this module's interface.  This is just for convenience!
-	 * Beware of calling this during the shutdown phase, though.  Your module might have been unloaded already.
+	 * Singleton-like access to this module's interface.
+	 * Beware of calling this during the shutdown phase.  The module might have been unloaded already.
 	 *
 	 * @return Returns singleton instance, loading the module on demand if needed
 	 */
@@ -39,29 +39,29 @@ public:
 		return FModuleManager::Get().IsModuleLoaded( "LeapMotionController" );
 	}
 
-    FORCEINLINE TSharedPtr<class FLeapMotionDevice> GetLeapDevice() const
-    {
-        return LeapDevice;
-    }
+	FORCEINLINE TSharedPtr<class FLeapMotionDevice> GetLeapDevice() const
+	{
+		return LeapDevice;
+	}
 
-    /**
-     * Simple helper function to get the device currently active.
-	 * @return	Pointer to the LeapMotionDevice, or nullptr if Device is not available.
-     */
-    static FLeapMotionDevice* GetLeapDeviceSafe()
-    {
+	/**
+	 * Simple helper function to get the device currently active.
+	 * @returns	Pointer to the LeapMotionDevice, or nullptr if Device is not available.
+	 */
+	static FLeapMotionDevice* GetLeapDeviceSafe()
+	{
 #if WITH_EDITOR
-        FLeapMotionDevice* LeapDevice = FLeapMotionControllerPlugin::IsAvailable() ? FLeapMotionControllerPlugin::Get().GetLeapDevice().Get() : nullptr;
+		FLeapMotionDevice* LeapDevice = FLeapMotionControllerPlugin::IsAvailable() ? FLeapMotionControllerPlugin::Get().GetLeapDevice().Get() : nullptr;
 #else
 		FLeapMotionDevice* LeapDevice = FLeapMotionControllerPlugin::Get().GetLeapDevice().Get();
 #endif
-        return LeapDevice;
-    }
+		return LeapDevice;
+	}
 
 protected:
-    /**
-    * Reference to the actual Leap Device, grabbed through the GetLeapDevice() interface, and created and destroyed in Startup/ShutdownModule
-    */
-    TSharedPtr<class FLeapMotionDevice> LeapDevice;
+	/**
+	 * Reference to the actual Leap Device, grabbed through the GetLeapDevice() interface, and created and destroyed in Startup/ShutdownModule
+	 */
+	TSharedPtr<class FLeapMotionDevice> LeapDevice;
 };
 

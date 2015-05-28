@@ -964,6 +964,28 @@ FORCEINLINE void VectorQuaternionMultiply( void* RESTRICT Result, const void* RE
 	*((VectorRegister *)Result) = VectorQuaternionMultiply2(*((const VectorRegister *)Quat1), *((const VectorRegister *)Quat2));
 }
 
+
+/**
+* Computes the sine and cosine of each component of a Vector.
+*
+* @param VSinAngles	VectorRegister Pointer to where the Sin result should be stored
+* @param VCosAngles	VectorRegister Pointer to where the Cos result should be stored
+* @param VAngles VectorRegister Pointer to the input angles 
+*/
+FORCEINLINE void VectorSinCos(  VectorRegister* VSinAngles, VectorRegister* VCosAngles, const VectorRegister* VAngles )
+{	
+	union { VectorRegister v; float f[4]; } VecSin, VecCos, VecAngles;
+	VecAngles.v = *VAngles;
+
+	FMath::SinCos(&VecSin.f[0], &VecCos.f[0], VecAngles.f[0]);
+	FMath::SinCos(&VecSin.f[1], &VecCos.f[1], VecAngles.f[1]);
+	FMath::SinCos(&VecSin.f[2], &VecCos.f[2], VecAngles.f[2]);
+	FMath::SinCos(&VecSin.f[3], &VecCos.f[3], VecAngles.f[3]);
+
+	*VSinAngles = VecSin.v;
+	*VCosAngles = VecCos.v;
+}
+
 // Returns true if the vector contains a component that is either NAN or +/-infinite.
 inline bool VectorContainsNaNOrInfinite(const VectorRegister& Vec)
 {

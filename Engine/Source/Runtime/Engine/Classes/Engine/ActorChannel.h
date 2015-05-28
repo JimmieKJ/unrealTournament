@@ -1,12 +1,18 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/**	ActorChannel.h
- *	A channel for exchanging actor and its subobject's properties and RPCs.
+#pragma once
+
+#include "Engine/Channel.h"
+#include "ActorChannel.generated.h"
+
+
+/**
+ * A channel for exchanging actor and its subobject's properties and RPCs.
  *
- *	ActorChannel manages the creation and lifetime of a replicated actor. Actual replication of properties and RPCs 
- *	actually happens in FObjectReplicator now (see DataReplication.h).
+ * ActorChannel manages the creation and lifetime of a replicated actor. Actual replication of properties and RPCs
+ * actually happens in FObjectReplicator now (see DataReplication.h).
  *
- *	An ActorChannel bunch looks like this:
+ * An ActorChannel bunch looks like this:
  *
  *		|----------------------|---------------------------------------------------------------------------|
  *		| SpawnInfo		       | (Spawn Info) Initial bunch only                                           |
@@ -29,16 +35,10 @@
  *      |----------------------|---------------------------------------------------------------------------|
  *		| </End Tag>           |                                                                           |
  *		|----------------------|---------------------------------------------------------------------------|
- * 
- *
  */
-
-#pragma once
-#include "Engine/Channel.h"
-#include "ActorChannel.generated.h"
-
 UCLASS(transient, customConstructor)
-class ENGINE_API UActorChannel : public UChannel
+class ENGINE_API UActorChannel
+	: public UChannel
 {
 	GENERATED_UCLASS_BODY()
 
@@ -48,8 +48,8 @@ class ENGINE_API UActorChannel : public UChannel
 	UPROPERTY()
 	AActor* Actor;					// Actor this corresponds to.
 
-	FNetworkGUID ActorNetGUID;		// Actor GUID (useful when we don't have the actor resolved yet). Currently only valid on clients.
-
+	FNetworkGUID	ActorNetGUID;		// Actor GUID (useful when we don't have the actor resolved yet). Currently only valid on clients.
+	float			CustomTimeDilation;
 
 	// Variables.
 	double	RelevantTime;			// Last time this actor was relevant to client.
@@ -59,7 +59,7 @@ class ENGINE_API UActorChannel : public UChannel
 	uint32  bActorStillInitial:1;	// Not all properties sent while bNetInitial, so still bNetInitial next tick
 	uint32  bIsReplicatingActor:1;	// true when in this channel's ReplicateActor() to avoid recursion as that can cause invalid data to be sent
 	
-	/** whether we should NULL references to this channel's Actor in other channels' Recent data when this channel is closed
+	/** whether we should nullptr references to this channel's Actor in other channels' Recent data when this channel is closed
 	 * set to false in cases where the Actor can't become relevant again (e.g. destruction) as it's unnecessary in that case
 	 */
 	uint32 bClearRecentActorRefs:1;
@@ -82,7 +82,7 @@ class ENGINE_API UActorChannel : public UChannel
 	/**
 	 * Default constructor
 	 */
-	UActorChannel(const FObjectInitializer& ObjectInitializer)
+	UActorChannel(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
 		: UChannel(ObjectInitializer)
 	{
 		ChannelClasses[CHTYPE_Actor] = GetClass();
@@ -90,28 +90,23 @@ class ENGINE_API UActorChannel : public UChannel
 		bClearRecentActorRefs = true;
 	}
 
-	// Begin UChannel interface.
+public:
+
+	// UChannel interface.
 
 	virtual void Init( UNetConnection* InConnection, int32 InChIndex, bool InOpenedLocally ) override;
-
 	virtual void SetClosingFlag() override;
-
 	virtual void ReceivedBunch( FInBunch& Bunch ) override;
-
 	virtual void Tick() override;
+
 	void ProcessBunch( FInBunch & Bunch );
 	bool ProcessQueuedBunches();
 
 	virtual void ReceivedNak( int32 NakPacketId ) override;
-	
 	virtual void Close() override;
-
 	virtual FString Describe() override;
 
-	// End UChannel interface.
-
-	/** Sets an override GUID for this actor channel */
-	void SetActorNetGUIDOverride(const FNetworkGUID &NetGUID);
+public:
 
 	/** UActorChannel interface and accessors. */
 	AActor* GetActor() {return Actor;}
@@ -138,7 +133,7 @@ class ENGINE_API UActorChannel : public UChannel
 	void QueueRemoteFunctionBunch( UObject* CallTarget, UFunction* Func, FOutBunch &Bunch );
 
 	/** Returns true if channel is ready to go dormant (e.g., all outstanding property updates have been ACK'd) */
-	virtual bool ReadyForDormancy(bool debug=false);
+	virtual bool ReadyForDormancy(bool debug=false) override;
 	
 	/** Puts the channel in a state to start becoming dormant. It will not become dormant until ReadyForDormancy returns true in Tick */
 	virtual void StartBecomingDormant() override;
@@ -153,7 +148,7 @@ class ENGINE_API UActorChannel : public UChannel
 	void BeginContentBlockForSubObjectDelete( FOutBunch & Bunch, FNetworkGUID & GuidToDelete );
 
 	/** Writes the footer for a content block of proeprties / RPCs for the given object (either the actor a subobject of the actor) */
-	void EndContentBlock( UObject *Obj, FOutBunch &Bunch, FClassNetCache* ClassCache = NULL );
+	void EndContentBlock( UObject *Obj, FOutBunch &Bunch, const FClassNetCache* ClassCache = nullptr );
 
 	/** Reads the header of the content block and instantiates the subobject if necessary */
 	UObject* ReadContentBlockHeader(FInBunch& Bunch, bool& bObjectDeleted);
@@ -255,8 +250,10 @@ protected:
 	TSharedRef< FObjectReplicator > & FindOrCreateReplicator(UObject *Obj);
 	bool ObjectHasReplicator(UObject *Obj);	// returns whether we have already created a replicator for this object or not
 
+	void DestroyActorAndComponents();
+
 	virtual bool CleanUp( const bool bForDestroy ) override;
 
 	/** Closes the actor channel but with a 'dormant' flag set so it can be reopened */
-	virtual void BecomeDormant();
+	virtual void BecomeDormant() override;
 };

@@ -447,8 +447,8 @@ namespace iPhonePackager
 			}
 
 			// Root directory on PC for staging files to copy to Mac
-			Config.PCStagingRootDir = String.Format(@"{0}\Engine\Intermediate\IOS-Deploy\{1}\{2}{3}\",
-				RootRelativePath,
+			Config.PCStagingRootDir = String.Format(@"{0}-Deploy\{1}\{2}{3}\",
+				IntermediateDirectory,
 				Program.GameName,
 				Program.GameConfiguration,
 				Program.Architecture);

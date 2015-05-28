@@ -3,7 +3,6 @@
 #pragma once
 
 
-// forward declarations
 enum class EMessageScope;
 class IReceiveMessages;
 
@@ -12,8 +11,8 @@ class IReceiveMessages;
  * Interface for message subscriptions.
  *
  * This interface provides access to a message subscription that was previously created with the
- * @see IMessageBus.Subscribe method. It can be used to query the subscription's details using the
- * various getters and modify its enabled state using the @see IMessageSubscription.Enable and
+ * IMessageBus.Subscribe method. It can be used to query the subscription's details using the
+ * various getters and modify its enabled state using the IMessageSubscription.Enable and
  * IMessageSubscription.Disable methods.
  *
  * A subscription that is disabled will cause a message endpoint to stop receiving messages for

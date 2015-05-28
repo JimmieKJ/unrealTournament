@@ -41,25 +41,13 @@ namespace UnrealBuildTool
 		public static string IOSSDKVersion = "latest";
 		public static float IOSSDKVersionFloat = 0.0f;
 
-		/** The architecture(s) to compile */
-		[XmlConfig]
-		public static string NonShippingArchitectures = "armv7";
-		[XmlConfig]
-		public static string ShippingArchitectures = "armv7,arm64";
-
 		/** Which version of the iOS to allow at build time */
 		[XmlConfig]
-		public static string BuildIOSVersion = "6.1";
-
-		/** Which version of the iOS to allow at run time */
-		public static string RunTimeIOSVersion = "6.1";
+		public static string BuildIOSVersion = "7.0";
 
 		/** Which developer directory to root from */
 		[XmlConfig]
 		public static string XcodeDeveloperDir = "/Applications/Xcode.app/Contents/Developer/";
-
-		/** which devices the game is allowed to run on */
-		public static string RunTimeIOSDevices = "1,2";
 
 		/** Location of the SDKs */
 		private static string BaseSDKDir;
@@ -89,110 +77,10 @@ namespace UnrealBuildTool
 			BaseSDKDirSim = XcodeDeveloperDir + "Platforms/iPhoneSimulator.platform/Developer/SDKs";
 		}
 
-		public override void ParseProjectSettings()
-		{
-			base.ParseProjectSettings();
-
-			// look in ini settings for what platforms to compile for
-			ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.IOS, "Engine", UnrealBuildTool.GetUProjectPath());
-			string MinVersion = "IOS_6";
-			if (Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "MinimumiOSVersion", out MinVersion))
-			{
-				switch (MinVersion)
-				{
-					case "IOS_61":
-						RunTimeIOSVersion = "6.1";
-						break;
-					case "IOS_7":
-						RunTimeIOSVersion = "7.0";
-						break;
-					case "IOS_8":
-						RunTimeIOSVersion = "8.0";
-						break;
-				}
-			}
-
-			bool biPhoneAllowed = true;
-			bool biPadAllowed = true;
-			Ini.GetBool ("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bSupportsIPhone", out biPhoneAllowed);
-			Ini.GetBool ("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bSupportsIPad", out biPadAllowed);
-			if (biPhoneAllowed && biPadAllowed)
-			{
-				RunTimeIOSDevices = "1,2";
-			}
-			else if (biPadAllowed)
-			{
-				RunTimeIOSDevices = "2";
-			}
-			else if (biPhoneAllowed)
-			{
-				RunTimeIOSDevices = "1";
-			}
-		}
-
-		public static void ParseArchitectures()
-		{
-			// look in ini settings for what platforms to compile for
-			ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.Android, "Engine", UnrealBuildTool.GetUProjectPath());
-			List<string> ProjectArches = new List<string>();
-			bool bBuild = true;
-			if (Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bDevForArmV7", out bBuild) && bBuild)
-			{
-				ProjectArches.Add("armv7");
-			}
-			if (Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bDevForArm64", out bBuild) && bBuild)
-			{
-				ProjectArches.Add("arm64");
-			}
-			if (Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bDevForArmV7S", out bBuild) && bBuild)
-			{
-				ProjectArches.Add("armv7s");
-			}
-
-			// force armv7 if something went wrong
-			if (ProjectArches.Count == 0)
-			{
-				ProjectArches.Add("armv7");
-			}
-			NonShippingArchitectures = ProjectArches[0];
-			for (int Index = 1; Index < ProjectArches.Count; ++Index)
-			{
-				NonShippingArchitectures += "," + ProjectArches[Index];
-			}
-
-			ProjectArches.Clear();
-			if (Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bShipForArmV7", out bBuild) && bBuild)
-			{
-				ProjectArches.Add("armv7");
-			}
-			if (Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bShipForArm64", out bBuild) && bBuild)
-			{
-				ProjectArches.Add("arm64");
-			}
-			if (Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bShipForArmV7S", out bBuild) && bBuild)
-			{
-				ProjectArches.Add("armv7s");
-			}
-
-			// force armv7 if something went wrong
-			if (ProjectArches.Count == 0)
-			{
-				ProjectArches.Add("armv7");
-				ProjectArches.Add("arm64");
-			}
-			ShippingArchitectures = ProjectArches[0];
-			for (int Index = 1; Index < ProjectArches.Count; ++Index)
-			{
-				ShippingArchitectures += "," + ProjectArches[Index];
-			}
-		}
-
 		/** Hunt down the latest IOS sdk if desired */
 		public override void SetUpGlobalEnvironment()
 		{
 			base.SetUpGlobalEnvironment();
-
-			ParseArchitectures();
 
 			if (IOSSDKVersion == "latest")
 			{
@@ -282,23 +170,25 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override void AddFilesToManifest(BuildManifest Manifest, UEBuildBinary Binary)
+		public override void AddFilesToReceipt(BuildReceipt Receipt, UEBuildBinary Binary)
 		{
-			if (BuildConfiguration.bCreateStubIPA)
+			if (BuildConfiguration.bCreateStubIPA && Binary.Config.Type != UEBuildBinaryType.StaticLibrary)
 			{
 				string StubFile = Path.Combine (Path.GetDirectoryName (Binary.Config.OutputFilePath), Path.GetFileNameWithoutExtension (Binary.Config.OutputFilePath) + ".stub");
-				Manifest.AddBuildProduct(StubFile);
+				Receipt.AddBuildProduct(StubFile, BuildProductType.Executable);
 			}
 		}
 
 		static bool bHasPrinted = false;
 		static string GetArchitectureArgument(CPPTargetConfiguration Configuration, string UBTArchitecture)
 		{
+			IOSPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as IOSPlatform;
+			BuildPlat.SetUpProjectEnvironment(UnrealTargetPlatform.IOS);
 
 			// get the list of architectures to compile
 			string Archs =
 				UBTArchitecture == "-simulator" ? "i386" :
-				(Configuration == CPPTargetConfiguration.Shipping) ? ShippingArchitectures : NonShippingArchitectures;
+				(Configuration == CPPTargetConfiguration.Shipping) ? IOSPlatform.ShippingArchitectures : IOSPlatform.NonShippingArchitectures;
 
 			if (!bHasPrinted)
 			{
@@ -320,6 +210,9 @@ namespace UnrealBuildTool
 		
 		string GetCompileArguments_Global(CPPEnvironment CompileEnvironment)
 		{
+			IOSPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as IOSPlatform;
+			BuildPlat.SetUpProjectEnvironment(UnrealTargetPlatform.IOS);
+
 			string Result = "";
 
 			Result += " -fmessage-length=0";
@@ -336,6 +229,11 @@ namespace UnrealBuildTool
 // 			}
 
 			Result += " -Wall -Werror";
+				
+			if (CompileEnvironment.Config.bEnableShadowVariableWarning)
+			{
+				Result += " -Wshadow";
+			}
 
 			Result += " -Wno-unused-variable";
 			Result += " -Wno-unused-value";
@@ -363,7 +261,7 @@ namespace UnrealBuildTool
 				Result += " -isysroot " + BaseSDKDir + "/iPhoneOS" + IOSSDKVersion + ".sdk";
 			}
 
-			Result += " -miphoneos-version-min=" + BuildIOSVersion;
+			Result += " -miphoneos-version-min=" + BuildPlat.GetRunTimeVersion();
 
 			// Optimize non- debug builds.
 			if (CompileEnvironment.Config.Target.Configuration != CPPTargetConfiguration.Debug)
@@ -383,7 +281,7 @@ namespace UnrealBuildTool
 			}
 
 			// Create DWARF format debug info if wanted,
-			if (CompileEnvironment.Config.bCreateDebugInfo && !UnrealBuildTool.BuildingRocket())
+			if (CompileEnvironment.Config.bCreateDebugInfo)
 			{
 				Result += " -gdwarf-2";
 			}
@@ -408,7 +306,7 @@ namespace UnrealBuildTool
 			Result += " -fobjc-abi-version=2";
 			Result += " -fobjc-legacy-dispatch";
 			Result += " -std=c++11";
-			Result += " -stdlib=libstdc++";
+			Result += " -stdlib=libc++";
 			return Result;
 		}
 
@@ -420,7 +318,7 @@ namespace UnrealBuildTool
 			Result += " -fobjc-legacy-dispatch";
 			Result += " -fno-rtti";
 			Result += " -std=c++11";
-			Result += " -stdlib=libstdc++";
+			Result += " -stdlib=libc++";
 			return Result;
 		}
 
@@ -431,7 +329,7 @@ namespace UnrealBuildTool
 			Result += " -fobjc-abi-version=2";
 			Result += " -fobjc-legacy-dispatch";
 			Result += " -std=c++11";
-			Result += " -stdlib=libstdc++";
+			Result += " -stdlib=libc++";
 			return Result;
 		}
 
@@ -448,7 +346,7 @@ namespace UnrealBuildTool
 			Result += " -x objective-c++-header";
 			Result += " -fno-rtti";
 			Result += " -std=c++11";
-			Result += " -stdlib=libstdc++";
+			Result += " -stdlib=libc++";
 			return Result;
 		}
 
@@ -516,7 +414,10 @@ namespace UnrealBuildTool
 
 		string GetLinkArguments_Global( LinkEnvironment LinkEnvironment )
 		{
-			string Result = "";
+			IOSPlatform BuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as IOSPlatform;
+			BuildPlat.SetUpProjectEnvironment(UnrealTargetPlatform.IOS);
+
+						string Result = "";
 			if (LinkEnvironment.Config.Target.Architecture == "-simulator")
 			{
 				Result += " -arch i386";
@@ -528,7 +429,7 @@ namespace UnrealBuildTool
 				Result += " -isysroot " + XcodeDeveloperDir + "Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS" + IOSSDKVersion + ".sdk";
 			}
 			Result += " -dead_strip";
-			Result += " -miphoneos-version-min=" + BuildIOSVersion;
+			Result += " -miphoneos-version-min=" + BuildPlat.GetRunTimeVersion();
 			Result += " -Wl,-no_pie";
 			//			Result += " -v";
 
@@ -849,7 +750,8 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				string ResponsePath = Path.GetFullPath("..\\Intermediate\\IOS\\LinkFileList_" + Path.GetFileNameWithoutExtension(LinkEnvironment.Config.OutputFilePath) + ".tmp"); 
+				bool bIsUE4Game = LinkEnvironment.Config.OutputFilePath.Contains("UE4Game");
+				string ResponsePath = Path.GetFullPath(Path.Combine((!bIsUE4Game && !string.IsNullOrEmpty(UnrealBuildTool.GetUProjectPath())) ? UnrealBuildTool.GetUProjectPath() : BuildConfiguration.RelativeEnginePath, BuildConfiguration.PlatformIntermediateFolder, "LinkFileList_" + Path.GetFileNameWithoutExtension(LinkEnvironment.Config.OutputFilePath) + ".tmp")); 
 				if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
 				{
 					ResponseFile.Create (ResponsePath, InputFileNames);
@@ -891,7 +793,7 @@ namespace UnrealBuildTool
 		static public FileItem GenerateDebugInfo(FileItem Executable)
 		{
 			// Make a file item for the source and destination files
-			string FullDestPathRoot = Executable.AbsolutePath + ".app.dSYM";
+			string FullDestPathRoot = Executable.AbsolutePath + ".dSYM";
 			string FullDestPath = FullDestPathRoot;
 
 			FileItem DestFile;
@@ -918,14 +820,14 @@ namespace UnrealBuildTool
 			// note that the source and dest are switched from a copy command
 			if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac) 
 			{
-				GenDebugAction.CommandArguments = string.Format("-c '/usr/bin/dsymutil {0} -o {1}; cd {1}/..; zip -r -y -1 {2}.app.dSYM.zip {2}.app.dSYM'",
+				GenDebugAction.CommandArguments = string.Format("-c '/usr/bin/dsymutil \"{0}\" -f -o \"{1}\"; cd \"{1}/..\"; zip -r -y -1 {2}.dSYM.zip {2}.dSYM'",
 					Executable.AbsolutePath,
 					FullDestPathRoot,
 					Path.GetFileName(Executable.AbsolutePath));
 			} 
 			else
 			{
-				GenDebugAction.CommandArguments = string.Format("-c '/usr/bin/dsymutil {0} -o {1}'",
+				GenDebugAction.CommandArguments = string.Format("-c '/usr/bin/dsymutil \"{0}\" -f -o \"{1}\"'",
 					Executable.AbsolutePath,
 					FullDestPathRoot);
 			}
@@ -1098,15 +1000,15 @@ namespace UnrealBuildTool
 		{
 			base.PostBuildSync(Target);
 
-			string AppName = Target.TargetType == TargetRules.TargetType.Game ? Target.GameName : Target.AppName;
+			string AppName = Target.TargetType == TargetRules.TargetType.Game ? Target.TargetName : Target.AppName;
 
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 			{
 				string RemoteShadowDirectoryMac = Path.GetDirectoryName(Target.OutputPath);
-				string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, Target.GameName);
+				string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, AppName);
 
 				// strip the debug info from the executable if needed
-				if (BuildConfiguration.bStripSymbolsOnIOS || (Target.Configuration == UnrealTargetConfiguration.Shipping) || UnrealBuildTool.BuildingRocket())
+				if (BuildConfiguration.bStripSymbolsOnIOS || (Target.Configuration == UnrealTargetConfiguration.Shipping))
 				{
 					Process StripProcess = new Process();
 					StripProcess.StartInfo.WorkingDirectory = RemoteShadowDirectoryMac;
@@ -1127,23 +1029,23 @@ namespace UnrealBuildTool
 				// copy the executable
 				if (!File.Exists(FinalRemoteExecutablePath))
 				{
-					Directory.CreateDirectory(String.Format("{0}/Payload/{1}.app", RemoteShadowDirectoryMac, Target.GameName));
+					Directory.CreateDirectory(String.Format("{0}/Payload/{1}.app", RemoteShadowDirectoryMac, AppName));
 				}
 				File.Copy(Target.OutputPath, FinalRemoteExecutablePath, true);
 
 				if (BuildConfiguration.bCreateStubIPA)
 				{
-					string Project = Target.ProjectDirectory + "/" + Target.GameName + ".uproject";
+					string Project = Target.ProjectDirectory + "/" + AppName + ".uproject";
 
 					// generate the dummy project so signing works
-					if (Target.GameName == "UE4Game" || Target.GameName == "UE4Client" || Utils.IsFileUnderDirectory(Target.ProjectDirectory + "/" + Target.GameName + ".uproject", Path.GetFullPath("../..")))
+					if (AppName == "UE4Game" || AppName == "UE4Client" || Utils.IsFileUnderDirectory(Target.ProjectDirectory + "/" + AppName + ".uproject", Path.GetFullPath("../..")))
 					{
 						UnrealBuildTool.GenerateProjectFiles (new XcodeProjectFileGenerator (), new string[] {"-platforms=IOS", "-NoIntellIsense", "-iosdeployonly", "-ignorejunk"});
 						Project = Path.GetFullPath("../..") + "/UE4_IOS.xcodeproj";
 					}
 					else
 					{
-						Project = Target.ProjectDirectory + "/" + Target.GameName + ".xcodeproj";
+						Project = Target.ProjectDirectory + "/" + AppName + ".xcodeproj";
 					}
 
 					if (Directory.Exists (Project))
@@ -1159,7 +1061,7 @@ namespace UnrealBuildTool
 						string CmdLine = XcodeDeveloperDir + "usr/bin/xcodebuild" +
 						                " -project \"" + Project + "\"" +
 						                " -configuration " + Target.Configuration +
-						                " -scheme '" + Target.GameName + " - iOS'" +
+						                " -scheme '" + AppName + " - iOS'" +
 						                " -sdk iphoneos" +
 						                " CODE_SIGN_IDENTITY=\"iPhone Developer\"";
 
@@ -1188,7 +1090,7 @@ namespace UnrealBuildTool
 						}
 
 						// Package the stub
-						PackageStub (RemoteShadowDirectoryMac, Target.GameName, Path.GetFileNameWithoutExtension (Target.OutputPath));
+						PackageStub (RemoteShadowDirectoryMac, AppName, Path.GetFileNameWithoutExtension (Target.OutputPath));
 					}
 				}
 
@@ -1235,25 +1137,6 @@ namespace UnrealBuildTool
 					BuiltBinaries.Add(Path.GetFullPath(Binary.ToString()));
 				}
 
-				// Generate static libraries for monolithic games in Rocket
-				if ((UnrealBuildTool.BuildingRocket() || UnrealBuildTool.RunningRocket()) && TargetRules.IsAGame(Target.TargetType))
-				{
-					List<UEBuildModule> Modules = Target.AppBinaries[0].GetAllDependencyModules(true, false);
-					foreach (UEBuildModuleCPP Module in Modules.OfType<UEBuildModuleCPP>())
-					{
-						if (Utils.IsFileUnderDirectory(Module.ModuleDirectory, BuildConfiguration.RelativeEnginePath) && Module.Binary == Target.AppBinaries[0])
-						{
-							if (Module.bBuildingRedistStaticLibrary)
-							{
-								foreach (var LibraryPath in Module.RedistStaticLibraryPaths)
-								{
-									BuiltBinaries.Add(Path.GetFullPath(LibraryPath));
-								}
-							}
-						}
-					}
-				}
-
 				// check to see if the DangerouslyFast mode is valid (in other words, a build has gone through since a Rebuild/Clean operation)
 				string DangerouslyFastValidFile = Path.Combine(Target.GlobalLinkEnvironment.Config.IntermediateDirectory, "DangerouslyFastIsNotDangerous");
 				bool bUseDangerouslyFastModeWasRequested = bUseDangerouslyFastMode;
@@ -1279,7 +1162,7 @@ namespace UnrealBuildTool
 
 						// copy the executable
 						string RemoteShadowDirectoryMac = ConvertPath(Path.GetDirectoryName(Target.OutputPath));
-						string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, Target.GameName);
+						string FinalRemoteExecutablePath = String.Format("{0}/Payload/{1}.app/{1}", RemoteShadowDirectoryMac, Target.TargetName);
 						RPCUtilHelper.Command("/", String.Format("cp -f {0} {1}", RemoteExecutablePath, FinalRemoteExecutablePath), "", null);
 					}
 					else if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
@@ -1307,7 +1190,7 @@ namespace UnrealBuildTool
 					if (!bUseDangerouslyFastMode)
 					{
 						// generate the dummy project so signing works
-						UnrealBuildTool.GenerateProjectFiles(new XcodeProjectFileGenerator(), new string[] { "-NoIntellisense", "-iosdeployonly" });
+						UnrealBuildTool.GenerateProjectFiles(new XcodeProjectFileGenerator(), new string[] { "-NoIntellisense", "-iosdeployonly", (!string.IsNullOrEmpty(UnrealBuildTool.GetUProjectPath()) ? "-game" : "") });
 					}
 
 					// now that 
@@ -1316,7 +1199,6 @@ namespace UnrealBuildTool
 					StubGenerateProcess.StartInfo.FileName = Path.Combine(StubGenerateProcess.StartInfo.WorkingDirectory, "iPhonePackager.exe");
 
 					string Arguments = "";
-						
 					string PathToApp = RulesCompiler.GetTargetFilename(AppName);
 
 					// right now, no programs have a Source subdirectory, so assume the PathToApp is directly in the root
@@ -1326,14 +1208,22 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-						Int32 SourceIndex = PathToApp.LastIndexOf(@"\Source");
+						Int32 SourceIndex = PathToApp.LastIndexOf(@"\Intermediate\Source");
 						if (SourceIndex != -1)
 						{
 							PathToApp = PathToApp.Substring(0, SourceIndex);
 						}
 						else
 						{
-							throw new BuildException("The target was not in a /Source subdirectory");
+							SourceIndex = PathToApp.LastIndexOf(@"\Source");
+							if (SourceIndex != -1)
+							{
+								PathToApp = PathToApp.Substring(0, SourceIndex);
+							}
+							else
+							{
+								throw new BuildException("The target was not in a /Source subdirectory");
+							}
 						}
 					}
 
@@ -1380,9 +1270,10 @@ namespace UnrealBuildTool
 
 					OutputReceivedDataEventHandlerEncounteredError = false;
 					OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
-					Utils.RunLocalProcess(StubGenerateProcess);
+					int ExitCode = Utils.RunLocalProcess(StubGenerateProcess);
 					if (OutputReceivedDataEventHandlerEncounteredError)
 					{
+						UnrealBuildTool.ExtendedErrorCode = ExitCode;
 						throw new Exception(OutputReceivedDataEventHandlerEncounteredErrorMessage);
 					}
 					
@@ -1450,16 +1341,6 @@ namespace UnrealBuildTool
 			}
 		}
 
-		public override string GetPlatformVersion()
-		{
-			return RunTimeIOSVersion;
-		}
-
-		public override string GetPlatformDevices()
-		{
-			return RunTimeIOSDevices;
-		}
-
 		public override UnrealTargetPlatform GetPlatform()
 		{
 			return UnrealTargetPlatform.IOS;
@@ -1478,6 +1359,18 @@ namespace UnrealBuildTool
 			StdOutResults = NewProcess.StandardOutput.ReadToEnd();
 			NewProcess.WaitForExit();
 			return NewProcess.ExitCode;
+		}
+
+		public override void StripSymbols(string SourceFileName, string TargetFileName)
+		{
+			File.Copy(SourceFileName, TargetFileName, true);
+
+			ProcessStartInfo StartInfo = new ProcessStartInfo();
+			StartInfo.FileName = Path.Combine(XcodeDeveloperDir, "usr/bin/xcrun");
+			StartInfo.Arguments = String.Format("strip \"{0}\" -S", TargetFileName);
+			StartInfo.UseShellExecute = false;
+			StartInfo.CreateNoWindow = true;
+			Utils.RunLocalProcessAndLogOutput(StartInfo);
 		}
 	};
 }

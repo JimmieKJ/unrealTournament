@@ -87,7 +87,7 @@ FReply SAnimTrackPanel::OnMouseWheel( const FGeometry& MyGeometry, const FPointe
 		float ViewMinInput = ViewInputMin.Get() - (InputChange * ZoomRatio);
 		float ViewMaxInput = ViewInputMax.Get() + (InputChange * (1.f - ZoomRatio));
 		
-		OnSetInputViewRange.Execute(ViewMinInput, ViewMaxInput);
+		InputViewRangeChanged(ViewMinInput, ViewMaxInput);
 	}
 
 	return FReply::Handled();
@@ -131,7 +131,7 @@ FReply SAnimTrackPanel::OnMouseMove( const FGeometry& InMyGeometry, const FPoint
 		if( !bPanning )
 		{
 			PanningDistance += FMath::Abs(InMouseEvent.GetCursorDelta().X);
-			if ( PanningDistance > FSlateApplication::Get().GetDragTriggerDistnace() )
+			if ( PanningDistance > FSlateApplication::Get().GetDragTriggerDistance() )
 			{
 				bPanning = true;
 				UE_LOG(LogAnimation, Log, TEXT("MouseMove (Capturing Mouse) %d, %0.5f"), bPanning, PanningDistance);
@@ -160,7 +160,7 @@ FReply SAnimTrackPanel::OnMouseMove( const FGeometry& InMyGeometry, const FPoint
 				NewViewInputMin = NewViewInputMax - ScaleInfo.ViewInputRange;
 			}
 
-			OnSetInputViewRange.Execute(NewViewInputMin, NewViewInputMax);
+			InputViewRangeChanged(NewViewInputMin, NewViewInputMax);
 
 			UE_LOG(LogAnimation, Log, TEXT("MouseMove (Panning) %0.2f, %0.2f"), ViewInputMin.Get(), ViewInputMax.Get());
 			return FReply::Handled();
@@ -192,7 +192,12 @@ void SAnimTrackPanel::PanInputViewRange(int32 ScreenDelta, FVector2D ScreenViewS
 		NewViewInputMin = NewViewInputMax - ScaleInfo.ViewInputRange;
 	}
 
-	OnSetInputViewRange.Execute(NewViewInputMin, NewViewInputMax);
+	InputViewRangeChanged(NewViewInputMin, NewViewInputMax);
+}
+
+void SAnimTrackPanel::InputViewRangeChanged(float ViewMin, float ViewMax)
+{
+	OnSetInputViewRange.Execute(ViewMin, ViewMax);
 }
 
 #undef LOCTEXT_NAMESPACE

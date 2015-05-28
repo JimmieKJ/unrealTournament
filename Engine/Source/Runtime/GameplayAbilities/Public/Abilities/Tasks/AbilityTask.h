@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #include "GameplayAbility.h"
+#include "AbilitySystemComponent.h"
 #include "AbilityTask.generated.h"
 
 
@@ -90,13 +91,19 @@ class GAMEPLAYABILITIES_API UAbilityTask : public UObject
 	TWeakObjectPtr<UAbilitySystemComponent>	AbilitySystemComponent;
 
 	/** Helper function for getting UWorld off a task */
-	UWorld* GetWorld() const;
+	UWorld* GetWorld() const override;
 
 	/** Proper way to get the owning actor of the ability that owns this task and the gameplay effects */
 	AActor* GetOwnerActor() const;
 
 	/** Proper way to get the avatar actor of the ability that owns this task (usually a pawn, tower, etc) */
 	AActor* GetAvatarActor() const;
+
+	/** Returns spec handle for owning ability */
+	FGameplayAbilitySpecHandle GetAbilitySpecHandle() const;
+
+	/** Returns ActivationPredictionKey of owning ability */
+	FPredictionKey GetActivationPredictionKey() const;
 
 	/** Helper function for instantiating and initializing a new task */
 	template <class T>
@@ -135,10 +142,23 @@ class GAMEPLAYABILITIES_API UAbilityTask : public UObject
 	/** Am I actually running this as a simulated task. (This will be true on clients that simulating. This will be false on the server and the owning client) */
 	bool bIsSimulating;
 
-protected:	
+	/** Returns true if the ability is a locally predicted ability running on a client. Usually this means we need to tell the server something. */
+	bool IsPredictingClient() const;
+
+	/** Returns true if we are executing the ability on the server for a non locally controlled client */
+	bool IsForRemoteClient() const;
+
+	/** Returns true if we are executing the ability on the locally controlled client */
+	bool IsLocallyControlled() const;
+
+protected:
 
 	/** End and CleanUp the task - may be called by the task itself or by the owning ability if the ability is ending. Do NOT call directly! Call EndTask() or AbilityEnded() */
 	virtual void OnDestroy(bool AbilityIsEnding);
+
+	/** Helper method for registering client replicated callbacks */
+	
+	bool CallOrAddReplicatedDelegate(EAbilityGenericReplicatedEvent::Type Event, FSimpleMulticastDelegate::FDelegate Delegate);
 };
 
 //For searching through lists of ability instances
@@ -155,4 +175,20 @@ struct FAbilityInstanceNamePredicate
 	}
 
 	FName InstanceName;
+};
+
+
+struct FAbilityInstanceClassPredicate
+{
+	FAbilityInstanceClassPredicate(TSubclassOf<UAbilityTask> Class)
+	{
+		TaskClass = Class;
+	}
+
+	bool operator()(const TWeakObjectPtr<UAbilityTask> A) const
+	{
+		return (A.IsValid() && (A.Get()->GetClass() == TaskClass));
+	}
+
+	TSubclassOf<UAbilityTask> TaskClass;
 };

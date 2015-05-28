@@ -46,12 +46,16 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bCastShadowAsTwoSided(InComponent->bCastShadowAsTwoSided)
 ,	bSelfShadowOnly(InComponent->bSelfShadowOnly)
 ,	bCastInsetShadow(InComponent->bSelfShadowOnly ? true : InComponent->bCastInsetShadow)	// Assumed to be enabled if bSelfShadowOnly is enabled.
+,	bCastCinematicShadow(InComponent->bCastCinematicShadow)
+,	bCastFarShadow(InComponent->bCastFarShadow)
+,	bLightAsIfStatic(InComponent->bLightAsIfStatic)
 ,	bLightAttachmentsAsGroup(InComponent->bLightAttachmentsAsGroup)
 ,	bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer(false)
 ,	bAlwaysHasVelocity(false)
 ,	bUseEditorDepthTest(true)
 ,	bSupportsDistanceFieldRepresentation(false)
 ,	bSupportsHeightfieldRepresentation(false)
+,	bNeedsLevelAddedToWorldNotification(false)
 ,	bUseAsOccluder(InComponent->bUseAsOccluder)
 ,	bAllowApproximateOcclusion(InComponent->Mobility != EComponentMobility::Movable)
 ,	bSelectable(InComponent->bSelectable)
@@ -77,6 +81,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	ComponentForDebuggingOnly(InComponent)
 #if WITH_EDITOR
 ,	NumUncachedStaticLightingInteractions(0)
+,	HierarchicalLODOverride(0)
 #endif
 {
 	check(Scene);
@@ -131,15 +136,8 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 	// Flag components to render only after level will be fully added to the world
 	//
 	ULevel* ComponentLevel = InComponent->GetComponentLevel();
-	if (ComponentLevel && ComponentLevel->bRequireFullVisibilityToRender)
-	{
-		bRequiresVisibleLevelToRender = true;
-		bIsComponentLevelVisible = ComponentLevel->bIsVisible;
-	}
-	else
-	{
-		bRequiresVisibleLevelToRender = false;
-	}
+	bRequiresVisibleLevelToRender = (ComponentLevel && ComponentLevel->bRequireFullVisibilityToRender);
+	bIsComponentLevelVisible = (!ComponentLevel || ComponentLevel->bIsVisible);
 }
 
 FPrimitiveSceneProxy::~FPrimitiveSceneProxy()
@@ -189,14 +187,15 @@ void FPrimitiveSceneProxy::UpdateActorPosition(FVector InActorPosition)
 			// Update the uniform shader parameters.
 			const FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters =
 			GetPrimitiveUniformShaderParameters(
-			PrimitiveSceneProxy->LocalToWorld, 
-			InActorPosition, 
-			PrimitiveSceneProxy->Bounds,
-			PrimitiveSceneProxy->LocalBounds, 
-			PrimitiveSceneProxy->bReceivesDecals, 
-			PrimitiveSceneProxy->HasDistanceFieldRepresentation(), 
-			PrimitiveSceneProxy->UseEditorDepthTest(),
-			PrimitiveSceneProxy->GetLpvBiasMultiplier() );
+				PrimitiveSceneProxy->LocalToWorld, 
+				InActorPosition, 
+				PrimitiveSceneProxy->Bounds,
+				PrimitiveSceneProxy->LocalBounds, 
+				PrimitiveSceneProxy->bReceivesDecals, 
+				PrimitiveSceneProxy->HasDistanceFieldRepresentation(), 
+				PrimitiveSceneProxy->SupportsHeightfieldRepresentation(),
+				PrimitiveSceneProxy->UseEditorDepthTest(),
+				PrimitiveSceneProxy->GetLpvBiasMultiplier() );
 
 			PrimitiveSceneProxy->UniformBuffer.SetContents(PrimitiveUniformShaderParameters);
 			PrimitiveSceneProxy->OnActorPositionChanged();
@@ -218,7 +217,7 @@ void FPrimitiveSceneProxy::SetTransform(const FMatrix& InLocalToWorld, const FBo
 	ActorPosition = InActorPosition;
 	
 	// Update the uniform shader parameters.
-	const FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters = GetPrimitiveUniformShaderParameters(LocalToWorld, ActorPosition, Bounds, LocalBounds, bReceivesDecals, HasDistanceFieldRepresentation(), UseEditorDepthTest(), LpvBiasMultiplier );
+	const FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters = GetPrimitiveUniformShaderParameters(LocalToWorld, ActorPosition, Bounds, LocalBounds, bReceivesDecals, HasDistanceFieldRepresentation(), SupportsHeightfieldRepresentation(), UseEditorDepthTest(), LpvBiasMultiplier );
 	UniformBuffer.SetContents(PrimitiveUniformShaderParameters);
 	
 	// Notify the proxy's implementation of the change.
@@ -343,6 +342,27 @@ void FPrimitiveSceneProxy::SetCollisionEnabled_RenderThread(const bool bNewEnabl
 	bCollisionEnabled = bNewEnabled;
 }
 
+#if WITH_EDITOR
+void FPrimitiveSceneProxy::SetHierarchicalLOD_GameThread(const int32 InLODLevel)
+{
+	check(IsInGameThread());
+
+	// Enqueue a message to the rendering thread to change draw state
+	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+		etHierarchicalLOD,
+		FPrimitiveSceneProxy*, PrimSceneProxy, this,
+		const int32, InLODLevel, InLODLevel,
+		{
+		PrimSceneProxy->SetHierarchicalLOD_RenderThread(InLODLevel);
+	});
+}
+
+void FPrimitiveSceneProxy::SetHierarchicalLOD_RenderThread(const int32 InLODLevel)
+{
+	check(IsInRenderingThread());
+	HierarchicalLODOverride = InLODLevel;
+}
+#endif 
 /** @return True if the primitive is visible in the given View. */
 bool FPrimitiveSceneProxy::IsShown(const FSceneView* View) const
 {
@@ -363,6 +383,11 @@ bool FPrimitiveSceneProxy::IsShown(const FSceneView* View) const
 		// If we are in a collision view, hide anything which doesn't have collision enabled
 		const bool bCollisionView = (View->Family->EngineShowFlags.CollisionVisibility || View->Family->EngineShowFlags.CollisionPawn);
 		if(bCollisionView && !IsCollisionEnabled())
+		{
+			return false;
+		}
+
+		if (View->Family->HierarchicalLODOverride >= 0 && View->Family->HierarchicalLODOverride != HierarchicalLODOverride)
 		{
 			return false;
 		}
@@ -459,17 +484,17 @@ bool FPrimitiveSceneProxy::IsShadowCast(const FSceneView* View) const
 void FPrimitiveSceneProxy::RenderBounds(
 	FPrimitiveDrawInterface* PDI, 
 	const FEngineShowFlags& EngineShowFlags, 
-	const FBoxSphereBounds& Bounds, 
+	const FBoxSphereBounds& InBounds, 
 	bool bRenderInEditor) const
 {
 	const ESceneDepthPriorityGroup DrawBoundsDPG = EngineShowFlags.Game ? SDPG_World : SDPG_Foreground;
 	if (EngineShowFlags.Bounds && (EngineShowFlags.Game || bRenderInEditor))
 	{
 		// Draw the static mesh's bounding box and sphere.
-		DrawWireBox(PDI,Bounds.GetBox(), FColor(72,72,255),DrawBoundsDPG);
-		DrawCircle(PDI, Bounds.Origin, FVector(1, 0, 0), FVector(0, 1, 0), FColor::Yellow, Bounds.SphereRadius, 32, DrawBoundsDPG);
-		DrawCircle(PDI, Bounds.Origin, FVector(1, 0, 0), FVector(0, 0, 1), FColor::Yellow, Bounds.SphereRadius, 32, DrawBoundsDPG);
-		DrawCircle(PDI, Bounds.Origin, FVector(0, 1, 0), FVector(0, 0, 1), FColor::Yellow, Bounds.SphereRadius, 32, DrawBoundsDPG);
+		DrawWireBox(PDI,InBounds.GetBox(), FColor(72,72,255),DrawBoundsDPG);
+		DrawCircle(PDI, InBounds.Origin, FVector(1, 0, 0), FVector(0, 1, 0), FColor::Yellow, InBounds.SphereRadius, 32, DrawBoundsDPG);
+		DrawCircle(PDI, InBounds.Origin, FVector(1, 0, 0), FVector(0, 0, 1), FColor::Yellow, InBounds.SphereRadius, 32, DrawBoundsDPG);
+		DrawCircle(PDI, InBounds.Origin, FVector(0, 1, 0), FVector(0, 0, 1), FColor::Yellow, InBounds.SphereRadius, 32, DrawBoundsDPG);
 	}
 }
 

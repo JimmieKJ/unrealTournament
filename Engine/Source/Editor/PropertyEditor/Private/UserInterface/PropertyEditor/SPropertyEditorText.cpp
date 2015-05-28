@@ -13,35 +13,48 @@ void SPropertyEditorText::Construct( const FArguments& InArgs, const TSharedRef<
 	PropertyEditor = InPropertyEditor;
 
 	const UProperty* Property = InPropertyEditor->GetProperty();
+
+	TSharedPtr<SHorizontalBox> HorizontalBox;
+
 	bIsMultiLine = Property->GetBoolMetaData("MultiLine");
 	if(bIsMultiLine)
 	{
 		ChildSlot
 		[
-			SAssignNew( PrimaryWidget, SMultiLineEditableTextBox)
-			.Text( InPropertyEditor, &FPropertyEditor::GetValueAsText )
-			.Font( InArgs._Font )
-			.SelectAllTextWhenFocused( false )
-			.ClearKeyboardFocusOnCommit(false)
-			.OnTextCommitted( this, &SPropertyEditorText::OnTextCommitted )
-			.SelectAllTextOnCommit( false )
-			.IsReadOnly(this, &SPropertyEditorText::IsReadOnly)
-			.AutoWrapText(true)
-			.ModiferKeyForNewLine(EModifierKey::Shift)
+			SAssignNew(HorizontalBox, SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			[
+				SAssignNew(PrimaryWidget, SMultiLineEditableTextBox)
+				.Text(InPropertyEditor, &FPropertyEditor::GetValueAsText)
+				.Font(InArgs._Font)
+				.SelectAllTextWhenFocused(false)
+				.ClearKeyboardFocusOnCommit(false)
+				.OnTextCommitted(this, &SPropertyEditorText::OnTextCommitted)
+				.SelectAllTextOnCommit(false)
+				.IsReadOnly(this, &SPropertyEditorText::IsReadOnly)
+				.AutoWrapText(true)
+				.ModiferKeyForNewLine(EModifierKey::Shift)
+			]
 		];
 	}
 	else
 	{
 		ChildSlot
 		[
-			SAssignNew( PrimaryWidget, SEditableTextBox )
-			.Text( InPropertyEditor, &FPropertyEditor::GetValueAsText )
-			.Font( InArgs._Font )
-			.SelectAllTextWhenFocused( true )
-			.ClearKeyboardFocusOnCommit(false)
-			.OnTextCommitted( this, &SPropertyEditorText::OnTextCommitted )
-			.SelectAllTextOnCommit( true )
-			.IsReadOnly(this, &SPropertyEditorText::IsReadOnly)
+			SAssignNew(HorizontalBox, SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.FillWidth(1.0f)
+			[
+				SAssignNew( PrimaryWidget, SEditableTextBox )
+				.Text( InPropertyEditor, &FPropertyEditor::GetValueAsText )
+				.Font( InArgs._Font )
+				.SelectAllTextWhenFocused( true )
+				.ClearKeyboardFocusOnCommit(false)
+				.OnTextCommitted( this, &SPropertyEditorText::OnTextCommitted )
+				.SelectAllTextOnCommit( true )
+				.IsReadOnly(this, &SPropertyEditorText::IsReadOnly)
+			]
 		];
 	}
 
@@ -79,6 +92,7 @@ bool SPropertyEditorText::Supports( const TSharedRef< FPropertyEditor >& InPrope
 		||	Property->IsA(UTextProperty::StaticClass())
 		||	(Property->IsA(UObjectPropertyBase::StaticClass()) && !Property->HasAnyPropertyFlags(CPF_InstancedReference))
 		||	Property->IsA(UInterfaceProperty::StaticClass())
+		||	Property->IsA(UMapProperty::StaticClass())
 		) )
 	{
 		return true;

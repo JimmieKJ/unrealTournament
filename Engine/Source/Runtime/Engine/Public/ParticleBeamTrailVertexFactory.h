@@ -22,7 +22,7 @@ typedef TUniformBufferRef<FParticleBeamTrailUniformParameters> FParticleBeamTrai
 /**
  * Beam/Trail particle vertex factory.
  */
-class FParticleBeamTrailVertexFactory : public FParticleVertexFactoryBase
+class ENGINE_API FParticleBeamTrailVertexFactory : public FParticleVertexFactoryBase
 {
 	DECLARE_VERTEX_FACTORY_TYPE(FParticleBeamTrailVertexFactory);
 

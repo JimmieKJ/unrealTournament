@@ -265,8 +265,6 @@ void FMacCursor::Show( bool bShow )
 void FMacCursor::Lock( const RECT* const Bounds )
 {
 	SCOPED_AUTORELEASE_POOL;
-	
-	MacApplication->OnMouseCursorLock( Bounds != NULL );
 
 	// Lock/Unlock the cursor
 	if ( Bounds == NULL )
@@ -437,8 +435,9 @@ void FMacCursor::SetHighPrecisionMouseMode( bool const bEnable )
 		// On disable put the cursor where the user would expect it
 		if ( !bEnable && (!CurrentCursor || !bIsVisible) )
 		{
-			FVector2D Pos = GetPosition();
-			SetPosition(Pos.X, Pos.Y);
+			FVector2D Pos = GetPosition() / MouseScale;
+			UpdateCursorClipping(Pos);
+			WarpCursor(Pos.X, Pos.Y);
 		}
 	}
 }

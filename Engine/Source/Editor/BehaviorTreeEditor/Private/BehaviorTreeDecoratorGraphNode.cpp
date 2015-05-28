@@ -82,6 +82,8 @@ void UBehaviorTreeDecoratorGraphNode::AutowireNewNode(UEdGraphPin* FromPin)
 
 void UBehaviorTreeDecoratorGraphNode::NodeConnectionListChanged()
 {
+	Super::NodeConnectionListChanged();
+
 	const UBehaviorTreeDecoratorGraph* MyGraph = CastChecked<UBehaviorTreeDecoratorGraph>(GetGraph());
 	
 	UBehaviorTreeGraphNode_CompositeDecorator* CompositeDecorator = Cast<UBehaviorTreeGraphNode_CompositeDecorator>(MyGraph->GetOuter());

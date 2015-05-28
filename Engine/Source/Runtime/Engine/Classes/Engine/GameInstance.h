@@ -1,9 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "EngineBaseTypes.h"
 #include "GameInstance.generated.h"
 
+class ULocalPlayer;
+class FUniqueNetId;
 
 // 
 // 	EWelcomeScreen, 	//initial screen.  Used for platforms where we may not have a signed in user yet.
@@ -20,7 +23,6 @@ namespace GameInstanceState
 }
 
 class FOnlineSessionSearchResult;
-
 
 /**
  * GameInstance: high-level manager object for an instance of the running game.
@@ -43,8 +45,11 @@ protected:
 
 	UPROPERTY()
 	TArray<ULocalPlayer*> LocalPlayers;		// List of locally participating players in this game instance
+	
+	// Delegate handle that stores delegate for when an invite is accepted by a user
+	FDelegateHandle OnSessionUserInviteAcceptedDelegateHandle;
+	
 public:
-
 
 	FString PIEMapName;
 
@@ -54,29 +59,30 @@ public:
 
 	// Begin UObject Interface
 	virtual class UWorld* GetWorld() const override;
+	virtual void FinishDestroy() override;
 	// End UObject Interface
 
 	/** virtual function to allow custom GameInstances an opportunity to set up what it needs */
 	virtual void Init();
 
 	/** Opportunity for blueprints to handle the game instance being initialized. */
-	UFUNCTION(BlueprintImplementableEvent, meta=(FriendlyName = "Init"))
-	virtual void ReceiveInit();
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "Init"))
+	void ReceiveInit();
 
 	/** virtual function to allow custom GameInstances an opportunity to do cleanup when shutting down */
 	virtual void Shutdown();
 
 	/** Opportunity for blueprints to handle the game instance being shutdown. */
-	UFUNCTION(BlueprintImplementableEvent, meta=(FriendlyName = "Shutdown"))
-	virtual void ReceiveShutdown();
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "Shutdown"))
+	void ReceiveShutdown();
 
 	/** Opportunity for blueprints to handle network errors. */
-	UFUNCTION(BlueprintImplementableEvent, meta=(FriendlyName = "NetworkError"))
-	virtual void HandleNetworkError(ENetworkFailure::Type FailureType, bool bIsServer);
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "NetworkError"))
+	void HandleNetworkError(ENetworkFailure::Type FailureType, bool bIsServer);
 
 	/** Opportunity for blueprints to handle travel errors. */
-	UFUNCTION(BlueprintImplementableEvent, meta=(FriendlyName = "TravelError"))
-	virtual void HandleTravelError(ETravelFailure::Type FailureType);
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "TravelError"))
+	void HandleTravelError(ETravelFailure::Type FailureType);
 
 	/* Called to initialize the game instance for standalone instances of the game */
 	void InitializeStandalone();
@@ -84,7 +90,7 @@ public:
 	/* Called to initialize the game instance for PIE instances of the game */
 	bool InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance);
 
-	bool StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode);
+	virtual bool StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode);
 #endif
 
 	class UEngine* GetEngine() const;
@@ -157,4 +163,24 @@ public:
 	virtual void			HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureType, const FString& ErrorString = TEXT("") ) { }
 
 	static void				AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+
+    /** Delegate that is called when a user has accepted an invite. */
+	void HandleSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult);
+	
+	/** Overridable implementation of HandleSessionUserInviteAccepted, which does nothing but call this function */
+	virtual void OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult);
+
+	inline FTimerManager& GetTimerManager() const { return *TimerManager; }
+
+	/** Start recording a replay with the given custom name and friendly name. */
+	virtual void StartRecordingReplay(const FString& Name, const FString& FriendlyName);
+
+	/** Stop recording a replay if one is currently in progress */
+	virtual void StopRecordingReplay();
+
+	/** Start playing back a previously recorded replay. */
+	virtual void PlayReplay(const FString& Name);
+
+private:
+	FTimerManager* TimerManager;
 };

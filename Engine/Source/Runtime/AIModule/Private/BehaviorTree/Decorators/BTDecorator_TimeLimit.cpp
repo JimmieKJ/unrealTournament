@@ -27,9 +27,6 @@ void UBTDecorator_TimeLimit::OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp,
 void UBTDecorator_TimeLimit::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
 	OwnerComp.RequestExecution(this);
-
-	// make sure that next tick won't happen before execution request is processed
-	SetNextTickTime(NodeMemory, 1000000.0f);
 }
 
 FString UBTDecorator_TimeLimit::GetStaticDescription() const

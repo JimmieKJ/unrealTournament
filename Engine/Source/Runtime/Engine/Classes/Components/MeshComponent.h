@@ -20,7 +20,7 @@ class ENGINE_API UMeshComponent : public UPrimitiveComponent
 	GENERATED_UCLASS_BODY()
 
 	/** Per-Component material overrides.  These must NOT be set directly or a race condition can occur between GC and the rendering thread. */
-	UPROPERTY(EditAnywhere, Category=Rendering, Meta=(ToolTip="Material overrides."))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Rendering, Meta=(ToolTip="Material overrides."))
 	TArray<class UMaterialInterface*> OverrideMaterials;
 	
 	UFUNCTION(BlueprintCallable, Category="Components|Mesh")
@@ -40,7 +40,7 @@ class ENGINE_API UMeshComponent : public UPrimitiveComponent
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
 	// End UPrimitiveComponent Interface
 
-	/** Accesses the scene relevance information for the materials applied to the mesh. */
+	/** Accesses the scene relevance information for the materials applied to the mesh. Valid from game thread only. */
 	FMaterialRelevance GetMaterialRelevance(ERHIFeatureLevel::Type InFeatureLevel) const;
 
 	/**

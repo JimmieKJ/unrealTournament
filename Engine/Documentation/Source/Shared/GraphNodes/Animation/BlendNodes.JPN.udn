@@ -1,7 +1,8 @@
-﻿Availability:NoPublish
+﻿INTSourceChangelist:2483419
+Availability:NoPublish
 Title:Animation ノードの参照
 Crumbs:
-Description:アニメーション ブループリントに使用できるさまざまなアニメーション ノードの説明
+Description:Animation ブループリントに使用できる各種アニメーション ノードの説明
 
 [EXCERPT:DummyExcerpt]
 
@@ -10,13 +11,13 @@ Description:アニメーション ブループリントに使用できるさま�
 
 [EXCERPT:UAnimGraphNode_LayeredBoneBlend]
 
-層状ブレンド (ボーンごとの) には、様々なボーンセット別にブレンドできるブレンドポーズがあります。
+レイヤー ブレンド (ボーンごとの) には、ボーン セットごとに別々にブレンドできるブレンドポーズが沢山あります。
 
 [/EXCERPT:UAnimGraphNode_LayeredBoneBlend]
 
 [EXCERPT:UAnimGraphNode_BlendListByBool]
 
-このノードは入力 Boolean 値に基いて 2 つの入力ポーズから 1 つを選択する、効率的なブランチです。
+このノードは事実上は、入力 Boolean 値に基いて 2 つの入力ポーズから 1 つを選択するブランチです。
 
 [VAR:ToolTipFullLink]
 Engine/Animation/NodeReference/Blend#blendposesbybool
@@ -26,13 +27,13 @@ Engine/Animation/NodeReference/Blend#blendposesbybool
 
 [EXCERPT:UAnimGraphNode_BlendListByEnum]
 
-列挙型変数によるブレンドリストにより、指定された列挙型変数に基いてブレンドポーズを選択できます。
+列挙型変数によるブレンドリストで、指定された列挙型変数に基いてブレンドポーズを選択できます。
 
 [/EXCERPT:UAnimGraphNode_BlendListByEnum]
 
 [EXCERPT:UAnimGraphNode_BlendListByInt]
 
-int によるブレンドリストにより、指定インデックスに基いてブレンドポーズを選択できます。
+int によるブレンドリストで、指定インデックスに基いてブレンドポーズを選択できます。
 
 [VAR:ToolTipFullLink]
 Engine/Animation/NodeReference/Blend#blendposesbyint
@@ -43,7 +44,7 @@ Engine/Animation/NodeReference/Blend#blendposesbyint
 [EXCERPT:UAnimGraphNode_TwoWayBlend]
 
 
-一般的な **Blend** ノードはアルファ入力値に基づいた 2 つの入力ポーズを正しく混ぜ合わせます。
+一般的な **Blend** ノードは、アルファ入力値に基づいた 2 つの入力ポーズを正しく混ぜ合わせます。
 
 ---
 
@@ -51,7 +52,7 @@ Engine/Animation/NodeReference/Blend#blendposesbyint
 
 A - ブレンドする最初のポーズ 
 B - ブレンドする 2 番目のポーズ 
-アルファ - 2 つのポーズの重み付けを設定する際にアルファ値として使用する **[0.0, 1.0]** の範囲の「浮動小数点」値です。値 **0.0**　は、 **A** の入力ポーズに対して最大限の重み付けをしますが、　値 **1.0** は、 **B** の入力ポーズに対して最大限の重み付けをします。 
+アルファ - 2 つのポーズの重み付けを設定する際にアルファ値として使用する **[0.0, 1.0]** の範囲の「浮動小数点」値です。値 **0.0** は、 **A** の入力ポーズに対して最大限の重み付けをしますが、値 **1.0** は、 **B** の入力ポーズに対して最大限の重み付けをします。 
 
 ---
 
@@ -140,13 +141,13 @@ Root ボーンが回転すると、アニメーション データ外のボー�
 
 [EXCERPT:UAnimGraphNode_CopyBone]
 
-1 つのボーンから他のボーンへ変形をコピーします。
+1 つのボーンから他のボーンへトランスフォーム (変換) をコピーします。平行移動、回転、スケーリング、または 3 つすべてをコピーすることができます。
 
 [/EXCERPT:UAnimGraphNode_CopyBone]
 
 [EXCERPT:UAnimGraphNode_ModifyBone]
 
-ボーンの変換を修正します。
+ボーンのトランスフォーム (変換) を修正します。
 
 [/EXCERPT:UAnimGraphNode_ModifyBone]
 
@@ -158,7 +159,7 @@ Apply a Percentage of Rotation 制御は、スケルトン内の別のボーン�
 
 [EXCERPT:UAnimGraphNode_SpringBone]
 
-Spring Controller は、ボーンが参照ポーズ位置から伸縮できる距離の制限や、反対方向での力の適用に使用することができます。
+Spring Controller は、ボーンが参照ポーズ位置から伸ばすことのできる距離の制限や、反対方向への力の適用に使用します。
 
 [/EXCERPT:UAnimGraphNode_SpringBone]
 
@@ -185,3 +186,27 @@ Two Bone IK 制御はキャラクターの手足など、 3 つの関節チェ�
 回転のオフセットを BlendSpace に適用します。
 
 [/EXCERPT:UAnimGraphNode_RotationOffsetBlendSpace]
+
+[EXCERPT:UAnimGraphNode_Fabrik]
+
+FaBRIK (前方後方到達インバース キネマティクス) アルゴリズムをボーン チェーンに適用して、エンド エフェクタに相対してボーン トランスフォーム (変換) を行います。
+
+[/EXCERPT:UAnimGraphNode_Fabrik]
+
+[EXCERPT:UAnimGraphNode_BoneDrivenController]
+
+他のトランスフォーム (変換) コンポーネントに基づいて、ボーンのトランスフォーム (変換) コンポーネントを操作トランスフォーム (変換) と回転のコンポーネントはそれぞれ、このノードのソースおよびターゲットのソースとして、あるいはスケールそのものとして使用することができます。別のボーンの X 軸の回転から Z 軸のトランスレーション (変換) を操作する場合などです。最終的な出力は乗数で変更することができます。
+
+[/EXCERPT:UAnimGraphNode_BoneDrivenController]
+
+[EXCERPT:UAnimGraphNode_LookAt]
+
+指定した軸に沿って別のボーンの方、または指定した位置を見るようにボーンのトランスフォーム (変換) を修正します。
+
+[/EXCERPT:UAnimGraphNode_LookAt]
+
+[EXCERPT:UAnimGraphNode_HandIKRetargeting]
+
+IKボーンチェーンのリターゲティングを処理します。HandFKWeight (両サイドを支持) に基いて IK ボーンチェーンが FK ハンドボーンと交わるように移動させます。(0 = 左手を支持、 1 = 右手を支持、 0.5 = 同等のウェイト)
+
+[/EXCERPT:UAnimGraphNode_HandIKRetargeting]

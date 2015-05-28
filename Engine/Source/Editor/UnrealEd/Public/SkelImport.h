@@ -154,12 +154,14 @@ public:
 	TArray <VRawBoneInfluence>	Influences;		// Influences
 	TArray <int32>				PointToRawMap;	// Mapping from current point index to the original import point index
 	uint32	NumTexCoords;						// The number of texture coordinate sets
+	uint32	MaxMaterialIndex;					// The max material index found on a triangle
 	bool 	bHasVertexColors; 					// If true there are vertex colors in the imported file
 	bool	bHasNormals;						// If true there are normals in the imported file
 	bool	bHasTangents;						// If true there are tangents in the imported file
 
 	FSkeletalMeshImportData()
 		: NumTexCoords(0)
+		, MaxMaterialIndex(0)
 		, bHasVertexColors(false)
 		, bHasNormals(false)
 		, bHasTangents(false)

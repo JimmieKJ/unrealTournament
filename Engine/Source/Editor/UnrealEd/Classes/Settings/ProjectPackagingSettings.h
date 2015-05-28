@@ -67,7 +67,7 @@ public:
 	 * If disabled, only modified files will be built, which can improve iteration time.
 	 * Unless you iterate on packaging, we recommend full rebuilds when packaging.
 	 */
-	UPROPERTY(config, EditAnywhere, Category=Project, AdvancedDisplay)
+	UPROPERTY(config, EditAnywhere, Category=Project)
 	bool FullRebuild;
 
 	/**
@@ -77,6 +77,10 @@ public:
 	 */
 	UPROPERTY(config, EditAnywhere, Category=Project)
 	bool ForDistribution;
+
+	/** If enabled, debug files will be included in the packaged game */
+	UPROPERTY(config, EditAnywhere, Category=Project)
+	bool IncludeDebugFiles;
 
 	/** If enabled, all content will be put into a single .pak file instead of many individual files (default = enabled). */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
@@ -88,6 +92,24 @@ public:
 	 */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool bGenerateChunks;
+
+	/** 
+	 * If enabled, will generate data for HTTP Chunk Installer. This data can be hosted on webserver to be installed at runtime. Requires "Generate Chunks" enabled.
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Packaging)
+	bool bBuildHttpChunkInstallData;
+
+	/** 
+	 * When "Build HTTP Chunk Install Data" is enabled this is the directory where the data will be build to.
+	 */	
+	UPROPERTY(config, EditAnywhere, Category = Packaging)
+	FDirectoryPath HttpChunkInstallDataDirectory;
+
+	/** 
+	 * Version name for HTTP Chunk Install Data.
+	 */
+	UPROPERTY(config, EditAnywhere, Category = Packaging)
+	FString HttpChunkInstallDataVersion;
 
 	/** Specifies whether to include prerequisites of packaged games, such as redistributable operating system components, whenever possible. */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
@@ -108,13 +130,42 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Localizations to Package"))
 	TArray<FString> CulturesToStage;
 
+	/** Culture to use if no matching culture is found. */
+	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Package default localization"))
+	FString DefaultCulture;
+
+	/**
+	 * Cook all things in the project content directory
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Cook everything in the project content directory (ignore list of maps below)"))
+	bool bCookAll;
+
+	/**
+	 * Cook only maps (this only affects the cookall flag)
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Cook only maps (this only affects cookall)"))
+	bool bCookMapsOnly;
+
+
+	/**
+	 * Create compressed cooked packages (decreased deployment size)
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Create compressed cooked packages"))
+	bool bCompressed;
+	
+	/**
+	 * List of maps to include when no other map list is specified on commandline
+	 */
+	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="List of maps to include in a packaged build", RelativeToGameContentDir))
+	TArray<FFilePath> MapsToCook;	
+
 	/**
 	 * Directories containing .uasset files that should always be cooked regardless of whether they're referenced by anything in your project
 	 * Note: These paths are relative to your project Content directory
 	 */
 	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Asset Directories to Cook", RelativeToGameContentDir))
 	TArray<FDirectoryPath> DirectoriesToAlwaysCook;
-
+	
 	/**
 	 * Directories containing files that should always be added to the .pak file (if using a .pak file; otherwise they're copied as individual files)
 	 * This is used to stage additional files that you manually load via the UFS (Unreal File System) file IO API
@@ -131,10 +182,12 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Packaging, AdvancedDisplay, meta=(DisplayName="Additional Non-Asset Directories To Copy", RelativeToGameContentDir))
 	TArray<FDirectoryPath> DirectoriesToAlwaysStageAsNonUFS;	
 
+
+	
 public:
 
 	// UObject Interface
 
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent ) override;
-	virtual bool CanEditChange( const UProperty* InProperty ) const;
+	virtual bool CanEditChange( const UProperty* InProperty ) const override;
 };

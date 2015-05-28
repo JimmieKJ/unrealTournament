@@ -46,7 +46,7 @@ void UK2Node_SetFieldsInStruct::AllocateDefaultPins()
 
 		{
 			FStructOnScope StructOnScope(Cast<UScriptStruct>(StructType));
-			FMakeStructPinManager OptionalPinManager(StructOnScope.GetStructMemory());
+			FSetFieldsInStructPinManager OptionalPinManager(StructOnScope.GetStructMemory());
 			OptionalPinManager.RebuildPropertyList(ShowPinForProperties, StructType);
 			OptionalPinManager.CreateVisiblePins(ShowPinForProperties, StructType, EGPD_Input, this);
 		}
@@ -59,12 +59,12 @@ FText UK2Node_SetFieldsInStruct::GetNodeTitle(ENodeTitleType::Type TitleType) co
 	{
 		return LOCTEXT("SetFieldsInNullStructNodeTitle", "Set members in <unknown struct>");
 	}
-	else if (CachedNodeTitle.IsOutOfDate())
+	else if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("StructName"), FText::FromName(StructType->GetFName()));
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(LOCTEXT("SetFieldsInStructNodeTitle", "Set members in {StructName}"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(LOCTEXT("SetFieldsInStructNodeTitle", "Set members in {StructName}"), Args), this);
 	}
 	return CachedNodeTitle;
 }
@@ -75,13 +75,13 @@ FText UK2Node_SetFieldsInStruct::GetTooltipText() const
 	{
 		return LOCTEXT("SetFieldsInStruct_NullTooltip", "Adds a node that modifies an '<unknown struct>'");
 	}
-	else if (CachedTooltip.IsOutOfDate())
+	else if (CachedTooltip.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedTooltip = FText::Format(
+		CachedTooltip.SetCachedText(FText::Format(
 			LOCTEXT("SetFieldsInStruct_Tooltip", "Adds a node that modifies a '{0}'"),
 			FText::FromName(StructType->GetFName())
-		);
+		), this);
 	}
 	return CachedTooltip;
 }
@@ -182,6 +182,13 @@ void UK2Node_SetFieldsInStruct::RestoreAllPins()
 	{
 		ReconstructNode();
 	}
+}
+
+void UK2Node_SetFieldsInStruct::FSetFieldsInStructPinManager::GetRecordDefaults(UProperty* TestProperty, FOptionalPinFromProperty& Record) const
+{
+	FMakeStructPinManager::GetRecordDefaults(TestProperty, Record);
+
+	Record.bShowPin = false;
 }
 
 #undef LOCTEXT_NAMESPACE

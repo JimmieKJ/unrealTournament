@@ -18,8 +18,8 @@
 
 FRemoteTalkerDataImpl::FRemoteTalkerDataImpl() :
 	LastSeen(0.0),
-	AudioComponent(NULL),
-	VoiceDecoder(NULL)
+	AudioComponent(nullptr),
+	VoiceDecoder(nullptr)
 {
 	VoiceDecoder = FVoiceModule::Get().CreateVoiceDecoder();
 	check(VoiceDecoder.IsValid());
@@ -27,20 +27,20 @@ FRemoteTalkerDataImpl::FRemoteTalkerDataImpl() :
 
 FRemoteTalkerDataImpl::~FRemoteTalkerDataImpl()
 {
-	VoiceDecoder = NULL;
+	VoiceDecoder = nullptr;
 }
 
 FVoiceEngineImpl::FVoiceEngineImpl(IOnlineSubsystem* InSubsystem) :
 	OnlineSubsystem(InSubsystem),
-	VoiceCapture(NULL),
-	VoiceEncoder(NULL),
+	VoiceCapture(nullptr),
+	VoiceEncoder(nullptr),
 	OwningUserIndex(INVALID_INDEX),
 	UncompressedBytesAvailable(0),
 	CompressedBytesAvailable(0),
 	AvailableVoiceResult(EVoiceCaptureState::UnInitialized),
 	bPendingFinalCapture(false),
 	bIsCapturing(false),
-	SerializeHelper(NULL)
+	SerializeHelper(nullptr)
 {
 }
 
@@ -51,8 +51,8 @@ FVoiceEngineImpl::~FVoiceEngineImpl()
 		VoiceCapture->Stop();
 	}
 
-	VoiceCapture = NULL;
-	VoiceEncoder = NULL;
+	VoiceCapture = nullptr;
+	VoiceEncoder = nullptr;
 
 	delete SerializeHelper;
 }
@@ -208,6 +208,25 @@ uint32 FVoiceEngineImpl::StopLocalVoiceProcessing(uint32 LocalUserNum)
 	return Return;
 }
 
+uint32 FVoiceEngineImpl::UnregisterRemoteTalker(const FUniqueNetId& UniqueId)
+{
+	const FUniqueNetIdString& RemoteTalkerId = (const FUniqueNetIdString&)UniqueId;
+	FRemoteTalkerDataImpl* RemoteData = RemoteTalkerBuffers.Find(RemoteTalkerId);
+	if (RemoteData != nullptr)
+	{
+		// Dump the whole talker
+		if (RemoteData->AudioComponent)
+		{
+			RemoteData->AudioComponent->Stop();
+			RemoteData->AudioComponent = nullptr;
+		}
+		
+		RemoteTalkerBuffers.Remove(RemoteTalkerId);
+	}
+
+	return S_OK;
+}
+
 uint32 FVoiceEngineImpl::GetVoiceDataReadyFlags() const
 {
 	// First check and update the internal state of VOIP recording
@@ -327,24 +346,16 @@ uint32 FVoiceEngineImpl::SubmitRemoteVoiceData(const FUniqueNetId& RemoteTalkerI
 	UE_LOG(LogVoiceDecode, VeryVerbose, TEXT("SubmitRemoteVoiceData(%s) Size: %d received!"), *RemoteTalkerId.ToDebugString(), *Size);
 
 	const FUniqueNetIdString& TalkerId = (const FUniqueNetIdString&)RemoteTalkerId;
-	FRemoteTalkerDataImpl* QueuedData = RemoteTalkerBuffers.Find(TalkerId);
-
-	if (QueuedData == NULL)
-	{
-		RemoteTalkerBuffers.Add(TalkerId, FRemoteTalkerDataImpl());
-		QueuedData = RemoteTalkerBuffers.Find(TalkerId);
-	}
-
-	check(QueuedData);
+	FRemoteTalkerDataImpl& QueuedData = RemoteTalkerBuffers.FindOrAdd(TalkerId);
 
 	// new voice packet.
-	QueuedData->LastSeen = FPlatformTime::Seconds();
+	QueuedData.LastSeen = FPlatformTime::Seconds();
 
 	uint32 BytesWritten = MAX_UNCOMPRESSED_VOICE_BUFFER_SIZE;
 
 	DecompressedVoiceBuffer.Empty(MAX_UNCOMPRESSED_VOICE_BUFFER_SIZE);
 	DecompressedVoiceBuffer.AddUninitialized(MAX_UNCOMPRESSED_VOICE_BUFFER_SIZE);
-	QueuedData->VoiceDecoder->Decode(Data, *Size, DecompressedVoiceBuffer.GetData(), BytesWritten);
+	QueuedData.VoiceDecoder->Decode(Data, *Size, DecompressedVoiceBuffer.GetData(), BytesWritten);
 
 	// If there is no data, return
 	if (BytesWritten <= 0)
@@ -355,24 +366,28 @@ uint32 FVoiceEngineImpl::SubmitRemoteVoiceData(const FUniqueNetId& RemoteTalkerI
 
 	bool bAudioComponentCreated = false;
 	// Generate a streaming wave audio component for voice playback
-	if (QueuedData->AudioComponent == NULL || QueuedData->AudioComponent->IsPendingKill())
+	if (QueuedData.AudioComponent == nullptr || QueuedData.AudioComponent->IsPendingKill())
 	{
-		if (SerializeHelper == NULL)
+		if (SerializeHelper == nullptr)
 		{
 			SerializeHelper = new FVoiceSerializeHelper(this);
 		}
 
-		QueuedData->AudioComponent = CreateVoiceAudioComponent(VOICE_SAMPLE_RATE);
-		if (QueuedData->AudioComponent)
+		QueuedData.AudioComponent = CreateVoiceAudioComponent(VOICE_SAMPLE_RATE);
+		if (QueuedData.AudioComponent)
 		{
-			QueuedData->AudioComponent->OnAudioFinishedNative.AddRaw(this, &FVoiceEngineImpl::OnAudioFinished);
-			QueuedData->AudioComponent->Play();
+			QueuedData.AudioComponent->OnAudioFinishedNative.AddRaw(this, &FVoiceEngineImpl::OnAudioFinished);
 		}
 	}
-
-	if (QueuedData->AudioComponent != NULL)
+	
+	if (QueuedData.AudioComponent != nullptr)
 	{
-		USoundWaveStreaming* SoundStreaming = CastChecked<USoundWaveStreaming>(QueuedData->AudioComponent->Sound);
+		if (!QueuedData.AudioComponent->IsActive())
+		{
+			QueuedData.AudioComponent->Play();
+		}
+
+		USoundWaveStreaming* SoundStreaming = CastChecked<USoundWaveStreaming>(QueuedData.AudioComponent->Sound);
 
 		if (0)
 		{
@@ -396,16 +411,13 @@ void FVoiceEngineImpl::TickTalkers(float DeltaTime)
 	{
 		FRemoteTalkerDataImpl& RemoteData = It.Value();
 		double TimeSince = CurTime - RemoteData.LastSeen;
-		if (TimeSince >= 5.0)
+		if (TimeSince >= 1.0)
 		{
 			// Dump the whole talker
 			if (RemoteData.AudioComponent)
 			{
 				RemoteData.AudioComponent->Stop();
-				RemoteData.AudioComponent = NULL;
 			}
-
-			It.RemoveCurrent();
 		}
 	}
 }
@@ -426,7 +438,7 @@ void FVoiceEngineImpl::OnAudioFinished(UAudioComponent* AC)
 		if (RemoteData.AudioComponent->IsPendingKill() || AC == RemoteData.AudioComponent)
 		{
 			UE_LOG(LogVoiceDecode, Log, TEXT("Removing VOIP AudioComponent for Id: %s"), *It.Key().ToDebugString());
-			RemoteData.AudioComponent = NULL;
+			RemoteData.AudioComponent = nullptr;
 			break;
 		}
 	}

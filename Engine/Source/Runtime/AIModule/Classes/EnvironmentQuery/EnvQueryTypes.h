@@ -3,6 +3,7 @@
 #pragma once
 
 #include "EnvironmentQuery/Items/EnvQueryItemType.h"
+#include "EnvironmentQuery/EnvQueryContext.h"
 #include "DataProviders/AIDataProvider.h"
 #include "EnvQueryTypes.generated.h"
 
@@ -106,6 +107,27 @@ namespace EEnvTestCost
 }
 
 UENUM()
+namespace EEnvTestFilterOperator
+{
+	enum Type
+	{
+		AllPass			UMETA(Tooltip = "All contexts must pass condition"),
+		AnyPass			UMETA(Tooltip = "At least one context must pass condition"),
+	};
+}
+
+UENUM()
+namespace EEnvTestScoreOperator
+{
+	enum Type
+	{
+		AverageScore	UMETA(Tooltip = "Use average score from all contexts"),
+		MinScore		UMETA(Tooltip = "Use minimum score from all contexts"),
+		MaxScore		UMETA(Tooltip = "Use maximum score from all contexts"),
+	};
+}
+
+UENUM()
 namespace EEnvQueryStatus
 {
 	enum Type
@@ -124,8 +146,10 @@ namespace EEnvQueryRunMode
 {
 	enum Type
 	{
-		SingleResult,		// weight scoring first, try conditions from best result and stop after first item pass
-		AllMatching,		// conditions first (limit set of items), weight scoring later
+		SingleResult	UMETA(Tooltip="Pick first item with the best score", DisplayName="Single Best Item"),
+		RandomBest5Pct	UMETA(Tooltip="Pick random item with score 95% .. 100% of max", DisplayName="Single Random Item from Best 5%"),
+		RandomBest25Pct	UMETA(Tooltip="Pick random item with score 75% .. 100% of max", DisplayName="Single Random Item from Best 25%"),
+		AllMatching		UMETA(Tooltip="Get all items that match conditions"),
 	};
 }
 
@@ -183,60 +207,6 @@ namespace EEnvQueryTestClamping
 		FilterThreshold	// Clamp to test's filter threshold
 	};
 }
-
-// DEPRECATED, will be removed soon - use AI Data Providers instead 
-USTRUCT()
-struct AIMODULE_API FEnvFloatParam
-{
-	GENERATED_USTRUCT_BODY();
-
-	/** default value */
-	UPROPERTY(EditDefaultsOnly, Category=Param)
-	float Value;
-
-	/** name of parameter */
-	UPROPERTY(EditDefaultsOnly, Category=Param)
-	FName ParamName;
-
-	bool IsNamedParam() const { return ParamName != NAME_None; }
-	void Convert(UObject* Owner, FAIDataProviderFloatValue& ValueProvider);
-};
-
-// DEPRECATED, will be removed soon - use AI Data Providers instead 
-USTRUCT()
-struct AIMODULE_API FEnvIntParam
-{
-	GENERATED_USTRUCT_BODY();
-
-	/** default value */
-	UPROPERTY(EditDefaultsOnly, Category=Param)
-	int32 Value;
-
-	/** name of parameter */
-	UPROPERTY(EditDefaultsOnly, Category=Param)
-	FName ParamName;
-
-	bool IsNamedParam() const { return ParamName != NAME_None; }
-	void Convert(UObject* Owner, FAIDataProviderIntValue& ValueProvider);
-};
-
-// DEPRECATED, will be removed soon - use AI Data Providers instead 
-USTRUCT()
-struct AIMODULE_API FEnvBoolParam
-{
-	GENERATED_USTRUCT_BODY();
-
-	/** default value */
-	UPROPERTY(EditDefaultsOnly, Category=Param)
-	bool Value;
-
-	/** name of parameter */
-	UPROPERTY(EditDefaultsOnly, Category=Param)
-	FName ParamName;
-
-	bool IsNamedParam() const { return ParamName != NAME_None; }
-	void Convert(UObject* Owner, FAIDataProviderBoolValue& ValueProvider);
-};
 
 USTRUCT(BlueprintType)
 struct AIMODULE_API FEnvNamedValue
@@ -403,11 +373,15 @@ struct AIMODULE_API FEnvQueryItem
 
 template <> struct TIsZeroConstructType<FEnvQueryItem> { enum { Value = true }; };
 
+USTRUCT()
 struct AIMODULE_API FEnvQueryResult
 {
+	GENERATED_USTRUCT_BODY()
+
 	TArray<FEnvQueryItem> Items;
 
 	/** type of generated items */
+	UPROPERTY(BlueprintReadOnly, Category = "EQS")
 	TSubclassOf<UEnvQueryItemType> ItemType;
 
 	/** raw data of items */
@@ -415,16 +389,18 @@ struct AIMODULE_API FEnvQueryResult
 
 private:
 	/** query status */
-	TEnumAsByte<EEnvQueryStatus::Type> Status;
+	EEnvQueryStatus::Type Status;
 
 public:
 	/** index of query option, that generated items */
+	UPROPERTY(BlueprintReadOnly, Category = "EQS")
 	int32 OptionIndex;
 
 	/** instance ID */
+	UPROPERTY(BlueprintReadOnly, Category = "EQS")
 	int32 QueryID;
 
-	/** instance owner */
+	/** instance owner. Mind that it doesn't have to be the query's "Querier". This is just the object that is responsible for this query instance. */
 	TWeakObjectPtr<UObject> Owner;
 
 	FORCEINLINE float GetItemScore(int32 Index) const { return Items.IsValidIndex(Index) ? Items[Index].Score : 0.0f; }
@@ -432,6 +408,10 @@ public:
 	/** item accessors for basic types */
 	AActor* GetItemAsActor(int32 Index) const;
 	FVector GetItemAsLocation(int32 Index) const;
+
+	/** note that this function does not strip out the null-actors to not mess up results of GetItemScore(Index) calls*/
+	void GetAllAsActors(TArray<AActor*>& OutActors) const;
+	void GetAllAsLocations(TArray<FVector>& OutLocations) const;
 
 	FEnvQueryResult() : ItemType(NULL), Status(EEnvQueryStatus::Processing), OptionIndex(0) {}
 	FEnvQueryResult(const EEnvQueryStatus::Type& InStatus) : ItemType(NULL), Status(InStatus), OptionIndex(0) {}
@@ -443,6 +423,8 @@ public:
 	FORCEINLINE void MarkAsFailed() { Status = EEnvQueryStatus::Failed; }
 	FORCEINLINE void MarkAsFinishedWithoutIssues() { Status = EEnvQueryStatus::Success; }
 	FORCEINLINE void MarkAsOwnerLost() { Status = EEnvQueryStatus::OwnerLost; }
+
+	FORCEINLINE EEnvQueryStatus::Type GetRawStatus() const { return Status; }
 };
 
 
@@ -523,7 +505,7 @@ struct AIMODULE_API FEnvQueryOptionInstance
 	TSubclassOf<UEnvQueryItemType> ItemType;
 
 	/** if set, items will be shuffled after tests */
-	bool bShuffleItems;
+	uint32 bHasNavLocations : 1;
 
 	FORCEINLINE uint32 GetAllocatedSize() const { return sizeof(*this) + Tests.GetAllocatedSize(); }
 };
@@ -674,8 +656,8 @@ protected:
 	/** sort all scores, from highest to lowest */
 	void SortScores();
 
-	/** pick one of items with highest score */
-	void PickBestItem();
+	/** pick one of items with score equal or higher than specified */
+	void PickBestItem(float MinScore);
 
 	/** discard all items but one */
 	void PickSingleItem(int32 ItemIndex);
@@ -710,16 +692,19 @@ public:
 #if !NO_LOGGING
 	void Log(const FString Msg) const;
 #endif // #if !NO_LOGGING
-	
+
 #if USE_EQS_DEBUGGER
-#	define  UE_EQS_DBGMSG(Format, ...) \
-					Instance->ItemDetails[CurrentItem].FailedDescription = FString::Printf(Format, ##__VA_ARGS__)
+#	define  UE_EQS_DBGMSG(Condition, Format, ...) \
+					if (Condition) \
+					{ \
+						Instance->ItemDetails[CurrentItem].FailedDescription = FString::Printf(Format, ##__VA_ARGS__); \
+					}
 
 #	define UE_EQS_LOG(CategoryName, Verbosity, Format, ...) \
 					UE_LOG(CategoryName, Verbosity, Format, ##__VA_ARGS__); \
-					UE_EQS_DBGMSG(Format, ##__VA_ARGS__); 
+					UE_EQS_DBGMSG(true, Format, ##__VA_ARGS__); 
 #else
-#	define UE_EQS_DBGMSG(Format, ...)
+#	define UE_EQS_DBGMSG(Condition, Format, ...)
 #	define UE_EQS_LOG(CategoryName, Verbosity, Format, ...) UE_LOG(CategoryName, Verbosity, Format, ##__VA_ARGS__); 
 #endif
 
@@ -742,27 +727,18 @@ public:
 				switch (FilterType)
 				{
 					case EEnvTestFilterType::Maximum:
-						if (Score > Max)
-						{
-							UE_EQS_DBGMSG(TEXT("Value %f is above maximum value set to %f"), Score, Max);
-							bPassedTest = false;
-						}
+						bPassedTest = (Score <= Max);
+						UE_EQS_DBGMSG(!bPassedTest, TEXT("Value %f is above maximum value set to %f"), Score, Max);
 						break;
 
 					case EEnvTestFilterType::Minimum:
-						if (Score < Min)
-						{
-							UE_EQS_DBGMSG(TEXT("Value %f is below minimum value set to %f"), Score, Min);
-							bPassedTest = false;
-						}
+						bPassedTest = (Score >= Min);
+						UE_EQS_DBGMSG(!bPassedTest, TEXT("Value %f is below minimum value set to %f"), Score, Min);
 						break;
 
 					case EEnvTestFilterType::Range:
-						if ((Score < Min) || (Score > Max))
-						{
-							UE_EQS_DBGMSG(TEXT("Value %f is out of range set to (%f, %f)"), Score, Min, Max);
-							bPassedTest = false;
-						}
+						bPassedTest = (Score >= Min) && (Score <= Max);
+						UE_EQS_DBGMSG(!bPassedTest, TEXT("Value %f is out of range set to (%f, %f)"), Score, Min, Max);
 						break;
 
 					case EEnvTestFilterType::Match:
@@ -779,15 +755,11 @@ public:
 
 			if (bPassedTest)
 			{
-				// If we passed the test, either we really did, or we're only scoring, so we can't truly "fail".	
-				ItemScore += Score;
-				NumPartialScores++;
+				SetScoreInternal(Score);
+				NumPassedForItem++;
 			}
-			else
-			{
-				// We are ONLY filtering, and we failed
-				bPassed = false;
-			}
+
+			NumTestsForItem++;
 		}
 
 		void SetScore(EEnvTestPurpose::Type TestPurpose, EEnvTestFilterType::Type FilterType, bool bScore, bool bExpected)
@@ -797,12 +769,7 @@ public:
 			{
 				case EEnvTestFilterType::Match:
 					bPassedTest = (bScore == bExpected);
-#if USE_EQS_DEBUGGER
-					if (!bPassedTest)
-					{
-						UE_EQS_DBGMSG(TEXT("Boolean score don't mach (expected %s and got %s)"), bExpected ? TEXT("TRUE") : TEXT("FALSE"), bScore ? TEXT("TRUE") : TEXT("FALSE"));
-					}
-#endif
+					UE_EQS_DBGMSG(!bPassedTest, TEXT("Boolean score don't mach (expected %s and got %s)"), bExpected ? TEXT("TRUE") : TEXT("FALSE"), bScore ? TEXT("TRUE") : TEXT("FALSE"));
 					break;
 
 				case EEnvTestFilterType::Maximum:
@@ -826,23 +793,13 @@ public:
 					break;
 			}
 
-			if (!bPassedTest)
+			if (bPassedTest)
 			{
-				if (TestPurpose == EEnvTestPurpose::Score)
-				{
-					bSkipped = true;
-					NumPartialScores++;
-				}
-				else // We are filtering!
-				{
-					bPassed = false;
-				}
+				SetScoreInternal(1.0f);
+				NumPassedForItem++;
 			}
-			else
-			{
-				ItemScore += 1.0f;
-				NumPartialScores++;
-			}
+
+			NumTestsForItem++;
 		}
 
 		uint8* GetItemData()
@@ -857,17 +814,28 @@ public:
 
 		void SkipItem()
 		{
-			bSkipped++;
+			bSkipped = true;
 		}
 
-		operator bool() const
+		void IgnoreTimeLimit()
 		{
-			return CurrentItem < Instance->Items.Num() && !Instance->bFoundSingleResult && (Deadline < 0 || FPlatformTime::Seconds() < Deadline);
+			Deadline = -1.0f;
 		}
 
+		int32 GetIndex() const
+		{
+			return CurrentItem;
+		}
+
+		DEPRECATED(4.8, "This function is now deprecatewd, please use GetIndex() for current index or GetItemData() for raw data pointer")
 		int32 operator*() const
 		{
-			return CurrentItem; 
+			return GetIndex();
+		}
+
+		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		{
+			return CurrentItem < Instance->Items.Num() && !Instance->bFoundSingleResult && (Deadline < 0 || FPlatformTime::Seconds() < Deadline);
 		}
 
 		void operator++()
@@ -883,16 +851,21 @@ public:
 	protected:
 
 		FEnvQueryInstance* Instance;
-		int32 CurrentItem;
-		int32 NumPartialScores;
 		double Deadline;
 		float ItemScore;
-		uint32 bPassed : 1;
-		uint32 bSkipped : 1;
+		int32 CurrentItem;
+		int16 NumPassedForItem;
+		int16 NumTestsForItem;
+		uint8 CachedFilterOp;
+		uint8 CachedScoreOp;
+		uint8 bPassed : 1;
+		uint8 bSkipped : 1;
+		uint8 bIsFiltering : 1;
 
 		void InitItemScore()
 		{
-			NumPartialScores = 0;
+			NumPassedForItem = 0;
+			NumTestsForItem = 0;
 			ItemScore = 0.0f;
 			bPassed = true;
 			bSkipped = false;
@@ -905,6 +878,46 @@ public:
 		{
 			for (CurrentItem++; CurrentItem < Instance->Items.Num() && !Instance->Items[CurrentItem].IsValid(); CurrentItem++)
 				;
+		}
+
+		FORCEINLINE void SetScoreInternal(float Score)
+		{
+			switch (CachedScoreOp)
+			{
+			case EEnvTestScoreOperator::AverageScore:
+				ItemScore += Score;
+				break;
+
+			case EEnvTestScoreOperator::MinScore:
+				if (!NumPassedForItem || ItemScore > Score)
+				{
+					ItemScore = Score;
+				}
+				break;
+
+			case EEnvTestScoreOperator::MaxScore:
+				if (!NumPassedForItem || ItemScore < Score)
+				{
+					ItemScore = Score;
+				}
+				break;
+			}
+		}
+
+		FORCEINLINE void CheckItemPassed()
+		{
+			if (!bIsFiltering)
+			{
+				bPassed = true;
+			}
+			else if (CachedFilterOp == EEnvTestFilterOperator::AllPass)
+			{
+				bPassed = bPassed && (NumPassedForItem == NumTestsForItem);
+			}
+			else
+			{
+				bPassed = bPassed && (NumPassedForItem > 0);
+			}
 		}
 	};
 #endif
@@ -922,10 +935,87 @@ public:
 
 namespace FEQSHelpers
 {
+	AIMODULE_API const ANavigationData* FindNavigationDataForQuery(FEnvQueryInstance& QueryInstance);
+
 #if WITH_RECAST
+
+	DEPRECATED(4.8, "FindNavMeshForQuery is deprecated. Please use FindNavigationDataForQuery")
 	AIMODULE_API const ARecastNavMesh* FindNavMeshForQuery(FEnvQueryInstance& QueryInstance);
 #endif // WITH_RECAST
 }
+
+// BEGIN DEPRECATED SUPPORT
+
+USTRUCT()
+struct AIMODULE_API FEnvFloatParam_DEPRECATED
+{
+	GENERATED_USTRUCT_BODY();
+
+	/** default value */
+	UPROPERTY(EditDefaultsOnly, Category = Param)
+	float Value;
+
+	/** name of parameter */
+	UPROPERTY(EditDefaultsOnly, Category = Param)
+	FName ParamName;
+
+	bool IsNamedParam() const { return ParamName != NAME_None; }
+	void Convert(UObject* Owner, FAIDataProviderFloatValue& ValueProvider);
+};
+
+USTRUCT()
+struct AIMODULE_API FEnvIntParam_DEPRECATED
+{
+	GENERATED_USTRUCT_BODY();
+
+	/** default value */
+	UPROPERTY(EditDefaultsOnly, Category = Param)
+	int32 Value;
+
+	/** name of parameter */
+	UPROPERTY(EditDefaultsOnly, Category = Param)
+	FName ParamName;
+
+	bool IsNamedParam() const { return ParamName != NAME_None; }
+	void Convert(UObject* Owner, FAIDataProviderIntValue& ValueProvider);
+};
+
+USTRUCT()
+struct AIMODULE_API FEnvBoolParam_DEPRECATED
+{
+	GENERATED_USTRUCT_BODY();
+
+	/** default value */
+	UPROPERTY(EditDefaultsOnly, Category = Param)
+	bool Value;
+
+	/** name of parameter */
+	UPROPERTY(EditDefaultsOnly, Category = Param)
+	FName ParamName;
+
+	bool IsNamedParam() const { return ParamName != NAME_None; }
+	void Convert(UObject* Owner, FAIDataProviderBoolValue& ValueProvider);
+};
+
+USTRUCT()
+struct DEPRECATED(4.8, "FEnvFloatParam is deprecated in 4.8 and was replaced with FAIDataProviderFloatValue. Please use that type instead.") AIMODULE_API FEnvFloatParam : public FEnvFloatParam_DEPRECATED
+{
+	GENERATED_USTRUCT_BODY();
+};
+
+USTRUCT()
+struct DEPRECATED(4.8, "FEnvIntParam is deprecated in 4.8 and was replaced with FAIDataProviderIntValue. Please use that type instead.") AIMODULE_API FEnvIntParam : public FEnvIntParam_DEPRECATED
+{
+	GENERATED_USTRUCT_BODY();
+};
+
+USTRUCT()
+struct DEPRECATED(4.8, "FEnvBoolParam is deprecated in 4.8 and was replaced with FAIDataProviderBoolValue. Please use that type instead.") AIMODULE_API FEnvBoolParam : public FEnvBoolParam_DEPRECATED
+{
+	GENERATED_USTRUCT_BODY();
+};
+
+// END DEPRECATED SUPPORT
 
 UCLASS(Abstract)
 class AIMODULE_API UEnvQueryTypes : public UObject

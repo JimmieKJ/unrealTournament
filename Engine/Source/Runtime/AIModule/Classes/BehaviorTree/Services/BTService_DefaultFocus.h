@@ -25,7 +25,13 @@ struct FBTFocusMemory
 UCLASS(hidecategories=(Service))
 class AIMODULE_API UBTService_DefaultFocus : public UBTService_BlackboardBase
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
+	
+	// not exposed to users on purpose. Here to make reusing focus-setting mechanics by derived classes possible
+	UPROPERTY()
+	uint8 FocusPriority;
+
+	UBTService_DefaultFocus(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	virtual uint16 GetInstanceMemorySize() const override { return sizeof(FBTFocusMemory); }
 	virtual void OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;

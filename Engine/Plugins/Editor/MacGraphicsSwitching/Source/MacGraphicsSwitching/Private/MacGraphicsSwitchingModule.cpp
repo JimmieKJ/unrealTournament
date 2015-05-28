@@ -132,7 +132,7 @@ void FMacGraphicsSwitchingModule::Initialize( TSharedPtr<SWindow> InRootWindow, 
 		FMacGraphicsSwitchingStyle::Initialize();
 		
 		bool MacUseAutomaticGraphicsSwitching = false;
-		if ( GConfig->GetBool(TEXT("/Script/MacGraphicsSwitching.MacGraphicsSwitchingSettings"), TEXT("bAllowAutomaticGraphicsSwitching"), MacUseAutomaticGraphicsSwitching, GEditorGameAgnosticIni) && MacUseAutomaticGraphicsSwitching )
+		if ( GConfig->GetBool(TEXT("/Script/MacGraphicsSwitching.MacGraphicsSwitchingSettings"), TEXT("bAllowAutomaticGraphicsSwitching"), MacUseAutomaticGraphicsSwitching, GEditorSettingsIni) && MacUseAutomaticGraphicsSwitching )
 		{
 			if ( AllowAutomaticGraphicsSwitching() )
 			{
@@ -148,7 +148,7 @@ void FMacGraphicsSwitchingModule::Initialize( TSharedPtr<SWindow> InRootWindow, 
 			}
 			else
 			{
-				GConfig->SetBool(TEXT("/Script/MacGraphicsSwitching.MacGraphicsSwitchingSettings"), TEXT("bAllowAutomaticGraphicsSwitching"), false, GEditorGameAgnosticIni);
+				GConfig->SetBool(TEXT("/Script/MacGraphicsSwitching.MacGraphicsSwitchingSettings"), TEXT("bAllowAutomaticGraphicsSwitching"), false, GEditorSettingsIni);
 			}
 		}
 	}

@@ -98,7 +98,7 @@ void UNavLinkCustomComponent::GetNavigationData(FNavigationRelevantData& Data) c
 	}
 }
 
-void UNavLinkCustomComponent::CalcBounds()
+void UNavLinkCustomComponent::CalcAndCacheBounds() const
 {
 	Bounds = FBox(0);
 	Bounds += GetStartPoint();
@@ -115,18 +115,18 @@ void UNavLinkCustomComponent::OnRegister()
 {
 	Super::OnRegister();
 
+	if (NavLinkUserId == 0)
+	{
+		NavLinkUserId = INavLinkCustomInterface::GetUniqueId();
+	}
+
 	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
 	if (NavSys == NULL)
 	{
 		return;
 	}
 
-	if (NavLinkUserId == 0)
-	{
-		NavLinkUserId = INavLinkCustomInterface::GetUniqueId();
-	}
-
-	NavSys->RegisterCustomLink(this);
+	NavSys->RegisterCustomLink(*this);
 }
 
 void UNavLinkCustomComponent::OnUnregister()
@@ -140,7 +140,7 @@ void UNavLinkCustomComponent::OnUnregister()
 	}
 
 	// always try to unregister, even if not relevant right now
-	NavSys->UnregisterCustomLink(this);
+	NavSys->UnregisterCustomLink(*this);
 }
 
 void UNavLinkCustomComponent::SetLinkData(const FVector& RelativeStart, const FVector& RelativeEnd, ENavLinkDirection::Type Direction)
@@ -272,13 +272,13 @@ void UNavLinkCustomComponent::CollectNearbyAgents(TArray<UPathFollowingComponent
 	const float DistThresholdSq = FMath::Square(BroadcastRadius * 0.25f);
 	if (LinkDistSq > DistThresholdSq)
 	{
-		GetWorld()->OverlapMulti(OverlapsL, LocationL, FQuat::Identity, BroadcastChannel, FCollisionShape::MakeSphere(BroadcastRadius), Params);
-		GetWorld()->OverlapMulti(OverlapsR, LocationR, FQuat::Identity, BroadcastChannel, FCollisionShape::MakeSphere(BroadcastRadius), Params);
+		GetWorld()->OverlapMultiByChannel(OverlapsL, LocationL, FQuat::Identity, BroadcastChannel, FCollisionShape::MakeSphere(BroadcastRadius), Params);
+		GetWorld()->OverlapMultiByChannel(OverlapsR, LocationR, FQuat::Identity, BroadcastChannel, FCollisionShape::MakeSphere(BroadcastRadius), Params);
 	}
 	else
 	{
 		const FVector MidPoint = (LocationL + LocationR) * 0.5f;
-		GetWorld()->OverlapMulti(OverlapsL, MidPoint, FQuat::Identity, BroadcastChannel, FCollisionShape::MakeSphere(BroadcastRadius), Params);
+		GetWorld()->OverlapMultiByChannel(OverlapsL, MidPoint, FQuat::Identity, BroadcastChannel, FCollisionShape::MakeSphere(BroadcastRadius), Params);
 	}
 
 	TArray<APawn*> PawnList;

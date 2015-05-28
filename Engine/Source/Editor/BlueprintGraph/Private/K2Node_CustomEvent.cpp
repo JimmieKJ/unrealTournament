@@ -106,25 +106,58 @@ UK2Node_CustomEvent::UK2Node_CustomEvent(const FObjectInitializer& ObjectInitial
 	bCallInEditor = false;
 }
 
+void UK2Node_CustomEvent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading())
+	{
+		CachedNodeTitle.MarkDirty();
+	}
+}
+
 FText UK2Node_CustomEvent::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	if (TitleType != ENodeTitleType::FullTitle)
 	{
 		return FText::FromName(CustomFunctionName);
 	}
-	else if (CachedNodeTitle.IsOutOfDate())
+	else if (CachedNodeTitle.IsOutOfDate(this))
 	{
-		FString RPCString = UK2Node_Event::GetLocalizedNetString(FunctionFlags, false);
+		FText RPCString = UK2Node_Event::GetLocalizedNetString(FunctionFlags, false);
 		
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("FunctionName"), FText::FromName(CustomFunctionName));
-		Args.Add(TEXT("RPCString"), FText::FromString(RPCString));
+		Args.Add(TEXT("RPCString"), RPCString);
 
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(NSLOCTEXT("K2Node", "CustomEvent_Name", "{FunctionName}{RPCString}\nCustom Event"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "CustomEvent_Name", "{FunctionName}{RPCString}\nCustom Event"), Args), this);
 	}
 
 	return CachedNodeTitle;
+}
+
+bool UK2Node_CustomEvent::CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage)
+{
+	if (!IsEditable())
+	{
+		return false;
+	}
+
+	// Make sure that if this is an exec node we are allowed one.
+	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+	if(InDesiredDirection == EGPD_Input)
+	{
+		OutErrorMessage = NSLOCTEXT("K2Node", "AddInputPinError", "Cannot add input pins to function result node!");
+		return false;
+	}
+	else if (InPinType.PinCategory == Schema->PC_Exec && !CanModifyExecutionWires())
+	{
+		OutErrorMessage = LOCTEXT("MultipleExecPinError", "Cannot support more exec pins!");
+		return false;
+	}
+
+	return true;
 }
 
 UEdGraphPin* UK2Node_CustomEvent::CreatePinFromUserDefinition(const TSharedPtr<FUserPinInfo> NewPinInfo)
@@ -269,17 +302,32 @@ void UK2Node_CustomEvent::GetMenuActions(FBlueprintActionDatabaseRegistrar& Acti
 
 void UK2Node_CustomEvent::ReconstructNode()
 {
-	const UEdGraphPin* DelegateOutPin = FindPin(DelegateOutputName);
+	CachedNodeTitle.MarkDirty();
 
-	const UK2Node_BaseMCDelegate* OtherNode = (DelegateOutPin && DelegateOutPin->LinkedTo.Num() && DelegateOutPin->LinkedTo[0]) ?
-		Cast<const UK2Node_BaseMCDelegate>(DelegateOutPin->LinkedTo[0]->GetOwningNode()) : NULL;
-	const UFunction* DelegateSignature = OtherNode ? OtherNode->GetDelegateSignature() : NULL;
+	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+
+	const UEdGraphPin* DelegateOutPin = FindPin(DelegateOutputName);
+	const UEdGraphPin* LinkedPin = ( DelegateOutPin && DelegateOutPin->LinkedTo.Num() && DelegateOutPin->LinkedTo[0] ) ? DelegateOutPin->LinkedTo[0] : nullptr;
+
+	const UFunction* DelegateSignature = nullptr;
+
+	if ( LinkedPin )
+	{
+		if ( const UK2Node_BaseMCDelegate* OtherNode = Cast<const UK2Node_BaseMCDelegate>(LinkedPin->GetOwningNode()) )
+		{
+			DelegateSignature = OtherNode->GetDelegateSignature();
+		}
+		else if ( LinkedPin->PinType.PinCategory == K2Schema->PC_Delegate )
+		{
+			DelegateSignature = FMemberReference::ResolveSimpleMemberReference<UFunction>(LinkedPin->PinType.PinSubCategoryMemberReference);
+		}
+	}
+	
 	const bool bUseDelegateSignature = (NULL == FindEventSignatureFunction()) && DelegateSignature;
 
 	if (bUseDelegateSignature)
 	{
 		UserDefinedPins.Empty();
-		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 		for (TFieldIterator<UProperty> PropIt(DelegateSignature); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
 		{
 			const UProperty* Param = *PropIt;
@@ -328,7 +376,7 @@ UK2Node_CustomEvent* UK2Node_CustomEvent::CreateFromFunction(FVector2D GraphPosi
 			{
 				FEdGraphPinType PinType;
 				K2Schema->ConvertPropertyToPinType(Param, /*out*/ PinType);
-				CustomEventNode->CreateUserDefinedPin(Param->GetName(), PinType);
+				CustomEventNode->CreateUserDefinedPin(Param->GetName(), PinType, EGPD_Output);
 			}
 		}
 

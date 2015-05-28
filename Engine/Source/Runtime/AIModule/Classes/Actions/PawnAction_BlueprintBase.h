@@ -28,7 +28,7 @@ public:
 
 protected:
 	virtual void Tick(float DeltaTime) override;
-	virtual bool Start();
+	virtual bool Start() override;
 	virtual bool Pause(const UPawnAction* PausedBy) override;
 	virtual bool Resume() override;
 	virtual void OnFinished(EPawnActionResult::Type WithResult) override;

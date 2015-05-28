@@ -10,6 +10,10 @@
 #include "PreviewScene.h"
 #include "ScopedTransaction.h"
 
+class UPaperTileMapComponent;
+class STileMapEditorViewport;
+class FScopedTransaction;
+
 //////////////////////////////////////////////////////////////////////////
 // FTileMapEditorViewportClient
 
@@ -17,11 +21,10 @@ class FTileMapEditorViewportClient : public FPaperEditorViewportClient
 {
 public:
 	/** Constructor */
-	FTileMapEditorViewportClient(TWeakPtr<FTileMapEditor> InTileMapEditor, TWeakPtr<class STileMapEditorViewport> InTileMapEditorViewportPtr);
+	FTileMapEditorViewportClient(TWeakPtr<FTileMapEditor> InTileMapEditor, TWeakPtr<STileMapEditorViewport> InTileMapEditorViewportPtr);
 
 	// FViewportClient interface
-	virtual void Draw(FViewport* Viewport, FCanvas* Canvas) override;
-	virtual void Draw(const FSceneView* View, FPrimitiveDrawInterface* PDI);
+	virtual void Draw(const FSceneView* View, FPrimitiveDrawInterface* PDI) override;
 	virtual void DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas) override;
 	virtual void Tick(float DeltaSeconds) override;
 	// End of FViewportClient interface
@@ -33,8 +36,17 @@ public:
 	void ToggleShowPivot() { bShowPivot = !bShowPivot; Invalidate(); }
 	bool IsShowPivotChecked() const { return bShowPivot; }
 
+	void ToggleShowTileGrid();
+	bool IsShowTileGridChecked() const;
+
+	void ToggleShowLayerGrid();
+	bool IsShowLayerGridChecked() const;
+
 	void ToggleShowMeshEdges();
 	bool IsShowMeshEdgesChecked() const;
+
+	void ToggleShowTileMapStats();
+	bool IsShowTileMapStatsChecked() const;
 
 	//
 	void FocusOnTileMap();
@@ -63,28 +75,31 @@ private:
 	// Did we dirty something during manipulation?
 	bool bManipulationDirtiedSomething;
 
+	// Are we showing tile map stats?
+	bool bShowTileMapStats;
+
 	// Pointer back to the tile map editor viewport control that owns us
-	TWeakPtr<class STileMapEditorViewport> TileMapEditorViewportPtr;
+	TWeakPtr<STileMapEditorViewport> TileMapEditorViewportPtr;
 
 	// The current transaction for undo/redo
-	class FScopedTransaction* ScopedTransaction;
+	FScopedTransaction* ScopedTransaction;
 
 	// Should we show the sprite pivot?
 	bool bShowPivot;
 
-	// Should we zoom to the tile map next tick?
-	bool bDeferZoomToTileMap;
+protected:
+	// FPaperEditorViewportClient interface
+	virtual FBox GetDesiredFocusBounds() const override;
+	// End of FPaperEditorViewportClient interface
+
 private:
 	UPaperTileMap* GetTileMapBeingEdited() const
 	{
 		return TileMapEditorPtr.Pin()->GetTileMapBeingEdited();
 	}
 
-	void DrawTriangleList(FViewport& InViewport, FSceneView& View, FCanvas& Canvas, const TArray<FVector2D>& Triangles);
 	void DrawBoundsAsText(FViewport& InViewport, FSceneView& View, FCanvas& Canvas, int32& YPos);
 	
 	void BeginTransaction(const FText& SessionName);
 	void EndTransaction();
-
-	void ClearSelectionSet();
 };

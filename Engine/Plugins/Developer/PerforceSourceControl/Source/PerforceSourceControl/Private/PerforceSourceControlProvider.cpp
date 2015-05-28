@@ -205,6 +205,20 @@ ECommandResult::Type FPerforceSourceControlProvider::GetState( const TArray<FStr
 	return ECommandResult::Succeeded;
 }
 
+TArray<FSourceControlStateRef> FPerforceSourceControlProvider::GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const
+{
+	TArray<FSourceControlStateRef> Result;
+	for (const auto& CacheItem : StateCache)
+	{
+		FSourceControlStateRef State = CacheItem.Value;
+		if (Predicate(State))
+		{
+			Result.Add(State);
+		}
+	}
+	return Result;
+}
+
 void FPerforceSourceControlProvider::RegisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
 {
 	OnSourceControlStateChanged.Add( SourceControlStateChanged );

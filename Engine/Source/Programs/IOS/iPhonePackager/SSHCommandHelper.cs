@@ -245,6 +245,7 @@ namespace iPhonePackager
 		static public Hashtable UploadFile(string RemoteMac, string LocalPath, string RemotePath)
 		{
 			string RemoteDir = Path.GetDirectoryName(RemotePath).Replace("\\", "/");
+			RemoteDir = RemoteDir.Replace(" ", "\\ ");
 			string RemoteFilename = Path.GetFileName(RemotePath);
 
 			// get the executable dir for SSH, so Rsync can call it easily
@@ -259,7 +260,7 @@ namespace iPhonePackager
 			// make simple rsync commandline to send a file
 			RsyncProcess.StartInfo.FileName = RSyncExePath;
 			RsyncProcess.StartInfo.Arguments = string.Format(
-				"-zae \"ssh {0}\" --rsync-path=\"mkdir -p {1} && rsync\" \"{2}\" {3}@{4}:\"{1}/{5}\"",
+				"-zae \"ssh {0}\" --rsync-path=\"mkdir -p {1} && rsync\" '{2}' {3}@{4}:'{1}/{5}'",
 				SSHAuthentication,
 				RemoteDir,
 				ConvertPathToCygwin(LocalPath),
@@ -300,6 +301,8 @@ namespace iPhonePackager
 		{
 			// get the executable dir for SSH, so Rsync can call it easily
 			string ExeDir = Path.GetDirectoryName(SSHExePath);
+			string RemoteDir = RemotePath.Replace("\\", "/");
+			RemoteDir = RemoteDir.Replace(" ", "\\ ");
 
 			Process RsyncProcess = new Process();
 			if (ExeDir != "")
@@ -313,12 +316,12 @@ namespace iPhonePackager
 			// make simple rsync commandline to send a file
 			RsyncProcess.StartInfo.FileName = RSyncExePath;
 			RsyncProcess.StartInfo.Arguments = string.Format(
-				"-zae \"ssh {0}\" {2}@{3}:\"{4}\" \"{1}\"",
+				"-zae \"ssh {0}\" {2}@{3}:'{4}' \"{1}\"",
 				SSHAuthentication,
 				ConvertPathToCygwin(LocalPath),
 				SSHUser,
 				RemoteMac,
-				RemotePath
+				RemoteDir
 				);
 
 			SSHOutputMap[RsyncProcess] = new StringBuilder("");

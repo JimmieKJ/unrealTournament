@@ -19,6 +19,9 @@ class UMaterialExpressionScalarParameter : public UMaterialExpressionParameter
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	// End UMaterialExpression Interface
 
+	/** Return whether this is the named parameter, and fill in its value */
+	bool IsNamedParameter(FName InParameterName, float& OutValue) const;
+
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif

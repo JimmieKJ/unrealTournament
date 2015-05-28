@@ -141,6 +141,13 @@ bool FShaderParameterMap::FindParameterAllocation(const TCHAR* ParameterName,uin
 		OutBufferIndex = Allocation->BufferIndex;
 		OutBaseIndex = Allocation->BaseIndex;
 		OutSize = Allocation->Size;
+
+		if (Allocation->bBound)
+		{
+			// Can detect copy-paste errors in binding parameters.  Need to fix all the false positives before enabling.
+			//UE_LOG(LogShaders, Warning, TEXT("Parameter %s was bound multiple times. Code error?"), ParameterName);
+		}
+
 		Allocation->bBound = true;
 		return true;
 	}
@@ -458,7 +465,7 @@ void GetShaderIncludes(const TCHAR* Filename, TArray<FString>& IncludeFilenames,
 const FSHAHash& GetShaderFileHash(const TCHAR* Filename)
 {
 	// Make sure we are only accessing GShaderHashCache from one thread
-	check(IsInGameThread());
+	//check(IsInGameThread() || IsAsyncLoading());
 	STAT(double HashTime = 0);
 	{
 		SCOPE_SECONDS_COUNTER(HashTime);
@@ -493,9 +500,9 @@ const FSHAHash& GetShaderFileHash(const TCHAR* Filename)
 		// Update the hash cache
 		FSHAHash& NewHash = GShaderHashCache.Add(*FString(Filename), FSHAHash());
 		HashState.GetHash(&NewHash.Hash[0]);
+		INC_FLOAT_STAT_BY(STAT_ShaderCompiling_HashingShaderFiles, (float)HashTime);
 		return NewHash;
 	}
-	INC_FLOAT_STAT_BY(STAT_ShaderCompiling_HashingShaderFiles,(float)HashTime);
 }
 
 void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*> >& ShaderFileToUniformBufferVariables)
@@ -507,21 +514,42 @@ void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*> >& Sha
 
 		FScopedSlowTask SlowTask(ShaderSourceFiles.Num());
 
+		// Cache UB access strings, make it case sensitive for faster search
+		struct FShaderVariable
+		{
+			FShaderVariable(const TCHAR* ShaderVariable) :
+				OriginalShaderVariable(ShaderVariable), SearchKey(FString(ShaderVariable).ToUpper() + TEXT("."))
+			{
+			}
+			const TCHAR* OriginalShaderVariable;
+			FString SearchKey;
+		};
+		// Cache each UB
+		TArray<FShaderVariable> SearchKeys;
+		for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
+		{
+			SearchKeys.Add(FShaderVariable(StructIt->GetShaderVariableName()));
+		}
+
+		// Find for each shader file which UBs it needs
 		for (int32 FileIndex = 0; FileIndex < ShaderSourceFiles.Num(); FileIndex++)
 		{
 			SlowTask.EnterProgressFrame(1);
-			FString ShaderFileContents;
 
+ 			FString ShaderFileContents;
 			LoadShaderSourceFileChecked(*ShaderSourceFiles[FileIndex], ShaderFileContents);
+
+			// To allow case sensitive search which is way faster on some platforms (no need to look up locale, etc)
+			ShaderFileContents = ShaderFileContents.ToUpper();
 
 			TArray<const TCHAR*>& ReferencedUniformBuffers = ShaderFileToUniformBufferVariables.FindOrAdd(ShaderSourceFiles[FileIndex]);
 
-			for (TLinkedList<FUniformBufferStruct*>::TIterator StructIt(FUniformBufferStruct::GetStructList()); StructIt; StructIt.Next())
+			for (int32 SearchKeyIndex = 0; SearchKeyIndex < SearchKeys.Num(); ++SearchKeyIndex)
 			{
 				// Searching for the uniform buffer shader variable being accessed with '.'
-				if (ShaderFileContents.Contains(FString(StructIt->GetShaderVariableName()) + TEXT(".")))
+				if (ShaderFileContents.Contains(SearchKeys[SearchKeyIndex].SearchKey, ESearchCase::CaseSensitive))
 				{
-					ReferencedUniformBuffers.AddUnique(StructIt->GetShaderVariableName());
+					ReferencedUniformBuffers.AddUnique(SearchKeys[SearchKeyIndex].OriginalShaderVariable);
 				}
 			}
 		}

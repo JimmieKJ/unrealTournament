@@ -32,7 +32,22 @@ struct FUndoSessionContext
 };
 
 
-
+inline bool OuterIsCDO(const UObject* Obj, UObject*& OutCDO)
+{
+	bool bOuterIsCDO = false;
+	UObject* Iter = Obj->GetOuter();
+	while (Iter)
+	{
+		if (Iter->HasAllFlags(RF_ClassDefaultObject))
+		{
+			bOuterIsCDO = true;
+			OutCDO = Iter;
+			break;
+		}
+		Iter = Iter->GetOuter();
+	}
+	return bOuterIsCDO;
+}
 
 /*-----------------------------------------------------------------------------
 	FTransaction.
@@ -65,28 +80,76 @@ protected:
 	{
 	public:
 
+		/** 
+			This type is necessary because the blueprint system is destroying and creating 
+			CDOs at edit time (usually on compile, but also on load), but also stores user 
+			entered data in the CDO. We "need"  changes to a CDO to persist across instances 
+			because as we undo and redo we  need to apply changes to different instances of 
+			the CDO - alternatively we could destroy and create the CDO as part of a transaction 
+			(this alternative is the reason for the bunny ears around need).
+
+			DanO: My long term preference is for the editor to use a dynamic, mutable type
+			(rather than the CDO) to store editor data. The CDO can then be re-instanced (or not)
+			as runtime code requires.
+		*/
 		struct FPersistentObjectRef
 		{
 		private:
 			UObject* Object;
 			UClass* SourceCDO;
+			FName SubObjectId;
+
 		public:
 			FPersistentObjectRef()
-				: Object(NULL)
-				, SourceCDO(NULL)
+				: Object(nullptr)
+				, SourceCDO(nullptr)
+				, SubObjectId()
 			{}
 
 			FPersistentObjectRef(UObject* InObject)
 			{
 				const bool bIsCDO = InObject && InObject->HasAllFlags(RF_ClassDefaultObject);
-				Object = bIsCDO ? NULL : InObject;
-				SourceCDO = bIsCDO ? InObject->GetClass() : NULL;
+				UObject* CDO = nullptr;
+				const bool bIsSubobjectOfCDO = OuterIsCDO(InObject, CDO);
+				if (bIsCDO )
+				{
+					Object = nullptr;
+					SourceCDO = InObject->GetClass();
+				}
+				else if (bIsSubobjectOfCDO)
+				{
+					Object = nullptr;
+					SubObjectId = InObject->GetFName();
+					SourceCDO = CDO->GetClass();
+				}
+				else
+				{
+					Object = InObject;
+					SourceCDO = nullptr;
+				}
 			}
 
 			UObject* Get() const
 			{
 				checkSlow(!SourceCDO || !Object);
-				return SourceCDO ? SourceCDO->GetDefaultObject(false) : Object;
+				if (SourceCDO)
+				{
+					if (SubObjectId != FName())
+					{
+						// find the subobject:
+						return SourceCDO->GetDefaultSubobjectByName(SubObjectId);
+					}
+					else
+					{
+						return SourceCDO->GetDefaultObject(false);
+					}
+				}
+				return Object;
+			}
+
+			bool ShouldAddReference() const
+			{
+				return !(SourceCDO != nullptr && SubObjectId != FName());
 			}
 
 			UObject* operator->() const
@@ -97,11 +160,34 @@ protected:
 			}
 		};
 
+		// Structure to store information about a referenced object
+		// If ObjectName is set, it will represent the name of a blueprint constructed component 
+		// and Object will be the Outer of that Component, otherwise Object will be
+		// a direct reference to the object in question
+		struct FReferencedObject
+		{
+		private:
+			UObject* Object;
+			FName ComponentName;
+		public:
+			FReferencedObject() : Object(nullptr) { }
+			FReferencedObject(UObject* InObject);
+			UObject* GetObject() const;
+			void AddReferencedObjects( FReferenceCollector& Collector );
+
+			friend FArchive& operator<<( FArchive& Ar, FReferencedObject& ReferencedObject )
+			{
+				Ar << ReferencedObject.Object;
+				Ar << ReferencedObject.ComponentName;
+				return Ar;
+			}
+		};
+
 		// Variables.
 		/** The data stream used to serialize/deserialize record */
 		TArray<uint8>		Data;
 		/** External objects referenced in the transaction */
-		TArray<UObject*>	ReferencedObjects;
+		TArray<FReferencedObject>	ReferencedObjects;
 		/** FNames referenced in the object record */
 		TArray<FName>		ReferencedNames;
 		/** The object to track */
@@ -149,7 +235,7 @@ protected:
 			FReader(
 				FTransaction* InOwner,
 				const TArray<uint8>& InData,
-				const TArray<UObject*>& InReferencedObjects,
+				const TArray<FReferencedObject>& InReferencedObjects,
 				const TArray<FName>& InReferencedNames,
 				bool bWantBinarySerialization
 				):
@@ -164,10 +250,10 @@ protected:
 			}
 
 			virtual int64 Tell() override {return Offset;}
-			virtual void Seek( int64 InPos ) { Offset = InPos; }
+			virtual void Seek( int64 InPos ) override { Offset = InPos; }
 
 		private:
-			void Serialize( void* SerData, int64 Num )
+			void Serialize( void* SerData, int64 Num ) override
 			{
 				if( Num )
 				{
@@ -176,21 +262,21 @@ protected:
 					Offset += Num;
 				}
 			}
-			FArchive& operator<<( class FName& N )
+			FArchive& operator<<( class FName& N ) override
 			{
 				int32 NameIndex = 0;
 				(FArchive&)*this << NameIndex;
 				N = ReferencedNames[NameIndex];
 				return *this;
 			}
-			FArchive& operator<<( class UObject*& Res )
+			FArchive& operator<<( class UObject*& Res ) override
 			{
 				int32 ObjectIndex = 0;
 				(FArchive&)*this << ObjectIndex;
-				Res = ReferencedObjects[ObjectIndex];
+				Res = ReferencedObjects[ObjectIndex].GetObject();
 				return *this;
 			}
-			void Preload( UObject* InObject )
+			void Preload( UObject* InObject ) override
 			{
 				if( Owner )
 				{
@@ -205,7 +291,7 @@ protected:
 			}
 			FTransaction* Owner;
 			const TArray<uint8>& Data;
-			const TArray<UObject*>& ReferencedObjects;
+			const TArray<FReferencedObject>& ReferencedObjects;
 			const TArray<FName>& ReferencedNames;
 			int64 Offset;
 		};
@@ -218,7 +304,7 @@ protected:
 		public:
 			FWriter(
 				TArray<uint8>& InData,
-				TArray<UObject*>& InReferencedObjects,
+				TArray<FReferencedObject>& InReferencedObjects,
 				TArray<FName>& InReferencedNames,
 				bool bWantBinarySerialization
 				):
@@ -229,7 +315,7 @@ protected:
 			{
 				for(int32 ObjIndex = 0; ObjIndex < InReferencedObjects.Num(); ++ObjIndex)
 				{
-					ObjectMap.Add(InReferencedObjects[ObjIndex], ObjIndex);
+					ObjectMap.Add(InReferencedObjects[ObjIndex].GetObject(), ObjIndex);
 				}
 
 				ArWantBinaryPropertySerialization = bWantBinarySerialization;
@@ -237,14 +323,14 @@ protected:
 			}
 
 			virtual int64 Tell() override {return Offset;}
-			virtual void Seek( int64 InPos ) 
+			virtual void Seek( int64 InPos ) override
 			{
 				checkSlow(Offset<=Data.Num());
 				Offset = InPos; 
 			}
 
 		private:
-			void Serialize( void* SerData, int64 Num )
+			void Serialize( void* SerData, int64 Num ) override
 			{
 				if( Num )
 				{
@@ -256,12 +342,12 @@ protected:
 					Offset+= Num;
 				}
 			}
-			FArchive& operator<<( class FName& N )
+			FArchive& operator<<( class FName& N ) override
 			{
 				int32 NameIndex = ReferencedNames.AddUnique(N);
 				return (FArchive&)*this << NameIndex;
 			}
-			FArchive& operator<<( class UObject*& Res )
+			FArchive& operator<<( class UObject*& Res ) override
 			{
 				int32 ObjectIndex = 0;
 				int32* ObjIndexPtr = ObjectMap.Find(Res);
@@ -271,14 +357,14 @@ protected:
 				}
 				else
 				{
-					ObjectIndex = ReferencedObjects.Add(Res);
+					ObjectIndex = ReferencedObjects.Add(FReferencedObject(Res));
 					ObjectMap.Add(Res, ObjectIndex);
 				}
 				return (FArchive&)*this << ObjectIndex;
 			}
 			TArray<uint8>& Data;
 			ObjectMapType ObjectMap;
-			TArray<UObject*>& ReferencedObjects;
+			TArray<FReferencedObject>& ReferencedObjects;
 			TArray<FName>& ReferencedNames;
 			int64 Offset;
 		};
@@ -318,14 +404,14 @@ public:
 	{}
 
 	// FTransactionBase interface.
-	virtual void SaveObject( UObject* Object );
-	virtual void SaveArray( UObject* Object, FScriptArray* Array, int32 Index, int32 Count, int32 Oper, int32 ElementSize, STRUCT_DC DefaultConstructor, STRUCT_AR Serializer, STRUCT_DTOR Destructor );
-	virtual void SetPrimaryObject(UObject* InObject);
+	virtual void SaveObject( UObject* Object ) override;
+	virtual void SaveArray( UObject* Object, FScriptArray* Array, int32 Index, int32 Count, int32 Oper, int32 ElementSize, STRUCT_DC DefaultConstructor, STRUCT_AR Serializer, STRUCT_DTOR Destructor ) override;
+	virtual void SetPrimaryObject(UObject* InObject) override;
 
 	/**
 	 * Enacts the transaction.
 	 */
-	virtual void Apply();
+	virtual void Apply() override;
 
 	/** Returns a unique string to serve as a type ID for the FTranscationBase-derived type. */
 	virtual const TCHAR* GetTransactionType() const
@@ -367,10 +453,11 @@ public:
 	 * Get all the objects that are part of this transaction.
 	 * @param	Objects		[out] Receives the object list.  Previous contents are cleared.
 	 */
-	void GetTransactionObjects(TArray<UObject*>& Objects);
+	void GetTransactionObjects(TArray<UObject*>& Objects) const;
 	void RemoveRecords( int32 Count = 1 );
 	int32 GetRecordCount() const;
 
+	const UObject* GetPrimaryObject() const { return PrimaryObject; }
 	/**
 	 * Outputs the contents of the ObjectMap to the specified output device.
 	 */
@@ -532,6 +619,9 @@ class UTransactor : public UObject
 	 * Set passed object as the primary context object for transactions
 	 */
 	virtual void SetPrimaryUndoObject( UObject* Object ) PURE_VIRTUAL(UTransactor::MakePrimaryUndoObject,);
+
+	virtual bool IsObjectInTransationBuffer( const UObject* Object ) const { return false; }
+
 
 	// @todo document
 	virtual ITransaction* CreateInternalTransaction() PURE_VIRTUAL(UTransactor::CreateInternalTransaction,return NULL;);

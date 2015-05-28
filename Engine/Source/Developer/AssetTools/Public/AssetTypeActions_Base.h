@@ -90,7 +90,7 @@ public:
 		return nullptr;
 	}
 
-	virtual bool IsImportedAsset() const
+	virtual bool IsImportedAsset() const override
 	{
 		return false;
 	}
@@ -120,7 +120,7 @@ protected:
 	}
 
 	/** Returns additional tooltip information for the specified asset, if it has any (otherwise return the null widget) */
-	virtual FText GetAssetDescription(const FAssetData& AssetData) const
+	virtual FText GetAssetDescription(const FAssetData& AssetData) const override
 	{
 		return FText::GetEmpty();
 	}

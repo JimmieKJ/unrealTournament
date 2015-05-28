@@ -31,6 +31,7 @@
 #include "Materials/MaterialExpressionCustom.h"
 #include "Materials/MaterialExpressionDDX.h"
 #include "Materials/MaterialExpressionDDY.h"
+#include "Materials/MaterialExpressionDecalMipmapLevel.h"
 #include "Materials/MaterialExpressionDepthFade.h"
 #include "Materials/MaterialExpressionDepthOfFieldFunction.h"
 #include "Materials/MaterialExpressionDeriveNormalZ.h"
@@ -40,6 +41,7 @@
 #include "Materials/MaterialExpressionDivide.h"
 #include "Materials/MaterialExpressionDotProduct.h"
 #include "Materials/MaterialExpressionDynamicParameter.h"
+#include "Materials/MaterialExpressionCustomOutput.h"
 #include "Materials/MaterialExpressionEyeAdaptation.h"
 #include "Materials/MaterialExpressionFeatureLevelSwitch.h"
 #include "Materials/MaterialExpressionFloor.h"
@@ -1260,7 +1262,7 @@ static bool VerifySamplerType(
 		EMaterialSamplerType CorrectSamplerType = UMaterialExpressionTextureBase::GetSamplerTypeForTexture( Texture );
 		if ( SamplerType != CorrectSamplerType )
 		{
-			UEnum* SamplerTypeEnum = FindObject<UEnum>( NULL, TEXT("/Script/Engine.EngineTypes.EMaterialSamplerType") );
+			UEnum* SamplerTypeEnum = FindObject<UEnum>( NULL, TEXT("/Script/Engine.EMaterialSamplerType") );
 			check( SamplerTypeEnum );
 
 			FString SamplerTypeDisplayName = SamplerTypeEnum->GetEnumText(SamplerType).ToString();
@@ -1275,7 +1277,7 @@ static bool VerifySamplerType(
 		}
 		if((SamplerType == SAMPLERTYPE_Normal || SamplerType == SAMPLERTYPE_Masks) && Texture->SRGB)
 		{
-			UEnum* SamplerTypeEnum = FindObject<UEnum>( NULL, TEXT("/Script/Engine.EngineTypes.EMaterialSamplerType") );
+			UEnum* SamplerTypeEnum = FindObject<UEnum>( NULL, TEXT("/Script/Engine.EMaterialSamplerType") );
 			check( SamplerTypeEnum );
 
 			FString SamplerTypeDisplayName = SamplerTypeEnum->GetEnumText(SamplerType).ToString();
@@ -1488,6 +1490,17 @@ void UMaterialExpressionTextureSampleParameter::GetCaption(TArray<FString>& OutC
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
 
+bool UMaterialExpressionTextureSampleParameter::IsNamedParameter(FName InParameterName, UTexture*& OutValue) const
+{
+	if (InParameterName == ParameterName)
+	{
+		OutValue = Texture;
+		return true;
+	}
+
+	return false;
+}
+
 bool UMaterialExpressionTextureSampleParameter::TextureIsValid( UTexture* /*InTexture*/ )
 {
 	return false;
@@ -1504,7 +1517,7 @@ void UMaterialExpressionTextureSampleParameter::SetDefaultTexture()
 	// Does nothing in the base case...
 }
 
-void UMaterialExpressionTextureSampleParameter::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds)
+void UMaterialExpressionTextureSampleParameter::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const
 {
 	int32 CurrentSize = OutParameterNames.Num();
 	OutParameterNames.AddUnique(ParameterName);
@@ -2695,6 +2708,20 @@ void UMaterialExpressionStaticComponentMaskParameter::GetCaption(TArray<FString>
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
 
+bool UMaterialExpressionStaticComponentMaskParameter::IsNamedParameter(FName InParameterName, bool& OutR, bool& OutG, bool& OutB, bool& OutA, FGuid&OutExpressionGuid) const
+{
+	if (InParameterName == ParameterName)
+	{
+		OutR = DefaultR;
+		OutG = DefaultG;
+		OutB = DefaultB;
+		OutA = DefaultA;
+		OutExpressionGuid = ExpressionGUID;
+		return true;
+	}
+
+	return false;
+}
 
 //
 //	UMaterialExpressionTime
@@ -3195,6 +3222,12 @@ int32 UMaterialExpressionMakeMaterialAttributes::Compile(class FMaterialCompiler
 		Ret = CustomizedUVs[MultiplexIndex - CustomUVStart].Compile(Compiler); Expression = CustomizedUVs[MultiplexIndex - CustomUVStart].Expression; 
 	}
 
+	if (MultiplexIndex == CustomUVStart + 2)
+	{
+		Ret = PixelDepthOffset.Compile(Compiler);
+		Expression = PixelDepthOffset.Expression;
+	}
+
 	//If we've connected an expression but its still returned INDEX_NONE, flag the error.
 	if( Expression && INDEX_NONE == Ret )
 	{
@@ -3251,6 +3284,7 @@ UMaterialExpressionBreakMaterialAttributes::UMaterialExpressionBreakMaterialAttr
 	{
 		Outputs.Add(FExpressionOutput(*FString::Printf(TEXT("CustomizedUV%u"), UVIndex), 1, 1, 1, 0, 0));
 	}
+	Outputs.Add(FExpressionOutput(TEXT("PixelDepthOffset"), 1, 1, 1, 1, 0));
 }
 
 int32 UMaterialExpressionBreakMaterialAttributes::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
@@ -3523,7 +3557,7 @@ void UMaterialExpressionParameter::SetEditableName(const FString& NewName)
 
 #endif
 
-void UMaterialExpressionParameter::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds)
+void UMaterialExpressionParameter::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const
 {
 	int32 CurrentSize = OutParameterNames.Num();
 	OutParameterNames.AddUnique(ParameterName);
@@ -3564,6 +3598,17 @@ void UMaterialExpressionVectorParameter::GetCaption(TArray<FString>& OutCaptions
 		 DefaultValue.A ));
 
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString())); 
+}
+
+bool UMaterialExpressionVectorParameter::IsNamedParameter(FName InParameterName, FLinearColor& OutValue) const
+{
+	if (InParameterName == ParameterName)
+	{
+		OutValue = DefaultValue;
+		return true;
+	}
+
+	return false;
 }
 
 #if WITH_EDITOR
@@ -3608,6 +3653,17 @@ void UMaterialExpressionScalarParameter::GetCaption(TArray<FString>& OutCaptions
 		 DefaultValue )); 
 
 	 OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString())); 
+}
+
+bool UMaterialExpressionScalarParameter::IsNamedParameter(FName InParameterName, float& OutValue) const
+{
+	if (InParameterName == ParameterName)
+	{
+		OutValue = DefaultValue;
+		return true;
+	}
+
+	return false;
 }
 
 #if WITH_EDITOR
@@ -3728,6 +3784,17 @@ void UMaterialExpressionStaticBoolParameter::GetCaption(TArray<FString>& OutCapt
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString())); 
 }
 
+bool UMaterialExpressionStaticBoolParameter::IsNamedParameter(FName InParameterName, bool& OutValue, FGuid& OutExpressionGuid) const
+{
+	if (InParameterName == ParameterName)
+	{
+		OutValue = DefaultValue;
+		OutExpressionGuid = ExpressionGUID;
+		return true;
+	}
+
+	return false;
+}
 
 //
 //	UMaterialExpressionStaticBool
@@ -4796,7 +4863,7 @@ int32 UMaterialExpressionSceneTexture::Compile(class FMaterialCompiler* Compiler
 
 void UMaterialExpressionSceneTexture::GetCaption(TArray<FString>& OutCaptions) const
 {
-	UEnum* Enum = FindObject<UEnum>(NULL, TEXT("Engine.MaterialExpressionSceneTexture.ESceneTextureId"));
+	UEnum* Enum = FindObject<UEnum>(NULL, TEXT("Engine.ESceneTextureId"));
 
 	check(Enum);
 
@@ -5404,48 +5471,49 @@ int32 UMaterialExpressionFontSample::Compile(class FMaterialCompiler* Compiler, 
 		FontTexturePage = 0;
 	}
 #endif
-	if( Font )
+	if( !Font )
 	{
-		if( Font->Textures.IsValidIndex(FontTexturePage) )
-		{
-			UTexture* Texture = Font->Textures[FontTexturePage];
-			if( !Texture )
-			{
-				UE_LOG(LogMaterial, Log, TEXT("Invalid font texture. Using default texture"));
-				Texture = Texture = GEngine->DefaultTexture;
-			}
-			check(Texture);
-
-			EMaterialSamplerType ExpectedSamplerType;
-			if (Texture->CompressionSettings == TC_DistanceFieldFont)
-			{
-				ExpectedSamplerType = SAMPLERTYPE_DistanceFieldFont;
-			}
-			else
-			{
-				ExpectedSamplerType = Texture->SRGB ? SAMPLERTYPE_Color : SAMPLERTYPE_LinearColor;
-			}
-
-			if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("FontSample")), Texture, ExpectedSamplerType))
-			{
-				return INDEX_NONE;
-			}
-
-			int32 TextureCodeIndex = Compiler->Texture(Texture);
-			Result = Compiler->TextureSample(
-				TextureCodeIndex,
-				Compiler->TextureCoordinate(0, false, false),
-				ExpectedSamplerType
-			);
-		}
-		else
-		{
-			Result = CompilerError(Compiler, *FString::Printf(TEXT("Invalid font page %d. Max allowed is %d"),FontTexturePage,Font->Textures.Num()));
-		}		
+		Result = CompilerError(Compiler, TEXT("Missing input Font"));
+	}
+	else if( Font->FontCacheType == EFontCacheType::Runtime )
+	{
+		Result = CompilerError(Compiler, *FString::Printf(TEXT("Font '%s' is runtime cached, but only offline cached fonts can be sampled"), *Font->GetName()));
+	}
+	else if( !Font->Textures.IsValidIndex(FontTexturePage) )
+	{
+		Result = CompilerError(Compiler, *FString::Printf(TEXT("Invalid font page %d. Max allowed is %d"), FontTexturePage, Font->Textures.Num()));
 	}
 	else
 	{
-		Result = CompilerError(Compiler, TEXT("Missing input Font"));
+		UTexture* Texture = Font->Textures[FontTexturePage];
+		if( !Texture )
+		{
+			UE_LOG(LogMaterial, Log, TEXT("Invalid font texture. Using default texture"));
+			Texture = Texture = GEngine->DefaultTexture;
+		}
+		check(Texture);
+
+		EMaterialSamplerType ExpectedSamplerType;
+		if (Texture->CompressionSettings == TC_DistanceFieldFont)
+		{
+			ExpectedSamplerType = SAMPLERTYPE_DistanceFieldFont;
+		}
+		else
+		{
+			ExpectedSamplerType = Texture->SRGB ? SAMPLERTYPE_Color : SAMPLERTYPE_LinearColor;
+		}
+
+		if (!VerifySamplerType(Compiler, (Desc.Len() > 0 ? *Desc : TEXT("FontSample")), Texture, ExpectedSamplerType))
+		{
+			return INDEX_NONE;
+		}
+
+		int32 TextureCodeIndex = Compiler->Texture(Texture);
+		Result = Compiler->TextureSample(
+			TextureCodeIndex,
+			Compiler->TextureCoordinate(0, false, false),
+			ExpectedSamplerType
+		);
 	}
 	return Result;
 }
@@ -5556,6 +5624,17 @@ void UMaterialExpressionFontSampleParameter::GetCaption(TArray<FString>& OutCapt
 	OutCaptions.Add(FString::Printf(TEXT("'%s'"), *ParameterName.ToString()));
 }
 
+bool UMaterialExpressionFontSampleParameter::IsNamedParameter(FName InParameterName, UFont*& OutFontValue, int32& OutFontPage) const
+{
+	if (InParameterName == ParameterName)
+	{
+		OutFontValue = Font;
+		OutFontPage = FontTexturePage;
+		return true;
+	}
+
+	return false;
+}
 
 void UMaterialExpressionFontSampleParameter::SetDefaultFont()
 {
@@ -5584,7 +5663,7 @@ void UMaterialExpressionFontSampleParameter::SetEditableName(const FString& NewN
 }
 #endif
 
-void UMaterialExpressionFontSampleParameter::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds)
+void UMaterialExpressionFontSampleParameter::GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const
 {
 	int32 CurrentSize = OutParameterNames.Num();
 	OutParameterNames.AddUnique(ParameterName);
@@ -5684,6 +5763,11 @@ UMaterialExpressionObjectPositionWS::UMaterialExpressionObjectPositionWS(const F
 
 int32 UMaterialExpressionObjectPositionWS::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
+	if (Material && Material->MaterialDomain == MD_DeferredDecal)
+	{
+		return CompilerError(Compiler, TEXT("Expression not available in the deferred decal material domain."));
+	}
+
 	return Compiler->ObjectWorldPosition();
 }
 
@@ -5716,6 +5800,11 @@ UMaterialExpressionObjectRadius::UMaterialExpressionObjectRadius(const FObjectIn
 
 int32 UMaterialExpressionObjectRadius::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
+	if (Material && Material->MaterialDomain == MD_DeferredDecal)
+	{
+		return CompilerError(Compiler, TEXT("Expression not available in the deferred decal material domain."));
+	}
+
 	return Compiler->ObjectRadius();
 }
 
@@ -5748,6 +5837,11 @@ UMaterialExpressionObjectBounds::UMaterialExpressionObjectBounds(const FObjectIn
 
 int32 UMaterialExpressionObjectBounds::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
+	if (Material && Material->MaterialDomain == MD_DeferredDecal)
+	{
+		return CompilerError(Compiler, TEXT("Expression not available in the deferred decal material domain."));
+	}
+
 	return Compiler->ObjectBounds();
 }
 
@@ -6067,7 +6161,7 @@ UMaterial* UMaterialFunction::GetPreviewMaterial()
 {
 	if( NULL == PreviewMaterial )
 	{
-		PreviewMaterial = (UMaterial*)StaticConstructObject( UMaterial::StaticClass(), GetTransientPackage(), NAME_None, RF_Transient | RF_Public);
+		PreviewMaterial = NewObject<UMaterial>(GetTransientPackage(), NAME_None, RF_Transient | RF_Public);
 
 		PreviewMaterial->Expressions = FunctionExpressions;
 
@@ -6560,6 +6654,7 @@ bool UMaterialFunction::HasFlippedCoordinates() const
 	return ReversedInputCount > StandardInputCount;
 }
 #endif //WITH_EDITORONLY_DATA
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // UMaterialExpressionMaterialFunctionCall
@@ -7097,6 +7192,7 @@ uint32 UMaterialExpressionMaterialFunctionCall::GetInputType(int32 InputIndex)
 	return MCT_Unknown;
 }
 #endif // WITH_EDITOR
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // UMaterialExpressionFunctionInput
@@ -7833,6 +7929,11 @@ UMaterialExpressionObjectOrientation::UMaterialExpressionObjectOrientation(const
 
 int32 UMaterialExpressionObjectOrientation::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
+	if (Material && Material->MaterialDomain == MD_DeferredDecal)
+	{
+		return CompilerError(Compiler, TEXT("Expression not available in the deferred decal material domain."));
+	}
+
 	return Compiler->ObjectOrientation();
 }
 
@@ -8405,6 +8506,60 @@ void UMaterialExpressionAntialiasedTextureMask::SetDefaultTexture()
 	Texture = LoadObject<UTexture2D>(NULL, TEXT("/Engine/EngineResources/DefaultTexture.DefaultTexture"), NULL, LOAD_None, NULL);
 }
 
+//
+//	UMaterialExpressionDecalMipmapLevel
+//
+UMaterialExpressionDecalMipmapLevel::UMaterialExpressionDecalMipmapLevel(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+	, ConstWidth(256.0f)
+	, ConstHeight(ConstWidth)
+{
+	// Structure to hold one-time initialization
+	struct FConstructorStatics
+	{
+		FString NAME_Vectors;
+		FConstructorStatics()
+			: NAME_Vectors(LOCTEXT("Utils", "Utils").ToString())
+		{
+		}
+	};
+	static FConstructorStatics ConstructorStatics;
+
+	MenuCategories.Add(ConstructorStatics.NAME_Vectors);
+	bCollapsed = true;
+}
+
+int32 UMaterialExpressionDecalMipmapLevel::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
+{
+	if (Material && Material->MaterialDomain != MD_DeferredDecal)
+	{
+		return CompilerError(Compiler, TEXT("Node only works for the deferred decal material domain."));
+	}
+
+	int32 TextureSizeInput = INDEX_NONE;
+
+	if (TextureSize.Expression)
+	{
+		TextureSizeInput = TextureSize.Compile(Compiler);
+	}
+	else
+	{
+		TextureSizeInput = Compiler->Constant2(ConstWidth, ConstHeight);
+	}
+
+	if (TextureSizeInput == INDEX_NONE)
+	{
+		return INDEX_NONE;
+	}
+
+	return Compiler->TextureDecalMipmapLevel(TextureSizeInput);
+}
+
+void UMaterialExpressionDecalMipmapLevel::GetCaption(TArray<FString>& OutCaptions) const
+{
+	OutCaptions.Add(TEXT("Decal Mipmap Level"));
+}
+
 UMaterialExpressionDepthFade::UMaterialExpressionDepthFade(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -8836,13 +8991,14 @@ UMaterialExpressionSpeedTree::UMaterialExpressionSpeedTree(const FObjectInitiali
 	WindType = STW_None;
 	LODType = STLOD_Pop;
 	BillboardThreshold = 0.9f;
+	bAccurateWindVelocities = false;
 
 	MenuCategories.Add(ConstructorStatics.NAME_SpeedTree);
 }
 
 int32 UMaterialExpressionSpeedTree::Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex)
 {
-	return Compiler->SpeedTree(GeometryType, WindType, LODType, BillboardThreshold);
+	return Compiler->SpeedTree(GeometryType, WindType, LODType, BillboardThreshold, bAccurateWindVelocities);
 }
 
 void UMaterialExpressionSpeedTree::GetCaption(TArray<FString>& OutCaptions) const
@@ -8900,6 +9056,13 @@ bool UMaterialExpressionSpeedTree::CanEditChange(const UProperty* InProperty) co
 
 #endif
 
+///////////////////////////////////////////////////////////////////////////////
+// UMaterialExpressionCustomOutput
+///////////////////////////////////////////////////////////////////////////////
+UMaterialExpressionCustomOutput::UMaterialExpressionCustomOutput(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
+{
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // UMaterialExpressionEyeAdaptation

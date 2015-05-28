@@ -5,9 +5,9 @@
 #include "AndroidApplication.h"
 
 FJavaClassObject::FJavaClassObject(FName ClassName, const char* CtorSig, ...)
-	: BoundThread(0)
 {
-	BindObjectToThread();
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
+
 	Class = FAndroidApplication::FindJavaClass(ClassName.GetPlainANSIString());
 	check(Class);
 	jmethodID Constructor = JEnv->GetMethodID(Class, "<init>", CtorSig);
@@ -26,11 +26,13 @@ FJavaClassObject::FJavaClassObject(FName ClassName, const char* CtorSig, ...)
 
 FJavaClassObject::~FJavaClassObject()
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	JEnv->DeleteGlobalRef(Object);
 }
 
 FJavaClassMethod FJavaClassObject::GetClassMethod(const char* MethodName, const char* FuncSig)
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	FJavaClassMethod Method;
 	Method.Method = JEnv->GetMethodID(Class, MethodName, FuncSig);
 	Method.Name = MethodName;
@@ -40,24 +42,10 @@ FJavaClassMethod FJavaClassObject::GetClassMethod(const char* MethodName, const 
 	return Method;
 }
 
-void FJavaClassObject::BindObjectToThread()
-{
-	uint32 ThisThreadID = FPlatformTLS::GetCurrentThreadId();
-	if (BoundThread != ThisThreadID)
-	{
-		JEnv = FAndroidApplication::GetJavaEnv();
-		BoundThread = ThisThreadID;
-	}
-}
-
-void FJavaClassObject::UnbindObjectFromThread()
-{
-	BoundThread = 0;
-}
-
 template<>
 void FJavaClassObject::CallMethod<void>(FJavaClassMethod Method, ...)
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	va_list Params;
 	va_start(Params, Method);
 	JEnv->CallVoidMethodV(Object, Method.Method, Params);
@@ -68,6 +56,7 @@ void FJavaClassObject::CallMethod<void>(FJavaClassMethod Method, ...)
 template<>
 bool FJavaClassObject::CallMethod<bool>(FJavaClassMethod Method, ...)
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	va_list Params;
 	va_start(Params, Method);
 	bool RetVal = JEnv->CallBooleanMethodV(Object, Method.Method, Params);
@@ -79,6 +68,7 @@ bool FJavaClassObject::CallMethod<bool>(FJavaClassMethod Method, ...)
 template<>
 int FJavaClassObject::CallMethod<int>(FJavaClassMethod Method, ...)
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	va_list Params;
 	va_start(Params, Method);
 	int RetVal = JEnv->CallIntMethodV(Object, Method.Method, Params);
@@ -90,6 +80,7 @@ int FJavaClassObject::CallMethod<int>(FJavaClassMethod Method, ...)
 template<>
 jobject FJavaClassObject::CallMethod<jobject>(FJavaClassMethod Method, ...)
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	va_list Params;
 	va_start(Params, Method);
 	jobject val = JEnv->CallObjectMethodV(Object, Method.Method, Params);
@@ -103,6 +94,7 @@ jobject FJavaClassObject::CallMethod<jobject>(FJavaClassMethod Method, ...)
 template<>
 int64 FJavaClassObject::CallMethod<int64>(FJavaClassMethod Method, ...)
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	va_list Params;
 	va_start(Params, Method);
 	int64 RetVal = JEnv->CallLongMethodV(Object, Method.Method, Params);
@@ -114,6 +106,7 @@ int64 FJavaClassObject::CallMethod<int64>(FJavaClassMethod Method, ...)
 template<>
 FString FJavaClassObject::CallMethod<FString>(FJavaClassMethod Method, ...)
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	va_list Params;
 	va_start(Params, Method);
 	jstring RetVal = static_cast<jstring>(
@@ -128,15 +121,17 @@ FString FJavaClassObject::CallMethod<FString>(FJavaClassMethod Method, ...)
 
 jstring FJavaClassObject::GetJString(const FString& String)
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	auto StringCastObj = StringCast<ANSICHAR>(*String);
-	jstring local = FAndroidApplication::GetJavaEnv()->NewStringUTF(StringCastObj.Get());
-	jstring result = (jstring)FAndroidApplication::GetJavaEnv()->NewGlobalRef(local);
-	FAndroidApplication::GetJavaEnv()->DeleteLocalRef(local);
+	jstring local = JEnv->NewStringUTF(StringCastObj.Get());
+	jstring result = (jstring)JEnv->NewGlobalRef(local);
+	JEnv->DeleteLocalRef(local);
 	return result;
 }
 
 void FJavaClassObject::VerifyException()
 {
+	JNIEnv*	JEnv = FAndroidApplication::GetJavaEnv();
 	if (JEnv->ExceptionCheck())
 	{
 		JEnv->ExceptionDescribe();

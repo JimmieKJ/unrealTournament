@@ -8,13 +8,30 @@
 
 #include "DistanceFieldAtlas.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogDistanceField, Warning, All);
+
 /** Tile sized used for most AO compute shaders. */
 const int32 GDistanceFieldAOTileSizeX = 16;
 const int32 GDistanceFieldAOTileSizeY = 16;
 /** Base downsample factor that all distance field AO operations are done at. */
 const int32 GAODownsampleFactor = 2;
+/** Must match usf */
 static const int32 GMaxNumObjectsPerTile = 512;
 extern uint32 UpdateObjectsGroupSize;
+
+extern int32 GDistanceFieldGI;
+
+inline bool DoesPlatformSupportDistanceFieldGI(EShaderPlatform Platform)
+{
+	return Platform == SP_PCD3D_SM5;
+}
+
+inline bool SupportsDistanceFieldGI(ERHIFeatureLevel::Type FeatureLevel, EShaderPlatform ShaderPlatform)
+{
+	return GDistanceFieldGI 
+		&& FeatureLevel >= ERHIFeatureLevel::SM5
+		&& DoesPlatformSupportDistanceFieldGI(ShaderPlatform);
+}
 
 extern FIntPoint GetBufferSizeForAO();
 
@@ -51,6 +68,72 @@ public:
 		Bounds.Release();
 		Data.Release();
 	}
+
+	size_t GetSizeBytes() const
+	{
+		return Bounds.NumBytes + Data.NumBytes;
+	}
+};
+
+class FSurfelBuffers
+{
+public:
+
+	// In float4's
+	static int32 SurfelDataStride;
+	static int32 InterpolatedVertexDataStride;
+
+	int32 MaxSurfels;
+
+	void Initialize()
+	{
+		if (MaxSurfels > 0)
+		{
+			InterpolatedVertexData.Initialize(sizeof(FVector4), MaxSurfels * InterpolatedVertexDataStride, PF_A32B32G32R32F, BUF_Static);
+			Surfels.Initialize(sizeof(FVector4), MaxSurfels * SurfelDataStride, PF_A32B32G32R32F, BUF_Static);
+		}
+	}
+
+	void Release()
+	{
+		InterpolatedVertexData.Release();
+		Surfels.Release();
+	}
+
+	size_t GetSizeBytes() const
+	{
+		return InterpolatedVertexData.NumBytes + Surfels.NumBytes;
+	}
+
+	FRWBuffer InterpolatedVertexData;
+	FRWBuffer Surfels;
+};
+
+class FInstancedSurfelBuffers
+{
+public:
+
+	int32 MaxSurfels;
+
+	void Initialize()
+	{
+		if (MaxSurfels > 0)
+		{
+			VPLFlux.Initialize(sizeof(FVector4), MaxSurfels, PF_A32B32G32R32F, BUF_Static);
+		}
+	}
+
+	void Release()
+	{
+		VPLFlux.Release();
+	}
+
+	size_t GetSizeBytes() const
+	{
+		return VPLFlux.NumBytes;
+	}
+
+	FRWBuffer VPLFlux;
 };
 
 class FDistanceFieldObjectBufferParameters
@@ -61,6 +144,9 @@ public:
 		ObjectBounds.Bind(ParameterMap, TEXT("ObjectBounds"));
 		ObjectData.Bind(ParameterMap, TEXT("ObjectData"));
 		NumSceneObjects.Bind(ParameterMap, TEXT("NumSceneObjects"));
+		DistanceFieldTexture.Bind(ParameterMap, TEXT("DistanceFieldTexture"));
+		DistanceFieldSampler.Bind(ParameterMap, TEXT("DistanceFieldSampler"));
+		DistanceFieldAtlasTexelSize.Bind(ParameterMap, TEXT("DistanceFieldAtlasTexelSize"));
 	}
 
 	template<typename TParamRef>
@@ -69,6 +155,21 @@ public:
 		ObjectBounds.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Bounds);
 		ObjectData.SetBuffer(RHICmdList, ShaderRHI, ObjectBuffers.Data);
 		SetShaderValue(RHICmdList, ShaderRHI, NumSceneObjects, NumObjectsValue);
+
+		SetTextureParameter(
+			RHICmdList,
+			ShaderRHI,
+			DistanceFieldTexture,
+			DistanceFieldSampler,
+			TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
+			GDistanceFieldVolumeTextureAtlas.VolumeTextureRHI
+			);
+
+		const int32 NumTexelsOneDimX = GDistanceFieldVolumeTextureAtlas.GetSizeX();
+		const int32 NumTexelsOneDimY = GDistanceFieldVolumeTextureAtlas.GetSizeY();
+		const int32 NumTexelsOneDimZ = GDistanceFieldVolumeTextureAtlas.GetSizeZ();
+		const FVector InvTextureDim(1.0f / NumTexelsOneDimX, 1.0f / NumTexelsOneDimY, 1.0f / NumTexelsOneDimZ);
+		SetShaderValue(RHICmdList, ShaderRHI, DistanceFieldAtlasTexelSize, InvTextureDim);
 	}
 
 	template<typename TParamRef>
@@ -80,7 +181,7 @@ public:
 
 	friend FArchive& operator<<(FArchive& Ar, FDistanceFieldObjectBufferParameters& P)
 	{
-		Ar << P.ObjectBounds << P.ObjectData << P.NumSceneObjects;
+		Ar << P.ObjectBounds << P.ObjectData << P.NumSceneObjects << P.DistanceFieldTexture << P.DistanceFieldSampler << P.DistanceFieldAtlasTexelSize;
 		return Ar;
 	}
 
@@ -88,6 +189,47 @@ private:
 	FRWShaderParameter ObjectBounds;
 	FRWShaderParameter ObjectData;
 	FShaderParameter NumSceneObjects;
+	FShaderResourceParameter DistanceFieldTexture;
+	FShaderResourceParameter DistanceFieldSampler;
+	FShaderParameter DistanceFieldAtlasTexelSize;
+};
+
+class FSurfelBufferParameters
+{
+public:
+	void Bind(const FShaderParameterMap& ParameterMap)
+	{
+		InterpolatedVertexData.Bind(ParameterMap, TEXT("InterpolatedVertexData"));
+		SurfelData.Bind(ParameterMap, TEXT("SurfelData"));
+		VPLFlux.Bind(ParameterMap, TEXT("VPLFlux"));
+	}
+
+	template<typename TParamRef>
+	void Set(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI, const FSurfelBuffers& SurfelBuffers, const FInstancedSurfelBuffers& InstancedSurfelBuffers)
+	{
+		InterpolatedVertexData.SetBuffer(RHICmdList, ShaderRHI, SurfelBuffers.InterpolatedVertexData);
+		SurfelData.SetBuffer(RHICmdList, ShaderRHI, SurfelBuffers.Surfels);
+		VPLFlux.SetBuffer(RHICmdList, ShaderRHI, InstancedSurfelBuffers.VPLFlux);
+	}
+
+	template<typename TParamRef>
+	void UnsetParameters(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI)
+	{
+		InterpolatedVertexData.UnsetUAV(RHICmdList, ShaderRHI);
+		SurfelData.UnsetUAV(RHICmdList, ShaderRHI);
+		VPLFlux.UnsetUAV(RHICmdList, ShaderRHI);
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FSurfelBufferParameters& P)
+	{
+		Ar << P.InterpolatedVertexData << P.SurfelData << P.VPLFlux;
+		return Ar;
+	}
+
+private:
+	FRWShaderParameter InterpolatedVertexData;
+	FRWShaderParameter SurfelData;
+	FRWShaderParameter VPLFlux;
 };
 
 class FDistanceFieldCulledObjectBuffers
@@ -101,6 +243,7 @@ public:
 	int32 MaxObjects;
 
 	FRWBuffer ObjectIndirectArguments;
+	FRWBuffer ObjectIndirectDispatch;
 	FRWBuffer Bounds;
 	FRWBuffer Data;
 	FRWBuffer BoxBounds;
@@ -118,6 +261,7 @@ public:
 			const uint32 BufferFlags = BUF_ShaderResource;
 
 			ObjectIndirectArguments.Initialize(sizeof(uint32), 5, PF_R32_UINT, BUF_Static | BUF_DrawIndirect);
+			ObjectIndirectDispatch.Initialize(sizeof(uint32), 3, PF_R32_UINT, BUF_Static | BUF_DrawIndirect);
 			Bounds.Initialize(sizeof(FVector4), MaxObjects, PF_A32B32G32R32F);
 			Data.Initialize(sizeof(FVector4), MaxObjects * ObjectDataStride, PF_A32B32G32R32F);
 
@@ -131,9 +275,15 @@ public:
 	void Release()
 	{
 		ObjectIndirectArguments.Release();
+		ObjectIndirectDispatch.Release();
 		Bounds.Release();
 		Data.Release();
 		BoxBounds.Release();
+	}
+
+	size_t GetSizeBytes() const
+	{
+		return ObjectIndirectArguments.NumBytes + ObjectIndirectDispatch.NumBytes + Bounds.NumBytes + Data.NumBytes + BoxBounds.NumBytes;
 	}
 };
 
@@ -244,7 +394,7 @@ public:
 		if (MaxElements > 0 && Stride > 0)
 		{
 			FRHIResourceCreateInfo CreateInfo;
-			Buffer = RHICreateVertexBuffer(MaxElements * Stride * GPixelFormats[Format].BlockBytes, BUF_Volatile | BUF_ShaderResource, CreateInfo);
+			Buffer = RHICreateVertexBuffer(MaxElements * Stride * GPixelFormats[Format].BlockBytes, BUF_Dynamic | BUF_ShaderResource, CreateInfo);
 			BufferSRV = RHICreateShaderResourceView(Buffer, GPixelFormats[Format].BlockBytes, Format);
 		}
 	}
@@ -253,6 +403,11 @@ public:
 	{
 		Buffer.SafeRelease();
 		BufferSRV.SafeRelease(); 
+	}
+
+	size_t GetSizeBytes() const
+	{
+		return MaxElements * Stride * GPixelFormats[Format].BlockBytes;
 	}
 };
 
@@ -265,7 +420,7 @@ public:
 		TileHeadDataUnpacked.Initialize(sizeof(uint32), TileDimensions.X * TileDimensions.Y * 2, PF_R32_UINT, BUF_Static);
 
 		//@todo - handle max exceeded
-		TileArrayData.Initialize(sizeof(uint16), GMaxNumObjectsPerTile * TileDimensions.X * TileDimensions.Y, PF_R16_UINT, BUF_Static);
+		TileArrayData.Initialize(sizeof(uint32), GMaxNumObjectsPerTile * TileDimensions.X * TileDimensions.Y, PF_R32_UINT, BUF_Static);
 	}
 
 	void Release()
@@ -274,8 +429,77 @@ public:
 		TileArrayData.Release();
 	}
 
+	size_t GetSizeBytes() const
+	{
+		return TileHeadDataUnpacked.NumBytes + TileArrayData.NumBytes;
+	}
+
 	FIntPoint TileDimensions;
 
 	FRWBuffer TileHeadDataUnpacked;
 	FRWBuffer TileArrayData;
 };
+
+extern void CullDistanceFieldObjectsForLight(
+	FRHICommandListImmediate& RHICmdList,
+	const FViewInfo& View,
+	const FLightSceneProxy* LightSceneProxy, 
+	const FMatrix& WorldToShadowValue, 
+	int32 NumPlanes, 
+	const FPlane* PlaneData, 
+	const FVector4& ShadowBoundingSphereValue,
+	float ShadowBoundingRadius,
+	TScopedPointer<class FLightTileIntersectionResources>& TileIntersectionResources);
+
+class FUniformMeshBuffers
+{
+public:
+
+	int32 MaxElements;
+
+	FVertexBufferRHIRef TriangleData;
+	FShaderResourceViewRHIRef TriangleDataSRV;
+
+	FRWBuffer TriangleAreas;
+	FRWBuffer TriangleCDFs;
+
+	FUniformMeshBuffers()
+	{
+		MaxElements = 0;
+	}
+
+	void Initialize();
+
+	void Release()
+	{
+		TriangleData.SafeRelease();
+		TriangleDataSRV.SafeRelease(); 
+		TriangleAreas.Release();
+		TriangleCDFs.Release();
+	}
+};
+
+class FUniformMeshConverter
+{
+public:
+	static int32 Convert(
+		FRHICommandListImmediate& RHICmdList, 
+		FSceneRenderer& Renderer,
+		FViewInfo& View, 
+		const FPrimitiveSceneInfo* PrimitiveSceneInfo, 
+		FUniformMeshBuffers*& OutUniformMeshBuffers,
+		const FMaterialRenderProxy*& OutMaterialRenderProxy,
+		FUniformBufferRHIParamRef& OutPrimitiveUniformBuffer);
+
+	static void GenerateSurfels(
+		FRHICommandListImmediate& RHICmdList, 
+		FViewInfo& View, 
+		const FPrimitiveSceneInfo* PrimitiveSceneInfo, 
+		const FMaterialRenderProxy* MaterialProxy,
+		FUniformBufferRHIParamRef PrimitiveUniformBuffer,
+		const FMatrix& Instance0Transform,
+		int32 SurfelOffset,
+		int32 NumSurfels);
+};
+
+extern TGlobalResource<FDistanceFieldObjectBufferResource> GAOCulledObjectBuffers;

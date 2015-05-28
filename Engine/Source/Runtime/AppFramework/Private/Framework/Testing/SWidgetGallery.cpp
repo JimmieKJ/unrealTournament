@@ -66,759 +66,763 @@ public:
 			TextComboBoxOptions.Add(MakeShareable(new FString(TEXT("Option iii"))));
 
 			ProgressCurve = FCurveSequence(0.0f,15.0f);
-			ProgressCurve.Play();
+			ProgressCurve.Play(this->AsShared());
 		}
 		
 		ChildSlot
 		[
-			SNew(SScrollBox)
+			SNew(SBorder)
+			.BorderImage( FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder") )
+			[
+				SNew(SScrollBox)
 
-			+ SScrollBox::Slot()
-				.Padding(5.0f)
-				[
-					SNew(SGridPanel)
-						.FillColumn(0, 0.5f)
-						.FillColumn(1, 0.5f)
+				+ SScrollBox::Slot()
+					.Padding(5.0f)
+					[
+						SNew(SGridPanel)
+							.FillColumn(0, 0.5f)
+							.FillColumn(1, 0.5f)
 
-					// SBorder
-					+ SGridPanel::Slot(0, 0)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SBorderLabel", "SBorder"))
-						]
-
-					+ SGridPanel::Slot(1, 0)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SBorder)
-								[
-									SNew(SSpacer)
-										.Size(FVector2D(100.0f, 50.0f))
-								]	
-						]
-
-					// SBreadcrumbTrailLabel
-					+ SGridPanel::Slot(0, 1)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SBreadcrumbTrailLabel", "SBreadcrumbTrail"))
-						]
-
-					+ SGridPanel::Slot(1, 1)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SHorizontalBox)
-
-							+ SHorizontalBox::Slot()
-								.FillWidth(1.0f)
-								[
-									SAssignNew(BreadcrumbTrail, SBreadcrumbTrail<int32>)
-
-								]
-
-							+ SHorizontalBox::Slot()
-								.AutoWidth()
-								[
-									SNew(SButton)
-										.Text(LOCTEXT("AddBreadCrumbLabel", "Add"))
-										.HAlign(HAlign_Center)
-										.VAlign(VAlign_Center)
-										.OnClicked(this, &SWidgetGallery::HandleBreadcrumbTrailAddButtonClicked)
-								]
-						]
-
-					// SButton
-					+ SGridPanel::Slot(0, 2)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SButtonLabel", "SButton"))
-						]
-
-					+ SGridPanel::Slot(1, 2)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SButton)
-								.Text(LOCTEXT("ButtonExampleLabel", "Button"))
-						]
-
-					// SButton (no content)
-					+ SGridPanel::Slot(0, 3)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SButtonExampleLabel", "SButton (no content)"))
-						]
-
-					+ SGridPanel::Slot(1, 3)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SButton)
-						]
-
-					// SCheckBox
-					+ SGridPanel::Slot(0, 4)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SCheckBoxLabel", "SCheckBox"))
-						]
-
-					+ SGridPanel::Slot(1, 4)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SVerticalBox)
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									CreateCheckBox(LOCTEXT("SCheckBoxItemLabel01", "Option 1"), &CheckBox1Choice)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									CreateCheckBox(LOCTEXT("SCheckBoxItemLabel02", "Option 2"), &CheckBox2Choice)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									CreateCheckBox(LOCTEXT("SCheckBoxItemLabel03", "Option 3"), &CheckBox3Choice)
-								]
-						]
-
-					// SCheckBox (as radio button)
-					+ SGridPanel::Slot(0, 5)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SRadioButtonLabel", "SCheckBox (as radio buttons)"))
-						]
-
-					+ SGridPanel::Slot(1, 5)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SVerticalBox)
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									CreateRadioButton(LOCTEXT("SRadioButtonItemLabel01", "Option 1"), Radio0)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									CreateRadioButton(LOCTEXT("SRadioButtonItemLabel02", "Option 2"), Radio1)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									CreateRadioButton(LOCTEXT("SRadioButtonItemLabel03", "Option 3"), Radio2)
-								]
-						]
-
-					// SCircularThrobber
-					+ SGridPanel::Slot(0, 6)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SCircularThrobberLabel", "SCircularThrobber"))
-						]
-
-					+ SGridPanel::Slot(1, 6)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SCircularThrobber)
-						]
-
-					// SColorBlock
-					+ SGridPanel::Slot(0, 7)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SColorBlockLabel", "SColorBlock"))
-						]
-
-					+ SGridPanel::Slot(1, 7)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SColorBlock)
-								.Color(FLinearColor(1.0f, 0.0f, 0.0f))
-						]
-
-					// SComboBox
-					+ SGridPanel::Slot(0, 8)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SComboBoxLabel", "SComboBox"))
-						]
-
-					+ SGridPanel::Slot(1, 8)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SVerticalBox)
-
-							+ SVerticalBox::Slot()
+						// SBorder
+						+ SGridPanel::Slot(0, 0)
 							[
-								SNew(SCheckBox)
-								.IsChecked(this, &SWidgetGallery::IsCreateNewWindowChecked)
-								.OnCheckStateChanged( this, &SWidgetGallery::CreateNewWindowToggled )
-								[
-									SNew(STextBlock).Text(LOCTEXT("CreateNewWindowCheckbox", "Create new window for popups."))
-								]
+								SNew(STextBlock)
+									.Text(LOCTEXT("SBorderLabel", "SBorder"))
 							]
 
-							+ SVerticalBox::Slot()
-							.AutoHeight()
+						+ SGridPanel::Slot(1, 0)
+							.Padding(0.0f, 5.0f)
 							[
-								// selector combo box
-								SAssignNew(SelectorComboBox, SComboBox<TSharedPtr<FString> >)
-									.OptionsSource(&SelectorComboBoxOptions)
-									.OnSelectionChanged(this, &SWidgetGallery::HandleSelectorComboBoxSelectionChanged)
-									.OnGenerateWidget(this, &SWidgetGallery::HandleComboBoxGenerateWidget)
+								SNew(SBorder)
 									[
-										SNew(STextBlock)
-											.Text(this, &SWidgetGallery::HandleSelectorComboBoxText)
+										SNew(SSpacer)
+											.Size(FVector2D(100.0f, 50.0f))
+									]	
+							]
+
+						// SBreadcrumbTrailLabel
+						+ SGridPanel::Slot(0, 1)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SBreadcrumbTrailLabel", "SBreadcrumbTrail"))
+							]
+
+						+ SGridPanel::Slot(1, 1)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SHorizontalBox)
+
+								+ SHorizontalBox::Slot()
+									.FillWidth(1.0f)
+									[
+										SAssignNew(BreadcrumbTrail, SBreadcrumbTrail<int32>)
+
+									]
+
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
+									[
+										SNew(SButton)
+											.Text(LOCTEXT("AddBreadCrumbLabel", "Add"))
+											.HAlign(HAlign_Center)
+											.VAlign(VAlign_Center)
+											.OnClicked(this, &SWidgetGallery::HandleBreadcrumbTrailAddButtonClicked)
 									]
 							]
 
-							+ SVerticalBox::Slot()
-							.AutoHeight()
+						// SButton
+						+ SGridPanel::Slot(0, 2)
 							[
-								// second combo box
-								SAssignNew(SecondComboBox, SComboBox<TSharedPtr<FString> >)
-									.OptionsSource(&SecondComboBoxOptions)
-									.OnSelectionChanged(this, &SWidgetGallery::HandleSecondComboBoxSelectionChanged)
-									.OnGenerateWidget(this, &SWidgetGallery::HandleComboBoxGenerateWidget)
+								SNew(STextBlock)
+									.Text(LOCTEXT("SButtonLabel", "SButton"))
+							]
+
+						+ SGridPanel::Slot(1, 2)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SButton)
+									.Text(LOCTEXT("ButtonExampleLabel", "Button"))
+							]
+
+						// SButton (no content)
+						+ SGridPanel::Slot(0, 3)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SButtonExampleLabel", "SButton (no content)"))
+							]
+
+						+ SGridPanel::Slot(1, 3)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SButton)
+							]
+
+						// SCheckBox
+						+ SGridPanel::Slot(0, 4)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SCheckBoxLabel", "SCheckBox"))
+							]
+
+						+ SGridPanel::Slot(1, 4)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SVerticalBox)
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
 									[
-										SNew(STextBlock)
-											.Text(this, &SWidgetGallery::HandleSecondComboBoxText)
+										CreateCheckBox(LOCTEXT("SCheckBoxItemLabel01", "Option 1"), &CheckBox1Choice)
+									]
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										CreateCheckBox(LOCTEXT("SCheckBoxItemLabel02", "Option 2"), &CheckBox2Choice)
+									]
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										CreateCheckBox(LOCTEXT("SCheckBoxItemLabel03", "Option 3"), &CheckBox3Choice)
 									]
 							]
-						]
 
-					// SComboButton
-					+ SGridPanel::Slot(0, 9)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SComboButtonLabel", "SComboButton"))
-						]
-
-					+ SGridPanel::Slot(1, 9)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SFxWidget).IgnoreClipping(false)
+						// SCheckBox (as radio button)
+						+ SGridPanel::Slot(0, 5)
 							[
-								SNew(SComboButton)
-								.ButtonContent()
+								SNew(STextBlock)
+									.Text(LOCTEXT("SRadioButtonLabel", "SCheckBox (as radio buttons)"))
+							]
+
+						+ SGridPanel::Slot(1, 5)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SVerticalBox)
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										CreateRadioButton(LOCTEXT("SRadioButtonItemLabel01", "Option 1"), Radio0)
+									]
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										CreateRadioButton(LOCTEXT("SRadioButtonItemLabel02", "Option 2"), Radio1)
+									]
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										CreateRadioButton(LOCTEXT("SRadioButtonItemLabel03", "Option 3"), Radio2)
+									]
+							]
+
+						// SCircularThrobber
+						+ SGridPanel::Slot(0, 6)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SCircularThrobberLabel", "SCircularThrobber"))
+							]
+
+						+ SGridPanel::Slot(1, 6)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SCircularThrobber)
+							]
+
+						// SColorBlock
+						+ SGridPanel::Slot(0, 7)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SColorBlockLabel", "SColorBlock"))
+							]
+
+						+ SGridPanel::Slot(1, 7)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SColorBlock)
+									.Color(FLinearColor(1.0f, 0.0f, 0.0f))
+							]
+
+						// SComboBox
+						+ SGridPanel::Slot(0, 8)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SComboBoxLabel", "SComboBox"))
+							]
+
+						+ SGridPanel::Slot(1, 8)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SVerticalBox)
+
+								+ SVerticalBox::Slot()
 								[
-									SNew(STextBlock)
-										.Text(LOCTEXT("ComboButtonLabel", "Combo Button"))
+									SNew(SCheckBox)
+									.IsChecked(this, &SWidgetGallery::IsCreateNewWindowChecked)
+									.OnCheckStateChanged( this, &SWidgetGallery::CreateNewWindowToggled )
+									[
+										SNew(STextBlock).Text(LOCTEXT("CreateNewWindowCheckbox", "Create new window for popups."))
+									]
 								]
-								.MenuContent()
+
+								+ SVerticalBox::Slot()
+								.AutoHeight()
 								[
-									SNew(SVerticalBox)
-
-									+ SVerticalBox::Slot()
-										.AutoHeight()
+									// selector combo box
+									SAssignNew(SelectorComboBox, SComboBox<TSharedPtr<FString> >)
+										.OptionsSource(&SelectorComboBoxOptions)
+										.OnSelectionChanged(this, &SWidgetGallery::HandleSelectorComboBoxSelectionChanged)
+										.OnGenerateWidget(this, &SWidgetGallery::HandleComboBoxGenerateWidget)
 										[
 											SNew(STextBlock)
-												.Text(LOCTEXT("ComboButtonItemLabel01", "Combo\n     Button\n  menu\n       content supports"))
+												.Text(this, &SWidgetGallery::HandleSelectorComboBoxText)
 										]
+								]
 
-									+ SVerticalBox::Slot()
-										.AutoHeight()
-										.HAlign(HAlign_Center)
-										[
-											SNew(SButton)
-												[ 
-													SNew(STextBlock)
-														.Text(LOCTEXT("ComboButtonItemLabel02", "arbitrary"))
-												]
-										]
-
-									+ SVerticalBox::Slot()
-										.AutoHeight()
+								+ SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									// second combo box
+									SAssignNew(SecondComboBox, SComboBox<TSharedPtr<FString> >)
+										.OptionsSource(&SecondComboBoxOptions)
+										.OnSelectionChanged(this, &SWidgetGallery::HandleSecondComboBoxSelectionChanged)
+										.OnGenerateWidget(this, &SWidgetGallery::HandleComboBoxGenerateWidget)
 										[
 											SNew(STextBlock)
-												.Text(LOCTEXT("ComboButtonItemLabel03", "widgets"))
+												.Text(this, &SWidgetGallery::HandleSecondComboBoxText)
 										]
 								]
 							]
-						]
 
-					// SEditableText
-					+ SGridPanel::Slot(0, 10)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SEditableTextLabel", "SEditableText"))
-						]
+						// SComboButton
+						+ SGridPanel::Slot(0, 9)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SComboButtonLabel", "SComboButton"))
+							]
 
-					+ SGridPanel::Slot(1, 10)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SEditableText)
-								.HintText(LOCTEXT("SEditableTextHint", "This is editable text"))
-						]
-
-					// SEditableTextBox
-					+ SGridPanel::Slot(0, 11)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SEditableTextBoxLabel", "SEditableTextBox"))
-						]
-
-					+ SGridPanel::Slot(1, 11)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SEditableTextBox)
-								.HintText(LOCTEXT("SEditableTextBoxHint", "This is an editable text box"))
-						]
-
-					// SHeader
-					+ SGridPanel::Slot(0, 12)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SHeaderLabel", "SHeader"))
-						]
-
-					+ SGridPanel::Slot(1, 12)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SHeader)
-								.Content()
+						+ SGridPanel::Slot(1, 9)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SFxWidget).IgnoreClipping(false)
 								[
-									SNew(STextBlock)
-										.Text(LOCTEXT("HeaderContentLabel", "Header Content"))
+									SNew(SComboButton)
+									.ButtonContent()
+									[
+										SNew(STextBlock)
+											.Text(LOCTEXT("ComboButtonLabel", "Combo Button"))
+									]
+									.MenuContent()
+									[
+										SNew(SVerticalBox)
+
+										+ SVerticalBox::Slot()
+											.AutoHeight()
+											[
+												SNew(STextBlock)
+													.Text(LOCTEXT("ComboButtonItemLabel01", "Combo\n     Button\n  menu\n       content supports"))
+											]
+
+										+ SVerticalBox::Slot()
+											.AutoHeight()
+											.HAlign(HAlign_Center)
+											[
+												SNew(SButton)
+													[ 
+														SNew(STextBlock)
+															.Text(LOCTEXT("ComboButtonItemLabel02", "arbitrary"))
+													]
+											]
+
+										+ SVerticalBox::Slot()
+											.AutoHeight()
+											[
+												SNew(STextBlock)
+													.Text(LOCTEXT("ComboButtonItemLabel03", "widgets"))
+											]
+									]
 								]
-						]
+							]
 
-					// SHyperlink
-					+ SGridPanel::Slot(0, 13)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SHyperlinkLabel", "SHyperlink"))
-						]
+						// SEditableText
+						+ SGridPanel::Slot(0, 10)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SEditableTextLabel", "SEditableText"))
+							]
 
-					+ SGridPanel::Slot(1, 13)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SHyperlink)
-								.Text(LOCTEXT("SHyperlinkText", "Hyperlink"))
+						+ SGridPanel::Slot(1, 10)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SEditableText)
+									.HintText(LOCTEXT("SEditableTextHint", "This is editable text"))
+							]
+
+						// SEditableTextBox
+						+ SGridPanel::Slot(0, 11)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SEditableTextBoxLabel", "SEditableTextBox"))
+							]
+
+						+ SGridPanel::Slot(1, 11)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SEditableTextBox)
+									.HintText(LOCTEXT("SEditableTextBoxHint", "This is an editable text box"))
+							]
+
+						// SHeader
+						+ SGridPanel::Slot(0, 12)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SHeaderLabel", "SHeader"))
+							]
+
+						+ SGridPanel::Slot(1, 12)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SHeader)
+									.Content()
+									[
+										SNew(STextBlock)
+											.Text(LOCTEXT("HeaderContentLabel", "Header Content"))
+									]
+							]
+
+						// SHyperlink
+						+ SGridPanel::Slot(0, 13)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SHyperlinkLabel", "SHyperlink"))
+							]
+
+						+ SGridPanel::Slot(1, 13)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SHyperlink)
+									.Text(LOCTEXT("SHyperlinkText", "Text to appear in the Hyperlink widget."))
 			
-						]
+							]
 
-					// SImage
-					+ SGridPanel::Slot(0, 14)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SImageLabel", "SImage"))
-						]
+						// SImage
+						+ SGridPanel::Slot(0, 14)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SImageLabel", "SImage"))
+							]
 
-					+ SGridPanel::Slot(1, 14)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SImage)
-								.Image(FTestStyle::Get().GetBrush(TEXT("NewLevelBlank")))			
-						]
-/*
-					// SNumericEntryBox
-					+ SGridPanel::Slot(0, 15)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SNumericEntryBoxLabel", "SNumericEntryBox"))
-						]
+						+ SGridPanel::Slot(1, 14)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SImage)
+									.Image(FTestStyle::Get().GetBrush(TEXT("NewLevelBlank")))			
+							]
+	/*
+						// SNumericEntryBox
+						+ SGridPanel::Slot(0, 15)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SNumericEntryBoxLabel", "SNumericEntryBox"))
+							]
 
-					+ SGridPanel::Slot(1, 15)
-						[
-							New(SNumericEntryBox<float>)
-						]
-*/
-					// SProgressBar
-					+ SGridPanel::Slot(0, 16)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SProgressBarLabel", "SProgressBar"))
-						]
+						+ SGridPanel::Slot(1, 15)
+							[
+								New(SNumericEntryBox<float>)
+							]
+	*/
+						// SProgressBar
+						+ SGridPanel::Slot(0, 16)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SProgressBarLabel", "SProgressBar"))
+							]
 
-					+ SGridPanel::Slot(1, 16)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SBox)
-								.WidthOverride(150.0f)
-								[
-									SNew(SProgressBar)
-										.Percent(this, &SWidgetGallery::HandleProgressBarPercent)
-								]
-						]
-/*
-					// SRotatorInputBox
-					+ SGridPanel::Slot(0, 17)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SRotatorInputBoxLabel", "SRotatorInputBox"))
-						]
+						+ SGridPanel::Slot(1, 16)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SBox)
+									.WidthOverride(150.0f)
+									[
+										SNew(SProgressBar)
+											.Percent(this, &SWidgetGallery::HandleProgressBarPercent)
+									]
+							]
+	/*
+						// SRotatorInputBox
+						+ SGridPanel::Slot(0, 17)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SRotatorInputBoxLabel", "SRotatorInputBox"))
+							]
 
-					+ SGridPanel::Slot(1, 17)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SRotatorInputBox)
-								.Roll(0.5f)
-								.Pitch(0.0f)
-								.Yaw(1.0f)			
-						]
-*/
-					// SSearchBox
-					+ SGridPanel::Slot(0, 18)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SSearchBoxLabel", "SSearchBox"))
-						]
+						+ SGridPanel::Slot(1, 17)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SRotatorInputBox)
+									.Roll(0.5f)
+									.Pitch(0.0f)
+									.Yaw(1.0f)			
+							]
+	*/
+						// SSearchBox
+						+ SGridPanel::Slot(0, 18)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SSearchBoxLabel", "SSearchBox"))
+							]
 
-					+ SGridPanel::Slot(1, 18)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SVerticalBox)
+						+ SGridPanel::Slot(1, 18)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SVerticalBox)
 
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								.HAlign(HAlign_Left)
-								[
-									SNew(SSearchBox)
-								]
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									.HAlign(HAlign_Left)
+									[
+										SNew(SSearchBox)
+									]
 
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								.HAlign(HAlign_Left)
-								.Padding(0.0f, 4.0f, 0.0f, 0.0f)
-								[
-									SNew(SSearchBox)
-										.DelayChangeNotificationsWhileTyping(true)
-										.OnSearch(this, &SWidgetGallery::HandleSearchBoxSearch)
-								]			
-						]
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									.HAlign(HAlign_Left)
+									.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+									[
+										SNew(SSearchBox)
+											.DelayChangeNotificationsWhileTyping(true)
+											.OnSearch(this, &SWidgetGallery::HandleSearchBoxSearch)
+									]			
+							]
 
-					// SSeparator
-					+ SGridPanel::Slot(0, 19)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SSeparatorLabel", "SSeparator"))
-						]
+						// SSeparator
+						+ SGridPanel::Slot(0, 19)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SSeparatorLabel", "SSeparator"))
+							]
 
-					+ SGridPanel::Slot(1, 19)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SBox)
-								.HeightOverride(100.0f)
-								.WidthOverride(150.0f)
-								[
-									SNew(SHorizontalBox)
+						+ SGridPanel::Slot(1, 19)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SBox)
+									.HeightOverride(100.0f)
+									.WidthOverride(150.0f)
+									[
+										SNew(SHorizontalBox)
 
-									+ SHorizontalBox::Slot()
-										.VAlign(VAlign_Center)
-										.FillWidth(0.75f)
-										[
-											SNew(SSeparator)
-												.Orientation(Orient_Horizontal)
-										]
+										+ SHorizontalBox::Slot()
+											.VAlign(VAlign_Center)
+											.FillWidth(0.75f)
+											[
+												SNew(SSeparator)
+													.Orientation(Orient_Horizontal)
+											]
 
-									+ SHorizontalBox::Slot()
-										.HAlign(HAlign_Center)
-										.FillWidth(0.25f)
-										[
-											SNew(SSeparator)
-												.Orientation(Orient_Vertical)
-										]
-								]			
-						]
+										+ SHorizontalBox::Slot()
+											.HAlign(HAlign_Center)
+											.FillWidth(0.25f)
+											[
+												SNew(SSeparator)
+													.Orientation(Orient_Vertical)
+											]
+									]			
+							]
 
-					// SSlider
-					+ SGridPanel::Slot(0, 20)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SSliderLabel", "SSlider"))
-						]
+						// SSlider
+						+ SGridPanel::Slot(0, 20)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SSliderLabel", "SSlider"))
+							]
 
-					+ SGridPanel::Slot(1, 20)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SBox)
-								.HeightOverride(100.0f)
-								.WidthOverride(150.0f)
-								[
-									SNew(SHorizontalBox)
+						+ SGridPanel::Slot(1, 20)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SBox)
+									.HeightOverride(100.0f)
+									.WidthOverride(150.0f)
+									[
+										SNew(SHorizontalBox)
 
-									+ SHorizontalBox::Slot()
-										.VAlign(VAlign_Center)
-										.FillWidth(0.75f)
-										[
-											SNew(SSlider)
-												.Orientation(Orient_Horizontal)
-												.Value(0.5f)
-										]
+										+ SHorizontalBox::Slot()
+											.VAlign(VAlign_Center)
+											.FillWidth(0.75f)
+											[
+												SNew(SSlider)
+													.Orientation(Orient_Horizontal)
+													.Value(0.5f)
+											]
 
-									+ SHorizontalBox::Slot()
-										.HAlign(HAlign_Center)
-										.FillWidth(0.25f)
-										[
-											SNew(SSlider)
-												.Orientation(Orient_Vertical)
-												.Value(0.5f)
-										]
-								]			
-						]
+										+ SHorizontalBox::Slot()
+											.HAlign(HAlign_Center)
+											.FillWidth(0.25f)
+											[
+												SNew(SSlider)
+													.Orientation(Orient_Vertical)
+													.Value(0.5f)
+											]
+									]			
+							]
 
-					// SSlider (no indentation)
-					+ SGridPanel::Slot(0, 21)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SSliderNoIndentLabel", "SSlider (no indentation)"))
-						]
+						// SSlider (no indentation)
+						+ SGridPanel::Slot(0, 21)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SSliderNoIndentLabel", "SSlider (no indentation)"))
+							]
 
-					+ SGridPanel::Slot(1, 21)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SBox)
-								.HeightOverride(100.0f)
-								.WidthOverride(150.0f)
-								[
-									SNew(SHorizontalBox)
+						+ SGridPanel::Slot(1, 21)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SBox)
+									.HeightOverride(100.0f)
+									.WidthOverride(150.0f)
+									[
+										SNew(SHorizontalBox)
 
-									+ SHorizontalBox::Slot()
-										.VAlign(VAlign_Center)
-										.FillWidth(0.75f)
-										[
-											SNew(SSlider)
-												.IndentHandle(false)
-												.Orientation(Orient_Horizontal)
-												.Value(0.5f)
-										]
+										+ SHorizontalBox::Slot()
+											.VAlign(VAlign_Center)
+											.FillWidth(0.75f)
+											[
+												SNew(SSlider)
+													.IndentHandle(false)
+													.Orientation(Orient_Horizontal)
+													.Value(0.5f)
+											]
 
-									+ SHorizontalBox::Slot()
-										.HAlign(HAlign_Center)
-										.FillWidth(0.25f)
-										[
-											SNew(SSlider)
-												.IndentHandle(false)
-												.Orientation(Orient_Vertical)
-												.Value(0.5f)
-										]
-								]			
-						]
+										+ SHorizontalBox::Slot()
+											.HAlign(HAlign_Center)
+											.FillWidth(0.25f)
+											[
+												SNew(SSlider)
+													.IndentHandle(false)
+													.Orientation(Orient_Vertical)
+													.Value(0.5f)
+											]
+									]			
+							]
 
-					// SSpacer
-					+ SGridPanel::Slot(0, 22)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SSpacerLabel", "SSpacer"))
-						]
+						// SSpacer
+						+ SGridPanel::Slot(0, 22)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SSpacerLabel", "SSpacer"))
+							]
 
-					+ SGridPanel::Slot(1, 22)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SSpacer)
-								.Size(FVector2D(100, 100))		
-						]
+						+ SGridPanel::Slot(1, 22)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SSpacer)
+									.Size(FVector2D(100, 100))		
+							]
 
-					// SSpinningImage
-					+ SGridPanel::Slot(0, 23)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SSpinningImageLabel", "SSpinningImage"))
-						]
+						// SSpinningImage
+						+ SGridPanel::Slot(0, 23)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SSpinningImageLabel", "SSpinningImage"))
+							]
 
-					+ SGridPanel::Slot(1, 23)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SSpinningImage)
-								.Image(FTestStyle::Get().GetBrush("TestRotation16px"))
-						]
+						+ SGridPanel::Slot(1, 23)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SSpinningImage)
+									.Image(FTestStyle::Get().GetBrush("TestRotation16px"))
+							]
 
-					// SSpinBox
-					+ SGridPanel::Slot(0, 24)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SSpinBoxLabel", "SSpinBox"))
-						]
+						// SSpinBox
+						+ SGridPanel::Slot(0, 24)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SSpinBoxLabel", "SSpinBox"))
+							]
 
-					+ SGridPanel::Slot(1, 24)
-						.HAlign(HAlign_Left)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SSpinBox<float>)
-								.MinValue(-1000.0f)
-								.MaxValue(1000.0f)
-								.MinSliderValue(TAttribute< TOptional<float> >(-500.0f))
-								.MaxSliderValue(TAttribute< TOptional<float> >(500.0f))
-								.Delta(0.5f)
-						]
+						+ SGridPanel::Slot(1, 24)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SSpinBox<float>)
+									.MinValue(-1000.0f)
+									.MaxValue(1000.0f)
+									.MinSliderValue(TAttribute< TOptional<float> >(-500.0f))
+									.MaxSliderValue(TAttribute< TOptional<float> >(500.0f))
+									.Delta(0.5f)
+							]
 
-					// STextBlock
-					+ SGridPanel::Slot(0, 25)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("STextBlockLabel", "STextBlock"))
-						]
+						// STextBlock
+						+ SGridPanel::Slot(0, 25)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("STextBlockLabel", "STextBlock"))
+							]
 
-					+ SGridPanel::Slot(1, 25)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SVerticalBox)
+						+ SGridPanel::Slot(1, 25)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SVerticalBox)
 							
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							[
-								SNew(STextBlock)
-									.Text(LOCTEXT("STextBlockLeftExampleLabel", "This is a left-justified text block"))
-									.Justification(ETextJustify::Left)
+								+ SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+										.Text(LOCTEXT("STextBlockLeftExampleLabel", "This is a left-justified text block"))
+										.Justification(ETextJustify::Left)
+								]
+
+								+ SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+										.Text(LOCTEXT("STextBlockCenterExampleLabel", "This is a center-justified text block"))
+										.Justification(ETextJustify::Center)
+								]
+
+								+ SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+										.Text(LOCTEXT("STextBlockRightExampleLabel", "This is a right-justified text block"))
+										.Justification(ETextJustify::Right)
+								]
 							]
 
-							+ SVerticalBox::Slot()
-							.AutoHeight()
+						// STextComboBox
+						+ SGridPanel::Slot(0, 26)
 							[
 								SNew(STextBlock)
-									.Text(LOCTEXT("STextBlockCenterExampleLabel", "This is a center-justified text block"))
-									.Justification(ETextJustify::Center)
+									.Text(LOCTEXT("STextComboBoxLabel", "STextComboBox"))
 							]
 
-							+ SVerticalBox::Slot()
-							.AutoHeight()
+						+ SGridPanel::Slot(1, 26)
+							.Padding(0.0f, 5.0f)
+							.HAlign(HAlign_Left)
+							.VAlign(VAlign_Center)
+							[
+								SAssignNew(TextComboBox, STextComboBox)
+									.OptionsSource(&TextComboBoxOptions)
+									.OnSelectionChanged(this, &SWidgetGallery::HandleTextComboBoxSelectionChanged)
+									.OnGetTextLabelForItem(this, &SWidgetGallery::HandleTextComboBoxGetTextLabelForItem)
+									.InitiallySelectedItem(TextComboBoxSelectedItem)			
+							]
+
+						// STextComboPopup
+						+ SGridPanel::Slot(0, 27)
 							[
 								SNew(STextBlock)
-									.Text(LOCTEXT("STextBlockRightExampleLabel", "This is a right-justified text block"))
-									.Justification(ETextJustify::Right)
+									.Text(LOCTEXT("STextComboPopupLabel", "STextComboPopup"))
 							]
-						]
 
-					// STextComboBox
-					+ SGridPanel::Slot(0, 26)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("STextComboBoxLabel", "STextComboBox"))
-						]
-
-					+ SGridPanel::Slot(1, 26)
-						.Padding(0.0f, 5.0f)
-						.HAlign(HAlign_Left)
-						.VAlign(VAlign_Center)
-						[
-							SAssignNew(TextComboBox, STextComboBox)
-								.OptionsSource(&TextComboBoxOptions)
-								.OnSelectionChanged(this, &SWidgetGallery::HandleTextComboBoxSelectionChanged)
-								.OnGetTextLabelForItem(this, &SWidgetGallery::HandleTextComboBoxGetTextLabelForItem)
-								.InitiallySelectedItem(TextComboBoxSelectedItem)			
-						]
-
-					// STextComboPopup
-					+ SGridPanel::Slot(0, 27)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("STextComboPopupLabel", "STextComboPopup"))
-						]
-
-					+ SGridPanel::Slot(1, 27)
-						.Padding(0.0f, 5.0f)
-						.HAlign(HAlign_Left)
-						.VAlign(VAlign_Center)
-						[
-							SNew(SButton)
-								.Text(LOCTEXT("ButtonTestLabel", "Test"))
-								.OnClicked(this, &SWidgetGallery::HandleTextComboPopupClicked)
-						]
+						+ SGridPanel::Slot(1, 27)
+							.Padding(0.0f, 5.0f)
+							.HAlign(HAlign_Left)
+							.VAlign(VAlign_Center)
+							[
+								SNew(SButton)
+									.Text(LOCTEXT("ButtonTestLabel", "Test"))
+									.OnClicked(this, &SWidgetGallery::HandleTextComboPopupClicked)
+							]
 		
-					// SThrobber
-					+ SGridPanel::Slot(0, 28)
+						// SThrobber
+						+ SGridPanel::Slot(0, 28)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SThrobberLabel", "SThrobber"))
+							]
+
+						+ SGridPanel::Slot(1, 28)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SVerticalBox)
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SThrobber)
+											.Animate(SThrobber::Horizontal)
+									]
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SThrobber)
+											.Animate(SThrobber::Opacity)
+									]
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SThrobber)
+											.Animate(SThrobber::VerticalAndOpacity) .NumPieces(5)
+									]
+							]
+	/*
+						// SVectorInputBox
+						+ SGridPanel::Slot(0, 29)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SVectorInputBoxLabel", "SVectorInputBox"))
+							]
+
+						+ SGridPanel::Slot(1, 29)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SVectorInputBox)
+									.X(-5)
+									.Y(0)
+									.Z(5)			
+							]
+	*/
+						// SVolumeControl
+						+ SGridPanel::Slot(0, 30)
+							[
+								SNew(STextBlock)
+									.Text(LOCTEXT("SVolumeControlLabel", "SVolumeControl"))
+							]
+
+						+ SGridPanel::Slot(1, 30)
+							.HAlign(HAlign_Left)
+							.Padding(0.0f, 5.0f)
+							[
+								SNew(SBox)
+									.WidthOverride(150.0f)
+									[
+										SNew(SVolumeControl)
+											.Volume(0.6f)
+									]
+							]
+
+						+ SGridPanel::Slot(0, 31)
 						[
 							SNew(STextBlock)
-								.Text(LOCTEXT("SThrobberLabel", "SThrobber"))
+								.Text(LOCTEXT("SUserWidgetLabel", "SUserWidgetExample"))
 						]
 
-					+ SGridPanel::Slot(1, 28)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SVerticalBox)
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									SNew(SThrobber)
-										.Animate(SThrobber::Horizontal)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									SNew(SThrobber)
-										.Animate(SThrobber::Opacity)
-								]
-
-							+ SVerticalBox::Slot()
-								.AutoHeight()
-								[
-									SNew(SThrobber)
-										.Animate(SThrobber::VerticalAndOpacity) .NumPieces(5)
-								]
-						]
-/*
-					// SVectorInputBox
-					+ SGridPanel::Slot(0, 29)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SVectorInputBoxLabel", "SVectorInputBox"))
-						]
-
-					+ SGridPanel::Slot(1, 29)
-						.Padding(0.0f, 5.0f)
-						[
-							SNew(SVectorInputBox)
-								.X(-5)
-								.Y(0)
-								.Z(5)			
-						]
-*/
-					// SVolumeControl
-					+ SGridPanel::Slot(0, 30)
-						[
-							SNew(STextBlock)
-								.Text(LOCTEXT("SVolumeControlLabel", "SVolumeControl"))
-						]
-
-					+ SGridPanel::Slot(1, 30)
+						+ SGridPanel::Slot(1, 31)
 						.HAlign(HAlign_Left)
 						.Padding(0.0f, 5.0f)
 						[
-							SNew(SBox)
-								.WidthOverride(150.0f)
-								[
-									SNew(SVolumeControl)
-										.Volume(0.6f)
-								]
+							SNew(SUserWidgetExample)
+							.Title( LOCTEXT("SUserWidgetTest", "UserWidgetTest.cpp") )
 						]
-
-					+ SGridPanel::Slot(0, 31)
-					[
-						SNew(STextBlock)
-							.Text(LOCTEXT("SUserWidgetLabel", "SUserWidgetExample"))
 					]
-
-					+ SGridPanel::Slot(1, 31)
-					.HAlign(HAlign_Left)
-					.Padding(0.0f, 5.0f)
-					[
-						SNew(SUserWidgetExample)
-						.Title( LOCTEXT("SUserWidgetTest", "UserWidgetTest.cpp") )
-					]
-				]
+			]
 		];
 
 		// initialize SBreadcrumbTrail
@@ -981,14 +985,14 @@ private:
 	TSharedRef<SWidget> HandleComboBoxGenerateWidget( TSharedPtr<FString> InItem )
 	{
 		return SNew(STextBlock)
-			.Text(*InItem);
+			.Text(FText::FromString(*InItem));
 	}
 
 	// Callback for getting the percent value in the SProgressBar example.
 	TOptional<float> HandleProgressBarPercent( ) const
 	{
 		// Show some marquee, some progress and some 100% filled state.
-		const float Progress = ProgressCurve.GetLerpLooping();
+		const float Progress = ProgressCurve.GetLerp();
 		const float MarqueeTimeFraction = 0.5f;
 
 		return (Progress < MarqueeTimeFraction)
@@ -1025,9 +1029,9 @@ private:
 	}
 
 	// Callback for getting the text of the second combo box in the SComboBox example.
-	FString HandleSecondComboBoxText() const
+	FText HandleSecondComboBoxText() const
 	{
-		return ComboString.IsValid() ? *ComboString : FString();
+		return ComboString.IsValid() ? FText::FromString(*ComboString) : FText::GetEmpty();
 	}
 
 	// Callback for changing the selector combo box's selection in SComboBox example.
@@ -1046,9 +1050,9 @@ private:
 	}
 
 	// Callback for getting the text of the selector combo box in the SComboBox example.
-	FString HandleSelectorComboBoxText( ) const
+	FText HandleSelectorComboBoxText( ) const
 	{
-		return SelectorComboBoxSelectedItem.IsValid() ? *SelectorComboBoxSelectedItem : FString();
+		return SelectorComboBoxSelectedItem.IsValid() ? FText::FromString(*SelectorComboBoxSelectedItem) : FText::GetEmpty();
 	}
 
 	// Callback for changing the active tab.

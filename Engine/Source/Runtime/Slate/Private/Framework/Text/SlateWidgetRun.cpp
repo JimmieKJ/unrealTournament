@@ -163,8 +163,8 @@ ERunAttributes FSlateWidgetRun::GetRunAttributes() const
 	return ERunAttributes::None;
 }
 
-FSlateWidgetRun::FSlateWidgetRun(const TSharedRef<class FTextLayout>& TextLayout, const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FWidgetRunInfo& InWidgetInfo)
-	: TextLayout(TextLayout)
+FSlateWidgetRun::FSlateWidgetRun(const TSharedRef<class FTextLayout>& InTextLayout, const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FWidgetRunInfo& InWidgetInfo)
+	: TextLayout(InTextLayout)
 	, RunInfo( InRunInfo )
 	, Text( InText )
 	, Range( 0, Text->Len() )
@@ -177,8 +177,8 @@ FSlateWidgetRun::FSlateWidgetRun(const TSharedRef<class FTextLayout>& TextLayout
 	Children.Add(Info.Widget);
 }
 
-FSlateWidgetRun::FSlateWidgetRun(const TSharedRef<class FTextLayout>& TextLayout, const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FWidgetRunInfo& InWidgetInfo, const FTextRange& InRange)
-	: TextLayout(TextLayout)
+FSlateWidgetRun::FSlateWidgetRun(const TSharedRef<class FTextLayout>& InTextLayout, const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FWidgetRunInfo& InWidgetInfo, const FTextRange& InRange)
+	: TextLayout(InTextLayout)
 	, RunInfo(InRunInfo)
 	, Text( InText )
 	, Range( InRange )

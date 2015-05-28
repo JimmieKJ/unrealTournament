@@ -23,6 +23,11 @@ struct FProfilerServiceAuthorize
 	FGuid InstanceId;
 
 	/**
+	 */
+	UPROPERTY()
+	TArray<uint8> Data;
+
+	/**
 	 * Default constructor.
 	 */
 	FProfilerServiceAuthorize( ) { }
@@ -30,113 +35,13 @@ struct FProfilerServiceAuthorize
 	/**
 	 * Creates and initializes a new instance.
 	 */
-	FProfilerServiceAuthorize( const FGuid& InSessionId, const FGuid& InInstanceId )
-		: SessionId(InSessionId)
-		, InstanceId(InInstanceId)
-	{
-	}
-
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceAuthorize> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
-
-/**
- */
-USTRUCT()
-struct FProfilerServiceAuthorize2
-{
-	GENERATED_USTRUCT_BODY()
-
-	/**
-	 */
-	UPROPERTY()
-	FGuid SessionId;
-
-	/**
-	 */
-	UPROPERTY()
-	FGuid InstanceId;
-
-	/**
-	 */
-	UPROPERTY()
-	TArray<uint8> Data;
-
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceAuthorize2( ) { }
-
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServiceAuthorize2( const FGuid& InSessionId, const FGuid& InInstanceId, const TArray<uint8>& InData )
+	FProfilerServiceAuthorize( const FGuid& InSessionId, const FGuid& InInstanceId, const TArray<uint8>& InData )
 		: SessionId(InSessionId)
 		, InstanceId(InInstanceId)
 	{
 		Data.Append(InData);
 	}
 
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceAuthorize2> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
-
-/**
- */
-USTRUCT()
-struct FProfilerServiceData
-{
-	GENERATED_USTRUCT_BODY()
-
-	/**
-	 */
-	UPROPERTY()
-	FGuid InstanceId;
-
-	/**
-	 */
-	UPROPERTY()
-	TArray<uint8> Data;
-
-
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceData( ) { }
-
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServiceData( const FGuid& InInstance, const TArray<uint8>& InData )
-		: InstanceId(InInstance)
-	{
-		Data.Append(InData);
-	}
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceData> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -155,10 +60,15 @@ struct FProfilerServiceData2
 	UPROPERTY()
 	int64 Frame;
 
-	/**
-	 */
 	UPROPERTY()
-	TArray<uint8> Data;
+	int32 CompressedSize;
+	
+	UPROPERTY()
+	int32 UncompressedSize;
+
+	/** Profiler data encoded as string of hexes, cannot use TArray<uint8> because of the Message Bus limitation. */
+	UPROPERTY()
+	FString HexData;
 
 
 	/**
@@ -169,21 +79,14 @@ struct FProfilerServiceData2
 	/**
 	 * Creates and initializes a new instance.
 	 */
-	FProfilerServiceData2( const FGuid& InInstance, int64 InFrame, const TArray<uint8>& InData )
-		: InstanceId(InInstance)
-		, Frame(InFrame)
+	FProfilerServiceData2( const FGuid& InInstance, int64 InFrame, const FString& InHexData, int32 InCompressedSize, int32 InUncompressedSize )
+		: InstanceId( InInstance )
+		, Frame( InFrame )
+		, CompressedSize( InCompressedSize )
+		, UncompressedSize( InUncompressedSize )
+		, HexData( MoveTemp( InHexData ) )
 	{
-		Data.Append(InData);
 	}
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceData2> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -199,10 +102,6 @@ struct FProfilerServicePreviewAck
 	UPROPERTY()
 	FGuid InstanceId;
 
-	UPROPERTY()
-	int64 Frame;
-
-
 	/**
 	 * Default constructor.
 	 */
@@ -211,62 +110,10 @@ struct FProfilerServicePreviewAck
 	/**
 	 * Creates and initializes a new instance.
 	 */
-	FProfilerServicePreviewAck( const FGuid& InInstance, int64 InFrame )
+	FProfilerServicePreviewAck( const FGuid& InInstance )
 		: InstanceId(InInstance)
-		, Frame(InFrame)
 	{
 	}
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServicePreviewAck> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
-
-/**
- */
-USTRUCT()
-struct FProfilerServiceMetaData
-{
-	GENERATED_USTRUCT_BODY()
-
-	/**
-	 */
-	UPROPERTY()
-	FGuid InstanceId;
-
-	/**
-	 */
-	UPROPERTY()
-	TArray<uint8> Data;
-
-
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceMetaData( ) { }
-
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServiceMetaData( const FGuid& InInstance, const TArray<uint8>& InData )
-		: InstanceId(InInstance)
-		, Data( InData )
-	{}
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceMetaData> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -331,14 +178,6 @@ struct FProfilerServiceFileChunk
 	{}
 };
 
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceFileChunk> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
 
 /**
  */
@@ -346,15 +185,6 @@ USTRUCT()
 struct FProfilerServicePing
 {
 	GENERATED_USTRUCT_BODY()
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServicePing> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -365,15 +195,6 @@ struct FProfilerServicePong
 {
 	GENERATED_USTRUCT_BODY()
 
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServicePong> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -406,15 +227,6 @@ struct FProfilerServiceSubscribe
 		: SessionId(InSessionId)
 		, InstanceId(InInstanceId)
 	{ }
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceSubscribe> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -450,15 +262,6 @@ struct FProfilerServiceUnsubscribe
 	{ }
 };
 
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceUnsubscribe> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  */
@@ -484,15 +287,6 @@ struct FProfilerServiceCapture
 	FProfilerServiceCapture( const bool bInRequestedCaptureState )
 		: bRequestedCaptureState( bInRequestedCaptureState )
 	{ }
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceCapture> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -522,15 +316,6 @@ struct FProfilerServicePreview
 	{ }
 };
 
-template<>
-struct TStructOpsTypeTraits<FProfilerServicePreview> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  */
@@ -554,13 +339,4 @@ struct FProfilerServiceRequest
 	FProfilerServiceRequest( uint32 InRequest )
 		: Request(InRequest)
 	{ }
-};
-
-template<>
-struct TStructOpsTypeTraits<FProfilerServiceRequest> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };

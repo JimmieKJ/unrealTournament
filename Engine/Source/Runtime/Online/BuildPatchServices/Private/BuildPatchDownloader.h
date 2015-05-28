@@ -268,10 +268,11 @@ private:
 
 	/**
 	 * Receives the HTTP request bytes downloaded when downloading a chunk.
-	 * @param Request		The request that was made
-	 * @param BytesSoFar	Whether the request successfully completed
+	 * @param Request               The request that was made
+	 * @param BytesSentSoFar        The total number of bytes sent so far
+	 * @param BytesReceivedSoFar    The total number of bytes downloaded so far
 	 */
-	void HttpRequestProgress( FHttpRequestPtr Request, int32 BytesSoFar );
+	void HttpRequestProgress( FHttpRequestPtr Request, int32 BytesSent, int32 BytesReceived );
 
 	/**
 	 * Receives the HTTP response when downloading a chunk.

@@ -18,6 +18,7 @@ public:
 		ENavLinkDirection::Type Direction;
 		FColor Color;
 		float SnapRadius;
+		float SnapHeight;
 		uint32 SupportedAgentsBits;
 	};
 	struct FNavLinkSegmentDrawing
@@ -27,6 +28,7 @@ public:
 		ENavLinkDirection::Type Direction;
 		FColor Color;
 		float SnapRadius;
+		float SnapHeight;
 		uint32 SupportedAgentsBits;
 	};
 

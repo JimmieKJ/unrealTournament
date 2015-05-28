@@ -25,14 +25,21 @@ typedef FAIGenericID<FPerceptionListenerCounter> FPerceptionListenerID;
 
 //////////////////////////////////////////////////////////////////////////
 
-struct FPerceptionChannelFilter
+UENUM()
+enum class EAISenseNotifyType : uint8
 {
-	static const uint32 AllChannels = uint32(-1);
+	OnEveryPerception,	// continuous update whenever target is perceived
+	OnPerceptionChange, // from "visible" to "not visible" or vice versa
+};
 
-	uint32 AcceptedChannelsMask;
+struct FPerceptionChannelWhitelist
+{
+	typedef int32 FFlagsContainer;
+
+	FFlagsContainer AcceptedChannelsMask;
 
 	// by default accept all
-	FPerceptionChannelFilter() : AcceptedChannelsMask(AllChannels)
+	FPerceptionChannelWhitelist() : AcceptedChannelsMask()
 	{}
 
 	void Clear()
@@ -40,13 +47,13 @@ struct FPerceptionChannelFilter
 		AcceptedChannelsMask = 0;
 	}
 
-	FORCEINLINE FPerceptionChannelFilter& FilterOutChannel(FAISenseID Channel)
+	FORCEINLINE FPerceptionChannelWhitelist& FilterOutChannel(FAISenseID Channel)
 	{
 		AcceptedChannelsMask &= ~(1 << Channel);
 		return *this;
 	}
 
-	FORCEINLINE FPerceptionChannelFilter& AcceptChannel(FAISenseID Channel)
+	FORCEINLINE_DEBUGGABLE FPerceptionChannelWhitelist& AcceptChannel(FAISenseID Channel)
 	{
 		AcceptedChannelsMask |= (1 << Channel);
 		return *this;
@@ -55,6 +62,68 @@ struct FPerceptionChannelFilter
 	FORCEINLINE bool ShouldRespondToChannel(FAISenseID Channel) const
 	{
 		return (AcceptedChannelsMask & (1 << Channel)) != 0;
+	}
+
+	FORCEINLINE FPerceptionChannelWhitelist& MergeFilterIn(const FPerceptionChannelWhitelist& OtherFilter)
+	{
+		AcceptedChannelsMask |= OtherFilter.AcceptedChannelsMask;
+		return *this;
+	}
+
+	FORCEINLINE FFlagsContainer GetAcceptedChannelsMask() const 
+	{ 
+		return AcceptedChannelsMask;
+	}
+
+	struct FConstIterator
+	{
+	private:
+		FFlagsContainer RemainingChannelsToTest;
+		const FPerceptionChannelWhitelist& Whitelist;
+		int32 CurrentIndex;
+
+	public:
+		FConstIterator(const FPerceptionChannelWhitelist& InWhitelist)
+			: RemainingChannelsToTest((FFlagsContainer)-1), Whitelist(InWhitelist)
+			, CurrentIndex(INDEX_NONE)
+		{
+			FindNextAcceptedChannel();
+		}
+
+		FORCEINLINE void FindNextAcceptedChannel()
+		{
+			const FFlagsContainer& Flags = Whitelist.GetAcceptedChannelsMask();
+
+			while ((RemainingChannelsToTest & Flags) != 0 && ((1 << ++CurrentIndex) | Flags) == 0)
+			{
+				RemainingChannelsToTest &= ~(1 << CurrentIndex);
+			}
+		}
+
+		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		{
+			return (RemainingChannelsToTest & Whitelist.GetAcceptedChannelsMask()) != 0;
+		}
+
+		FORCEINLINE int32 operator*() const
+		{
+			return CurrentIndex;
+		}
+
+		FORCEINLINE void operator++()
+		{
+			// mark "old" index as already used
+			RemainingChannelsToTest &= ~(1 << CurrentIndex);
+			FindNextAcceptedChannel();
+		}
+	};
+};
+
+struct FPerceptionChannelFilter : public FPerceptionChannelWhitelist
+{
+	DEPRECATED(4.5, "FPerceptionChannelFilter has been renamed to FPerceptionChannelWhitelist. Please use that instead.")
+	FPerceptionChannelFilter()
+	{
 	}
 };
 
@@ -86,8 +155,13 @@ public:
 	FVector ReceiverLocation;
 
 	FAISenseID Type;
+
 protected:
-	uint32 bLastSensingResult:1; // currently used only for marking failed sight tests
+	uint32 bWantsToNotifyOnlyOnValueChange : 1;
+
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Perception")
+	uint32 bSuccessfullySensed:1; // currently used only for marking failed sight tests
+
 	/** this means the stimulus was originally created with a "time limit" and this time has passed. 
 	 *	Expiration also results in calling MarkNoLongerSensed */
 	uint32 bExpired:1;	
@@ -97,21 +171,24 @@ public:
 	/** this is the recommended constructor. Use others if you know what you're doing. */
 	FAIStimulus(const UAISense& Sense, float StimulusStrength, const FVector& InStimulusLocation, const FVector& InReceiverLocation, FResult Result = SensingSucceeded);
 
-	FAIStimulus(FAISenseID SenseType, float StimulusStrength, const FVector& InStimulusLocation, const FVector& InReceiverLocation, FResult Result = SensingSucceeded)
+	/*FAIStimulus(FAISenseID SenseType, float StimulusStrength, const FVector& InStimulusLocation, const FVector& InReceiverLocation, FResult Result = SensingSucceeded)
 		: Age(0.f), ExpirationAge(NeverHappenedAge)
 		, Strength(Result == SensingSucceeded ? StimulusStrength : -1.f)
 		, StimulusLocation(InStimulusLocation)
-		, ReceiverLocation(InReceiverLocation), Type(SenseType), bLastSensingResult(Result == SensingSucceeded), bExpired(false)
-	{}
+		, ReceiverLocation(InReceiverLocation), Type(SenseType), bWantsToNotifyOnlyOnValueChange(false)
+		, bSuccessfullySensed(Result == SensingSucceeded), bExpired(false)
+	{}*/
 
 	// default constructor
 	FAIStimulus()
 		: Age(NeverHappenedAge), ExpirationAge(NeverHappenedAge), Strength(-1.f), StimulusLocation(FAISystem::InvalidLocation)
-		, ReceiverLocation(FAISystem::InvalidLocation), Type(FAISenseID::InvalidID()), bLastSensingResult(false), bExpired(false)
+		, ReceiverLocation(FAISystem::InvalidLocation), Type(FAISenseID::InvalidID()), bWantsToNotifyOnlyOnValueChange(false)
+		, bSuccessfullySensed(false), bExpired(false)
 	{}
 
 	FAIStimulus& SetExpirationAge(float InExpirationAge) { ExpirationAge = InExpirationAge; return *this; }
 	FAIStimulus& SetStimulusAge(float StimulusAge) { Age = StimulusAge; return *this; }
+	FAIStimulus& SetWantsNotifyOnlyOnValueChange(bool InEnable) { bWantsToNotifyOnlyOnValueChange = InEnable; return *this; }
 	
 	FORCEINLINE float GetAge() const { return Strength > 0 ? Age : NeverHappenedAge; }
 	/** @return false when this stimulus is no longer valid, when it is Expired */
@@ -120,11 +197,12 @@ public:
 		Age += ConstPerceptionAgingRate; 
 		return Age < ExpirationAge;
 	}
-	FORCEINLINE bool WasSuccessfullySensed() const { return bLastSensingResult; }
+	FORCEINLINE bool WasSuccessfullySensed() const { return bSuccessfullySensed; }
 	FORCEINLINE bool IsExpired() const { return bExpired; }
-	FORCEINLINE void MarkNoLongerSensed() { bLastSensingResult = false; }
+	FORCEINLINE void MarkNoLongerSensed() { bSuccessfullySensed = false; }
 	FORCEINLINE void MarkExpired() { bExpired = true; MarkNoLongerSensed(); }
 	FORCEINLINE bool IsActive() const { return WasSuccessfullySensed() == true && GetAge() < NeverHappenedAge; }
+	FORCEINLINE bool WantsToNotifyOnlyOnPerceptionChange() const { return bWantsToNotifyOnlyOnValueChange; }
 };
 
 USTRUCT()
@@ -142,6 +220,22 @@ struct AIMODULE_API FAISenseAffiliationFilter
 	uint32 bDetectFriendlies : 1;
 	
 	uint8 GetAsFlags() const { return (bDetectEnemies << ETeamAttitude::Hostile) | (bDetectNeutrals << ETeamAttitude::Neutral) | (bDetectFriendlies << ETeamAttitude::Friendly); }
+	FORCEINLINE bool ShouldDetectAll() const { return (bDetectEnemies & bDetectNeutrals & bDetectFriendlies); }
+
+	static FORCEINLINE uint8 DetectAllFlags() { return (1 << ETeamAttitude::Hostile) | (1 << ETeamAttitude::Neutral) | (1 << ETeamAttitude::Friendly); }
+
+	static bool ShouldSenseTeam(FGenericTeamId TeamA, FGenericTeamId TeamB, uint8 AffiliationFlags)
+	{
+		static const uint8 AllFlags = DetectAllFlags();
+		return AffiliationFlags == AllFlags || ((1 << FGenericTeamId::GetAttitude(TeamA, TeamB)) & AffiliationFlags);
+	}
+
+	static bool ShouldSenseTeam(const IGenericTeamAgentInterface* TeamAgent, const AActor& TargetActor, uint8 AffiliationFlags)
+	{
+		static const uint8 AllFlags = DetectAllFlags();
+		return AffiliationFlags == AllFlags 
+			|| (TeamAgent == nullptr ? (AffiliationFlags & (1 << ETeamAttitude::Neutral)) : ((1 << TeamAgent->GetTeamAttitudeTowards(TargetActor)) & AffiliationFlags));
+	}
 };
 
 /** Should contain only cached information common to all senses. Sense-specific data needs to be stored by senses themselves */
@@ -149,7 +243,7 @@ struct AIMODULE_API FPerceptionListener
 {
 	TWeakObjectPtr<UAIPerceptionComponent> Listener;
 
-	FPerceptionChannelFilter Filter;
+	FPerceptionChannelWhitelist Filter;
 
 	FVector CachedLocation;
 	FVector CachedDirection;
@@ -195,6 +289,12 @@ private:
 	friend class UAIPerceptionSystem;
 	FORCEINLINE void SetListenerID(FPerceptionListenerID InListenerID) { ListenerID = InListenerID; }
 	FORCEINLINE void MarkForStimulusProcessing() { bHasStimulusToProcess = true; }
+};
+
+struct AIMODULE_API FPerceptionStimuliSource
+{
+	TWeakObjectPtr<AActor> SourceActor;
+	FPerceptionChannelWhitelist RelevantSenses;
 };
 
 namespace AIPerception

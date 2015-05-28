@@ -305,7 +305,9 @@ bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewpor
 			GRenderThreadNumIdle[ERenderThreadIdleTypes::WaitingForGPUPresent]++;
 		}
 	}
-	return true;
+//	return true;
+	//Do not want WaitForFrameEventCompletion
+	return false;
 }
 
 void PlatformRenderingContextSetup(FPlatformOpenGLDevice* Device)

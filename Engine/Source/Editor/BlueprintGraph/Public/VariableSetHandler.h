@@ -16,6 +16,7 @@ public:
 	virtual void RegisterNet(FKismetFunctionContext& Context, UEdGraphPin* Net) override;
 	virtual void RegisterNets(FKismetFunctionContext& Context, UEdGraphNode* Node) override;
 	void InnerAssignment(FKismetFunctionContext& Context, UEdGraphNode* Node, UEdGraphPin* VariablePin, UEdGraphPin* ValuePin);
+	void GenerateAssigments(FKismetFunctionContext& Context, UEdGraphNode* Node);
 	virtual void Compile(FKismetFunctionContext& Context, UEdGraphNode* Node) override;
 	virtual void Transform(FKismetFunctionContext& Context, UEdGraphNode* Node) override;
 };

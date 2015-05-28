@@ -14,6 +14,7 @@ public class LinuxTargetPlatform : ModuleRules
 				"CoreUObject",
 				"TargetPlatform",
 				"DesktopPlatform",
+				"Projects"
 			}
         );
 

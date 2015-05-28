@@ -12,26 +12,70 @@ FSkeletalMeshMerge
 
 struct FRefPoseOverride
 {
-	/** The skeletal mesh that contains the reference pose. */
-	const USkeletalMesh* SkeletalMesh;
+ public:
 
-	/** The names of the bones to override. */
-	TArray<FName> BoneNames;
+	enum EBoneOverrideMode
+	{
+		BoneOnly,			// Override the bone only.
+		ChildrenOnly,		// Override the bone's children only.
+		BoneAndChildren,	// Override both the bone & children.
+		MAX,
+	};
 
 	/**
-	 * Whether the override for the bone should apply to the bone's children.
-	 * This array has a 1:1 with the 'BoneNames' array.
+	 * Constructs a FRefPoseOverride.
 	 */
-	TArray<bool> OverrideChildren;
+	FRefPoseOverride(const USkeletalMesh* ReferenceMesh)
+	{
+		this->SkeletalMesh = ReferenceMesh;
+	}
 
 	/**
 	 * Adds a bone to the list of poses to override.
 	 */
-	void AddOverride(FName BoneName, bool bOverrideChildren = false)
+	DEPRECATED(4.8, "Use AddOverride(FName, EBoneOverrideMode) instead.")
+	void AddOverride(FName BoneName, bool bOverrideChildren)
 	{
-		BoneNames.Add(BoneName);
-		OverrideChildren.Add(bOverrideChildren);
+		EBoneOverrideMode OverrideMode = BoneAndChildren;
+
+		if (!bOverrideChildren)
+		{
+			OverrideMode = BoneOnly;
+		}
+
+		AddOverride(BoneName, OverrideMode);
 	}
+
+	/**
+	 * Adds a bone to the list of poses to override.
+	 */
+	void AddOverride(FName BoneName, EBoneOverrideMode OverrideMode = BoneOnly)
+	{
+		FBoneOverrideInfo OverrideInfo;
+		OverrideInfo.BoneName = BoneName;
+		OverrideInfo.OverrideMode = OverrideMode;
+
+		Overrides.Add(OverrideInfo);
+	}
+
+ private:
+
+	 struct FBoneOverrideInfo
+	 {
+		 /** The names of the bone to override. */
+		 FName BoneName;
+
+		 /** Whether the override applies to the bone, bone's children, or both. */
+		 EBoneOverrideMode OverrideMode;
+	 };
+
+	/** The skeletal mesh that contains the reference pose. */
+	const USkeletalMesh* SkeletalMesh;
+
+	/** The list of bone overrides. */
+	TArray<FBoneOverrideInfo> Overrides;
+
+	friend class FSkeletalMeshMerge;
 };
 
 /** 

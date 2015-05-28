@@ -57,31 +57,31 @@ void UParticleModuleCollision::InitializeDefaults()
 {
 	if (!DampingFactor.Distribution)
 	{
-		DampingFactor.Distribution = NewNamedObject<UDistributionVectorUniform>(this, TEXT("DistributionDampingFactor"));
+		DampingFactor.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionDampingFactor"));
 	}
 
 	if (!DampingFactorRotation.Distribution)
 	{
-		UDistributionVectorConstant* DistributionDampingFactorRotation = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionDampingFactorRotation"));
+		UDistributionVectorConstant* DistributionDampingFactorRotation = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionDampingFactorRotation"));
 		DistributionDampingFactorRotation->Constant = FVector(1.0f, 1.0f, 1.0f);
 		DampingFactorRotation.Distribution = DistributionDampingFactorRotation; 
 	}
 
 	if (!MaxCollisions.Distribution)
 	{
-		MaxCollisions.Distribution = NewNamedObject<UDistributionFloatUniform>(this, TEXT("DistributionMaxCollisions"));
+		MaxCollisions.Distribution = NewObject<UDistributionFloatUniform>(this, TEXT("DistributionMaxCollisions"));
 	}
 
 	if (!ParticleMass.Distribution)
 	{
-		UDistributionFloatConstant* DistributionParticleMass = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionParticleMass")); 
+		UDistributionFloatConstant* DistributionParticleMass = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParticleMass"));
 		DistributionParticleMass->Constant = 0.1f;
 		ParticleMass.Distribution = DistributionParticleMass;
 	}
 
 	if (!DelayAmount.Distribution)
 	{
-		UDistributionFloatConstant* DistributionDelayAmount = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionDelayAmount"));
+		UDistributionFloatConstant* DistributionDelayAmount = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionDelayAmount"));
 		DistributionDelayAmount->Constant = 0.0f;
 		DelayAmount.Distribution = DistributionDelayAmount;
 	}
@@ -433,11 +433,15 @@ void UParticleModuleCollision::Update(FParticleEmitterInstance* Owner, int32 Off
 						FVector	NewLocation		= Location + NewVelocity * (1.f - Hit.Time);
 						Particle.Location		= Owner->Component->ComponentToWorld.InverseTransformPosition(NewLocation);
 
-						if (bApplyPhysics && Hit.Component.Get())
+						if (bApplyPhysics)
 						{
-							FVector vImpulse;
-							vImpulse = -(NewVelocity - OldVelocity) * ParticleMass.GetValue(Particle.RelativeTime, Owner->Component);
-							Hit.Component->AddImpulseAtLocation(vImpulse, Hit.Location, Hit.BoneName);
+							UPrimitiveComponent* PrimitiveComponent = Hit.Component.Get();
+							if(PrimitiveComponent && PrimitiveComponent->IsAnySimulatingPhysics())
+							{
+								FVector vImpulse;
+								vImpulse = -(NewVelocity - OldVelocity) * ParticleMass.GetValue(Particle.RelativeTime, Owner->Component);
+								PrimitiveComponent->AddImpulseAtLocation(vImpulse, Hit.Location, Hit.BoneName);
+							}
 						}
 					}
 					else
@@ -458,11 +462,15 @@ void UParticleModuleCollision::Update(FParticleEmitterInstance* Owner, int32 Off
 						Particle.Velocity		= FVector::ZeroVector;
 						Particle.Location	   += vNewVelocity * (1.f - Hit.Time);
 
-						if (bApplyPhysics && Hit.Component.Get())
+						if (bApplyPhysics)
 						{
-							FVector vImpulse;
-							vImpulse = -(vNewVelocity - vOldVelocity) * ParticleMass.GetValue(Particle.RelativeTime, Owner->Component);
-							Hit.Component->AddImpulseAtLocation(vImpulse, Hit.Location, Hit.BoneName);
+							UPrimitiveComponent* PrimitiveComponent = Hit.Component.Get();
+							if(PrimitiveComponent && PrimitiveComponent->IsAnySimulatingPhysics())
+							{
+								FVector vImpulse;
+								vImpulse = -(vNewVelocity - vOldVelocity) * ParticleMass.GetValue(Particle.RelativeTime, Owner->Component);
+								PrimitiveComponent->AddImpulseAtLocation(vImpulse, Hit.Location, Hit.BoneName);
+							}
 						}
 					}
 
@@ -581,14 +589,14 @@ void UParticleModuleCollisionGPU::InitializeDefaults()
 {
 	if (!Resilience.Distribution)
 	{
-		UDistributionFloatConstant* ResilienceDistribution = NewNamedObject<UDistributionFloatConstant>(this, TEXT("ResilienceDistribution"));
+		UDistributionFloatConstant* ResilienceDistribution = NewObject<UDistributionFloatConstant>(this, TEXT("ResilienceDistribution"));
 		ResilienceDistribution->Constant = 0.5f;
 		Resilience.Distribution = ResilienceDistribution;
 	}
 
 	if (!ResilienceScaleOverLife.Distribution)
 	{
-		UDistributionFloatConstant* ResilienceScaleOverLifeDistribution = NewNamedObject<UDistributionFloatConstant>(this, TEXT("ResilienceScaleOverLifeDistribution"));
+		UDistributionFloatConstant* ResilienceScaleOverLifeDistribution = NewObject<UDistributionFloatConstant>(this, TEXT("ResilienceScaleOverLifeDistribution"));
 		ResilienceScaleOverLifeDistribution->Constant = 1.0f;
 		ResilienceScaleOverLife.Distribution = ResilienceScaleOverLifeDistribution;
 	}

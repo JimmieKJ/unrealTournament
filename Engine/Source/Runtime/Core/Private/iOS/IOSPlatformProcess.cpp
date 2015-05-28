@@ -102,6 +102,17 @@ void FIOSPlatformProcess::SetThreadAffinityMask(uint64 AffinityMask)
 	}
 }
 
+const TCHAR* FIOSPlatformProcess::ExecutableName(bool bRemoveExtension)
+{
+	static TCHAR Result[512] = TEXT("");
+	if (!Result[0])
+	{
+		NSString *NSExeName = [[[NSBundle mainBundle] executablePath] lastPathComponent];
+		FPlatformString::CFStringToTCHAR((CFStringRef)NSExeName, Result);
+	}
+	return Result;
+}
+
 const uint64 FIOSPlatformAffinity::GetMainGameMask()
 {
 	return MAKEAFFINITYMASK1(0);

@@ -17,6 +17,7 @@
 #include "EngineAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "ContentStreaming.h"
+#include "IAudioExtensionPlugin.h"
 
 DEFINE_LOG_CATEGORY(LogAudio);
 
@@ -52,6 +53,19 @@ DEFINE_STAT(STAT_AudioGatherWaveInstances);
 DEFINE_STAT(STAT_AudioUpdateTime);
 DEFINE_STAT(STAT_AudioFindNearestLocation);
 
+
+bool IsAudioPluginEnabled(EAudioPlugin::Type PluginType)
+{
+	if (PluginType == EAudioPlugin::SPATIALIZATION)
+	{
+		TArray<IAudioSpatializationPlugin *> SpatializationPlugins = IModularFeatures::Get().GetModularFeatureImplementations<IAudioSpatializationPlugin>(IAudioSpatializationPlugin::GetModularFeatureName());
+		return SpatializationPlugins.Num() > 0;
+	}
+
+	return false;
+}
+
+
 /*-----------------------------------------------------------------------------
 	FSoundBuffer implementation.
 -----------------------------------------------------------------------------*/
@@ -59,9 +73,9 @@ DEFINE_STAT(STAT_AudioFindNearestLocation);
 FSoundBuffer::~FSoundBuffer()
 {
 	// remove ourselves from the set of waves that are tracked by the audio device
-	if (ResourceID && GEngine && GEngine->AudioDevice)
+	if (ResourceID && GEngine && GEngine->GetAudioDeviceManager())
 	{
-		GEngine->AudioDevice->WaveBufferMap.Remove(ResourceID);
+		GEngine->GetAudioDeviceManager()->RemoveSoundBufferForResourceID(ResourceID);
 	}
 }
 
@@ -90,9 +104,9 @@ FName FSoundBuffer::GetSoundClassName()
 				{
 					if (WaveNode->ResourceID == ResourceID)
 					{
-						if (Cue->SoundClassObject)
+						if (Cue->GetSoundClass())
 						{
-							return Cue->SoundClassObject->GetFName();
+							return Cue->GetSoundClass()->GetFName();
 						}
 						else
 						{
@@ -107,9 +121,9 @@ FName FSoundBuffer::GetSoundClassName()
 			USoundWave* Wave = Cast<USoundWave>(*It);
 			if (Wave && Wave->ResourceID == ResourceID)
 			{
-				if (Wave->SoundClassObject)
+				if (Wave->GetSoundClass())
 				{
-					return Wave->SoundClassObject->GetFName();
+					return Wave->GetSoundClass()->GetFName();
 				}
 				else
 				{
@@ -358,11 +372,12 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 ,	LoopingMode( LOOP_Never )
 ,	StartTime( -1.f )
 ,	bApplyRadioFilter( false )
-,	bIsStarted( false )
+,	bIsStarted(false)
 ,	bIsFinished( false )
 ,	bAlreadyNotifiedHook( false )
 ,	bUseSpatialization( false )
-,	bEQFilterApplied( false )
+,	SpatializationAlgorithm(SPATIALIZATION_Default)
+,	bEQFilterApplied(false)
 ,	bIsUISound( false )
 ,	bIsMusic( false )
 ,	bReverb( true )

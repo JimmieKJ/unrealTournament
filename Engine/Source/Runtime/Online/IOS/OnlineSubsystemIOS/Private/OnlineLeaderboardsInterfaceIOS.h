@@ -14,6 +14,8 @@ private:
 
 	NSMutableArray* UnreportedScores;
 
+    bool ReadLeaderboardCompletionDelegate(NSArray* players, FOnlineLeaderboardReadRef& ReadObject);
+    
 PACKAGE_SCOPE:
 
 	FOnlineLeaderboardsIOS(FOnlineSubsystemIOS* InSubsystem);

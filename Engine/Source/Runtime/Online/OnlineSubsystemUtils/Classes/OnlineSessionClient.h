@@ -8,6 +8,11 @@
 #include "OnlineSessionInterface.h"
 #include "OnlineSessionClient.generated.h"
 
+class UWorld;
+class APlayerController;
+
+#define INVALID_CONTROLLERID 255
+
 UCLASS(config=Game)
 class ONLINESUBSYSTEMUTILS_API UOnlineSessionClient : public UOnlineSession
 {
@@ -18,8 +23,6 @@ protected:
 	/** Reference to the online sessions interface */
 	IOnlineSessionPtr SessionInt;
 
-	/** Delegate when an invite has been accepted from an external source */
-	FOnSessionInviteAcceptedDelegate OnSessionInviteAcceptedDelegate;
 	/** Delegate for destroying a session after previously ending it */
 	FOnEndSessionCompleteDelegate OnEndForJoinSessionCompleteDelegate;
 	/** Delegate for joining a new session after previously destroying it */
@@ -36,6 +39,11 @@ protected:
 	FDelegateHandle OnDestroyForMainMenuCompleteDelegateHandle;
 	FDelegateHandle OnJoinSessionCompleteDelegateHandle;
 
+	/** Handle to outstanding start session call */
+	FDelegateHandle StartSessionCompleteHandle;
+	/** Handle to outstanding end session call */
+	FDelegateHandle EndSessionCompleteHandle;
+
 	/** Cached invite/search result while in the process of tearing down an existing session */
 	FOnlineSessionSearchResult CachedSessionResult;
 	/** Is this join from an invite */
@@ -45,10 +53,16 @@ protected:
 	UPROPERTY(Transient)
 	bool bHandlingDisconnect;
 
+	/** @return the current game world */
+	virtual UWorld* GetWorld() const override;
+
 	/**
 	 * Get the player controller associated with this session (from the owning ULocalPlayer)
 	 */
-	class APlayerController* GetPlayerController();
+	APlayerController* GetPlayerController();
+
+	/** @return the unique id associated with the player who owns this class */
+	TSharedPtr<FUniqueNetId> GetUniqueId();
 
 	/**
 	 * Helper function to retrieve the controller id of the owning controller
@@ -82,6 +96,22 @@ protected:
 	 * @param Delegate delegate to call at session end
 	 */
 	void EndExistingSession(FName SessionName, FOnEndSessionCompleteDelegate& Delegate);
+
+	/** 
+	 * Delegate called when StartSession has completed 
+	 *
+	 * @param InSessionName name of session involved
+	 * @param bWasSuccessful true if the call was successful, false otherwise
+	 */
+	virtual void OnStartSessionComplete(FName InSessionName, bool bWasSuccessful);
+
+	/**
+	 * Delegate called when EndSession has completed
+	 *
+	 * @param InSessionName name of session involved
+	 * @param bWasSuccessful true if the call was successful, false otherwise
+	 */
+	virtual void OnEndSessionComplete(FName InSessionName, bool bWasSuccessful);
 
 private:
 	/**
@@ -117,17 +147,27 @@ protected:
 	 */
 	void DestroyExistingSession(FName SessionName, FOnDestroySessionCompleteDelegate& Delegate);
 
-private:
 	/**
 	 * Implementation of DestroyExistingSession
 	 *
+	 * @param OutResult Handle to the added delegate.
 	 * @param SessionName name of session to destroy
 	 * @param Delegate delegate to call at session destruction
-	 * @return Handle to the added delegate.
 	 */
-	FDelegateHandle DestroyExistingSession_Impl(FName SessionName, FOnDestroySessionCompleteDelegate& Delegate);
+	void DestroyExistingSession_Impl(FDelegateHandle& OutResult, FName SessionName, FOnDestroySessionCompleteDelegate& Delegate);
 
 protected:
+
+	/**
+	* Called from GameInstance when the user accepts an invite
+	*
+	* @param bWasSuccess true if invite was accepted successfully
+	* @param ControllerId the controller index of the user being invited
+	* @param UserId the user being invited
+	* @param InviteResult the search/settings result for the session we're joining via invite
+	*/
+	void OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr<FUniqueNetId> UserId, const FOnlineSessionSearchResult& InviteResult) override;
+
 	/**
 	 * Delegate fired when the joining process for an online session has completed
 	 *
@@ -143,34 +183,17 @@ protected:
 	 * @param SessionName name of session to join
 	 * @param SearchResult the session to join
 	 */
-	void JoinSession(int32 LocalUserNum, FName SessionName, const FOnlineSessionSearchResult& SearchResult);
-
-	/**
-	 * Delegate fired when an invite request has been accepted (via external UI)
-	 *
-	 * @param LocalUserNum local user accepting invite
-	 * @param bWasSuccessful true if the async action completed without error, false if there was an error
-	 * @param SearchResult search result containing the invite data
-	 */
-	virtual void OnSessionInviteAccepted(int32 LocalUserNum, bool bWasSuccessful, const class FOnlineSessionSearchResult& SearchResult);
+	virtual void JoinSession(FName SessionName, const FOnlineSessionSearchResult& SearchResult);
 
 public:
 
-	/**
-	 * Register all delegates needed to manage online sessions
-	 */
+	// UOnlineSession interface begin
 	virtual void RegisterOnlineDelegates(class UWorld* InWorld) override;
-
-	/**
-	 * Tear down all delegates used to manage online sessions
-	 */
 	virtual void ClearOnlineDelegates(class UWorld* InWorld) override;
-
-	/**
-	 * Called to tear down any online sessions and return to main menu
-	 */
-	void HandleDisconnect(UWorld *World, UNetDriver *NetDriver) override;
-
+	virtual void HandleDisconnect(UWorld *World, UNetDriver *NetDriver) override;
+	virtual void StartOnlineSession(FName SessionName) override;
+	virtual void EndOnlineSession(FName SessionName) override;
+	// UOnlineSession interface end
 };
 
 

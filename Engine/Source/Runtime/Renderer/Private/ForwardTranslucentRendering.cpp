@@ -30,7 +30,7 @@ public:
 		SceneTextureParameters.Set(RHICmdList, GetPixelShader(), View);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << SceneTextureParameters;
@@ -215,8 +215,7 @@ bool FTranslucencyForwardShadingDrawingPolicyFactory::DrawDynamicMesh(
 		if (bDisableDepthTest)
 		{
 			// Restore default depth state
-			// Note, this is a reversed Z depth surface, using CF_GreaterEqual.	
-			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_GreaterEqual>::GetRHI());
+			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 		}
 
 		bDirty = true;
@@ -348,8 +347,7 @@ void FForwardShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate& 
 			}
 
 			// Enable depth test, disable depth writes.
-			// Note, this is a reversed Z depth surface, using CF_GreaterEqual.
-			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_GreaterEqual>::GetRHI());
+			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
 
 			// Draw only translucent prims that don't read from scene color
 			View.TranslucentPrimSet.DrawPrimitivesForForwardShading(RHICmdList, View, *this);

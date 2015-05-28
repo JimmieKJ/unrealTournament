@@ -10,7 +10,7 @@ FName  AAbilitySystemTestPawn::AbilitySystemComponentName(TEXT("AbilitySystemCom
 AAbilitySystemTestPawn::AAbilitySystemTestPawn(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	AbilitySystemComponent = ObjectInitializer.CreateDefaultSubobject<UAbilitySystemComponent>(this, AAbilitySystemTestPawn::AbilitySystemComponentName);
+	AbilitySystemComponent = CreateDefaultSubobject<UAbilitySystemComponent>(AAbilitySystemTestPawn::AbilitySystemComponentName);
 	AbilitySystemComponent->SetIsReplicated(true);
 
 	//DefaultAbilitySet = NULL;
@@ -21,7 +21,6 @@ void AAbilitySystemTestPawn::PostInitializeComponents()
 	static UProperty *DamageProperty = FindFieldChecked<UProperty>(UAbilitySystemTestAttributeSet::StaticClass(), GET_MEMBER_NAME_CHECKED(UAbilitySystemTestAttributeSet, Damage));
 
 	Super::PostInitializeComponents();
-	GameplayCueHandler.Owner = this;
 	AbilitySystemComponent->InitStats(UAbilitySystemTestAttributeSet::StaticClass(), NULL);
 
 	/*

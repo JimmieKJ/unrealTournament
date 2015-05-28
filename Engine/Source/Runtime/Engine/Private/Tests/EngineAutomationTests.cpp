@@ -63,7 +63,7 @@ namespace
 /**
  * SetRes Verification - Verify changing resolution works
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FSetResTest, "Windows.Set Resolution", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST( FSetResTest, "System.Windows.Set Resolution", EAutomationTestFlags::ATF_Game )
 
 /** 
  * Change resolutions, wait, and change back
@@ -97,7 +97,7 @@ bool FSetResTest::RunTest(const FString& Parameters)
 /**
  * Stats verification - Toggle various "stats" commands
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FStatsVerificationMapTest, "Maps.Stats Verification", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST( FStatsVerificationMapTest, "System.Maps.Stats Verification", EAutomationTestFlags::ATF_Game )
 
 /** 
  * Execute the loading of one map to verify screen captures and performance captures work
@@ -192,7 +192,7 @@ bool FStatsVerificationMapTest::RunTest(const FString& Parameters)
  * LoadAutomationMap
  * Verification automation test to make sure features of map loading work (load, screen capture, performance capture)
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FPerformanceCaptureTest, "Maps.Performance Capture", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST( FPerformanceCaptureTest, "System.Maps.Performance Capture", EAutomationTestFlags::ATF_Game )
 
 /** 
  * Execute the loading of one map to verify screen captures and performance captures work
@@ -219,8 +219,9 @@ DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FTakeViewportScreenshotCommand, F
 
 bool FTakeViewportScreenshotCommand::Update()
 {
-	
-	FScreenshotRequest::RequestScreenshot( ScreenshotFileName, false );
+	const bool bShowUI = false;
+	const bool bAddFilenameSuffix = false;
+	FScreenshotRequest::RequestScreenshot( ScreenshotFileName, bShowUI, bAddFilenameSuffix );
 	return true;
 }
 
@@ -228,7 +229,7 @@ bool FTakeViewportScreenshotCommand::Update()
  * LoadAllMapsInGame
  * Verification automation test to make sure loading all maps succeed without crashing AND does performance captures
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FLoadAllMapsInGameTest, "Maps.Load All In Game", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST( FLoadAllMapsInGameTest, "Project.Maps.Load All In Game", EAutomationTestFlags::ATF_Game )
 
 /** 
  * Requests a enumeration of all maps to be loaded
@@ -276,7 +277,7 @@ bool FLoadAllMapsInGameTest::RunTest(const FString& Parameters)
  * SaveGameTest
  * Test makes sure a save game (without UI) saves and loads correctly
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FSaveGameTest, "Engine.Game.Noninteractive Save", EAutomationTestFlags::ATF_Game )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST( FSaveGameTest, "System.Engine.Game.Noninteractive Save", EAutomationTestFlags::ATF_Game )
 
 /** 
  * Saves and loads a savegame file
@@ -338,7 +339,7 @@ bool FSaveGameTest::RunTest(const FString& Parameters)
 /**
  * Automation test to load a map and capture FPS performance charts
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCinematicFPSPerfTest, "Maps.Cinematic FPS Perf Capture", (EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_NonNullRHI));
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCinematicFPSPerfTest, "Project.Maps.Cinematic FPS Perf Capture", (EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_NonNullRHI));
 
 void FCinematicFPSPerfTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const
 {
@@ -427,7 +428,7 @@ bool FCinematicFPSPerfTest::RunTest(const FString& Parameters)
 }
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLogTypesTest, "Automation Framework.Logging Test", EAutomationTestFlags::ATF_None)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLogTypesTest, "System.Automation Framework.Logging Test", EAutomationTestFlags::ATF_None)
 
 bool FLogTypesTest::RunTest(const FString& Parameters)
 {

@@ -51,7 +51,9 @@
 
 		<!-- DataTemplate BuildListItemTemplate -->
 		<DataTemplate x:Key="BuildListItemTemplate">
-			<TextBlock Text="{Binding Path=DisplayString}"/>
+			<ContentControl MouseDoubleClick="OnDblClickBuildListItem" ToolTip="Double-click to switch the active solution config and the startup project to match this item.">
+				<TextBlock Text="{Binding Path=DisplayString}"/>
+			</ContentControl>
 		</DataTemplate>
 
 		<!-- DataTemplate BuildingListItemTemplate -->

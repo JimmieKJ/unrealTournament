@@ -33,7 +33,7 @@ public:
 	 * @param InParams The command line parameters.
 	 * @param InHidden Whether the window of the process should be hidden.
 	 */
-	FMonitoredProcess( const FString& InURL, const FString& InParams, bool InHidden );
+	FMonitoredProcess( const FString& InURL, const FString& InParams, bool InHidden, bool InCreatePipes = true );
 
 	/** Destructor. */
 	~FMonitoredProcess();
@@ -70,6 +70,16 @@ public:
 
 	/** Launches the process. */
 	bool Launch();
+
+	/**
+	 * Sets the sleep interval to be used in the main thread loop.
+	 *
+	 * @param InSleepInterval The Sleep interval to use.
+	 */
+	void SetSleepInterval( float InSleepInterval )
+	{
+		SleepInterval = InSleepInterval;
+	}
 
 public:
 
@@ -177,6 +187,12 @@ private:
 
 	// Holds the write pipe. */
 	void* WritePipe;
+
+	// Holds if we should create pipes
+	bool bCreatePipes;
+
+	// Sleep interval to use
+	float SleepInterval;
 
 private:
 

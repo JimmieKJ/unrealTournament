@@ -4,6 +4,15 @@
 
 #include "FriendsAndChatStyle.generated.h"
 
+UENUM()
+namespace EChatChannelStyle
+{
+	enum Type
+	{
+		List,
+		Conversation
+	};
+}
 
 /**
  * Interface for the services manager.
@@ -50,6 +59,14 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	FButtonStyle FriendGeneralButtonStyle;
 	FFriendsAndChatStyle& SetFriendGeneralButtonStyle(const FButtonStyle& ButtonStyle);
 
+	UPROPERTY()
+	FSlateColor ButtonInvertedForegroundColor;
+	FFriendsAndChatStyle& SetButtonInvertedForegroundColor(const FSlateColor& Value);
+
+	UPROPERTY()
+	FSlateColor ButtonForegroundColor;
+	FFriendsAndChatStyle& SetButtonForegroundColor(const FSlateColor& Value);
+
 	/** Friends List Action Button style */
 	UPROPERTY()
 	FButtonStyle FriendListActionButtonStyle;
@@ -83,6 +100,10 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	FFriendsAndChatStyle& SetFriendsListItemButtonSimpleStyle(const FButtonStyle& ButtonStyle);
 
 	UPROPERTY()
+	FSlateBrush GlobalChatHeaderBrush;
+	FFriendsAndChatStyle& SetGlobalChatHeaderBrush(const FSlateBrush& Value);
+
+	UPROPERTY()
 	FButtonStyle GlobalChatButtonStyle;
 	FFriendsAndChatStyle& SetGlobalChatButtonStyle(const FButtonStyle& ButtonStyle);
 
@@ -95,11 +116,6 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY()
 	FButtonStyle AddFriendCloseButtonStyle;
 	FFriendsAndChatStyle& SetAddFriendCloseButtonStyle(const FButtonStyle& ButtonStyle);
-
-	/** Add Friend button style */
-	UPROPERTY()
-	FButtonStyle AddFriendButtonStyle;
-	FFriendsAndChatStyle& SetAddFriendButtonStyle(const FButtonStyle& ButtonStyle);
 
 	/** Friends List Combo Button menu background image (left) */
 	UPROPERTY()
@@ -125,6 +141,11 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY()
 	FSlateBrush AddFriendButtonContentBrush;
 	FFriendsAndChatStyle& SetAddFriendButtonContentBrush(const FSlateBrush& BrushStyle);
+
+	/** Optional content for the Add Friend button (hovered) */
+	UPROPERTY()
+	FSlateBrush AddFriendButtonContentHoveredBrush;
+	FFriendsAndChatStyle& SetAddFriendButtonContentHoveredBrush(const FSlateBrush& BrushStyle);
 
 	/** Title Bar brush style */
 	UPROPERTY(EditAnywhere, Category = Appearance)
@@ -186,6 +207,11 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	FSlateBrush Background;
 	FFriendsAndChatStyle& SetBackgroundBrush(const FSlateBrush& InBackground);
 
+	/** Window edging style */
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush WindowEdgingBrush;
+	FFriendsAndChatStyle& SetWindowEdgingBrush(const FSlateBrush& Value);
+
 	/** Friend container header */
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush FriendContainerHeader;
@@ -195,6 +221,11 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush FriendListHeader;
 	FFriendsAndChatStyle& SetFriendListHeader(const FSlateBrush& InFriendListHeader);
+
+	/** Friend user header background */
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush FriendUserHeaderBackground;
+	FFriendsAndChatStyle& SetFriendUserHeaderBackground(const FSlateBrush& InFriendUserHeaderBackground);
 
 	/** Friend item selected */
 	UPROPERTY(EditAnywhere, Category = Appearance)
@@ -233,8 +264,8 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 
 	/** Font Style */
 	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateFontInfo FriendsFontStyleBoldLarge;
-	FFriendsAndChatStyle& SetFontStyleBoldLarge(const FSlateFontInfo& InFontStyle);
+	FSlateFontInfo FriendsFontStyleUserLarge;
+	FFriendsAndChatStyle& SetFontStyleUserLarge(const FSlateFontInfo& InFontStyle);
 
 	/** Font Style */
 	UPROPERTY(EditAnywhere, Category=Appearance)
@@ -255,6 +286,10 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category=Appearance)
 	FLinearColor DefaultFontColor;
 	FFriendsAndChatStyle& SetDefaultFontColor(const FLinearColor& InFontColor);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FLinearColor DefaultDullFontColor;
+	FFriendsAndChatStyle& SetDefaultDullFontColor(const FLinearColor& InFontColor);
 
 	UPROPERTY(EditAnywhere, Category=Appearance)
 	FLinearColor DefaultChatColor;
@@ -279,14 +314,6 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FLinearColor ComboItemTextColorHovered;
 	FFriendsAndChatStyle& SetComboItemTextColorHovered(const FLinearColor& InColor);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FLinearColor FriendListCriticalFontColor;
-	FFriendsAndChatStyle& SetFriendListCriticalFontColor(const FLinearColor& InColor);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FLinearColor FriendListEmphasisFontColor;
-	FFriendsAndChatStyle& SetFriendListEmphasisFontColor(const FLinearColor& InColor);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FLinearColor FriendListActionFontColor;
@@ -317,6 +344,10 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	FFriendsAndChatStyle& SetComboItemTextStyle(const FTextBlockStyle& InTextStyle);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
+	FTextBlockStyle FriendsComboTextStyle;
+	FFriendsAndChatStyle& SetFriendsComboTextStyle(const FTextBlockStyle& InTextStyle);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
 	FEditableTextBoxStyle ChatEditableTextStyle;
 	FFriendsAndChatStyle& SetChatEditableTextStyle(const FEditableTextBoxStyle& InEditableTextStyle);
 
@@ -331,6 +362,14 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FVector2D ActionComboButtonSize;
 	FFriendsAndChatStyle& SetActionComboButtonSize(const FVector2D& InActionComboButtonSize);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FComboButtonStyle ActionComboButtonStyle;
+	FFriendsAndChatStyle& SetActionComboButtonStyle(const FComboButtonStyle& ButtonStyle);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FTextBlockStyle ActionComboButtonTextStyle;
+	FFriendsAndChatStyle& SetActionComboButtonTextStyle(const FTextBlockStyle& TextStyle);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FVector2D UserPresenceImageSize;
@@ -355,6 +394,22 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush ChatBackgroundBrush;
 	FFriendsAndChatStyle& SetChatBackgroundBrush(const FSlateBrush& InChatBackgroundBrush);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush ChatBubbleBackgroundBrush;
+	FFriendsAndChatStyle& SetChatBubbleBackgroundBrush(const FSlateBrush& Value);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush ChatBubbleLeftCallout;
+	FFriendsAndChatStyle& SetChatBubbleLeftCalloutBrush(const FSlateBrush& Value);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush ChatBubbleRightCallout;
+	FFriendsAndChatStyle& SetChatBubbleRightCalloutBrush(const FSlateBrush& Value);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush ChatFooterBrush;
+	FFriendsAndChatStyle& SetChatFooterBrush(const FSlateBrush& Value);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush ChatChannelsBackgroundBrush;
@@ -387,6 +442,18 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	bool HasUserHeader;
 	FFriendsAndChatStyle& SetHasUserHeader(bool InHasUserHeader);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	TEnumAsByte<EChatChannelStyle::Type> ChatChannelStyle;
+	FFriendsAndChatStyle&  SetChatWindowStyle(const EChatChannelStyle::Type Style);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush ClanDetailsBrush;
+	FFriendsAndChatStyle& SetClanDetailsBrush(const FSlateBrush& Brush);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush ClanMembersBrush;
+	FFriendsAndChatStyle& SetClanMembersBrush(const FSlateBrush& Brush);
 };
 
 /** Manages the style which provides resources for the rich text widget. */

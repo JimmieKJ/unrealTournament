@@ -119,7 +119,7 @@ void FMRUList::InternalReadINI( TArray<FString>& OutItems, const FString& INISec
 	{
 		// Try to find data for a key formed as "INIKeyBaseItemIdx" for the provided INI section. If found, add the data to the output item array.
 		FString CurItem;
-		if ( GConfig->GetString( *INISection, *FString::Printf( TEXT("%s%d"), *INIKeyBase, ItemIdx ), CurItem, GEditorUserSettingsIni ) )
+		if ( GConfig->GetString( *INISection, *FString::Printf( TEXT("%s%d"), *INIKeyBase, ItemIdx ), CurItem, GEditorPerProjectIni ) )
 		{
 			OutItems.AddUnique( FPaths::ConvertRelativePathToFull(CurItem) );
 		}
@@ -129,14 +129,14 @@ void FMRUList::InternalReadINI( TArray<FString>& OutItems, const FString& INISec
 
 void FMRUList::InternalWriteINI( const TArray<FString>& InItems, const FString& INISection, const FString& INIKeyBase )
 {
-	GConfig->EmptySection( *INISection, GEditorUserSettingsIni );
+	GConfig->EmptySection( *INISection, GEditorPerProjectIni );
 
 	for ( int32 ItemIdx = 0; ItemIdx < InItems.Num(); ++ItemIdx )
 	{
-		GConfig->SetString( *INISection, *FString::Printf( TEXT("%s%d"), *INIKeyBase, ItemIdx ), *InItems[ ItemIdx ], GEditorUserSettingsIni );
+		GConfig->SetString( *INISection, *FString::Printf( TEXT("%s%d"), *INIKeyBase, ItemIdx ), *InItems[ ItemIdx ], GEditorPerProjectIni );
 	}
 
-	GConfig->Flush( false, GEditorUserSettingsIni );
+	GConfig->Flush( false, GEditorPerProjectIni );
 }
 
 

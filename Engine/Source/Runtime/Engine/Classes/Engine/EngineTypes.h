@@ -10,23 +10,11 @@
 #include "GameFramework/DamageType.h"
 #include "EngineTypes.generated.h"
 
-
-
 /**
  * Default number of components to expect in TInlineAllocators used with AActor component arrays.
  * Used by engine code to try to avoid allocations in AActor::GetComponents(), among others.
  */
 enum { NumInlinedActorComponents = 24 };
-
-/**
- * TInlineComponentArray is simply a TArray that reserves a fixed amount of space on the stack
- * to try to avoid heap allocation when there are fewer than a specified number of elements expected in the result.
- */
-template<class T, uint32 NumElements = NumInlinedActorComponents>
-class TInlineComponentArray : public TArray<T, TInlineAllocator<NumElements>>
-{
-};
-
 
 UENUM()
 enum EAspectRatioAxisConstraint
@@ -36,6 +24,7 @@ enum EAspectRatioAxisConstraint
 	AspectRatio_MajorAxisFOV UMETA(DisplayName="Maintain Major Axis FOV"),
 	AspectRatio_MAX,
 };
+
 
 /** The type of metric we want about the actor **/
 UENUM()
@@ -47,27 +36,38 @@ enum EActorMetricsType
 	METRICS_MAX,
 };
 
+
 // Return values for UEngine::Browse
 namespace EBrowseReturnVal
 {
 	enum Type
 	{
-		Success,		// Sucessfully browsed to a new map
+		Success,		// Successfully browsed to a new map
 		Failure,		// Immediately failed to browse
 		Pending,		// A connection is pending
 	};
 }
+
 
 UENUM()
 namespace EAttachLocation
 {
 	enum Type
 	{
+		/** Keeps current relative transform as the relative transform to the new parent. */
 		KeepRelativeOffset,
+		
+		/** Automatically calculates the relative transform such that the attached component maintains the same world transform. */
 		KeepWorldPosition,
-		SnapToTarget
+
+		/** Snaps location and rotation to the attach point. Calculates the relative scale so that the final world scale of the component remains the same. */
+		SnapToTarget					UMETA(DisplayName = "Snap to Target, Keep World Scale"),
+		
+		/** Snaps entire transform to target, including scale. */
+		SnapToTargetIncludingScale		UMETA(DisplayName = "Snap to Target, Including Scale"),
 	};
 }
+
 
 /**
  * A priority for sorting scene elements by depth.
@@ -83,6 +83,7 @@ enum ESceneDepthPriorityGroup
 	SDPG_MAX,
 };
 
+
 UENUM()
 enum EIndirectLightingCacheQuality
 {
@@ -93,6 +94,7 @@ enum EIndirectLightingCacheQuality
 	/** The object will get a 5x5x5 stable volume of interpolated indirect lighting, which allows gradients of lighting intensity across the receiving object. */
 	ILCQ_Volume
 };
+
 
 /** Note: This is mirrored in Lightmass, be sure to update the blend mode structure and logic there if this changes. */
 // Note: Check UMaterialInstance::Serialize if changed!!
@@ -107,6 +109,7 @@ enum EBlendMode
 	BLEND_MAX,
 };
 
+
 UENUM()
 enum ESamplerSourceMode
 {
@@ -118,6 +121,7 @@ enum ESamplerSourceMode
 	SSM_Clamp_WorldGroupSettings UMETA(DisplayName="Shared: Clamp")
 };
 
+
 UENUM()
 enum ETranslucencyLightingMode
 {
@@ -125,21 +129,30 @@ enum ETranslucencyLightingMode
 	 * Lighting will be calculated for a volume, without directionality.  Use this on particle effects like smoke and dust.
 	 * This is the cheapest lighting method, however the material normal is not taken into account.
 	 */
-	TLM_VolumetricNonDirectional,
+	TLM_VolumetricNonDirectional UMETA(DisplayName="Volumetric Non Directional"),
 
 	 /** 
 	 * Lighting will be calculated for a volume, with directionality so that the normal of the material is taken into account. 
 	 * Note that the default particle tangent space is facing the camera, so enable bGenerateSphericalParticleNormals to get a more useful tangent space.
 	 */
-	TLM_VolumetricDirectional,
+	TLM_VolumetricDirectional UMETA(DisplayName="Volumetric Directional"),
 
 	/** 
-	 * Lighting will be calculated for a surface.
-	 * Use this on translucent surfaces like glass and water.
+	 * Lighting will be calculated for a surface. The light in accumulated in a volume so the result is blurry
+	 * (fixed resolution), limited distance but the per pixel cost is very low. Use this on translucent surfaces like glass and water.
 	 */
-	TLM_Surface,
+	TLM_Surface UMETA(DisplayName="Surface TranslucencyVolume"),
+
+	/** 
+	 * Lighting will be calculated for a surface. Use this on translucent surfaces like glass and water.
+	 * Higher quality than Surface but more expensive (loops through point lights with some basic culling, only inverse square, expensive, no shadow support yet)
+	 * Requires 'r.ForwardLighting' to be 1
+	 */
+	TLM_SurfacePerPixelLighting UMETA(DisplayName="Surface PerPixel (experimental, limited features)"),
+
 	TLM_MAX,
 };
+
 
 /**
  * Enumerates available options for the translucency sort policy.
@@ -160,6 +173,7 @@ namespace ETranslucentSortPolicy
 	};
 }
 
+
 /** Controls the way that the width scale property affects anim trails */
 UENUM()
 enum ETrailWidthMode
@@ -168,6 +182,7 @@ enum ETrailWidthMode
 	ETrailWidthMode_FromFirst UMETA(DisplayName = "From First Socket"),
 	ETrailWidthMode_FromSecond UMETA(DisplayName = "From Second Socket"),
 };
+
 
 // Note: Check UMaterialInstance::Serialize if changed!!
 UENUM()
@@ -183,6 +198,7 @@ enum EMaterialShadingModel
 	MSM_MAX,
 };
 
+
 // This is used by the drawing passes to determine tessellation policy, so changes here need to be supported in native code.
 UENUM()
 enum EMaterialTessellationMode
@@ -195,6 +211,7 @@ enum EMaterialTessellationMode
 	MTM_PNTriangles UMETA(DisplayName="PN Triangles"),
 	MTM_MAX,
 };
+
 
 UENUM()
 enum EMaterialSamplerType
@@ -209,6 +226,7 @@ enum EMaterialSamplerType
 	SAMPLERTYPE_LinearGrayscale UMETA(DisplayName = "Linear Grayscale"),
 	SAMPLERTYPE_MAX,
 };
+
 
 /**	Lighting build quality enumeration */
 UENUM()
@@ -240,6 +258,7 @@ enum ETriangleSortOption
 	TRISORT_MAX,
 };
 
+
 /** Enum to specify which axis to use for the forward vector when using TRISORT_CustomLeftRight sort mode */
 UENUM()
 enum ETriangleSortAxis
@@ -250,6 +269,7 @@ enum ETriangleSortAxis
 	TSA_MAX,
 };
 
+
 /** Movement modes for Characters. */
 UENUM(BlueprintType)
 enum EMovementMode
@@ -259,6 +279,13 @@ enum EMovementMode
 
 	/** Walking on a surface. */
 	MOVE_Walking	UMETA(DisplayName="Walking"),
+
+	/** 
+	 * Simplified walking on navigation data (e.g. navmesh). 
+	 * If bGenerateOverlapEvents is true, then we will perform sweeps with each navmesh move.
+	 * If bGenerateOverlapEvents is false then movement is cheaper but characters can overlap other objects without some extra process to repel/resolve their collisions.
+	 */
+	MOVE_NavWalking	UMETA(DisplayName="Navmesh Walking"),
 
 	/** Falling under the effects of gravity, such as after jumping or walking off the edge of a surface. */
 	MOVE_Falling	UMETA(DisplayName="Falling"),
@@ -372,6 +399,7 @@ enum EOverlapFilterOption
 	OverlapFilter_StaticOnly UMETA(DisplayName="AllStaticObjects"),
 };
 
+
 UENUM(BlueprintType)
 enum EObjectTypeQuery
 {
@@ -410,6 +438,7 @@ enum EObjectTypeQuery
 
 	ObjectTypeQuery_MAX	UMETA(Hidden)
 };
+
 
 UENUM(BlueprintType)
 enum ETraceTypeQuery
@@ -450,6 +479,7 @@ enum ETraceTypeQuery
 	TraceTypeQuery_MAX	UMETA(Hidden)
 };
 
+
 /** Enum indicating which physics scene to use. */
 UENUM()
 enum EPhysicsSceneType
@@ -463,6 +493,7 @@ enum EPhysicsSceneType
 	PST_MAX,
 };
 
+
 /** Enum indicating how each type should respond */
 UENUM(BlueprintType)
 enum ECollisionResponse
@@ -473,6 +504,7 @@ enum ECollisionResponse
 	ECR_MAX,
 };
 
+
 UENUM()
 enum EFilterInterpolationType
 {
@@ -481,6 +513,7 @@ enum EFilterInterpolationType
 	BSIT_Cubic,
 	BSIT_MAX
 };
+
 
 UENUM()
 enum EInputConsumeOptions
@@ -493,6 +526,7 @@ enum EInputConsumeOptions
 	ICO_ConsumeNone,
 	ICO_MAX
 };
+
 
 namespace EWorldType
 {
@@ -507,12 +541,14 @@ namespace EWorldType
 	};
 }
 
+
 enum class EFlushLevelStreamingType
 {
 	None,			
 	Full,			// Allow multiple load requests
 	Visibility,		// Flush visibility only, do not allow load requests, flushes async loading as well
 };
+
 
 USTRUCT()
 struct FResponseChannel
@@ -535,6 +571,7 @@ struct FResponseChannel
 		: Channel(InChannel)
 		, Response(InResponse) {}
 };
+
 
 /**
  *	Container for indicating a set of collision channels that this object will collide with.
@@ -739,12 +776,15 @@ struct ENGINE_API FCollisionResponseContainer
 	static FCollisionResponseContainer CreateMinContainer(const FCollisionResponseContainer& A, const FCollisionResponseContainer& B);
 
 	static const struct FCollisionResponseContainer & GetDefaultResponseContainer() { return DefaultResponseContainer; }
+
 private:
+
 	/** static variable for default data to be used without reconstructing everytime **/
 	static FCollisionResponseContainer DefaultResponseContainer;
 
 	friend class UCollisionProfile;
 };
+
 
 /** Enum for controlling the falloff of strength of a radial impulse as a function of distance from Origin. */
 UENUM()
@@ -757,16 +797,17 @@ enum ERadialImpulseFalloff
 	RIF_MAX,
 };
 
+
 /** Presets of values used in considering when put this body to sleep. */
 UENUM()
-enum ESleepFamily
+enum class ESleepFamily : uint8
 {
 	/** Engine defaults. */
-	SF_Normal,
+	Normal,
 	/** A family of values with a lower sleep threshold; good for slower pendulum-like physics. */
-	SF_Sensitive,
-	SF_MAX,
+	Sensitive,
 };
+
 
 /** Enum used to indicate what type of timeline signature a function matches */
 UENUM()
@@ -779,6 +820,7 @@ enum ETimelineSigType
 	ETS_InvalidSignature,
 	ETS_MAX,
 };
+
 
 /** Enum used to describe what type of collision is enabled on a body */
 UENUM()
@@ -794,6 +836,7 @@ namespace ECollisionEnabled
 		QueryAndPhysics UMETA(DisplayName="Collision Enabled") 
 	}; 
 } 
+
 
 /** describes the physical state of a rigid body */
 USTRUCT()
@@ -822,9 +865,9 @@ struct FRigidBodyState
 		, LinVel(ForceInit)
 		, AngVel(ForceInit)
 		, Flags(0)
-	{
-	}
+	{ }
 };
+
 
 namespace ERigidBodyFlags
 {
@@ -835,6 +878,7 @@ namespace ERigidBodyFlags
 		NeedsUpdate			= 0x02,
 	};
 }
+
 
 /** Rigid body error correction data */
 USTRUCT()
@@ -878,11 +922,12 @@ struct FRigidBodyErrorCorrection
 		, AngularInterpAlpha(0.1f)
 		, AngularRecipFixTime(1.0f)
 		, BodySpeedThresholdSq(0.2f)
-	{
-	}
+	{ }
 };
 
-/** Information about one contact between a pair of rigid bodies
+
+/**
+ * Information about one contact between a pair of rigid bodies.
  */
 USTRUCT()
 struct FRigidBodyContactInfo
@@ -909,19 +954,18 @@ struct FRigidBodyContactInfo
 	{
 		for (int32 ElementIndex = 0; ElementIndex < 2; ElementIndex++)
 		{
-			PhysMaterial[ElementIndex] = NULL;
+			PhysMaterial[ElementIndex] = nullptr;
 		}
 	}
-
 
 	FRigidBodyContactInfo(	const FVector& InContactPosition, 
 							const FVector& InContactNormal, 
 							float InPenetration, 
 							UPhysicalMaterial* InPhysMat0, 
 							UPhysicalMaterial* InPhysMat1 )
-	:	ContactPosition(InContactPosition)
-	,	ContactNormal(InContactNormal)
-	,	ContactPenetration(InPenetration)
+		: ContactPosition(InContactPosition)
+		, ContactNormal(InContactNormal)
+		, ContactPenetration(InPenetration)
 	{
 		PhysMaterial[0] = InPhysMat0;
 		PhysMaterial[1] = InPhysMat1;
@@ -931,7 +975,9 @@ struct FRigidBodyContactInfo
 	void SwapOrder();
 };
 
-/** Information about an overall collision, including contacts
+
+/**
+ * Information about an overall collision, including contacts.
  */
 USTRUCT()
 struct FCollisionImpactData
@@ -975,11 +1021,11 @@ struct FFractureEffect
 	class USoundBase* Sound;
 
 	FFractureEffect()
-		: ParticleSystem(NULL)
-		, Sound(NULL)
-	{
-	}
+		: ParticleSystem(nullptr)
+		, Sound(nullptr)
+	{ }
 };
+
 
 /**	Struct for handling positions relative to a base actor, which is potentially moving */
 USTRUCT()
@@ -1012,13 +1058,14 @@ struct ENGINE_API FBasedPosition
 	friend FArchive& operator<<( FArchive& Ar, FBasedPosition& T );
 };
 
+
 /** A line of subtitle text and the time at which it should be displayed. */
 USTRUCT()
 struct FSubtitleCue
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** The text too appear in the subtitle. */
+	/** The text to appear in the subtitle. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SubtitleCue)
 	FText Text;
 
@@ -1028,9 +1075,9 @@ struct FSubtitleCue
 
 	FSubtitleCue()
 		: Time(0)
-	{
-	}
+	{ }
 };
+
 
 /**	A subtitle localized to a specific language. */
 USTRUCT()
@@ -1065,9 +1112,9 @@ struct FLocalizedSubtitle
 		: bMature(false)
 		, bManualWordWrap(false)
 		, bSingleLine(false)
-	{
-	}
+	{ }
 };
+
 
 /**	Per-light settings for Lightmass */
 USTRUCT()
@@ -1086,9 +1133,9 @@ struct FLightmassLightSettings
 	FLightmassLightSettings()
 		: IndirectLightingSaturation(1.0f)
 		, ShadowExponent(2.0f)
-	{
-	}
+	{ }
 };
+
 
 /**	Point/spot settings for Lightmass */
 USTRUCT()
@@ -1096,6 +1143,7 @@ struct FLightmassPointLightSettings : public FLightmassLightSettings
 {
 	GENERATED_USTRUCT_BODY()
 };
+
 
 /**	Directional light settings for Lightmass */
 USTRUCT()
@@ -1112,6 +1160,7 @@ struct FLightmassDirectionalLightSettings : public FLightmassLightSettings
 	{
 	}
 };
+
 
 /**	Per-object settings for Lightmass */
 USTRUCT()
@@ -1187,6 +1236,7 @@ struct FLightmassPrimitiveSettings
 	// Functions.
 	friend FArchive& operator<<(FArchive& Ar, FLightmassPrimitiveSettings& Settings);
 };
+
 
 /**	Debug options for Lightmass */
 USTRUCT()
@@ -1282,6 +1332,7 @@ struct FLightmassDebugOptions
 	ENGINE_API FLightmassDebugOptions();
 };
 
+
 /**
  *	Debug options for Swarm
  */
@@ -1318,6 +1369,7 @@ struct FSwarmDebugOptions
 	void Touch();
 };
 
+
 UENUM()
 enum ELightMapPaddingType
 {
@@ -1325,6 +1377,7 @@ enum ELightMapPaddingType
 	LMPT_PrePadding,
 	LMPT_NoPadding
 };
+
 
 /**
  * Bit-field flags that affects storage (e.g. packing, streaming) and other info about a shadowmap.
@@ -1337,6 +1390,7 @@ enum EShadowMapFlags
 	// Shadowmap should be placed in a streaming texture
 	SMF_Streamed		= 0x00000001
 };
+
 
 /** reference to a specific material in a PrimitiveComponent */
 USTRUCT()
@@ -1354,26 +1408,24 @@ struct FPrimitiveMaterialRef
 	int32 ElementIndex;
 
 	FPrimitiveMaterialRef()
-		: Primitive(NULL)
-		, Decal(NULL)
+		: Primitive(nullptr)
+		, Decal(nullptr)
 		, ElementIndex(0)
-	{
-	}
+	{ }
 
 	FPrimitiveMaterialRef(UPrimitiveComponent* InPrimitive, int32 InElementIndex)
 		: Primitive(InPrimitive)
-		, Decal(NULL)
+		, Decal(nullptr)
 		, ElementIndex(InElementIndex)
-	{
-	}
+	{ 	}
 
 	FPrimitiveMaterialRef(UDecalComponent* InDecal, int32 InElementIndex)
-		: Primitive(NULL)
+		: Primitive(nullptr)
 		, Decal(InDecal)
 		, ElementIndex(InElementIndex)
-	{
-	}
+	{ 	}
 };
+
 
 /**
  * Structure containing information about one hit of a trace, such as point of impact and surface normal at that point.
@@ -1404,12 +1456,19 @@ struct ENGINE_API FHitResult
 	float Time;
 	
 	/**
-	 * The location in world space where the shape would end up against the impacted object, if there is a hit. Equal to the point of impact for line tests.
+	 * The location in world space where the moving shape would end up against the impacted object, if there is a hit. Equal to the point of impact for line tests.
 	 * Example: for a sphere trace test, this is the point where the center of the sphere would be located when it touched the other object.
-	 * For swept movement (but not queries) this may not equal the final location of the shape since hits are pulled back slightly to prevent precision issues.
+	 * For swept movement (but not queries) this may not equal the final location of the shape since hits are pulled back slightly to prevent precision issues from overlapping another surface.
 	 */
 	UPROPERTY()
 	FVector_NetQuantize Location;
+
+	/**
+	 * Location in world space of the actual contact of the trace shape (box, sphere, ray, etc) with the impacted object.
+	 * Example: for a sphere trace test, this is the point where the surface of the sphere touches the other object.
+	 */
+	UPROPERTY()
+	FVector_NetQuantize ImpactPoint;
 
 	/**
 	 * Normal of the hit in world space, for the object that was swept. Equal to ImpactNormal for line tests.
@@ -1418,13 +1477,6 @@ struct ENGINE_API FHitResult
 	 */
 	UPROPERTY()
 	FVector_NetQuantizeNormal Normal;
-
-	/**
-	 * Location in world space of the actual contact of the trace shape (box, sphere, ray, etc) with the impacted object.
-	 * Example: for a sphere trace test, this is the point where the surface of the sphere touches the other object.
-	 */
-	UPROPERTY()
-	FVector_NetQuantize ImpactPoint;
 
 	/**
 	 * Normal of the hit in world space, for the object that was hit by the sweep, if any.
@@ -1460,7 +1512,10 @@ struct ENGINE_API FHitResult
 	UPROPERTY()
 	int32 Item;
 
-	/** Physical material that was hit. Must set bReturnPhysicalMaterial to true in the query params for this to be returned. */
+	/**
+	 * Physical material that was hit.
+	 * @note Must set bReturnPhysicalMaterial on the swept PrimitiveComponent or in the query params for this to be returned.
+	 */
 	UPROPERTY()
 	TWeakObjectPtr<class UPhysicalMaterial> PhysMaterial;
 
@@ -1469,7 +1524,7 @@ struct ENGINE_API FHitResult
 	TWeakObjectPtr<class AActor> Actor;
 
 	/** PrimitiveComponent hit by the trace. */
-	UPROPERTY(NotReplicated)
+	UPROPERTY()
 	TWeakObjectPtr<class UPrimitiveComponent> Component;
 
 	/** Name of bone we hit (for skeletal meshes). */
@@ -1540,7 +1595,7 @@ struct ENGINE_API FHitResult
 				return &InHits[HitIdx];
 			}
 		}
-		return NULL;
+		return nullptr;
 	}
 
 	/** Static utility function that returns the number of blocking hits in array. */
@@ -1562,7 +1617,22 @@ struct ENGINE_API FHitResult
 	{
 		return (InHits.Num() - GetNumBlockingHits(InHits));
 	}
+
+	/**
+	 * Get a copy of the HitResult with relevant information reversed.
+	 * For example when receiving a hit from another object, we reverse the normals.
+	 */
+	static FHitResult GetReversedHit(const FHitResult& Hit)
+	{
+		FHitResult Result(Hit);
+		Result.Normal = -Result.Normal;
+		Result.ImpactNormal = -Result.ImpactNormal;
+		return Result;
+	}
+
+	FString ToString() const;
 };
+
 
 template<>
 struct TStructOpsTypeTraits<FHitResult> : public TStructOpsTypeTraitsBase
@@ -1572,6 +1642,7 @@ struct TStructOpsTypeTraits<FHitResult> : public TStructOpsTypeTraitsBase
 		WithNetSerializer = true,
 	};
 };
+
 
 /** Structure containing information about one hit of an overlap test */
 USTRUCT()
@@ -1608,6 +1679,7 @@ struct ENGINE_API FOverlapResult
 	}
 };
 
+
 /** Structure containing information about minimum translation direction (MTD) */
 USTRUCT()
 struct ENGINE_API FMTDResult
@@ -1628,6 +1700,7 @@ struct ENGINE_API FMTDResult
 	}
 };
 
+
 /** Struct used for passing information from Matinee to an Actor for blending animations during a sequence. */
 USTRUCT()
 struct FAnimSlotInfo
@@ -1642,6 +1715,7 @@ struct FAnimSlotInfo
 	UPROPERTY()
 	TArray<float> ChannelWeights;
 };
+
 
 /** Used to indicate each slot name and how many channels they have. */
 USTRUCT()
@@ -1660,10 +1734,10 @@ struct FAnimSlotDesc
 
 	FAnimSlotDesc()
 		: NumChannels(0)
-	{
-	}
+	{ }
 
 };
+
 
 /** Container for Animation Update Rate parameters.
  * They are shared for all components of an Actor, so they can be updated in sync. */
@@ -1672,7 +1746,16 @@ struct FAnimUpdateRateParameters
 {
 	GENERATED_USTRUCT_BODY()
 
-private:
+public:
+	enum EOptimizeMode
+	{
+		TrailMode,
+		LookAheadMode,
+	};
+
+	/** Cache which Update Rate Optimization mode we are using */
+	EOptimizeMode OptimizeMode;
+
 	/** How often animation will be updated/ticked. 1 = every frame, 2 = every 2 frames, etc. */
 	UPROPERTY()
 	int32 UpdateRate;
@@ -1694,35 +1777,48 @@ private:
 	UPROPERTY()
 	bool bSkipEvaluation;
 
+	UPROPERTY(Transient)
+	/** Track time we have lost via skipping */
+	float TickedPoseOffestTime;
+
+	UPROPERTY(Transient)
+	/** Total time of the last series of skipped updates */
+	float AdditionalTime;
+
+	/** The delta time of the last tick */
+	float ThisTickDelta;
+
 public:
-	/** Default constructor */
+
+	/** Default constructor. */
 	FAnimUpdateRateParameters()
 		: UpdateRate(1)
 		, EvaluationRate(1)
 		, bInterpolateSkippedFrames(false)
 		, bSkipUpdate(false)
 		, bSkipEvaluation(false)
-	{
-	}
+		, TickedPoseOffestTime(0.f)
+		, AdditionalTime(0.f)
+		, ThisTickDelta(0.f)
+	{ }
 
-	/** Set parameters and verify inputs.
-	 * @param : Owner Actor owner calling this.
+	/** Set parameters and verify inputs for Trail Mode (original behaviour - skip frames, track skipped time and then catch up afterwards).
+	 * @param : UpdateShiftRate. Shift our update frames so that updates across all skinned components are staggered
 	 * @param : NewUpdateRate. How often animation will be updated/ticked. 1 = every frame, 2 = every 2 frames, etc.
 	 * @param : NewEvaluationRate. How often animation will be evaluated. 1 = every frame, 2 = every 2 frames, etc.
 	 * @param : bNewInterpSkippedFrames. When skipping a frame, should it be interpolated or frozen?
 	 */
-	void Set(class AActor& Owner, const int32& NewUpdateRate, const int32& NewEvaluationRate, const bool & bNewInterpSkippedFrames);
+	void SetTrailMode(float DeltaTime, uint8 UpdateRateShift, int32 NewUpdateRate, int32 NewEvaluationRate, bool bNewInterpSkippedFrames);
 
-	/* Getter for UpdateRate */
-	int32 GetUpdateRate() const
-	{
-		return UpdateRate;
-	}
+	void SetLookAheadMode(float DeltaTime, uint8 UpdateRateShift, float LookAheadAmount);
 
-	/* Getter for EvaluationRate */
-	int32 GetEvaluationRate() const
+	float GetInterpolationAlpha() const;
+
+	float GetRootMotionInterp() const;
+
+	bool DoEvaluationRateOptimizations() const
 	{
-		return EvaluationRate;
+		return OptimizeMode == LookAheadMode || EvaluationRate > 1;
 	}
 
 	/* Getter for bSkipUpdate */
@@ -1742,7 +1838,36 @@ public:
 	{
 		return bInterpolateSkippedFrames;
 	}
+
+	/** Called when we are ticking a pose to make sure we accumulate all needed time */
+	float GetTimeAdjustment()
+	{
+		return AdditionalTime;
+	}
+
+	FColor GetUpdateRateDebugColor() const
+	{
+		if (OptimizeMode == TrailMode)
+		{
+			/*switch (UpdateRate)
+			{
+			case 1: return FColor::Red;
+			case 2: return FColor::Green;
+			case 3: return FColor::Blue;
+			}*/
+			return FColor::Black;
+		}
+		else
+		{
+			if (bSkipUpdate)
+			{
+				return FColor::Yellow;
+			}
+			return FColor::Green;
+		}
+	}
 };
+
 
 /**
  * Point Of View type.
@@ -1779,6 +1904,7 @@ struct FPOV
 	}
 };
 
+
 /**
  * The importance of a mesh feature when automatically generating mesh LODs.
  */
@@ -1795,6 +1921,7 @@ namespace EMeshFeatureImportance
 		Highest
 	};
 }
+
 
 /**
  * Settings used to reduce a mesh.
@@ -1849,8 +1976,7 @@ struct FMeshReductionSettings
 		, ShadingImportance(EMeshFeatureImportance::Normal)
 		, bRecalculateNormals(false)
 		, BaseLODModel(0)
-	{
-	}
+	{ }
 
 	/** Equality operator. */
 	bool operator==(const FMeshReductionSettings& Other) const
@@ -1872,6 +1998,7 @@ struct FMeshReductionSettings
 		return !(*this == Other);
 	}
 };
+
 
 /**
  * Settings applied when building a mesh.
@@ -1934,6 +2061,9 @@ struct FMeshBuildSettings
 	UPROPERTY(EditAnywhere, Category=BuildSettings)
 	bool bGenerateDistanceFieldAsIfTwoSided;
 
+	UPROPERTY(EditAnywhere, Category=BuildSettings)
+	class UStaticMesh* DistanceFieldReplacementMesh;
+
 	/** Default settings. */
 	FMeshBuildSettings()
 		: bUseMikkTSpace(true)
@@ -1949,7 +2079,8 @@ struct FMeshBuildSettings
 		, BuildScale3D(1.0f, 1.0f, 1.0f)
 		, DistanceFieldResolutionScale(1.0f)
 		, bGenerateDistanceFieldAsIfTwoSided(false)
-	{}
+		, DistanceFieldReplacementMesh(NULL)
+	{ }
 
 	/** Equality operator. */
 	bool operator==(const FMeshBuildSettings& Other) const
@@ -1965,7 +2096,8 @@ struct FMeshBuildSettings
 			&& DstLightmapIndex == Other.DstLightmapIndex
 			&& BuildScale3D == Other.BuildScale3D
 			&& DistanceFieldResolutionScale == Other.DistanceFieldResolutionScale
-			&& bGenerateDistanceFieldAsIfTwoSided == Other.bGenerateDistanceFieldAsIfTwoSided;
+			&& bGenerateDistanceFieldAsIfTwoSided == Other.bGenerateDistanceFieldAsIfTwoSided
+			&& DistanceFieldReplacementMesh == Other.DistanceFieldReplacementMesh;
 	}
 
 	/** Inequality. */
@@ -1974,6 +2106,7 @@ struct FMeshBuildSettings
 		return !(*this == Other);
 	}
 };
+
 
 USTRUCT()
 struct FMeshProxySettings
@@ -1988,6 +2121,22 @@ struct FMeshProxySettings
 	int32 TextureWidth;
 	UPROPERTY(EditAnywhere, Category=ProxySettings)
 	int32 TextureHeight;
+
+	/** Whether to create normal map for the proxy mesh*/
+	UPROPERTY(EditAnywhere, Category=ProxySettings)
+	bool bExportNormalMap;
+
+	/** Whether to create metallic map for the proxy mesh*/
+	UPROPERTY(EditAnywhere, Category=ProxySettings)
+	bool bExportMetallicMap;
+
+	/** Whether to create roughness map for the proxy mesh*/
+	UPROPERTY(EditAnywhere, Category=ProxySettings)
+	bool bExportRoughnessMap;
+
+	/** Whether to create specular map for the proxy mesh*/
+	UPROPERTY(EditAnywhere, Category=ProxySettings)
+	bool bExportSpecularMap;
 
 	/** Should Simplygon recalculate normals for the proxy mesh? */
 	UPROPERTY(EditAnywhere, Category=ProxySettings)
@@ -2017,6 +2166,10 @@ struct FMeshProxySettings
 		: ScreenSize(300)
 		, TextureWidth(512)
 		, TextureHeight(512)
+		, bExportNormalMap(true)
+		, bExportMetallicMap(false)
+		, bExportRoughnessMap(false)
+		, bExportSpecularMap(false)
 		, bRecalculateNormals(true)
 		, HardAngleThreshold(80.0f)
 		, MergeDistance(4)
@@ -2024,15 +2177,18 @@ struct FMeshProxySettings
 		, ClippingLevel(0.0)
 		, AxisIndex(0)
 		, bPlaneNegativeHalfspace(false)
-	{
-	}
+	{ }
 
 	/** Equality operator. */
 	bool operator==(const FMeshProxySettings& Other) const
 	{
 		return ScreenSize == Other.ScreenSize
 			&& TextureWidth == Other.TextureWidth
-			&& TextureHeight == Other.TextureHeight 
+			&& TextureHeight == Other.TextureHeight
+			&& bExportNormalMap == Other.bExportNormalMap
+			&& bExportMetallicMap == Other.bExportMetallicMap
+			&& bExportRoughnessMap == Other.bExportRoughnessMap
+			&& bExportSpecularMap == Other.bExportSpecularMap
 			&& bRecalculateNormals == Other.bRecalculateNormals
 			&& HardAngleThreshold == Other.HardAngleThreshold
 			&& MergeDistance == Other.MergeDistance;
@@ -2045,24 +2201,90 @@ struct FMeshProxySettings
 	}
 };
 
+/**
+ * Mesh merging settings
+ */
+USTRUCT()
+struct FMeshMergingSettings
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Whether to generate lightmap UVs for a merged mesh*/
+	UPROPERTY(EditAnywhere, Category=FMeshMergingSettings)
+	bool bGenerateLightMapUV;
+	
+	/** Target UV channel in a merged mesh for a lightmap */
+	UPROPERTY(EditAnywhere, Category=FMeshMergingSettings)
+	int32 TargetLightMapUVChannel;
+
+	/** Target lightmap resolution */
+UPROPERTY(EditAnywhere, Category=FMeshMergingSettings)
+	int32 TargetLightMapResolution;
+		
+	/** Whether we should import vertex colors into merged mesh */
+	UPROPERTY(EditAnywhere, Category=FMeshMergingSettings)
+	bool bImportVertexColors;
+	
+	/** Whether merged mesh should have pivot at world origin, or at first merged component otherwise */
+	UPROPERTY(EditAnywhere, Category=FMeshMergingSettings)
+	bool bPivotPointAtZero;
+
+	/** Whether to merge source materials into one flat material */
+	UPROPERTY(EditAnywhere, Category=MeshMerge)
+	bool bMergeMaterials;
+	/** Whether to export normal maps for material merging */
+	UPROPERTY(EditAnywhere, Category=MeshMerge)
+	bool bExportNormalMap;
+	/** Whether to export metallic maps for material merging */
+	UPROPERTY(EditAnywhere, Category=MeshMerge)
+	bool bExportMetallicMap;
+	/** Whether to export roughness maps for material merging */
+	UPROPERTY(EditAnywhere, Category=MeshMerge)
+	bool bExportRoughnessMap;
+	/** Whether to export specular maps for material merging */
+	UPROPERTY(EditAnywhere, Category=MeshMerge)
+	bool bExportSpecularMap;
+	/** Merged material texture atlas resolution */
+	UPROPERTY(EditAnywhere, Category=MeshMerge)
+	int32 MergedMaterialAtlasResolution;
+		
+	/** Default settings. */
+	FMeshMergingSettings()
+		: bGenerateLightMapUV(false)
+		, TargetLightMapUVChannel(1)
+		, TargetLightMapResolution(256)
+		, bImportVertexColors(false)
+		, bPivotPointAtZero(false)
+		, bMergeMaterials(false)
+		, bExportNormalMap(true)
+		, bExportMetallicMap(false)
+		, bExportRoughnessMap(false)
+		, bExportSpecularMap(false)
+		, MergedMaterialAtlasResolution(1024)
+	{
+	}
+};
+
+
 USTRUCT()
 struct ENGINE_API FDamageEvent
 {
 	GENERATED_USTRUCT_BODY()
 
 public:
-	FDamageEvent() 
-	{}
+
+	/** Default constructor (no initialization). */
+	FDamageEvent() { }
 
 	FDamageEvent(FDamageEvent const& InDamageEvent)
 		: DamageTypeClass(InDamageEvent.DamageTypeClass)
-	{}
+	{ }
 	
 	explicit FDamageEvent(TSubclassOf<class UDamageType> InDamageTypeClass)
 		: DamageTypeClass(InDamageTypeClass)
-	{}
+	{ }
 
-	/** Optional DamageType for this event.  If NULL, UDamageType will be assumed. */
+	/** Optional DamageType for this event.  If nullptr, UDamageType will be assumed. */
 	UPROPERTY()
 	TSubclassOf<class UDamageType> DamageTypeClass;
 
@@ -2075,6 +2297,7 @@ public:
 	/** This is for compatibility with old-style functions which want a unified set of hit data regardless of type of hit.  Ideally this will go away over time. */
 	virtual void GetBestHitInfo(AActor const* HitActor, AActor const* HitInstigator, struct FHitResult& OutHitInfo, FVector& OutImpulseDir) const;
 };
+
 
 USTRUCT()
 struct ENGINE_API FPointDamageEvent : public FDamageEvent
@@ -2100,8 +2323,8 @@ struct ENGINE_API FPointDamageEvent : public FDamageEvent
 	/** ID for this class. NOTE this must be unique for all damage events. */
 	static const int32 ClassID = 1;
 	
-	virtual int32 GetTypeID() const { return FPointDamageEvent::ClassID; };
-	virtual bool IsOfType(int32 InID) const { return (FPointDamageEvent::ClassID == InID) || FDamageEvent::IsOfType(InID); };
+	virtual int32 GetTypeID() const override { return FPointDamageEvent::ClassID; };
+	virtual bool IsOfType(int32 InID) const override { return (FPointDamageEvent::ClassID == InID) || FDamageEvent::IsOfType(InID); };
 
 	/** Simple API for common cases where we are happy to assume a single hit is expected, even though damage event may have multiple hits. */
 	virtual void GetBestHitInfo(AActor const* HitActor, AActor const* HitInstigator, struct FHitResult& OutHitInfo, FVector& OutImpulseDir) const override;
@@ -2169,8 +2392,8 @@ struct ENGINE_API FRadialDamageEvent : public FDamageEvent
 	/** ID for this class. NOTE this must be unique for all damage events. */
 	static const int32 ClassID = 2;
 
-	virtual int32 GetTypeID() const { return FRadialDamageEvent::ClassID; };
-	virtual bool IsOfType(int32 InID) const { return (FRadialDamageEvent::ClassID == InID) || FDamageEvent::IsOfType(InID); };
+	virtual int32 GetTypeID() const override { return FRadialDamageEvent::ClassID; };
+	virtual bool IsOfType(int32 InID) const override { return (FRadialDamageEvent::ClassID == InID) || FDamageEvent::IsOfType(InID); };
 
 	/** Simple API for common cases where we are happy to assume a single hit is expected, even though damage event may have multiple hits. */
 	virtual void GetBestHitInfo(AActor const* HitActor, AActor const* HitInstigator, struct FHitResult& OutHitInfo, FVector& OutImpulseDir) const override;
@@ -2191,6 +2414,7 @@ enum ENetRole
 	ROLE_MAX,
 };
 
+
 UENUM()
 enum ENetDormancy
 {
@@ -2206,6 +2430,7 @@ enum ENetDormancy
 	DORM_Initial,
 	DORN_MAX,
 };
+
 
 UENUM()
 namespace EAutoReceiveInput
@@ -2224,6 +2449,7 @@ namespace EAutoReceiveInput
 	};
 }
 
+
 UENUM()
 enum class EAutoPossessAI : uint8
 {
@@ -2233,19 +2459,21 @@ enum class EAutoPossessAI : uint8
 	PlacedInWorldOrSpawned, // Pawn is automatically possessed by an AI Controller whenever it is created.
 };
 
+
 UENUM(BlueprintType)
 namespace EEndPlayReason
 {
 	enum Type
 	{
-		ActorDestroyed,		// When the Actor is explicitly destroyed
+		Destroyed,			// When the Actor or Component is explicitly destroyed
 		LevelTransition,	// When the world is being unloaded for a level transition
 		EndPlayInEditor,	// When the world is being unloaded because PIE is ending
 		RemovedFromWorld,	// When the level it is a member of is streamed out
-		Quit,			// When the application is being exited
+		Quit,				// When the application is being exited
 	};
 
 }
+
 
 DECLARE_DYNAMIC_DELEGATE(FTimerDynamicDelegate);
 
@@ -2377,7 +2605,8 @@ struct FRepMovement
 	}
 };
 
-/** Handles attachment replication to clients. Movement replication will not happen while AttachParent is non-NULL */
+
+/** Handles attachment replication to clients. Movement replication will not happen while AttachParent is non-nullptr */
 USTRUCT()
 struct FRepAttachment
 {
@@ -2402,13 +2631,13 @@ struct FRepAttachment
 	class USceneComponent* AttachComponent;
 
 	FRepAttachment()
-		: AttachParent(NULL)
+		: AttachParent(nullptr)
 		, LocationOffset(ForceInit)
 		, RelativeScale3D(ForceInit)
 		, RotationOffset(ForceInit)
 		, AttachSocket(NAME_None)
-		, AttachComponent(NULL)
-	{}
+		, AttachComponent(nullptr)
+	{ }
 };
 
 
@@ -2464,16 +2693,14 @@ struct FWalkableSlopeOverride
 	float WalkableSlopeAngle;
 
 	FWalkableSlopeOverride()
-	: WalkableSlopeBehavior(WalkableSlope_Default)
-	, WalkableSlopeAngle(0.f)
-	{
-	}
+		: WalkableSlopeBehavior(WalkableSlope_Default)
+		, WalkableSlopeAngle(0.f)
+	{ }
 
 	FWalkableSlopeOverride(EWalkableSlopeBehavior NewSlopeBehavior, float NewSlopeAngle)
-	: WalkableSlopeBehavior(NewSlopeBehavior)
-	, WalkableSlopeAngle(NewSlopeAngle)
-	{
-	}
+		: WalkableSlopeBehavior(NewSlopeBehavior)
+		, WalkableSlopeAngle(NewSlopeAngle)
+	{ }
 
 	// Given a walkable floor normal Z value, either relax or restrict the value if we override such behavior.
 	float ModifyWalkableFloorZ(float InWalkableFloorZ) const
@@ -2521,6 +2748,7 @@ struct TStructOpsTypeTraits<FRepMovement> : public TStructOpsTypeTraitsBase
 	};
 };
 
+
 /** Structure to hold and pass around transient flags used during replication. */
 struct FReplicationFlags
 {
@@ -2546,6 +2774,7 @@ struct FReplicationFlags
 	}
 };
 
+
 static_assert(sizeof(FReplicationFlags) == 4, "FReplicationFlags has invalid size.");
 
 /** Struct used to specify the property name of the component to constrain */
@@ -2558,6 +2787,7 @@ struct FConstrainComponentPropName
 	UPROPERTY(EditAnywhere, Category=Constraint)
 	FName	ComponentName;
 };
+
 
 /** 
  *	Struct that allows for different ways to reference a component. 
@@ -2582,6 +2812,7 @@ struct ENGINE_API FComponentReference
 	/** Get the actual component pointer from this reference */
 	class USceneComponent* GetComponent(AActor* OwningActor) const;
 };
+
 
 /** Types of surfaces in the game. */
 UENUM(BlueprintType)
@@ -2653,6 +2884,7 @@ enum EPhysicalSurface
 	SurfaceType_Max UMETA(Hidden)
 };
 
+
 /** Describes how often this component is allowed to move. */
 UENUM()
 namespace EComponentMobility
@@ -2685,6 +2917,7 @@ namespace EComponentMobility
 		Movable
 	};
 }
+
 
 UCLASS(abstract, config=Engine)
 class ENGINE_API UEngineTypes : public UObject
@@ -2746,6 +2979,7 @@ struct FComponentSocketDescription
 	}
 };
 
+
 // ANGULAR DOF
 UENUM()
 enum EAngularConstraintMotion
@@ -2764,7 +2998,7 @@ enum EAngularConstraintMotion
 /**
  * Structure for file paths that are displayed in the UI.
  */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FFilePath
 {
 	GENERATED_USTRUCT_BODY()
@@ -2772,14 +3006,15 @@ struct FFilePath
 	/**
 	 * The path to the file.
 	 */
-	UPROPERTY(EditAnywhere, Category=FilePath)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FilePath)
 	FString FilePath;
 };
+
 
 /**
  * Structure for directory paths that are displayed in the UI.
  */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct FDirectoryPath
 {
 	GENERATED_USTRUCT_BODY()
@@ -2787,9 +3022,10 @@ struct FDirectoryPath
 	/**
 	 * The path to the directory.
 	 */
-	UPROPERTY(EditAnywhere, Category=Path)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Path)
 	FString Path;
 };
+
 
 /**
 * This is used for redirecting old name to new name
@@ -2811,16 +3047,17 @@ struct ENGINE_API FRedirector
 	FRedirector()
 		: OldName(NAME_None)
 		, NewName(NAME_None)
-	{}
+	{ }
 
 	FRedirector(FName InOldName, FName InNewName)
 		: OldName(InOldName)
 		, NewName(InNewName)
-	{}
+	{ }
 };
 
+
 /** 
- * Structure for recording float values and displaying them as an Histogram through DrawDebugFloatHistory
+ * Structure for recording float values and displaying them as an Histogram through DrawDebugFloatHistory.
  */
 USTRUCT(BlueprintType)
 struct FDebugFloatHistory
@@ -2854,16 +3091,14 @@ public:
 		, MinValue(0.f)
 		, MaxValue(0.f)
 		, bAutoAdjustMinMax(true)
-	{
-	}
+	{ }
 
 	FDebugFloatHistory(float const & InMaxSamples, float const & InMinValue, float const & InMaxValue, bool const & InbAutoAdjustMinMax)
 		: MaxSamples(InMaxSamples)
 		, MinValue(InMinValue)
 		, MaxValue(InMaxValue)
 		, bAutoAdjustMinMax(InbAutoAdjustMinMax)
-	{
-	}
+	{ }
 
 	/**
 	 * Record a new Sample.
@@ -2925,6 +3160,7 @@ public:
 	}
 };
 
+
 /** info for glow when using depth field rendering */
 USTRUCT(BlueprintType)
 struct FDepthFieldGlowInfo
@@ -2957,32 +3193,31 @@ struct FDepthFieldGlowInfo
 		, GlowColor(ForceInit)
 		, GlowOuterRadius(ForceInit)
 		, GlowInnerRadius(ForceInit)
+	{ }
+
+	bool operator==(const FDepthFieldGlowInfo& Other) const
 	{
+		if (Other.bEnableGlow != bEnableGlow)
+		{
+			return false;
+		}
+		else if (!bEnableGlow)
+		{
+			// if the glow is disabled on both, the other values don't matter
+			return true;
+		}
+		else
+		{
+			return (Other.GlowColor == GlowColor && Other.GlowOuterRadius == GlowOuterRadius && Other.GlowInnerRadius == GlowInnerRadius);
+		}
 	}
 
-
-		bool operator==(const FDepthFieldGlowInfo& Other) const
-		{
-			if (Other.bEnableGlow != bEnableGlow)
-			{
-				return false;
-			}
-			else if (!bEnableGlow)
-			{
-				// if the glow is disabled on both, the other values don't matter
-				return true;
-			}
-			else
-			{
-				return (Other.GlowColor == GlowColor && Other.GlowOuterRadius == GlowOuterRadius && Other.GlowInnerRadius == GlowInnerRadius);
-			}
-		}
-		bool operator!=(const FDepthFieldGlowInfo& Other) const
-		{
-			return !(*this == Other);
-		}
-	
+	bool operator!=(const FDepthFieldGlowInfo& Other) const
+	{
+		return !(*this == Other);
+	}	
 };
+
 
 /** information used in font rendering */
 USTRUCT(BlueprintType)
@@ -3006,6 +3241,7 @@ struct FFontRenderInfo
 		: bClipText(false), bEnableShadow(false)
 	{}
 };
+
 
 /** Simple 2d triangle with UVs */
 USTRUCT()
@@ -3059,8 +3295,8 @@ struct FCanvasUVTri
 		, V2_Pos(ForceInit)
 		, V2_UV(ForceInit)
 		, V2_Color(ForceInit)
-	{
-	}
+	{ }
 };
+
 
 template <> struct TIsZeroConstructType<FCanvasUVTri> { enum { Value = true }; };

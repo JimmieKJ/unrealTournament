@@ -3,6 +3,24 @@
 #include "OnlineSubsystemUtilsPrivatePCH.h"
 #include "OnlineSubsystemUtilsClasses.h"
 
+bool FPartyReservation::IsValid() const
+{
+	bool bIsValid = false;
+	if (PartyLeader.IsValid() && PartyMembers.Num() >= 1)
+	{
+		bIsValid = true;
+		for (const FPlayerReservation& PlayerRes : PartyMembers)
+		{
+			if (!PlayerRes.UniqueId.IsValid() || PlayerRes.ValidationStr.IsEmpty())
+			{
+				bIsValid = false;
+				break;
+			}
+		}
+	}
+
+	return bIsValid;
+}
 
 UPartyBeaconState::UPartyBeaconState(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer),
@@ -109,6 +127,17 @@ bool UPartyBeaconState::ReconfigureTeamAndPlayerCount(int32 InNumTeams, int32 In
 	return bSuccess;
 }
 
+int32 UPartyBeaconState::GetMaxAvailableTeamSize() const
+{
+	int32 MaxFreeSlots = 0;
+	// find the largest available free slots within all the teams
+	for (int32 TeamIdx = 0; TeamIdx < NumTeams; TeamIdx++)
+	{
+		MaxFreeSlots = FMath::Max<int32>(MaxFreeSlots, NumPlayersPerTeam - GetNumPlayersOnTeam(TeamIdx));
+	}
+	return MaxFreeSlots;
+}
+
 int32 UPartyBeaconState::GetNumPlayersOnTeam(int32 TeamIdx) const
 {
 	int32 Result = 0;
@@ -182,8 +211,8 @@ struct FTeamBalanceInfo
 };
 
 /**
-* Sort teams by size (equal teams are randomly mixed)
-*/
+ * Sort teams by size (equal teams are randomly mixed)
+ */
 struct FSortTeamSizeSmallestToLargest
 {
 	bool operator()(const FTeamBalanceInfo& A, const FTeamBalanceInfo& B) const

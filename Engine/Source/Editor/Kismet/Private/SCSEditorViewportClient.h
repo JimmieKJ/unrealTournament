@@ -16,7 +16,7 @@ public:
 	 * @param InBlueprintEditorPtr A weak reference to the Blueprint Editor context.
 	 * @param InPreviewScene The preview scene to use.
 	 */
-	FSCSEditorViewportClient(TWeakPtr<class FBlueprintEditor>& InBlueprintEditorPtr, FPreviewScene* InPreviewScene);
+	FSCSEditorViewportClient(TWeakPtr<class FBlueprintEditor>& InBlueprintEditorPtr, FPreviewScene* InPreviewScene, const TSharedRef<SSCSEditorViewport>& InSCSEditorViewport);
 
 	/**
 	 * Destructor.
@@ -36,9 +36,9 @@ public:
 	virtual FWidget::EWidgetMode GetWidgetMode() const override;
 	virtual void SetWidgetMode( FWidget::EWidgetMode NewMode ) override;
 	virtual void SetWidgetCoordSystemSpace( ECoordSystem NewCoordSystem ) override;
-	virtual FVector GetWidgetLocation() const;
-	virtual FMatrix GetWidgetCoordSystem() const;
-	virtual ECoordSystem GetWidgetCoordSystemSpace() const { return WidgetCoordSystem; }
+	virtual FVector GetWidgetLocation() const override;
+	virtual FMatrix GetWidgetCoordSystem() const override;
+	virtual ECoordSystem GetWidgetCoordSystemSpace() const override { return WidgetCoordSystem; }
 
 
 	/** 
@@ -130,9 +130,6 @@ private:
 
 	/** Weak reference to the editor hosting the viewport */
 	TWeakPtr<class FBlueprintEditor> BlueprintEditorPtr;
-
-	/** The preview actor from last tick so we can tell if it changed. */
-	TWeakObjectPtr<AActor> LastPreviewActor;
 
 	/** The full bounds of the preview scene (encompasses all visible components) */
 	FBoxSphereBounds PreviewActorBounds;

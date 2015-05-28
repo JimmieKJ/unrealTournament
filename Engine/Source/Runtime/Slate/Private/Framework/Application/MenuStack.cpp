@@ -102,8 +102,9 @@ TSharedRef<SWindow> FMenuStack::PushMenu( const TSharedRef<SWindow>& ParentWindo
 	// Adjust the position of popup windows so they do not go out of the visible area of the monitor(s)	
 	if( bShouldAutoSize )
 	{
-		// @todo: Doesn't take into account potential window border size
-		WrappedContent->SlatePrepass();
+		// @todo slate: Assumes that popup is not Scaled up or down from application scale.
+		WrappedContent->SlatePrepass( FSlateApplication::Get().GetApplicationScale() );
+		// @todo slate: Doesn't take into account potential window border size
 		ExpectedSize = WrappedContent->GetDesiredSize();
 	}
 	EOrientation Orientation = (TransitionEffect.SlideDirection == FPopupTransitionEffect::SubMenu) ? Orient_Horizontal : Orient_Vertical;
@@ -151,7 +152,7 @@ TSharedRef<SWindow> FMenuStack::PushMenu( const TSharedRef<SWindow>& ParentWindo
 	}
 
 	// Start pop-up windows out transparent, then fade them in over time
-	const bool bUseTransparency = bAllowAnimations ? true : false;
+	const EWindowTransparency Transparency(bAllowAnimations ? EWindowTransparency::PerWindow : EWindowTransparency::None);
 	const float InitialWindowOpacity = bAllowAnimations ? 0.0f : 1.0f;
 	const float TargetWindowOpacity = 1.0f;
 
@@ -169,7 +170,7 @@ TSharedRef<SWindow> FMenuStack::PushMenu( const TSharedRef<SWindow>& ParentWindo
 		.AutoCenter( EAutoCenter::None )
 		.ClientSize( ExpectedSize )
 		.InitialOpacity(InitialWindowOpacity)
-		.SupportsTransparency( bUseTransparency )
+		.SupportsTransparency( Transparency )
 		.FocusWhenFirstShown( bFocusImmediately )
 		.ActivateWhenFirstShown( bFocusImmediately )
 		[

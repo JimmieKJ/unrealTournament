@@ -12,7 +12,7 @@
  * FloatingPawnMovement is a movement component that provides simple movement for any Pawn class.
  * Limits on speed and acceleration are provided, while gravity is not implemented.
  */
-UCLASS(meta = (BlueprintSpawnableComponent))
+UCLASS(ClassGroup = Movement, meta = (BlueprintSpawnableComponent))
 class ENGINE_API UFloatingPawnMovement : public UPawnMovementComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -23,7 +23,10 @@ class ENGINE_API UFloatingPawnMovement : public UPawnMovementComponent
 
 	//Begin UMovementComponent Interface
 	virtual float GetMaxSpeed() const override { return MaxSpeed; }
-	virtual bool ResolvePenetration(const FVector& Adjustment, const FHitResult& Hit, const FRotator& NewRotation) override;
+
+protected:
+	virtual bool ResolvePenetrationImpl(const FVector& Adjustment, const FHitResult& Hit, const FQuat& NewRotation) override;
+public:
 	//End UMovementComponent Interface
 
 	/** Maximum velocity magnitude allowed for the controlled Pawn. */
@@ -37,6 +40,14 @@ class ENGINE_API UFloatingPawnMovement : public UPawnMovementComponent
 	/** Deceleration applied when there is no input (rate of change of velocity) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FloatingPawnMovement)
 	float Deceleration;
+
+	/**
+	 * Setting affecting extra force applied when changing direction, making turns have less drift and become more responsive.
+	 * Velocity magnitude is not allowed to increase, that only happens due to normal acceleration. It may decrease with large direction changes.
+	 * Larger values apply extra force to reach the target direction more quickly, while a zero value disables any extra turn force.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FloatingPawnMovement, meta=(ClampMin="0", UIMin="0"))
+	float TurningBoost;
 
 protected:
 

@@ -304,27 +304,28 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 	// Assemble a list of category names by iterating over all fields of BaseClass.
 
 	// build a list of classes that we need to look at
-	TArray<UClass*> ClassesToConsider;
+	TSet<UClass*> ClassesToConsider;
 	for( int32 i = 0; i < GetNumObjects(); ++i )
 	{
 		UObject* TempObject = GetUObject( i );
 		if( TempObject )
 		{
-			ClassesToConsider.AddUnique( TempObject->GetClass() );
+			ClassesToConsider.Add( TempObject->GetClass() );
 		}
 	}
 
-	TArray<FName> Categories;
+	const bool bShouldShowHiddenProperties = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowHiddenProperties);
+	const bool bShouldShowDisableEditOnInstance = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowDisableEditOnInstance);
+
+	TSet<FName> Categories;
 	for( TFieldIterator<UProperty> It(BaseClass.Get()); It; ++It )
 	{
 		bool bHidden = false;
 
 		FName CategoryName = FObjectEditorUtils::GetCategoryFName(*It);
 
-		for( int32 ClassIndex = 0; ClassIndex < ClassesToConsider.Num(); ClassIndex++ )
+		for( UClass* Class : ClassesToConsider )
 		{
-			UClass* Class = ClassesToConsider[ ClassIndex ];
-		
 			if( FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()) )
 			{
 				HiddenCategories.Add( CategoryName );
@@ -339,14 +340,16 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 		if (MetaDataVisibilityCheckString.Len())
 		{
 			//ensure that the metadata visibility string is actually set to true in order to show this property
-			GConfig->GetBool(TEXT("UnrealEd.PropertyFilters"), *MetaDataVisibilityCheckString, bMetaDataAllowVisible, GEditorUserSettingsIni);
+			GConfig->GetBool(TEXT("UnrealEd.PropertyFilters"), *MetaDataVisibilityCheckString, bMetaDataAllowVisible, GEditorPerProjectIni);
 		}
 
 		if (bMetaDataAllowVisible)
 		{
-			if( HasNodeFlags( EPropertyNodeFlags::ShouldShowHiddenProperties ) || (It->HasAnyPropertyFlags(CPF_Edit) && !bHidden) )
+			const bool bShowIfNonHiddenEditableProperty = (*It)->HasAnyPropertyFlags(CPF_Edit) && !bHidden;
+			const bool bShowIfDisableEditOnInstance = !(*It)->HasAnyPropertyFlags(CPF_DisableEditOnInstance) || bShouldShowDisableEditOnInstance;
+			if( bShouldShowHiddenProperties || (bShowIfNonHiddenEditableProperty && bShowIfDisableEditOnInstance) )
 			{
-				Categories.AddUnique( CategoryName );
+				Categories.Add( CategoryName );
 			}
 		}
 	}
@@ -362,13 +365,11 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 
 		TArray< FPropertyNode* > ParentNodesToSort;
 
-		for( int32 x = 0 ; x < Categories.Num() ; ++x )
+		for( const FName& FullCategoryPath : Categories )
 		{
-			const FName& FullCategoryPath = Categories[x];
-
 			// Figure out the nesting level for this category
 			TArray< FString > FullCategoryPathStrings;
-			FullCategoryPath.ToString().ParseIntoArray( &FullCategoryPathStrings, *CategoryDelimiterString, true );
+			FullCategoryPath.ToString().ParseIntoArray( FullCategoryPathStrings, *CategoryDelimiterString, true );
 
 			TSharedPtr<FPropertyNode> ParentLevelNode = SharedThis(this);
 			FString CurCategoryPathString;
@@ -420,10 +421,10 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 						InitParams.ArrayOffset = 0;
 						InitParams.ArrayIndex = INDEX_NONE;
 						InitParams.bAllowChildren = true;
-						InitParams.bForceHiddenPropertyVisibility = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowHiddenProperties);
+						InitParams.bForceHiddenPropertyVisibility = bShouldShowHiddenProperties;
+						InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
 
 						NewCategoryNode->InitNode( InitParams );
-
 
 						// Recursively expand category properties if the category has been flagged for auto-expansion.
 						if (BaseClass->IsAutoExpandCategory(*CategoryName.ToString())
@@ -447,15 +448,12 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 	}
 	else
 	{
-		// For now we show noneditable properties. 
-		const bool bShouldShowHiddenProperties = !!HasNodeFlags( EPropertyNodeFlags::ShouldShowHiddenProperties );
-
-	
 		// Iterate over all fields, creating items.
 		for( TFieldIterator<UProperty> It(BaseClass.Get()); It; ++It )
 		{
-			if( bShouldShowHiddenProperties ||
-				( ( It->PropertyFlags&CPF_Edit ) && ( FEditorCategoryUtils::IsCategoryHiddenFromClass(BaseClass.Get(), FObjectEditorUtils::GetCategory(*It)) == false ) ) )
+			const bool bShowIfNonHiddenEditableProperty = (*It)->HasAnyPropertyFlags(CPF_Edit) && !FEditorCategoryUtils::IsCategoryHiddenFromClass(BaseClass.Get(), FObjectEditorUtils::GetCategory(*It));
+			const bool bShowIfDisableEditOnInstance = !(*It)->HasAnyPropertyFlags(CPF_DisableEditOnInstance) || bShouldShowDisableEditOnInstance;
+			if (bShouldShowHiddenProperties || (bShowIfNonHiddenEditableProperty && bShowIfDisableEditOnInstance))
 			{
 				UProperty* CurProp = *It;
 				if( SinglePropertyName == NAME_None || CurProp->GetFName() == SinglePropertyName )
@@ -469,6 +467,7 @@ void FObjectPropertyNode::InternalInitChildNodes( FName SinglePropertyName )
 					InitParams.ArrayIndex = INDEX_NONE;
 					InitParams.bAllowChildren = SinglePropertyName == NAME_None;
 					InitParams.bForceHiddenPropertyVisibility = bShouldShowHiddenProperties;
+					InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
 
 					NewItemNode->InitNode( InitParams );
 

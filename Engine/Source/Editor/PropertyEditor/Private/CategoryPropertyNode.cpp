@@ -53,6 +53,7 @@ void FCategoryPropertyNode::InitBeforeNodeFlags()
 void FCategoryPropertyNode::InitChildNodes()
 {
 	const bool bShowHiddenProperties = !!HasNodeFlags( EPropertyNodeFlags::ShouldShowHiddenProperties );
+	const bool bShouldShowDisableEditOnInstance = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowDisableEditOnInstance);
 
 	TArray<UProperty*> Properties;
 	// The parent of a category window has to be an object window.
@@ -63,19 +64,25 @@ void FCategoryPropertyNode::InitChildNodes()
 		for (TFieldIterator<UProperty> It(ComplexNode->GetBaseStructure()); It; ++It)
 		{
 			bool bMetaDataAllowVisible = true;
-			FString MetaDataVisibilityCheckString = It->GetMetaData(TEXT("bShowOnlyWhenTrue"));
-			if (MetaDataVisibilityCheckString.Len())
+			if (!bShowHiddenProperties)
 			{
-				//ensure that the metadata visibility string is actually set to true in order to show this property
-				// @todo Remove this
-				GConfig->GetBool(TEXT("UnrealEd.PropertyFilters"), *MetaDataVisibilityCheckString, bMetaDataAllowVisible, GEditorUserSettingsIni);
+				FString MetaDataVisibilityCheckString = It->GetMetaData(TEXT("bShowOnlyWhenTrue"));
+				if (MetaDataVisibilityCheckString.Len())
+				{
+					//ensure that the metadata visibility string is actually set to true in order to show this property
+					// @todo Remove this
+					GConfig->GetBool(TEXT("UnrealEd.PropertyFilters"), *MetaDataVisibilityCheckString, bMetaDataAllowVisible, GEditorPerProjectIni);
+				}
 			}
 
 			if (bMetaDataAllowVisible)
 			{
+				const bool bShowIfEditableProperty = (*It)->HasAnyPropertyFlags(CPF_Edit);
+				const bool bShowIfDisableEditOnInstance = !(*It)->HasAnyPropertyFlags(CPF_DisableEditOnInstance) || bShouldShowDisableEditOnInstance;
+
 				// Add if we are showing non-editable props and this is the 'None' category, 
 				// or if this is the right category, and we are either showing non-editable
-				if (FObjectEditorUtils::GetCategoryFName(*It) == CategoryName && (bShowHiddenProperties || (It->PropertyFlags & CPF_Edit)))
+				if (FObjectEditorUtils::GetCategoryFName(*It) == CategoryName && (bShowHiddenProperties || (bShowIfEditableProperty && bShowIfDisableEditOnInstance)))
 				{
 					Properties.Add(*It);
 				}
@@ -94,6 +101,7 @@ void FCategoryPropertyNode::InitChildNodes()
 		InitParams.ArrayIndex = INDEX_NONE;
 		InitParams.bAllowChildren = true;
 		InitParams.bForceHiddenPropertyVisibility = bShowHiddenProperties;
+		InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
 
 		NewItemNode->InitNode( InitParams );
 

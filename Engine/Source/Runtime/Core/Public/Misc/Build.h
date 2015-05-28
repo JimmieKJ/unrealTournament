@@ -23,19 +23,11 @@
 #ifndef UE_BUILD_SHIPPING_EDITOR
 	#define UE_BUILD_SHIPPING_EDITOR	(#)
 #endif
-#ifndef UE_ROCKET
-	#define UE_ROCKET					0
-	#error UBT should always define UE_ROCKET to be 0 or 1
-#endif
 #ifndef UE_GAME
 	#define UE_GAME						0
 #endif
 #ifndef UE_EDITOR
 	#define UE_EDITOR					0
-#endif
-#ifndef UE4GAME
-	// Only the UE4Game target should ever set this.
-	#define UE4GAME						0
 #endif
 
 /** 
@@ -140,6 +132,11 @@
 	#define WITH_HOT_RELOAD (!IS_MONOLITHIC && !UE_BUILD_SHIPPING)
 #endif
 
+/**
+ * Whether we want to use special hot-reload empty constructors.
+ */
+#define WITH_HOT_RELOAD_CTORS 1
+
 /*----------------------------------------------------------------------------
 	Optional bridge options coming from UBT, do not modify directly!
 	If UBT doesn't set the value, it is assumed to be 0, and we set that here.
@@ -240,6 +237,9 @@
 
 /** Enable UberGraphPersistentFrame feature. It can speed up BP compilation (re-instancing) in editor, but introduce an unnecessary overhead in runtime. */
 #define USE_UBER_GRAPH_PERSISTENT_FRAME 1
+
+/** Enable fast calls for event thunks into an event graph that have no parameters  */
+#define UE_BLUEPRINT_EVENTGRAPH_FASTCALLS 1
 
 #define USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING 1
 #define USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS (USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING && 0)

@@ -16,7 +16,7 @@ class FParent
 	int MaxChildrenAtOnce;
 
 	/** Launches the child, returns the launched process handle. */
-	FProcHandle Launch();
+	FProcHandle Launch(bool bDetached = false);
 
 public:
 

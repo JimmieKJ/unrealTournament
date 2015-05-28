@@ -56,7 +56,6 @@ public:
 	 */
 	FORCEINLINE void operator=(const class UObject* Object)
 	{
-		checkSlow(IsInGameThread());
 		if (Object)
 		{
 			ObjectID = TObjectID::GetOrCreateIDForObject(Object);

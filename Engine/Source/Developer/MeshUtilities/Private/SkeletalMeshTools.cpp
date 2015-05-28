@@ -492,7 +492,7 @@ namespace SkeletalMeshTools
 				{
 					for(int32 j=0; j<MAX_TOTAL_INFLUENCES; j++)
 					{
-						if(SoftVert->InfluenceWeights[j] > 0.01f)
+						if(SoftVert->InfluenceWeights[j] > 0)
 						{
 							int32 BoneIndex = Chunk.BoneMap[SoftVert->InfluenceBones[j]];
 

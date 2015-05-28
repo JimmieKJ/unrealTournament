@@ -20,20 +20,20 @@ public:
 
 	// Constructors
 	FGameplayEffectCustomExecutionParameters();
-	FGameplayEffectCustomExecutionParameters(FGameplayEffectSpec& InOwningSpec, const TArray<FGameplayEffectExecutionScopedModifierInfo>& InScopedMods, UAbilitySystemComponent* InTargetAbilityComponent);
+	FGameplayEffectCustomExecutionParameters(FGameplayEffectSpec& InOwningSpec, const TArray<FGameplayEffectExecutionScopedModifierInfo>& InScopedMods, UAbilitySystemComponent* InTargetAbilityComponent, const FGameplayTagContainer& InPassedIntags);
 
 	/** Simple accessor to owning gameplay spec */
 	const FGameplayEffectSpec& GetOwningSpec() const;
-
-	/** Simple non-const accessor to owning gameplay spec */
-	FGameplayEffectSpec& GetOwningSpec();
 
 	/** Simple accessor to target ability system component */
 	UAbilitySystemComponent* GetTargetAbilitySystemComponent() const;
 
 	/** Simple accessor to source ability system component (could be null!) */
-	UAbilitySystemComponent* GetSourcebilitySystemComponent() const;
+	UAbilitySystemComponent* GetSourceAbilitySystemComponent() const;
 	
+	/** Simple accessor to the Passed In Tags to this execution */
+	const FGameplayTagContainer& GetPassedInTags() const;
+
 	/**
 	 * Attempts to calculate the magnitude of a captured attribute given the specified parameters. Can fail if the gameplay spec doesn't have
 	 * a valid capture for the attribute.
@@ -103,12 +103,78 @@ private:
 
 	/** Target ability system component of the execution */
 	TWeakObjectPtr<UAbilitySystemComponent> TargetAbilitySystemComponent;
+
+	/** The extra tags that were passed in to this execution */
+	FGameplayTagContainer PassedInTags;
+};
+
+/** Struct representing the output of a custom gameplay effect execution. */
+USTRUCT()
+struct GAMEPLAYABILITIES_API FGameplayEffectCustomExecutionOutput
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+
+	/** Constructor */
+	FGameplayEffectCustomExecutionOutput();
+
+	/** Mark that the execution has manually handled the stack count and the GE system should not attempt to automatically act upon it for emitted modifiers */
+	void MarkStackCountHandledManually();
+
+	/** Simple accessor for determining whether the execution has manually handled the stack count or not */
+	bool IsStackCountHandledManually() const;
+
+	/** Accessor for determining if GameplayCue events have already been handled */
+	bool AreGameplayCuesHandledManually() const;
+
+	/** Mark that the execution wants conditional gameplay effects to trigger */
+	void MarkConditionalGameplayEffectsToTrigger();
+
+	/** Mark that the execution wants conditional gameplay effects to trigger */
+	void MarkGameplayCuesHandledManually();
+
+	/** Simple accessor for determining whether the execution wants conditional gameplay effects to trigger or not */
+	bool ShouldTriggerConditionalGameplayEffects() const;
+
+	/** Add the specified evaluated data to the execution's output modifiers */
+	void AddOutputModifier(const FGameplayModifierEvaluatedData& InOutputMod);
+
+	/** Simple accessor to output modifiers of the execution */
+	const TArray<FGameplayModifierEvaluatedData>& GetOutputModifiers() const;
+
+	/** Simple accessor to output modifiers of the execution */
+	void GetOutputModifiers(OUT TArray<FGameplayModifierEvaluatedData>& OutOutputModifiers) const;
+
+private:
+
+	/** Modifiers emitted by the execution */
+	UPROPERTY()
+	TArray<FGameplayModifierEvaluatedData> OutputModifiers;
+
+	/** If true, the execution wants to trigger conditional gameplay effects when it completes */
+	UPROPERTY()
+	uint32 bTriggerConditionalGameplayEffects : 1;
+	
+	/** If true, the execution itself has manually handled the stack count of the effect and the GE system doesn't have to automatically handle it */
+	UPROPERTY()
+	uint32 bHandledStackCountManually : 1;
+
+	/** If true, the execution itself has manually invoked all gameplay cues and the GE system doesn't have to automatically handle them. */
+	UPROPERTY()
+	uint32 bHandledGameplayCuesManually : 1;
 };
 
 UCLASS(BlueprintType, Blueprintable, Abstract)
 class GAMEPLAYABILITIES_API UGameplayEffectExecutionCalculation : public UGameplayEffectCalculation
 {
 	GENERATED_UCLASS_BODY()
+
+protected:
+
+	/** Used to indicate if this execution uses Passed In Tags */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Attributes)
+	bool bRequiresPassedInTags;
 
 #if WITH_EDITORONLY_DATA
 
@@ -126,7 +192,12 @@ public:
 	 */
 	virtual void GetValidScopedModifierAttributeCaptureDefinitions(OUT TArray<FGameplayEffectAttributeCaptureDefinition>& OutScopableModifiers) const;
 
+	/** Returns if this execution requires passed in tags */
+	virtual bool DoesRequirePassedInTags() const;
+
 #endif // #if WITH_EDITORONLY_DATA
+
+public:
 
 	/**
 	 * Called whenever the owning gameplay effect is executed. Allowed to do essentially whatever is desired, including generating new
@@ -134,9 +205,9 @@ public:
 	 * 
 	 * @note: Native subclasses should override the auto-generated Execute_Implementation function and NOT this one.
 	 * 
-	 * @param ExecutionParams			Parameters for the custom execution calculation
-	 * @param OutAdditionalModifiers	[OUT] Additional modifiers the custom execution has generated and would like executed upon the target
+	 * @param ExecutionParams		Parameters for the custom execution calculation
+	 * @param OutExecutionOutput	[OUT] Output data populated by the execution detailing further behavior or results of the execution
 	 */
 	UFUNCTION(BlueprintNativeEvent, Category="Calculation")
-	void Execute(FGameplayEffectCustomExecutionParameters& ExecutionParams, TArray<FGameplayModifierEvaluatedData>& OutAdditionalModifiers) const;
+	void Execute(const FGameplayEffectCustomExecutionParameters& ExecutionParams, FGameplayEffectCustomExecutionOutput& OutExecutionOutput) const;
 };

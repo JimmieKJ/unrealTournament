@@ -19,8 +19,6 @@ public:
 
 	void Construct(const FArguments& InArgs);
 	
-	void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const;
-
 	/**
 	 * Sets the content for this border
 	 *
@@ -29,6 +27,10 @@ public:
 	void SetContent( const TSharedRef< SWidget >& InContent );
 
 protected:
+	void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
+
+	virtual float GetRelativeLayoutScale( const FSlotBase& Child ) const override;
+
 	/** The position within the panel at which the user is looking */
 	TAttribute<FVector2D> ViewOffset;
 

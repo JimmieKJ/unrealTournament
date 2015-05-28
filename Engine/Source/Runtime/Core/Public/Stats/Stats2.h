@@ -5,6 +5,7 @@
 #include "LockFreeList.h"
 #include "LockFreeFixedSizeAllocator.h"
 #include "ChunkedArray.h"
+#include "Function.h"
 
 class FThreadStats;
 
@@ -66,6 +67,7 @@ struct CORE_API FStats
 
 #if STATS
 
+MS_ALIGN(8)
 struct TStatIdData
 {
 	FORCEINLINE TStatIdData()
@@ -77,7 +79,7 @@ struct TStatIdData
 
 	FORCEINLINE bool IsNone() const
 	{
-		return MinimalNameToName(Name).IsNone();
+		return Name.Index == 0 && Name.Number == 0;
 	}
 
 	/** Name of the active stat; stored as a minimal name to minimize the data size */
@@ -88,7 +90,7 @@ struct TStatIdData
 
 	/** const WIDECHAR* pointer to a string; stored as a uint64 so it doesn't change size and affect TStatIdData alignment between 32 and 64-bit builds) */
 	uint64 WideString;
-};
+} GCC_ALIGN(8);
 
 struct TStatId
 {
@@ -102,7 +104,7 @@ struct TStatId
 	}
 	FORCEINLINE bool IsValidStat() const
 	{
-		return StatIdPtr != &TStatId_NAME_None;
+		return !IsNone();
 	}
 	FORCEINLINE bool IsNone() const
 	{
@@ -116,6 +118,11 @@ struct TStatId
 	FORCEINLINE FName GetName() const
 	{
 		return MinimalNameToName(StatIdPtr->Name);
+	}
+
+	FORCEINLINE static const FMinimalName* GetStatNone()
+	{
+		return &TStatId_NAME_None.Name;
 	}
 
 	/**
@@ -217,21 +224,22 @@ struct EStatOperation
 		/** This is not a regular stat operation, but just a special message marker to determine that we encountered a special data in the stat file. */
 		SpecialMessageMarker,
 		/** Set operation. */
-		Set, 
+		Set,
 		/** Clear operation. */
 		Clear,
 		/** Add operation. */
 		Add,
 		/** Subtract operation. */
 		Subtract,
-		/** This is a memory operation. @see EMemoryOperation. */
-		Memory,
 
 		// these are special ones for processed data
 		ChildrenStart,
 		ChildrenEnd,
 		Leaf,
 		MaxVal,
+
+		/** This is a memory operation. @see EMemoryOperation. */
+		Memory,
 
 		Num,
 		Mask = 0xf,
@@ -323,7 +331,7 @@ FORCEINLINE uint32 FromPackedCallCountDuration_CallCount(int64 Both)
 
 FORCEINLINE uint32 FromPackedCallCountDuration_Duration(int64 Both)
 {
-	return uint32(Both & 0xffffffff);
+	return uint32(Both & MAX_uint32);
 }
 
 /**
@@ -1030,7 +1038,7 @@ typedef TChunkedArray<FStatMessage,(uint32)EStatMessagesArrayConstants::MESSAGES
 */
 struct FStatPacket
 {
-	/** Assigned later, this is the frame number this packet is for **/
+	/** Assigned later, this is the frame number this packet is for. @see FStatsThreadState::ScanForAdvance */
 	int64 Frame;
 	/** ThreadId this packet came from **/
 	uint32 ThreadId;
@@ -1061,6 +1069,30 @@ struct FStatPacket
 		, StatMessagesPresize(Other.StatMessagesPresize)
 	{
 	}
+
+	/** Initializes thread related properties for the stats packet. */
+	void SetThreadProperties()
+	{
+		ThreadId = FPlatformTLS::GetCurrentThreadId();
+		if (ThreadId == GGameThreadId)
+		{
+			ThreadType = EThreadType::Game;
+		}
+		else if (ThreadId == GRenderThreadId)
+		{
+			ThreadType = EThreadType::Renderer;
+		}
+		else
+		{
+			ThreadType = EThreadType::Other;
+		}
+	}
+
+
+	void AssignFrame( int64 InFrame )
+	{
+		Frame = InFrame;
+	}
 };
 
 /** Helper struct used to monitor the scope of the message. */
@@ -1082,8 +1114,9 @@ protected:
 };
 
 /** Preallocates FThreadStats to avoid dynamic memory allocation. */
-struct CORE_API FThreadStatsPool
+struct FThreadStatsPool
 {
+private:
 	enum
 	{
 		/**
@@ -1102,34 +1135,34 @@ public:
 	FThreadStatsPool();
 
 	/** Singleton accessor. */
-	static FThreadStatsPool& Get()
+	CORE_API static FThreadStatsPool& Get()
 	{
 		static FThreadStatsPool Singleton;
 		return Singleton;
 	}
 
 	/** Gets an instance from the pool and call the default constructor on it. */
-	FThreadStats* GetFromPool();
+	CORE_API FThreadStats* GetFromPool();
 
 	/** Return an instance to the pool. */
-	void ReturnToPool(FThreadStats* Instance);
+	CORE_API void ReturnToPool(FThreadStats* Instance);
+};
+
+/** Fake type to distinguish constructors. */
+enum EConstructor
+{
+	FOR_POOL
 };
 
 /**
 * This is thread-private information about the stats we are acquiring. Pointers to these objects are held in TLS.
 */
-class FThreadStats
+class FThreadStats : FNoncopyable
 {
 	friend class FStatsMallocProfilerProxy;
 	friend class FStatsThreadState;
 	friend class FStatsThread;
 	friend struct FThreadStatsPool;
-
-	enum
-	{
-		PRESIZE_MAX_NUM_ENTRIES = 10,
-		PRESIZE_MAX_SIZE = 256*1024,
-	};
 
 	/** Used to control when we are collecting stats. User of the stats system increment and decrement this counter as they need data. **/
 	CORE_API static FThreadSafeCounter MasterEnableCounter;
@@ -1137,31 +1170,36 @@ class FThreadStats
 	CORE_API static FThreadSafeCounter MasterEnableUpdateNumber;
 	/** while bMasterEnable (or other things affecting stat collection) is chaning, we lock this. This is used to determine frames that have complete data. **/
 	CORE_API static FThreadSafeCounter MasterDisableChangeTagLock;
+	/** TLS slot that holds a FThreadStats. **/
+	CORE_API static uint32 TlsSlot;
 	/** Computed by CheckEnable, the current "master control" for stats collection, based on MasterEnableCounter and a few other things. **/
 	CORE_API static bool bMasterEnable;
 	/** Set to permanently disable the stats system. **/
 	CORE_API static bool bMasterDisableForever;
-	/** TLS slot that holds a FThreadStats. **/
-	CORE_API static uint32 TlsSlot;
+	/** True if we running in the raw stats mode, all stats processing is disabled, captured stats messages are written in timely manner, memory overhead is minimal. */
+	CORE_API static bool bIsRawStatsActive;
 
 	/** The data we are eventually going to send to the stats thread. **/
 	FStatPacket Packet;
 
-	/** Current game frame for this thread stat. */
+	/** Current game frame for this thread stats. */
 	int32 CurrentGameFrame;
 
 	/** Tracks current stack depth for cycle counters. **/
-	uint32 ScopeCount;
+	int32 ScopeCount;
 
 	/** Tracks current stack depth for cycle counters. **/
-	uint32 bWaitForExplicitFlush;
+	int32 bWaitForExplicitFlush;
 
 	/** 
 	 * Tracks the progress of adding a new memory stat message and prevents from using the memory profiler in the scope.
-	 * Mostly related to ignoring all memory allocations in Flush() and AddStatMessage().
+	 * Mostly related to ignoring all memory allocations in AddStatMessage().
 	 * Memory usage of the stats messages is handled by the STAT_StatMessagesMemory.
 	 */
 	int32 MemoryMessageScope;
+
+	/** We have a scoped cycle counter in the FlushRawStats which causes an infinite recursion, ReentranceGuard will solve that issue. */
+	bool bReentranceGuard;
 
 	/** Tracks current stack depth for cycle counters. **/
 	bool bSawExplicitFlush;
@@ -1170,11 +1208,9 @@ class FThreadStats
 	CORE_API FThreadStats();
 
 	/** Constructor used for the pool. */
-	CORE_API FThreadStats(bool);
+	CORE_API FThreadStats(EConstructor);
 
-	/** Copys a packet for sending. !!!CAUTION!!! does not copy packets.**/
-	CORE_API FThreadStats(FThreadStats const& Other);
-
+public:
 	/** Checks the TLS for a thread packet and if it isn't found, it makes a new one. **/
 	static FORCEINLINE_STATS FThreadStats* GetThreadStats()
 	{
@@ -1189,8 +1225,49 @@ class FThreadStats
 	/** This should be called when conditions have changed such that stat collection may now be enabled or not **/
 	static CORE_API void CheckEnable();
 
-	/** Send any outstanding packets to the stats thread **/
-	CORE_API void Flush(bool bHasBrokenCallstacks = false);
+	/**
+	 *	Checks if the game frame has changed and updates the current game frame.
+	 *	Used by the flushing mechanism to optimize the memory usage, only valid for packets from other threads.
+	 *	@return true, if the frame has changed
+	 */
+	FORCEINLINE_STATS bool DetectAndUpdateCurrentGameFrame()
+	{
+		if( Packet.ThreadType == EThreadType::Other )
+		{
+			FPlatformMisc::MemoryBarrier();
+			const bool bFrameHasChanged = FStats::GameThreadStatsFrame > CurrentGameFrame;
+			if( bFrameHasChanged )
+			{
+				CurrentGameFrame = FStats::GameThreadStatsFrame;
+				return true;
+			}
+		}
+				
+		return false;
+	}
+
+	/** Maintains the explicit flush. */
+	FORCEINLINE_STATS void UpdateExplicitFlush()
+	{
+		if (Packet.ThreadType != EThreadType::Other && bSawExplicitFlush)
+		{
+			bSawExplicitFlush = false;
+			bWaitForExplicitFlush = 1;
+			ScopeCount++; // prevent sends until the next explicit flush
+		}
+	}
+
+	/** Send any outstanding packets to the stats thread. **/
+	CORE_API void Flush(bool bHasBrokenCallstacks = false, bool bForceFlush = false);
+
+	/** Flushes the regular stats, the realtime stats. */
+	CORE_API void FlushRegularStats(bool bHasBrokenCallstacks, bool bForceFlush);
+
+	/** Flushes the raw stats, low memory and performance overhead, but not realtime. */
+	CORE_API void FlushRawStats(bool bHasBrokenCallstacks = false, bool bForceFlush = false);
+
+	/** Checks the command line whether we want to enable collecting startup stats. */
+	static CORE_API void CheckForCollectingStartupStats();
 
 	FORCEINLINE_STATS void AddStatMessage( const FStatMessage& StatMessage )
 	{
@@ -1202,10 +1279,11 @@ public:
 	/** This should be called when a thread exits, this deletes FThreadStats from the heap and TLS. **/
 	static void Shutdown()
 	{
-		FThreadStats* Stats = (FThreadStats*)FPlatformTLS::GetTlsValue(TlsSlot);
+		FThreadStats* Stats = IsThreadingReady() ? (FThreadStats*)FPlatformTLS::GetTlsValue(TlsSlot) : nullptr;
 		if (Stats)
 		{
-			// Flush stats?
+			// Send all remaining messages.
+			Stats->Flush(false, true);
 			FPlatformTLS::SetTlsValue(TlsSlot, nullptr);
 			FThreadStatsPool::Get().ReturnToPool(Stats);
 		}
@@ -1221,6 +1299,11 @@ public:
 		{
 			ThreadStats->ScopeCount++;
 			ThreadStats->AddStatMessage(FStatMessage(InStatName, InStatOperation));
+
+			if( bIsRawStatsActive )
+			{
+				ThreadStats->FlushRawStats();
+			}
 		}
 		else if (InStatOperation == EStatOperation::CycleScopeEnd)
 		{
@@ -1231,6 +1314,10 @@ public:
 				if (!ThreadStats->ScopeCount)
 				{
 					ThreadStats->Flush();
+				}
+				else if( bIsRawStatsActive )
+				{
+					ThreadStats->FlushRawStats();
 				}
 			}
 			// else we dumped this frame without closing scope, so we just drop the closes on the floor
@@ -1248,6 +1335,10 @@ public:
 			if(!ThreadStats->ScopeCount)
 			{
 				ThreadStats->Flush();
+			}
+			else if( bIsRawStatsActive )
+			{
+				ThreadStats->FlushRawStats();
 			}
 		}
 	}
@@ -1345,6 +1436,20 @@ public:
 		FPlatformMisc::MemoryBarrier();
 	}
 
+	/** Enables the raw stats mode. */
+	static FORCEINLINE_STATS void EnableRawStats()
+	{
+		bIsRawStatsActive = true;
+		FPlatformMisc::MemoryBarrier();
+	}
+
+	/** Disables the raw stats mode. */
+	static FORCEINLINE_STATS void DisableRawStats()
+	{
+		bIsRawStatsActive = false;
+		FPlatformMisc::MemoryBarrier();
+	}
+
 	/** Called by launch engine loop to start the stats thread **/
 	static CORE_API void StartThread();
 	/** Called by launch engine loop to stop the stats thread **/
@@ -1408,20 +1513,22 @@ public:
 
 /** Manages startup messages, usually to update the metadata. */
 // @TODO yrx 2014-11-18 Eventually add startup messages for memory profiling?
-class CORE_API FStartupMessages
+class FStartupMessages
 {
-public:
+	friend class FStatsThread;
+
 	TArray<FStatMessage> DelayedMessages;
 	FCriticalSection CriticalSection;
 
+public:
 	/** Adds a thread metadata. */
-	void AddThreadMetadata( const FName InThreadFName, uint32 InThreadID );
+	CORE_API void AddThreadMetadata( const FName InThreadFName, uint32 InThreadID );
 
 	/** Adds a regular metadata. */
-	void AddMetadata( FName InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion InMemoryRegion = FPlatformMemory::MCR_Invalid );
+	CORE_API void AddMetadata( FName InStatName, const TCHAR* InStatDesc, const char* InGroupName, const char* InGroupCategory, const TCHAR* InGroupDesc, bool bShouldClearEveryFrame, EStatDataType::Type InStatType, bool bCycleStat, FPlatformMemory::EMemoryCounterRegion InMemoryRegion = FPlatformMemory::MCR_Invalid );
 
 	/** Access the singleton. */
-	static FStartupMessages& Get();
+	CORE_API static FStartupMessages& Get();
 };
 
 /**
@@ -1620,6 +1727,11 @@ struct FStat_##StatName\
 	DECLARE_STAT(CounterName,StatId,GroupId,EStatDataType::ST_int64, false, false, FPlatformMemory::MCR_Invalid); \
 	static DEFINE_STAT(StatId)
 
+/** This is a fake stat, mostly used to implement memory message or other custom stats that don't easily fit into the system. */
+#define DECLARE_PTR_STAT(CounterName,StatId,GroupId)\
+	DECLARE_STAT(CounterName,StatId,GroupId,EStatDataType::ST_Ptr, false, false, FPlatformMemory::MCR_Invalid); \
+	static DEFINE_STAT(StatId)
+
 #define DECLARE_MEMORY_STAT(CounterName,StatId,GroupId) \
 	DECLARE_STAT(CounterName,StatId,GroupId,EStatDataType::ST_int64, false, false, FPlatformMemory::MCR_Physical); \
 	static DEFINE_STAT(StatId)
@@ -1647,9 +1759,16 @@ struct FStat_##StatName\
 #define DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(CounterName,StatId,GroupId, API) \
 	DECLARE_STAT(CounterName,StatId,GroupId,EStatDataType::ST_int64, false, false, FPlatformMemory::MCR_Invalid); \
 	extern API DEFINE_STAT(StatId);
+
+/** This is a fake stat, mostly used to implement memory message or other custom stats that don't easily fit into the system. */
+#define DECLARE_PTR_STAT_EXTERN(CounterName,StatId,GroupId, API) \
+	DECLARE_STAT(CounterName,StatId,GroupId,EStatDataType::ST_Ptr, false, false, FPlatformMemory::MCR_Invalid); \
+	extern API DEFINE_STAT(StatId)
+
 #define DECLARE_MEMORY_STAT_EXTERN(CounterName,StatId,GroupId, API) \
 	DECLARE_STAT(CounterName,StatId,GroupId,EStatDataType::ST_int64, false, false, FPlatformMemory::MCR_Physical); \
 	extern API DEFINE_STAT(StatId);
+
 #define DECLARE_MEMORY_STAT_POOL_EXTERN(CounterName,StatId,GroupId,Pool, API) \
 	DECLARE_STAT(CounterName,StatId,GroupId,EStatDataType::ST_int64, false, false, Pool); \
 	extern API DEFINE_STAT(StatId);
@@ -1826,6 +1945,8 @@ DECLARE_STATS_GROUP(TEXT("Init Views"),STATGROUP_InitViews, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Landscape"),STATGROUP_Landscape, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Light Rendering"),STATGROUP_LightRendering, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Load Time"), STATGROUP_LoadTime, STATCAT_Advanced);
+DECLARE_STATS_GROUP_VERBOSE(TEXT("Load Time (Verbose)"), STATGROUP_LoadTimeVerbose, STATCAT_Advanced);
+DECLARE_STATS_GROUP(TEXT("Math"), STATGROUP_Math, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Memory Allocator"),STATGROUP_MemoryAllocator, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Memory Platform"),STATGROUP_MemoryPlatform, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Memory StaticMesh"),STATGROUP_MemoryStaticMesh, STATCAT_Advanced);
@@ -1859,6 +1980,7 @@ DECLARE_STATS_GROUP(TEXT("Slate"), STATGROUP_Slate, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Stat System"),STATGROUP_StatSystem, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Streaming Details"),STATGROUP_StreamingDetails, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Streaming"),STATGROUP_Streaming, STATCAT_Advanced);
+DECLARE_STATS_GROUP(TEXT("Target Platform"),STATGROUP_TargetPlatform, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Text"),STATGROUP_Text, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Threading"),STATGROUP_Threading, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("Threads"),STATGROUP_Threads, STATCAT_Advanced);
@@ -1869,12 +1991,6 @@ DECLARE_STATS_GROUP(TEXT("UObjects"),STATGROUP_UObjects, STATCAT_Advanced);
 DECLARE_STATS_GROUP(TEXT("User"),STATGROUP_User, STATCAT_Advanced);
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("FrameTime"),STAT_FrameTime,STATGROUP_Engine, CORE_API);
-DECLARE_FLOAT_COUNTER_STAT_EXTERN(TEXT("StatUnit FPS"), STAT_FPS, STATGROUP_Engine, CORE_API);
 
-
-/** Stats for the stat system */
-
-DECLARE_CYCLE_STAT_EXTERN(TEXT("DrawStats"),STAT_DrawStats,STATGROUP_StatSystem, CORE_API);
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Stat Messages"),STAT_StatMessagesMemory,STATGROUP_StatSystem, CORE_API);
 
 #endif

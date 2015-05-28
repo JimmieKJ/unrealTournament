@@ -9,7 +9,7 @@ class FFriendsStatusViewModelImpl
 public:
 	virtual EOnlinePresenceState::Type GetOnlineStatus() const override
 	{
-		return FriendsAndChatManager.Pin()->GetUserIsOnline();
+		return FriendsAndChatManager.Pin()->GetOnlineStatus();
 	}
 
 	virtual void SetOnlineStatus(EOnlinePresenceState::Type OnlineState) override
@@ -24,25 +24,20 @@ public:
 
 	virtual FText GetStatusText() const override
 	{
-		EOnlinePresenceState::Type CurrentOnlineStatus = FriendsAndChatManager.Pin()->GetUserIsOnline();
-
-		const FOnlineState* FoundStatePtr = OnlineStateArray.FindByPredicate([CurrentOnlineStatus](const FOnlineState& InOnlineState) -> bool
+		FString Nickname;
+		TSharedPtr<FFriendsAndChatManager> ManagerPinned = FriendsAndChatManager.Pin();
+		if (ManagerPinned.IsValid())
 		{
-			return InOnlineState.State == CurrentOnlineStatus;
-		});
-
-		if (FoundStatePtr != nullptr)
-		{
-			return FoundStatePtr->DisplayText;
+			Nickname = ManagerPinned->GetUserNickname();
 		}
-		return NSLOCTEXT("OnlineState", "OnlineState_Unknown", "Unknown");
+		return FText::FromString(Nickname);
 	}
 
 private:
 	FFriendsStatusViewModelImpl(
-		const TSharedRef<FFriendsAndChatManager>& FriendsAndChatManager
+		const TSharedRef<FFriendsAndChatManager>& InFriendsAndChatManager
 		)
-		: FriendsAndChatManager(FriendsAndChatManager)
+		: FriendsAndChatManager(InFriendsAndChatManager)
 	{
 		OnlineStateArray.Add(FOnlineState(true, NSLOCTEXT("OnlineState", "OnlineState_Online", "Online"), EOnlinePresenceState::Online));
 		OnlineStateArray.Add(FOnlineState(false, NSLOCTEXT("OnlineState", "OnlineState_Offline", "Offline"), EOnlinePresenceState::Offline));

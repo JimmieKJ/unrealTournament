@@ -58,6 +58,8 @@ EPawnActionAbortState::Type UPawnAction::Abort(EAIForceParam::Type ShouldForce)
 	EPawnActionAbortState::Type Result = EPawnActionAbortState::NotBeingAborted;
 	EPawnActionAbortState::Type ChildResult = EPawnActionAbortState::AbortDone;
 
+	SetAbortState(EPawnActionAbortState::MarkPendingAbort);
+
 	if (ChildAction != NULL)
 	{
 		ChildResult = ChildAction->Abort(ShouldForce);
@@ -112,12 +114,12 @@ EPawnActionAbortState::Type UPawnAction::Abort(EAIForceParam::Type ShouldForce)
 	return Result;
 }
 
-APawn* UPawnAction::GetPawn()
+APawn* UPawnAction::GetPawn() const
 {
 	return OwnerComponent ? OwnerComponent->GetControlledPawn() : NULL;
 }
 
-AController* UPawnAction::GetController() 
+AController* UPawnAction::GetController() const
 {
 	return OwnerComponent ? OwnerComponent->GetController() : NULL; 
 }
@@ -274,8 +276,7 @@ bool UPawnAction::Pause(const UPawnAction* PausedBy)
 	
 	if (AbortState == EPawnActionAbortState::LatentAbortInProgress || AbortState == EPawnActionAbortState::AbortDone)
 	{
-		UE_VLOG(GetPawn(), LogPawnAction, Log, TEXT("%s> Not pausing due to being in unpausable aborting state")
-			, *GetName(), *ChildAction->GetName());
+		UE_VLOG(GetPawn(), LogPawnAction, Warning, TEXT("%s> Not pausing due to being in unpausable aborting state"), *GetName());
 		return false;
 	}
 
@@ -373,9 +374,9 @@ bool UPawnAction::PushChildAction(UPawnAction& Action)
 // messaging
 //----------------------------------------------------------------------//
 
-void UPawnAction::WaitForMessage(FName MessageType, FAIRequestID RequestID)
+void UPawnAction::WaitForMessage(FName MessageType, FAIRequestID InRequestID)
 {
-	MessageHandlers.Add(FAIMessageObserver::Create(BrainComp, MessageType, RequestID.GetID(), FOnAIMessage::CreateUObject(this, &UPawnAction::HandleAIMessage)));
+	MessageHandlers.Add(FAIMessageObserver::Create(BrainComp, MessageType, InRequestID.GetID(), FOnAIMessage::CreateUObject(this, &UPawnAction::HandleAIMessage)));
 }
 
 //----------------------------------------------------------------------//
@@ -387,7 +388,7 @@ UPawnAction* UPawnAction::CreateActionInstance(UObject* WorldContextObject, TSub
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
 	if (World && ActionClass)
 	{
-		return ConstructObject<UPawnAction>(ActionClass, World);
+		return NewObject<UPawnAction>(World, ActionClass);
 	}
 	return NULL;
 }
@@ -412,4 +413,9 @@ FString UPawnAction::GetPriorityName() const
 	static const UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EAIRequestPriority"));
 	check(Enum);
 	return Enum->GetEnumName(GetPriority());
+}
+
+FString UPawnAction::GetDisplayName() const
+{
+	return GetClass()->GetName();
 }

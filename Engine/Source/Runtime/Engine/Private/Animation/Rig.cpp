@@ -21,11 +21,50 @@ URig::URig(const FObjectInitializer& ObjectInitializer)
 #if WITH_EDITOR
 void URig::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	Super::PostEditChangeProperty(PropertyChangedEvent);
+	if (Nodes.Num() != TransformBases.Num())
+	{
+		int32 NodeNum = Nodes.Num();
+		int32 TransformBasesNum = TransformBases.Num();
 
-	// verify lots of things
-	// make sure it's unique name
-	// 
+		// make sure to add name of nodes if not set
+		for(int32 NewId=TransformBasesNum; NewId <NodeNum; ++NewId)
+		{
+			if (Nodes[NewId].Name == NAME_None)
+			{
+				int32 UniqueIndex = 1;
+
+				while (1) 
+				{
+					// assign name of custom_# 
+					FName PotentialName = *FString::Printf(TEXT("Custom_%d"), UniqueIndex++);
+					if (FindNode(PotentialName) == INDEX_NONE)
+					{
+						Nodes[NewId].Name = PotentialName;
+						Nodes[NewId].ParentName = WorldNodeName;
+						Nodes[NewId].DisplayName = PotentialName.ToString();
+						break;
+					}
+				} 
+			}
+		}
+
+		// if their size doesn't match, make sure to add it
+		if (NodeNum < TransformBasesNum)
+		{
+			// just remove the last elements
+			TransformBases.RemoveAt(NodeNum, TransformBasesNum-NodeNum);
+		}
+		else
+		{
+			for (int32 NewId=TransformBasesNum; NewId <NodeNum; ++NewId)
+			{
+				AddRigConstraint(Nodes[NewId].Name, EControlConstraint::Translation, EConstraintTransform::Absolute, WorldNodeName, 1.f);
+				AddRigConstraint(Nodes[NewId].Name, EControlConstraint::Orientation, EConstraintTransform::Absolute, WorldNodeName, 1.f);
+			}
+		}
+	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
 // for now these are privates since we don't have good control yet
@@ -281,14 +320,14 @@ void URig::CreateFromSkeleton(const USkeleton* Skeleton, const TMap<int32, int32
 
 			if (ParentIndex == INDEX_NONE)
 			{
-				AddRigConstraint(BoneName, EControlConstraint::Translation, EConstraintTransform::Absoluate, WorldNodeName, 1.f);
-				AddRigConstraint(BoneName, EControlConstraint::Orientation, EConstraintTransform::Absoluate, WorldNodeName, 1.f);
+				AddRigConstraint(BoneName, EControlConstraint::Translation, EConstraintTransform::Absolute, WorldNodeName, 1.f);
+				AddRigConstraint(BoneName, EControlConstraint::Orientation, EConstraintTransform::Absolute, WorldNodeName, 1.f);
 			}
 			else
 			{
 				FName ParentBoneName = RefSkeleton.GetBoneName(ParentIndex);
-				AddRigConstraint(BoneName, EControlConstraint::Translation, EConstraintTransform::Absoluate, ParentBoneName, 1.f);
-				AddRigConstraint(BoneName, EControlConstraint::Orientation, EConstraintTransform::Absoluate, ParentBoneName, 1.f);
+				AddRigConstraint(BoneName, EControlConstraint::Translation, EConstraintTransform::Absolute, ParentBoneName, 1.f);
+				AddRigConstraint(BoneName, EControlConstraint::Orientation, EConstraintTransform::Absolute, ParentBoneName, 1.f);
 			}
 		}
 	}

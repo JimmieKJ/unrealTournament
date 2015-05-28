@@ -22,6 +22,7 @@
 #include "EngineMinimal.h" // 
 
 #include "Engine/EngineBaseTypes.h"
+#include "Engine/DeveloperSettings.h"
 #include "Camera/CameraTypes.h"
 #include "Engine/EngineTypes.h"
 #include "Sound/AmbientSound.h"
@@ -292,6 +293,8 @@
 #include "Engine/StreamableManager.h"
 #include "Engine/TextureDefines.h"
 #include "Tests/TextPropertyTestObject.h"
+#include "Engine/TextureLODSettings.h"
+#include "DeviceProfiles/DeviceProfileManager.h"
 #include "Engine/Texture.h"
 #include "Engine/LightMapTexture2D.h"
 #include "Engine/ShadowMapTexture2D.h"

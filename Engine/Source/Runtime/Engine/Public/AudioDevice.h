@@ -2,6 +2,9 @@
 
 #pragma once 
 
+#include "Sound/AudioVolume.h"
+#include "AudioDeviceManager.h"
+
 /** 
  * Debug state of the audio system
  */
@@ -205,6 +208,10 @@ public:
 	bool HandleDisableRadioCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleEnableRadioCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleResetSoundStateCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleToggleSpatializationExtensionCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleEnableHRTFForAllCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+	bool HandleSoloCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleClearSoloCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 #endif
 
 	/**
@@ -295,24 +302,12 @@ public:
 	 */
 	virtual void SetMaxChannels(int32 InMaxChannels);
 
-	/** 
-	 * Links up the resource data indices for looking up and cleaning up
-	 */
-	void TrackResource(USoundWave* Wave, FSoundBuffer* Buffer);
-
 	/**
-	 * Frees the bulk resource data assocated with this SoundWave.
-	 *
-	 * @param	SoundWave	wave object to free associated bulk data
-	 */
-	void FreeResource(USoundWave* SoundWave);
-
-	/**
-	 * Frees the resources associated with this buffer
-	 *
-	 * @param	FSoundBuffer	Buffer to clean up
-	 */
-	void FreeBufferResource(FSoundBuffer* Buffer);
+	* Stops any sound sources which are using the given buffer.
+	*
+	* @param	FSoundBuffer	Buffer to check against
+	*/
+	void StopSourcesUsingBuffer(FSoundBuffer * SoundBuffer);
 
 	/**
 	 * Stops all game sounds (and possibly UI) sounds
@@ -385,22 +380,30 @@ public:
 	void GetSoundClassInfo( TMap<FName, FAudioClassInfo>& AudioClassInfos );
 
 	/**
-	 * Returns the properties of the requested sound class modified to reflect the current state of the mix system 
+	 * Registers a sound class with the audio device
 	 *
 	 * @param	SoundClassName	name of sound class to retrieve
 	 * @return	sound class properties if it exists
 	 */
-	FSoundClassProperties* GetSoundClassCurrentProperties( class USoundClass* InSoundClass );
+	void RegisterSoundClass( class USoundClass* InSoundClass );
+
+	/**
+	* Unregisters a sound class
+	*/
+	void UnregisterSoundClass(class USoundClass* SoundClass);
+
+	/**
+	* Gets the current properties of a sound class, if the sound class hasn't been registered, then it returns nullptr
+	*
+	* @param	SoundClassName	name of sound class to retrieve
+	* @return	sound class properties if it exists
+	*/
+	FSoundClassProperties* GetSoundClassCurrentProperties(class USoundClass* InSoundClass);
 
 	/**
 	 * Checks to see if a coordinate is within a distance of any listener
 	 */
 	bool LocationIsAudible( FVector Location, float MaxDistance );
-
-	/**
-	 * Removes a sound class
-	 */
-	void RemoveClass( class USoundClass* SoundClass );
 
 	/**
 	 * Sets the Sound Mix that should be active by default
@@ -487,7 +490,7 @@ public:
 	/**
 	 * Check for errors and output a human readable string
 	 */
-	virtual bool ValidateAPICall( const TCHAR* Function, int32 ErrorCode )
+	virtual bool ValidateAPICall( const TCHAR* Function, uint32 ErrorCode )
 	{
 		return( true );
 	}
@@ -497,14 +500,20 @@ public:
 	/* When the set of Audio volumes have changed invalidate the cached values of active sounds */
 	void InvalidateCachedInteriorVolumes() const;
 
-    /** Suspend any context related objects */
-    virtual void SuspendContext() {}
-    
-    /** Resume any context related objects */
-    virtual void ResumeContext() {}
+	/** Suspend any context related objects */
+	virtual void SuspendContext() {}
+	
+	/** Resume any context related objects */
+	virtual void ResumeContext() {}
 
 	/** Check if any background music or sound is playing through the audio device */
 	virtual bool IsExernalBackgroundSoundActive() { return false; }
+
+	/** Whether or not HRTF spatialization is enabled for all. */
+	bool IsHRTFEnabledForAll() const
+	{
+		return bHRTFEnabledForAll && IsSpatializationPluginEnabled();
+	}
 
 protected:
 	friend class FSoundSource;
@@ -702,10 +711,19 @@ protected:
 	/** Low pass filter OneOverQ value */
 	float GetLowPassFilterResonance() const;
 
+	/** Wether or not the spatialization plugin is enabled. */
+	bool IsSpatializationPluginEnabled() const
+	{
+		return bSpatializationExtensionEnabled;
+	}
+
 public:
 
 	/** The maximum number of concurrent audible sounds */
 	int32 MaxChannels;
+
+	/** The sample rate of the audio device */
+	int32 SampleRate;
 
 	/** The amount of memory to reserve for always resident sounds */
 	int32 CommonAudioPoolSize;
@@ -748,11 +766,6 @@ public:
 	TArray<class FSoundSource*>				FreeSources;
 	TMap<struct FWaveInstance*, class FSoundSource*>	WaveInstanceSourceMap;
 
-	/** Array of all created buffers associated with this audio device */
-	TArray<class FSoundBuffer*>				Buffers;
-	/** Look up associating a USoundWave's resource ID with low level sound buffers	*/
-	TMap<int32, class FSoundBuffer*>			WaveBufferMap;
-
 	/** Current properties of all sound classes */
 	TMap<class USoundClass*, FSoundClassProperties>	SoundClasses;
 
@@ -777,6 +790,27 @@ public:
 	/** The activated reverb that currently has the highest priority */
 	const FActivatedReverb*								HighestPriorityReverb;
 
+	/** Audio spatialization plugin. */
+	class IAudioSpatializationPlugin* SpatializationPlugin;
+
+	/** Audio spatialization algorithm (derived from a plugin). */
+	class IAudioSpatializationAlgorithm* SpatializeProcessor;
+
+	/** Whether or not the spatialization plugin is enabled. */
+	bool bSpatializationExtensionEnabled;
+
+	/** Whether or HRTF is enabled for all 3d sounds. */
+	bool bHRTFEnabledForAll;
+
+	/** The handle for this audio device used in the audio device manager. */
+	uint32 DeviceHandle;
+
+	/** Whether the audio device is active (current audio device in-focus in PIE) */
+	uint32 bIsDeviceMuted:1;
+
+	/** Whether the audio device has been initialized */
+	uint32 bIsInitialized:1;
+
 private:
 
 	TArray<struct FActiveSound*> ActiveSounds;
@@ -798,3 +832,5 @@ public:
 	/** Creates a new instance of the audio device implemented by the module. */
 	virtual class FAudioDevice* CreateAudioDevice() = 0;
 };
+
+

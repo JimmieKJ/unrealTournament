@@ -55,7 +55,7 @@ private:
 	/** 
 	 * Delegate handlers
 	 **/
-	void OnEditorFitTextureToSurface();
+	void OnEditorFitTextureToSurface(UWorld* InWorld);
 
 };
 

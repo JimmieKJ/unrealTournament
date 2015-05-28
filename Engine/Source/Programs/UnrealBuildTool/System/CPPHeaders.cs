@@ -152,7 +152,7 @@ namespace UnrealBuildTool
 				IncludeFileSearchDictionary.Add( InvariantPath, Result );
 			}
 
-			// @todo fastubt: The old UBT tried to skip 'external' (STABLE) headers here.  But it didn't work.  We might want to do this though!  Skip system headers and source/thirdparty headers!
+			// @todo ubtmake: The old UBT tried to skip 'external' (STABLE) headers here.  But it didn't work.  We might want to do this though!  Skip system headers and source/thirdparty headers!
 
 			if( Result != null )
 			{
@@ -175,35 +175,36 @@ namespace UnrealBuildTool
 
 		public static List<FileItem> FindAndCacheAllIncludedFiles( UEBuildTarget Target, FileItem SourceFile, IUEBuildPlatform BuildPlatform, CPPIncludeInfo CPPIncludeInfo, bool bOnlyCachedDependencies )
 		{
-			var Result = new List<FileItem>();
+			List<FileItem> Result = null;
 			
 			if( CPPIncludeInfo.IncludeFileSearchDictionary == null )
 			{
 				CPPIncludeInfo.IncludeFileSearchDictionary = new Dictionary<string,FileItem>();
 			}
 
-			bool bUseFlatCPPIncludeDependencyCache =
-				( BuildConfiguration.bUseExperimentalFastDependencyScan &&
-				  ( !BuildConfiguration.bUseExperimentalFastBuildIteration || UnrealBuildTool.IsAssemblingBuild ) );
-
-			if( bUseFlatCPPIncludeDependencyCache && bOnlyCachedDependencies )
+			bool bUseFlatCPPIncludeDependencyCache = BuildConfiguration.bUseUBTMakefiles && UnrealBuildTool.IsAssemblingBuild;
+			if( bOnlyCachedDependencies && bUseFlatCPPIncludeDependencyCache )
 			{ 
-				var Dependencies = FlatCPPIncludeDependencyCache[Target].GetDependenciesForFile( SourceFile.AbsolutePath );
-				if( Dependencies != null )
-				{ 
-					foreach( string Dependency in Dependencies )
-					{
-						Result.Add( FileItem.GetItemByFullPath( Dependency ) );	// @todo fastubt: Make sure this is as fast as possible (convert to FileItem)
-					}
-				}
-				else
+				Result = FlatCPPIncludeDependencyCache[Target].GetDependenciesForFile( SourceFile.AbsolutePath );
+				if( Result == null )
 				{
 					// Nothing cached for this file!  It is new to us.  This is the expected flow when our CPPIncludeDepencencyCache is missing.
 				}
 			}
 			else
 			{
-				// @todo fastubt: HeaderParser.h is missing from the include set for Module.UnrealHeaderTool.cpp (failed to find include using:  FileItem DirectIncludeResolvedFile = CPPEnvironment.FindIncludedFile(DirectInclude.IncludeName, !BuildConfiguration.bCheckExternalHeadersForModification, IncludePathsToSearch, IncludeFileSearchDictionary );)
+				// @todo ubtmake: HeaderParser.h is missing from the include set for Module.UnrealHeaderTool.cpp (failed to find include using:  FileItem DirectIncludeResolvedFile = CPPEnvironment.FindIncludedFile(DirectInclude.IncludeName, !BuildConfiguration.bCheckExternalHeadersForModification, IncludePathsToSearch, IncludeFileSearchDictionary );)
+
+				// If we're doing an exhaustive include scan, make sure that we have our include dependency cache loaded and ready
+				if( !bOnlyCachedDependencies )
+				{ 
+					if( !IncludeDependencyCache.ContainsKey( Target ) )
+					{
+						IncludeDependencyCache.Add( Target, DependencyCache.Create( DependencyCache.GetDependencyCachePathForTarget( Target ) ) );
+					}
+				}
+
+				Result = new List<FileItem>();
 
 				var IncludedFileList = new IncludedFilesSet();
 				CPPEnvironment.FindAndCacheAllIncludedFiles( Target, SourceFile, BuildPlatform, CPPIncludeInfo, ref IncludedFileList, bOnlyCachedDependencies:bOnlyCachedDependencies );

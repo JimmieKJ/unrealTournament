@@ -67,7 +67,7 @@ bool FAnimationRecorder::TriggerRecordAnimation(USkeletalMeshComponent * Compone
 		}
 
 		// If not, create new one now.
-		UAnimSequence * NewSeq = ConstructObject<UAnimSequence>(UAnimSequence::StaticClass(), Parent, *AssetName, RF_Public|RF_Standalone);
+		UAnimSequence * NewSeq = NewObject<UAnimSequence>(Parent, *AssetName, RF_Public | RF_Standalone);
 		if(NewSeq)
 		{
 			// set skeleton

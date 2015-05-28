@@ -329,7 +329,7 @@ void FSoundClassEditor::CreateSoundClass(UEdGraphPin* FromPin, const FVector2D& 
 	{
 		FName NewClassName = *Name;
 		UPackage* Package = SoundClass->GetOutermost();
-		USoundClass* NewSoundClass = ConstructObject<USoundClass>( USoundClass::StaticClass(), Package, NewClassName, RF_Public );
+		USoundClass* NewSoundClass = NewObject<USoundClass>(Package, NewClassName, RF_Public);
 
 		SoundClass->SoundClassGraph->AddNewSoundClass(FromPin, NewSoundClass, Location.X, Location.Y);
 

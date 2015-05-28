@@ -16,26 +16,26 @@ class UMG_API UWidgetSwitcherSlot : public UPanelSlot
 public:
 	
 	/** The padding area between the slot and the content it contains. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Widget Switcher Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Widget Switcher Slot")
 	FMargin Padding;
 
 	/** The alignment of the object horizontally. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Widget Switcher Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Widget Switcher Slot")
 	TEnumAsByte<EHorizontalAlignment> HorizontalAlignment;
 
 	/** The alignment of the object vertically. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Widget Switcher Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Widget Switcher Slot")
 	TEnumAsByte<EVerticalAlignment> VerticalAlignment;
 
 public:
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Widget Switcher Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Widget Switcher Slot")
 	void SetPadding(FMargin InPadding);
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Widget Switcher Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Widget Switcher Slot")
 	void SetHorizontalAlignment(EHorizontalAlignment InHorizontalAlignment);
 
-	UFUNCTION(BlueprintCallable, Category="Layout (Widget Switcher Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Widget Switcher Slot")
 	void SetVerticalAlignment(EVerticalAlignment InVerticalAlignment);
 
 public:

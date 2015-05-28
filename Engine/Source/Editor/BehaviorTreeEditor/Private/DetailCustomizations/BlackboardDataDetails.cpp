@@ -45,7 +45,7 @@ void FBlackboardDataDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayou
 			.ValueContent()
 			[
 				SNew(SHorizontalBox)
-				.IsEnabled(false)
+				.IsEnabled(true)
 				+SHorizontalBox::Slot()
 				[
 					EntryNameProperty->CreatePropertyValueWidget()

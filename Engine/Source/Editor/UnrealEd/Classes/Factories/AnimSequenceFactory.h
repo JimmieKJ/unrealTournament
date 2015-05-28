@@ -18,6 +18,7 @@ class UAnimSequenceFactory : public UFactory
 	// Begin UFactory Interface
 	virtual bool ConfigureProperties() override;
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
+	virtual bool ShouldShowInNewMenu() const override { return false; } 
 	// Begin UFactory Interface	
 
 private:

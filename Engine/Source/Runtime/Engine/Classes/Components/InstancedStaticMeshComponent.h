@@ -6,9 +6,12 @@
 
 #include "InstancedStaticMeshComponent.generated.h"
 
+DECLARE_STATS_GROUP(TEXT("Foliage"), STATGROUP_Foliage, STATCAT_Advanced);
+
 class FStaticLightingTextureMapping_InstancedStaticMesh;
 class FInstancedLightMap2D;
 class FInstancedShadowMap2D;
+struct FPerInstanceRenderData;
 
 USTRUCT()
 struct FInstancedStaticMeshInstanceData
@@ -88,6 +91,9 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	UPROPERTY()
 	TArray<int32> RemovedInstances;
 
+	/** Tracks outstanding proxysize, as this is a bit hard to do with the fire-and-forget grass. */
+	SIZE_T ProxySize;
+
 	/** Add an instance to this component. Transform is given in local space of this component.  */
 	UFUNCTION(BlueprintCallable, Category="Components|InstancedStaticMesh")
 	virtual int32 AddInstance(const FTransform& InstanceTransform);
@@ -102,7 +108,7 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	
 	/** Update the transform for the instance specified. Instance is given in local space of this component unless bWorldSpace is set.  Returns True on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
-	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace=false);
+	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace=false, bool bMarkRenderStateDirty = false);
 
 	/** Remove the instance specified. Returns True on success. */
 	UFUNCTION(BlueprintCallable, Category = "Components|InstancedStaticMesh")
@@ -123,11 +129,20 @@ class ENGINE_API UInstancedStaticMeshComponent : public UStaticMeshComponent
 	virtual bool ShouldCreatePhysicsState() const override;
 
 public:
+	/** Render data will be initialized once we create scene proxy for this component
+	 *  Released on the rendering thread
+	 */
+	TSharedPtr<FPerInstanceRenderData, ESPMode::ThreadSafe> PerInstanceRenderData;
+	/** This was prebuilt for grass, never destroy it. */
+	bool bPerInstanceRenderDataWasPrebuilt;
+		
 #if WITH_EDITOR
 	/** One bit per instance if the instance is selected. */
 	TBitArray<> SelectedInstances;
 #endif
-
+	/** Incremented when instance selection is changed */
+	int32 SelectionStamp;
+	
 #if WITH_PHYSX
 	/** Aggregate physx representation of the instances' bodies. */
 	TArray<physx::PxAggregate*> Aggregates;
@@ -135,6 +150,10 @@ public:
 
 	/** Physics representation of the instance bodies */
 	TArray<FBodyInstance*> InstanceBodies;
+
+	/** Serialization of all the InstanceBodies. Helps speed up physics creation time*/
+	UPROPERTY()
+	class UPhysicsSerializer* PhysicsSerializer;
 
 	// Begin UActorComponent interface 
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
@@ -154,12 +173,17 @@ public:
 #endif
 	virtual void GetLightAndShadowMapMemoryUsage( int32& LightMapMemoryUsage, int32& ShadowMapMemoryUsage ) const override;
 	
-	virtual bool DoCustomNavigableGeometryExport(struct FNavigableGeometryExport* GeomExport) const override;
+	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 	// End UPrimitiveComponent Interface
-
+	
+	// Begin UNavRelevantInterface interface.
+	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
+	// End UPrimitiveComponent interface.
+	
 	//Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
+	void BeginDestroy() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
@@ -175,6 +199,15 @@ public:
 	/** Select/deselect an instance or group of instances */
 	void SelectInstance(bool bInSelected, int32 InInstanceIndex, int32 InInstanceCount = 1);
 
+	/** Deselect all instances */
+	void ClearInstanceSelection();
+
+	/** 
+	 * Transfers ownership of instance render data to a render thread 
+	 * instance render data will be released in scene proxy dtor or on render thread task
+	 */
+	void ReleasePerInstanceRenderData();
+
 private:
 	/** Creates body instances for all instances owned by this component */
 	void CreateAllInstanceBodies();
@@ -184,7 +217,7 @@ private:
 
 	/** Sets up new instance data to sensible defaults, creates physics counterparts if possible */
 	void SetupNewInstanceData(FInstancedStaticMeshInstanceData& InOutNewInstanceData, int32 InInstanceIndex, const FTransform& InInstanceTransform);
-
+	
 protected:
 	/** Request to navigation system to update only part of navmesh occupied by specified instance */
 	virtual void PartialNavigationUpdate(int32 InstanceIdx);
@@ -210,3 +243,19 @@ protected:
 	friend FInstancedShadowMap2D;
 };
 
+/** InstancedStaticMeshInstance hit proxy */
+struct HInstancedStaticMeshInstance : public HHitProxy
+{
+	UInstancedStaticMeshComponent* Component;
+	int32 InstanceIndex;
+
+	DECLARE_HIT_PROXY(ENGINE_API);
+	HInstancedStaticMeshInstance(UInstancedStaticMeshComponent* InComponent, int32 InInstanceIndex) : HHitProxy(HPP_World), Component(InComponent), InstanceIndex(InInstanceIndex) {}
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	virtual EMouseCursor::Type GetMouseCursor() override
+	{
+		return EMouseCursor::CardinalCross;
+	}
+};

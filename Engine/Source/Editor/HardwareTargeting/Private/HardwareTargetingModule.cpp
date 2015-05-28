@@ -10,7 +10,9 @@
 
 #include "Runtime/Engine/Classes/Engine/RendererSettings.h"
 #include "Editor/Documentation/Public/IDocumentation.h"
-
+#include "GameFramework/InputSettings.h"
+#include "GameMapsSettings.h"
+#include "EditorProjectSettings.h"
 
 #define LOCTEXT_NAMESPACE "HardwareTargeting"
 
@@ -40,7 +42,7 @@ struct FMetaSettingGatherer
 	{
 		if (bModified || bIncludeUnmodifiedProperties)
 		{
-			FTextBuilder& DescriptionBuffer = DescriptionBuffers.FindOrAdd(SettingsObject);
+			FTextBuilder& SettingsDescriptionBuffer = DescriptionBuffers.FindOrAdd(SettingsObject);
 
 			if (!bReadOnly)
 			{
@@ -59,7 +61,7 @@ struct FMetaSettingGatherer
 					LOCTEXT("MetaSettingDisplayStringModified", "{SettingName} is {SettingValue} <HardwareTargets.Strong>(modified)</>") :
 					LOCTEXT("MetaSettingDisplayStringUnmodified", "{SettingName} is {SettingValue}");
 
-				DescriptionBuffer.AppendLine(FText::Format(FormatString, Args));
+				SettingsDescriptionBuffer.AppendLine(FText::Format(FormatString, Args));
 			}
 		}
 	}
@@ -194,6 +196,7 @@ void FHardwareTargetingModule::GatherSettings(FMetaSettingGatherer& Builder)
 		Builder.CategoryNames.Add(GetMutableDefault<URendererSettings>(), LOCTEXT("RenderingCategoryHeader", "Engine - Rendering"));
 		Builder.CategoryNames.Add(GetMutableDefault<UInputSettings>(), LOCTEXT("InputCategoryHeader", "Engine - Input"));
 		Builder.CategoryNames.Add(GetMutableDefault<UGameMapsSettings>(), LOCTEXT("MapsAndModesCategoryHeader", "Project - Maps & Modes"));
+		Builder.CategoryNames.Add(GetMutableDefault<ULevelEditor2DSettings>(), LOCTEXT("EditorSettings2D", "Editor - 2D"));
 	}
 
 
@@ -202,6 +205,7 @@ void FHardwareTargetingModule::GatherSettings(FMetaSettingGatherer& Builder)
 	const bool bHighEndMobile = (Settings->TargetedHardwareClass == EHardwareClass::Mobile) && (Settings->DefaultGraphicsPerformance == EGraphicsPreset::Maximum);
 	const bool bAnyPC = (Settings->TargetedHardwareClass == EHardwareClass::Desktop);
 	const bool bHighEndPC = (Settings->TargetedHardwareClass == EHardwareClass::Desktop) && (Settings->DefaultGraphicsPerformance == EGraphicsPreset::Maximum);
+	const bool bAnyScalable = Settings->DefaultGraphicsPerformance == EGraphicsPreset::Scalable;
 
 	{
 		// Based roughly on https://docs.unrealengine.com/latest/INT/Platforms/Mobile/PostProcessEffects/index.html

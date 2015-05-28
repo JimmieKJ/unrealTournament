@@ -7,7 +7,9 @@
 UCLASS()
 class UTestInterfaceObject : public UObject, public ITestInterface
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
+public:
+	UTestInterfaceObject(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 //	UFUNCTION(BlueprintNativeEvent)
 	FString SomeFunction(int32 Val) const;

@@ -29,7 +29,7 @@ public:
 		SLATE_EVENT( FOnCancelClickedDelegate, OnCancelClickedDelegate )
 
 		/** The feedback scope stack that we are presenting to the user */
-		SLATE_ARGUMENT( const FScopedSlowTaskStack*, ScopeStack )
+		SLATE_ARGUMENT( TWeakPtr<FScopedSlowTaskStack>, ScopeStack )
 
 	SLATE_END_ARGS()
 
@@ -37,7 +37,10 @@ public:
 	void Construct( const FArguments& InArgs )
 	{
 		OnCancelClickedDelegate = InArgs._OnCancelClickedDelegate;
-		ScopeStack = InArgs._ScopeStack;
+		WeakStack = InArgs._ScopeStack;
+
+		// This is a temporary widget that needs to be updated over its entire lifespan => has an active timer registered for its entire lifespan
+		RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SSlowTaskWidget::UpdateProgress ) );
 
 		TSharedRef<SVerticalBox> VerticalBox = SNew(SVerticalBox)
 
@@ -128,16 +131,25 @@ public:
 		UpdateDynamicProgressBars();
 	}
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
+private:
+
+	/** Active timer to update the progress bars */
+	EActiveTimerReturnType UpdateProgress(double InCurrentTime, float InDeltaTime)
 	{
 		UpdateDynamicProgressBars();
-	}
 
-private:
+		return EActiveTimerReturnType::Continue;
+	}
 
 	/** Updates the dynamic progress bars for this widget */
 	void UpdateDynamicProgressBars()
 	{
+		auto ScopeStack = WeakStack.Pin();
+		if (!ScopeStack.IsValid())
+		{
+			return;
+		}
+
 		static const double VisibleScopeThreshold = 0.5;
 
 		DynamicProgressIndices.Empty();
@@ -220,12 +232,17 @@ private:
 	/** The main text that we will display in the window */
 	FText GetPercentageText() const
 	{
-		const float ProgressInterp = ScopeStack->GetProgressFraction(0);
+		auto ScopeStack = WeakStack.Pin();
+		if (ScopeStack.IsValid())
+		{
+			const float ProgressInterp = ScopeStack->GetProgressFraction(0);
 
-		FFormatOrderedArguments Args;
-		Args.Add(int(ProgressInterp * 100));
+			FFormatOrderedArguments Args;
+			Args.Add(int(ProgressInterp * 100));
 
-		return FText::Format(NSLOCTEXT("FeedbackContextEditor", "MainProgressDisplayText", "{0}%"), Args);
+			return FText::Format(NSLOCTEXT("FeedbackContextEditor", "MainProgressDisplayText", "{0}%"), Args);
+		}
+		return FText();
 	}
 
 	/** Calculate the best font to display the main text with */
@@ -249,9 +266,13 @@ private:
 	/** Get the tint for a secondary progress bar */
 	FLinearColor GetSecondaryProgressBarTint(int32 Index) const
 	{
-		if (!DynamicProgressIndices.IsValidIndex(Index) || !ScopeStack->IsValidIndex(DynamicProgressIndices[Index]))
+		auto ScopeStack = WeakStack.Pin();
+		if (ScopeStack.IsValid())
 		{
-			return FLinearColor::White.CopyWithNewOpacity(0.25f);
+			if (!DynamicProgressIndices.IsValidIndex(Index) || !ScopeStack->IsValidIndex(DynamicProgressIndices[Index]))
+			{
+				return FLinearColor::White.CopyWithNewOpacity(0.25f);
+			}
 		}
 		return FLinearColor::White;
 	}
@@ -259,9 +280,13 @@ private:
 	/** Get the fractional percentage of completion for a progress bar */
 	TOptional<float> GetProgressFraction(int32 Index) const
 	{
-		if (DynamicProgressIndices.IsValidIndex(Index) && ScopeStack->IsValidIndex(DynamicProgressIndices[Index]))
+		auto ScopeStack = WeakStack.Pin();
+		if (ScopeStack.IsValid())
 		{
-			return ScopeStack->GetProgressFraction(DynamicProgressIndices[Index]);
+			if (DynamicProgressIndices.IsValidIndex(Index) && ScopeStack->IsValidIndex(DynamicProgressIndices[Index]))
+			{
+				return ScopeStack->GetProgressFraction(DynamicProgressIndices[Index]);
+			}
 		}
 		return TOptional<float>();
 	}
@@ -269,9 +294,13 @@ private:
 	/** Get the text to display for a progress bar */
 	FText GetProgressText(int32 Index) const
 	{
-		if (DynamicProgressIndices.IsValidIndex(Index) && ScopeStack->IsValidIndex(DynamicProgressIndices[Index]))
+		auto ScopeStack = WeakStack.Pin();
+		if (ScopeStack.IsValid())
 		{
-			return (*ScopeStack)[DynamicProgressIndices[Index]]->GetCurrentMessage();
+			if (DynamicProgressIndices.IsValidIndex(Index) && ScopeStack->IsValidIndex(DynamicProgressIndices[Index]))
+			{
+				return (*ScopeStack)[DynamicProgressIndices[Index]]->GetCurrentMessage();
+			}
 		}
 
 		return FText();
@@ -290,7 +319,7 @@ private:
 	FOnCancelClickedDelegate OnCancelClickedDelegate;
 
 	/** The scope stack that we are reflecting */
-	const FScopedSlowTaskStack* ScopeStack;
+	TWeakPtr<FScopedSlowTaskStack> WeakStack;
 
 	/** The vertical box containing the secondary progress bars */
 	TSharedPtr<SVerticalBox> SecondaryBars;
@@ -306,13 +335,17 @@ const int32 SSlowTaskWidget::FixedPaddingH;;
 const int32 SSlowTaskWidget::MainBarHeight;
 const int32 SSlowTaskWidget::SecondaryBarHeight;
 
-static void TickSlate()
+static void TickSlate(TSharedPtr<SWindow> SlowTaskWindow)
 {
-	// Tick Slate application
-	FSlateApplication::Get().Tick();
+	// Avoid re-entrancy by ticking the active modal window again. This can happen if thhe slow task window is open and a sibling modal window is open as well.  We only tick slate if we are the active modal window or a child of the active modal window
+	if( SlowTaskWindow.IsValid() && ( FSlateApplication::Get().GetActiveModalWindow() == SlowTaskWindow || SlowTaskWindow->IsDescendantOf( FSlateApplication::Get().GetActiveModalWindow() ) ) )
+	{
+		// Tick Slate application
+		FSlateApplication::Get().Tick();
 
-	// Sync the game thread and the render thread. This is needed if many StatusUpdate are called
-	FSlateApplication::Get().GetRenderer()->Sync();
+		// Sync the game thread and the render thread. This is needed if many StatusUpdate are called
+		FSlateApplication::Get().GetRenderer()->Sync();
+	}
 }
 
 FFeedbackContextEditor::FFeedbackContextEditor()
@@ -331,6 +364,13 @@ void FFeedbackContextEditor::Serialize( const TCHAR* V, ELogVerbosity::Type Verb
 
 void FFeedbackContextEditor::StartSlowTask( const FText& Task, bool bShowCancelButton )
 {
+	// If we are in PIE, then do not show slow dialog window, it can cause crashes
+	// if there are UMG gadgets open.  This is because they will get a message during
+	// an asset load and that causes an assert.
+	if (GEditor != nullptr && GEditor->PlayWorld != nullptr)
+	{
+		return;
+	}
 	FFeedbackContext::StartSlowTask( Task, bShowCancelButton );
 
 	// Attempt to parent the slow task window to the slate main frame
@@ -341,7 +381,7 @@ void FFeedbackContextEditor::StartSlowTask( const FText& Task, bool bShowCancelB
 		ParentWindow = MainFrame.GetParentWindow();
 	}
 
-	if( GIsEditor && ParentWindow.IsValid())
+	if (GIsEditor && ParentWindow.IsValid())
 	{
 		GSlowTaskOccurred = GIsSlowTask;
 
@@ -368,17 +408,21 @@ void FFeedbackContextEditor::StartSlowTask( const FText& Task, bool bShowCancelB
 				OnCancelClicked = FOnCancelClickedDelegate::CreateRaw(this, &FFeedbackContextEditor::OnUserCancel);
 			}
 
+			const bool bFocusAndActivate = FPlatformProcess::IsThisApplicationForeground();
+
 			TSharedRef<SWindow> SlowTaskWindowRef = SNew(SWindow)
 				.SizingRule(ESizingRule::Autosized)
 				.AutoCenter(EAutoCenter::PreferredWorkArea)
 				.IsPopupWindow(true)
 				.CreateTitleBar(true)
-				.ActivateWhenFirstShown(true);
+				.ActivateWhenFirstShown(bFocusAndActivate)
+				.FocusWhenFirstShown(bFocusAndActivate);
 
-			SlowTaskWidget = SNew(SSlowTaskWidget)
-				.ScopeStack(&ScopeStack)
-				.OnCancelClickedDelegate( OnCancelClicked );
-			SlowTaskWindowRef->SetContent( SlowTaskWidget.ToSharedRef() );
+			SlowTaskWindowRef->SetContent(
+				SNew(SSlowTaskWidget)
+				.ScopeStack(ScopeStack)
+				.OnCancelClickedDelegate( OnCancelClicked )
+			);
 
 			SlowTaskWindow = SlowTaskWindowRef;
 
@@ -387,7 +431,7 @@ void FFeedbackContextEditor::StartSlowTask( const FText& Task, bool bShowCancelB
 
 			SlowTaskWindowRef->ShowWindow();
 
-			TickSlate();
+			TickSlate(SlowTaskWindow.Pin());
 		}
 
 		FPlatformSplash::SetSplashText( SplashTextType::StartupProgress, *Task.ToString() );
@@ -396,21 +440,12 @@ void FFeedbackContextEditor::StartSlowTask( const FText& Task, bool bShowCancelB
 
 void FFeedbackContextEditor::FinalizeSlowTask()
 {
-	TSharedPtr<SWindow> ParentWindow;
-	if( FModuleManager::Get().IsModuleLoaded( "MainFrame" ) )
+	auto Window = SlowTaskWindow.Pin();
+	if (Window.IsValid())
 	{
-		IMainFrameModule& MainFrame = FModuleManager::LoadModuleChecked<IMainFrameModule>( "MainFrame" );
-		ParentWindow = MainFrame.GetParentWindow();
-	}
-
-	if( GIsEditor && ParentWindow.IsValid())
-	{
-		if( SlowTaskWindow.IsValid() )
-		{
-			SlowTaskWindow.Pin()->RequestDestroyWindow();
-			SlowTaskWindow.Reset();
-			SlowTaskWidget.Reset();
-		}
+		Window->SetContent(SNullWidget::NullWidget);
+		Window->RequestDestroyWindow();
+		SlowTaskWindow.Reset();
 	}
 
 	FFeedbackContext::FinalizeSlowTask( );
@@ -442,17 +477,17 @@ void FFeedbackContextEditor::ProgressReported( const float TotalProgressInterp, 
 			}
 
 			BuildProgressWidget->SetBuildProgressPercent(TotalProgressInterp * 100, 100);
-			TickSlate();
+			TickSlate(BuildProgressWindow.Pin());
 		}
-		else if (SlowTaskWidget.IsValid())
+		else if (SlowTaskWindow.IsValid())
 		{
-			TickSlate();
+			TickSlate(SlowTaskWindow.Pin());
 		}
 	}
 	else
 	{
 		// Always show the top-most message
-		for (auto& Scope : ScopeStack)
+		for (auto& Scope : *ScopeStack)
 		{
 			const FText ThisMessage = Scope->GetCurrentMessage();
 			if (!ThisMessage.IsEmpty())
@@ -544,7 +579,7 @@ TWeakPtr<class SBuildProgressWidget> FFeedbackContextEditor::ShowBuildProgressWi
 	
 	if (FSlateApplication::Get().CanDisplayWindows())
 	{
-		TickSlate();
+		TickSlate(BuildProgressWindow.Pin());
 	}
 
 	return BuildProgressWidget;

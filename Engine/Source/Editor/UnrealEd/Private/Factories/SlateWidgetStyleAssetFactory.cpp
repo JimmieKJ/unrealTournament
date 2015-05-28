@@ -81,10 +81,10 @@ bool USlateWidgetStyleAssetFactory::ConfigureProperties()
 
 UObject* USlateWidgetStyleAssetFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
-	USlateWidgetStyleAsset* NewUSlateStyle = CastChecked<USlateWidgetStyleAsset>(StaticConstructObject(USlateWidgetStyleAsset::StaticClass(), InParent, Name, Flags));
+	USlateWidgetStyleAsset* NewUSlateStyle = NewObject<USlateWidgetStyleAsset>(InParent, Name, Flags);
 
 	//intialize
-	NewUSlateStyle->CustomStyle = CastChecked< USlateWidgetStyleContainerBase >( StaticConstructObject(StyleType, NewUSlateStyle, Name) );
+	NewUSlateStyle->CustomStyle = NewObject<USlateWidgetStyleContainerBase>(NewUSlateStyle, StyleType, Name);
 
 	return NewUSlateStyle;
 }

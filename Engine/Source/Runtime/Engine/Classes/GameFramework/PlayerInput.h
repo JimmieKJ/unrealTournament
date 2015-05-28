@@ -13,8 +13,6 @@
 #include "KeyState.h"
 #include "PlayerInput.generated.h"
 
-ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogInput, Log, All);
-
 /** Struct containing mappings for legacy method of binding keys to exec commands. */
 USTRUCT()
 struct FKeyBind
@@ -247,9 +245,12 @@ struct FInputAxisKeyMapping
 UCLASS(Within=PlayerController, config=Input, transient)
 class ENGINE_API UPlayerInput : public UObject
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
 public:
+
+	UPlayerInput();
+
 	// NOTE: These touch vectors are calculated and set directly, they do not go through the .ini Bindings
 	// Touch locations, from 0..1 (0,0 is top left, 1,1 is bottom right), the Z component is > 0 if the touch is currently held down
 	// @todo: We have 10 touches to match the number of Touch* entries in EKeys (not easy to make this an enum or define or anything)
@@ -262,7 +263,7 @@ public:
 	float MouseSamplingTotal;    /** DirectInput's mouse sampling total time */
 
 
-protected:
+private:
 	TEnumAsByte<EInputEvent> CurrentEvent;
 
 public:
@@ -283,12 +284,18 @@ public:
 	UPROPERTY(config)
 	TArray<FName> InvertedAxis;
 
+	/** Gets the axis properties for a given AxisKey.  Returns if true if AxisKey was found in the AxisConfig array. */
+	bool GetAxisProperties(const FKey AxisKey, FInputAxisProperties& AxisProperties);
+
+	/** Gets the axis properties for a given AxisKey.  Returns if true if AxisKey was found in the AxisConfig array. */
+	void SetAxisProperties(const FKey AxisKey, const FInputAxisProperties& AxisProperties);
+
 	/** Exec function to change the mouse sensitivity */
 	UFUNCTION(exec)
 	void SetMouseSensitivity(const float Sensitivity);
 
 	/** Exec function to return the mouse sensitivity to its default value */
-	UFUNCTION(exec)
+	DEPRECATED(4.8, "SetMouseSensitivityToDefault is deprecated, use SetAxisProperties instead")
 	void SetMouseSensitivityToDefault();
 
 	/** Exec function to add a debug exec command */
@@ -309,7 +316,7 @@ public:
 	void InvertAxisKey(const FKey AxisKey);
 
 	/** Backwards compatibility exec function for people used to it instead of using InvertAxisKey */
-	UFUNCTION(exec)
+	DEPRECATED(4.8, "InvertMouse is deprecated, use InvertAxisKey(EKeys::MouseY); instead")
 	void InvertMouse();
 
 	/** Exec function to invert an axis mapping */
@@ -329,7 +336,7 @@ public:
 	/** Add a player specific axis mapping. */
 	void AddAxisMapping(const FInputAxisKeyMapping& KeyMapping);
 
-	/** Remove a player specific action mapping. */
+	/** Remove a player specific axis mapping. */
 	void RemoveAxisMapping(const FInputAxisKeyMapping& KeyMapping);
 
 	/** Add an engine defined action mapping that cannot be remapped. */
@@ -341,7 +348,7 @@ public:
 	/** Clear the current cached key maps and rebuild from the source arrays. */
 	void ForceRebuildingKeyMaps(const bool bRestoreDefaults = false);
 
-protected:
+private:
 
 	/** Runtime struct that caches the list of mappings for a given Action Name and the capturing chord if applicable */
 	struct FActionKeyDetails
@@ -485,13 +492,13 @@ public:
 	FKeyBind GetExecBind(FString const& ExecCommand);
 
 	/** Execute input commands within the legacy key binding system. */
-	void ExecInputCommands( UWorld* InWorld, const TCHAR* Cmd, class FOutputDevice& Ar);
+	bool ExecInputCommands( UWorld* InWorld, const TCHAR* Cmd, class FOutputDevice& Ar);
 #endif
 
 	/** Returns the list of keys mapped to the specified Action Name */
 	const TArray<FInputActionKeyMapping>& GetKeysForAction(const FName ActionName);
 
-protected:
+private:
 	/** 
 	 * Given raw keystate value, returns the "massaged" value. Override for any custom behavior,
 	 * such as input changes dependent on a particular game state.
@@ -551,7 +558,6 @@ protected:
 	FGestureRecognizer GestureRecognizer;
 	friend FGestureRecognizer;
 
-private:
 	/** Static empty array to be able to return from GetKeysFromAction when there are no keys mapped to the requested action name */
 	static const TArray<FInputActionKeyMapping> NoKeyMappings;
 

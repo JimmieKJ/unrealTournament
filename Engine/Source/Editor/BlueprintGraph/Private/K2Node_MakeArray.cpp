@@ -217,10 +217,28 @@ void UK2Node_MakeArray::PropagatePinType()
 
 			if (CurrentPin != OutputPin)
 			{
-				bWantRefresh = true;
-				CurrentPin->PinType.PinCategory = OutputPin->PinType.PinCategory;
-				CurrentPin->PinType.PinSubCategory = OutputPin->PinType.PinSubCategory;
-				CurrentPin->PinType.PinSubCategoryObject = OutputPin->PinType.PinSubCategoryObject;
+				// sub pins will be updated by their parent pin, so if we have a parent pin just do nothing
+				if (CurrentPin->ParentPin == nullptr)
+				{
+					bWantRefresh = true;
+
+					// if we've reset to wild card or the parentpin no longer matches we need to collapse the split pin(s)
+					// otherwise everything should be OK:
+					if (CurrentPin->SubPins.Num() != 0 &&
+						(	CurrentPin->PinType.PinCategory != OutputPin->PinType.PinCategory ||
+							CurrentPin->PinType.PinSubCategory != OutputPin->PinType.PinSubCategory ||
+							CurrentPin->PinType.PinSubCategoryObject != OutputPin->PinType.PinSubCategoryObject )
+						)
+					{
+						// this is a little dicey, but should be fine.. relies on the fact that RecombinePin will only remove pins that
+						// are placed after CurrentPin in the Pins member:
+						Schema->RecombinePin(CurrentPin->SubPins[0]);
+					}
+
+					CurrentPin->PinType.PinCategory = OutputPin->PinType.PinCategory;
+					CurrentPin->PinType.PinSubCategory = OutputPin->PinType.PinSubCategory;
+					CurrentPin->PinType.PinSubCategoryObject = OutputPin->PinType.PinSubCategoryObject;
+				}
 
 				if (CurrentPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard)
 				{
@@ -396,15 +414,30 @@ void UK2Node_MakeArray::GetContextMenuActions(const FGraphNodeContextMenuBuilder
 
 bool UK2Node_MakeArray::IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const
 {
-	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
-
 	if(OtherPin->PinType.bIsArray == true && MyPin->Direction == EGPD_Input)
 	{
 		OutReason = NSLOCTEXT("K2Node", "MakeArray_InputIsArray", "Cannot make an array with an input of an array!").ToString();
 		return true;
 	}
 
+	auto Schema = Cast<const UEdGraphSchema_K2>(GetSchema());
+	if (!ensure(Schema) || (ensure(OtherPin) && Schema->IsExecPin(*OtherPin)))
+	{
+		OutReason = NSLOCTEXT("K2Node", "MakeArray_InputIsExec", "Cannot make an array with an execution input!").ToString();
+		return true;
+	}
+
 	return false;
+}
+
+void UK2Node_MakeArray::ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const
+{
+	auto Schema = Cast<const UEdGraphSchema_K2>(GetSchema());
+	auto OutputPin = GetOutputPin();
+	if (!ensure(Schema) || !ensure(OutputPin) || Schema->IsExecPin(*OutputPin))
+	{
+		MessageLog.Error(*NSLOCTEXT("K2Node", "MakeArray_OutputIsExec", "Uaccepted array type in @@").ToString(), this);
+	}
 }
 
 void UK2Node_MakeArray::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
@@ -434,10 +467,10 @@ void UK2Node_MakeArray::GetMenuActions(FBlueprintActionDatabaseRegistrar& Action
 FText UK2Node_MakeArray::GetMenuCategory() const
 {
 	static FNodeTextCache CachedCategory;
-	if (CachedCategory.IsOutOfDate())
+	if (CachedCategory.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedCategory = FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Utilities, LOCTEXT("ActionMenuCategory", "Array"));
+		CachedCategory.SetCachedText(FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Utilities, LOCTEXT("ActionMenuCategory", "Array")), this);
 	}
 	return CachedCategory;
 }

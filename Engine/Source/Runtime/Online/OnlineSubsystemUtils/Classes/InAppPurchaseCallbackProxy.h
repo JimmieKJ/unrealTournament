@@ -20,7 +20,7 @@ class UInAppPurchaseCallbackProxy : public UObject
 	FInAppPurchaseResult OnFailure;
 
 	// Kicks off a transaction for the provided product identifier
-	UFUNCTION(BlueprintCallable, meta = (FriendlyName="Make an In-App Purchase"), Category="Online|InAppPurchase")
+	UFUNCTION(BlueprintCallable, meta = (DisplayName="Make an In-App Purchase"), Category="Online|InAppPurchase")
 	static UInAppPurchaseCallbackProxy* CreateProxyObjectForInAppPurchase(class APlayerController* PlayerController, const FInAppPurchaseProductRequest& ProductRequest);
 
 public:

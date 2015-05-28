@@ -23,6 +23,15 @@ UParticleSystemAuditCommandlet::UParticleSystemAuditCommandlet(const FObjectInit
 
 int32 UParticleSystemAuditCommandlet::Main(const FString& Params)
 {
+	if (!FParse::Value(*Params, TEXT("AuditOutputFolder="), AuditOutputFolder))
+	{
+		// No output folder specified. Use the default folder.
+		AuditOutputFolder = FPaths::GameSavedDir() / TEXT("Audit");
+	}
+
+	// Add a timestamp to the folder
+	AuditOutputFolder /= FDateTime::Now().ToString();
+
 	ProcessParticleSystems();
 	DumpResults();
 
@@ -86,10 +95,8 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 			bool bSingleLOD = false;
 			bool bFoundEmitter = false;
 			bool bMissingMaterial = false;
-			bool bHasConstantColorScaleOverLife = false;
 			bool bHasCollisionEnabled = false;
 			bool bHasHighSpawnRateOrBurst = false;
-			int32 ConstantColorScaleOverLifeCount = 0;
 			for (int32 EmitterIdx = 0; EmitterIdx < PSys->Emitters.Num(); EmitterIdx++)
 			{
 				UParticleEmitter* Emitter = PSys->Emitters[EmitterIdx];
@@ -121,17 +128,7 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 							{
 								UParticleModule* Module = LODLevel->Modules[ModuleIdx];
 
-								if ( UParticleModuleColorScaleOverLife* CSOLModule = Cast<UParticleModuleColorScaleOverLife>(Module) )
-								{
-									UDistributionFloatConstant* FloatConst = Cast<UDistributionFloatConstant>(CSOLModule->AlphaScaleOverLife.Distribution);
-									UDistributionVectorConstant* VectorConst = Cast<UDistributionVectorConstant>(CSOLModule->ColorScaleOverLife.Distribution);
-									if ((FloatConst != NULL) && (VectorConst != NULL))
-									{
-										bHasConstantColorScaleOverLife = true;
-										ConstantColorScaleOverLifeCount++;
-									}
-								}
-								else if ( UParticleModuleCollision* CollisionModule = Cast<UParticleModuleCollision>(Module) )
+								if ( UParticleModuleCollision* CollisionModule = Cast<UParticleModuleCollision>(Module) )
 								{
 									if (CollisionModule->bEnabled == true)
 									{
@@ -193,13 +190,6 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 				ParticleSystemsWithMissingMaterials.Add(PSys->GetPathName());
 			}
 
-			// Note all PSystems that have at least one emitter w/ constant ColorScaleOverLife modules...
-			if (bHasConstantColorScaleOverLife == true)
-			{
-				ParticleSystemsWithConstantColorScaleOverLife.Add(PSys->GetPathName());
-				ParticleSystemsWithConstantColorScaleOverLifeCounts.Add(PSys->GetPathName(), ConstantColorScaleOverLifeCount);
-			}
-
 			// Note all PSystems that have at least one emitter w/ an enabled collision module...
 			if (bHasCollisionEnabled == true)
 			{
@@ -235,12 +225,6 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 			{
 				ParticleSystemsWithBadLODCheckTimes.Add(PSys->GetPathName());
 			}
-
-			// Find LOD mistmatches - looping & non looping, etc.
-			CheckPSysForLODMismatches(PSys);
-
-			// Find duplicate module information
-			CheckPSysForDuplicateModules(PSys);
 
 			if (LastPackageName.Len() > 0)
 			{
@@ -278,291 +262,6 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 	return true;
 }
 
-/** 
- *	Check the given ParticleSystem for LOD mismatch issues
- *
- *	@param	InPSys		The particle system to check
- */
-void UParticleSystemAuditCommandlet::CheckPSysForLODMismatches(UParticleSystem* InPSys)
-{
-	if (InPSys == NULL)
-	{
-		return;
-	}
-
-	// Process it...
-	bool bHasLoopingMismatch = false;
-	bool bHasIntraLoopingMismatch = false;
-	bool bHasInterLoopingMismatch = false;
-	bool bHasMultipleLODLevels = true;
-
-	TArray<int32> InterEmitterCompare;
-
-	TArray<bool> EmitterLODLevelEnabledFlags;
-	FParticleSystemLODInfo* LODInfo = NULL;
-
-	EmitterLODLevelEnabledFlags.Empty(InPSys->Emitters.Num());
-	EmitterLODLevelEnabledFlags.AddZeroed(InPSys->Emitters.Num());
-	for (int32 EmitterIdx = 0; (EmitterIdx < InPSys->Emitters.Num()) && !bHasLoopingMismatch; EmitterIdx++)
-	{
-		UParticleEmitter* Emitter = InPSys->Emitters[EmitterIdx];
-		if (Emitter != NULL)
-		{
-			int32 EmitterLooping = -1;
-			for (int32 LODIdx = 0; (LODIdx < Emitter->LODLevels.Num()) && !bHasLoopingMismatch; LODIdx++)
-			{
-				UParticleLODLevel* LODLevel = Emitter->LODLevels[LODIdx];
-				if (LODLevel != NULL)
-				{
-					if (LODIdx == 0)
-					{
-						EmitterLODLevelEnabledFlags[EmitterIdx] = LODLevel->bEnabled;
-					}
-					else
-					{
-						if (EmitterLODLevelEnabledFlags[EmitterIdx] != LODLevel->bEnabled)
-						{
-							// MISMATCH
-							if (LODInfo == NULL)
-							{
-								LODInfo = new FParticleSystemLODInfo();
-								LODInfo->LODMethod = ParticleSystemLODMethod(InPSys->LODMethod);
-							}
-							LODInfo->EmittersWithDisableLODMismatch.AddUnique(EmitterIdx);
-						}
-					}
-				}
-				if ((LODLevel != NULL) && (LODLevel->bEnabled == true))
-				{
-					int32 CheckEmitterLooping = FMath::Min<int32>(LODLevel->RequiredModule->EmitterLoops, 1);
-					if (EmitterIdx == 0)
-					{
-						InterEmitterCompare.Add(CheckEmitterLooping);
-					}
-					else
-					{
-						if (InterEmitterCompare[LODIdx] != -1)
-						{
-							if (InterEmitterCompare[LODIdx] != CheckEmitterLooping)
-							{
-								if (LODInfo == NULL)
-								{
-									LODInfo = new FParticleSystemLODInfo();
-									LODInfo->LODMethod = ParticleSystemLODMethod(InPSys->LODMethod);
-								}
-								LODInfo->bHasInterLoopingMismatch = true;
-							}
-						}
-						else
-						{
-							InterEmitterCompare[LODIdx] = CheckEmitterLooping;
-						}
-					}
-
-					if (EmitterLooping == -1)
-					{
-						EmitterLooping = CheckEmitterLooping;
-					}
-					else
-					{
-						if (EmitterLooping != CheckEmitterLooping)
-						{
-							if (LODInfo == NULL)
-							{
-								LODInfo = new FParticleSystemLODInfo();
-								LODInfo->LODMethod = ParticleSystemLODMethod(InPSys->LODMethod);
-							}
-							LODInfo->bHasIntraLoopingMismatch = true;
-						}
-					}
-				}
-				else
-				{
-					if (EmitterIdx == 0)
-					{
-						InterEmitterCompare.Add(-1);
-					}
-				}
-			}
-		}
-	}
-
-	// If there was an LOD info mismatch, add it to the list...
-	if (LODInfo != NULL)
-	{
-		ParticleSystemsWithLODLevelIssues.Add(InPSys->GetPathName(), *LODInfo);
-		delete LODInfo;
-	}
-}
-
-/**
- *	Determine the given ParticleSystems duplicate module information 
- *
- *	@param	InPSys		The particle system to check
- */
-void UParticleSystemAuditCommandlet::CheckPSysForDuplicateModules(UParticleSystem* InPSys)
-{
-	if (InPSys == NULL)
-	{
-		return;
-	}
-
-	FParticleSystemDuplicateModuleInfo* DupInfo = PSysDuplicateModuleInfo.Find(InPSys->GetPathName());
-	if (DupInfo == NULL)
-	{
-		// Compare all the particle modules in the array
-		TMap<UClass*,TMap<UParticleModule*,int32> > ClassToModulesMap;
-		TMap<UParticleModule*,int32> AllModulesArray;
-		for (int32 EmitterIdx = 0; EmitterIdx < InPSys->Emitters.Num(); EmitterIdx++)
-		{
-			UParticleEmitter* Emitter = InPSys->Emitters[EmitterIdx];
-			if (Emitter != NULL)
-			{
-				for (int32 LODIdx = 0; LODIdx < Emitter->LODLevels.Num(); LODIdx++)
-				{
-					UParticleLODLevel* LODLevel = Emitter->LODLevels[LODIdx];
-					if (LODLevel != NULL)
-					{
-						for (int32 ModuleIdx = -1; ModuleIdx < LODLevel->Modules.Num(); ModuleIdx++)
-						{
-							UParticleModule* Module = NULL;
-							if (ModuleIdx == -1)
-							{
-								Module = LODLevel->SpawnModule;
-							}
-							else
-							{
-								Module = LODLevel->Modules[ModuleIdx];
-							}
-							if (Module != NULL)
-							{
-								if (AllModulesArray.Find(Module) == NULL)
-								{
-									FArchiveCountMem ModuleMemCount(Module);
-									int32 ModuleSize = ModuleMemCount.GetMax();
-									AllModulesArray.Add(Module, ModuleSize);
-								}
-
-								TMap<UParticleModule*,int32>* ModuleList = ClassToModulesMap.Find(Module->GetClass());
-								if (ModuleList == NULL)
-								{
-									TMap<UParticleModule*,int32> TempModuleList;
-									ClassToModulesMap.Add(Module->GetClass(), TempModuleList);
-									ModuleList = ClassToModulesMap.Find(Module->GetClass());
-								}
-								check(ModuleList);
-								int32* ModuleCount = ModuleList->Find(Module);
-								if (ModuleCount == NULL)
-								{
-									int32 TempModuleCount = 0;
-									ModuleList->Add(Module, TempModuleCount);
-									ModuleCount = ModuleList->Find(Module);
-								}
-								check(ModuleCount);
-							}
-						}
-					}
-				}
-			}
-		}
-
-		// Now we have a list of module classes and the modules they contain
-		TMap<UParticleModule*, TArray<UParticleModule*> > DuplicateModules;
-		TMap<UParticleModule*,bool> FoundAsADupeModules;
-		for (TMap<UClass*,TMap<UParticleModule*,int32> >::TIterator ModClassIt(ClassToModulesMap); ModClassIt; ++ModClassIt)
-		{
-			UClass* ModuleClass = ModClassIt.Key();
-			TMap<UParticleModule*,int32>& ModuleMap = ModClassIt.Value();
-			if (ModuleMap.Num() > 1)
-			{
-				// There is more than one of this module, so see if there are dupes...
-				TArray<UParticleModule*> ModuleArray;
-				for (TMap<UParticleModule*,int32>::TIterator ModuleIt(ModuleMap); ModuleIt; ++ModuleIt)
-				{
-					ModuleArray.Add(ModuleIt.Key());
-				}
-
-				// For each module, see if it it a duplicate of another
-				for (int32 ModuleIdx = 0; ModuleIdx < ModuleArray.Num(); ModuleIdx++)
-				{
-					UParticleModule* SourceModule = ModuleArray[ModuleIdx];
-					if (FoundAsADupeModules.Find(SourceModule) == NULL)
-					{
-						for (int32 InnerModuleIdx = ModuleIdx + 1; InnerModuleIdx < ModuleArray.Num(); InnerModuleIdx++)
-						{
-							UParticleModule* CheckModule = ModuleArray[InnerModuleIdx];
-							bool bIsDifferent = false;
-							if (FoundAsADupeModules.Find(CheckModule) == NULL)
-							{
-								FName CascadeCategory(TEXT("Cascade"));
-								// Copy non component properties from the old actor to the new actor
-								for (UProperty* Property = ModuleClass->PropertyLink; Property != NULL; Property = Property->PropertyLinkNext)
-								{
-									bool bIsTransient = (Property->PropertyFlags & CPF_Transient) != 0;
-									bool bIsEditorOnly = (Property->PropertyFlags & CPF_EditorOnly) != 0;
-									bool bIsCascade = (FObjectEditorUtils::GetCategoryFName(Property) == CascadeCategory);
-									if (!bIsTransient && !bIsEditorOnly && !bIsCascade)
-									{
-										bool bIsIdentical = Property->Identical_InContainer(SourceModule, CheckModule, 0, PPF_DeepComparison);
-										if (bIsIdentical == false)
-										{
-											bIsDifferent = true;
-										}
-									}
-									else
-									{
-
-									}
-								}
-							}
-							if (bIsDifferent == false)
-							{
-								TArray<UParticleModule*>* DupedModules = DuplicateModules.Find(SourceModule);
-								if (DupedModules == NULL)
-								{
-									TArray<UParticleModule*> TempDupedModules;
-									DuplicateModules.Add(SourceModule, TempDupedModules);
-									DupedModules = DuplicateModules.Find(SourceModule);
-								}
-								check(DupedModules);
-								DupedModules->AddUnique(CheckModule);
-								FoundAsADupeModules.Add(CheckModule, true);
-							}
-						}
-					}
-				}
-			}
-		}
-
-		if (DuplicateModules.Num() > 0)
-		{
-			FParticleSystemDuplicateModuleInfo TempDupInfo;
-			PSysDuplicateModuleInfo.Add(InPSys->GetPathName(), TempDupInfo);
-			DupInfo = PSysDuplicateModuleInfo.Find(InPSys->GetPathName());
-
-			DupInfo->ModuleCount = AllModulesArray.Num();
-			DupInfo->ModuleMemory = 0;
-			int32 DupeMemory = 0;
-			for (TMap<UParticleModule*,int32>::TIterator ModuleIt(AllModulesArray); ModuleIt; ++ModuleIt)
-			{
-				int32 ModuleSize = ModuleIt.Value();
-				DupInfo->ModuleMemory += ModuleSize;
-				if (FoundAsADupeModules.Find(ModuleIt.Key()) != NULL)
-				{
-					DupeMemory += ModuleSize;
-				}
-			}
-
-			DupInfo->RemovedDuplicateCount = FoundAsADupeModules.Num();
-			DupInfo->RemovedDuplicateMemory = DupeMemory;
-		}
-	}
-	else
-	{
-		UE_LOG(LogParticleSystemAuditCommandlet, Warning, TEXT("Already processed PSys for duplicate module information: %s"), *(InPSys->GetPathName()));
-	}
-}
-
 /** Dump the results of the audit */
 void UParticleSystemAuditCommandlet::DumpResults()
 {
@@ -574,88 +273,9 @@ void UParticleSystemAuditCommandlet::DumpResults()
 	DumpSimplePSysSet(ParticleSystemsWithMissingMaterials, TEXT("PSysMissingMaterial"));
 	DumpSimplePSysSet(ParticleSystemsWithNoEmitters, TEXT("PSysNoEmitters"));
 	DumpSimplePSysSet(ParticleSystemsWithCollisionEnabled, TEXT("PSysCollisionEnabled"));
-	DumpSimplePSysSet(ParticleSystemsWithConstantColorScaleOverLife, TEXT("PSysConstantColorScale"));
 	DumpSimplePSysSet(ParticleSystemsWithOrientZAxisTowardCamera, TEXT("PSysOrientZTowardsCamera"));
 	DumpSimplePSysSet(ParticleSystemsWithHighSpawnRateOrBurst, TEXT("PSysHighSpawnRateOrBurst"));
 	DumpSimplePSysSet(ParticleSystemsWithFarLODDistance, TEXT("PSysFarLODDistance"));
-
-	FArchive* OutputStream;
-
-	// Dump out the particle systems w/ disabled LOD level mismatches...
-	const TCHAR* ConstColorScaleCountsName = TEXT("PSysConstColorScaleCounts");
-	OutputStream = GetOutputFile(TEXT("Audit"), ConstColorScaleCountsName);
-	if (OutputStream != NULL)
-	{
-		UE_LOG(LogParticleSystemAuditCommandlet, Log, TEXT("Dumping '%s' results..."), ConstColorScaleCountsName);
-		OutputStream->Logf(TEXT("Particle System,ModuleCount"));
-		for (TMap<FString,int32>::TIterator DumpIt(ParticleSystemsWithConstantColorScaleOverLifeCounts); DumpIt; ++DumpIt)
-		{
-			FString PSysName = DumpIt.Key();
-			int32& Count = DumpIt.Value();
-			OutputStream->Logf(TEXT("%s,%d"), *PSysName, Count);
-		}
-		OutputStream->Close();
-		delete OutputStream;
-	}
-	else
-	{
-		UE_LOG(LogParticleSystemAuditCommandlet, Warning, TEXT("Failed to open ConstColorScaleCounts file %s"), ConstColorScaleCountsName);
-	}
-
-	// Dump out the particle systems w/ disabled LOD level mismatches...
-	const TCHAR* LODIssuesName = TEXT("PSysLODIssues");
-	OutputStream = GetOutputFile(TEXT("Audit"), LODIssuesName);
-	if (OutputStream != NULL)
-	{
-		UE_LOG(LogParticleSystemAuditCommandlet, Log, TEXT("Dumping '%s' results..."), LODIssuesName);
-		OutputStream->Logf(TEXT("Particle System,LOD Method,InterLoop,IntraLoop,Emitters with mismatched LOD enabled"));
-		for (TMap<FString,FParticleSystemLODInfo>::TIterator DumpIt(ParticleSystemsWithLODLevelIssues); DumpIt; ++DumpIt)
-		{
-			FString PSysName = DumpIt.Key();
-			FParticleSystemLODInfo& LODInfo = DumpIt.Value();
-
-			FString Output = FString::Printf(TEXT("%s,%s,%s,%s"), *PSysName, 
-				(LODInfo.LODMethod == PARTICLESYSTEMLODMETHOD_Automatic) ? TEXT("AUTO") :
-				((LODInfo.LODMethod == PARTICLESYSTEMLODMETHOD_ActivateAutomatic) ? TEXT("AUTOACTIVATE") : TEXT("DIRECTSET")),
-				LODInfo.bHasInterLoopingMismatch ? TEXT("Y") : TEXT("N"),
-				LODInfo.bHasIntraLoopingMismatch ? TEXT("Y") : TEXT("N"));
-			for (int32 EmitterIdx = 0; EmitterIdx < LODInfo.EmittersWithDisableLODMismatch.Num(); EmitterIdx++)
-			{
-				Output += FString::Printf(TEXT(",%d"), LODInfo.EmittersWithDisableLODMismatch[EmitterIdx]);
-			}
-			OutputStream->Logf(*Output);
-		}
-		OutputStream->Close();
-		delete OutputStream;
-	}
-	else
-	{
-		UE_LOG(LogParticleSystemAuditCommandlet, Warning, TEXT("Failed to open LODIssues file %s"), LODIssuesName);
-	}
-
-	// Dump out the duplicate module findings...
-	const TCHAR* DuplicateModulesName = TEXT("PSysDuplicateModules");
-	OutputStream = GetOutputFile(TEXT("Audit"), DuplicateModulesName);
-	if (OutputStream != NULL)
-	{
-		UE_LOG(LogParticleSystemAuditCommandlet, Log, TEXT("Dumping '%s' results..."), DuplicateModulesName);
-		OutputStream->Logf(TEXT("Particle System,Module Count,Module Memory,Duplicate Count,Duplicate Memory"));
-		for (TMap<FString,FParticleSystemDuplicateModuleInfo>::TIterator DupeIt(PSysDuplicateModuleInfo); DupeIt; ++DupeIt)
-		{
-			FString PSysName = DupeIt.Key();
-			FParticleSystemDuplicateModuleInfo& DupeInfo = DupeIt.Value();
-
-			OutputStream->Logf(TEXT("%s,%d,%d,%d,%d"), *PSysName, 
-				DupeInfo.ModuleCount, DupeInfo.ModuleMemory,
-				DupeInfo.RemovedDuplicateCount, DupeInfo.RemovedDuplicateMemory);
-		}
-		OutputStream->Close();
-		delete OutputStream;
-	}
-	else
-	{
-		UE_LOG(LogParticleSystemAuditCommandlet, Warning, TEXT("Failed to open DuplicateModule file %s"), DuplicateModulesName);
-	}
 }
 
 /**
@@ -671,15 +291,14 @@ bool UParticleSystemAuditCommandlet::DumpSimplePSysSet(TSet<FString>& InPSysSet,
 	return DumpSimpleSet(InPSysSet, InShortFilename, TEXT("ParticleSystem"));
 }
 
-bool UParticleSystemAuditCommandlet::DumpSimpleSet(TSet<FString>& InSet,
-	const TCHAR* InShortFilename, const TCHAR* InObjectClassName)
+bool UParticleSystemAuditCommandlet::DumpSimpleSet(TSet<FString>& InSet, const TCHAR* InShortFilename, const TCHAR* InObjectClassName)
 {
 	if (InSet.Num() > 0)
 	{
 		check(InShortFilename != NULL);
 		check(InObjectClassName != NULL);
 
-		FArchive* OutputStream = GetOutputFile(TEXT("Audit"), InShortFilename);
+		FArchive* OutputStream = GetOutputFile(InShortFilename);
 		if (OutputStream != NULL)
 		{
 			UE_LOG(LogParticleSystemAuditCommandlet, Log, TEXT("Dumping '%s' results..."), InShortFilename);
@@ -701,11 +320,9 @@ bool UParticleSystemAuditCommandlet::DumpSimpleSet(TSet<FString>& InSet,
 	return true;
 }
 
-FArchive* UParticleSystemAuditCommandlet::GetOutputFile(const TCHAR* InFolderName, const TCHAR* InShortFilename)
+FArchive* UParticleSystemAuditCommandlet::GetOutputFile(const TCHAR* InShortFilename)
 {
-	// Place in the <UE4>\<GAME>\Saved\<InFolderName> folder
-	FString Filename = FString::Printf(TEXT("%s%s/%s-%s.csv"), *FPaths::GameSavedDir(), InFolderName, InShortFilename, *FDateTime::Now().ToString());
-
+	const FString Filename = FString::Printf(TEXT("%s/%s.csv"), *AuditOutputFolder, InShortFilename);
 	FArchive* OutputStream = IFileManager::Get().CreateDebugFileWriter(*Filename);
 	if (OutputStream == NULL)
 	{

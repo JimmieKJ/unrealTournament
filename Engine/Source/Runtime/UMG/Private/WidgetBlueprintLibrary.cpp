@@ -4,6 +4,8 @@
 #include "Slate/SlateBrushAsset.h"
 #include "Slate/UMGDragDropOp.h"
 #include "WidgetBlueprintLibrary.h"
+#include "EngineGlobals.h"
+#include "Engine/Engine.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -37,11 +39,11 @@ UDragDropOperation* UWidgetBlueprintLibrary::CreateDragDropOperation(TSubclassOf
 {
 	if ( Operation )
 	{
-		return ConstructObject<UDragDropOperation>(Operation);
+		return NewObject<UDragDropOperation>(GetTransientPackage(), Operation);
 	}
 	else
 	{
-		return ConstructObject<UDragDropOperation>(UDragDropOperation::StaticClass());
+		return NewObject<UDragDropOperation>();
 	}
 }
 
@@ -334,7 +336,7 @@ UMaterialInstanceDynamic* UWidgetBlueprintLibrary::GetDynamicMaterial(FSlateBrus
 	// If the resource has a material interface we'll just update the brush to have a dynamic material.
 	else if ( UMaterialInterface* Material = Cast<UMaterialInterface>(Resource) )
 	{
-		UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(Material, nullptr);
+		DynamicMaterial = UMaterialInstanceDynamic::Create(Material, nullptr);
 		Brush.SetResourceObject(DynamicMaterial);
 
 		return DynamicMaterial;
@@ -370,7 +372,14 @@ void UWidgetBlueprintLibrary::GetAllWidgetsOfClass(UObject* WorldContextObject, 
 	{
 		UUserWidget* LiveWidget = *Itr;
 
+		// Skip any widget that's not in the current world context.
 		if ( LiveWidget->GetWorld() != World )
+		{
+			continue;
+		}
+
+		// Skip any widget that is not a child of the class specified.
+		if ( !LiveWidget->GetClass()->IsChildOf(WidgetClass) )
 		{
 			continue;
 		}
@@ -389,4 +398,41 @@ void UWidgetBlueprintLibrary::GetAllWidgetsOfClass(UObject* WorldContextObject, 
 	}
 }
 
+void UWidgetBlueprintLibrary::GetAllWidgetsWithInterface(UObject* WorldContextObject, TSubclassOf<UInterface> Interface, TArray<UUserWidget*>& FoundWidgets, bool TopLevelOnly)
+{
+	FoundWidgets.Empty();
+
+	if (!Interface || !WorldContextObject)
+	{
+		return;
+	}
+
+	const UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
+	if (!World)
+	{
+		return;
+	}
+
+	for (TObjectIterator<UUserWidget> Itr; Itr; ++Itr)
+	{
+		UUserWidget* LiveWidget = *Itr;
+
+		if (LiveWidget->GetWorld() != World)
+		{
+			continue;
+		}
+
+		if (TopLevelOnly)
+		{
+			if (LiveWidget->IsInViewport() && LiveWidget->GetClass()->ImplementsInterface(Interface))
+			{
+				FoundWidgets.Add(LiveWidget);
+			}
+		}
+		else if (LiveWidget->GetClass()->ImplementsInterface(Interface))
+		{
+			FoundWidgets.Add(LiveWidget);
+		}
+	}
+}
 #undef LOCTEXT_NAMESPACE

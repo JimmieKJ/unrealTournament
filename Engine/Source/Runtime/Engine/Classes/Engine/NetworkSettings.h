@@ -6,11 +6,10 @@
 
 
 /**
- * Implements project settings for the Network sub-system.
+ * Network settings.
  */
-UCLASS(config=Engine, defaultconfig)
-class ENGINE_API UNetworkSettings
-	: public UObject
+UCLASS(config=Engine, defaultconfig, meta=(DisplayName="Network"))
+class ENGINE_API UNetworkSettings : public UDeveloperSettings
 {
 	GENERATED_UCLASS_BODY()
 

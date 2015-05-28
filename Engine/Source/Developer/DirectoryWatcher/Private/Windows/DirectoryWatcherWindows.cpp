@@ -53,7 +53,7 @@ bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback( const FString& 
 	}
 	else
 	{
-		Request = new FDirectoryWatchRequestWindows();
+		Request = new FDirectoryWatchRequestWindows(false);
 		NumRequests++;
 
 		// Begin reading directory changes
@@ -105,7 +105,7 @@ bool FDirectoryWatcherWindows::UnregisterDirectoryChangedCallback( const FString
 	return false;
 }
 
-bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback_Handle( const FString& Directory, const FDirectoryChanged& InDelegate, FDelegateHandle& Handle )
+bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback_Handle( const FString& Directory, const FDirectoryChanged& InDelegate, FDelegateHandle& Handle, bool bIncludeDirectoryChanges )
 {
 	FDirectoryWatchRequestWindows** RequestPtr = RequestMap.Find(Directory);
 	FDirectoryWatchRequestWindows* Request = NULL;
@@ -119,7 +119,7 @@ bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback_Handle( const FS
 	}
 	else
 	{
-		Request = new FDirectoryWatchRequestWindows();
+		Request = new FDirectoryWatchRequestWindows(bIncludeDirectoryChanges);
 		NumRequests++;
 
 		// Begin reading directory changes

@@ -39,8 +39,7 @@ public:
 			TSharedRef<SWindow> Dialog = SNew(SAddContentDialog);
 			FSlateApplication::Get().AddWindowAsNativeChild(Dialog, ParentWindow);
 			AddContentDialog = TWeakPtr<SWindow>(Dialog);
-		}
-		
+		}		
 	}
 
 private:

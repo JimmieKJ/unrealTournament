@@ -11,7 +11,7 @@ UEnvQueryItemType_VectorBase::UEnvQueryItemType_VectorBase(const FObjectInitiali
 
 void UEnvQueryItemType_VectorBase::AddBlackboardFilters(FBlackboardKeySelector& KeySelector, UObject* FilterOwner) const
 {
-	KeySelector.AddVectorFilter(FilterOwner);
+	KeySelector.AddVectorFilter(FilterOwner, TEXT("EnvQueryVector"));
 }
 
 bool UEnvQueryItemType_VectorBase::StoreInBlackboard(FBlackboardKeySelector& KeySelector, UBlackboardComponent* Blackboard, const uint8* RawData) const

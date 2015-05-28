@@ -268,7 +268,7 @@ protected:
 		float Num1 = 1.f;
 		{
 			TArray<FString> Tokens1;
-			Value1->ParseIntoArray(&Tokens1, TEXT("x"), true);
+			Value1->ParseIntoArray(Tokens1, TEXT("x"), true);
 			for (auto TokenIt1 = Tokens1.CreateConstIterator(); TokenIt1; ++TokenIt1)
 			{
 				Num1 *= FCString::Atof(**TokenIt1);
@@ -277,7 +277,7 @@ protected:
 		float Num2 = 1.f;
 		{
 			TArray<FString> Tokens2;
-			Value2->ParseIntoArray(&Tokens2, TEXT("x"), true);
+			Value2->ParseIntoArray(Tokens2, TEXT("x"), true);
 			for (auto TokenIt2 = Tokens2.CreateConstIterator(); TokenIt2; ++TokenIt2)
 			{
 				Num2 *= FCString::Atof(**TokenIt2);
@@ -371,12 +371,12 @@ void FAssetViewSortManager::SortList(TArray<TSharedPtr<FAssetViewItem>>& AssetIt
 
 			if (TagType == UObject::FAssetRegistryTag::TT_Numerical)
 			{
-				// The property is a Num2er, compare using atof
+				// The property is a Number, compare using atof
 				SortMethod.Add(MakeUnique<FCompareFAssetItemByTagNumerical>(bAscending, Tag));
 			}
 			else if (TagType == UObject::FAssetRegistryTag::TT_Dimensional)
 			{
-				// The property is a series of Num2ers representing dimensions, compare by using atof for each Num2er, delimited by an "x"
+				// The property is a series of Numbers representing dimensions, compare by using atof for each Number, delimited by an "x"
 				SortMethod.Add(MakeUnique<FCompareFAssetItemByTagDimensional>(bAscending, Tag));
 			}
 			else

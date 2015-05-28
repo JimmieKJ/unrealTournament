@@ -462,7 +462,7 @@ namespace AssetUtil
 			{
 				TArray<FString> DroppedAssetStrings;
 				const TCHAR AssetDelimiter[] = { AssetMarshalDefs::AssetDelimiter, TEXT('\0') };
-				DragDropOp->GetText().ParseIntoArray(&DroppedAssetStrings, AssetDelimiter, true);
+				DragDropOp->GetText().ParseIntoArray(DroppedAssetStrings, AssetDelimiter, true);
 
 				FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 				IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();

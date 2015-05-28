@@ -6,6 +6,8 @@ namespace UnrealBuildTool.Rules
 	{
 		public IOSApsalar( TargetInfo Target )
 		{
+			BinariesSubFolder = "NotForLicensees";
+
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{

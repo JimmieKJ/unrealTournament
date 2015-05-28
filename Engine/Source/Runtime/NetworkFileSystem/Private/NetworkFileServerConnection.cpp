@@ -770,6 +770,15 @@ bool FNetworkFileServerClientConnection::ProcessGetFileList( FArchive& In, FArch
 		UE_LOG(LogFileServer, Display, TEXT("\t%s"), *(RootDirectories[DumpIdx]));
 	}
 
+	TArray<FString> DirectoriesToAlwaysStageAsUFS;
+	if ( GConfig->GetArray(TEXT("/Script/UnrealEd.ProjectPackagingSettings"), TEXT("DirectoriesToAlwaysStageAsUFS"), DirectoriesToAlwaysStageAsUFS, GGameIni) )
+	{
+		for ( const auto& DirectoryToAlwaysStage : DirectoriesToAlwaysStageAsUFS )
+		{
+			RootDirectories.Add( DirectoryToAlwaysStage );
+		}
+	}
+
 	// list of directories to skip
 	TArray<FString> DirectoriesToSkip;
 	TArray<FString> DirectoriesToNotRecurse;
@@ -814,6 +823,21 @@ bool FNetworkFileServerClientConnection::ProcessGetFileList( FArchive& In, FArch
 	// Do it again, preventing access to non-cooked files
 	if( bIsStreamingRequest == false )
 	{
+		TArray<FString> RootContentPaths;
+		FPackageName::QueryRootContentPaths(RootContentPaths); 
+		TArray<FString> ContentFolders;
+		for (const auto& RootPath : RootContentPaths)
+		{
+			const FString& ContentFolder = FPackageName::LongPackageNameToFilename(RootPath);
+
+			FString ConnectedContentFolder = ContentFolder;
+			ConnectedContentFolder.ReplaceInline(*LocalEngineDir, *ConnectedEngineDir);
+			ConnectedContentFolder.ReplaceInline(*LocalGameDir, *ConnectedGameDir);
+
+			ContentFolders.Add(ConnectedContentFolder);
+		}
+		Out << ContentFolders;
+
 		// Do it again, preventing access to non-cooked files
 		const int32 NUM_EXCLUSION_WILDCARDS = 2;
 		FString ExclusionWildcard[NUM_EXCLUSION_WILDCARDS];

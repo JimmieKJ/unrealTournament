@@ -6,7 +6,15 @@ namespace UnrealBuildTool.Rules
 	{
 		public LeapMotionController(TargetInfo Target)
 		{
-			PublicDelayLoadDLLs.Add("Leap.dll");
+            if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
+            {
+                Definitions.Add("LEAP_USE_DEBUG_LIB=1");
+                PublicDelayLoadDLLs.Add("Leapd.dll");
+            }
+            else
+            {
+                PublicDelayLoadDLLs.Add("Leap.dll");
+            }
 
 			PublicDependencyModuleNames.AddRange( new string[] { "Core", "CoreUObject", "Engine", "InputCore" } ); 
 

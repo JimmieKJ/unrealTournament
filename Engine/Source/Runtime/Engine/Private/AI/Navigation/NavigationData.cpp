@@ -24,6 +24,22 @@ FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationDa
 	}
 }
 
+FPathFindingQuery::FPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter, FNavPathSharedPtr InPathInstanceToFill)
+: NavData(&InNavData)
+, Owner(InOwner)
+, StartLocation(Start)
+, EndLocation(End)
+, QueryFilter(SourceQueryFilter)
+, PathInstanceToFill(InPathInstanceToFill)
+, NavDataFlags(0)
+, bAllowPartialPaths(true)
+{
+	if (SourceQueryFilter.IsValid() == false && NavData.IsValid() == true)
+	{
+		QueryFilter = NavData->GetDefaultQueryFilter();
+	}
+}
+
 FPathFindingQuery::FPathFindingQuery(const FPathFindingQuery& Source)
 : NavData(Source.NavData)
 , Owner(Source.Owner)
@@ -62,6 +78,17 @@ FPathFindingQuery::FPathFindingQuery(FNavPathSharedRef PathToRecalculate, const 
 uint32 FAsyncPathFindingQuery::LastPathFindingUniqueID = INVALID_NAVQUERYID;
 
 FAsyncPathFindingQuery::FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter)
+: FPathFindingQuery(InOwner, *InNavData, Start, End, SourceQueryFilter)
+, QueryID(GetUniqueID())
+, OnDoneDelegate(Delegate)
+{
+	if (InNavData == nullptr)
+	{
+		UE_LOG(LogNavigation, Error, TEXT("Trying to instantiate FAsyncPathFindingQuery while InNavData == null"));
+	}
+}
+
+FAsyncPathFindingQuery::FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter)
 : FPathFindingQuery(InOwner, InNavData, Start, End, SourceQueryFilter)
 , QueryID(GetUniqueID())
 , OnDoneDelegate(Delegate)
@@ -99,7 +126,7 @@ FSupportedAreaData::FSupportedAreaData(TSubclassOf<UNavArea> NavAreaClass, int32
 ANavigationData::ANavigationData(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, bEnableDrawing(false)
-	, bRebuildAtRuntime(false)
+	, RuntimeGeneration(ERuntimeGenerationType::LegacyGeneration) //TODO: set to a valid value once bRebuildAtRuntime_DEPRECATED is removed
 	, bForceRebuildOnLoad(false)
 	, DataVersion(NAVMESHVER_LATEST)
 	, FindPathImplementation(NULL)
@@ -117,9 +144,8 @@ ANavigationData::ANavigationData(const FObjectInitializer& ObjectInitializer)
 
 uint16 ANavigationData::GetNextUniqueID()
 {
-	check(IsInGameThread());
-	static uint16 StaticID = INVALID_NAVDATA;
-	return ++StaticID;
+	static FThreadSafeCounter StaticID(INVALID_NAVDATA);
+	return StaticID.Increment();
 }
 
 void ANavigationData::PostInitProperties()
@@ -130,9 +156,18 @@ void ANavigationData::PostInitProperties()
 	{
 		return;
 	}
-	
-	if (HasAnyFlags(RF_ClassDefaultObject) == false)
+
+	if (HasAnyFlags(RF_ClassDefaultObject))
 	{
+		if (RuntimeGeneration == ERuntimeGenerationType::LegacyGeneration)
+		{
+			RuntimeGeneration = bRebuildAtRuntime_DEPRECATED ? ERuntimeGenerationType::Dynamic : ERuntimeGenerationType::Static;
+		}
+	}
+	else
+	{
+		bNetLoadOnClient = (*GEngine->NavigationSystemClass != nullptr) && (GEngine->NavigationSystemClass->GetDefaultObject<UNavigationSystem>()->ShouldLoadNavigationOnClient(this));
+
 		UWorld* WorldOuter = GetWorld();
 		
 		if (WorldOuter != NULL && WorldOuter->GetNavigationSystem() != NULL)
@@ -148,9 +183,9 @@ void ANavigationData::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	
-	UWorld* WorldOuter = GetWorld();
+	CachedWorld = GetWorld();
 
-	if (WorldOuter == NULL || WorldOuter->GetNavigationSystem() == NULL)
+	if (CachedWorld == NULL || CachedWorld->GetNavigationSystem() == NULL)
 	{
 		CleanUpAndMarkPendingKill();
 	}
@@ -158,7 +193,7 @@ void ANavigationData::PostInitializeComponents()
 	{
 		// note: this is not a final fix for world composition's issues with navmesh generation
 		// but it's good for now, and navmesh creation is going to get a face-lift soon anyway
-		bWantsUpdate |= WorldOuter->GetWorldSettings()->bEnableWorldComposition;
+		bWantsUpdate |= CachedWorld->GetWorldSettings()->bEnableWorldComposition;
 	}
 }
 
@@ -166,7 +201,17 @@ void ANavigationData::PostLoad()
 {
 	Super::PostLoad();
 
+	if ((GetLinkerUE4Version() < VER_UE4_ADD_MODIFIERS_RUNTIME_GENERATION) &&
+		(RuntimeGeneration == ERuntimeGenerationType::LegacyGeneration))
+	{
+		RuntimeGeneration = bRebuildAtRuntime_DEPRECATED ? ERuntimeGenerationType::Dynamic : ERuntimeGenerationType::Static;
+	}
+
 	InstantiateAndRegisterRenderingComponent();
+
+	CachedWorld = GetWorld();
+
+	bNetLoadOnClient = (*GEngine->NavigationSystemClass != nullptr) && (GEngine->NavigationSystemClass->GetDefaultObject<UNavigationSystem>()->ShouldLoadNavigationOnClient(this));
 }
 
 void ANavigationData::TickActor(float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction)
@@ -222,36 +267,48 @@ void ANavigationData::TickActor(float DeltaTime, enum ELevelTick TickType, FActo
 
 	if (RepathRequests.Num() > 0)
 	{
+		float TimeStamp = GetWorldTimeStamp();
 		TArray<FNavPathRecalculationRequest> PostponedRequests;
+		const UWorld* World = GetWorld();
 
 		// @todo batch-process it!
 		for (auto RecalcRequest : RepathRequests)
 		{
 			// check if it can be updated right now
-			const UObject* PathQuerier = RecalcRequest.Path->GetQuerier();
+			FNavPathSharedPtr PinnedPath = RecalcRequest.Path.Pin();
+			if (PinnedPath.IsValid() == false)
+			{
+				continue;
+			}
+
+			const UObject* PathQuerier = PinnedPath->GetQuerier();
 			const INavAgentInterface* PathNavAgent = Cast<const INavAgentInterface>(PathQuerier);
 			if (PathNavAgent && PathNavAgent->ShouldPostponePathUpdates())
 			{
 				PostponedRequests.Add(RecalcRequest);
+				continue;
 			}
 
-			FPathFindingQuery Query(RecalcRequest.Path);
+			FPathFindingQuery Query(PinnedPath.ToSharedRef());
 			// @todo consider supplying NavAgentPropertied from path's querier
-			const FPathFindingResult Result = FindPath(FNavAgentProperties(), Query.SetPathInstanceToUpdate(RecalcRequest.Path));
+			const FPathFindingResult Result = FindPath(FNavAgentProperties(), Query.SetPathInstanceToUpdate(PinnedPath));
+
+			// update time stamp to give observers any means of telling if it has changed
+			PinnedPath->SetTimeStamp(TimeStamp);
 
 			// partial paths are still valid and can change to full path when moving goal gets back on navmesh
 			if (Result.IsSuccessful() || Result.IsPartial())
 			{
-				RecalcRequest.Path->UpdateLastRepathGoalLocation();
-				RecalcRequest.Path->DoneUpdating(RecalcRequest.Reason);
+				PinnedPath->UpdateLastRepathGoalLocation();
+				PinnedPath->DoneUpdating(RecalcRequest.Reason);
 				if (RecalcRequest.Reason == ENavPathUpdateType::NavigationChanged)
 				{
-					RegisterActivePath(RecalcRequest.Path);
+					RegisterActivePath(PinnedPath);
 				}
 			}
 			else
 			{
-				RecalcRequest.Path->RePathFailed();
+				PinnedPath->RePathFailed();
 			}
 		}
 
@@ -272,7 +329,7 @@ void ANavigationData::OnRegistered()
 	InstantiateAndRegisterRenderingComponent();
 
 	bRegistered = true;
-	ConstructGenerator();
+	ConditionalConstructGenerator();
 }
 
 void ANavigationData::OnUnregistered()
@@ -340,7 +397,7 @@ bool ANavigationData::DoesSupportAgent(const FNavAgentProperties& AgentProps) co
 	return NavDataConfig.IsEquivalent(AgentProps);
 }
 
-void ANavigationData::BeginDestroy()
+void ANavigationData::Destroyed()
 {
 	UWorld* WorldOuter = GetWorld();
 
@@ -352,7 +409,7 @@ void ANavigationData::BeginDestroy()
 
 	CleanUp();
 
-	Super::BeginDestroy();
+	Super::Destroyed();
 }
 
 void ANavigationData::CleanUp()
@@ -375,15 +432,20 @@ bool ANavigationData::SupportsRuntimeGeneration() const
 	return false;
 }
 
-void ANavigationData::ConstructGenerator()
+bool ANavigationData::SupportsStreaming() const
+{
+	return false;
+}
+
+void ANavigationData::ConditionalConstructGenerator()
 {
 }
 
 void ANavigationData::RebuildAll()
 {
-	ConstructGenerator(); //recreate generator
+	ConditionalConstructGenerator(); //recreate generator
 	
-	if (NavDataGenerator)
+	if (NavDataGenerator.IsValid())
 	{
 		NavDataGenerator->RebuildAll();
 	}
@@ -391,7 +453,7 @@ void ANavigationData::RebuildAll()
 
 void ANavigationData::EnsureBuildCompletion()
 {
-	if (NavDataGenerator)
+	if (NavDataGenerator.IsValid())
 	{
 		NavDataGenerator->EnsureBuildCompletion();
 	}
@@ -399,7 +461,7 @@ void ANavigationData::EnsureBuildCompletion()
 
 void ANavigationData::CancelBuild()
 {
-	if (NavDataGenerator)
+	if (NavDataGenerator.IsValid())
 	{
 		NavDataGenerator->CancelBuild();
 	}
@@ -408,12 +470,12 @@ void ANavigationData::CancelBuild()
 void ANavigationData::OnNavigationBoundsChanged()
 {
 	// Create generator if it wasn't yet
-	if (SupportsRuntimeGeneration() && NavDataGenerator.Get() == nullptr)
+	if (NavDataGenerator.Get() == nullptr)
 	{
-		ConstructGenerator();
+		ConditionalConstructGenerator();
 	}
 	
-	if (NavDataGenerator)
+	if (NavDataGenerator.IsValid())
 	{
 		NavDataGenerator->OnNavigationBoundsChanged();
 	}
@@ -421,7 +483,7 @@ void ANavigationData::OnNavigationBoundsChanged()
 
 void ANavigationData::TickAsyncBuild(float DeltaSeconds)
 {
-	if (NavDataGenerator)
+	if (NavDataGenerator.IsValid())
 	{
 		NavDataGenerator->TickAsyncBuild(DeltaSeconds);
 	}
@@ -431,8 +493,8 @@ void ANavigationData::RebuildDirtyAreas(const TArray<FNavigationDirtyArea>& Dirt
 {
 	// the 'bWantsUpdate' mechanics allows us to skip first requested update after data is loaded
 	// Can be also used to manually control navigation rebuilding, by for example forcing bWantsUpdate 
-	//	to false in Tick function effectively supressing rebuilding
-	if (bWantsUpdate == true && NavDataGenerator)
+	//	to false in Tick function effectively suppressing rebuilding
+	if (bWantsUpdate == true && NavDataGenerator.IsValid())
 	{
 		NavDataGenerator->RebuildDirtyAreas(DirtyAreas);
 	}
@@ -455,7 +517,7 @@ TArray<FBox> ANavigationData::GetNavigableBounds() const
 	return Result;
 }
 	
-TArray<FBox> ANavigationData::GetNavigableBoundsInLevel(const FName& InLevelPackageName) const
+TArray<FBox> ANavigationData::GetNavigableBoundsInLevel(ULevel* InLevel) const
 {
 	TArray<FBox> Result;
 	const UNavigationSystem* NavSys = GetWorld()->GetNavigationSystem();
@@ -467,7 +529,7 @@ TArray<FBox> ANavigationData::GetNavigableBoundsInLevel(const FName& InLevelPack
 
 		for (const auto& Bounds : NavigationBounds)
 		{
-			if (Bounds.PackageName == InLevelPackageName)
+			if (Bounds.Level == InLevel)
 			{
 				Result.Add(Bounds.AreaBox);
 			}
@@ -480,6 +542,17 @@ TArray<FBox> ANavigationData::GetNavigableBoundsInLevel(const FName& InLevelPack
 void ANavigationData::DrawDebugPath(FNavigationPath* Path, FColor PathColor, UCanvas* Canvas, bool bPersistent, const uint32 NextPathPointIndex) const
 {
 	Path->DebugDraw(this, PathColor, Canvas, bPersistent, NextPathPointIndex);
+}
+
+const UWorld* ANavigationData::GetCachedWorld() const
+{
+	return CachedWorld;
+}
+
+float ANavigationData::GetWorldTimeStamp() const
+{
+	const UWorld* World = GetCachedWorld();
+	return World ? World->GetTimeSeconds() : 0.f;
 }
 
 void ANavigationData::OnNavAreaAdded(const UClass* NavAreaClass, int32 AgentIndex)
@@ -541,6 +614,8 @@ void ANavigationData::OnNavAreaEvent(const UClass* NavAreaClass, ENavAreaEvent::
 	{
 		OnNavAreaRemoved(NavAreaClass);
 	}
+
+	OnNavAreaChanged();
 }
 
 void ANavigationData::OnNavAreaRemoved(const UClass* NavAreaClass)
@@ -556,12 +631,19 @@ void ANavigationData::OnNavAreaRemoved(const UClass* NavAreaClass)
 	}
 }
 
+void ANavigationData::OnNavAreaChanged()
+{
+	// empty in base class
+}
+
 void ANavigationData::ProcessNavAreas(const TArray<const UClass*>& AreaClasses, int32 AgentIndex)
 {
 	for (int32 i = 0; i < AreaClasses.Num(); i++)
 	{
 		OnNavAreaAdded(AreaClasses[i], AgentIndex);
 	}
+
+	OnNavAreaChanged();
 }
 
 int32 ANavigationData::GetNewAreaID(const UClass* AreaClass) const
@@ -651,7 +733,7 @@ uint32 ANavigationData::LogMemUsed() const
 
 	UE_LOG(LogNavigation, Display, TEXT("%s: ANavigationData: %u\n    self: %d"), *GetName(), MemUsed, sizeof(ANavigationData));	
 
-	if (NavDataGenerator)
+	if (NavDataGenerator.IsValid())
 	{
 		NavDataGenerator->LogMemUsed();
 	}

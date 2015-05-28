@@ -4,7 +4,7 @@
 #pragma once
 #include "PhATSimOptions.generated.h"
 
-UCLASS(hidecategories=Object, config=EditorUserSettings)
+UCLASS(hidecategories=Object, config=EditorPerProjectUserSettings)
 class UNREALED_API UPhATSimOptions : public UObject
 {
 	GENERATED_UCLASS_BODY()

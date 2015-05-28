@@ -24,7 +24,7 @@ void SViewportToolBar::Construct( const FArguments& InArgs )
 
 	FadeInSequence = FCurveSequence( 0.0f, ToolBarConstants::FadeTime );
 	FadeOutSequence = FCurveSequence( ToolBarConstants::TimeToFadeOut, ToolBarConstants::FadeTime );
-	FadeOutSequence.Play();
+	FadeOutSequence.JumpToEnd();
 }
 
 TWeakPtr<SMenuAnchor> SViewportToolBar::GetOpenMenu() const
@@ -73,13 +73,13 @@ void SViewportToolBar::OnMouseEnter( const FGeometry& MyGeometry, const FPointer
 		bIsHovered = true;
 		if( FadeOutSequence.IsPlaying() )
 		{
-			// Fade out is already playing so just force the fade in curve to the end so we dont have a "pop" 
+			// Fade out is already playing so just force the fade in curve to the end so we don't have a "pop" 
 			// effect from quickly resetting the alpha
 			FadeInSequence.JumpToEnd();
 		}
 		else
 		{
-			FadeInSequence.Play();
+			FadeInSequence.Play( this->AsShared() );
 		}
 	}
 
@@ -92,7 +92,7 @@ void SViewportToolBar::OnMouseLeave( const FPointerEvent& MouseEvent )
 	if( !FSlateApplication::Get().IsUsingHighPrecisionMouseMovment() )
 	{
 		bIsHovered = false;
-		FadeOutSequence.Play();
+		FadeOutSequence.Play( this->AsShared() );
 	}
 }
 

@@ -673,14 +673,15 @@ static bool SplitAndStoreLayerRegions(rcContext* ctx, rcCompactHeightfield& chf,
 		memset(layer, 0, sizeof(rcHeightfieldLayer));
 
 		const int gridSize = sizeof(unsigned char)*lw*lh;
+		const int gridSize2 = sizeof(unsigned short)*lw*lh;
 
-		layer->heights = (unsigned char*)rcAlloc(gridSize, RC_ALLOC_PERM);
+		layer->heights = (unsigned short*)rcAlloc(gridSize2, RC_ALLOC_PERM);
 		if (!layer->heights)
 		{
-			ctx->log(RC_LOG_ERROR, "SplitAndStoreLayerRegions: Out of memory 'heights' (%d).", gridSize);
+			ctx->log(RC_LOG_ERROR, "SplitAndStoreLayerRegions: Out of memory 'heights' (%d).", gridSize2);
 			return false;
 		}
-		memset(layer->heights, 0xff, gridSize);
+		memset(layer->heights, 0xff, gridSize2);
 
 		layer->areas = (unsigned char*)rcAlloc(gridSize, RC_ALLOC_PERM);
 		if (!layer->areas)
@@ -755,7 +756,7 @@ static bool SplitAndStoreLayerRegions(rcContext* ctx, rcCompactHeightfield& chf,
 
 					// Store height and area type.
 					const int idx = x+y*lw;
-					layer->heights[idx] = (unsigned char)(s.y - hmin);
+					layer->heights[idx] = (unsigned short)(s.y - hmin);
 					layer->areas[idx] = chf.areas[j];
 
 					// Check connection.
@@ -776,7 +777,7 @@ static bool SplitAndStoreLayerRegions(rcContext* ctx, rcCompactHeightfield& chf,
 								// Update height so that it matches on both sides of the portal.
 								const rcCompactSpan& as = chf.spans[ai];
 								if (as.y > hmin)
-									layer->heights[idx] = rcMax(layer->heights[idx], (unsigned char)(as.y - hmin));
+									layer->heights[idx] = rcMax(layer->heights[idx], (unsigned short)(as.y - hmin));
 							}
 							// Valid connection mask
 							if (chf.areas[ai] != RC_NULL_AREA && lid == alid)
@@ -1320,14 +1321,15 @@ bool rcBuildHeightfieldLayers(rcContext* ctx, rcCompactHeightfield& chf,
 		memset(layer, 0, sizeof(rcHeightfieldLayer));
 
 		const int gridSize = sizeof(unsigned char)*lw*lh;
+		const int gridSize2 = sizeof(unsigned short)*lw*lh;
 
-		layer->heights = (unsigned char*)rcAlloc(gridSize, RC_ALLOC_PERM);
+		layer->heights = (unsigned short*)rcAlloc(gridSize2, RC_ALLOC_PERM);
 		if (!layer->heights)
 		{
-			ctx->log(RC_LOG_ERROR, "rcBuildHeightfieldLayers: Out of memory 'heights' (%d).", gridSize);
+			ctx->log(RC_LOG_ERROR, "rcBuildHeightfieldLayers: Out of memory 'heights' (%d).", gridSize2);
 			return false;
 		}
-		memset(layer->heights, 0xff, gridSize);
+		memset(layer->heights, 0xff, gridSize2);
 
 		layer->areas = (unsigned char*)rcAlloc(gridSize, RC_ALLOC_PERM);
 		if (!layer->areas)
@@ -1402,7 +1404,7 @@ bool rcBuildHeightfieldLayers(rcContext* ctx, rcCompactHeightfield& chf,
 
 					// Store height and area type.
 					const int idx = x+y*lw;
-					layer->heights[idx] = (unsigned char)(s.y - hmin);
+					layer->heights[idx] = (unsigned short)(s.y - hmin);
 					layer->areas[idx] = chf.areas[j];
 
 					// Check connection.
@@ -1423,7 +1425,7 @@ bool rcBuildHeightfieldLayers(rcContext* ctx, rcCompactHeightfield& chf,
 								// Update height so that it matches on both sides of the portal.
 								const rcCompactSpan& as = chf.spans[ai];
 								if (as.y > hmin)
-									layer->heights[idx] = rcMax(layer->heights[idx], (unsigned char)(as.y - hmin));
+									layer->heights[idx] = rcMax(layer->heights[idx], (unsigned short)(as.y - hmin));
 							}
 							// Valid connection mask
 							if (chf.areas[ai] != RC_NULL_AREA && lid == alid)

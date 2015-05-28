@@ -39,13 +39,13 @@ FText UK2Node_CastByteToEnum::GetTooltipText() const
 	{
 		return NSLOCTEXT("K2Node", "CastByteToEnum_NullTooltip", "Byte to Enum (bad enum)");
 	}
-	else if(CachedTooltip.IsOutOfDate())
+	else if(CachedTooltip.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedTooltip = FText::Format(
+		CachedTooltip.SetCachedText(FText::Format(
 			NSLOCTEXT("K2Node", "CastByteToEnum_Tooltip", "Byte to Enum {0}"),
 			FText::FromName(Enum->GetFName())
-		);
+		), this);
 	}
 	return CachedTooltip;
 }
@@ -182,8 +182,8 @@ void UK2Node_CastByteToEnum::GetMenuActions(FBlueprintActionDatabaseRegistrar& A
 
 	for (TObjectIterator<UEnum> EnumIt; EnumIt; ++EnumIt)
 	{
-		UEnum const* Enum = (*EnumIt);
-		if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(Enum))
+		UEnum const* EnumToConsider = (*EnumIt);
+		if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(EnumToConsider))
 		{
 			continue;
 		}
@@ -192,20 +192,20 @@ void UK2Node_CastByteToEnum::GetMenuActions(FBlueprintActionDatabaseRegistrar& A
 		// check to make sure that the registrar is looking for actions of this type
 		// (could be regenerating actions for a specific asset, and therefore the 
 		// registrar would only accept actions corresponding to that asset)
-		if (!ActionRegistrar.IsOpenForRegistration(Enum))
+		if (!ActionRegistrar.IsOpenForRegistration(EnumToConsider))
 		{
 			continue;
 		}
 
-		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(GetClass(), Enum);
+		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(GetClass(), EnumToConsider);
 		check(NodeSpawner != nullptr);
-		TWeakObjectPtr<UEnum> NonConstEnumPtr = Enum;
+		TWeakObjectPtr<UEnum> NonConstEnumPtr = EnumToConsider;
 		NodeSpawner->SetNodeFieldDelegate = UBlueprintFieldNodeSpawner::FSetNodeFieldDelegate::CreateStatic(SetNodeEnumLambda, NonConstEnumPtr);
 
 		// this enum could belong to a class, or is a user defined enum (asset), 
 		// that's why we want to make sure to register it along with the action 
 		// (so the action can be refreshed when the class/asset is).
-		ActionRegistrar.AddBlueprintAction(Enum, NodeSpawner);
+		ActionRegistrar.AddBlueprintAction(EnumToConsider, NodeSpawner);
 	}
 }
 

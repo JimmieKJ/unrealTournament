@@ -43,6 +43,8 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static uint32 GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings);
 	static uint32 GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings );
 	static const TCHAR* GetDefaultDeviceProfileName() { return TEXT("Android"); }
+	static bool GetVolumeButtonsHandledBySystem();
+	static void SetVolumeButtonsHandledBySystem(bool enabled);
 
 	/** @return Memory representing a true type or open type font provided by the platform as a default font for unreal to consume; empty array if the default font failed to load. */
 	static TArray<uint8> GetSystemFontBytes();
@@ -58,7 +60,6 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static FString GetGLVersion();
 	static bool SupportsFloatingPointRenderTargets();
 	static int GetAndroidBuildVersion();
-
 
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();
@@ -81,6 +82,21 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 		return false;
 	}
 
+	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
+	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse()
+	{
+#if !UE_BUILD_SHIPPING
+		if (!IsDebuggerPresent())
+		{
+			PromptForRemoteDebugging(false);
+		}
+
+		DebugBreak();
+#endif
+
+		return false;
+	}
+
 	FORCEINLINE static void MemoryBarrier()
 	{
 		__sync_synchronize();
@@ -97,6 +113,8 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 
 	// Build version of Android, i.e. API level.
 	static int32 AndroidBuildVersion;
+
+	static bool VolumeButtonsHandledBySystem;
 };
 
 typedef FAndroidMisc FPlatformMisc;

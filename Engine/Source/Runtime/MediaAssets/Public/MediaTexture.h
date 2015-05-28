@@ -6,12 +6,12 @@
 #include "MediaTexture.generated.h"
 
 
-// forward declarations
+class FMediaSampleBuffer;
 class IMediaPlayer;
 class IMediaTrack;
+class UMediaPlayer;
 enum EPixelFormat;
 enum TextureAddress;
-class UMediaPlayer;
 
 
 /**
@@ -126,8 +126,6 @@ protected:
 
 	/** Initializes the video track. */
 	void InitializeTrack();
-
-	void PickDefaultTrack();
 
 private:
 

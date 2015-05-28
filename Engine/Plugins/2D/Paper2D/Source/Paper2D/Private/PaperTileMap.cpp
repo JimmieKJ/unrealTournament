@@ -3,6 +3,9 @@
 #include "Paper2DPrivatePCH.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/BodySetup2D.h"
+#include "PaperTileMap.h"
+#include "PaperTileLayer.h"
+#include "PaperRuntimeSettings.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 
@@ -16,11 +19,12 @@ UPaperTileMap::UPaperTileMap(const FObjectInitializer& ObjectInitializer)
 	MapHeight = 4;
 	TileWidth = 32;
 	TileHeight = 32;
-	PixelsPerUnit = 1.0f;
+	PixelsPerUnrealUnit = 1.0f;
 	SeparationPerTileX = 0.0f;
 	SeparationPerTileY = 0.0f;
 	SeparationPerLayer = 4.0f;
-	SpriteCollisionDomain = ESpriteCollisionMode::None;
+	CollisionThickness = 50.0f;
+	SpriteCollisionDomain = ESpriteCollisionMode::Use3DPhysics;
 
 #if WITH_EDITORONLY_DATA
 	SelectedLayerIndex = INDEX_NONE;
@@ -29,9 +33,22 @@ UPaperTileMap::UPaperTileMap(const FObjectInitializer& ObjectInitializer)
 
 	LayerNameIndex = 0;
 
-	static ConstructorHelpers::FObjectFinder<UMaterial> DefaultMaterial(TEXT("/Paper2D/DefaultSpriteMaterial"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DefaultMaterial(TEXT("/Paper2D/MaskedUnlitSpriteMaterial"));
 	Material = DefaultMaterial.Object;
 }
+
+#if WITH_EDITOR
+void UPaperTileMap::PreEditChange(UProperty* PropertyAboutToChange)
+{
+	if ((PropertyAboutToChange != nullptr) && (PropertyAboutToChange->GetFName() == GET_MEMBER_NAME_CHECKED(UPaperTileMap, HexSideLength)))
+	{
+		// Subtract out the hex side length; we'll add it back (along with any changes) in PostEditChangeProperty
+		TileHeight -= HexSideLength;
+	}
+
+	Super::PreEditChange(PropertyAboutToChange);
+}
+#endif
 
 #if WITH_EDITOR
 
@@ -84,9 +101,39 @@ void UPaperTileMap::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 
 	ValidateSelectedLayerIndex();
 
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UPaperTileMap, HexSideLength))
+	{
+		HexSideLength = FMath::Max<int32>(HexSideLength, 0);
+
+		// The side length needs to be included in the overall tile height
+		TileHeight += HexSideLength;
+	}
+
+	TileWidth = FMath::Max(TileWidth, 1);
+	TileHeight = FMath::Max(TileHeight, 1);
+	MapWidth = FMath::Max(MapWidth, 1);
+	MapHeight = FMath::Max(MapHeight, 1);
+
+	if (PixelsPerUnrealUnit <= 0.0f)
+	{
+		PixelsPerUnrealUnit = 1.0f;
+	}
+
 	if ((PropertyName == GET_MEMBER_NAME_CHECKED(UPaperTileMap, MapWidth)) || (PropertyName == GET_MEMBER_NAME_CHECKED(UPaperTileMap, MapHeight)))
 	{
 		ResizeMap(MapWidth, MapHeight, /*bForceResize=*/ true);
+	}
+	else
+	{
+		// Make sure that the layers are all of the right size
+		for (UPaperTileLayer* TileLayer : TileLayers)
+		{
+			if ((TileLayer->GetLayerWidth() != MapWidth) || (TileLayer->GetLayerHeight() != MapHeight))
+			{
+				TileLayer->Modify();
+				TileLayer->ResizeMap(MapWidth, MapHeight);
+			}
+		}
 	}
 
 	if (!IsTemplate())
@@ -97,9 +144,34 @@ void UPaperTileMap::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
+bool UPaperTileMap::CanEditChange(const UProperty* InProperty) const
+{
+	bool bIsEditable = Super::CanEditChange(InProperty);
+	if (bIsEditable && InProperty)
+	{
+		const FName PropertyName = InProperty->GetFName();
+
+		if (PropertyName == GET_MEMBER_NAME_CHECKED(UPaperTileMap, HexSideLength))
+		{
+			bIsEditable = ProjectionMode == ETileMapProjectionMode::HexagonalStaggered;
+		}
+	}
+
+	return bIsEditable;
+}
+
 void UPaperTileMap::PostLoad()
 {
 	Super::PostLoad();
+
+	// Make sure that the layers are all of the right size (there was a bug at one point when undoing resizes that could cause the layers to get stuck at a bad size)
+	for (UPaperTileLayer* TileLayer : TileLayers)
+	{
+		TileLayer->ConditionalPostLoad();
+
+		TileLayer->ResizeMap(MapWidth, MapHeight);
+	}
+
 	ValidateSelectedLayerIndex();
 }
 
@@ -111,7 +183,7 @@ void UPaperTileMap::ValidateSelectedLayerIndex()
 		SelectedLayerIndex = INDEX_NONE;
 		for (int32 LayerIndex = 0; (LayerIndex < TileLayers.Num()) && (SelectedLayerIndex == INDEX_NONE); ++LayerIndex)
 		{
-			if (!TileLayers[LayerIndex]->bHiddenInEditor)
+			if (TileLayers[LayerIndex]->ShouldRenderInEditor())
 			{
 				SelectedLayerIndex = LayerIndex;
 			}
@@ -144,18 +216,10 @@ void UPaperTileMap::UpdateBodySetup()
 	switch (SpriteCollisionDomain)
 	{
 	case ESpriteCollisionMode::Use3DPhysics:
-		BodySetup = nullptr;
-		if (BodySetup == nullptr)
-		{
-			BodySetup = NewObject<UBodySetup>(this);
-		}
+		BodySetup = NewObject<UBodySetup>(this);
 		break;
 	case ESpriteCollisionMode::Use2DPhysics:
-		BodySetup = nullptr;
-		if (BodySetup == nullptr)
-		{
-			BodySetup = NewObject<UBodySetup2D>(this);
-		}
+		BodySetup = NewObject<UBodySetup2D>(this);
 		break;
 	case ESpriteCollisionMode::None:
 		BodySetup = nullptr;
@@ -164,71 +228,80 @@ void UPaperTileMap::UpdateBodySetup()
 
 	if (SpriteCollisionDomain != ESpriteCollisionMode::None)
 	{
-		if (SpriteCollisionDomain == ESpriteCollisionMode::Use3DPhysics)
-		{
-			BodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
+		BodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
 
-			BodySetup->AggGeom.BoxElems.Empty();
-			for (int32 LayerIndex = 0; LayerIndex < TileLayers.Num(); ++LayerIndex)
-			{
-				TileLayers[LayerIndex]->AugmentBodySetup(BodySetup);
-			}
+		for (int32 LayerIndex = 0; LayerIndex < TileLayers.Num(); ++LayerIndex)
+		{
+			const float ZSeparation = LayerIndex * SeparationPerLayer;
+			TileLayers[LayerIndex]->AugmentBodySetup(BodySetup, ZSeparation);
 		}
 
-		//@TODO: BOX2D: Add support for 2D physics on tile maps
+		// Finalize the BodySetup
+#if WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR
+		BodySetup->InvalidatePhysicsData();
+#endif
+		BodySetup->CreatePhysicsMeshes();
 	}
 }
 
 void UPaperTileMap::GetTileToLocalParameters(FVector& OutCornerPosition, FVector& OutStepX, FVector& OutStepY, FVector& OutOffsetYFactor) const
 {
+	const float UnrealUnitsPerPixel = GetUnrealUnitsPerPixel();
+	const float TileWidthInUU = TileWidth * UnrealUnitsPerPixel;
+	const float TileHeightInUU = TileHeight * UnrealUnitsPerPixel;
+
 	switch (ProjectionMode)
 	{
 	case ETileMapProjectionMode::Orthogonal:
 	default:
-		OutCornerPosition = -(TileWidth * PaperAxisX * 0.5f) + (TileHeight * PaperAxisY * 0.5f);
+		OutCornerPosition = -(TileWidthInUU * PaperAxisX * 0.5f) + (TileHeightInUU * PaperAxisY * 0.5f);
 		OutOffsetYFactor = FVector::ZeroVector;
-		OutStepX = PaperAxisX * TileWidth;
-		OutStepY = -PaperAxisY * TileHeight;
+		OutStepX = PaperAxisX * TileWidthInUU;
+		OutStepY = -PaperAxisY * TileHeightInUU;
 		break;
 	case ETileMapProjectionMode::IsometricDiamond:
-		OutCornerPosition = (TileHeight * PaperAxisY * 0.5f);
+		OutCornerPosition = (TileHeightInUU * PaperAxisY * 0.5f);
 		OutOffsetYFactor = FVector::ZeroVector;
-		OutStepX = (TileWidth * PaperAxisX * 0.5f) - (TileHeight * PaperAxisY * 0.5f);
-		OutStepY = (TileWidth * PaperAxisX * -0.5f) - (TileHeight * PaperAxisY * 0.5f);
+		OutStepX = (TileWidthInUU * PaperAxisX * 0.5f) - (TileHeightInUU * PaperAxisY * 0.5f);
+		OutStepY = (TileWidthInUU * PaperAxisX * -0.5f) - (TileHeightInUU * PaperAxisY * 0.5f);
 		break;
 	case ETileMapProjectionMode::HexagonalStaggered:
 	case ETileMapProjectionMode::IsometricStaggered:
-		OutCornerPosition = -(TileWidth * PaperAxisX * 0.5f) + (TileHeight * PaperAxisY * 1.0f);
-		OutOffsetYFactor = 0.5f * TileWidth * PaperAxisX;
-		OutStepX = PaperAxisX * TileWidth;
-		OutStepY = 0.5f * -PaperAxisY * TileHeight;
+		OutCornerPosition = -(TileWidthInUU * PaperAxisX * 0.5f) + (TileHeightInUU * PaperAxisY * 0.5f);
+		OutOffsetYFactor = 0.5f * TileWidthInUU * PaperAxisX;
+		OutStepX = PaperAxisX * TileWidthInUU;
+		OutStepY = 0.5f * -PaperAxisY * TileHeightInUU;
 		break;
 	}
 }
 
 void UPaperTileMap::GetLocalToTileParameters(FVector& OutCornerPosition, FVector& OutStepX, FVector& OutStepY, FVector& OutOffsetYFactor) const
 {
+	const float UnrealUnitsPerPixel = GetUnrealUnitsPerPixel();
+	const float TileWidthInUU = TileWidth * UnrealUnitsPerPixel;
+	const float TileHeightInUU = TileHeight * UnrealUnitsPerPixel;
+
 	switch (ProjectionMode)
 	{
 	case ETileMapProjectionMode::Orthogonal:
 	default:
-		OutCornerPosition = -(TileWidth * PaperAxisX * 0.5f) + (TileHeight * PaperAxisY * 0.5f);
+		OutCornerPosition = -(TileWidthInUU * PaperAxisX * 0.5f) + (TileHeightInUU * PaperAxisY * 0.5f);
 		OutOffsetYFactor = FVector::ZeroVector;
-		OutStepX = PaperAxisX / TileWidth;
-		OutStepY = -PaperAxisY / TileHeight;
+		OutStepX = PaperAxisX / TileWidthInUU;
+		OutStepY = -PaperAxisY / TileHeightInUU;
 		break;
 	case ETileMapProjectionMode::IsometricDiamond:
-		OutCornerPosition = (TileHeight * PaperAxisY * 0.5f);
+		OutCornerPosition = (TileHeightInUU * PaperAxisY * 0.5f);
 		OutOffsetYFactor = FVector::ZeroVector;
-		OutStepX = (PaperAxisX / TileWidth) - (PaperAxisY / TileHeight);
-		OutStepY = (-PaperAxisX / TileWidth) - (PaperAxisY / TileHeight);
+		OutStepX = (PaperAxisX / TileWidthInUU) - (PaperAxisY / TileHeightInUU);
+		OutStepY = (-PaperAxisX / TileWidthInUU) - (PaperAxisY / TileHeightInUU);
 		break;
 	case ETileMapProjectionMode::HexagonalStaggered:
 	case ETileMapProjectionMode::IsometricStaggered:
-		OutCornerPosition = -(TileWidth * PaperAxisX * 0.5f) + (TileHeight * PaperAxisY * 1.0f);
-		OutOffsetYFactor = 0.5f * TileWidth * PaperAxisX;
-		OutStepX = PaperAxisX / TileWidth;
-		OutStepY = -PaperAxisY / TileHeight;
+		OutCornerPosition = -(TileWidthInUU * PaperAxisX * 0.5f) + (TileHeightInUU * PaperAxisY * 0.5f);
+		OutOffsetYFactor = 0.5f * TileWidthInUU * PaperAxisX;
+		OutStepX = PaperAxisX / TileWidthInUU;
+		OutStepY = -PaperAxisY / TileHeightInUU;
 		break;
 	}
 }
@@ -249,8 +322,37 @@ void UPaperTileMap::GetTileCoordinatesFromLocalSpacePosition(const FVector& Posi
 	const float ProjectionSpaceXInTiles = FVector::DotProduct(RelativePosition, ParameterAxisX);
 	const float ProjectionSpaceYInTiles = FVector::DotProduct(RelativePosition, ParameterAxisY);
 
-	OutTileX = FMath::FloorToInt(ProjectionSpaceXInTiles);
-	OutTileY = FMath::FloorToInt(ProjectionSpaceYInTiles);
+	float X2 = ProjectionSpaceXInTiles;
+	float Y2 = ProjectionSpaceYInTiles;
+
+	if ((ProjectionMode == ETileMapProjectionMode::IsometricStaggered) || (ProjectionMode == ETileMapProjectionMode::HexagonalStaggered))
+	{
+		const float px = FMath::Frac(ProjectionSpaceXInTiles);
+		const float py = FMath::Frac(ProjectionSpaceYInTiles);
+
+		// Determine if the point is inside of the diamond or outside
+		const float h = 0.5f;
+		const float Det1 = -((px - h)*h - py*h);
+		const float Det2 = -(px - 1.0f)*h - (py - h)*h;
+		const float Det3 = -(-(px - h)*h + (py - 1.0f)*h);
+		const float Det4 = px*h + (py - h)*h;
+
+		const bool bOutsideTile = (Det1 < 0.0f) || (Det2 < 0.0f) || (Det3 < 0.0f) || (Det4 < 0.0f);
+
+		if (bOutsideTile)
+		{
+			X2 = ProjectionSpaceXInTiles - ((px < 0.5f) ? 1.0f : 0.0f);
+			Y2 = FMath::FloorToFloat(ProjectionSpaceYInTiles)*2.0f + py + ((py < 0.5f) ? -1.0f : 1.0f);
+		}
+ 		else
+ 		{
+ 			X2 = ProjectionSpaceXInTiles;
+			Y2 = FMath::FloorToFloat(ProjectionSpaceYInTiles)*2.0f + py;
+ 		}
+	}
+
+	OutTileX = FMath::FloorToInt(X2);
+	OutTileY = FMath::FloorToInt(Y2);
 }
 
 FVector UPaperTileMap::GetTilePositionInLocalSpace(float TileX, float TileY, int32 LayerIndex) const
@@ -289,9 +391,101 @@ FVector UPaperTileMap::GetTilePositionInLocalSpace(float TileX, float TileY, int
 	return LocalPos;
 }
 
+void UPaperTileMap::GetTilePolygon(int32 TileX, int32 TileY, int32 LayerIndex, TArray<FVector>& LocalSpacePoints) const
+{
+	switch (ProjectionMode)
+	{
+	case ETileMapProjectionMode::Orthogonal:
+	case ETileMapProjectionMode::IsometricDiamond:
+	default:
+		LocalSpacePoints.Add(GetTilePositionInLocalSpace(TileX, TileY, LayerIndex));
+		LocalSpacePoints.Add(GetTilePositionInLocalSpace(TileX + 1, TileY, LayerIndex));
+		LocalSpacePoints.Add(GetTilePositionInLocalSpace(TileX + 1, TileY + 1, LayerIndex));
+		LocalSpacePoints.Add(GetTilePositionInLocalSpace(TileX, TileY + 1, LayerIndex));
+		break;
+
+	case ETileMapProjectionMode::IsometricStaggered:
+		{
+			const float UnrealUnitsPerPixel = GetUnrealUnitsPerPixel();
+			const float TileWidthInUU = TileWidth * UnrealUnitsPerPixel;
+			const float TileHeightInUU = TileHeight * UnrealUnitsPerPixel;
+
+			const FVector RecenterOffset = PaperAxisX*TileWidthInUU*0.5f;
+			const FVector LSTM = GetTilePositionInLocalSpace(TileX, TileY, LayerIndex) + RecenterOffset;
+
+			LocalSpacePoints.Add(LSTM);
+			LocalSpacePoints.Add(LSTM + PaperAxisX*TileWidthInUU*0.5f - PaperAxisY*TileHeightInUU*0.5f);
+			LocalSpacePoints.Add(LSTM - PaperAxisY*TileHeightInUU*1.0f);
+			LocalSpacePoints.Add(LSTM - PaperAxisX*TileWidthInUU*0.5f - PaperAxisY*TileHeightInUU*0.5f);
+		}
+		break;
+
+	case ETileMapProjectionMode::HexagonalStaggered:
+		{
+			const float UnrealUnitsPerPixel = GetUnrealUnitsPerPixel();
+			const float TileWidthInUU = TileWidth * UnrealUnitsPerPixel;
+			const float TileHeightInUU = TileHeight * UnrealUnitsPerPixel;
+
+			const FVector HalfWidth = PaperAxisX*TileWidthInUU*0.5f;
+			const FVector LSTM = GetTilePositionInLocalSpace(TileX, TileY, LayerIndex) + HalfWidth;
+
+			const float HexSideLengthInUU = HexSideLength * UnrealUnitsPerPixel;
+			const float HalfHexLength = HexSideLengthInUU*0.5f;
+			const FVector Top(LSTM - PaperAxisY*HalfHexLength);
+
+			const FVector StepTopSides = PaperAxisY*(TileHeightInUU*0.5f - HalfHexLength);
+			const FVector RightTop(LSTM + HalfWidth - StepTopSides);
+			const FVector LeftTop(LSTM - HalfWidth - StepTopSides);
+
+			const FVector StepBottomSides = PaperAxisY*(TileHeightInUU*0.5f + HalfHexLength);
+			const FVector RightBottom(LSTM + HalfWidth - StepBottomSides);
+			const FVector LeftBottom(LSTM - HalfWidth - StepBottomSides);
+
+			const FVector Bottom(LSTM - PaperAxisY*(TileHeightInUU - HalfHexLength));
+
+			LocalSpacePoints.Add(Top);
+			LocalSpacePoints.Add(RightTop);
+			LocalSpacePoints.Add(RightBottom);
+			LocalSpacePoints.Add(Bottom);
+			LocalSpacePoints.Add(LeftBottom);
+			LocalSpacePoints.Add(LeftTop);
+		}
+		break;
+	}
+}
+
 FVector UPaperTileMap::GetTileCenterInLocalSpace(float TileX, float TileY, int32 LayerIndex) const
 {
-	return GetTilePositionInLocalSpace(TileX + 0.5f, TileY + 0.5f, LayerIndex);
+	switch (ProjectionMode)
+	{
+	case ETileMapProjectionMode::Orthogonal:
+	default:
+		return GetTilePositionInLocalSpace(TileX + 0.5f, TileY + 0.5f, LayerIndex);
+
+	case ETileMapProjectionMode::IsometricDiamond:
+		return GetTilePositionInLocalSpace(TileX + 0.5f, TileY + 0.5f, LayerIndex);
+
+	case ETileMapProjectionMode::IsometricStaggered:
+		{
+			const float UnrealUnitsPerPixel = GetUnrealUnitsPerPixel();
+			const float TileWidthInUU = TileWidth * UnrealUnitsPerPixel;
+			const float TileHeightInUU = TileHeight * UnrealUnitsPerPixel;
+
+			const FVector RecenterOffset = PaperAxisX*TileWidthInUU*0.5f - PaperAxisY*TileHeightInUU*0.5f;
+			return GetTilePositionInLocalSpace(TileX, TileY, LayerIndex) + RecenterOffset;
+		}
+
+	case ETileMapProjectionMode::HexagonalStaggered:
+		{
+			const float UnrealUnitsPerPixel = GetUnrealUnitsPerPixel();
+			const float TileWidthInUU = TileWidth * UnrealUnitsPerPixel;
+			const float TileHeightInUU = TileHeight * UnrealUnitsPerPixel;
+			const float HexSideLengthInUU = HexSideLength * UnrealUnitsPerPixel;
+
+			const FVector RecenterOffset = PaperAxisX*TileWidthInUU*0.5f - PaperAxisY*(TileHeightInUU)*0.5f;
+			return GetTilePositionInLocalSpace(TileX, TileY, LayerIndex) + RecenterOffset;
+		}
+	}
 }
 
 FBoxSphereBounds UPaperTileMap::GetRenderBounds() const
@@ -299,40 +493,50 @@ FBoxSphereBounds UPaperTileMap::GetRenderBounds() const
 	const float Depth = SeparationPerLayer * (TileLayers.Num() - 1);
 	const float HalfThickness = 2.0f;
 
+	const float UnrealUnitsPerPixel = GetUnrealUnitsPerPixel();
+	const float TileWidthInUU = TileWidth * UnrealUnitsPerPixel;
+	const float TileHeightInUU = TileHeight * UnrealUnitsPerPixel;
+
 	switch (ProjectionMode)
 	{
 		case ETileMapProjectionMode::Orthogonal:
 		default:
 		{
-			const FVector BottomLeft((-0.5f) * TileWidth, -HalfThickness - Depth, -(MapHeight - 0.5f) * TileHeight);
-			const FVector Dimensions(MapWidth*TileWidth, Depth + 2 * HalfThickness, MapHeight * TileHeight);
+			const FVector BottomLeft((-0.5f) * TileWidthInUU, -HalfThickness - Depth, -(MapHeight - 0.5f) * TileHeightInUU);
+			const FVector Dimensions(MapWidth * TileWidthInUU, Depth + 2 * HalfThickness, MapHeight * TileHeightInUU);
 
 			const FBox Box(BottomLeft, BottomLeft + Dimensions);
 			return FBoxSphereBounds(Box);
 		}
 		case ETileMapProjectionMode::IsometricDiamond:
 		{
-			 const FVector BottomLeft((-0.5f) * TileWidth * MapWidth, -HalfThickness - Depth, -MapHeight * TileHeight);
-			 const FVector Dimensions(MapWidth*TileWidth, Depth + 2 * HalfThickness, (MapHeight + 1) * TileHeight);
+			 const FVector BottomLeft((-0.5f) * TileWidthInUU * MapWidth, -HalfThickness - Depth, -MapHeight * TileHeightInUU);
+			 const FVector Dimensions(MapWidth * TileWidthInUU, Depth + 2 * HalfThickness, (MapHeight + 1) * TileHeightInUU);
 
 			 const FBox Box(BottomLeft, BottomLeft + Dimensions);
 			 return FBoxSphereBounds(Box);
 		}
-//@TODO: verify bounds for IsometricStaggered and HexagonalStaggered
+		case ETileMapProjectionMode::HexagonalStaggered:
+		case ETileMapProjectionMode::IsometricStaggered:
+		{
+			const int32 RoundedHalfHeight = (MapHeight + 1) / 2;
+			const FVector BottomLeft((-0.5f) * TileWidthInUU, -HalfThickness - Depth, -(RoundedHalfHeight) * TileHeightInUU);
+			const FVector Dimensions((MapWidth + 0.5f) * TileWidthInUU, Depth + 2 * HalfThickness, (RoundedHalfHeight + 1.0f) * TileHeightInUU);
+
+			const FBox Box(BottomLeft, BottomLeft + Dimensions);
+			return FBoxSphereBounds(Box);
+		}
 	}
 }
 
-UPaperTileLayer* UPaperTileMap::AddNewLayer(bool bCollisionLayer, int32 InsertionIndex)
+UPaperTileLayer* UPaperTileMap::AddNewLayer(int32 InsertionIndex)
 {
 	// Create the new layer
 	UPaperTileLayer* NewLayer = NewObject<UPaperTileLayer>(this);
 	NewLayer->SetFlags(RF_Transactional);
 
-	NewLayer->LayerWidth = MapWidth;
-	NewLayer->LayerHeight = MapHeight;
-	NewLayer->DestructiveAllocateMap(NewLayer->LayerWidth, NewLayer->LayerHeight);
+	NewLayer->DestructiveAllocateMap(MapWidth, MapHeight);
 	NewLayer->LayerName = GenerateNewLayerName(this);
-	NewLayer->bCollisionLayer = bCollisionLayer;
 
 	// Insert the new layer
 	if (TileLayers.IsValidIndex(InsertionIndex))
@@ -345,6 +549,37 @@ UPaperTileLayer* UPaperTileMap::AddNewLayer(bool bCollisionLayer, int32 Insertio
 	}
 
 	return NewLayer;
+}
+
+void UPaperTileMap::AddExistingLayer(UPaperTileLayer* NewLayer, int32 InsertionIndex)
+{
+	NewLayer->SetFlags(RF_Transactional);
+	NewLayer->Modify();
+
+	// Make sure the layer has the correct outer
+	if (NewLayer->GetOuter() != this)
+	{
+		NewLayer->Rename(nullptr, this);
+	}
+
+	// And correct size
+	NewLayer->ResizeMap(MapWidth, MapHeight);
+
+	// And a unique name
+	if (IsLayerNameInUse(NewLayer->LayerName))
+	{
+		NewLayer->LayerName = GenerateNewLayerName(this);
+	}
+
+	// Insert the new layer
+	if (TileLayers.IsValidIndex(InsertionIndex))
+	{
+		TileLayers.Insert(NewLayer, InsertionIndex);
+	}
+	else
+	{
+		TileLayers.Add(NewLayer);
+	}
 }
 
 FText UPaperTileMap::GenerateNewLayerName(UPaperTileMap* TileMap)
@@ -361,14 +596,23 @@ FText UPaperTileMap::GenerateNewLayerName(UPaperTileMap* TileMap)
 	do
 	{
 		TileMap->LayerNameIndex++;
-
-		FNumberFormattingOptions NoGroupingFormat;
-		NoGroupingFormat.SetUseGrouping(false);
-
-		TestLayerName = FText::Format(LOCTEXT("NewLayerNameFormatString", "Layer {0}"), FText::AsNumber(TileMap->LayerNameIndex, &NoGroupingFormat));
+		TestLayerName = FText::Format(LOCTEXT("NewLayerNameFormatString", "Layer {0}"), FText::AsNumber(TileMap->LayerNameIndex, &FNumberFormattingOptions::DefaultNoGrouping()));
 	} while (ExistingNames.Contains(TestLayerName.ToString()));
 
 	return TestLayerName;
+}
+
+bool UPaperTileMap::IsLayerNameInUse(const FText& LayerName) const
+{
+	for (UPaperTileLayer* ExistingLayer : TileLayers)
+	{
+		if (ExistingLayer->LayerName.EqualToCaseIgnored(LayerName))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void UPaperTileMap::ResizeMap(int32 NewWidth, int32 NewHeight, bool bForceResize)
@@ -382,9 +626,41 @@ void UPaperTileMap::ResizeMap(int32 NewWidth, int32 NewHeight, bool bForceResize
 		for (int32 LayerIndex = 0; LayerIndex < TileLayers.Num(); ++LayerIndex)
 		{
 			UPaperTileLayer* TileLayer = TileLayers[LayerIndex];
+			TileLayer->Modify();
 			TileLayer->ResizeMap(MapWidth, MapHeight);
 		}
 	}
+}
+
+void UPaperTileMap::InitializeNewEmptyTileMap(UPaperTileSet* InitialTileSet)
+{
+	if (InitialTileSet != nullptr)
+	{
+		const FIntPoint TileSetTileSize = InitialTileSet->GetTileSize();
+		TileWidth = TileSetTileSize.X;
+		TileHeight = TileSetTileSize.Y;
+		SelectedTileSet = InitialTileSet;
+	}
+
+	AddNewLayer();
+}
+
+UPaperTileMap* UPaperTileMap::CloneTileMap(UObject* OuterForClone)
+{
+	return CastChecked<UPaperTileMap>(StaticDuplicateObject(this, OuterForClone, nullptr));
+}
+
+bool UPaperTileMap::UsesTileSet(UPaperTileSet* TileSet) const
+{
+	for (UPaperTileLayer* Layer : TileLayers)
+	{
+		if (Layer->UsesTileSet(TileSet))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 //////////////////////////////////////////////////////////////////////////

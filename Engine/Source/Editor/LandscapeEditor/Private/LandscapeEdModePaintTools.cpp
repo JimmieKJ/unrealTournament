@@ -73,12 +73,14 @@ protected:
 
 // 
 // FLandscapeToolPaint
+// TODO: Split heightmap sculpting into its own stroke type
 //
 template<class ToolTarget>
 class FLandscapeToolStrokePaint : public FLandscapeToolStrokePaintBase<ToolTarget>
 {
 	TMap<FIntPoint, float> TotalInfluenceMap;	// amount of time and weight the brush has spent on each vertex.
 public:
+	// Heightmap sculpt tool will continuously sculpt in the same location, weightmap paint tool doesn't
 	enum { UseContinuousApply = (ToolTarget::TargetType == ELandscapeToolTargetType::Heightmap) };
 
 	FLandscapeToolStrokePaint(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
@@ -130,6 +132,7 @@ public:
 		{
 			// When painting weights (and not using target value mode), we use a source value that tends more
 			// to the current value as we paint over the same region multiple times.
+			// TODO: Make this frame-rate independent
 			this->Cache.GetOriginalData(X1, Y1, X2, Y2, OriginalData);
 			SourceDataArrayPtr = &OriginalData;
 
@@ -156,9 +159,12 @@ public:
 		float AdjustedStrength = ToolTarget::StrengthMultiplier(this->LandscapeInfo, UISettings->BrushRadius);
 		typename ToolTarget::CacheClass::DataType DestValue = ToolTarget::CacheClass::ClampValue(255.0f * UISettings->WeightTargetValue);
 
-		float DeltaTime = FMath::Min<float>(FApp::GetDeltaTime(), 0.1f); // Under 10 fps slow down paint speed
-		// * 3.0f to partially compensate for impact of DeltaTime on slowing the tools down compared to the old framerate-dependent version
-		float PaintStrength = UISettings->ToolStrength * Pressure * AdjustedStrength * DeltaTime * 3.0f;
+		float PaintStrength = UISettings->ToolStrength * Pressure * AdjustedStrength;
+		if (ToolTarget::TargetType == ELandscapeToolTargetType::Heightmap)
+		{
+			float DeltaTime = FMath::Min<float>(FApp::GetDeltaTime(), 0.1f); // Under 10 fps slow down paint speed
+			PaintStrength *= DeltaTime * 3.0f; // * 3.0f to partially compensate for impact of DeltaTime on slowing the tools down compared to the old framerate-dependent version
+		}
 
 		FPlane BrushPlane;
 		TArray<FVector> Normals;
@@ -270,14 +276,7 @@ public:
 
 				if (bUseWeightTargetValue)
 				{
-					if (bInvert)
-					{
-						CurrentValue = FMath::Lerp(CurrentValue, DestValue, PaintAmount / AdjustedStrength);
-					}
-					else
-					{
-						CurrentValue = FMath::Lerp(CurrentValue, DestValue, PaintAmount / AdjustedStrength);
-					}
+					CurrentValue = FMath::Lerp(CurrentValue, DestValue, PaintAmount / AdjustedStrength);
 				}
 				else if (bUseClayBrush)
 				{
@@ -632,7 +631,7 @@ public:
 	virtual const TCHAR* GetToolName() override { return TEXT("Flatten"); }
 	virtual FText GetDisplayName() override { return NSLOCTEXT("UnrealEd", "LandscapeMode_Flatten", "Flatten"); };
 
-	virtual void Tick(FEditorViewportClient* ViewportClient, float DeltaTime)
+	virtual void Tick(FEditorViewportClient* ViewportClient, float DeltaTime) override
 	{
 		FLandscapeToolPaintBase<ToolTarget, FLandscapeToolStrokeFlatten<ToolTarget>>::Tick(ViewportClient, DeltaTime);
 
@@ -660,12 +659,12 @@ public:
 		return bResult;
 	}
 
-	virtual void EnterTool()
+	virtual void EnterTool() override
 	{
 		FLandscapeToolPaintBase<ToolTarget, FLandscapeToolStrokeFlatten<ToolTarget>>::EnterTool();
 
 		ALandscapeProxy* LandscapeProxy = this->EdMode->CurrentToolTarget.LandscapeInfo->GetLandscapeProxy();
-		MeshComponent = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass(), LandscapeProxy, NAME_None, RF_Transient);
+		MeshComponent = NewObject<UStaticMeshComponent>(LandscapeProxy, NAME_None, RF_Transient);
 		MeshComponent->StaticMesh = PlaneMesh;
 		MeshComponent->AttachTo(LandscapeProxy->GetRootComponent());
 		MeshComponent->RegisterComponent();
@@ -680,7 +679,7 @@ public:
 		MeshComponent->SetRelativeLocation(Origin, false);
 	}
 
-	virtual void ExitTool()
+	virtual void ExitTool() override
 	{
 		FLandscapeToolPaintBase<ToolTarget, FLandscapeToolStrokeFlatten<ToolTarget>>::ExitTool();
 

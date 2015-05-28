@@ -571,7 +571,7 @@ namespace UnrealVS
 
 			string[] RefreshConfigs;
 			string[] RefreshPlatforms;
-			GetSolutionConfigsAndPlatforms(out RefreshConfigs, out RefreshPlatforms);
+			Utils.GetSolutionConfigsAndPlatforms(out RefreshConfigs, out RefreshPlatforms);
 
 			foreach (string Config in RefreshConfigs)
 			{
@@ -848,7 +848,7 @@ namespace UnrealVS
 			// remove invalid ones
 			string[] SolutionConfigs;
 			string[] SolutionPlatforms;
-			GetSolutionConfigsAndPlatforms(out SolutionConfigs, out SolutionPlatforms);
+			Utils.GetSolutionConfigsAndPlatforms(out SolutionConfigs, out SolutionPlatforms);
 
 			foreach (var JobSet in _BuildJobSetsCollection)
 			{
@@ -871,28 +871,6 @@ namespace UnrealVS
 		private void SanityCheckBuildJobs()
 		{
 			SanityCheckBuildJobs(Utils.GetAllProjectsFromDTE());
-		}
-
-		private void GetSolutionConfigsAndPlatforms(out string[] SolutionConfigs, out string[] SolutionPlatforms)
-		{
-			var UniqueConfigs = new List<string>();
-			var UniquePlatforms = new List<string>();
-
-			SolutionConfigurations DteSolutionConfigs = UnrealVSPackage.Instance.DTE.Solution.SolutionBuild.SolutionConfigurations;
-			foreach (SolutionConfiguration2 SolutionConfig in DteSolutionConfigs)
-			{
-				if (!UniqueConfigs.Contains(SolutionConfig.Name))
-				{
-					UniqueConfigs.Add(SolutionConfig.Name);
-				}
-				if (!UniquePlatforms.Contains(SolutionConfig.PlatformName))
-				{
-					UniquePlatforms.Add(SolutionConfig.PlatformName);
-				}
-			}
-
-			SolutionConfigs = UniqueConfigs.ToArray();
-			SolutionPlatforms = UniquePlatforms.ToArray();
 		}
 
 		private void TickBuildQueue()
@@ -986,6 +964,35 @@ namespace UnrealVS
 			if (Job == null) return;
 
 			DisplayBatchOutputText(Job.OutputText);
+		}
+
+		private void OnDblClickBuildListItem(object sender, MouseButtonEventArgs e)
+		{
+			var Elem = sender as FrameworkElement;
+			if (Elem == null) return;
+
+			BuildJob Job = Elem.DataContext as BuildJob;
+			if (Job == null) return;
+			
+			// Switch the Startup Project and the build config and platform to match this Job
+			if (Job.Project != null)
+			{
+				IsBusy = true;
+
+				var Project = Job.Project.GetProjectSlow();
+
+				if (Project != null)
+				{
+					// Switch to this project
+					var ProjectHierarchy = Utils.ProjectToHierarchyObject(Project);
+					UnrealVSPackage.Instance.SolutionBuildManager.set_StartupProject(ProjectHierarchy);
+
+					// Switch the build config
+					Utils.SetActiveSolutionConfiguration(Job.Config, Job.Platform);
+				}
+
+				IsBusy = false;
+			}
 		}
 
 		private void OnDblClickBuildingListItem(object sender, MouseButtonEventArgs e)

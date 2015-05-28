@@ -6,6 +6,8 @@
 #include "OnlineSharingFacebook.h"
 #include "ImageCore.h"
 
+#import <FBSDKCoreKit/FBSDKCoreKit.h>
+#import <FBSDKShareKit/FBSDKShareKit.h>
 
 FOnlineSharingFacebook::FOnlineSharingFacebook(class FOnlineSubsystemFacebook* InSubsystem)
 {
@@ -82,11 +84,12 @@ bool FOnlineSharingFacebook::RequestNewReadPermissions(int32 LocalUserNum, EOnli
 				{
 					if((NewPermissions & It.Key()) != 0)
 					{
-                        UE_LOG(LogOnline, Verbose, TEXT("ReadPermissionsMap[%i] - [%i]"), (int32)It.Key(), [It.Value() count]);
+                        UE_LOG(LogOnline, Display, TEXT("ReadPermissionsMap[%i] - [%i]"), (int32)It.Key(), [It.Value() count]);
                         for( NSString* RequestPermission in It.Value() )
                         {
-                            if( [[FBSession.activeSession permissions] indexOfObject:RequestPermission] == NSNotFound )
-                            {
+							FBSDKAccessToken *accessToken = [FBSDKAccessToken currentAccessToken];
+							if (![accessToken.permissions containsObject:RequestPermission])
+							{
                                 bRequiresPermissionRequest = true;
                                 [Permissions addObject:RequestPermission];
                             }
@@ -96,13 +99,14 @@ bool FOnlineSharingFacebook::RequestNewReadPermissions(int32 LocalUserNum, EOnli
                 
                 if( bRequiresPermissionRequest )
                 {
-                    // Kick off the server request
-                    [FBSession.activeSession requestNewReadPermissions:Permissions
-                                                     completionHandler:^(FBSession *session, NSError *error)
-                        {
-                            TriggerOnRequestNewReadPermissionsCompleteDelegates(LocalUserNum, error==nil);
-                        }
-                     ];
+					FBSDKLoginManager *loginManager = [[FBSDKLoginManager alloc] init];
+					[loginManager logInWithReadPermissions:Permissions
+												   handler:^(FBSDKLoginManagerLoginResult *result, NSError *error)
+						{
+							UE_LOG(LogOnline, Display, TEXT("logInWithReadPermissions : Success - %d"), error == nil);
+							TriggerOnRequestNewReadPermissionsCompleteDelegates(LocalUserNum, error==nil);
+						}
+					];
                 }
                 else
                 {
@@ -146,8 +150,9 @@ bool FOnlineSharingFacebook::RequestNewPublishPermissions(int32 LocalUserNum, EO
 						UE_LOG(LogOnline, Verbose, TEXT("PublishPermissionsMap[%i] - [%i]"), (int32)It.Key(), [It.Value() count]);
 						for( NSString* RequestPermission in It.Value() )
 						{
-                            if( [[FBSession.activeSession permissions] indexOfObject:RequestPermission] == NSNotFound )
-                            {
+							FBSDKAccessToken *accessToken = [FBSDKAccessToken currentAccessToken];
+							if (![accessToken.permissions containsObject:RequestPermission])
+							{
                                 [Permissions addObject:RequestPermission];
                                 bRequiresPermissionRequest = true;
                             }
@@ -156,28 +161,29 @@ bool FOnlineSharingFacebook::RequestNewPublishPermissions(int32 LocalUserNum, EO
 				}
 
                 if( bRequiresPermissionRequest )
-                {
-                    FBSessionDefaultAudience DefaultAudience = FBSessionDefaultAudienceNone;
+				{
+					FBSDKLoginManager *loginManager = [[FBSDKLoginManager alloc] init];
+                    FBSDKDefaultAudience DefaultAudience = FBSDKDefaultAudienceOnlyMe;
                     switch (Privacy)
                     {
                         case EOnlineStatusUpdatePrivacy::OnlyMe:
-                            DefaultAudience = FBSessionDefaultAudienceOnlyMe;
+                            DefaultAudience = FBSDKDefaultAudienceOnlyMe;
                             break;
                         case EOnlineStatusUpdatePrivacy::OnlyFriends:
-                            DefaultAudience = FBSessionDefaultAudienceFriends;
+                            DefaultAudience = FBSDKDefaultAudienceFriends;
                             break;
                         case EOnlineStatusUpdatePrivacy::Everyone:
-                            DefaultAudience = FBSessionDefaultAudienceEveryone;
+                            DefaultAudience = FBSDKDefaultAudienceEveryone;
                             break;
                     }
-                    
-                    // Kick off the server request
-                    [FBSession.activeSession requestNewPublishPermissions:Permissions defaultAudience:DefaultAudience
-                                                        completionHandler:^(FBSession *session, NSError *error)
-                        {
-                            TriggerOnRequestNewPublishPermissionsCompleteDelegates(LocalUserNum, error==nil);
-                        }
-                     ];
+					
+					[loginManager logInWithPublishPermissions:Permissions
+												   handler:^(FBSDKLoginManagerLoginResult *result, NSError *error)
+						{
+							UE_LOG(LogOnline, Display, TEXT("logInWithPublishPermissions : Success - %d"), error == nil);
+							TriggerOnRequestNewPublishPermissionsCompleteDelegates(LocalUserNum, error==nil);
+						}
+					 ];
                 }
                 else
                 {
@@ -264,8 +270,11 @@ bool FOnlineSharingFacebook::ShareStatusUpdate(int32 LocalUserNum, const FOnline
 				}
 
 				// kick off a request to post the status
-				[FBRequestConnection startWithGraphPath:GraphPath parameters:Params HTTPMethod:@"POST"
-					completionHandler:^(FBRequestConnection *connection, id result, NSError *error) 
+				[[[FBSDKGraphRequest alloc]
+					initWithGraphPath:GraphPath
+					parameters:Params
+					HTTPMethod:@"POST"]
+					startWithCompletionHandler:^(FBSDKGraphRequestConnection *connection, id result, NSError *error)
 					{
 						UE_LOG(LogOnline, Display, TEXT("startWithGraphPath : Success - %d"), error == nil);
 						TriggerOnSharePostCompleteDelegates( LocalUserNum, error == nil );
@@ -293,6 +302,7 @@ bool FOnlineSharingFacebook::ReadNewsFeed(int32 LocalUserNum, int32 NumPostsToRe
 		
 		dispatch_async(dispatch_get_main_queue(),^ 
 			{
+
 				// The current read permissions for this OSS.
 				EOnlineSharingReadCategory::Type ReadPermissions;
 				NSString *fqlQuery = 
@@ -300,12 +310,12 @@ bool FOnlineSharingFacebook::ReadNewsFeed(int32 LocalUserNum, int32 NumPostsToRe
 												FROM stream WHERE filter_key in (SELECT filter_key \
 												FROM stream_filter WHERE uid=me() AND type='newsfeed')AND is_hidden = 0 \
 												LIMIT %d", NumPostsToRead];
-
-				[FBRequestConnection
-					startWithGraphPath:@"/fql"
+				
+				[[[FBSDKGraphRequest alloc]
+					initWithGraphPath:@"/fql"
 					parameters:[NSDictionary dictionaryWithObjectsAndKeys: fqlQuery, @"q", nil]
-					HTTPMethod:@"GET"
-					completionHandler:^(FBRequestConnection *connection, id result, NSError *error) 
+					HTTPMethod:@"GET"]
+					startWithCompletionHandler:^(FBSDKGraphRequestConnection *connection, id result, NSError *error)
 					{
 						if( error )
 						{

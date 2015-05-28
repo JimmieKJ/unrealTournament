@@ -74,13 +74,8 @@ void UFindSessionsCallbackProxy::OnCompleted(bool bSuccess)
 
 	if (bSuccess && SearchObject.IsValid())
 	{
-		// Just log the results for now, will need to add a blueprint-compatible search result struct
 		for (auto& Result : SearchObject->SearchResults)
 		{
-			FString ResultText = FString::Printf(TEXT("Found a session. Ping is %d"), Result.PingInMs);
-
-			FFrame::KismetExecutionMessage(*ResultText, ELogVerbosity::Log);
-
 			FBlueprintSessionResult BPResult;
 			BPResult.OnlineResult = Result;
 			Results.Add(BPResult);

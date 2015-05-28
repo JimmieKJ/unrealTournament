@@ -306,7 +306,6 @@ uint32 FVoiceEngineSteam::SubmitRemoteVoiceData(const FUniqueNetId& RemoteTalker
 		return S_OK;
 	}
 
-	bool bAudioComponentCreated = false;
 	// Generate a streaming wave audio component for voice playback
 	if (QueuedData->AudioComponent == NULL || QueuedData->AudioComponent->IsPendingKill())
 	{
@@ -326,7 +325,7 @@ uint32 FVoiceEngineSteam::SubmitRemoteVoiceData(const FUniqueNetId& RemoteTalker
 	if (QueuedData->AudioComponent != NULL)
 	{
 		USoundWaveStreaming* SoundStreaming = CastChecked<USoundWaveStreaming>(QueuedData->AudioComponent->Sound);
-		if (!bAudioComponentCreated && SoundStreaming->GetAvailableAudioByteCount() == 0)
+		if (SoundStreaming->GetAvailableAudioByteCount() == 0)
 		{
 			UE_LOG(LogVoiceDecode, Log, TEXT("VOIP audio component was starved!"));
 		}

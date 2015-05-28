@@ -1,0 +1,423 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	DistanceFieldSurfaceCacheLighting.usf
+=============================================================================*/
+
+#include "Common.usf"
+#include "DeferredShadingCommon.usf"
+#include "DistanceFieldLightingShared.usf"
+#include "DistanceFieldAOShared.usf"
+
+float2 BentNormalAOTexelSize;
+float MinDownsampleFactorToBaseLevel;
+
+#define HALF_FILL_KERNEL_SIZE 2
+
+/** Fills in texels with no splatted weight from screenspace neighbors. */
+void FillGapsPS(
+	in float4 UVAndScreenPos : TEXCOORD0
+	,out float4 OutBentNormal : SV_Target0
+#if SUPPORT_IRRADIANCE
+	,out float4 OutIrradiance : SV_Target1
+#endif
+	)
+{
+	float4 CenterValue = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UVAndScreenPos.xy, 0);
+	float SceneDepth = abs(CenterValue.w);
+
+#if HIGH_QUALITY_FILL_GAPS
+
+	float4 Accumulation = 0;
+	float3 IrradianceAccumulation = 0;
+	float Length = 0;
+	// Pixels without a valid interpolation need to find valid neighbors
+	// Pixels with a valid interpolation just get a slight spatial filter so don't rely on a large kernel
+	float HalfKernelSize = CenterValue.w < 0 ? HALF_FILL_KERNEL_SIZE : 1;
+
+	for (float y = -HalfKernelSize; y <= HalfKernelSize; y++)
+	{
+		float WeightY = exp2(-abs(y * 10.0f / HALF_FILL_KERNEL_SIZE));
+
+		for (float x = -HalfKernelSize; x <= HalfKernelSize; x++)
+		{
+			float2 UVOffset = BentNormalAOTexelSize * float2(x, y);
+			float4 TextureValue = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UVAndScreenPos.xy + UVOffset, 0);
+
+			float SampleSceneDepth = abs(TextureValue.w);
+			float ValidMask = TextureValue.w > 0;
+
+			// Don't let depth weight go to 0 with huge depth differences
+			float DepthWeight = max(exp2(-abs(SceneDepth - SampleSceneDepth) * .01f), .001f);
+
+			float2 Weight2D = float2(exp2(-abs(x * 10.0f / HALF_FILL_KERNEL_SIZE)), WeightY);
+			float ScreenSpaceSpatialWeight = max(Weight2D.x, Weight2D.y);
+
+			float Weight = ValidMask * ScreenSpaceSpatialWeight * DepthWeight;
+
+			// Track length separately 
+			Length += length(TextureValue.rgb) * Weight;
+			Accumulation.rgb += TextureValue.rgb * Weight;
+			Accumulation.a += Weight;
+
+			#if SUPPORT_IRRADIANCE
+				float3 Irradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UVAndScreenPos.xy + UVOffset, 0).xyz;
+				IrradianceAccumulation += Irradiance * Weight;
+			#endif
+		}
+	}
+	
+	float InvSafeWeight = 1.0f / max(Accumulation.a, .00001f);
+	float AverageLength = Length * InvSafeWeight;
+	float3 AverageBentNormal = Accumulation.rgb * InvSafeWeight;
+	float BentNormalLength = length(AverageBentNormal);
+	float3 AverageIrradiance = IrradianceAccumulation * InvSafeWeight;
+
+	if (BentNormalLength < AverageLength && BentNormalLength > 0)
+	{
+		// Fixup normal shortening due to weighted average of vectors
+		AverageBentNormal = AverageBentNormal / BentNormalLength * AverageLength;
+	}
+
+#else
+
+	float3 AverageBentNormal;
+	float3 AverageIrradiance;
+
+	if (CenterValue.w < 0)
+	{
+		float2 LowResBufferSize = 1.0f / (MinDownsampleFactorToBaseLevel * BentNormalAOTexelSize);
+		float2 LowResTexelSize = BentNormalAOTexelSize * MinDownsampleFactorToBaseLevel;
+		float2 Corner00UV = floor(UVAndScreenPos.xy * LowResBufferSize) / LowResBufferSize + .5f * BentNormalAOTexelSize;
+		float2 BilinearWeights = (UVAndScreenPos.xy - Corner00UV) * LowResBufferSize;
+
+		float4 TextureValues00 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV, 0);
+		float4 TextureValues10 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV + float2(LowResTexelSize.x, 0), 0);
+		float4 TextureValues01 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV + float2(0, LowResTexelSize.y), 0);
+		float4 TextureValues11 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV + LowResTexelSize, 0);
+
+		float4 CornerWeights = float4(
+			(1 - BilinearWeights.y) * (1 - BilinearWeights.x), 
+			(1 - BilinearWeights.y) * BilinearWeights.x,
+			BilinearWeights.y * (1 - BilinearWeights.x),
+			BilinearWeights.y * BilinearWeights.x);
+
+		float Epsilon = .0001f;
+
+		float4 CornerDepths = abs(float4(TextureValues00.w, TextureValues10.w, TextureValues01.w, TextureValues11.w));
+		float4 DepthWeights = min(10.0f / (abs(CornerDepths - SceneDepth.xxxx) + Epsilon), 1);
+		float4 FinalWeights = CornerWeights * DepthWeights;
+
+		float InvSafeWeight = 1.0f / max(dot(FinalWeights, 1), .00001f);
+
+		AverageBentNormal = 
+			(FinalWeights.x * TextureValues00.xyz 
+			+ FinalWeights.y * TextureValues10.xyz
+			+ FinalWeights.z * TextureValues01.xyz 
+			+ FinalWeights.w * TextureValues11.xyz)
+			* InvSafeWeight;
+		
+		#if SUPPORT_IRRADIANCE
+			float4 IrradianceValues00 = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, Corner00UV, 0);
+			float4 IrradianceValues10 = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, Corner00UV + float2(LowResTexelSize.x, 0), 0);
+			float4 IrradianceValues01 = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, Corner00UV + float2(0, LowResTexelSize.y), 0);
+			float4 IrradianceValues11 = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, Corner00UV + LowResTexelSize, 0);
+
+			AverageIrradiance = 
+				(FinalWeights.x * IrradianceValues00.xyz 
+				+ FinalWeights.y * IrradianceValues10.xyz
+				+ FinalWeights.z * IrradianceValues01.xyz 
+				+ FinalWeights.w * IrradianceValues11.xyz)
+				* InvSafeWeight;
+		#endif
+	}
+	else
+	{
+		AverageBentNormal = CenterValue.xyz;
+
+		#if SUPPORT_IRRADIANCE
+			AverageIrradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UVAndScreenPos.xy, 0).xyz;
+		#endif
+	}
+
+#endif
+	
+	OutBentNormal = float4(AverageBentNormal, CenterValue.w);
+
+#if SUPPORT_IRRADIANCE
+	OutIrradiance = float4(AverageIrradiance, 0);
+#endif
+}
+
+float4 CameraMotion[5];
+Texture2D BentNormalHistoryTexture;
+SamplerState BentNormalHistorySampler;
+Texture2D IrradianceHistoryTexture;
+SamplerState IrradianceHistorySampler;
+float HistoryWeight;
+float HistoryDistanceThreshold;
+float UseHistoryFilter;
+
+Texture2D VelocityTexture;
+SamplerState VelocityTextureSampler;
+
+/** Reproject the occlusion history. */
+void UpdateHistoryPS(
+	in float4 UVAndScreenPos : TEXCOORD0
+	,out float4 OutBentNormal : SV_Target0
+#if SUPPORT_IRRADIANCE
+	,out float4 OutIrradiance : SV_Target1
+#endif
+	)
+{
+	// Distance field AO was computed at 0,0 regardless of viewrect min
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float4 NewValue = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, DistanceFieldUVs, 0);
+	float SceneDepth = abs(NewValue.w);
+
+	float2 OldUV;
+
+	{
+		float3 xyd;
+		xyd.xy = UVAndScreenPos.zw * float2(0.5, -0.5) + 0.5;
+		xyd.z = ConvertToDeviceZ(SceneDepth);
+
+		float scaleM = 1.0 / (dot(xyd, CameraMotion[0].xyz) + CameraMotion[0].w);
+		float2 MotionVector;
+		// Unwound vector-matrix transform with special care for precision taken from Temporal AA
+		MotionVector.x = ((xyd.x * ((CameraMotion[1].x * xyd.y) + (CameraMotion[1].y * xyd.z) + CameraMotion[1].z)) + (CameraMotion[1].w * xyd.y) + (CameraMotion[2].x * xyd.x * xyd.x) + (CameraMotion[2].y * xyd.z) + CameraMotion[2].z) * scaleM;
+		MotionVector.y = ((xyd.y * ((CameraMotion[3].x * xyd.x) + (CameraMotion[3].y * xyd.z) + CameraMotion[3].z)) + (CameraMotion[3].w * xyd.x) + (CameraMotion[4].x * xyd.y * xyd.y) + (CameraMotion[4].y * xyd.z) + CameraMotion[4].z) * scaleM;
+
+		// Note: have to sample from one of the high res texels exactly to avoid filtering of the velocity buffer
+		// 0 is stored where camera velocity should be used, which must not be filtered with valid object velocities
+		float2 FullResTexel = UVAndScreenPos.xy - .5f * View.ViewSizeAndSceneTexelSize.zw;
+		float2 VelocityN = Texture2DSampleLevel(VelocityTexture, VelocityTextureSampler, FullResTexel, 0).xy;
+
+		if (VelocityN.x > 0)
+		{
+			// Use the per-pixel velocity vector where valid, this handles object, bone and WPO movement
+			MotionVector = float2(-.5f, .5f) * DecodeVelocityFromTexture(VelocityN);
+		}
+
+		OldUV = UVAndScreenPos.xy + MotionVector / float2(0.5, -0.5) * View.ScreenPositionScaleBias.xy;
+	}
+	
+	float2 OldScreenPosition = (OldUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+
+	float2 OldDistanceFieldUVs = OldUV.xy - View.ViewRectMin.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float4 HistoryValue = Texture2DSampleLevel(BentNormalHistoryTexture, BentNormalHistorySampler, OldDistanceFieldUVs, 0);
+	
+	float2 MinUV = View.ViewRectMin.xy * View.ViewSizeAndSceneTexelSize.zw;
+	// Pull in the max UV to exclude the region which will read outside the viewport due to bilinear filtering
+	float2 MaxUV = MinUV + (View.ViewSizeAndSceneTexelSize.xy - 1 * DOWNSAMPLE_FACTOR) * View.ViewSizeAndSceneTexelSize.zw;
+
+	float3 WorldPosition;
+	float3 PrevWorldPosition;
+
+	{
+		float4 HomogeneousWorldPosition = mul(float4(UVAndScreenPos.zw * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+		WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+		float HistoryDepth = abs(HistoryValue.w);
+		float4 PrevPositionTranslatedWorld = mul(float4(OldScreenPosition * HistoryDepth, HistoryDepth, 1), View.PrevScreenToTranslatedWorld);
+		PrevPositionTranslatedWorld.xyz /= PrevPositionTranslatedWorld.w;	
+		PrevWorldPosition = PrevPositionTranslatedWorld.xyz - View.PrevPreViewTranslation;
+	}
+
+	float EffectiveHistoryWeight = HistoryWeight;
+
+	FLATTEN
+	if (any(OldUV > MaxUV) 
+		|| any(OldUV < MinUV)
+		// Discard history if we are shading a new position (newly revealed)
+		|| length(PrevWorldPosition - WorldPosition) > HistoryDistanceThreshold)
+	{
+		EffectiveHistoryWeight = 0;
+	}
+
+	OutBentNormal.rgb = lerp(NewValue.rgb, HistoryValue.rgb, EffectiveHistoryWeight);
+
+#if SUPPORT_IRRADIANCE
+	float3 NewIrradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, DistanceFieldUVs, 0).xyz;
+	float3 HistoryIrradianceValue = Texture2DSampleLevel(IrradianceHistoryTexture, IrradianceHistorySampler, OldDistanceFieldUVs, 0).xyz;
+
+	OutIrradiance = float4(lerp(NewIrradiance, HistoryIrradianceValue, EffectiveHistoryWeight), 0);
+#endif
+
+	OutBentNormal.rgb = isnan(OutBentNormal.rgb) ? 0 : OutBentNormal.rgb;
+	OutBentNormal.a = abs(NewValue.a);
+
+	FLATTEN
+	if (UseHistoryFilter > 0)
+	{
+		// Sign bit of alpha stores whether the history was rejected or not, to be read by the history filter pass
+		OutBentNormal.a *= EffectiveHistoryWeight > 0 ? 1 : -1;
+	}
+}
+
+#define HALF_HISTORY_FILL_KERNEL_SIZE 2
+
+/** Seeds newly rejected history values (which are sources of temporal instability) with the results of a spatial search from stable history values */
+void FilterHistoryPS(
+	in float4 UVAndScreenPos : TEXCOORD0
+	,out float4 OutBentNormal : SV_Target0
+#if SUPPORT_IRRADIANCE
+	,out float4 OutIrradiance : SV_Target1
+#endif
+	)
+{
+	float4 HistoryValue = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UVAndScreenPos.xy, 0);
+
+#if SUPPORT_IRRADIANCE
+	float3 IrradianceValue = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UVAndScreenPos.xy, 0).xyz;
+#endif
+
+	// Only do the spatial search for pixels who discarded their history value
+	if (HistoryValue.w < 0)
+	{
+		float SceneDepth = abs(HistoryValue.w);
+
+		float4 Accumulation = 0;
+		float3 IrradianceAccumulation = 0;
+
+		for (float y = -HALF_HISTORY_FILL_KERNEL_SIZE; y <= HALF_HISTORY_FILL_KERNEL_SIZE; y++)
+		{
+			for (float x = -HALF_HISTORY_FILL_KERNEL_SIZE; x <= HALF_HISTORY_FILL_KERNEL_SIZE; x++)
+			{
+				float2 UVOffset = BentNormalAOTexelSize * float2(x, y);
+				float4 TextureValue = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UVAndScreenPos.xy + UVOffset, 0);
+
+				float SampleSceneDepth = abs(TextureValue.w);
+				float ValidMask = TextureValue.w > 0;
+
+				// Weight by depth to avoid pulling in values of a foreground object
+				// This is a careful tradeoff between ghosting behind panning foreground objects and successful spatial searches to reduce flickering
+				float DepthWeight = exp2(-1000 * abs(SceneDepth - SampleSceneDepth) / SceneDepth);
+
+				float2 Weight2D = exp2(-abs(float2(x, y) * 10.0f / HALF_HISTORY_FILL_KERNEL_SIZE));
+				float ScreenSpaceSpatialWeight = max(Weight2D.x, Weight2D.y);
+
+				float Weight = ValidMask * ScreenSpaceSpatialWeight * DepthWeight;
+
+				Accumulation.rgb += TextureValue.rgb * Weight;
+				Accumulation.a += Weight;
+
+				#if SUPPORT_IRRADIANCE
+					float3 Irradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UVAndScreenPos.xy + UVOffset, 0).xyz;
+					IrradianceAccumulation += Irradiance * Weight;
+				#endif
+			}
+		}
+
+		// Only change the history value if the spatial search turned up something applicable
+		if (Accumulation.a > 0)
+		{
+			float InvWeight = 1.0f / Accumulation.a;
+			// Construct the history value as if the spatial search result was the previous history, 
+			// And the AO we just computed this frame was the new value
+			HistoryValue.xyz = lerp(HistoryValue.xyz, Accumulation.xyz * InvWeight, HistoryWeight);
+
+			#if SUPPORT_IRRADIANCE
+				IrradianceValue = lerp(IrradianceValue, IrradianceAccumulation * InvWeight, HistoryWeight);
+			#endif
+		}
+	}
+
+	OutBentNormal = HistoryValue;
+	// Remove sign bit so future reprojection interpolation isn't affected
+	OutBentNormal.w = abs(OutBentNormal.w);
+
+#if SUPPORT_IRRADIANCE
+	OutIrradiance = float4(IrradianceValue, 0);
+#endif
+}
+
+/** Upsamples the AO results to full resolution using a bilateral filter. */
+void AOUpsamplePS(
+	in float4 UVAndScreenPos : TEXCOORD0
+	, out float4 OutBentNormal : SV_Target0
+#if OUTPUT_BENT_NORMAL && SUPPORT_IRRADIANCE
+	, out float4 OutIrradiance : SV_Target1
+#endif
+	)
+{
+	// Distance field AO was computed at 0,0 regardless of viewrect min
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - View.ViewRectMin.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float3 Irradiance = 0;
+
+#define BILATERAL_UPSAMPLE 1
+#if BILATERAL_UPSAMPLE
+	float2 LowResBufferSize = floor(View.RenderTargetSize / DOWNSAMPLE_FACTOR);
+	float2 LowResTexelSize = 1.0f / LowResBufferSize;
+	float2 Corner00UV = floor(DistanceFieldUVs * LowResBufferSize - .5f) / LowResBufferSize + .5f * LowResTexelSize;
+	float2 BilinearWeights = (DistanceFieldUVs - Corner00UV) * LowResBufferSize;
+
+	float4 TextureValues00 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV, 0);
+	float4 TextureValues10 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV + float2(LowResTexelSize.x, 0), 0);
+	float4 TextureValues01 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV + float2(0, LowResTexelSize.y), 0);
+	float4 TextureValues11 = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, Corner00UV + LowResTexelSize, 0);
+
+	float4 CornerWeights = float4(
+		(1 - BilinearWeights.y) * (1 - BilinearWeights.x), 
+		(1 - BilinearWeights.y) * BilinearWeights.x,
+		BilinearWeights.y * (1 - BilinearWeights.x),
+		BilinearWeights.y * BilinearWeights.x);
+
+	float Epsilon = .0001f;
+
+	float4 CornerDepths = abs(float4(TextureValues00.w, TextureValues10.w, TextureValues01.w, TextureValues11.w));
+	float SceneDepth = CalcSceneDepth(UVAndScreenPos.xy);
+	float4 DepthWeights = 1.0f / (abs(CornerDepths - SceneDepth.xxxx) + Epsilon);
+	float4 FinalWeights = CornerWeights * DepthWeights;
+
+	float InvWeight = 1.0f / dot(FinalWeights, 1);
+
+	float3 InterpolatedResult = 
+		(FinalWeights.x * TextureValues00.xyz 
+		+ FinalWeights.y * TextureValues10.xyz
+		+ FinalWeights.z * TextureValues01.xyz 
+		+ FinalWeights.w * TextureValues11.xyz)
+		* InvWeight;
+
+	float3 BentNormal = InterpolatedResult.xyz;
+
+	#if SUPPORT_IRRADIANCE
+		float4 IrradianceValues00 = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, Corner00UV, 0);
+		float4 IrradianceValues10 = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, Corner00UV + float2(LowResTexelSize.x, 0), 0);
+		float4 IrradianceValues01 = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, Corner00UV + float2(0, LowResTexelSize.y), 0);
+		float4 IrradianceValues11 = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, Corner00UV + LowResTexelSize, 0);
+
+		Irradiance = 
+			(FinalWeights.x * IrradianceValues00.xyz 
+			+ FinalWeights.y * IrradianceValues10.xyz
+			+ FinalWeights.z * IrradianceValues01.xyz 
+			+ FinalWeights.w * IrradianceValues11.xyz)
+			* InvWeight;
+	#endif
+
+#else
+	float3 BentNormal = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, DistanceFieldUVs, 0).xyz;
+
+	#if SUPPORT_IRRADIANCE
+		Irradiance = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, DistanceFieldUVs, 0).xyz;
+	#endif
+#endif
+
+#if OUTPUT_AO
+	OutBentNormal = float4(length(BentNormal).xxx, 1);
+	//OutBentNormal = float4(BentNormal, 1);
+#else
+	#if OUTPUT_BENT_NORMAL
+		OutBentNormal = float4(BentNormal, 1);
+		#if SUPPORT_IRRADIANCE
+			OutIrradiance = float4(Irradiance, 1);
+		#endif
+	#else
+
+		// Output to RT0 to visualize Irradiance or BentNormal
+		#if SUPPORT_IRRADIANCE
+			OutBentNormal = float4(Irradiance, 1);
+		#endif
+	#endif
+#endif
+}

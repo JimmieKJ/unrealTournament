@@ -11,10 +11,13 @@ class AIMODULE_API UBlackboardKeyType_Name : public UBlackboardKeyType
 	typedef FName FDataType;
 	static const FDataType InvalidValue;
 
-	static FName GetValue(const uint8* RawData);
-	static bool SetValue(uint8* RawData, const FName& Value);
+	static FName GetValue(const UBlackboardKeyType_Name* KeyOb, const uint8* RawData);
+	static bool SetValue(UBlackboardKeyType_Name* KeyOb, uint8* RawData, const FName& Value);
 
-	virtual FString DescribeValue(const uint8* RawData) const override;
-	virtual EBlackboardCompare::Type Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const override;
-	virtual bool TestTextOperation(const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const override;
+	virtual EBlackboardCompare::Type CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+		const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const override;
+
+protected:
+	virtual FString DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const override;
+	virtual bool TestTextOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const override;
 };

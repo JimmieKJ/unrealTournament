@@ -21,6 +21,7 @@ public:
 	/** Constructor */
 	FGitSourceControlProvider() 
 		: bGitAvailable(false)
+		, bGitRepositoryFound(false)
 	{
 	}
 
@@ -32,7 +33,8 @@ public:
 	virtual bool IsAvailable() const override;
 	virtual const FName& GetName(void) const override;
 	virtual ECommandResult::Type GetState( const TArray<FString>& InFiles, TArray< TSharedRef<ISourceControlState, ESPMode::ThreadSafe> >& OutState, EStateCacheUsage::Type InStateCacheUsage ) override;
-	virtual void RegisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) override;
+	virtual TArray<FSourceControlStateRef> GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const override;
+	virtual void RegisterSourceControlStateChanged(const FSourceControlStateChanged::FDelegate& SourceControlStateChanged) override;
 	virtual void UnregisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged ) override;
 	virtual FDelegateHandle RegisterSourceControlStateChanged_Handle(const FSourceControlStateChanged::FDelegate& SourceControlStateChanged) override;
 	virtual void UnregisterSourceControlStateChanged_Handle(FDelegateHandle Handle) override;
@@ -52,16 +54,28 @@ public:
 	 */
 	void CheckGitAvailability();
 
+	/** Is git binary found and working. */
+	inline bool IsGitAvailable() const
+	{
+		return bGitAvailable;
+	}
+
 	/** Get the path to the root of the Git repository: can be the GameDir itself, or any parent directory */
 	inline const FString& GetPathToRepositoryRoot() const
 	{
 		return PathToRepositoryRoot;
 	}
 
-	/** Get the path to the Game directory: shall be inside of the Git repository */
-	inline const FString& GetPathToGameDir() const
+	/** Git config user.name */
+	inline const FString& GetUserName() const
 	{
-		return PathToGameDir;
+		return UserName;
+	}
+
+	/** Git config user.email */
+	inline const FString& GetUserEmail() const
+	{
+		return UserEmail;
 	}
 
 	/** Helper function used to update state cache */
@@ -78,6 +92,9 @@ private:
 	/** Is git binary found and working. */
 	bool bGitAvailable;
 
+	/** Is git repository found. */
+	bool bGitRepositoryFound;
+
 	/** Helper function for Execute() */
 	TSharedPtr<class IGitSourceControlWorker, ESPMode::ThreadSafe> CreateWorker(const FName& InOperationName) const;
 
@@ -92,10 +109,13 @@ private:
 	/** Path to the root of the Git repository: can be the GameDir itself, or any parent directory (found by the "Connect" operation) */
 	FString PathToRepositoryRoot;
 
-	/** Path to the Game directory: shall be inside of the Git repository */
-	FString PathToGameDir;
+	/** Git config user.name (from local repository, else globally) */
+	FString UserName;
 
-	/** Name of the current branch (found by the "Connect" operation) */
+	/** Git config user.email (from local repository, else globally) */
+	FString UserEmail;
+
+	/** Name of the current branch */
 	FString BranchName;
 
 	/** State cache */

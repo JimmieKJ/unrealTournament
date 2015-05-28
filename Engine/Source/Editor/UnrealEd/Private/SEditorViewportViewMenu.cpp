@@ -91,6 +91,9 @@ FText SEditorViewportViewMenu::GetViewMenuLabel() const
 			case VMI_CollisionVisibility:
 				Label = LOCTEXT("ViewMenuTitle_CollisionVisibility", "Visibility Collision");
 				break;
+
+			case VMI_LitLightmapDensity:
+				break;
 		}
 	}
 
@@ -173,6 +176,9 @@ const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 
 			case VMI_CollisionVisibility:
 				Icon = CollisionVisibilityIcon;
+				break;
+
+			case VMI_LitLightmapDensity:
 				break;
 		}
 	}

@@ -10,7 +10,7 @@ UBTDecorator_CheckGameplayTagsOnActor::UBTDecorator_CheckGameplayTagsOnActor(con
 	NodeName = "Gameplay Tag Condition";
 
 	// Accept only actors
-	ActorToCheck.AddObjectFilter(this, AActor::StaticClass());
+	ActorToCheck.AddObjectFilter(this, GET_MEMBER_NAME_CHECKED(UBTDecorator_CheckGameplayTagsOnActor, ActorToCheck), AActor::StaticClass());
 
 	// Default to using Self Actor
 	ActorToCheck.SelectedKeyName = FBlackboard::KeySelf;
@@ -79,6 +79,8 @@ void UBTDecorator_CheckGameplayTagsOnActor::PostEditChangeProperty(FPropertyChan
 	BuildDescription();
 }
 
+#endif	// WITH_EDITOR
+
 void UBTDecorator_CheckGameplayTagsOnActor::InitializeFromAsset(UBehaviorTree& Asset)
 {
 	Super::InitializeFromAsset(Asset);
@@ -86,7 +88,7 @@ void UBTDecorator_CheckGameplayTagsOnActor::InitializeFromAsset(UBehaviorTree& A
 	UBlackboardData* BBAsset = GetBlackboardAsset();
 	ActorToCheck.CacheSelectedKey(BBAsset);
 
+#if WITH_EDITOR
 	BuildDescription();
-}
-
 #endif	// WITH_EDITOR
+}

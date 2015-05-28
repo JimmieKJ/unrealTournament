@@ -1,33 +1,16 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_DESTRUCTIBLE_ACTOR_H
 #define NX_DESTRUCTIBLE_ACTOR_H
-
 
 #include "foundation/Px.h"
 #include "NxApexActor.h"
@@ -59,25 +42,6 @@ class NxApexRenderVolume;
 class NxApexEmitterActor;
 class NxDestructibleRenderable;
 class NxDestructibleBehaviorGroupDesc;
-
-/**
-	Flags for NxDestructibleActor::raycast()
-*/
-struct NxDestructibleActorRaycastFlags
-{
-	enum Enum
-	{
-		StaticChunks =	(1 << 0),
-		DynamicChunks =	(1 << 1),
-
-		AllChunks =					StaticChunks | DynamicChunks,
-
-		SegmentIntersect =	(1 << 2),	// Do not consider intersect times > 1
-
-		ForceAccurateRaycastsOn =	(1 << 3),
-		ForceAccurateRaycastsOff =	(1 << 4),
-	};
-};
 
 
 /**
@@ -169,6 +133,22 @@ struct NxDestructibleChunkSyncState
 };
 
 /**
+	Flags which describe an actor chunk (as opposed to an asset chunk) - takes into account the actor's condition, for example
+	a chunk may be world supported because of the actor's placement
+*/
+struct NxDestructibleActorChunkFlags
+{
+	enum Enum
+	{
+		/**
+			"Use world support" is set in the destructible parameters, and this chunk is a support-depth chunk that
+			overlaps the physx scene's static geometry
+		*/
+		ChunkIsWorldSupported	=	(1<<0),
+	};
+};
+
+/**
 	Destructible actor API.  The destructible actor is instanced from an NxDestructibleAsset.
 */
 class NxDestructibleActor : public NxApexActor, public NxApexActorSource, public NxApexRenderable
@@ -212,8 +192,9 @@ public:
 	/**
 		Returns an array of visibility data for each chunk.  Each byte in the array is 0 if the
 		corresponding chunkIndex is invisible, 1 if visibile.
-			visibilityArray = a pointer to the byte buffer to hold the visibility values.
-			visibilityArraySize = the size of the visibilityArray
+		
+		\param visibilityArray		a pointer to the byte buffer to hold the visibility values.
+		\param visibilityArraySize	the size of the visibilityArray
 	*/
 	virtual void					getChunkVisibilities(physx::PxU8* visibilityArray, physx::PxU32 visibilityArraySize) const = 0;
 
@@ -231,18 +212,19 @@ public:
 		Locks the chunk event buffer, and (if successful) returns the head of the chunk event buffer in the buffer field and the length
 		of the buffer (the number of events) in the bufferSize field.  To unlock the buffer, use releaseChunkEventBuffer().
 		See NxDestructibleChunkEvent.  This buffer is filled with chunk events if the NxDestructibleActor parameter createChunkEvents is set to true.
+		This buffer is not automatically cleared by APEX.  The user must clear it using releaseChunkEventBuffer(true).
 
 		N.B. This function only works when the user has *not* requested chunk event callbacks via NxModuleDestructible::setChunkReportSendChunkStateEvents.
 
-		This buffer is not automatically cleared by APEX.  The user must clear it using releaseChunkEventBuffer(true).
-		Returns true if successful, false otherwise.
+		\return		Returns true if successful, false otherwise.
 	*/
 	virtual bool					acquireChunkEventBuffer(const physx::NxDestructibleChunkEvent*& buffer, physx::PxU32& bufferSize) = 0;
 
 	/**
 		Releases the chunk event buffer, which may have been locked by acquireChunkEventBuffer().
 		If clearBuffer is true, the buffer will be erased before it is unlocked.
-		Returns true if successful, false otherwise.
+
+		\return		Returns true if successful, false otherwise.
 	*/
 	virtual bool					releaseChunkEventBuffer(bool clearBuffer = true) = 0;
 
@@ -251,14 +233,16 @@ public:
 		of the buffer (the number of PhysX actors) in the bufferSize field.
 		To unlock the buffer, use releasePhysXActorBuffer().
 		The user must release this buffer before another call to releasePhysXActorBuffer.
-			buffer = returned buffer, if successful
-			bufferSize = returned buffer size, if successful
-			flags = flags which control which actors are returned.  See NxDestructiblePhysXActorQueryFlags.
-			eliminateRedundantActors = whether or not to ensure that PhysX actors are not listed more than once when this NxDestructibleActor is
-				part of an extended structure.  If this is true, then some NxDestructibleActors may not return all PhysX actors associated with
-				all of their chunks (and in fact may return no PhysX actors), but after querying all NxDestructibleActors in a given structure,
-				every PhysX actor will be accounted for.  Default = true.
-		Returns true if successful, false otherwise.
+			
+		\param buffer						returned buffer, if successful
+		\param bufferSize					returned buffer size, if successful
+		\param flags						flags which control which actors are returned.  See NxDestructiblePhysXActorQueryFlags.
+		\param eliminateRedundantActors		whether or not to ensure that PhysX actors are not listed more than once when this NxDestructibleActor is
+												part of an extended structure.  If this is true, then some NxDestructibleActors may not return all PhysX actors associated with
+												all of their chunks (and in fact may return no PhysX actors), but after querying all NxDestructibleActors in a given structure,
+												every PhysX actor will be accounted for.  Default = true.
+		
+		\return								Returns true if successful, false otherwise.
 	*/
 #if NX_SDK_VERSION_MAJOR == 2
 	virtual bool					acquirePhysXActorBuffer(NxActor**& buffer, physx::PxU32& bufferSize, physx::PxU32 flags = NxDestructiblePhysXActorQueryFlags::All, bool eliminateRedundantActors = true) = 0;
@@ -269,7 +253,8 @@ public:
 	/**
 		Releases the PhysX actor buffer, which may have been locked by acquirePhysXActorBuffer().
 		The buffer will be erased before it is unlocked.
-		Returns true if successful, false otherwise.
+		
+		\return Returns true if successful, false otherwise.
 	*/
 	virtual bool					releasePhysXActorBuffer() = 0;
 
@@ -277,7 +262,9 @@ public:
 		Returns the PhysX actor associated with the given chunk.  Note, more than one chunk may be associated with a given PhysX actor, and
 		chunks from different NxDestructibleActors may even be associated with the same PhysX actor.
 		Caution is recommended when using this function.  During APEX scene simulate/fetchResults, this actor may be deleted, replaced, or tampered with.
-			index = the chunk index within the actor
+		When the chunk in question is not visible, but an ancestor of a visible chunk, the visible ancestor's shapes are returned.
+			
+		\param chunkIndex	the chunk index within the actor
 	*/
 #if NX_SDK_VERSION_MAJOR == 2
 	virtual NxActor*				getChunkPhysXActor(physx::PxU32 chunkIndex) = 0;
@@ -289,9 +276,11 @@ public:
 		Returns the PhysX shapes associated with the given chunk.
 		Caution is recommended when using this function.  During APEX scene simulate/fetchResults, this actor may be deleted, replaced, or tampered with.
 		It is safe to use the results of this function during the chunk event callback (see NxModuleDestructible::setChunkReport).
-			index = the chunk index within the actor
-			shapes = returned pointer to array of shapes.  May be NULL.
-			return value = size of array pointed to by shapes pointer.  0 if shapes == NULL.
+
+		\param shapes		returned pointer to array of shapes.  May be NULL.
+		\param chunkIndex	the chunk index within the actor
+		
+		\return				size of array pointed to by shapes pointer.  0 if shapes == NULL.
 	*/
 #if NX_SDK_VERSION_MAJOR == 2
 	virtual physx::PxU32			getChunkPhysXShapes(NxShape**& shapes, physx::PxU32 chunkIndex) const = 0;
@@ -300,27 +289,46 @@ public:
 #endif
 
 	/**
-		Returns a chunk's pose, without scaling.
-			index = the chunk index within the actor
+		Returns current pose of a chunk's reference frame, without scaling. This pose can be used to transform the chunk's hull data
+		from the asset into global space.
+
+		\param chunkIndex	the chunk index within the actor
+
+		\note	This pose's translation might not be inside the chunk. Use getChunkBounds to get a better representation
+				of where the chunk is located.
 	*/
 	virtual physx::PxMat44			getChunkPose(physx::PxU32 chunkIndex) const = 0;
 
 	/**
+		Returns current pose of a chunk's reference frame, without scaling. This pose can be used to transform the chunk's hull data
+		from the asset into global space.
+
+		\param chunkIndex	the chunk index within the actor
+
+		\note	This pose's translation might not be inside the chunk. Use getChunkBounds to get a better representation
+				of where the chunk is located.
+	*/
+	virtual physx::PxTransform		getChunkTransform(physx::PxU32 chunkIndex) const = 0;
+
+	/**
 		Returns a chunk's linear velocity in world space.
-			index = the chunk index within the actor
+
+		\param chunkIndex	the chunk index within the actor
 	*/
 	virtual physx::PxVec3			getChunkLinearVelocity(physx::PxU32 chunkIndex) const = 0;
 
 	/**
 		Returns a chunk's angular velocity in world space.
-			index = the chunk index within the actor
+
+		\param chunkIndex	the chunk index within the actor
 	*/
 	virtual physx::PxVec3			getChunkAngularVelocity(physx::PxU32 chunkIndex) const = 0;
 
 	/**
 		Returns the transform of the chunk's graphical representation.  This may have
 		a scale component.
-			index = the chunk index within the actor
+
+		\param chunkIndex	the chunk index within the actor
 	*/
 	virtual const physx::PxMat44 	getChunkTM(physx::PxU32 chunkIndex) const = 0;
 
@@ -328,8 +336,18 @@ public:
 		Returns the behavior group index associated with the chunk.  Use getBehaviorGroup() to access the behavior group data.
 		The index will either be -1, in which case it is the default behavior group, or in the range [0, getCustomBehaviorGroupCount()-1].
 		Any of those values is valid for getBehaviorGroup().
+
+		\param chunkIndex	the chunk index within the actor
 	*/
-	virtual physx::PxI32			getBehaviorGroupIndex(physx::PxU32 chunkIndex) const = 0;
+	virtual physx::PxI32			getChunkBehaviorGroupIndex(physx::PxU32 chunkIndex) const = 0;
+
+	/**
+		Returns the NxDestructibleActorChunkFlags for a chunk.  These are flags that describe
+		aspects of the chunk that can only be determined at runtime.
+
+		\param chunkIndex	the chunk index within the actor
+	*/
+	virtual physx::PxU32		 	getChunkActorFlags(physx::PxU32 chunkIndex) const = 0;
 
 	/**
 		Set the destructible actor's global pose.  This will only be applied to the physx NxActor or PxActor
@@ -388,6 +406,16 @@ public:
 	virtual bool					isHardSleepingEnabled() const = 0;
 
 	/**
+		Puts the PxActor associated with the given chunk to sleep, or wakes it up, depending upon the value of the 'sleep' bool.
+			
+		\param chunkIndex	the chunk index within the actor
+		\param awake		if true, wakes the actor, otherwise puts the actor to sleep
+
+		Returns true iff successful.
+	*/
+	virtual	bool					setChunkPhysXActorAwakeState(physx::PxU32 chunkIndex, bool awake) = 0;
+
+	/**
 		Sets the override material.
 	*/
 	virtual void					setSkinnedOverrideMaterial(PxU32 submeshIndex, const char* overrideMaterialName) = 0;
@@ -409,27 +437,29 @@ public:
 	/**
 		Apply damage at a point.  Damage will be propagated into the destructible based
 		upon its NxDestructibleParameters.
-			damage = the amount of damage at the damage point
-			momentum = the magnitude of the impulse to transfer to the actor
-			position = the damage location
-			direction = direction of impact.  This is valid even if momentum = 0, for use in deformation calculations.
-			chunkIndex = which chunk to damage (returned by rayCast and NxModuleDestructible::getDestructibleAndChunk).
-				If chunkIndex = NxModuleDestructibleConst::INVALID_CHUNK_INDEX, then the nearest visible chunk hit is found.
-			userData = pointer which will be returned in damage and fracture event callbacks
+
+		\param damage		the amount of damage at the damage point
+		\param momentum		the magnitude of the impulse to transfer to the actor
+		\param position		the damage location
+		\param direction	direction of impact.  This is valid even if momentum = 0, for use in deformation calculations.
+		\param chunkIndex	which chunk to damage (returned by rayCast and NxModuleDestructible::getDestructibleAndChunk).
+								If chunkIndex = NxModuleDestructibleConst::INVALID_CHUNK_INDEX, then the nearest visible chunk hit is found.
+		\param userData		pointer which will be returned in damage and fracture event callbacks
 	*/
 	virtual void					applyDamage(physx::PxF32 damage, physx::PxF32 momentum, const physx::PxVec3& position, const physx::PxVec3& direction, physx::PxI32 chunkIndex = NxModuleDestructibleConst::INVALID_CHUNK_INDEX, void* userData = NULL) = 0;
 
 	/**
 		Apply damage to all chunks within a radius.  Damage will also propagate into the destructible
 		based upon its NxDestructibleParameters.
-			damage = the amount of damage at the damage point
-			momentum = the magnitude of the impulse to transfer to each chunk
-			position = the damage location
-			radius = distance from damage location at which chunks will be affected
-			falloff = whether or not to decrease damage with distance from the damage location.  If true,
-				damage will decrease linearly from the full damage (at zero distance) to zero damage (at radius).
-				If false, full damage is applied to all chunks within the radius.
-			userData = pointer which will be returned in damage and fracture event callbacks
+
+		\param damage		the amount of damage at the damage point
+		\param momentum		the magnitude of the impulse to transfer to each chunk
+		\param position		the damage location
+		\param radius		distance from damage location at which chunks will be affected
+		\param falloff		whether or not to decrease damage with distance from the damage location.  If true,
+								damage will decrease linearly from the full damage (at zero distance) to zero damage (at radius).
+								If false, full damage is applied to all chunks within the radius.
+		\param userData		pointer which will be returned in damage and fracture event callbacks
 	*/
 	virtual void					applyRadiusDamage(physx::PxF32 damage, physx::PxF32 momentum, const physx::PxVec3& position, physx::PxF32 radius, bool falloff, void* userData = NULL) = 0;
 
@@ -449,13 +479,14 @@ public:
 		Returns the index of the first visible chunk hit in the actor by worldRay, if any.
 		Otherwise returns NxModuleDestructibleConst::INVALID_CHUNK_INDEX.
 		If a chunk is hit, the time and normal fields are modified.
-			time = (return value) of the time to the hit chunk, if any.
-			normal = (return value) the surface normal of the hit chunk's collision volume, if any.
-			worldRay = the ray to fire at the actor (the direction need not be normalized)
-			flags = raycast control flags (see NxDestructibleActorRaycastFlags)
-			parentChunkIndex = (if not equal to NxModuleDestructibleConst::INVALID_CHUNK_INDEX)
-				the chunk subhierarchy in which to confine the raycast.  If parentChunkIndex =
-				NxModuleDestructibleConst::INVALID_CHUNK_INDEX, then the whole actor is searched.
+		
+		\param[out] time			(return value) of the time to the hit chunk, if any.
+		\param[out] normal			(return value) the surface normal of the hit chunk's collision volume, if any.
+		\param worldRay				the ray to fire at the actor (the direction need not be normalized)
+		\param flags				raycast control flags (see NxDestructibleActorRaycastFlags)
+		\param parentChunkIndex		(if not equal to NxModuleDestructibleConst::INVALID_CHUNK_INDEX)
+										the chunk subhierarchy in which to confine the raycast.  If parentChunkIndex =
+										NxModuleDestructibleConst::INVALID_CHUNK_INDEX, then the whole actor is searched.
 	*/
 	virtual physx::PxI32			rayCast(physx::PxF32& time, physx::PxVec3& normal, const NxRay& worldRay, NxDestructibleActorRaycastFlags::Enum flags, physx::PxI32 parentChunkIndex = NxModuleDestructibleConst::INVALID_CHUNK_INDEX) const = 0;
 #endif
@@ -465,13 +496,15 @@ public:
 		Returns the index of the first visible chunk hit in the actor by worldRay, if any.
 		Otherwise returns NxModuleDestructibleConst::INVALID_CHUNK_INDEX.
 		If a chunk is hit, the time and normal fields are modified.
-			time = (return value) of the time to the hit chunk, if any.
-			normal = (return value) the surface normal of the hit chunk's collision volume, if any.
-			worldRay = the ray to fire at the actor (the direction need not be normalized)
-			flags = raycast control flags (see NxDestructibleActorRaycastFlags)
-			parentChunkIndex = (if not equal to NxModuleDestructibleConst::INVALID_CHUNK_INDEX)
-				the chunk subhierarchy in which to confine the raycast.  If parentChunkIndex =
-				NxModuleDestructibleConst::INVALID_CHUNK_INDEX, then the whole actor is searched.
+
+		\param[out] time			(return value) of the time to the hit chunk, if any.
+		\param[out] normal			(return value) the surface normal of the hit chunk's collision volume, if any.
+		\param worldRayOrig			origin of the ray to fire at the actor (the direction need not be normalized)
+		\param worldRayDir			direction of the ray to fire at the actor (the direction need not be normalized)
+		\param flags				raycast control flags (see NxDestructibleActorRaycastFlags)
+		\param parentChunkIndex		(if not equal to NxModuleDestructibleConst::INVALID_CHUNK_INDEX)
+										the chunk subhierarchy in which to confine the raycast.  If parentChunkIndex =
+										NxModuleDestructibleConst::INVALID_CHUNK_INDEX, then the whole actor is searched.
 	*/
 	virtual physx::PxI32			rayCast(physx::PxF32& time, physx::PxVec3& normal, const PxVec3& worldRayOrig, const PxVec3& worldRayDir, NxDestructibleActorRaycastFlags::Enum flags, physx::PxI32 parentChunkIndex = NxModuleDestructibleConst::INVALID_CHUNK_INDEX) const = 0;
 #endif
@@ -482,11 +515,12 @@ public:
 		Returns the index of the first visible chunk hit in the actor by swept oriented bounding box, if any.
 		Otherwise returns NxModuleDestructibleConst::INVALID_CHUNK_INDEX.
 		If a chunk is hit, the time and normal fields are modified.
-			time = (return value) of the time to the hit chunk, if any.
-			normal = (return value) the surface normal of the hit chunk's collision volume, if any.
-			worldBox = the obb to sweep against the actor, oriented in world space
-			worldDisplacement = the displacement of the center of the worldBox through the sweep, in world space
-			flags = raycast control flags (see NxDestructibleActorRaycastFlags)
+		
+		\param[out] time			(return value) of the time to the hit chunk, if any.
+		\param[out] normal			(return value) the surface normal of the hit chunk's collision volume, if any.
+		\param worldBox				the obb to sweep against the actor, oriented in world space
+		\param worldDisplacement	the displacement of the center of the worldBox through the sweep, in world space
+		\param flags				raycast control flags (see NxDestructibleActorRaycastFlags)
 	*/
 	virtual physx::PxI32			obbSweep(physx::PxF32& time, physx::PxVec3& normal, const NxBox& worldBox, const physx::PxVec3& worldDisplacement, NxDestructibleActorRaycastFlags::Enum flags) const = 0;
 #endif
@@ -496,11 +530,14 @@ public:
 		Returns the index of the first visible chunk hit in the actor by swept oriented bounding box, if any.
 		Otherwise returns NxModuleDestructibleConst::INVALID_CHUNK_INDEX.
 		If a chunk is hit, the time and normal fields are modified.
-			time = (return value) of the time to the hit chunk, if any.
-			normal = (return value) the surface normal of the hit chunk's collision volume, if any.
-			worldBox = the obb to sweep against the actor, oriented in world space
-			worldDisplacement = the displacement of the center of the worldBox through the sweep, in world space
-			flags = raycast control flags (see NxDestructibleActorRaycastFlags)
+
+		\param[out] time			(return value) of the time to the hit chunk, if any.
+		\param[out] normal			(return value) the surface normal of the hit chunk's collision volume, if any.
+		\param worldBoxCenter		the center of the obb to sweep against the actor, oriented in world space
+		\param worldBoxExtents		the extents of the obb to sweep against the actor, oriented in world space
+		\param worldBoxRot			the rotation of the obb to sweep against the actor, oriented in world space
+		\param worldDisplacement	the displacement of the center of the worldBox through the sweep, in world space
+		\param flags				raycast control flags (see NxDestructibleActorRaycastFlags)
 	*/
 	virtual physx::PxI32			obbSweep(physx::PxF32& time, physx::PxVec3& normal, const physx::PxVec3& worldBoxCenter, const physx::PxVec3& worldBoxExtents, const physx::PxMat33& worldBoxRot, const physx::PxVec3& worldDisplacement, NxDestructibleActorRaycastFlags::Enum flags) const = 0;
 #endif
@@ -557,30 +594,33 @@ public:
 	/**
 		Set the syncing properties of the destructible actor.
 
-		userActorID is a user-defined value used to identify the syncing actor. This value will be used to identify destructible actors between the server and client.
-		userActorID = 0 is used for unregistering the actor as a syncing actor, and is the default value. The other arguments will then be forcibly set to the default (non-participating) values.
-		userActorID != 0 registers the actor as a participating syncing actor.
-		userActorID can be overwritten. In this case, the destructible actor which used to hold this userActorID will behave exactly like a call to set userActorID to 0.
+		\param userActorID		user-defined value used to identify the syncing actor.
+									This value will be used to identify destructible actors between the server and client.
+									userActorID = 0 is used for unregistering the actor as a syncing actor, and is the default value.
+									The other arguments will then be forcibly set to the default (non-participating) values.
+									userActorID != 0 registers the actor as a participating syncing actor.
+									userActorID can be overwritten. In this case, the destructible actor which used to hold this userActorID
+									will behave exactly like a call to set userActorID to 0.
 
-		actorSyncFlags describes the kind of actor information that participates in syncing. See struct NxDestructibleActorSyncFlags
+		\param actorSyncFlags	describes the kind of actor information that participates in syncing. See struct NxDestructibleActorSyncFlags
 
-		actorSyncState describes information that allows finer control over the actor that participates in syncing. See struct NxDestructibleActorSyncState
+		\param actorSyncState	describes information that allows finer control over the actor that participates in syncing. See struct NxDestructibleActorSyncState
 
-		chunkSyncState describes information that allows finer control over the chunk that participates in syncing. See struct NxDestructibleChunkSyncState
+		\param chunkSyncState	describes information that allows finer control over the chunk that participates in syncing. See struct NxDestructibleChunkSyncState
 
-		Returns true if arguments are accepted. Any one invalid argument will cause a return false. In such a case, no changes are made.
+		\return					Returns true if arguments are accepted. Any one invalid argument will cause a return false. In such a case, no changes are made.
     */
     virtual bool                    setSyncParams(physx::PxU32 userActorID, physx::PxU32 actorSyncFlags = 0, const NxDestructibleActorSyncState * actorSyncState = NULL, const NxDestructibleChunkSyncState * chunkSyncState = NULL) = 0;
 
 	/**
 		Set the tracking properties of the actor for chunks that are hit. Chunks that are hit are chunks directly affected by fracture events.
 
-		flushHistory == true indicates that both the cached chunk hit history and the cached damage event core data will be cleared. 
-							To get the chunk hit history of this actor, see getHitChunkHistory()
-							To get the damage coloring history of this actor, see getDamageColoringHistory()
-		startTracking == true indicates that chunk hits and damage coloring will begin caching internally. The actor does not cache chunk hits by default.
-		trackingDepth == the depth at which hit chunks will be cached. This value should not exceed the maximum depth level.
-		trackAllChunks == true indicates that all the chunks will be cached, trackAllChunks == false indicates that only static chunks will be cached.
+		\param flushHistory		flushHistory == true indicates that both the cached chunk hit history and the cached damage event core data will be cleared. 
+									To get the chunk hit history of this actor, see getHitChunkHistory()
+									To get the damage coloring history of this actor, see getDamageColoringHistory()
+		\param startTracking	startTracking == true indicates that chunk hits and damage coloring will begin caching internally. The actor does not cache chunk hits by default.
+		\param trackingDepth	the depth at which hit chunks will be cached. This value should not exceed the maximum depth level.
+		\param trackAllChunks	trackAllChunks == true indicates that all the chunks will be cached, trackAllChunks == false indicates that only static chunks will be cached.
 
 		Returns true if the function executes correctly with the given arguments.
 	*/
@@ -589,34 +629,36 @@ public:
 	/**
 		Get the chunk hit history of the actor. To start caching chunk hits, see setHitChunkTrackingParams()
 
-		Returns true if the function executes correctly with the given arguments.
+		\return Returns true if the function executes correctly with the given arguments.
 	*/
 	virtual bool					getHitChunkHistory(const NxDestructibleHitChunk *& hitChunkContainer, physx::PxU32 & hitChunkCount) const = 0;
 
 	/**
 		Force the actor to register chunk hits.
 
-		hitChunkContainer should take in an argument that was generated from another destructible actor. See getHitChunkHistory()
-		removeChunks == true indicates that the chunks given by hitChunkContainer will be forcibly removed.
-		deferredEvent = whether to enable deferred event mode. If true, fracture events won't get processed until the next tick.
-		damagePosition and damageDirection: passed through to NxApexDamageEventReportData::hitPosition and hitDirection in the damage notify output by APEX.
+		\param hitChunkContainer	should take in an argument that was generated from another destructible actor. See getHitChunkHistory()
+		\param hitChunkCount		hit chunk count	
+		\param removeChunks			removeChunks == true indicates that the chunks given by hitChunkContainer will be forcibly removed.
+		\param deferredEvent		whether to enable deferred event mode. If true, fracture events won't get processed until the next tick.
+		\param damagePosition		passed through to NxApexDamageEventReportData::hitPosition and hitDirection in the damage notify output by APEX.
+		\param damageDirection		passed through to NxApexDamageEventReportData::hitPosition and hitDirection in the damage notify output by APEX.
 	*/
 	virtual bool					forceChunkHits(const NxDestructibleHitChunk * hitChunkContainer, physx::PxU32 hitChunkCount, bool removeChunks = true, bool deferredEvent = false, physx::PxVec3 damagePosition = physx::PxVec3(0.0f), physx::PxVec3 damageDirection = physx::PxVec3(0.0f)) = 0;
 
 	/**
 		Get the damage coloring history of the actor. To start caching damage coloring, see setHitChunkTrackingParams()
 
-		Returns true if the function executes correctly with the given arguments.
+		\return		Returns true if the function executes correctly with the given arguments.
 	*/
 	virtual bool					getDamageColoringHistory(const NxDamageEventCoreData *& damageEventCoreDataContainer, physx::PxU32 & damageEventCoreDataCount) const = 0;
 
 	/**
 		Force the actor to register damage coloring.
 
-		damageEventCoreDataContainer should take in an argument that was generated from another destructible actor. See getDamageColoringHistory()
-		damageEventCoreDataCount is the count of damageEventCoreDataContainer.
+		\param damageEventCoreDataContainer		should take in an argument that was generated from another destructible actor. See getDamageColoringHistory()
+		\param damageEventCoreDataCount			the count of damageEventCoreDataContainer.
 
-		Returns true if the function executes correctly with the given arguments.
+		\return									Returns true if the function executes correctly with the given arguments.
 	*/
 	virtual bool					forceDamageColoring(const NxDamageEventCoreData * damageEventCoreDataContainer, physx::PxU32 damageEventCoreDataCount) = 0;
 
@@ -675,7 +717,7 @@ public:
 	/**
 		Access to behavior groups created for this actor.  Each chunk has a behavior group index associated with it.
 
-		This returns the number of custom (non-default) behavior groups.
+		\return This returns the number of custom (non-default) behavior groups.
 	*/
 	virtual physx::PxU32			getCustomBehaviorGroupCount() const = 0;
 

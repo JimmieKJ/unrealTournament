@@ -11,7 +11,6 @@ namespace SceneOutliner
 	{
 		virtual void Visit(const FActorTreeItem& Actor) const {}
 		virtual void Visit(const FWorldTreeItem& World) const {}
-		virtual void Visit(const FLevelBlueprintTreeItem& LevelBlueprint) const {}
 		virtual void Visit(const FFolderTreeItem& Folder) const {}
 	};
 
@@ -20,7 +19,6 @@ namespace SceneOutliner
 	{
 		virtual void Visit(FActorTreeItem& Actor) const {}
 		virtual void Visit(FWorldTreeItem& World) const {}
-		virtual void Visit(FLevelBlueprintTreeItem& LevelBlueprint) const {}
 		virtual void Visit(FFolderTreeItem& Folder) const {}
 	};
 
@@ -29,23 +27,19 @@ namespace SceneOutliner
 	{
 		typedef TFunctionRef<void(const FActorTreeItem&)> 				FActorFunction;
 		typedef TFunctionRef<void(const FWorldTreeItem&)> 				FWorldFunction;
-		typedef TFunctionRef<void(const FLevelBlueprintTreeItem&)> 		FLevelBlueprintFunction;
 		typedef TFunctionRef<void(const FFolderTreeItem&)> 				FFolderFunction;
 
 		FFunctionalVisitor& Actor(const FActorFunction& InFunction) 					{ ActorFunction = InFunction; return *this; }
 		FFunctionalVisitor& World(const FWorldFunction& InFunction) 					{ WorldFunction = InFunction; return *this; }
-		FFunctionalVisitor& LevelBlueprint(const FLevelBlueprintFunction& InFunction) 	{ LevelBlueprintFunction = InFunction; return *this; }
 		FFunctionalVisitor& Folder(const FFolderFunction& InFunction) 					{ FolderFunction = InFunction; return *this; }
 
 	private:
 		TOptional<FActorFunction> ActorFunction;
 		TOptional<FWorldFunction> WorldFunction;
-		TOptional<FLevelBlueprintFunction> LevelBlueprintFunction;
 		TOptional<FFolderFunction> FolderFunction;
 
 		virtual void Visit(const FActorTreeItem& Item) const override 					{ if (ActorFunction) { ActorFunction.GetValue()(Item); } }
 		virtual void Visit(const FWorldTreeItem& Item) const override 					{ if (WorldFunction) { WorldFunction.GetValue()(Item); } }
-		virtual void Visit(const FLevelBlueprintTreeItem& Item) const override 			{ if (LevelBlueprintFunction) { LevelBlueprintFunction.GetValue()(Item); } }
 		virtual void Visit(const FFolderTreeItem& Item) const override 					{ if (FolderFunction) { FolderFunction.GetValue()(Item); } }
 	};
 
@@ -58,7 +52,6 @@ namespace SceneOutliner
 		/** Override to extract the data from specific tree item types */
 		virtual TDataType Get(const FActorTreeItem& ActorItem) const 					{ return TDataType(); }
 		virtual TDataType Get(const FWorldTreeItem& WorldItem) const 					{ return TDataType(); }
-		virtual TDataType Get(const FLevelBlueprintTreeItem& Item) const 				{ return TDataType(); }
 		virtual TDataType Get(const FFolderTreeItem& FolderItem) const 					{ return TDataType(); }
 
 		/** Return the result returned from Get() */
@@ -67,7 +60,6 @@ namespace SceneOutliner
 	private:
 		virtual void Visit(const FActorTreeItem& ActorItem) const override 				{ Data = Get(ActorItem); }
 		virtual void Visit(const FWorldTreeItem& WorldItem) const override 				{ Data = Get(WorldItem); }
-		virtual void Visit(const FLevelBlueprintTreeItem& Item) const override 			{ Data = Get(Item); }
 		virtual void Visit(const FFolderTreeItem& FolderItem) const override 			{ Data = Get(FolderItem); }
 	};
 
@@ -78,13 +70,11 @@ namespace SceneOutliner
 
 		virtual TSharedRef<SWidget> GenerateWidget(FActorTreeItem& Item) const 			{ return SNullWidget::NullWidget; }
 		virtual TSharedRef<SWidget> GenerateWidget(FWorldTreeItem& Item) const 			{ return SNullWidget::NullWidget; }
-		virtual TSharedRef<SWidget> GenerateWidget(FLevelBlueprintTreeItem& Item) const { return SNullWidget::NullWidget; }
 		virtual TSharedRef<SWidget> GenerateWidget(FFolderTreeItem& Item) const 		{ return SNullWidget::NullWidget; }
 
 	private:
 		virtual void Visit(FActorTreeItem& Item) const override 						{ Widget = GenerateWidget(Item); }
 		virtual void Visit(FWorldTreeItem& Item) const override 						{ Widget = GenerateWidget(Item); }
-		virtual void Visit(FLevelBlueprintTreeItem& Item) const override 				{ Widget = GenerateWidget(Item); }
 		virtual void Visit(FFolderTreeItem& Item) const override 						{ Widget = GenerateWidget(Item); }
 	};
 	

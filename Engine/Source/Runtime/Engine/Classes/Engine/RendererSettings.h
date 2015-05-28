@@ -85,11 +85,10 @@ namespace EAntiAliasingMethodUI
 
 
 /**
- * Implements project settings for the Rendering sub-system.
+ * Rendering settings.
  */
-UCLASS(config=Engine, defaultconfig)
-class ENGINE_API URendererSettings
-	: public UObject
+UCLASS(config=Engine, defaultconfig, meta=(DisplayName="Rendering"))
+class ENGINE_API URendererSettings : public UDeveloperSettings
 {
 	GENERATED_UCLASS_BODY()
 
@@ -130,12 +129,14 @@ class ENGINE_API URendererSettings
 
 	UPROPERTY(config, EditAnywhere, Category=Textures, meta=(
 		ConsoleVariable="Compat.UseDXT5NormalMaps",DisplayName="Use DXT5 Normal Maps",
-		ToolTip="Whether to use DXT5 for normal maps, otherwise BC5 will be used, which is not supported on all hardware. Changing this setting requires restarting the editor."))
+		ToolTip="Whether to use DXT5 for normal maps, otherwise BC5 will be used, which is not supported on all hardware. Changing this setting requires restarting the editor.",
+		ConfigRestartRequired=true))
 	uint32 bUseDXT5NormalMaps:1;
 
 	UPROPERTY(config, EditAnywhere, Category=Lighting, meta=(
 		ConsoleVariable="r.AllowStaticLighting",
-		ToolTip="Whether to allow any static lighting to be generated and used, like lightmaps and shadowmaps. Games that only use dynamic lighting should set this to 0 to save some static lighting overhead. Changing this setting requires restarting the editor."))
+		ToolTip="Whether to allow any static lighting to be generated and used, like lightmaps and shadowmaps. Games that only use dynamic lighting should set this to 0 to save some static lighting overhead. Changing this setting requires restarting the editor.",
+		ConfigRestartRequired=true))
 	uint32 bAllowStaticLighting:1;
 
 	UPROPERTY(config, EditAnywhere, Category=Lighting, meta=(
@@ -144,15 +145,15 @@ class ENGINE_API URendererSettings
 	uint32 bUseNormalMapsForStaticLighting:1;
 
 	UPROPERTY(config, EditAnywhere, Category=Lighting, meta=(
-		ConsoleVariable="r.GBuffer",
-		ToolTip="1=Use GBuffer, 0=Don't use GBuffer (minimal limited renderer)."))
-		uint32 bGBuffer:1;
-
-
-	UPROPERTY(config, EditAnywhere, Category=Lighting, meta=(
 		ConsoleVariable="r.GenerateMeshDistanceFields",
-		ToolTip="Whether to build distance fields of static meshes, needed for distance field AO, which is used to implement Movable SkyLight shadows, and ray traced distance field shadows on directional lights.  Enabling will increase mesh build times and memory usage.  Changing this setting requires restarting the editor."))
+		ToolTip="Whether to build distance fields of static meshes, needed for distance field AO, which is used to implement Movable SkyLight shadows, and ray traced distance field shadows on directional lights.  Enabling will increase mesh build times and memory usage.  Changing this setting requires restarting the editor.",
+		ConfigRestartRequired=true))
 	uint32 bGenerateMeshDistanceFields:1;
+
+	UPROPERTY(config, EditAnywhere, Category = Lighting, meta = (
+		ConsoleVariable = "r.GenerateLandscapeGIData", DisplayName = "Generate Landscape Real-time GI Data",
+		ToolTip = "Whether to generate a low-resolution base color texture for landscapes for rendering real-time global illumination.  This feature requires GenerateMeshDistanceFields is also enabled, and will increase mesh build times and memory usage."))
+		uint32 bGenerateLandscapeGIData : 1;
 
 	UPROPERTY(config, EditAnywhere, Category=Lighting, meta=(
 		ConsoleVariable="r.Shadow.DistanceFieldPenumbraSize",
@@ -236,8 +237,14 @@ class ENGINE_API URendererSettings
 
 	UPROPERTY(config, EditAnywhere, Category=Optimizations, meta=(
 		ConsoleVariable="r.ClearSceneMethod",DisplayName="Clear Scene",
-		ToolTip="Control how the scene is cleared before rendering"))
+		ToolTip="Select how the g-buffer is cleared in game mode (only affects deferred shading)."))
 	TEnumAsByte<EClearSceneOptions::Type> ClearSceneMethod;
+
+	UPROPERTY(config, EditAnywhere, Category=Optimizations, meta=(
+		ConsoleVariable="r.BasePassOutputsVelocity", DisplayName="Accurate velocities from Vertex Deformation",
+		ToolTip="Enables materials with time-based World Position Offset and/or World Displacement to output accurate velocities. This incurs a performance cost. If this is disabled, those materials will not output velocities. Changing this setting requires restarting the editor.",
+		ConfigRestartRequired=true))
+	uint32 bBasePassOutputsVelocity:1;
 
 	UPROPERTY(config, EditAnywhere, Category=Editor, meta=(
 		ConsoleVariable="r.WireframeCullThreshold",DisplayName="Wireframe Cull Threshold",
@@ -259,7 +266,7 @@ public:
 private:
 	
 	UPROPERTY(config)
-	TEnumAsByte<EUIScalingRule::Type> UIScaleRule_DEPRECATED;
+	TEnumAsByte<EUIScalingRule> UIScaleRule_DEPRECATED;
 
 	UPROPERTY(config)
 	FRuntimeFloatCurve UIScaleCurve_DEPRECATED;

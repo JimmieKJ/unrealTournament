@@ -47,7 +47,7 @@ public:
 	void RemoveDeletedObjects( const TArray<UObject*>& DeletedObjects );
 
 	/** Sets the callback for when the property view changes */
-	virtual void SetOnObjectArrayChanged( FOnObjectArrayChanged OnObjectArrayChangedDelegate);
+	virtual void SetOnObjectArrayChanged( FOnObjectArrayChanged OnObjectArrayChangedDelegate) override;
 
 	/** @return	Returns list of selected objects we're inspecting */
 	virtual const TArray< TWeakObjectPtr<UObject> >& GetSelectedObjects() const override
@@ -82,7 +82,7 @@ public:
 	 *
 	 * @param InExternalRootNode	The node to add
 	 */
-	void AddExternalRootPropertyNode( TSharedRef<FPropertyNode> ExternalRootNode );
+	void AddExternalRootPropertyNode( TSharedRef<FPropertyNode> ExternalRootNode ) override;
 	
 	/**
 	 * @return True if a category is hidden by any of the uobject classes currently in view by this details panel
@@ -101,8 +101,8 @@ public:
 		return false; 
 	}
 private:
-	void RegisterInstancedCustomPropertyLayout( UClass* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate );
-	void UnregisterInstancedCustomPropertyLayout( UClass* Class );
+	void RegisterInstancedCustomPropertyLayout( UClass* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate ) override;
+	void UnregisterInstancedCustomPropertyLayout( UClass* Class ) override;
 	void SetObjectArrayPrivate( const TArray< TWeakObjectPtr< UObject > >& InObjects );
 
 	TSharedRef<SDetailTree> ConstructTreeView( TSharedRef<SScrollBar>& ScrollBar );

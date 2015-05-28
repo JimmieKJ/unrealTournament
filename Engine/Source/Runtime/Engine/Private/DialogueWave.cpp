@@ -92,6 +92,11 @@ void UDialogueSoundWaveProxy::Parse( class FAudioDevice* AudioDevice, const UPTR
 	}
 }
 
+USoundClass* UDialogueSoundWaveProxy::GetSoundClass() const
+{
+	return SoundWave->GetSoundClass();
+}
+
 UDialogueWave::UDialogueWave(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, LocalizationGUID( FGuid::NewGuid() )
@@ -228,7 +233,7 @@ void UDialogueWave::UpdateMappingProxy(FDialogueContextMapping& ContextMapping)
 	{
 		if (!ContextMapping.Proxy)
 		{
-			ContextMapping.Proxy = ConstructObject<UDialogueSoundWaveProxy>(UDialogueSoundWaveProxy::StaticClass());
+			ContextMapping.Proxy = NewObject<UDialogueSoundWaveProxy>();
 		}
 	}
 	else
@@ -238,7 +243,9 @@ void UDialogueWave::UpdateMappingProxy(FDialogueContextMapping& ContextMapping)
 
 	if(ContextMapping.Proxy)
 	{
+		// Copy the properties that the proxy shares with the sound in case it's used as a SoundBase
 		ContextMapping.Proxy->SoundWave = ContextMapping.SoundWave;
+		UEngine::CopyPropertiesForUnrelatedObjects(ContextMapping.SoundWave, ContextMapping.Proxy);
 
 		FSubtitleCue NewSubtitleCue;
 		FString Key = GetContextLocalizationKey( ContextMapping.Context );

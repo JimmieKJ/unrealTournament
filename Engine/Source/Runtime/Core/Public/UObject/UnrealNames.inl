@@ -119,7 +119,7 @@ REGISTER_NAME(247,OtherChildren)
 REGISTER_NAME(248,Location)
 REGISTER_NAME(249,Rotation)
 REGISTER_NAME(250,BSP)
-REGISTER_NAME(251,EditorGameAgnostic)
+REGISTER_NAME(251,EditorSettings)
 
 // Online
 REGISTER_NAME(280,DGram)
@@ -128,6 +128,7 @@ REGISTER_NAME(282,GameNetDriver)
 REGISTER_NAME(283,PendingNetDriver)
 REGISTER_NAME(284,BeaconNetDriver)
 REGISTER_NAME(285,FlushNetDormancy)
+REGISTER_NAME(286,DemoNetDriver)
 
 // Texture settings.
 REGISTER_NAME(300,Linear)
@@ -171,3 +172,7 @@ REGISTER_NAME(450,AI)
 REGISTER_NAME(451,NavMesh)
 
 REGISTER_NAME(500,PerformanceCapture)
+
+// Special config names - not required to be consistent for network replication
+REGISTER_NAME(600,EditorLayout)
+REGISTER_NAME(601,EditorKeyBindings)

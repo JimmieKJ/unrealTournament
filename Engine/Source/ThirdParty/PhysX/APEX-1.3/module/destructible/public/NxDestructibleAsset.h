@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_DESTRUCTIBLE_ASSET_H
 #define NX_DESTRUCTIBLE_ASSET_H
@@ -31,7 +15,7 @@
 #define NX_DESTRUCTIBLE_AUTHORING_TYPE_NAME "DestructibleAsset"
 
 #include "foundation/Px.h"
-#include "FractureTools.h"
+#include "NxFractureTools.h"
 // TODO: Remove this include when we remove the APEX_RUNTIME_FRACTURE define
 #include "NxModuleDestructible.h"
 
@@ -538,6 +522,20 @@ struct NxDestructibleParameters
 #endif
 
 	/**
+		Whether or not to use the old chunk bounds testing for damage, or use the module setting.  A value of 0 forces the new method to be used.
+		A positive value forces the old method to be used.  Negative values cause the global (NxModuleDestructible) setting to be used.
+		Default = -1
+	*/
+	physx::PxI8			legacyChunkBoundsTestSetting;
+
+	/**
+		Whether or not to use the old damage spread method, or use the module setting.  A value of 0 forces the new method to be used.
+		A positive value forces the old method to be used.  Negative values cause the global (NxModuleDestructible) setting to be used.
+		Default = -1
+	*/
+	physx::PxI8			legacyDamageRadiusSpreadSetting;
+
+	/**
 		The maximum number of NxDestructibleDepthParameters (see depthParameters).
 	*/
 	enum { kDepthParametersCountMax = 16 };
@@ -594,6 +592,8 @@ PX_INLINE void NxDestructibleParameters::setToDefault()
 	dynamicChunksFilterData.word0 = dynamicChunksFilterData.word1 = dynamicChunksFilterData.word2 = dynamicChunksFilterData.word3 = 0;
 	supportStrength = -1.0;
 #endif
+	legacyChunkBoundsTestSetting = -1;
+	legacyDamageRadiusSpreadSetting = -1;
 	dynamicChunksDominanceGroup = 0xFF;	// Out of range, so it won't be used.
 	flags = NxDestructibleParametersFlag::ACCUMULATE_DAMAGE;
 	depthParametersCount = 0;
@@ -740,6 +740,7 @@ public:
 	physx::PxF32			materialStrength;
 	physx::PxF32			density;
 	physx::PxF32			fadeOut;
+	physx::PxF32			maxDepenetrationVelocity;
 	physx::PxU64			userData;
 };
 
@@ -764,6 +765,7 @@ PX_INLINE void NxDestructibleBehaviorGroupDesc::setToDefault()
 	materialStrength = 0.0f;
 	density = 0;
 	fadeOut = 1;
+	maxDepenetrationVelocity = PX_MAX_F32;
 	userData = (physx::PxU64)0;
 }
 
@@ -776,7 +778,8 @@ PX_INLINE bool NxDestructibleBehaviorGroupDesc::isValid() const
 		!damageColorSpread.isValid() ||
 		materialStrength < 0 ||
 		density < 0 ||
-		fadeOut < 0)
+		fadeOut < 0 ||
+		!(maxDepenetrationVelocity > 0.f))
 	{
 		return false;
 	}
@@ -845,7 +848,7 @@ public:
 		Whether or not to use instancing when rendering this chunk.  If useInstancedRendering = TRUE, this chunk will
 		share a draw call with all others that instance the mesh indexed by meshIndex.  This may extend to other
 		destructible actors created from this asset.  If useInstancedRendering = FALSE, this chunk may share a draw
-		call only with chunks other chunks in this asset which have useInstancedRendering = FALSE.
+		call only with other chunks in this asset which have useInstancedRendering = FALSE.
 		Default = FALSE.
 	*/
 	bool					useInstancedRendering;
@@ -974,10 +977,10 @@ public:
 	PX_INLINE bool	isValid() const;
 
 	/**
-		The convex hulls associated with this chunk.  These may be obtained from IExplicitHierarchicalMesh::convexHulls()
-		if authoring using an IExplicitHierarchicalMesh.  The length of the array is given by convexHullCount.
+		The convex hulls associated with this chunk.  These may be obtained from NxExplicitHierarchicalMesh::convexHulls()
+		if authoring using an NxExplicitHierarchicalMesh.  The length of the array is given by convexHullCount.
 	*/
-	const physx::IExplicitHierarchicalMesh::IConvexHull**	convexHulls;
+	const physx::NxExplicitHierarchicalMesh::NxConvexHull**	convexHulls;
 
 	/**
 		The length of the convexHulls array.  If this is positive, then convexHulls must point to a valid array of this size.
@@ -1083,6 +1086,18 @@ public:
 		The size of the geometryDescs array.  This must be positive.
 	*/
 	physx::PxU32						geometryDescCount;
+
+	/**
+		Index pairs that represent chunk connections in the support graph.
+		The indices refer to the chunkDescs array. Only sibling chunks,
+		i.e. chunks at equal depth may be connected.
+	*/
+	physx::NxIntPair*					supportGraphEdges;
+
+	/**
+		Number of index pairs in supportGraphEdges.
+	*/
+	physx::PxU32						supportGraphEdgeCount;
 };
 
 // NxDestructibleAssetCookingDesc inline functions
@@ -1101,6 +1116,8 @@ PX_INLINE void NxDestructibleAssetCookingDesc::setToDefault()
 	geometryDescCount = 0;
 	behaviorGroupDescs = 0;
 	behaviorGroupDescCount = 0;
+	supportGraphEdges = 0;
+	supportGraphEdgeCount = 0;
 }
 
 PX_INLINE bool NxDestructibleAssetCookingDesc::isValid() const
@@ -1168,6 +1185,7 @@ struct NxDestructibleAssetStats
 	physx::PxU32			maxHullVertexCount;
 	physx::PxU32			maxHullFaceCount;
 	physx::PxU32			chunkWithMaxEdgeCount;
+	physx::PxU32			runtimeCookedConvexCount;
 	NxRenderMeshAssetStats	renderMeshAssetStats;
 };
 
@@ -1181,61 +1199,68 @@ public:
 	/** Fracturing API */
 
 	/**
-		NxDestructibleAssetAuthoring contains an instantiation of IExplicitHierarchicalMesh.
-		This function gives access to it.  See IExplicitHierarchicalMesh for details, it is
+		NxDestructibleAssetAuthoring contains an instantiation of NxExplicitHierarchicalMesh.
+		This function gives access to it.  See NxExplicitHierarchicalMesh for details, it is
 		the object used by the fracturing tool set for mesh fracturing operations and is used
 		to generate the embedded NxApexRenderMesh as well as collision and hierarchy data
 		for the destructible asset.
 	*/
-	virtual IExplicitHierarchicalMesh&		getExplicitHierarchicalMesh() = 0;
+	virtual NxExplicitHierarchicalMesh&		getExplicitHierarchicalMesh() = 0;
 
 	/**
-		NxDestructibleAssetAuthoring contains a second instantiation of IExplicitHierarchicalMesh
-		used to describe the core mesh for slice fracturing (see FractureTools::FractureSliceDesc),
+		NxDestructibleAssetAuthoring contains a second instantiation of NxExplicitHierarchicalMesh
+		used to describe the core mesh for slice fracturing (see FractureTools::NxFractureSliceDesc),
 		done in createHierarchicallySplitMesh().  This function gives access to it.
 	*/
-	virtual IExplicitHierarchicalMesh&		getCoreExplicitHierarchicalMesh() = 0;
+	virtual NxExplicitHierarchicalMesh&		getCoreExplicitHierarchicalMesh() = 0;
 
 	/**
-		NxDestructibleAssetAuthoring contains an instantiation of ICutoutSet used to describe the
-		cutout fracturing shapes (see FractureTools::ICutoutSet), done in createChippedMesh().
+		NxDestructibleAssetAuthoring contains an instantiation of NxCutoutSet used to describe the
+		cutout fracturing shapes (see FractureTools::NxCutoutSet), done in createChippedMesh().
 		This function gives access to it.
 	*/
-	virtual FractureTools::ICutoutSet&		getCutoutSet() = 0;
+	virtual FractureTools::NxCutoutSet&		getCutoutSet() = 0;
 
 	/**
-	Partitions (and possibly re-orders) the mesh array if the triangles form disjoint islands.
-	mesh: pointer to array of NxExplicitRenderTriangles which make up the mesh
-	meshTriangleCount: the size of the meshTriangles array
-	meshPartition: user-allocated array for mesh partition, will be filled with the end elements of contiguous subsets of meshTriangles.
-	meshPartitionMaxCount: size of user-allocated meshPartitionArray
+		Partitions (and possibly re-orders) the mesh array if the triangles form disjoint islands.
 
-	Returns the number of partitions.  The value may be larger than meshPartitionMaxCount.  In that case, the partitions beyond meshPartitionMaxCount are not recorded.
+		\param mesh						pointer to array of NxExplicitRenderTriangles which make up the mesh
+		\param meshTriangleCount		the size of the meshTriangles array
+		\param meshPartition			user-allocated array for mesh partition, will be filled with the end elements of contiguous subsets of meshTriangles.
+		\param meshPartitionMaxCount	size of user-allocated meshPartitionArray
+		\param padding					relative value multiplied by the mesh bounding box. padding gets added to the triangle bounds when calculating triangle neighbors.
+
+		\return							Returns the number of partitions.  The value may be larger than meshPartitionMaxCount.  In that case, the partitions beyond meshPartitionMaxCount are not recorded.
 	*/
 	virtual physx::PxU32					partitionMeshByIslands
 	(
-	physx::NxExplicitRenderTriangle* mesh,
-	physx::PxU32 meshTriangleCount,
-	physx::PxU32* meshPartition,
-	physx::PxU32 meshPartitionMaxCount,
-	physx::PxF32 padding = 0.0001f
+		physx::NxExplicitRenderTriangle* mesh,
+		physx::PxU32 meshTriangleCount,
+	    physx::PxU32* meshPartition,
+	    physx::PxU32 meshPartitionMaxCount,
+		physx::PxF32 padding = 0.0001f
 	) = 0;
 
 	/**
-		Builds a new IExplicitHierarchicalMesh from an array of triangles, used as the starting
+		Builds a new NxExplicitHierarchicalMesh from an array of triangles, used as the starting
 		point for fracturing.  It will contain only one chunk, at depth 0.
 
-		meshTriangles: pointer to array of NxExplicitRenderTriangles which make up the mesh
-		meshTriangleCount: the size of the meshTriangles array
-		submeshData: pointer to array of NxExplicitSubmeshData, describing the submeshes
-		submeshCount: the size of the submeshData array
-		meshPartition: if not NULL, an array of size meshPartitionCount, giving the end elements of contiguous subsets of meshTriangles.
-			If meshPartition is NULL, one partition is assumed.
-			When there is one partition, these triangles become the level 0 part.
-			When there is more than one partition, the behavior is determined by firstPartitionIsDepthZero (see below).
-		meshPartitionCount: if meshPartition is not NULL, this is the size of the meshPartition array.
-		firstPartitionIsDepthZero: if a meshPartition is given and there is more than one part, then if firstPartitionIsDepthZero = true, the first partition is the depth 0 chunk.
-			Otherwise, all parts created from the input partition will be depth 1, and the depth 0 chunk will be created from the union of the depth 1 chunks.
+		\param meshTriangles		pointer to array of NxExplicitRenderTriangles which make up the mesh
+		\param meshTriangleCount	the size of the meshTriangles array
+		\param submeshData			pointer to array of NxExplicitSubmeshData, describing the submeshes
+		\param submeshCount			the size of the submeshData array
+		\param meshPartition		if not NULL, an array of size meshPartitionCount, giving the end elements of contiguous subsets of meshTriangles.
+										If meshPartition is NULL, one partition is assumed.
+										When there is one partition, these triangles become the level 0 part.
+										When there is more than one partition, the behavior is determined by firstPartitionIsDepthZero (see below).
+		\param meshPartitionCount	if meshPartition is not NULL, this is the size of the meshPartition array.
+		\param parentIndices		if not NULL, the parent indices for each chunk (corresponding to a partition in the mesh partition).
+		\param parentIndexCount		the size of the parentIndices array.  This does not need to match meshPartitionCount.  If a mesh partition has an index beyond the end of parentIndices,
+										then the parentIndex is considered to be 0.  Therefore, if parentIndexCount = 0, all parents are 0 and so all chunks created will be depth 1.  This will cause a
+										depth 0 chunk to be created that is the aggregate of the depth 1 chunks.  If parentIndexCount > 0, then the depth-0 chunk must have a parentIndex of -1.
+										To reproduce the effect of the old parameter 'firstPartitionIsDepthZero' = true, set parentIndices to the address of a PxI32 containing the value -1, and set parentIndexCount = 1.
+										To reproduce the effect of the old parameter 'firstPartitionIsDepthZero' = false, set parentIndexCount = 0.
+										Note: if parent indices are given, the first one must be -1, and *only* that index may be negative.  That is, there may be only one depth-0 mesh and it must be the first mesh.
 	*/
 	virtual bool							setRootMesh
 	(
@@ -1245,37 +1270,40 @@ public:
 	    physx::PxU32 submeshCount,
 	    physx::PxU32* meshPartition = NULL,
 	    physx::PxU32 meshPartitionCount = 0,
-		bool firstPartitionIsDepthZero = false
+		physx::PxI32* parentIndices = NULL,
+		physx::PxU32 parentIndexCount = 0
 	) = 0;
 
 	/** 
-		Builds the root IExplicitHierarchicalMesh from an NxRenderMeshAsset.
+		Builds the root NxExplicitHierarchicalMesh from an NxRenderMeshAsset.
 		Since an NxDestructibleAsset contains no hierarchy information, the input mesh must have only one part.
 
-		renderMeshAsset: the asset to import
-		maxRootDepth: cap the root depth at this value.  Re-fracturing of the mesh will occur at this depth.  Default = PX_MAX_U32
+		\param renderMeshAsset		the asset to import
+		\param maxRootDepth			cap the root depth at this value.  Re-fracturing of the mesh will occur at this depth.  Default = PX_MAX_U32
 	*/
 	virtual bool							importRenderMeshAssetToRootMesh(const physx::NxRenderMeshAsset& renderMeshAsset, physx::PxU32 maxRootDepth = PX_MAX_U32) = 0;
 
 	/** 
-		Builds the root IExplicitHierarchicalMesh from an NxDestructibleAsset.
+		Builds the root NxExplicitHierarchicalMesh from an NxDestructibleAsset.
 		Since an NxDestructibleAsset contains hierarchy information, the explicit mesh formed
 		will have this hierarchy structure.
 
-		destructibleAsset: the asset to import
-		maxRootDepth: cap the root depth at this value.  Re-fracturing of the mesh will occur at this depth.  Default = PX_MAX_U32
+		\param destructibleAsset	the asset to import
+		\param maxRootDepth			cap the root depth at this value.  Re-fracturing of the mesh will occur at this depth.  Default = PX_MAX_U32
 	*/
 	virtual bool							importDestructibleAssetToRootMesh(const physx::NxDestructibleAsset& destructibleAsset, physx::PxU32 maxRootDepth = PX_MAX_U32) = 0;
 
 	/**
-		Builds a new IExplicitHierarchicalMesh from an array of triangles, used as the core mesh
-		for slice fracture operations (see FractureTools::FractureSliceDesc, passed into
+		Builds a new NxExplicitHierarchicalMesh from an array of triangles, used as the core mesh
+		for slice fracture operations (see FractureTools::NxFractureSliceDesc, passed into
 		createHierarchicallySplitMesh).
 
-		mesh: pointer to array of NxExplicitRenderTriangles which make up the mesh
-		meshTriangleCount the size of the meshTriangles array
-		submeshData: pointer to array of NxExplicitSubmeshData, describing the submeshes
-		submeshCount: the size of the submeshData array
+		\param mesh					pointer to array of NxExplicitRenderTriangles which make up the mesh
+		\param meshTriangleCount	the size of the meshTriangles array
+		\param submeshData			pointer to array of NxExplicitSubmeshData, describing the submeshes
+		\param submeshCount			the size of the submeshData array
+		\param meshPartition		meshPartition array
+		\param meshPartitionCount	meshPartition array size
 	*/
 	virtual bool							setCoreMesh
 	(
@@ -1288,54 +1316,61 @@ public:
 	) = 0;
 
 	/**
-		Builds a new IExplicitHierarchicalMesh from an array of triangles, externally provided by the user.
+		Builds a new NxExplicitHierarchicalMesh from an array of triangles, externally provided by the user.
 		Note: setRootMesh and setCoreMesh may be implemented as follows:
 			setRootMesh(x) <-> buildExplicitHierarchicalMesh( getExplicitHierarchicalMesh(), x)
 			setCoreMesh(x) <-> buildExplicitHierarchicalMesh( getCoreExplicitHierarchicalMesh(), x)
 
-		meshTriangles: pointer to array of NxExplicitRenderTriangles which make up the mesh
-		meshTriangleCount the size of the meshTriangles array
-		submeshData: pointer to array of NxExplicitSubmeshData, describing the submeshes
-		submeshCount: the size of the submeshData array
-		meshPartition: if not NULL, an array of size meshPartitionCount, giving the end elements of contiguous subsets of meshTriangles.
-		If meshPartition is NULL, one partition is assumed.
-		When there is one partition, these triangles become the level 0 part.
-		When there is more than one partition, these triangles become level 1 parts, while the union of the parts will be the level 0 part.
-		meshPartitionCount: if meshPartition is not NULL, this is the size of the meshPartition array.
-		firstPartitionIsDepthZero: if a meshPartition is given and there is more than one part, then if firstPartitionIsDepthZero = true, the first partition is the depth 0 chunk.
-			Otherwise, all parts created from the input partition will be depth 1, and the depth 0 chunk will be created from the union of the depth 1 chunks.
+		\param hMesh				new NxExplicitHierarchicalMesh
+		\param meshTriangles		pointer to array of NxExplicitRenderTriangles which make up the mesh
+		\param meshTriangleCount	the size of the meshTriangles array
+		\param submeshData			pointer to array of NxExplicitSubmeshData, describing the submeshes
+		\param submeshCount			the size of the submeshData array
+		\param meshPartition		if not NULL, an array of size meshPartitionCount, giving the end elements of contiguous subsets of meshTriangles.
+										If meshPartition is NULL, one partition is assumed.
+										When there is one partition, these triangles become the level 0 part.
+										When there is more than one partition, these triangles become level 1 parts, while the union of the parts will be the level 0 part.
+		\param meshPartitionCount	if meshPartition is not NULL, this is the size of the meshPartition array.
+		\param parentIndices		if not NULL, the parent indices for each chunk (corresponding to a partition in the mesh partition).
+		\param parentIndexCount		the size of the parentIndices array.  This does not need to match meshPartitionCount.  If a mesh partition has an index beyond the end of parentIndices,
+										then the parentIndex is considered to be 0.  Therefore, if parentIndexCount = 0, all parents are 0 and so all chunks created will be depth 1.  This will cause a
+										depth 0 chunk to be created that is the aggregate of the depth 1 chunks.  If parentIndexCount > 0, then the depth-0 chunk must have a parentIndex of -1.
+										To reproduce the effect of the old parameter 'firstPartitionIsDepthZero' = true, set parentIndices to the address of a PxI32 containing the value -1, and set parentIndexCount = 1.
+										To reproduce the effect of the old parameter 'firstPartitionIsDepthZero' = false, set parentIndexCount = 0.
+										Note: if parent indices are given, the first one must be -1, and *only* that index may be negative.  That is, there may be only one depth-0 mesh and it must be the first mesh.
 	*/
 	virtual bool						buildExplicitHierarchicalMesh
 	(
-		IExplicitHierarchicalMesh& hMesh,
+		NxExplicitHierarchicalMesh& hMesh,
 		const NxExplicitRenderTriangle* meshTriangles,
 		physx::PxU32 meshTriangleCount,
 		const NxExplicitSubmeshData* submeshData,
 		physx::PxU32 submeshCount,
 		physx::PxU32* meshPartition = NULL,
 		physx::PxU32 meshPartitionCount = 0,
-		bool firstPartitionIsDepthZero = false
+		physx::PxI32* parentIndices = NULL,
+		physx::PxU32 parentIndexCount = 0
 	) = 0;
 
 	/**
 		Splits the chunk in chunk[0], forming a hierarchy of fractured chunks in chunks[1...] using
 		slice-mode fracturing.
 
-		meshProcessingParams: describes generic mesh processing directives
-		desc: describes the slicing surfaces (see FractureSliceDesc)
-		collisionDesc: convex hulls will be generated for each chunk using the method  See NxCollisionDesc.
-		exportCoreMesh: if true, the core mesh will be included (at depth 1) in the hierarchically split mesh.  Otherwise, it will only be used to create a hollow space.
-		coreMeshImprintSubmeshIndex: if this is < 0, use the core mesh materials (was applyCoreMeshMaterialToNeighborChunks).  Otherwise, use the given submesh
-		randomSeed: seed for the random number generator, to ensure reproducibility.
-		progressListener: The user must instantiate an IProgressListener, so that this function may report progress of this operation
-		cancel: if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
+		\param meshProcessingParams			describes generic mesh processing directives
+		\param desc							describes the slicing surfaces (see NxFractureSliceDesc)
+		\param collisionDesc				convex hulls will be generated for each chunk using the method  See NxCollisionDesc.
+		\param exportCoreMesh				if true, the core mesh will be included (at depth 1) in the hierarchically split mesh.  Otherwise, it will only be used to create a hollow space.
+		\param coreMeshImprintSubmeshIndex	if this is < 0, use the core mesh materials (was applyCoreMeshMaterialToNeighborChunks).  Otherwise, use the given submesh
+		\param randomSeed					seed for the random number generator, to ensure reproducibility.
+		\param progressListener				The user must instantiate an IProgressListener, so that this function may report progress of this operation
+		\param cancel						if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
 
-		returns true if successful.
+		\return returns true if successful.
 	*/
 	virtual bool							createHierarchicallySplitMesh
 	(
-	    const FractureTools::MeshProcessingParameters& meshProcessingParams,
-	    const FractureTools::FractureSliceDesc& desc,
+	    const FractureTools::NxMeshProcessingParameters& meshProcessingParams,
+	    const FractureTools::NxFractureSliceDesc& desc,
 	    const physx::NxCollisionDesc& collisionDesc,
 	    bool exportCoreMesh,
 		physx::PxI32 coreMeshImprintSubmeshIndex,
@@ -1348,25 +1383,25 @@ public:
 		Splits the mesh in chunk[0], forming a hierarchy of fractured meshes in chunks[1...] using
 		cutout-mode (chippable) fracturing.
 
-		meshProcessingParams: describes generic mesh processing directives
-		desc: describes the slicing surfaces (see FractureCutoutDesc)
-		cutoutSet: the cutout set to use for fracturing (see ICutoutSet)
-		sliceDesc: used if desc.chunkFracturingMethod = SliceFractureCutoutChunks
-		voronoiDesc: used if desc.chunkFracturingMethod = VoronoiFractureCutoutChunks
-		collisionDesc: convex hulls will be generated for each chunk using the method  See NxCollisionDesc.
-		randomSeed: seed for the random number generator, to ensure reproducibility.
-		progressListener: The user must instantiate an IProgressListener, so that this function may report progress of this operation
-		cancel: if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
+		\param meshProcessingParams		describes generic mesh processing directives
+		\param desc						describes the slicing surfaces (see NxFractureCutoutDesc)
+		\param cutoutSet				the cutout set to use for fracturing (see NxCutoutSet)
+		\param sliceDesc				used if desc.chunkFracturingMethod = SliceFractureCutoutChunks
+		\param voronoiDesc				used if desc.chunkFracturingMethod = VoronoiFractureCutoutChunks
+		\param collisionDesc			convex hulls will be generated for each chunk using the method  See NxCollisionDesc.
+		\param randomSeed				seed for the random number generator, to ensure reproducibility.
+		\param progressListener			The user must instantiate an IProgressListener, so that this function may report progress of this operation
+		\param cancel					if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
 
-		returns true if successful.
+		\return							returns true if successful.
 	*/
 	virtual bool							createChippedMesh
 	(
-	    const FractureTools::MeshProcessingParameters& meshProcessingParams,
-	    const FractureTools::FractureCutoutDesc& desc,
-	    const FractureTools::ICutoutSet& cutoutSet,
-	    const FractureTools::FractureSliceDesc& sliceDesc,
-		const FractureTools::FractureVoronoiDesc& voronoiDesc,
+	    const FractureTools::NxMeshProcessingParameters& meshProcessingParams,
+	    const FractureTools::NxFractureCutoutDesc& desc,
+	    const FractureTools::NxCutoutSet& cutoutSet,
+	    const FractureTools::NxFractureSliceDesc& sliceDesc,
+		const FractureTools::NxFractureVoronoiDesc& voronoiDesc,
 	    const physx::NxCollisionDesc& collisionDesc,
 	    physx::PxU32 randomSeed,
 	    IProgressListener& progressListener,
@@ -1376,11 +1411,11 @@ public:
 	/**
 		Builds an internal cutout set.
 
-		pixelBuffer: pointer to be beginning of the pixel buffer
-		bufferWidth: the width of the buffer in pixels
-		bufferHeight: the height of the buffer in pixels
-		snapThreshold: the pixel distance at which neighboring cutout vertices and segments may be fudged into alignment.
-		periodic: whether or not to use periodic boundary conditions when creating cutouts from the map
+		\param pixelBuffer		pointer to be beginning of the pixel buffer
+		\param bufferWidth		the width of the buffer in pixels
+		\param bufferHeight		the height of the buffer in pixels
+		\param snapThreshold	the pixel distance at which neighboring cutout vertices and segments may be fudged into alignment.
+		\param periodic			whether or not to use periodic boundary conditions when creating cutouts from the map
 	*/
 	virtual void							buildCutoutSet
 	(
@@ -1396,8 +1431,8 @@ public:
 		The result is a 3 by 3 matrix M composed by an affine transformation and a rotation, we can get the 3-D projection for a texture coordinate pair (u,v) with such a formula:
 		(x,y,z) = M*PxVec3(u,v,1)
 
-		mapping: resulted mapping, composed by an affine transformation and a rotation
-		targetDirection: the target face's normal
+		\param mapping				resulted mapping, composed by an affine transformation and a rotation
+		\param triangle				triangle
 	**/
 	virtual bool							calculateCutoutUVMapping
 	(
@@ -1413,8 +1448,8 @@ public:
 
 		The assumption is that there exists a single mapping for all triangles on a specified face, for this feature to be useful. 
 
-		mapping: resulted mapping, composed by an affine transformation and a rotation
-		targetDirection: the target face's normal
+		\param mapping	resulted mapping, composed by an affine transformation and a rotation
+		\param			targetDirection: the target face's normal
 	**/
 	virtual bool							calculateCutoutUVMapping
 	(
@@ -1426,21 +1461,21 @@ public:
 		Splits the mesh in chunk[0], forming fractured pieces chunks[1...] using
 		Voronoi decomposition fracturing.
 
-		meshProcessingParams: describes generic mesh processing directives
-		desc: describes the voronoi splitting parameters surfaces (see FractureVoronoiDesc)
-		collisionDesc: convex hulls will be generated for each chunk using the method  See NxCollisionDesc.
-		exportCoreMesh: if true, the core mesh will be included (at depth 1) in the split mesh.  Otherwise, it will only be used to create a hollow space.
-		coreMeshImprintSubmeshIndex: if this is < 0, use the core mesh materials (was applyCoreMeshMaterialToNeighborChunks).  Otherwise, use the given submesh
-		randomSeed: seed for the random number generator, to ensure reproducibility.
-		progressListener: The user must instantiate an IProgressListener, so that this function may report progress of this operation
-		cancel: if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
+		\param meshProcessingParams			describes generic mesh processing directives
+		\param desc							describes the voronoi splitting parameters surfaces (see NxFractureVoronoiDesc)
+		\param collisionDesc				convex hulls will be generated for each chunk using the method  See NxCollisionDesc.
+		\param exportCoreMesh				if true, the core mesh will be included (at depth 1) in the split mesh.  Otherwise, it will only be used to create a hollow space.
+		\param coreMeshImprintSubmeshIndex	if this is < 0, use the core mesh materials (was applyCoreMeshMaterialToNeighborChunks).  Otherwise, use the given submesh
+		\param randomSeed					seed for the random number generator, to ensure reproducibility.
+		\param progressListener				The user must instantiate an IProgressListener, so that this function may report progress of this operation
+		\param cancel						if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
 
-		returns true if successful.
+		\return								returns true if successful.
 	*/
 	virtual bool							createVoronoiSplitMesh
 	(
-		const FractureTools::MeshProcessingParameters& meshProcessingParams,
-		const FractureTools::FractureVoronoiDesc& desc,
+		const FractureTools::NxMeshProcessingParameters& meshProcessingParams,
+		const FractureTools::NxFractureVoronoiDesc& desc,
 		const physx::NxCollisionDesc& collisionDesc,
 		bool exportCoreMesh,
 		physx::PxI32 coreMeshImprintSubmeshIndex,
@@ -1452,17 +1487,25 @@ public:
 	/**
 		Generates a set of uniformly distributed points in the interior of the root mesh.
 
-		siteBuffer: an array of PxVec3, at least the size of siteCount
-		siteCount: the number of points to write into siteBuffer
-		randomSeed: pointer to a seed for the random number generator, to ensure reproducibility.  If NULL, the random number generator will not be re-seeded.
-		microgridSize: pointer to a grid size used for BSP creation.  If NULL, the default settings will be used.
-		progressListener: The user must instantiate an IProgressListener, so that this function may report progress of this operation
-		chunkIndex: If this is a valid index, the voronoi sites will only be created within the volume of the indexed chunk.  Otherwise,
-			the sites will be created within each of the root-level chunks.  Default value is an invalid index.
-	*/
-	virtual void							createVoronoiSitesInsideMesh
+		\param siteBuffer			An array of PxVec3, at least the size of siteCount.
+		\param siteChunkIndices		If not NULL, it must be at least the size of siteCount.
+										siteCount indices will be written to this buffer,
+										associating each site with a chunk that contains it.
+		\param siteCount			The number of points to write into siteBuffer.
+		\param randomSeed			Pointer to a seed for the random number generator, to ensure reproducibility.
+										If NULL, the random number generator will not be re-seeded.
+		\param microgridSize		Pointer to a grid size used for BSP creation. If NULL, the default settings will be used.
+		\param progressListener		The user must instantiate an IProgressListener, so that this function may report progress of this operation
+		\param chunkIndex			If this is a valid index, the voronoi sites will only be created within the volume of the indexed chunk.  Otherwise,
+										the sites will be created within each of the root-level chunks.  Default value is an invalid index.
+
+		\return						Returns the number of sites actually created (written to siteBuffer and siteChunkIndices).
+		This may be less than the number of sites requested if site placement fails.
+		*/
+	virtual physx::PxU32					createVoronoiSitesInsideMesh
 	(
 		physx::PxVec3* siteBuffer,
+		physx::PxU32* siteChunkIndices,
 		physx::PxU32 siteCount,
 		physx::PxU32* randomSeed,
 		physx::PxU32* microgridSize,
@@ -1473,24 +1516,24 @@ public:
 	/**
 		Creates scatter mesh sites randomly distributed on the mesh.
 
-		meshIndices: user-allocated array of size scatterMeshInstancesBufferSize which will be filled in by this function, giving the scatter mesh index used
-		relativeTransforms: user-allocated array of size scatterMeshInstancesBufferSize which will be filled in by this function, giving the chunk-relative transform for each chunk instance
-		chunkMeshStarts: user-allocated array which will be filled in with offsets into the meshIndices and relativeTransforms array.
-			For a chunk indexed by i, the corresponding range [chunkMeshStart[i], chunkMeshStart[i+1]-1] in meshIndices and relativeTransforms is used.
-			*NOTE*: chunkMeshStart array must be of at least size N+1, where N is the number of chunks in the base explicit hierarchical mesh.
-		scatterMeshInstancesBufferSize: the size of meshIndices and relativeTransforms array.
-		targetChunkCount: how many chunks are in the array targetChunkIndices
-		targetChunkIndices: an array of chunk indices which are candidates for scatter meshes.  The elements in the array chunkIndices will come from this array
-		randomSeed: pointer to a seed for the random number generator, to ensure reproducibility.  If NULL, the random number generator will not be re-seeded.
-		scatterMeshAssetCount: the number of different scatter meshes (not instances).  Should not exceed 255.  If scatterMeshAssetCount > 255, only the first 255 will be used.
-		scatterMeshAssets: an array of size scatterMeshAssetCount, of the render mesh assets which will be used for the scatter meshes
-		minCount: an array of size scatterMeshAssetCount, giving the minimum number of instances to place for each mesh
-		maxCount: an array of size scatterMeshAssetCount, giving the maximum number of instances to place for each mesh
-		minScales: an array of size scatterMeshAssetCount, giving the minimum scale to apply to each scatter mesh
-		maxScales: an array of size scatterMeshAssetCount, giving the maximum scale to apply to each scatter mesh
-		maxAngles: an array of size scatterMeshAssetCount, giving a maximum deviation angle (in degrees) from the surface normal to apply to each scatter mesh
+		\param meshIndices							user-allocated array of size scatterMeshInstancesBufferSize which will be filled in by this function, giving the scatter mesh index used
+		\param relativeTransforms					user-allocated array of size scatterMeshInstancesBufferSize which will be filled in by this function, giving the chunk-relative transform for each chunk instance
+		\param chunkMeshStarts						user-allocated array which will be filled in with offsets into the meshIndices and relativeTransforms array.
+														For a chunk indexed by i, the corresponding range [chunkMeshStart[i], chunkMeshStart[i+1]-1] in meshIndices and relativeTransforms is used.
+														*NOTE*: chunkMeshStart array must be of at least size N+1, where N is the number of chunks in the base explicit hierarchical mesh.
+		\param scatterMeshInstancesBufferSize		the size of meshIndices and relativeTransforms array.
+		\param targetChunkCount						how many chunks are in the array targetChunkIndices
+		\param targetChunkIndices					an array of chunk indices which are candidates for scatter meshes.  The elements in the array chunkIndices will come from this array
+		\param randomSeed							pointer to a seed for the random number generator, to ensure reproducibility.  If NULL, the random number generator will not be re-seeded.
+		\param scatterMeshAssetCount				the number of different scatter meshes (not instances).  Should not exceed 255.  If scatterMeshAssetCount > 255, only the first 255 will be used.
+		\param scatterMeshAssets					an array of size scatterMeshAssetCount, of the render mesh assets which will be used for the scatter meshes
+		\param minCount								an array of size scatterMeshAssetCount, giving the minimum number of instances to place for each mesh
+		\param maxCount								an array of size scatterMeshAssetCount, giving the maximum number of instances to place for each mesh
+		\param minScales							an array of size scatterMeshAssetCount, giving the minimum scale to apply to each scatter mesh
+		\param maxScales							an array of size scatterMeshAssetCount, giving the maximum scale to apply to each scatter mesh
+		\param maxAngles							an array of size scatterMeshAssetCount, giving a maximum deviation angle (in degrees) from the surface normal to apply to each scatter mesh
 
-		return value: the number of instances placed in indices and relativeTransforms (will not exceed scatterMeshInstancesBufferSize)
+		\return										return value: the number of instances placed in indices and relativeTransforms (will not exceed scatterMeshInstancesBufferSize)
 	*/
 	virtual physx::PxU32					createScatterMeshSites
 	(
@@ -1513,15 +1556,15 @@ public:
 	/**
 		Utility to visualize Voronoi cells for a given set of sites.
 
-		debugRender: rendering object which will receive the drawing primitives associated with this cell visualization
-		sites: an array of Voronoi cell sites, of length siteCount
-		siteCount: the number of Voronoi cell sites (length of sites array)
-		cellColors: an optional array of colors (see NxApexRenderDebug for format) for the cells.  If NULL, the white (0xFFFFFFFF) color will be used.
-			If not NULL, this (of length cellColorCount) is used to color the cell graphics.  The number cellColorCount need not match siteCount.  If
-			cellColorCount is less than siteCount, the cell colors will cycle.  That is, site N gets cellColor[N%cellColorCount].
-		cellColorCount: the number of cell colors (the length of cellColors array)
-		bounds: defines an axis-aligned bounding box which clips the visualization, since some cells extend to infinity
-		cellIndex: if this is a valid index (cellIndex < siteCount), then only the cell corresponding to sites[cellIndex] will be drawn.  Otherwise, all cells will be drawn.
+		\param debugRender			rendering object which will receive the drawing primitives associated with this cell visualization
+		\param sites				an array of Voronoi cell sites, of length siteCount
+		\param siteCount			the number of Voronoi cell sites (length of sites array)
+		\param cellColors			an optional array of colors (see NxApexRenderDebug for format) for the cells.  If NULL, the white (0xFFFFFFFF) color will be used.
+										If not NULL, this (of length cellColorCount) is used to color the cell graphics.  The number cellColorCount need not match siteCount.  If
+										cellColorCount is less than siteCount, the cell colors will cycle.  That is, site N gets cellColor[N%cellColorCount].
+		\param cellColorCount		the number of cell colors (the length of cellColors array)
+		\param bounds				defines an axis-aligned bounding box which clips the visualization, since some cells extend to infinity
+		\param cellIndex			if this is a valid index (cellIndex < siteCount), then only the cell corresponding to sites[cellIndex] will be drawn.  Otherwise, all cells will be drawn.
 	*/
 	virtual void							visualizeVoronoiCells
 	(
@@ -1538,21 +1581,21 @@ public:
 		Splits the chunk in chunk[chunkIndex], forming a hierarchy of fractured chunks using
 		slice-mode fracturing.  The chunks will be rearranged so that they are in breadth-first order.
 
-		chunkIndex: index of chunk to be split
-		meshProcessingParams: describes generic mesh processing directives
-		desc: describes the slicing surfaces (see FractureSliceDesc)
-		collisionDesc: convex hulls will be generated for each chunk using the method.  See NxCollisionDesc.
-		randomSeed: pointer to a seed for the random number generator, to ensure reproducibility.  If NULL, the random number generator will not be re-seeded.
-		progressListener: The user must instantiate an IProgressListener, so that this function may report progress of this operation
-		cancel: if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
+		\param chunkIndex				index of chunk to be split
+		\param meshProcessingParams		describes generic mesh processing directives
+		\param desc						describes the slicing surfaces (see NxFractureSliceDesc)
+		\param collisionDesc			convex hulls will be generated for each chunk using the method.  See NxCollisionDesc.
+		\param randomSeed				pointer to a seed for the random number generator, to ensure reproducibility.  If NULL, the random number generator will not be re-seeded.
+		\param progressListener			The user must instantiate an IProgressListener, so that this function may report progress of this operation
+		\param cancel					if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
 
-		returns true if successful.
+		\return							returns true if successful.
 	*/
 	virtual bool							hierarchicallySplitChunk
 	(
 		physx::PxU32 chunkIndex,
-	    const FractureTools::MeshProcessingParameters& meshProcessingParams,
-	    const FractureTools::FractureSliceDesc& desc,
+	    const FractureTools::NxMeshProcessingParameters& meshProcessingParams,
+	    const FractureTools::NxFractureSliceDesc& desc,
 	    const physx::NxCollisionDesc& collisionDesc,
 	    physx::PxU32* randomSeed,
 	    IProgressListener& progressListener,
@@ -1563,21 +1606,21 @@ public:
 		Splits the chunk in chunk[chunkIndex], forming fractured chunks using
 		Voronoi decomposition fracturing.  The chunks will be rearranged so that they are in breadth-first order.
 
-		chunkIndex: index of chunk to be split
-		meshProcessingParams: describes generic mesh processing directives
-		desc: describes the voronoi splitting parameters surfaces (see FractureVoronoiDesc)
-		collisionDesc: convex hulls will be generated for each chunk using the method.  See NxCollisionDesc.
-		randomSeed: pointer to a seed for the random number generator, to ensure reproducibility.  If NULL, the random number generator will not be re-seeded.
-		progressListener: The user must instantiate an IProgressListener, so that this function may report progress of this operation
-		cancel: if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
+		\param chunkIndex				index of chunk to be split
+		\param meshProcessingParams		describes generic mesh processing directives
+		\param desc						describes the voronoi splitting parameters surfaces (see NxFractureVoronoiDesc)
+		\param collisionDesc			convex hulls will be generated for each chunk using the method.  See NxCollisionDesc.
+		\param randomSeed				pointer to a seed for the random number generator, to ensure reproducibility.  If NULL, the random number generator will not be re-seeded.
+		\param progressListener			The user must instantiate an IProgressListener, so that this function may report progress of this operation
+		\param cancel					if not NULL and *cancel is set to true, the root mesh will be restored to its original state, and the function will return at its earliest opportunity.  Meant to be set from another thread.
 
-		returns true if successful.
+		\return returns true if successful.
 	*/
 	virtual bool							voronoiSplitChunk
 	(
 		physx::PxU32 chunkIndex,
-	    const FractureTools::MeshProcessingParameters& meshProcessingParams,
-	    const FractureTools::FractureVoronoiDesc& desc,
+	    const FractureTools::NxMeshProcessingParameters& meshProcessingParams,
+	    const FractureTools::NxFractureVoronoiDesc& desc,
 		const physx::NxCollisionDesc& collisionDesc,
 	    physx::PxU32* randomSeed,
 	    IProgressListener& progressListener,
@@ -1587,11 +1630,11 @@ public:
 	/**
 		Set the tolerances used in CSG calculations.
 
-		linearTolerance: relative (to mesh size) tolerance used with angularTolerance to determine coplanarity.  Default = 1.0e-4.
-		angularTolerance: used with linearTolerance to determine coplanarity.  Default = 1.0e-3
-		baseTolerance: relative (to mesh size) tolerance used for spatial partitioning
-		clipTolerance: relative (to mesh size) tolerance used when clipping triangles for CSG mesh building operations.  Default = 1.0e-4.
-		cleaningTolerance: relative (to mesh size) tolerance used when cleaning the out put mesh generated from the toMesh() function.  Default = 1.0e-7.
+		\param linearTolerance		relative (to mesh size) tolerance used with angularTolerance to determine coplanarity.  Default = 1.0e-4.
+		\param angularTolerance		used with linearTolerance to determine coplanarity.  Default = 1.0e-3
+		\param baseTolerance		relative (to mesh size) tolerance used for spatial partitioning
+		\param clipTolerance		relative (to mesh size) tolerance used when clipping triangles for CSG mesh building operations.  Default = 1.0e-4.
+		\param cleaningTolerance	relative (to mesh size) tolerance used when cleaning the out put mesh generated from the toMesh() function.  Default = 1.0e-7.
 	*/
 	virtual void							setBSPTolerances
 	(
@@ -1605,20 +1648,20 @@ public:
 	/**
 		Set the parameters used in BSP building operations.
 
-		logAreaSigmaThreshold:	At each step in the tree building process, the surface with maximum triangle area is compared
-			to the other surface triangle areas.  If the maximum area surface is far from the "typical" set of
-			surface areas, then that surface is chosen as the next splitting plane.  Otherwise, a random
-			test set is chosen and a winner determined based upon the weightings below.
-			The value logAreaSigmaThreshold determines how "atypical" the maximum area surface must be to
-			be chosen in this manner.
-			Default value = 2.0.
-		testSetSize: Larger values of testSetSize may find better BSP trees, but will take more time to create.
-			testSetSize = 0 is treated as infinity (all surfaces will be tested for each branch).
-			Default value = 10.
-		splitWeight: How much to weigh the relative number of triangle splits when searching for a BSP surface.
-			Default value = 0.5.
-		imbalanceWeight: How much to weigh the relative triangle imbalance when searching for a BSP surface.
-			Default value = 0.0.
+		\param logAreaSigmaThreshold	At each step in the tree building process, the surface with maximum triangle area is compared
+											to the other surface triangle areas.  If the maximum area surface is far from the "typical" set of
+											surface areas, then that surface is chosen as the next splitting plane.  Otherwise, a random
+											test set is chosen and a winner determined based upon the weightings below.
+											The value logAreaSigmaThreshold determines how "atypical" the maximum area surface must be to
+											be chosen in this manner.
+											Default value = 2.0.
+		\param testSetSize				Larger values of testSetSize may find better BSP trees, but will take more time to create.
+											testSetSize = 0 is treated as infinity (all surfaces will be tested for each branch).
+											Default value = 10.
+		\param splitWeight				How much to weigh the relative number of triangle splits when searching for a BSP surface.
+											Default value = 0.5.
+		\param imbalanceWeight			How much to weigh the relative triangle imbalance when searching for a BSP surface.
+											Default value = 0.0.
 	*/
 	virtual void	setBSPBuildParameters
 	(
@@ -1630,36 +1673,34 @@ public:
 
 
 	/**
-		Instantiates an IExplicitHierarchicalMesh::IConvexHull
+		Instantiates an NxExplicitHierarchicalMesh::NxConvexHull
 
-		See the IConvexHull API for its functionality.  Can be used to author chunk hulls in the
+		See the NxConvexHull API for its functionality.  Can be used to author chunk hulls in the
 		cookChunks function.
 
-		Use IConvexHull::release() to delete the object.
+		Use NxConvexHull::release() to delete the object.
 	*/
-	virtual IExplicitHierarchicalMesh::IConvexHull*	createExplicitHierarchicalMeshConvexHull() = 0;
+	virtual NxExplicitHierarchicalMesh::NxConvexHull*	createExplicitHierarchicalMeshConvexHull() = 0;
 
 	/**
 		Builds a mesh used for slice fracturing, given the noise parameters and random seed.  This function is mostly intended
 		for visualization - to give the user a "typical" slice surface used for fracturing.
 
-		Returns the head of an array of NxExplicitRenderTriangles, of length given by the return value.
+		\return Returns the head of an array of NxExplicitRenderTriangles, of length given by the return value.
 	*/
-	virtual physx::PxU32					buildSliceMesh(const NxExplicitRenderTriangle*& mesh, const FractureTools::NoiseParameters& noiseParameters, const physx::PxPlane& slicePlane, physx::PxU32 randomSeed) = 0;
+	virtual physx::PxU32					buildSliceMesh(const NxExplicitRenderTriangle*& mesh, const FractureTools::NxNoiseParameters& noiseParameters, const physx::PxPlane& slicePlane, physx::PxU32 randomSeed) = 0;
 
 	/**
 		Serialization/deserialization of the data associated with the fracture API.  This includes
 		the root mesh, core mesh, and cutout set.
 	*/
-	virtual void							serializeFractureToolState(physx::general_PxIOStream2::PxFileBuf& stream, physx::IExplicitHierarchicalMesh::IEmbedding& embedding) const = 0;
-	virtual	void							deserializeFractureToolState(physx::general_PxIOStream2::PxFileBuf& stream, physx::IExplicitHierarchicalMesh::IEmbedding& embedding) = 0;
+	virtual void							serializeFractureToolState(physx::general_PxIOStream2::PxFileBuf& stream, physx::NxExplicitHierarchicalMesh::NxEmbedding& embedding) const = 0;
+	virtual	void							deserializeFractureToolState(physx::general_PxIOStream2::PxFileBuf& stream, physx::NxExplicitHierarchicalMesh::NxEmbedding& embedding) = 0;
 
 	/**
-		If 'enabled' is true, then the depth value is passed directly to cacheChunkOverlapsUpToDepth.  (See
-		NxDestructibleAsset::cacheChunkOverlapsUpToDepth).  If 'enabled' is false, cacheChunkOverlapsUpToDepth will
-		not be called.
+		Set current depth for chunk overlaps calculations.
 	*/
-	virtual void							setChunkOverlapsCacheDepth(bool enabled, physx::PxI32 depth = -1) = 0;
+	virtual void							setChunkOverlapsCacheDepth(physx::PxI32 depth = -1) = 0;
 
 	/**
 		Gets the NxRenderMeshAsset associated with this asset.
@@ -1670,7 +1711,8 @@ public:
 		Set the NxRenderMeshAsset associated with this asset.
 		This is the asset used for non-instanced rendering.
 		NULL is a valid argument, and can be used to clear the internal mesh data.
-		Returns true if successful.
+
+		\return Returns true if successful.
 	*/
 	virtual bool							setRenderMeshAsset(NxRenderMeshAsset*) = 0;
 
@@ -1678,7 +1720,8 @@ public:
 		Set the NxRenderMeshAssets used for scatter mesh rendering associated with this asset.
 		These assets will be rendered using instanced rendering.
 		The array cannot contain NULL elements, if an array size greater than zero is specified.
-		Returns true if successful.
+		
+		\return Returns true if successful.
 	*/
 	virtual bool							setScatterMeshAssets(NxRenderMeshAsset** scatterMeshAssetArray, physx::PxU32 scatterMeshAssetArraySize) = 0;
 
@@ -1686,12 +1729,12 @@ public:
 	virtual physx::PxU32					getScatterMeshAssetCount() const = 0;
 
 	/** Retrieve the scatter mesh asset array */
-	virtual NxRenderMeshAsset**				getScatterMeshAssets() = 0;
+	virtual NxRenderMeshAsset* const *				getScatterMeshAssets() const = 0;
 
 	/**
 		Get the number of instanced chunk meshes in this asset.
 	*/
-	virtual physx::PxU32					getInstancedChunkCount() const = 0;
+	virtual physx::PxU32					getInstancedChunkMeshCount() const = 0;
 
 	/**
 		Set the parameters used for runtime destruction behavior.  See NxDestructibleParameters.
@@ -1743,13 +1786,21 @@ public:
 	virtual physx::PxF32					getNeighborPadding() const = 0;
 
 	/**
-		Once the internal IExplicitHierarchicalMesh is built using the fracture tools functions
+		Once the internal NxExplicitHierarchicalMesh is built using the fracture tools functions
 		and all emitter names and parameters set, this functions builds the destructible asset.
-		Every chunk (corresponding to a part in the IExplicitHierarchicalMesh) must have
+		Every chunk (corresponding to a part in the NxExplicitHierarchicalMesh) must have
 		destruction-specific data set through the descriptor passed into this function.  See
 		NxDestructibleAssetCookingDesc.
+
+		\param cookingDesc				cooking setup
+		\param cacheOverlaps			whether the chunk overlaps up to chunkOverlapCacheDepth should be cached in this call
+		\param chunkIndexMapUser2Apex	optional user provided PxU32 array that will contains the mapping from user chunk indices (referring to chunks in cookingDesc)
+											to Apex internal chunk indices (referring to chunk is internal chunk array)
+		\param chunkIndexMapApex2User	same as chunkIndexMapUser2Apex, but opposite direction
+		\param chunkIndexMapCount		size of the user provided mapping arrays
 	*/
-	virtual void                            cookChunks(const NxDestructibleAssetCookingDesc&) = 0;
+	virtual void                            cookChunks(	const NxDestructibleAssetCookingDesc& cookingDesc, bool cacheOverlaps = true,
+														PxU32* chunkIndexMapUser2Apex = NULL, PxU32* chunkIndexMapApex2User = NULL, PxU32 chunkIndexMapCount = 0) = 0;
 
 	/**
 		The scale factor used to apply an impulse force along the normal of chunk when fractured.  This is used
@@ -1805,15 +1856,10 @@ public:
 	virtual physx::PxU32					getPartIndex(physx::PxU32 chunkIndex) const = 0;
 
 	/**
-		Rebuild the collision volumes for the given chunk, using the geometryDesc (see NxDestructibleGeometryDesc).
-		Returns true iff successful.
-	*/
-	virtual bool							rebuildCollisionGeometry(physx::PxU32 partIndex, const NxDestructibleGeometryDesc& geometryDesc) = 0;
-
-	/**
 		Trim collision geometry to prevent explosive behavior.  maxTrimFraction is the maximum (relative) distance to trim a hull in the direction
 		of each trim plane.
-		Returns true iff successful.
+		
+		\return Returns true iff successful.
 	*/
 	virtual void							trimCollisionGeometry(const physx::PxU32* partIndices, physx::PxU32 partIndexCount, physx::PxF32 maxTrimFraction = 0.2f) = 0;
 
@@ -1821,6 +1867,53 @@ public:
 		Returns stats (sizes, counts) for the asset.  See NxDestructibleAssetStats.
 	*/
 	virtual void							getStats(NxDestructibleAssetStats& stats) const = 0;
+
+	/**
+		Ensures that the asset has chunk overlap information cached up to the given depth.
+		If depth < 0 (as it is by default), the depth will be taken to be the supportDepth
+		given in the asset's destructibleParameters.
+		It is ok to pass in a depth greater than any chunk depth in the asset.
+	*/
+	virtual void							cacheChunkOverlapsUpToDepth(physx::PxI32 depth = -1) = 0;
+
+	/**
+		Clears the chunk overlap cache.
+
+		\param depth			Depth to be cleared. -1 for all depths.
+		\param keepCachedFlag	If the flag is set, the depth is considered to be cached even if the overlaps list is empty.
+	*/
+	virtual void							clearChunkOverlaps(physx::PxI32 depth = -1, bool keepCachedFlag = false) = 0;
+
+	/**
+		Adds edges to the support graph. Edges must connect chunks of equal depth.
+		The indices refer to the reordered chunk array, a mapping is provided in cookChunks.
+	*/
+	virtual void							addChunkOverlaps(NxIntPair* supportGraphEdges, PxU32 numSupportGraphEdges) = 0;
+
+	/**
+		Removes edges from support graph.
+		The indices refer to the reordered chunk array, a mapping is provided in cookChunks.
+
+		\param supportGraphEdges		Integer pairs representing indices to chunks that are linked
+		\param numSupportGraphEdges		Number of provided integer pairs.
+		\param keepCachedFlagIfEmpty	If the flag is set, the depth is considered to be cached even if the overlaps list is empty.
+	*/
+	virtual void							removeChunkOverlaps(NxIntPair* supportGraphEdges, PxU32 numSupportGraphEdges, bool keepCachedFlagIfEmpty) = 0;
+
+	/**
+		The size of the array returned by getCachedOverlapsAtDepth(depth) (see below).
+		Note: this function will not trigger overlap caching for the given depth.  If no overlaps
+		have been calculated for the depth given, this function returns NULL.
+	*/
+	virtual physx::PxU32					getCachedOverlapCountAtDepth(physx::PxU32 depth) = 0;
+
+	/**
+		Array of integer pairs, indexing chunk pairs which touch at a given depth in the heirarcy.
+		The size of the array is given by getCachedOverlapCountAtDepth(depth).
+		Note: this function will not trigger overlap caching for the given depth.  If no overlaps
+		have been calculated for the depth given, this function returns NULL.
+	*/
+	virtual const NxIntPair*				getCachedOverlapsAtDepth(physx::PxU32 depth) = 0;
 
 	/**
 	\brief Apply a transformation to destructible asset
@@ -1971,12 +2064,12 @@ public:
 	virtual physx::PxU32					getScatterMeshAssetCount() const = 0;
 
 	/** Retrieve the scatter mesh asset array */
-	virtual NxRenderMeshAsset**				getScatterMeshAssets() = 0;
+	virtual NxRenderMeshAsset* const *				getScatterMeshAssets() const = 0;
 
 	/**
 		Get the number of instanced chunk meshes in this asset.
 	*/
-	virtual physx::PxU32					getInstancedChunkCount() const = 0;
+	virtual physx::PxU32					getInstancedChunkMeshCount() const = 0;
 
 	/**
 		Returns stats (sizes, counts) for the asset.  See NxDestructibleAssetStats.
@@ -1984,7 +2077,7 @@ public:
 	virtual void							getStats(NxDestructibleAssetStats& stats) const = 0;
 
 	/**
-		Ensures that the asset has chunk overlap informationc cached up to the given depth.
+		Ensures that the asset has chunk overlap information cached up to the given depth.
 		If depth < 0 (as it is by default), the depth will be taken to be the supportDepth
 		given in the asset's destructibleParameters.
 		It is ok to pass in a depth greater than any chunk depth in the asset.
@@ -1992,19 +2085,46 @@ public:
 	virtual void							cacheChunkOverlapsUpToDepth(physx::PxI32 depth = -1) = 0;
 
 	/**
-		The size of the array returned by getCachedOverlapsAtDepth(depth) (see below).
-		Note: this function will not trigger overlap caching for the given depth.  If no overlaps
-		have been calculated for the depth given, this function returns NULL.
+		Clears the chunk overlap cache.
+		If depth < 0 (as it is by default), it clears the cache for each depth.
+
+		\param depth			Depth to be cleared. -1 for all depths.
+		\param keepCachedFlag	If the flag is set, the depth is considered to be cached even if the overlaps list is empty.
 	*/
-	virtual physx::PxU32					getCachedOverlapCountAtDepth(physx::PxU32 depth) = 0;
+	virtual void							clearChunkOverlaps(physx::PxI32 depth = -1, bool keepCachedFlag = false) = 0;
 
 	/**
-		Array of integer pairs, indexing chunk pairs which touch at a given depth in the heirarcy.
+		Adds edges to the support graph. Edges must connect chunks of equal depth.
+		The indices refer to the reordered chunk array, a mapping is provided in cookChunks.
+
+		\param supportGraphEdges		Integer pairs representing indices to chunks that are linked
+		\param numSupportGraphEdges		Number of provided integer pairs.
+	*/
+	virtual void							addChunkOverlaps(NxIntPair* supportGraphEdges, PxU32 numSupportGraphEdges) = 0;
+
+	/**
+		Removes edges from support graph.
+		The indices refer to the reordered chunk array, a mapping is provided in cookChunks.
+
+		\param supportGraphEdges		Integer pairs representing indices to chunks that are linked
+		\param numSupportGraphEdges		Number of provided integer pairs.
+		\param keepCachedFlagIfEmpty	If the flag is set, the depth is considered to be cached even if the overlaps list is empty.
+	*/
+	virtual void							removeChunkOverlaps(NxIntPair* supportGraphEdges, PxU32 numSupportGraphEdges, bool keepCachedFlagIfEmpty) = 0;
+
+	/**
+		The size of the array returned by getCachedOverlapsAtDepth(depth) (see below).
+		Note: this function will not trigger overlap caching for the given depth.
+	*/
+	virtual physx::PxU32					getCachedOverlapCountAtDepth(physx::PxU32 depth) const = 0;
+
+	/**
+		Array of integer pairs, indexing chunk pairs which touch at a given depth in the hierarchy.
 		The size of the array is given by getCachedOverlapCountAtDepth(depth).
 		Note: this function will not trigger overlap caching for the given depth.  If no overlaps
 		have been calculated for the depth given, this function returns NULL.
 	*/
-	virtual const NxIntPair*				getCachedOverlapsAtDepth(physx::PxU32 depth) = 0;
+	virtual const NxIntPair*				getCachedOverlapsAtDepth(physx::PxU32 depth) const = 0;
 
 	/**
 		If this chunk is instanced within the same asset, then this provides the instancing position offset.
@@ -2028,11 +2148,16 @@ public:
 	*/
 	virtual physx::PxU16					getChunkDepth(physx::PxU32 chunkIndex) const = 0;
 
-	/** 
+	/**
 		Returns the index of the given chunk's parent.  If the chunk has no parent (is the root of the fracture hierarchy),
 		then -1 is returned.
 	*/
 	virtual physx::PxI32					getChunkParentIndex(physx::PxU32 chunkIndex) const = 0;
+
+	/** 
+		Returns the chunk bounds in the asset (local) space.
+	*/
+	virtual physx::PxBounds3 getChunkActorLocalBounds(physx::PxU32 chunkIndex) const = 0;
 
 	/**
 		The render mesh asset part index associated with this chunk.
@@ -2080,6 +2205,12 @@ public:
 	\param transformation	This matrix is allowed to contain translation, rotation, scale and skew
 	*/
 	virtual void							applyTransformation(const physx::PxMat44& transformation) = 0;
+
+	/**
+		Rebuild the collision volumes for the given chunk, using the geometryDesc (see NxDestructibleGeometryDesc).
+		Returns true iff successful.
+	*/
+	virtual bool							rebuildCollisionGeometry(physx::PxU32 partIndex, const NxDestructibleGeometryDesc& geometryDesc) = 0;
 
 protected:
 	/** Hidden destructor.  Use release(). */

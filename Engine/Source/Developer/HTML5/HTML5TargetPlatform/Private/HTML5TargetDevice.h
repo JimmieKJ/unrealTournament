@@ -34,10 +34,9 @@ public:
 	 * @param InTargetPlatform - The target platform.
 	 * @param InName - The device name.
 	 */
-	FHTML5TargetDevice( const ITargetPlatform& InTargetPlatform, const FString& InName, const FString& InBrowserName )
-		: TargetPlatform(InTargetPlatform)
-		, Name(InName)
-		, OperatingSystemName(InBrowserName)
+	FHTML5TargetDevice( const ITargetPlatform& InTargetPlatform, const FString& InName )
+		: TargetPlatform(InTargetPlatform), 
+		  Name(InName)
 	{ }
 
 	/**
@@ -77,7 +76,7 @@ public:
 		return TargetPlatform;
 	}
 
-	virtual bool IsConnected( )
+	virtual bool IsConnected( ) override
 	{
 		return true;
 	}
@@ -115,6 +114,4 @@ private:
 	const ITargetPlatform& TargetPlatform;
 
 	FString Name; 
-
-	FString OperatingSystemName;
 };

@@ -93,7 +93,7 @@ public:
 		{
 		}
 
-		virtual void HandleObjectReference( UObject*& InObject, const UObject* ReferencingObject, const UObject* ReferencingProperty ) override;
+		virtual void HandleObjectReference( UObject*& InObject, const UObject* ReferencingObject, const UProperty* ReferencingProperty ) override;
 
 		virtual bool IsIgnoringArchetypeRef() const override	{ return false; }
 		virtual bool IsIgnoringTransient() const override		{ return false; }

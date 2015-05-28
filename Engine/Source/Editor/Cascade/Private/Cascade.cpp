@@ -185,9 +185,9 @@ void FCascade::InitCascade(const EToolkitMode::Type Mode, const TSharedPtr< clas
 
 	CurrentLODIdx = 0;
 
-	EditorOptions = ConstructObject<UCascadeOptions>(UCascadeOptions::StaticClass());
+	EditorOptions = NewObject<UCascadeOptions>();
 	check(EditorOptions);
-	EditorConfig = ConstructObject<UCascadeConfiguration>(UCascadeConfiguration::StaticClass());
+	EditorConfig = NewObject<UCascadeConfiguration>();
 	check(EditorConfig);
 
 	FString Description;
@@ -237,9 +237,9 @@ void FCascade::InitCascade(const EToolkitMode::Type Mode, const TSharedPtr< clas
 		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.Cascade.Init"), TEXT("Overview"), Description);
 	}
 
-	ParticleSystemComponent = ConstructObject<UCascadeParticleSystemComponent>(UCascadeParticleSystemComponent::StaticClass());
+	ParticleSystemComponent = NewObject<UCascadeParticleSystemComponent>();
 
-	LocalVectorFieldPreviewComponent = ConstructObject<UVectorFieldComponent>(UVectorFieldComponent::StaticClass());
+	LocalVectorFieldPreviewComponent = NewObject<UVectorFieldComponent>();
 
 	bIsSoloing = false;
 
@@ -924,7 +924,7 @@ void FCascade::OnNewModule(int32 Idx)
 	ParticleSystemComponent->PreEditChange(NULL);
 
 	// Construct it and add to selected emitter.
-	UParticleModule* NewModule = ConstructObject<UParticleModule>(NewModClass, ParticleSystem, NAME_None, RF_Transactional);
+	UParticleModule* NewModule = NewObject<UParticleModule>(ParticleSystem, NewModClass, NAME_None, RF_Transactional);
 	NewModule->ModuleEditorColor = FColor::MakeRandomColor();
 	NewModule->SetToSensibleDefaults(SelectedEmitter);
 	NewModule->LODValidity = 1;
@@ -996,7 +996,7 @@ void FCascade::OnNewEmitter()
 	UClass* NewEmitClass = UParticleSpriteEmitter::StaticClass();
 
 	// Construct it
-	UParticleEmitter* NewEmitter = ConstructObject<UParticleEmitter>(NewEmitClass, ParticleSystem, NAME_None, RF_Transactional);
+	UParticleEmitter* NewEmitter = NewObject<UParticleEmitter>(ParticleSystem, NewEmitClass, NAME_None, RF_Transactional);
 	UParticleLODLevel* LODLevel	= NewEmitter->GetLODLevel(0);
 	if (LODLevel == NULL)
 	{
@@ -1072,24 +1072,22 @@ void FCascade::OnNewEmitter()
 	NewEmitter->UpdateModuleLists();
 
 	NewEmitter->PostEditChange();
-	if (NewEmitter)
+
+	NewEmitter->SetFlags(RF_Transactional);
+	for (int32 LODIndex = 0; LODIndex < NewEmitter->LODLevels.Num(); LODIndex++)
 	{
-		NewEmitter->SetFlags(RF_Transactional);
-		for (int32 LODIndex = 0; LODIndex < NewEmitter->LODLevels.Num(); LODIndex++)
+		UParticleLODLevel* NewEmitterLODLevel = NewEmitter->GetLODLevel(LODIndex);
+		if (NewEmitterLODLevel)
 		{
-			UParticleLODLevel* NewEmitterLODLevel = NewEmitter->GetLODLevel(LODIndex);
-			if (NewEmitterLODLevel)
+			NewEmitterLODLevel->SetFlags(RF_Transactional);
+			check(NewEmitterLODLevel->RequiredModule);
+			NewEmitterLODLevel->RequiredModule->SetTransactionFlag();
+			check(NewEmitterLODLevel->SpawnModule);
+			NewEmitterLODLevel->SpawnModule->SetTransactionFlag();
+			for (int32 jj = 0; jj < NewEmitterLODLevel->Modules.Num(); jj++)
 			{
-				NewEmitterLODLevel->SetFlags(RF_Transactional);
-				check(NewEmitterLODLevel->RequiredModule);
-				NewEmitterLODLevel->RequiredModule->SetTransactionFlag();
-				check(NewEmitterLODLevel->SpawnModule);
-				NewEmitterLODLevel->SpawnModule->SetTransactionFlag();
-				for (int32 jj = 0; jj < NewEmitterLODLevel->Modules.Num(); jj++)
-				{
-					UParticleModule* pkModule = NewEmitterLODLevel->Modules[jj];
-					pkModule->SetTransactionFlag();
-				}
+				UParticleModule* pkModule = NewEmitterLODLevel->Modules[jj];
+				pkModule->SetTransactionFlag();
 			}
 		}
 	}
@@ -1468,6 +1466,19 @@ void FCascade::AddReferencedObjects(FReferenceCollector& Collector)
 
 void FCascade::Tick(float DeltaTime)
 {
+	// This is a bit of a hack. In order to not tick all open Cascade editors (which tick through engine tick) even when not visible,
+	// the preview viewport keeps track of whether it has been ticked in the last frame. Slate widgets aren't ticked if invisible, so 
+	// this will tell us if we should run simulation in this instance. If it hasn't ticked, we skip ticking Cascade as well and clear
+	// the flag for the next frame
+	if ( !PreviewViewport->HasJustTicked() )
+	{
+		return;
+	}
+
+	PreviewViewport->ClearTickFlag();
+
+
+
 	static const double ResetInterval = 0.5f;
 
 	// Clamp delta time.
@@ -1974,7 +1985,7 @@ void FCascade::CreateInternalWidgets()
 
 	if (!ParticleSystem->CurveEdSetup)
 	{
-		ParticleSystem->CurveEdSetup = ConstructObject<UInterpCurveEdSetup>(UInterpCurveEdSetup::StaticClass(), ParticleSystem, NAME_None, RF_Transactional);
+		ParticleSystem->CurveEdSetup = NewObject<UInterpCurveEdSetup>(ParticleSystem, NAME_None, RF_Transactional);
 	}
 
 	IDistributionCurveEditorModule* CurveEditorModule = &FModuleManager::LoadModuleChecked<IDistributionCurveEditorModule>( "DistCurveEditor" );
@@ -2676,7 +2687,7 @@ bool FCascade::DuplicateEmitter(UParticleEmitter* SourceEmitter, UParticleSystem
 	if (NewEmitClass == UParticleSpriteEmitter::StaticClass())
 	{
 		// Construct it
-		UParticleEmitter* NewEmitter = ConstructObject<UParticleEmitter>(NewEmitClass, DestSystem, NAME_None, RF_Transactional);
+		UParticleEmitter* NewEmitter = NewObject<UParticleEmitter>(DestSystem, NewEmitClass, NAME_None, RF_Transactional);
 
 		check(NewEmitter);
 
@@ -2696,7 +2707,7 @@ bool FCascade::DuplicateEmitter(UParticleEmitter* SourceEmitter, UParticleSystem
 		for (int32 LODIndex = 0; LODIndex < SourceEmitter->LODLevels.Num(); LODIndex++)
 		{
 			SourceLODLevel	= SourceEmitter->LODLevels[LODIndex];
-			NewLODLevel		= ConstructObject<UParticleLODLevel>(UParticleLODLevel::StaticClass(), NewEmitter, NAME_None, RF_Transactional);
+			NewLODLevel = NewObject<UParticleLODLevel>(NewEmitter, NAME_None, RF_Transactional);
 			check(NewLODLevel);
 
 			NewLODLevel->Level					= SourceLODLevel->Level;
@@ -3706,8 +3717,6 @@ void FCascade::OnSetMotionRadius()
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void FCascade::OnViewMode(EViewModeIndex ViewMode)
@@ -3929,8 +3938,6 @@ void FCascade::OnToggleWireframeSphere()
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 			);
-
-		TextEntry->FocusDefaultWidget();
 	}
 	else
 	{
@@ -4392,52 +4399,43 @@ void FCascade::OnDeleteModule(bool bConfirm)
 	}
 	CurveEditor->RefreshViewport();
 
-	if (SelectedEmitter)
+	bool bNeedsListUpdated = false;
+
+	for (int32 LODIndex = 0; LODIndex < SelectedEmitter->LODLevels.Num(); LODIndex++)
 	{
-		bool bNeedsListUpdated = false;
+		UParticleLODLevel* LODLevel	= SelectedEmitter->GetLODLevel(LODIndex);
 
-		for (int32 LODIndex = 0; LODIndex < SelectedEmitter->LODLevels.Num(); LODIndex++)
+		// See if it is in this LODs level...
+		UParticleModule* CheckModule;
+
+		if (DeleteModuleIndex >= 0)
 		{
-			UParticleLODLevel* LODLevel	= SelectedEmitter->GetLODLevel(LODIndex);
-
-			// See if it is in this LODs level...
-			UParticleModule* CheckModule;
-
-			if (DeleteModuleIndex >= 0)
-			{
-				CheckModule = LODLevel->Modules[DeleteModuleIndex];
-			}
-			else
-			{
-				CheckModule = LODLevel->TypeDataModule;
-			}
-
-			if (CheckModule)
-			{
-				if (CheckModule->IsA(UParticleModuleTypeDataBase::StaticClass()))
-				{
-					check(LODLevel->TypeDataModule == CheckModule);
-					LODLevel->TypeDataModule = NULL;
-				}
-				else
-					if (CheckModule->IsA(UParticleModuleEventGenerator::StaticClass()))
-					{
-						LODLevel->EventGenerator = NULL;
-					}
-					LODLevel->Modules.Remove(CheckModule);
-					bNeedsListUpdated = true;
-			}
+			CheckModule = LODLevel->Modules[DeleteModuleIndex];
+		}
+		else
+		{
+			CheckModule = LODLevel->TypeDataModule;
 		}
 
-		if (bNeedsListUpdated)
+		if (CheckModule)
 		{
-			SelectedEmitter->UpdateModuleLists();
+			if (CheckModule->IsA(UParticleModuleTypeDataBase::StaticClass()))
+			{
+				check(LODLevel->TypeDataModule == CheckModule);
+				LODLevel->TypeDataModule = NULL;
+			}
+			else if (CheckModule->IsA(UParticleModuleEventGenerator::StaticClass()))
+			{
+				LODLevel->EventGenerator = NULL;
+			}
+			LODLevel->Modules.Remove(CheckModule);
+			bNeedsListUpdated = true;
 		}
 	}
-	else
+
+	if (bNeedsListUpdated)
 	{
-		// Assume that it's in the module dump...
-		DraggedModuleList.Remove(SelectedModule);
+		SelectedEmitter->UpdateModuleLists();
 	}
 
 	ParticleSystem->PostEditChange();
@@ -4831,8 +4829,6 @@ void FCascade::OnRenameEmitter()
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void FCascade::OnDuplicateEmitter(bool bIsShared)

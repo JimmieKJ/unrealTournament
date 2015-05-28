@@ -12,9 +12,10 @@
 #include "SceneUtils.h"
 
 /** Encapsulates the post processing ambient pixel shader. */
-class FPostProcessAmbientPS : public FGlobalShader
+template<bool bUseClearCoat>
+class TPostProcessAmbientPS : public FGlobalShader
 {
-	DECLARE_SHADER_TYPE(FPostProcessAmbientPS, Global);
+	DECLARE_SHADER_TYPE(TPostProcessAmbientPS, Global);
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
@@ -24,10 +25,11 @@ class FPostProcessAmbientPS : public FGlobalShader
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
-	}
+		OutEnvironment.SetDefine(TEXT("USE_CLEARCOAT"), (uint32)bUseClearCoat);
+	}	
 
 	/** Default constructor. */
-	FPostProcessAmbientPS() {}
+	TPostProcessAmbientPS() {}
 
 public:
 	FPostProcessPassParameters PostprocessParameter;
@@ -37,7 +39,7 @@ public:
 	FShaderResourceParameter PreIntegratedGFSampler;
 
 	/** Initialization constructor. */
-	FPostProcessAmbientPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+	TPostProcessAmbientPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
@@ -59,7 +61,7 @@ public:
 	}
 	
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter << CubemapShaderParameters << DeferredParameters << PreIntegratedGF << PreIntegratedGFSampler;
@@ -67,13 +69,48 @@ public:
 	}
 };
 
-IMPLEMENT_SHADER_TYPE(,FPostProcessAmbientPS,TEXT("PostProcessAmbient"),TEXT("MainPS"),SF_Pixel);
+IMPLEMENT_SHADER_TYPE(template<>, TPostProcessAmbientPS<false>, TEXT("PostProcessAmbient"), TEXT("MainPS"), SF_Pixel);
+IMPLEMENT_SHADER_TYPE(template<>, TPostProcessAmbientPS<true>, TEXT("PostProcessAmbient"), TEXT("MainPS"), SF_Pixel);
+
+template<bool bUseClearCoat>
+void FRCPassPostProcessAmbient::Render(FRenderingCompositePassContext& Context)
+{
+	TShaderMapRef<TPostProcessAmbientPS<bUseClearCoat>> PixelShader(Context.GetShaderMap());
+	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
+	const FSceneView& View = Context.View;
+
+	static FGlobalBoundShaderState BoundShaderState;
+
+	uint32 Count = Context.View.FinalPostProcessSettings.ContributingCubemaps.Num();
+	for (uint32 i = 0; i < Count; ++i)
+	{
+		if (i == 0)
+		{
+			// call it once after setting up the shader data to avoid the warnings in the function
+			SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+		}
+
+		PixelShader->SetParameters(Context.RHICmdList, Context, Context.View.FinalPostProcessSettings.ContributingCubemaps[i]);
+
+		// Draw a quad mapping scene color to the view's render target
+		DrawRectangle(
+			Context.RHICmdList,
+			0, 0,
+			View.ViewRect.Width(), View.ViewRect.Height(),
+			View.ViewRect.Min.X, View.ViewRect.Min.Y,
+			View.ViewRect.Width(), View.ViewRect.Height(),
+			View.ViewRect.Size(),
+			GSceneRenderTargets.GetBufferSizeXY(),
+			*VertexShader,
+			EDRF_UseTriangleOptimization);
+	}
+}
 
 void FRCPassPostProcessAmbient::Process(FRenderingCompositePassContext& Context)
 {
 	SCOPED_DRAW_EVENT(Context.RHICmdList, PostProcessAmbient);
 
-	const FSceneView& View = Context.View;
+	const FViewInfo& View = Context.View;
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 
 	FIntRect SrcRect = View.ViewRect;
@@ -92,43 +129,23 @@ void FRCPassPostProcessAmbient::Process(FRenderingCompositePassContext& Context)
 	Context.RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
 	Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
-	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-
 	FScene* Scene = ViewFamily.Scene->GetRenderScene();
 	check(Scene);
 	uint32 NumReflectionCaptures = Scene->ReflectionSceneData.RegisteredReflectionCaptures.Num();
 	
 	// Ambient cubemap specular will be applied in the reflection environment pass if it is enabled
 	const bool bApplySpecular = View.Family->EngineShowFlags.ReflectionEnvironment == 0 || NumReflectionCaptures == 0;
-	TShaderMapRef<FPostProcessAmbientPS> PixelShader(Context.GetShaderMap());
 
-	static FGlobalBoundShaderState BoundShaderState;
-	
-
-	uint32 Count = Context.View.FinalPostProcessSettings.ContributingCubemaps.Num();
-	for(uint32 i = 0; i < Count; ++i)
+	bool bClearCoatNeeded = (View.ShadingModelMaskInView & (1 << MSM_ClearCoat)) != 0;
+	if (bClearCoatNeeded)
 	{
-		if(i == 0)
-		{
-			// call it once after setting up the shader data to avoid the warnings in the function
-			SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
-		}
-
-		
-		PixelShader->SetParameters(Context.RHICmdList, Context, Context.View.FinalPostProcessSettings.ContributingCubemaps[i]);
-
-		// Draw a quad mapping scene color to the view's render target
-		DrawRectangle(
-			Context.RHICmdList,
-			0, 0,
-			View.ViewRect.Width(), View.ViewRect.Height(),
-			View.ViewRect.Min.X, View.ViewRect.Min.Y, 
-			View.ViewRect.Width(), View.ViewRect.Height(),
-			View.ViewRect.Size(),
-			GSceneRenderTargets.GetBufferSizeXY(),
-			*VertexShader,
-			EDRF_UseTriangleOptimization);
+		Render<true>(Context);
 	}
+	else
+	{
+		Render<false>(Context);
+	}
+	
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 }

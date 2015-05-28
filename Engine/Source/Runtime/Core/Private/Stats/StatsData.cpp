@@ -13,6 +13,7 @@ DECLARE_CYCLE_STAT(TEXT("Condense"),STAT_StatsCondense,STATGROUP_StatSystem);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Frame Messages"),STAT_StatFrameMessages,STATGROUP_StatSystem);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Total Frame Packets"),STAT_StatFramePackets,STATGROUP_StatSystem);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Frame Messages Condensed"),STAT_StatFramePacketsCondensed,STATGROUP_StatSystem);
+DECLARE_MEMORY_STAT( TEXT("Stat Messages"), STAT_StatMessagesMemory, STATGROUP_StatSystem );
 
 /*-----------------------------------------------------------------------------
 	FStatConstants
@@ -168,7 +169,7 @@ void FRawStatStackNode::AddNameHierarchy(int32 CurrentPrefixDepth)
 				else
 				{
 					Name.ReplaceInline(TEXT("/"), TEXT("."));
-					Name.ParseIntoArray(&Parts, TEXT("."), true);
+					Name.ParseIntoArray(Parts, TEXT("."), true);
 					check(Parts.Num());
 					ParsedNames.Empty(Parts.Num());
 					for (int32 PartIndex = 0; PartIndex < Parts.Num(); PartIndex++)
@@ -457,10 +458,11 @@ void FComplexRawStatStackNode::CopyExclusivesFromSelf()
 
 void FStatPacketArray::Empty()
 {
+	FStatsThreadState& State = FStatsThreadState::GetLocalState();
+
 	for (int32 Index = 0; Index < Packets.Num(); Index++)
 	{
-		const uint32 PacketMemory = Packets[Index]->StatMessages.GetAllocatedSize();
-		DEC_MEMORY_STAT_BY(STAT_StatMessagesMemory, PacketMemory);
+		State.NumStatMessages.Subtract(Packets[Index]->StatMessages.Num());
 		delete Packets[Index];
 	}
 	Packets.Empty();
@@ -472,6 +474,8 @@ FStatsThreadState::FStatsThreadState(int32 InHistoryFrames)
 	, MinFrameSeen(-1)
 	, LastFullFrameMetaAndNonFrame(-1)
 	, LastFullFrameProcessed(-1)
+	, TotalNumStatMessages(0)
+	, MaxNumStatMessages(0)
 	, bWasLoaded(false)
 	, bFindMemoryExtensiveStats(false)
 	, CurrentGameFrame(1)
@@ -479,6 +483,7 @@ FStatsThreadState::FStatsThreadState(int32 InHistoryFrames)
 {
 }
 
+// FStatsFileState:: ????
 //FStatsThreadState::FStatsThreadState(FString const& Filename)
 // void FStatsThreadState::AddMessages(TArray<FStatMessage>& InMessages)
 // @see moved to StatsFile.cpp
@@ -585,6 +590,12 @@ void FStatsThreadState::ScanForAdvance(const FStatMessagesArray& Data)
 			CurrentRenderFrame = NewRenderFrame;
 		}
 	}
+
+	// We don't care about bad frame when the raw stats are active.
+	if( FThreadStats::bIsRawStatsActive )
+	{
+		BadFrames.Empty();
+	}
 }
 
 void FStatsThreadState::ScanForAdvance(FStatPacketArray& NewData)
@@ -597,8 +608,10 @@ void FStatsThreadState::ScanForAdvance(FStatPacketArray& NewData)
 	uint32 Count = 0;
 	for (int32 Index = 0; Index < NewData.Packets.Num(); Index++)
 	{
-		int64 FrameNum = NewData.Packets[Index]->ThreadType == EThreadType::Renderer ? CurrentRenderFrame : CurrentGameFrame;
-		NewData.Packets[Index]->Frame = FrameNum;
+
+		const int64 FrameNum = NewData.Packets[Index]->ThreadType == EThreadType::Renderer ? CurrentRenderFrame : CurrentGameFrame;
+		NewData.Packets[Index]->AssignFrame( FrameNum );
+		
 		const FStatMessagesArray& Data = NewData.Packets[Index]->StatMessages;
 		ScanForAdvance(Data);
 		Count += Data.Num();
@@ -696,7 +709,7 @@ void FStatsThreadState::AddToHistoryAndEmpty(FStatPacketArray& NewData)
 		Frame.Packets.Add(NewData.Packets[Index]);
 	}
 
-	NewData.Packets.Empty(); // don't delete the elements
+	NewData.RemovePtrsButNoData(); // don't delete the elements
 
 	// now deal with metadata and non-frame stats
 
@@ -754,18 +767,13 @@ void FStatsThreadState::AddToHistoryAndEmpty(FStatPacketArray& NewData)
 							NonFrameMessages = &Frame.Packets[NonFrameIndex]->StatMessages;
 						}
 						
-						{
-							FStatMessageLock MessageLock(ThreadStats->MemoryMessageScope);
-							new (*NonFrameMessages) FStatMessage(It.Value());
-						}
-						
+						new (*NonFrameMessages) FStatMessage(It.Value());	
 					}
 				}
 
 				if(NonFrameMessages)
 				{
-					const uint32 PacketMemory = NonFrameMessages->GetAllocatedSize();
-					INC_MEMORY_STAT_BY(STAT_StatMessagesMemory, PacketMemory);
+					NumStatMessages.Add(NonFrameMessages->Num());
 				}
 
 				GoodFrames.Add(FrameNum);
@@ -843,6 +851,101 @@ void FStatsThreadState::AddToHistoryAndEmpty(FStatPacketArray& NewData)
 	check(BadFrames.Num() <= HistoryFrames * 2 + 5);
 }
 
+
+void FStatsThreadState::ProcessRawStats( FStatPacketArray& NewData )
+{
+	if( NewRawStatPacket.IsBound() )
+	{
+		// First process the enqueued raw stats.
+		for (int32 Index = 0; Index < StartupRawStats.Packets.Num(); Index++)
+		{
+			const FStatPacket* StatPacket = StartupRawStats.Packets[Index];
+			NewRawStatPacket.Broadcast(StatPacket);
+		}
+		StartupRawStats.Empty();
+
+		// Now, process the raw stats.
+		for (int32 Index = 0; Index < NewData.Packets.Num(); Index++)
+		{
+			const FStatPacket* StatPacket = NewData.Packets[Index];
+			NewRawStatPacket.Broadcast(StatPacket);
+		}
+
+		// Now delete all the data.
+		NewData.Empty();
+	}
+	else
+	{
+		// The delegate is not bound yet, so store the data, because we don't want to lose any data.
+		for (int32 Index = 0; Index < NewData.Packets.Num(); Index++)
+		{
+			FStatPacket* StatPacket = NewData.Packets[Index];
+			StartupRawStats.Packets.Add(StatPacket);
+		}
+
+		NewData.RemovePtrsButNoData(); // Don't delete the elements.
+	}
+}
+
+void FStatsThreadState::ResetRawStats()
+{
+	// We no longer need any startup raw data.
+	StartupRawStats.Empty();
+}
+
+void FStatsThreadState::ResetRegularStats()
+{
+	// We need to reset these values after switching from the raw stats to the regular.
+	// !!CAUTION!!
+	// This is a bit unsafe as we lose accumulator history.
+	// Cycle counters and general counters should be just fine.
+	LastFullFrameMetaAndNonFrame = -1;
+	LastFullFrameProcessed = -1;
+	History.Empty();
+	CondensedStackHistory.Empty();
+	GoodFrames.Empty();
+	BadFrames.Empty();
+}
+
+void FStatsThreadState::UpdateStatMessagesMemoryUsage()
+{
+	// .UpdateStatMessagesMemoryUsage
+	const int32 CurrentNumStatMessages = NumStatMessages.GetValue();
+	//MaxNumStatMessages = FMath::Max(MaxNumStatMessages,CurrentNumStatMessages);
+
+	if( CurrentNumStatMessages > MaxNumStatMessages )
+	{
+		MaxNumStatMessages = CurrentNumStatMessages;
+	}
+
+	TotalNumStatMessages += CurrentNumStatMessages;
+	SET_MEMORY_STAT( STAT_StatMessagesMemory, CurrentNumStatMessages*sizeof(FStatMessage) );
+
+	if( FThreadStats::bIsRawStatsActive )
+	{
+		FGameThreadHudData* ToGame = new FGameThreadHudData(true);
+
+		const double InvMB = 1.0f / 1024.0f / 1024.0f;
+
+		// Format lines to be displayed on the hud.
+		const FString Current = FString::Printf( TEXT("Current: %.1f"), InvMB*CurrentNumStatMessages*sizeof(FStatMessage) );
+		const FString Max = FString::Printf( TEXT("Max: %.1f"), InvMB*(int64)MaxNumStatMessages*sizeof(FStatMessage) );
+		const FString Total = FString::Printf( TEXT("Total: %.1f") , InvMB*TotalNumStatMessages*sizeof(FStatMessage));
+
+		UE_LOG(LogStats, Verbose, TEXT("%s, %s, %s"), *Current, *Max, *Total );
+
+		ToGame->GroupDescriptions.Add( TEXT("RawStats memory usage (MB)") );
+		ToGame->GroupDescriptions.Add( Current );
+		ToGame->GroupDescriptions.Add( Max );
+		ToGame->GroupDescriptions.Add( Total );
+
+		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady
+			(
+			FSimpleDelegateGraphTask::FDelegate::CreateRaw(&FHUDGroupGameThreadRenderer::Get(), &FHUDGroupGameThreadRenderer::NewData, ToGame),
+			TStatId(), nullptr, ENamedThreads::GameThread
+			);
+	}
+}
 
 void FStatsThreadState::GetInclusiveAggregateStackStats(int64 TargetFrame, TArray<FStatMessage>& OutStats, IItemFiler* Filter, bool bAddNonStackStats /*= true*/) const
 {
@@ -1051,61 +1154,7 @@ void FStatsThreadState::GetRawStackStats(int64 TargetFrame, FRawStatStackNode& R
 				}
 				else if( Op == EStatOperation::Memory )
 				{
-					//const FStatMessage& ScopeStartMessage = *StartStack.Last();
-
-					// Experimental code used only to test the implementation.
-					// First memory operation is Alloc or Free
-					const uint64 EncodedPtr = Item.GetValue_Ptr();
-					const bool bIsAlloc = (EncodedPtr & (uint64)EMemoryOperation::Alloc) != 0;
-					const bool bIsFree = (EncodedPtr & (uint64)EMemoryOperation::Free) != 0;
-					const uint64 Ptr = EncodedPtr & ~(uint64)EMemoryOperation::Mask;
-					if( bIsAlloc )
-					{
-						// @see FStatsMallocProfilerProxy::TrackAlloc
-						// After alloc ptr message there is always alloc size message.
-						Index++;
-						const FStatMessage& AllocSizeMessage = Data[Index];
-						const int64 AllocSize = AllocSizeMessage.GetValue_int64();
-
-						// Check the non-sequential allocation map.
-						FAllocationInfoEx* NonSeqAllocationInfo = NonSequentialAllocationMap.Find(Ptr);
-						if( NonSeqAllocationInfo )
-						{
-							// We don't need to add this allocation again.
-							NonSequentialAllocationMap.Remove(Ptr);
-						}
-						else
-						{
-							FAllocationInfo* OldAllocationInfo = AllocationMap.Find(Ptr);
-							if( OldAllocationInfo != nullptr )
-							{
-								// Ignore for now...
-							}
-
-							// Add a new allocation.
-							AllocationMap.Add( Ptr, FAllocationInfo(AllocSize, Current->Meta.NameAndInfo.GetEncodedName()) );
-						}					
-					}
-					else if( bIsFree )
-					{
-						// Remove the allocation, check if exists.
-						const int32 NumRemoved = AllocationMap.Remove( Ptr );
-
-						// We removed non-existent allocation, 
-						// 1. the timestamp of the allocation is before we started memory profiling
-						// 2. the allocation has been done on different thread than we are currently processing
-						if( NumRemoved == 0 )
-						{
-							NonSequentialAllocationMap.Add(Ptr, FAllocationInfoEx(
-								0, 
-								Current->Meta.NameAndInfo.GetEncodedName(),
-								/*ScopeStartMessage.GetValue_int64()*/0));
-						}
-					}
-					else
-					{
-						UE_LOG(LogStats, Warning, TEXT("Pointer from a memory operation is invalid") );
-					}
+					// Should never happen.
 				}
 				else if (OutNonStackStats)
 				{
@@ -1212,6 +1261,7 @@ int64 FStatsThreadState::GetFastThreadFrameTimeInternal( int64 TargetFrame, int3
 			{
 				FStatMessage const& Item = Data[Index];
 				EStatOperation::Type Op = Item.NameAndInfo.GetField<EStatOperation>();
+				FName LongName = Item.NameAndInfo.GetRawName();
 				if (Op == EStatOperation::CycleScopeStart)
 				{
 					check(Item.NameAndInfo.GetFlag(EStatMetaFlags::IsCycle));
@@ -1657,7 +1707,7 @@ FString FStatsUtils::FromEscapedFString(const TCHAR* Escaped)
 	while (Input.Len())
 	{
 		{
-			int32 Index = Input.Find(TEXT("$"));
+			int32 Index = Input.Find(TEXT("$"), ESearchCase::CaseSensitive);
 			if (Index == INDEX_NONE)
 			{
 				Result += Input;
@@ -1668,7 +1718,7 @@ FString FStatsUtils::FromEscapedFString(const TCHAR* Escaped)
 
 		}
 		{
-			int32 IndexEnd = Input.Find(TEXT("$"));
+			int32 IndexEnd = Input.Find(TEXT("$"), ESearchCase::CaseSensitive);
 			if (IndexEnd == INDEX_NONE)
 			{
 				checkStats(0); // malformed escaped fname

@@ -4,6 +4,7 @@
 #include "GraphEditorCommon.h"
 #include "SGraphPinVector2D.h"
 #include "SNumericEntryBox.h"
+#include "Editor/UnrealEd/Public/ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "VectorTextBox"
 
@@ -157,17 +158,31 @@ FString MakeVector2DString(const FString& X, const FString& Y)
 void SGraphPinVector2D::OnChangedValueTextBox_X(float NewValue, ETextCommit::Type CommitInfo)
 {
 	const FString ValueStr = FString::Printf( TEXT("%f"), NewValue );
+	const FString Vector2DString = MakeVector2DString(ValueStr, GetValue(TextBox_Y));
 
-	//Set new default value
-	GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, MakeVector2DString(ValueStr, GetValue(TextBox_Y)));
+	if(GraphPinObj->GetDefaultAsString() != Vector2DString)
+	{
+		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeVectorPinValue", "Change Vector Pin Value" ) );
+		GraphPinObj->Modify();
+
+		//Set new default value
+		GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, Vector2DString);
+	}
 }
 
 void SGraphPinVector2D::OnChangedValueTextBox_Y(float NewValue, ETextCommit::Type CommitInfo)
 {
 	const FString ValueStr = FString::Printf( TEXT("%f"), NewValue );
+	const FString Vector2DString =MakeVector2DString(GetValue(TextBox_X), ValueStr);
 
-	//Set new default value
-	GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, MakeVector2DString(GetValue(TextBox_X), ValueStr));
+	if(GraphPinObj->GetDefaultAsString() != Vector2DString)
+	{
+		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeVectorPinValue", "Change Vector Pin Value" ) );
+		GraphPinObj->Modify();
+
+		//Set new default value
+		GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, Vector2DString);
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -12,7 +12,7 @@ void FStringAssetReferenceCustomization::CustomizeHeader( TSharedRef<IPropertyHa
 	if( !ClassFilterString.IsEmpty() )
 	{
 		TArray<FString> CustomClassFilterNames;
-		ClassFilterString.ParseIntoArray(&CustomClassFilterNames, TEXT(","), true);
+		ClassFilterString.ParseIntoArray(CustomClassFilterNames, TEXT(","), true);
 
 		for(auto It = CustomClassFilterNames.CreateConstIterator(); It; ++It)
 		{

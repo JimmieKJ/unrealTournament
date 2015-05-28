@@ -16,9 +16,9 @@ class UNavModifierComponent : public UNavRelevantComponent
 	UPROPERTY(EditAnywhere, Category = Navigation)
 	TSubclassOf<UNavArea> AreaClass;
 
-	virtual void CalcBounds() override;
+	virtual void CalcAndCacheBounds() const override;
 	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
 
 protected:
-	FVector ObstacleExtent;
+	mutable FVector ObstacleExtent;
 };

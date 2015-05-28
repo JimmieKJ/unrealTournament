@@ -26,6 +26,9 @@ private:
 	// A flag marking that we initialized correctly
 	bool bIsInited;
 
+	// A flag marking that our init returned a failure (true means failed)
+	bool bInitFailed;
+
 	// A flag marking that we told the chunk cache to queue required downloads
 	bool bIsDownloadStarted;
 
@@ -130,6 +133,12 @@ private:
 	 * @param bInited	Whether the thread successfully initialized
 	 */
 	void SetInited( bool bInited );
+
+	/**
+	 * Sets the bInitFailed flag
+	 * @param bFailed	Whether the thread failed on init
+	 */
+	void SetInitFailed( bool bFailed );
 
 	/**
 	 * Count additional bytes processed, and set new install progress value

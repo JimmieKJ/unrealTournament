@@ -1,14 +1,17 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "GameFramework/HUD.h"
 #include "DebugCameraHUD.generated.h"
+
 
 /**
  * HUD that displays info for the DebugCameraController view.
  */
 UCLASS(config=Game)
-class ENGINE_API ADebugCameraHUD : public AHUD
+class ENGINE_API ADebugCameraHUD
+	: public AHUD
 {
 	GENERATED_UCLASS_BODY()
 
@@ -20,6 +23,3 @@ class ENGINE_API ADebugCameraHUD : public AHUD
 	// End AActor Interface
 
 };
-
-
-

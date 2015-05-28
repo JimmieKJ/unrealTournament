@@ -7,6 +7,7 @@
 #include "SLevelOfDetailBranchNode.h"
 #include "TutorialMetaData.h"
 #include "SInlineEditableTextBlock.h"
+#include "SSimpleGradient.h"
 
 #define LOCTEXT_NAMESPACE "SGraphNodeDocumentation"
 
@@ -32,6 +33,10 @@ namespace GraphNodeDocumentationDefs
 
 	/** Line wrap adjustment from node width, to account for scroll bar */
 	static const float LineWrapAdjustment = 20.f;
+
+	/** Documentation page gradient colors */
+	static const FLinearColor PageGradientStartColor( 0.85f, 0.85f, 0.85f, 1.f );
+	static const FLinearColor PageGradientEndColor( 0.75f, 0.75f, 0.75f, 1.f );
 }
 
 void SGraphNodeDocumentation::Construct( const FArguments& InArgs, UEdGraphNode* InNode )
@@ -200,7 +205,17 @@ TSharedPtr<SWidget> SGraphNodeDocumentation::CreateDocumentationPage()
 						SNew( SScrollBox )
 						+SScrollBox::Slot()
 						[
-							DesiredExcerpt.Content.ToSharedRef()
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SNew(SSimpleGradient)
+								.StartColor(GraphNodeDocumentationDefs::PageGradientStartColor) 
+								.EndColor(GraphNodeDocumentationDefs::PageGradientEndColor) 
+							]
+							+SOverlay::Slot()
+							[
+								DesiredExcerpt.Content.ToSharedRef()
+							]
 						]
 					]
 				]
@@ -275,7 +290,7 @@ float SGraphNodeDocumentation::GetDocumentationWrapWidth() const
 	return UserSize.X - GraphNodeDocumentationDefs::LineWrapAdjustment;
 }
 
-FVector2D SGraphNodeDocumentation::ComputeDesiredSize() const
+FVector2D SGraphNodeDocumentation::ComputeDesiredSize( float ) const
 {
 	return FVector2D( UserSize.X, UserSize.Y + GetTitleBarHeight() );
 }
@@ -332,8 +347,6 @@ void SGraphNodeDocumentation::Tick( const FGeometry& AllottedGeometry, const dou
 		GraphNode->NodeHeight = 0.f;
 		UpdateGraphNode();
 	}
-
-	SGraphNodeResizable::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 }
 
 /////////////////////////////////////////////////////

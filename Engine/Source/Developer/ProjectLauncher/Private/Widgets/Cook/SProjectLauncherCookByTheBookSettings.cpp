@@ -320,6 +320,188 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 			]
 		]
 
+
+
+
+
+		+ SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+			[
+				SNew(SExpandableArea)
+				.AreaTitle(LOCTEXT("PatchingAreaTitle", "Release / DLC / Patching Settings"))
+				.InitiallyCollapsed(true)
+				.Padding(8.0f)
+				.BodyContent()
+				[
+					SNew(SVerticalBox)
+
+
+					//////////////////////////////////////////////////////////////////////////
+					// create release version options
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+					[
+						// unreal pak check box
+						SNew(SCheckBox)
+						.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleCreateReleaseVersionCheckBoxIsChecked)
+						.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleCreateReleaseVersionCheckBoxCheckStateChanged)
+						.Padding(FMargin(4.0f, 0.0f))
+						.ToolTipText(LOCTEXT("CreateReleaseVersionCheckBoxTooltip", "Create a release version of the game for distribution."))
+						.Content()
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("CreateReleaseVersionBoxText", "Create a release version of the game for distribution."))
+						]
+					]
+
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+						[
+							SNew(SProjectLauncherFormLabel)
+							.LabelText(LOCTEXT("CreateReleaseVersionTextBoxLabel", "Name of the new release to create."))
+						]
+
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0, 4.0, 0.0, 0.0)
+						[
+							SNew(SHorizontalBox)
+
+							+ SHorizontalBox::Slot()
+							.FillWidth(1.0)
+							.Padding(0.0, 0.0, 0.0, 3.0)
+							[
+								// repository path text box
+								SNew(SEditableTextBox)
+								.ToolTipText(LOCTEXT("CreateReleaseVersionTextBoxTooltip", "Name of the new release to create."))
+								.Text(this, &SProjectLauncherCookByTheBookSettings::HandleCreateReleaseVersionNameTextBlockText)
+								.OnTextCommitted(this, &SProjectLauncherCookByTheBookSettings::HandleCreateReleaseVersionNameCommitted)
+							]
+						]
+
+
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+						[
+							SNew(SProjectLauncherFormLabel)
+							.LabelText(LOCTEXT("BasedOnReleaseVersionTextBoxLabel", "Base this release on a previous release, applys to new creating new releases / dlc / patches."))
+						]
+
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0, 4.0, 0.0, 0.0)
+						[
+							SNew(SHorizontalBox)
+
+							+ SHorizontalBox::Slot()
+							.FillWidth(1.0)
+							.Padding(0.0, 0.0, 0.0, 3.0)
+							[
+								// repository path text box
+								SNew(SEditableTextBox)
+								.ToolTipText(LOCTEXT("BasedOnReleaseVersionTextBoxTooltip", "Release version to base the next release / dlc / patch on."))
+								.Text(this, &SProjectLauncherCookByTheBookSettings::HandleBasedOnReleaseVersionNameTextBlockText)
+								.OnTextCommitted(this, &SProjectLauncherCookByTheBookSettings::HandleBasedOnReleaseVersionNameCommitted)
+							]
+						]
+
+
+					// end create release version
+					//////////////////////////////////////////////////////////////////////////
+					// generate patch params
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+						[
+							// unreal pak check box
+							SNew(SCheckBox)
+							.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleGeneratePatchCheckBoxIsChecked)
+							.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleGeneratePatchCheckBoxCheckStateChanged)
+							.Padding(FMargin(4.0f, 0.0f))
+							.ToolTipText(LOCTEXT("GeneratePatchCheckBoxTooltip", "If checked, content will be diffed against source content and only changed files will be included in new pak"))
+							.Content()
+							[
+								SNew(STextBlock)
+								.Text(LOCTEXT("GeneratePatchCheckBoxText", "Generate patch"))
+							]
+						]
+
+					// end generate patch options
+					//////////////////////////////////////////////////////////////////////////
+					// generate dlc options
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+						[
+							// unreal pak check box
+							SNew(SCheckBox)
+							.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleBuildDLCCheckBoxIsChecked)
+							.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleBuildDLCCheckBoxCheckStateChanged)
+							.Padding(FMargin(4.0f, 0.0f))
+							.ToolTipText(LOCTEXT("BuildDLCCheckBoxTooltip", "If checked, dlc will be built without the content released with the original game."))
+							.Content()
+							[
+								SNew(STextBlock)
+								.Text(LOCTEXT("BuildDLCCheckBoxText", "Build dlc"))
+							]
+						]
+
+
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+						[
+							SNew(SProjectLauncherFormLabel)
+							.LabelText(LOCTEXT("DLCNameTextBoxLabel", "Name of the dlc to build."))
+						]
+
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0, 4.0, 0.0, 0.0)
+						[
+							SNew(SHorizontalBox)
+
+							+ SHorizontalBox::Slot()
+							.FillWidth(1.0)
+							.Padding(0.0, 0.0, 0.0, 3.0)
+							[
+								// repository path text box
+								SNew(SEditableTextBox)
+								.ToolTipText(LOCTEXT("DLCNameTextBoxTooltip", "Name of DLC to build."))
+								.Text(this, &SProjectLauncherCookByTheBookSettings::HandleDLCNameTextBlockText)
+								.OnTextCommitted(this, &SProjectLauncherCookByTheBookSettings::HandleDLCNameCommitted)
+							]
+						]
+
+					+ SVerticalBox::Slot()
+						.AutoHeight()
+						.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+						[
+							// unreal pak check box
+							SNew(SCheckBox)
+							.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleDLCIncludeEngineContentCheckBoxIsChecked)
+							.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleDLCIncludeEngineContentCheckBoxCheckStateChanged)
+							.Padding(FMargin(4.0f, 0.0f))
+							.ToolTipText(LOCTEXT("HandleDLCIncludeEngineContentCheckBoxTooltip", "If checked, dlc will include engine content which was not included in original release, if not checked will error when accessing content from engine directory."))
+							.Content()
+							[
+								SNew(STextBlock)
+								.Text(LOCTEXT("HandleDLCIncludeEngineContentCheckBoxText", "Include engine content"))
+							]
+						]
+					// end generate dlc 
+					//////////////////////////////////////////////////////////////////////////
+			]
+		]
+
+		
+
+
+
 	+ SVerticalBox::Slot()
 		.AutoHeight()
 		.Padding(0.0f, 8.0f, 0.0f, 0.0f)
@@ -333,20 +515,36 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 				SNew(SVerticalBox)
 
 				+ SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					// incremental cook check box
-					SNew(SCheckBox)
-					.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleIncrementalCheckBoxIsChecked)
-					.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleIncrementalCheckBoxCheckStateChanged)
-					.Padding(FMargin(4.0f, 0.0f))
-					.ToolTipText(LOCTEXT("IncrementalCheckBoxTooltip", "If checked, only modified content will be cooked, resulting in much faster cooking times. It is recommended to enable this option whenever possible."))
-					.Content()
+					.AutoHeight()
 					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("IncrementalCheckBoxText", "Only cook modified content"))
+						// incremental cook check box
+						SNew(SCheckBox)
+						.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleIncrementalCheckBoxIsChecked)
+						.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleIncrementalCheckBoxCheckStateChanged)
+						.Padding(FMargin(4.0f, 0.0f))
+						.ToolTipText(LOCTEXT("IncrementalCheckBoxTooltip", "If checked, only modified content will be cooked, resulting in much faster cooking times. It is recommended to enable this option whenever possible."))
+						.Content()
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("IncrementalCheckBoxText", "Only cook modified content"))
+						]
 					]
-				]
+
+				+ SVerticalBox::Slot()
+					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+					.AutoHeight()
+					[
+						SNew(SCheckBox)
+						.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleCompressedCheckBoxIsChecked)
+						.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleCompressedCheckBoxCheckStateChanged)
+						.Padding(FMargin(4.0f, 0.0f))
+						.ToolTipText(LOCTEXT("CompressedCheckboxToolTip", "If checked, content will be generated compressed.  These will be smaller but potentially take longer to load"))
+						.Content()
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("CompressedCheckBoxText", "Compress content"))
+						]
+					]
 
 				+ SVerticalBox::Slot()
 					.AutoHeight()
@@ -382,6 +580,110 @@ TSharedRef<SWidget> SProjectLauncherCookByTheBookSettings::MakeComplexWidget()
 						]
 					]
 
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+					[
+						// unreal pak check box
+						SNew(SCheckBox)
+						.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleGenerateChunksCheckBoxIsChecked)
+						.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleGenerateChunksCheckBoxCheckStateChanged)
+						.Padding(FMargin(4.0f, 0.0f))
+						.ToolTipText(LOCTEXT("GenerateChunksCheckBoxTooltip", "If checked, the content will be deployed as multiple UnrealPak files instead of many separate files."))
+						.Content()
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("GenerateChunksCheckBoxText", "Generate Chunks"))
+						]
+					]
+
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+					[
+						SNew(SExpandableArea)
+						.AreaTitle(LOCTEXT("HttpChunkInstallSettingsAreaTitle", "Http Chunk Install Settings"))
+						.InitiallyCollapsed(true)
+						.Padding(FMargin(4.0f, 0.0f))
+						.BodyContent()
+						[
+							SNew(SVerticalBox)
+
+							+ SVerticalBox::Slot()
+								.AutoHeight()
+								.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+								[
+									// unreal pak check box
+									SNew(SCheckBox)
+									.IsChecked(this, &SProjectLauncherCookByTheBookSettings::HandleHttpChunkInstallCheckBoxIsChecked)
+									.OnCheckStateChanged(this, &SProjectLauncherCookByTheBookSettings::HandleHttpChunkInstallCheckBoxCheckStateChanged)
+									.Padding(FMargin(4.0f, 0.0f))
+									.ToolTipText(LOCTEXT("HttpChunkInstallCheckBoxTooltip", "If checked, the content will be split into multiple paks and stored as data that can be downloaded."))
+									.Content()
+									[
+										SNew(STextBlock)
+										.Text(LOCTEXT("HttpChunkInstallCheckBoxText", "Create Http Chunk Install data"))
+									]
+								]
+
+							+ SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+									.Text(LOCTEXT("HttpChunkInstallDataPathLabel", "Http Chunk Install Data Path:"))
+								]
+
+							+ SVerticalBox::Slot()
+								.AutoHeight()
+								.Padding(0.0, 4.0, 0.0, 0.0)
+								[
+									SNew(SHorizontalBox)
+
+									+ SHorizontalBox::Slot()
+									.FillWidth(1.0)
+									.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+									[
+										// repository path text box
+										SAssignNew(HttpChunkInstallDirectoryTextBox, SEditableTextBox)
+										.OnTextCommitted(this, &SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallDirectoryTextCommitted)
+										.OnTextChanged(this, &SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallDirectoryTextChanged)
+									]
+
+									+ SHorizontalBox::Slot()
+										.AutoWidth()
+										.HAlign(HAlign_Right)
+										.Padding(4.0, 0.0, 0.0, 0.0)
+										[
+											// browse button
+											SNew(SButton)
+											.ContentPadding(FMargin(6.0, 2.0))
+											.IsEnabled(true)
+											.Text(LOCTEXT("BrowseButtonText", "Browse..."))
+											.ToolTipText(LOCTEXT("BrowseButtonToolTip", "Browse for the Http Chunk Install Data directory"))
+											.OnClicked(this, &SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallBrowseButtonClicked)
+										]
+								]
+				
+							+ SVerticalBox::Slot()
+								.AutoHeight()
+								.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+								[
+									SNew(SProjectLauncherFormLabel)
+									.LabelText(LOCTEXT("HttpChunkInstallReleaseTextBoxLabel", "Http Chunk Install Release Name:"))
+								]
+
+							+ SVerticalBox::Slot()
+								.AutoHeight()
+								.Padding(0.0f, 4.0f, 0.0f, 0.0f)
+								[
+									// cooker command line options
+									SNew(SEditableTextBox)
+									.ToolTipText(LOCTEXT("HttpChunkInstallReleaseTextBoxTooltip", "Name of this version of the Http Chunk Install data."))
+									.Text(this, &SProjectLauncherCookByTheBookSettings::HandleHttpChunkInstallNameTextBlockText)
+									.OnTextCommitted(this, &SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallNameCommitted)
+								]
+						]
+					]
 				+ SVerticalBox::Slot()
 					.AutoHeight()
 					.Padding(0.0f, 12.0f, 0.0f, 0.0f)
@@ -883,6 +1185,35 @@ ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleIncrementalCheckBoxI
 }
 
 
+
+
+void SProjectLauncherCookByTheBookSettings::HandleCompressedCheckBoxCheckStateChanged( ECheckBoxState NewState )
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetCompressed(NewState == ECheckBoxState::Checked);
+	}
+}
+
+
+ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleCompressedCheckBoxIsChecked( ) const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		if (SelectedProfile->IsCompressed())
+		{
+			return ECheckBoxState::Checked;
+		}
+	}
+
+	return ECheckBoxState::Unchecked;
+}
+
+
 TSharedRef<ITableRow> SProjectLauncherCookByTheBookSettings::HandleMapListViewGenerateRow( TSharedPtr<FString> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	return SNew(SProjectLauncherMapListRow, Model.ToSharedRef())
@@ -1068,6 +1399,318 @@ ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleUnrealPakCheckBoxIsC
 		}
 	}
 
+	return ECheckBoxState::Unchecked;
+}
+
+// Callback for check state changes of the 'UnrealPak' check box.
+void SProjectLauncherCookByTheBookSettings::HandleGeneratePatchCheckBoxCheckStateChanged( ECheckBoxState NewState )
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetGeneratePatch(NewState == ECheckBoxState::Checked);
+	}
+}
+
+// Callback for determining the checked state of the 'UnrealPak' check box.
+ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleGeneratePatchCheckBoxIsChecked( ) const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		if (SelectedProfile->IsGeneratingPatch())
+		{
+			return ECheckBoxState::Checked;
+		}
+	}
+
+	return ECheckBoxState::Unchecked;
+}
+
+
+
+
+// Callback for check state changes of the 'UnrealPak' check box.
+void SProjectLauncherCookByTheBookSettings::HandleCreateReleaseVersionCheckBoxCheckStateChanged( ECheckBoxState NewState )
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetCreateReleaseVersion(NewState == ECheckBoxState::Checked);
+	}
+}
+
+// Callback for determining the checked state of the 'UnrealPak' check box.
+ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleCreateReleaseVersionCheckBoxIsChecked( ) const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		if (SelectedProfile->IsCreatingReleaseVersion())
+		{
+			return ECheckBoxState::Checked;
+		}
+	}
+
+	return ECheckBoxState::Unchecked;
+}
+
+FText SProjectLauncherCookByTheBookSettings::HandleCreateReleaseVersionNameTextBlockText() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	FText result;
+
+	if (SelectedProfile.IsValid())
+	{
+		result = FText::FromString(SelectedProfile->GetCreateReleaseVersionName());
+	}
+
+	return result;
+}
+
+void SProjectLauncherCookByTheBookSettings::HandleCreateReleaseVersionNameCommitted(const FText& NewText, ETextCommit::Type CommitType)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetCreateReleaseVersionName(NewText.ToString());
+	}
+
+}
+
+
+FText SProjectLauncherCookByTheBookSettings::HandleBasedOnReleaseVersionNameTextBlockText() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	FText result;
+
+	if (SelectedProfile.IsValid())
+	{
+		result = FText::FromString(SelectedProfile->GetBasedOnReleaseVersionName());
+	}
+
+	return result;
+}
+
+void SProjectLauncherCookByTheBookSettings::HandleBasedOnReleaseVersionNameCommitted(const FText& NewText, ETextCommit::Type CommitType)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetBasedOnReleaseVersionName(NewText.ToString());
+	}
+
+}
+FText SProjectLauncherCookByTheBookSettings::HandleDLCNameTextBlockText() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	FText result;
+
+	if (SelectedProfile.IsValid())
+	{
+		result = FText::FromString(SelectedProfile->GetDLCName());
+	}
+
+	return result;
+}
+
+void SProjectLauncherCookByTheBookSettings::HandleDLCNameCommitted(const FText& NewText, ETextCommit::Type CommitType)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetDLCName(NewText.ToString());
+	}
+}
+
+// Callback for check state changes of the 'UnrealPak' check box.
+void SProjectLauncherCookByTheBookSettings::HandleBuildDLCCheckBoxCheckStateChanged( ECheckBoxState NewState ) 
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetCreateDLC(NewState == ECheckBoxState::Checked);
+	}
+}
+
+// Callback for determining the checked state of the 'UnrealPak' check box.
+ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleBuildDLCCheckBoxIsChecked() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		if (SelectedProfile->IsCreatingDLC())
+		{
+			return ECheckBoxState::Checked;
+		}
+	}
+
+	return ECheckBoxState::Unchecked;
+}
+
+FReply SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallBrowseButtonClicked()
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	if (DesktopPlatform)
+	{
+		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+		void* ParentWindowHandle = (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid()) ? ParentWindow->GetNativeWindow()->GetOSWindowHandle() : nullptr;
+
+		FString FolderName;
+		const bool bFolderSelected = DesktopPlatform->OpenDirectoryDialog(
+			ParentWindowHandle,
+			LOCTEXT("RepositoryBrowseTitle", "Choose a repository location").ToString(),
+			HttpChunkInstallDirectoryTextBox->GetText().ToString(),
+			FolderName
+			);
+
+		if (bFolderSelected)
+		{
+			if (!FolderName.EndsWith(TEXT("/")))
+			{
+				FolderName += TEXT("/");
+			}
+
+			HttpChunkInstallDirectoryTextBox->SetText(FText::FromString(FolderName));
+			ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+			if (SelectedProfile.IsValid())
+			{
+				SelectedProfile->SetHttpChunkDataDirectory(FolderName);
+			}
+		}
+	}
+
+	return FReply::Handled();
+}
+
+
+void SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallDirectoryTextChanged(const FText& InText)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetHttpChunkDataDirectory(InText.ToString());
+	}
+}
+
+
+void SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallDirectoryTextCommitted(const FText& InText, ETextCommit::Type CommitInfo)
+{
+	if (CommitInfo == ETextCommit::OnEnter)
+	{
+		ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+		if (SelectedProfile.IsValid())
+		{
+			SelectedProfile->SetHttpChunkDataDirectory(InText.ToString());
+		}
+	}
+}
+
+void SProjectLauncherCookByTheBookSettings::HandleHttpChunkInstallCheckBoxCheckStateChanged(ECheckBoxState NewState)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetGenerateHttpChunkData(NewState == ECheckBoxState::Checked);
+	}
+}
+
+ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleHttpChunkInstallCheckBoxIsChecked() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+	if (SelectedProfile.IsValid())
+	{
+		return SelectedProfile->IsGenerateHttpChunkData() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+	return ECheckBoxState::Unchecked;
+}
+
+FText SProjectLauncherCookByTheBookSettings::HandleHttpChunkInstallNameTextBlockText() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		return FText::FromString(SelectedProfile->GetHttpChunkDataReleaseName());
+	}
+
+	return FText();
+}
+
+void SProjectLauncherCookByTheBookSettings::HandleHtppChunkInstallNameCommitted(const FText& NewText, ETextCommit::Type CommitType)
+{
+	if (CommitType == ETextCommit::OnEnter)
+	{
+		ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+		if (SelectedProfile.IsValid())
+		{
+			SelectedProfile->SetHttpChunkDataReleaseName(NewText.ToString());
+		}
+	}
+}
+
+
+
+// Callback for check state changes of the 'UnrealPak' check box.
+void SProjectLauncherCookByTheBookSettings::HandleDLCIncludeEngineContentCheckBoxCheckStateChanged(ECheckBoxState NewState)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetDLCIncludeEngineContent(NewState == ECheckBoxState::Checked);
+	}
+}
+
+// Callback for determining the checked state of the 'UnrealPak' check box.
+ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleDLCIncludeEngineContentCheckBoxIsChecked() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		if (SelectedProfile->IsDLCIncludingEngineContent())
+		{
+			return ECheckBoxState::Checked;
+		}
+	}
+
+	return ECheckBoxState::Unchecked;
+}
+
+void SProjectLauncherCookByTheBookSettings::HandleGenerateChunksCheckBoxCheckStateChanged(ECheckBoxState NewState)
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+
+	if (SelectedProfile.IsValid())
+	{
+		SelectedProfile->SetGenerateChunks(NewState == ECheckBoxState::Checked);
+	}
+}
+
+ECheckBoxState SProjectLauncherCookByTheBookSettings::HandleGenerateChunksCheckBoxIsChecked() const
+{
+	ILauncherProfilePtr SelectedProfile = Model->GetSelectedProfile();
+	if (SelectedProfile.IsValid())
+	{
+		return SelectedProfile->IsGeneratingChunks() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
 	return ECheckBoxState::Unchecked;
 }
 

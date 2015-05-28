@@ -8,9 +8,6 @@
 #include "IInputInterface.h"
 #include "IInputDeviceModule.h"
 #include "IInputDevice.h"
-#if STEAM_CONTROLLER_SUPPORT
-	#include "SteamControllerInterface.h"
-#endif // STEAM_CONTROLLER_SUPPORT
 
 #if WITH_EDITOR
 #include "ModuleManager.h"
@@ -50,12 +47,15 @@ FLinuxApplication* FLinuxApplication::CreateLinuxApplication()
 
 	LinuxApplication = new FLinuxApplication();
 
-	SDLControllerState *controllerState = LinuxApplication->ControllerStates;
-	for (int i = 0; i < SDL_NumJoysticks(); ++i) {
-	    if (SDL_IsGameController(i)) {
-		    controllerState->controller = SDL_GameControllerOpen(i);
-			if ( controllerState++->controller == NULL ) {
-				UE_LOG(LogLoad, Warning, TEXT("Could not open gamecontroller %i: %s\n"), i, SDL_GetError() );
+	SDLControllerState* ControllerState = LinuxApplication->ControllerStates;
+	for (int i = 0; i < SDL_NumJoysticks(); ++i)
+	{
+		if (SDL_IsGameController(i))
+		{
+			ControllerState->controller = SDL_GameControllerOpen(i);
+			if (ControllerState++->controller == nullptr)
+			{
+				UE_LOG(LogLoad, Warning, TEXT("Could not open gamecontroller %i: %s\n"), i, UTF8_TO_TCHAR(SDL_GetError()));
 			}
 		}
 	}
@@ -63,13 +63,17 @@ FLinuxApplication* FLinuxApplication::CreateLinuxApplication()
 }
 
 
-FLinuxApplication::FLinuxApplication() : GenericApplication( MakeShareable( new FLinuxCursor() ) )
-#if STEAM_CONTROLLER_SUPPORT
-	, SteamInput( SteamControllerInterface::Create(MessageHandler) )
-#endif // STEAM_CONTROLLER_SUPPORT
-	, bIsMouseCursorLocked(false)
-	, bIsMouseCaptureEnabled(false)
-	, bHasLoadedInputPlugins(false)
+FLinuxApplication::FLinuxApplication() 
+	:	GenericApplication( MakeShareable( new FLinuxCursor() ) )
+	,	bIsMouseCursorLocked(false)
+	,	bIsMouseCaptureEnabled(false)
+	,	bHasLoadedInputPlugins(false)
+	,	bInsideOwnWindow(false)
+	,	bIsDragWindowButtonPressed(false)
+	,	bActivateApp(false)
+	,	bLockToCurrentMouseType(false)
+	,	LastTimeCachedDisplays(-1.0)
+	,	bEscapeKeyPressed(false)
 {
 	bUsingHighPrecisionMouseInput = false;
 	bAllowedToDeferMessageProcessing = true;
@@ -117,16 +121,25 @@ void FLinuxApplication::InitializeWindow(	const TSharedRef< FGenericWindow >& In
 	const TSharedRef< FLinuxWindow > Window = StaticCastSharedRef< FLinuxWindow >( InWindow );
 	const TSharedPtr< FLinuxWindow > ParentWindow = StaticCastSharedPtr< FLinuxWindow >( InParent );
 
-	Windows.Add( Window );
 	Window->Initialize( this, InDefinition, ParentWindow, bShowImmediately );
+	Windows.Add(Window);
+
+	// Add the windows into the focus stack.
+	if (!Window->IsTooltipWindow() || Window->IsActivateWhenFirstShown())
+	{
+		RevertFocusStack.Add(Window);
+	}
+
+	// Add the window into the notification list if it is a notification window.
+	if(Window->IsNotificationWindow())
+	{
+		NotificationWindows.Add(Window);
+	}
 }
 
 void FLinuxApplication::SetMessageHandler( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )
 {
 	GenericApplication::SetMessageHandler(InMessageHandler);
-#if STEAM_CONTROLLER_SUPPORT
-	SteamInput->SetMessageHandler(InMessageHandler);
-#endif // STEAM_CONTROLLER_SUPPORT
 }
 
 namespace
@@ -156,6 +169,10 @@ void FLinuxApplication::PumpMessages( const float TimeDelta )
 	FPlatformMisc::PumpMessages( true );
 }
 
+bool FLinuxApplication::IsCursorDirectlyOverSlateWindow() const
+{
+	return bInsideOwnWindow;
+}
 
 void FLinuxApplication::AddPendingEvent( SDL_Event SDLEvent )
 {
@@ -180,43 +197,6 @@ bool FLinuxApplication::GeneratesKeyCharMessage(const SDL_KeyboardEvent & KeyDow
 		(Sym != SDLK_DOWN && Sym != SDLK_LEFT && Sym != SDLK_RIGHT && Sym != SDLK_UP && Sym != SDLK_DELETE);
 }
 
-void FLinuxApplication::TrackActivationChanges(const TSharedPtr<FLinuxWindow> Window, EWindowActivation::Type Event)
-{
-	bool bNeedToNotify = (Window != CurrentlyActiveWindow) || Event == EWindowActivation::Deactivate;
-	
-	UE_LOG(LogLinuxWindow, Verbose, TEXT("TrackActivationChanges: bNeedToNotify=%s (Window: %p, CurrentlyActiveWindow: %p, Event: %d)"),
-		bNeedToNotify ? TEXT("true") : TEXT("false"),
-		Window.Get(),
-		CurrentlyActiveWindow.Get(),
-		static_cast<int32>(Event));
-	
-	if (bNeedToNotify)
-	{
-		// see if previous window needs to be deactivated
-		if (CurrentlyActiveWindow.IsValid())
-		{
-			UE_LOG(LogLinuxWindow, Verbose, TEXT("TrackActivationChanges: Deactivating previous window %p"), CurrentlyActiveWindow.Get());
-			MessageHandler->OnWindowActivationChanged(CurrentlyActiveWindow.ToSharedRef(), EWindowActivation::Deactivate);
-		}
-			
-		if (Event != EWindowActivation::Deactivate)
-		{
-			CurrentlyActiveWindow = Window;
-			UE_LOG(LogLinuxWindow, Verbose, TEXT("TrackActivationChanges: New active window is %p, notifying it"), CurrentlyActiveWindow.Get());
-			
-			if (CurrentlyActiveWindow.IsValid())
-			{
-				MessageHandler->OnWindowActivationChanged(CurrentlyActiveWindow.ToSharedRef(), Event);
-			}
-		}
-		else
-		{
-			CurrentlyActiveWindow = nullptr;
-			UE_LOG(LogLinuxWindow, Verbose, TEXT("TrackActivationChanges: don't have any active window"));
-		}
-	}
-}
-
 void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 {
 	// This function can be reentered when entering a modal tick loop.
@@ -224,14 +204,14 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 	SDL_HWindow NativeWindow = NULL;
 
 	// get pointer to window that received this event
-	TSharedPtr< FLinuxWindow > CurrentEventWindow = FindEventWindow(&Event);
+	bool bWindowlessEvent = false;
+	TSharedPtr< FLinuxWindow > CurrentEventWindow = FindEventWindow(&Event, bWindowlessEvent);
 
 	if (CurrentEventWindow.IsValid())
 	{
-		LastEventWindow = CurrentEventWindow;
 		NativeWindow = CurrentEventWindow->GetHWnd();
 	}
-	if (!NativeWindow)
+	if (!NativeWindow && !bWindowlessEvent)
 	{
 		return;
 	}
@@ -243,6 +223,17 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 			const SDL_Keycode KeyCode = KeyEvent.keysym.scancode;
 			const bool bIsRepeated = KeyEvent.repeat != 0;
 
+			/*
+				The variable bEscapeKeyPressed is used to figure out if the user tried to close a open 
+				Popup Menu Window. We have to set this before OnKeyDown because Slate will destroy the 
+				window before we can actually use that flag correctly in the RemoveRevertFocusWindow member 
+				function.
+			*/
+			if (KeyCode == SDL_SCANCODE_ESCAPE)
+			{
+				bEscapeKeyPressed = true;
+			}
+			
 			// Text input is now handled in SDL_TEXTINPUT: see below
 			MessageHandler->OnKeyDown(KeyCode, KeyEvent.keysym.sym, bIsRepeated);
 
@@ -259,6 +250,11 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 			SDL_KeyboardEvent keyEvent = Event.key;
 			const SDL_Keycode KeyCode = keyEvent.keysym.scancode;
 			const bool IsRepeat = keyEvent.repeat != 0;
+
+			if (KeyCode == SDL_SCANCODE_ESCAPE)
+			{
+				bEscapeKeyPressed = false;
+			}
 
 			MessageHandler->OnKeyUp( KeyCode, keyEvent.keysym.sym, IsRepeat );
 		}
@@ -277,20 +273,25 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 		{
 			SDL_MouseMotionEvent motionEvent = Event.motion;
 			FLinuxCursor *LinuxCursor = (FLinuxCursor*)Cursor.Get();
+			LinuxCursor->InvalidateCaches();
 
-			if(SDL_ShowCursor(-1) == 0)
+			if (LinuxCursor->IsHidden())
 			{
-				int width, height;
-				SDL_GetWindowSize( NativeWindow, &width, &height );
-				if( motionEvent.x != (width / 2) || motionEvent.y != (height / 2) )
+				// Check if the mouse got locked for dragging in viewport.
+				if (bLockToCurrentMouseType == false)
 				{
-					int xOffset, yOffset;
-					SDL_GetWindowPosition( NativeWindow, &xOffset, &yOffset );
-					LinuxCursor->SetPosition( width / 2 + xOffset, height / 2 + yOffset );
-				}
-				else
-				{
-					break;
+					int width, height;
+					SDL_GetWindowSize(NativeWindow, &width, &height);
+					if (motionEvent.x != (width / 2) || motionEvent.y != (height / 2))
+					{
+						int xOffset, yOffset;
+						SDL_GetWindowPosition(NativeWindow, &xOffset, &yOffset);
+						LinuxCursor->SetPosition(width / 2 + xOffset, height / 2 + yOffset);
+					}
+					else
+					{
+						break;
+					}
 				}
 			}
 			else
@@ -314,12 +315,7 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 			if(bUsingHighPrecisionMouseInput)
 			{
-					// maintain "shadow" global position
-					if (LinuxCursor->IsHidden())
-					{
-						LinuxCursor->AddOffset(motionEvent.xrel, motionEvent.yrel);
-					}
- 					MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
+ 				MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
 			}
 			else
 			{
@@ -359,16 +355,49 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 			if (buttonEvent.type == SDL_MOUSEBUTTONUP)
 			{
 				MessageHandler->OnMouseUp(button);
+				
+				if (buttonEvent.button == SDL_BUTTON_LEFT)
+				{
+					// Unlock the mouse dragging type.
+					bLockToCurrentMouseType = false;
+
+					bIsDragWindowButtonPressed = false;
+				}
 			}
 			else
 			{
+				if (buttonEvent.button == SDL_BUTTON_LEFT)
+				{
+					// The user clicked an object and wants to drag maybe. We can use that to disable 
+					// the resetting of the cursor. Before the user can drag objects, the pointer will change.
+					// Usually it will be EMouseCursor::CardinalCross (Default added after IRC discussion how to fix selection in Front/Top/Side views). 
+                    // If that happends and the user clicks the left mouse button, we know they want to move something.
+					// TODO Is this always true? Need more checks.
+					if (((FLinuxCursor*)Cursor.Get())->GetType() == EMouseCursor::CardinalCross || ((FLinuxCursor*)Cursor.Get())->GetType() == EMouseCursor::Default)
+					{
+						bLockToCurrentMouseType = true;
+					}
+
+					bIsDragWindowButtonPressed = true;
+				}
+
 				if (buttonEvent.clicks == 2)
 				{
 					MessageHandler->OnMouseDoubleClick(CurrentEventWindow, button);
 				}
 				else
 				{
-					MessageHandler->OnMouseDown(CurrentEventWindow, button);
+					if(CurrentlyActiveWindow != CurrentEventWindow)
+					{
+						SDL_RaiseWindow( CurrentEventWindow->GetHWnd() );
+						SDL_SetWindowInputFocus( CurrentEventWindow->GetHWnd() );
+
+						SDL_PushEvent(&Event);
+					}
+					else
+					{
+						MessageHandler->OnMouseDown(CurrentEventWindow, button);
+					}
 				}
 			}
 		}
@@ -659,17 +688,23 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 				case SDL_WINDOWEVENT_SHOWN:
 					{
+						// (re)cache native properties
+						CurrentEventWindow->CacheNativeProperties();
+
+						if (CurrentEventWindow->IsRegularWindow() && CurrentEventWindow->IsActivateWhenFirstShown())
+						{
+							SDL_SetWindowInputFocus(CurrentEventWindow->GetHWnd());
+						}
 						int Width, Height;
 
 						SDL_GetWindowSize(NativeWindow, &Width, &Height);
-						
+
 						MessageHandler->OnSizeChanged(
 							CurrentEventWindow.ToSharedRef(),
 							Width,
 							Height,
 							false
 						);
-					
 					}
 					break;
 
@@ -677,16 +712,12 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 					{
 						int32 ClientScreenX = windowEvent.data1;
 						int32 ClientScreenY = windowEvent.data2;
-						SDL_Rect Borders;
-						if (SDL_GetWindowBordersSize(NativeWindow, &Borders) == 0)
-						{
-							ClientScreenX += Borders.x;
-							ClientScreenY += Borders.y;
-						}
-						else
-						{
-							UE_LOG(LogLinuxWindow, Verbose, TEXT("Could not get Window border sizes!"));
-						}
+
+						int32 BorderSizeX, BorderSizeY;
+						CurrentEventWindow->GetNativeBordersSize(BorderSizeX, BorderSizeY);
+						ClientScreenX += BorderSizeX;
+						ClientScreenY += BorderSizeY;
+
 						MessageHandler->OnMovedWindow(CurrentEventWindow.ToSharedRef(), ClientScreenX, ClientScreenY);
 					}
 					break;
@@ -694,12 +725,14 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 				case SDL_WINDOWEVENT_MAXIMIZED:
 					{
 						MessageHandler->OnWindowAction(CurrentEventWindow.ToSharedRef(), EWindowAction::Maximize);
+						UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("Window: '%d' got maximized"), CurrentEventWindow->GetID());
 					}
 					break;
 
 				case SDL_WINDOWEVENT_RESTORED:
 					{
 						MessageHandler->OnWindowAction(CurrentEventWindow.ToSharedRef(), EWindowAction::Restore);
+						UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("Window: '%d' got restored"), CurrentEventWindow->GetID());
 					}
 					break;
 
@@ -707,43 +740,175 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 					{
 						if (CurrentEventWindow.IsValid())
 						{
+							CurrentEventWindow->OnPointerEnteredWindow(true);
+							
 							MessageHandler->OnCursorSet();
+
+							bInsideOwnWindow = true;
+							UE_LOG(LogLinuxWindow, Verbose, TEXT("Entered one of application windows"));
 						}
 					}
 					break;
 
 				case SDL_WINDOWEVENT_LEAVE:
 					{
-						if (CurrentEventWindow.IsValid() && GetCapture() != NULL)
+						if (CurrentEventWindow.IsValid())
 						{
-							UpdateMouseCaptureWindow((SDL_HWindow)GetCapture());
+							CurrentEventWindow->OnPointerEnteredWindow(false);
+							
+							if (GetCapture() != nullptr)
+							{
+								UpdateMouseCaptureWindow((SDL_HWindow)GetCapture());
+							}
+
+							bInsideOwnWindow = false;
+							UE_LOG(LogLinuxWindow, Verbose, TEXT("Left an application window we were hovering above."));
+						}
+					}
+					break;
+
+				case SDL_WINDOWEVENT_HIT_TEST:
+					{
+						if( CurrentEventWindow.IsValid())
+						{
+							SDL_SetWindowInputFocus(CurrentEventWindow->GetHWnd());
+						}
+
+						// Raise notification windows if we have some.
+						if(NotificationWindows.Num() > 0)
+						{
+							RaiseNotificationWindows(CurrentEventWindow);
+						}
+					}
+					break;
+
+				case SDL_WINDOWEVENT_TAKE_FOCUS:
+					{
+						// Check if we have an active (focused) window at all. If not we activate the applicaton.
+						if (!CurrentlyActiveWindow.IsValid() && !bActivateApp)
+						{
+							MessageHandler->OnApplicationActivationChanged(true);
+							UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("WM_ACTIVATEAPP(TF), wParam = 1"));
+							bActivateApp = true;
+						}
+
+						// Raise notification windows if we have some.
+						if(NotificationWindows.Num() > 0)
+						{
+							RaiseNotificationWindows(CurrentEventWindow);
 						}
 					}
 					break;
 
 				case SDL_WINDOWEVENT_FOCUS_GAINED:
 					{
-						if (CurrentEventWindow.IsValid())
+						PreviousActiveWindow = CurrentlyActiveWindow;
+						
+						MessageHandler->OnWindowActivationChanged(CurrentEventWindow.ToSharedRef(), EWindowActivation::Activate);
+						UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("WM_ACTIVATE(FG),    wParam = WA_ACTIVE       : %d"), CurrentEventWindow->GetID());
+						CurrentlyActiveWindow = CurrentEventWindow;
+
+						// Raise notification windows if we have some.
+						if(NotificationWindows.Num() > 0)
 						{
-							TrackActivationChanges(CurrentEventWindow, EWindowActivation::Activate);                            
+							RaiseNotificationWindows(CurrentEventWindow);
 						}
 					}
 					break;
 
 				case SDL_WINDOWEVENT_FOCUS_LOST:
 					{
-						if (CurrentEventWindow.IsValid())
+						// OK, the active window lost focus. This could mean the app went completely out of
+						// focus. That means the app must be deactivated. To make sure that the user did
+						// not click to another window we delay the deactivation.
+						// TODO Figure out if the delay time may cause problems.
+						if(CurrentlyActiveWindow == CurrentEventWindow)
 						{
-							TrackActivationChanges(CurrentEventWindow, EWindowActivation::Deactivate);
+							// Only do if the application is active.
+							if(bActivateApp)
+							{
+								SDL_Event event;
+								event.type = SDL_USEREVENT;
+								event.user.code = CheckForDeactivation;
+								SDL_PushEvent(&event);
+							}
+
+							CurrentlyActiveWindow = nullptr;
 						}
+						MessageHandler->OnWindowActivationChanged(CurrentEventWindow.ToSharedRef(), EWindowActivation::Deactivate);
+						UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("WM_ACTIVATE(FL),    wParam = WA_INACTIVE     : %d"), CurrentEventWindow->GetID());
 					}
 					break;
-
 				case SDL_WINDOWEVENT_HIDDEN:		// intended fall-through
 				case SDL_WINDOWEVENT_EXPOSED:		// intended fall-through
 				case SDL_WINDOWEVENT_MINIMIZED:		// intended fall-through
 				default:
 					break;
+			}
+		}
+		break;
+
+	case SDL_DROPBEGIN:
+		{
+			check(DragAndDropQueue.Num() == 0);  // did we get confused?
+			check(DragAndDropTextQueue.Num() == 0);  // did we get confused?
+		}
+		break;
+
+	case SDL_DROPFILE:
+		{
+			FString tmp = StringUtility::UnescapeURI(UTF8_TO_TCHAR(Event.drop.file));
+			DragAndDropQueue.Add(tmp);
+			SDL_free(Event.drop.file);
+			UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("File dropped: %s"), *tmp);
+		}
+		break;
+
+	case SDL_DROPTEXT:
+		{
+			FString tmp = UTF8_TO_TCHAR(Event.drop.file);
+			DragAndDropTextQueue.Add(tmp);
+			SDL_free(Event.drop.file);
+			UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("Text dropped: %s"), *tmp);
+		}
+		break;
+
+	case SDL_DROPCOMPLETE:
+		{
+			if (DragAndDropQueue.Num() > 0)
+			{
+				MessageHandler->OnDragEnterFiles(CurrentEventWindow.ToSharedRef(), DragAndDropQueue);
+				MessageHandler->OnDragDrop(CurrentEventWindow.ToSharedRef());
+				DragAndDropQueue.Empty();
+			}
+
+			if (DragAndDropTextQueue.Num() > 0)
+			{
+				for (const auto & Text : DragAndDropTextQueue)
+				{
+					MessageHandler->OnDragEnterText(CurrentEventWindow.ToSharedRef(), Text);
+					MessageHandler->OnDragDrop(CurrentEventWindow.ToSharedRef());
+				}
+				DragAndDropTextQueue.Empty();
+			}
+			UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("DragAndDrop finished for Window              : %d"), CurrentEventWindow->GetID());
+		}
+		break;
+
+	case SDL_USEREVENT:
+		{
+			if(Event.user.code == CheckForDeactivation)
+			{
+				// If we don't use bIsDragWindowButtonPressed the draged window will be destroyed because we
+				// deactivate the whole appliacton. TODO Is that a bug? Do we have to do something?
+				if (!CurrentlyActiveWindow.IsValid() && !bIsDragWindowButtonPressed)
+				{
+					MessageHandler->OnApplicationActivationChanged( false );
+					UE_LOG(LogLinuxWindowEvent, Verbose, TEXT("WM_ACTIVATEAPP(UE), wParam = 0"));
+
+					CurrentlyActiveWindow = nullptr;
+					bActivateApp = false;
+				}
 			}
 		}
 		break;
@@ -781,6 +946,7 @@ void FLinuxApplication::PollGameDeviceState( const float TimeDelta )
 			TSharedPtr<IInputDevice> Device = (*InputPluginIt)->CreateInputDevice(MessageHandler);
 			if (Device.IsValid())
 			{
+				UE_LOG(LogInit, Log, TEXT("Adding external input plugin."));
 				ExternalInputDevices.Add(Device);
 			}
 		}
@@ -788,11 +954,6 @@ void FLinuxApplication::PollGameDeviceState( const float TimeDelta )
 		bHasLoadedInputPlugins = true;
 	}
 	
-#if STEAM_CONTROLLER_SUPPORT
-	// Poll game device states and send new events
-	SteamInput->SendControllerEvents();
-#endif // STEAM_CONTROLLER_SUPPORT
-
 	// Poll externally-implemented devices
 	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
 	{
@@ -906,9 +1067,11 @@ TCHAR FLinuxApplication::ConvertChar( SDL_Keysym Keysym )
     return Char;
 }
 
-TSharedPtr< FLinuxWindow > FLinuxApplication::FindEventWindow( SDL_Event* Event )
+TSharedPtr< FLinuxWindow > FLinuxApplication::FindEventWindow(SDL_Event* Event, bool& bOutWindowlessEvent)
 {
 	uint16 WindowID = 0;
+	bOutWindowlessEvent = false;
+
 	switch (Event->type)
 	{
 		case SDL_TEXTINPUT:
@@ -931,11 +1094,18 @@ TSharedPtr< FLinuxWindow > FLinuxApplication::FindEventWindow( SDL_Event* Event 
 		case SDL_MOUSEWHEEL:
 			WindowID = Event->wheel.windowID;
 			break;
-
 		case SDL_WINDOWEVENT:
 			WindowID = Event->window.windowID;
 			break;
+		case SDL_DROPBEGIN:
+		case SDL_DROPFILE:
+		case SDL_DROPTEXT:
+		case SDL_DROPCOMPLETE:
+			WindowID = Event->drop.windowID;
+			break;
+
 		default:
+			bOutWindowlessEvent = true;
 			return TSharedPtr< FLinuxWindow >(nullptr);
 	}
 
@@ -1030,29 +1200,50 @@ void FLinuxApplication::SetHighPrecisionMouseMode( const bool Enable, const TSha
 {
 	MessageHandler->OnCursorSet();
 	bUsingHighPrecisionMouseInput = Enable;
-	((FLinuxCursor*)Cursor.Get())->ResetOffset();
 }
 
+void FLinuxApplication::RefreshDisplayCache()
+{
+	const double kCacheLifetime = 5.0;	// ask once in 5 seconds
+	
+	double CurrentTime = FPlatformTime::Seconds();
+	if (CurrentTime - LastTimeCachedDisplays > kCacheLifetime)
+	{
+		CachedDisplays.Empty();
+
+		int NumDisplays = SDL_GetNumVideoDisplays();
+
+		for (int DisplayIdx = 0; DisplayIdx < NumDisplays; ++DisplayIdx)
+		{
+			SDL_Rect DisplayBounds;
+			SDL_GetDisplayBounds(DisplayIdx, &DisplayBounds);
+			
+			CachedDisplays.Add(DisplayBounds);
+		}
+
+		LastTimeCachedDisplays = CurrentTime;
+	}
+}
 
 FPlatformRect FLinuxApplication::GetWorkArea( const FPlatformRect& CurrentWindow ) const
 {
+	(const_cast<FLinuxApplication *>(this))->RefreshDisplayCache();
+
 	// loop over all monitors to determine which one is the best
-	int NumDisplays = SDL_GetNumVideoDisplays();
+	int NumDisplays = CachedDisplays.Num();
 	if (NumDisplays <= 0)
 	{
 		// fake something
 		return CurrentWindow;
 	}
-	
-	SDL_Rect BestDisplayBounds;
-	SDL_GetDisplayBounds(0, &BestDisplayBounds);
-	
+
+	SDL_Rect BestDisplayBounds = CachedDisplays[0];
+
 	// see if any other are better (i.e. cover top left)
 	for (int DisplayIdx = 1; DisplayIdx < NumDisplays; ++DisplayIdx)
 	{
-		SDL_Rect DisplayBounds;
-		SDL_GetDisplayBounds(DisplayIdx, &DisplayBounds);
-		
+		const SDL_Rect & DisplayBounds = CachedDisplays[DisplayIdx];
+
 		// only check top left corner for "bestness"
 		if (DisplayBounds.x <= CurrentWindow.Left && DisplayBounds.x + DisplayBounds.w > CurrentWindow.Left &&
 			DisplayBounds.y <= CurrentWindow.Top && DisplayBounds.y + DisplayBounds.h > CurrentWindow.Bottom)
@@ -1062,7 +1253,7 @@ FPlatformRect FLinuxApplication::GetWorkArea( const FPlatformRect& CurrentWindow
 			break;
 		}
 	}
-	
+
 	FPlatformRect WorkArea;
 	WorkArea.Left	= BestDisplayBounds.x;
 	WorkArea.Top	= BestDisplayBounds.y;
@@ -1112,8 +1303,9 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 	OutDisplayMetrics.MonitorInfo.Empty();
 	
 	FMonitorInfo Primary;
-	SDL_Rect PrimaryBounds;
+	SDL_Rect PrimaryBounds, PrimaryUsableBounds;
 	SDL_GetDisplayBounds(0, &PrimaryBounds);
+	SDL_GetDisplayUsableBounds(0, &PrimaryUsableBounds);
 
 	Primary.Name = UTF8_TO_TCHAR(SDL_GetDisplayName(0));
 	Primary.ID = TEXT("display0");
@@ -1122,14 +1314,13 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 	Primary.bIsPrimary = true;
 	OutDisplayMetrics.MonitorInfo.Add(Primary);
 
-	// @TODO [RCL] 2014-09-30 - try to account for real work area and not just display size.
-	OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Left = PrimaryBounds.x;
-	OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Top = PrimaryBounds.y;
-	OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Right = PrimaryBounds.x + PrimaryBounds.w;
-	OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Bottom = PrimaryBounds.y + PrimaryBounds.h;
+	OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Left = PrimaryUsableBounds.x;
+	OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Top = PrimaryUsableBounds.y;
+	OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Right = PrimaryUsableBounds.x + PrimaryUsableBounds.w;
+	OutDisplayMetrics.PrimaryDisplayWorkAreaRect.Bottom = PrimaryUsableBounds.y + PrimaryUsableBounds.h;
 
 	OutDisplayMetrics.PrimaryDisplayWidth = PrimaryBounds.w;
- 	OutDisplayMetrics.PrimaryDisplayHeight = PrimaryBounds.h;
+	OutDisplayMetrics.PrimaryDisplayHeight = PrimaryBounds.h;
 
 	// accumulate the total bound rect
 	OutDisplayMetrics.VirtualDisplayRect = OutDisplayMetrics.PrimaryDisplayWorkAreaRect;
@@ -1150,5 +1341,109 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 		OutDisplayMetrics.VirtualDisplayRect.Right = FMath::Max(OutDisplayMetrics.VirtualDisplayRect.Right, DisplayBounds.x + DisplayBounds.w);
 		OutDisplayMetrics.VirtualDisplayRect.Top = FMath::Min(DisplayBounds.y, OutDisplayMetrics.VirtualDisplayRect.Top);
 		OutDisplayMetrics.VirtualDisplayRect.Bottom = FMath::Max(OutDisplayMetrics.VirtualDisplayRect.Bottom, DisplayBounds.y + DisplayBounds.h);
+	}
+}
+
+void FLinuxApplication::RemoveRevertFocusWindow(SDL_HWindow HWnd)
+{
+	for (int32 WindowIndex=0; WindowIndex < RevertFocusStack.Num(); ++WindowIndex)
+	{
+		TSharedRef< FLinuxWindow > Window = RevertFocusStack[ WindowIndex ];
+
+		if (Window->GetHWnd() == HWnd)
+		{
+			RevertFocusStack.RemoveAt(WindowIndex);
+
+			// Was the deleted window a Blueprint, Cascade, Matinee etc. window?
+			if(Window->IsUtilityWindow() || Window->IsDialogWindow())
+			{
+				// OK, then raise its parent window.
+				SDL_RaiseWindow( Window->GetParent()->GetHWnd() );
+				SDL_SetWindowInputFocus( Window->GetParent()->GetHWnd() );
+				
+				// We reset this here because the user might have clicked the Escape key to close
+				// a dialog window.
+				bEscapeKeyPressed = false;
+			}
+			// Was the deleted window a top level window and we have still at least one other window in the stack?
+			else if(Window->IsTopLevelWindow() && (RevertFocusStack.Num() > 0))
+			{
+				// OK, give focus to the one on top of the stack.
+				TSharedPtr< FLinuxWindow > TopmostWindow = RevertFocusStack.Top();
+				if (TopmostWindow.IsValid())
+				{
+					SDL_RaiseWindow( TopmostWindow->GetHWnd() );
+					SDL_SetWindowInputFocus( TopmostWindow->GetHWnd() );
+
+					// We reset this here because the user might have clicked the Escape key to close
+					// a external window that runs the game.
+					bEscapeKeyPressed = false;
+				}
+			}
+			// Was it a popup menu?
+			else if (Window->IsPopupMenuWindow() && bActivateApp )
+			{
+				// Did the user click an item and the popup menu got closed?
+				if ( bIsDragWindowButtonPressed && Window->IsPointerInsideWindow() )
+				{
+					SDL_RaiseWindow(Window->GetParent()->GetHWnd() );
+					SDL_SetWindowInputFocus(Window->GetParent()->GetHWnd() );
+
+					// TODO If we have a popup menu and a sub popup menu open, we have
+					// to fake the following. After getting destructed the condition above
+					// 'Window->IsPointerInsideWindow()' will be false for the parent popup window
+					// and the focus will be not reset. This is rather hackery and should be
+					// removed later if possible.
+					Window->GetParent()->OnPointerEnteredWindow(true);
+				}
+				// Did the user hit the Escape Key to close popup menu window with all its submenus?
+				else if(bEscapeKeyPressed && bInsideOwnWindow)
+				{
+					/* 
+						We have to revert back the focus to the previous submenu until we reach
+						the one its parent is the top level window.
+					*/
+					SDL_RaiseWindow(Window->GetParent()->GetHWnd() );
+ 					SDL_SetWindowInputFocus(Window->GetParent()->GetHWnd() );
+
+					// We reached to point where the parent of this destroyed popup menu window
+					// is the top level window. Because we set already the focus we reset the
+					// flag because all submenu of the popup menu window got closed.
+					if(!Window->GetParent()->IsPopupMenuWindow())
+					{
+						bEscapeKeyPressed = false;
+					}
+				}
+			}
+			break;
+		}
+	}
+}
+
+void FLinuxApplication::RemoveNotificationWindow(SDL_HWindow HWnd)
+{
+	for (int32 WindowIndex=0; WindowIndex < NotificationWindows.Num(); ++WindowIndex)
+	{
+		TSharedRef< FLinuxWindow > Window = NotificationWindows[ WindowIndex ];
+		
+		if ( Window->GetHWnd() == HWnd )
+		{
+			NotificationWindows.RemoveAt(WindowIndex);
+			return;
+		}
+	}
+}
+
+void FLinuxApplication::RaiseNotificationWindows( const TSharedPtr< FLinuxWindow >& ParentWindow)
+{
+	// Raise notification window only for the correct parent window.
+	// TODO Do we have to make this restriction?
+	for (int32 WindowIndex=0; WindowIndex < NotificationWindows.Num(); ++WindowIndex)
+	{
+		TSharedRef< FLinuxWindow > NotificationWindow = NotificationWindows[WindowIndex];
+		if(ParentWindow == NotificationWindow->GetParent())
+		{
+			SDL_RaiseWindow(NotificationWindow->GetHWnd());
+		}
 	}
 }

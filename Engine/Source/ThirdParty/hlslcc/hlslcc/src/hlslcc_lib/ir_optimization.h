@@ -47,10 +47,6 @@
 
 bool do_optimization_pass(exec_list *ir, _mesa_glsl_parse_state* state, bool bPerformGlobalDeadCodeRemoval);
 
-bool do_common_optimization(exec_list *ir, bool linked,
-				bool uniform_locations_assigned,
-				unsigned max_unroll_iterations);
-
 bool do_algebraic(_mesa_glsl_parse_state* State, exec_list *instructions);
 bool do_constant_folding(exec_list *instructions);
 bool do_constant_variable(exec_list *instructions);

@@ -8,60 +8,77 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectArray, Log, All);
 
-/** Global UObject array							*/
-FUObjectArray GUObjectArray;
-
 void FUObjectArray::AllocatePermanentObjectPool(int32 MaxObjectsNotConsideredByGC)
 {
+	check(IsInGameThread());
+
 	// GObjFirstGCIndex is the index at which the garbage collector will start for the mark phase.
-	ObjFirstGCIndex			= MaxObjectsNotConsideredByGC;
+	ObjFirstGCIndex = MaxObjectsNotConsideredByGC;
 
 	// Presize array.
-	check( ObjObjects.Num() == 0 );
-	if( ObjFirstGCIndex )
+	check(ObjObjects.Num() == 0);
+	if (ObjFirstGCIndex >= 0)
 	{
-		ObjObjects.Reserve( ObjFirstGCIndex );
+		ObjObjects.Reserve(ObjFirstGCIndex);
 	}
 	FWeakObjectPtr::Init(); // this adds a delete listener
 }
 
 void FUObjectArray::CloseDisregardForGC()
 {
+	check(IsInGameThread());
+
 	OpenForDisregardForGC = false;
 	GIsInitialLoad = false;
 	// Make sure the first GC index matches the last non-GC index after DisregardForGC is closed
 	ObjFirstGCIndex = ObjLastNonGCIndex + 1;
 }
 
-void FUObjectArray::AllocateUObjectIndex(UObjectBase* Object)
+void FUObjectArray::AllocateUObjectIndex(UObjectBase* Object, bool bMergingThreads /*= false*/)
 {
-	int32 Index;
-	check(Object->InternalIndex == INDEX_NONE);
+	int32 Index = INDEX_NONE;
+	check(Object->InternalIndex == INDEX_NONE || bMergingThreads);
 
 	// Special non- garbage collectable range.
 	if (OpenForDisregardForGC && DisregardForGCEnabled())
 	{
-		Index = ObjObjects.AddUninitialized();
+		// Disregard from GC pool is only available from the game thread, at least for now
+		check(IsInGameThread());
+		Index = ObjObjects.AddZeroed(1);
 		ObjLastNonGCIndex = Index;
 		ObjFirstGCIndex = FMath::Max(ObjFirstGCIndex, Index + 1);
 	}
 	// Regular pool/ range.
 	else
-	{
-		if(ObjAvailable.Num())
+	{		
+		int32* AvailableIndex = ObjAvailableList.Pop();
+		if (AvailableIndex)
 		{
-			Index = ObjAvailable.Pop();
-			check(ObjObjects[Index]==NULL);
+#if WITH_EDITOR
+			ObjAvailableCount.Decrement();
+			checkSlow(ObjAvailableCount.GetValue() >= 0);
+#endif
+			Index = (int32)(uintptr_t)AvailableIndex;
+			check(ObjObjects[Index]==nullptr);
 		}
 		else
 		{
-			Index = ObjObjects.AddUninitialized();
+#if THREADSAFE_UOBJECTS
+			FScopeLock ObjObjectsLock(&ObjObjectsCritical);
+#else
+			check(IsInGameThread());
+#endif
+			Index = ObjObjects.AddZeroed(1);
 		}
 		check(Index >= ObjFirstGCIndex);
 	}
 	// Add to global table.
-	ObjObjects[Index] = Object;
+	if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&ObjObjects[Index], Object, NULL) != NULL) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
+	{
+		UE_LOG(LogUObjectArray, Fatal, TEXT("Unexpected concurency while adding new object"));
+	}
 	Object->InternalIndex = Index;
+	//  @todo: threading: lock UObjectCreateListeners
 	for (int32 ListenerIndex = 0; ListenerIndex < UObjectCreateListeners.Num(); ListenerIndex++)
 	{
 		UObjectCreateListeners[ListenerIndex]->NotifyUObjectCreated(Object,Index);
@@ -75,15 +92,29 @@ void FUObjectArray::AllocateUObjectIndex(UObjectBase* Object)
  */
 void FUObjectArray::FreeUObjectIndex(UObjectBase* Object)
 {
+	// This should only be happening on the game thread (GC runs only on game thread when it's freeing objects)
+	check(IsInGameThread());
+
 	int32 Index = Object->InternalIndex;
-	ObjObjects[Index] = NULL;
+	// At this point no two objects exist with the same index so no need to lock here
+	if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&ObjObjects[Index], NULL, Object) == NULL) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
+	{
+		UE_LOG(LogUObjectArray, Fatal, TEXT("Unexpected concurency while adding new object"));
+	}
+
+	// @todo: threading: delete listeners should be locked while we're doing this
 	for (int32 ListenerIndex = 0; ListenerIndex < UObjectDeleteListeners.Num(); ListenerIndex++)
 	{
-		UObjectDeleteListeners[ListenerIndex]->NotifyUObjectDeleted(Object,Index);
+		UObjectDeleteListeners[ListenerIndex]->NotifyUObjectDeleted(Object, Index);
 	}
-	if (Index > ObjLastNonGCIndex)  // you cannot safely recycle indicies in the non-GC range
+	// You cannot safely recycle indicies in the non-GC range
+	// No point in filling this list when doing exit purge. Nothing should be allocated afterwards anyway.
+	if (Index > ObjLastNonGCIndex && !GExitPurge)  
 	{
-		ObjAvailable.Add(Index);
+		ObjAvailableList.Push((int32*)(uintptr_t)Index);
+#if WITH_EDITOR
+		ObjAvailableCount.Increment();
+#endif
 	}
 }
 
@@ -170,11 +201,9 @@ bool FUObjectArray::IsValid(const UObjectBase* Object) const
  */
 void FUObjectArray::ShutdownUObjectArray()
 {
-	ObjObjects.Empty();
-	ObjAvailable.Empty();
 }
 
-TArray<UObjectBase*>* FUObjectArray::GetObjectArrayForDebugVisualizers()
+UObjectBase*** FUObjectArray::GetObjectArrayForDebugVisualizers()
 {
-	return &GUObjectArray.ObjObjects;
+	return GetUObjectArray().ObjObjects.GetRootBlockForDebuggerVisualizers();
 }

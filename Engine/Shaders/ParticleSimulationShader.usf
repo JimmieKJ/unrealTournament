@@ -46,7 +46,7 @@ void VertexMain(
 {
 	uint InstanceId = Input.InstanceId * TILES_PER_INSTANCE + Input.VertexId / 4;
 	
-	float2 TileCoord = Input.TexCoord.xy * float2(TILE_SIZE_X,TILE_SIZE_Y) + TileOffsets[InstanceId];
+float2 TileCoord = Input.TexCoord.xy * float2(TILE_SIZE_X,TILE_SIZE_Y) + TileOffsets[InstanceId];
 
 	OutPosition = float4(
 		TileCoord.xy * float2(2.0f,-2.0f) + float2(-1.0f,1.0f),
@@ -98,8 +98,14 @@ SamplerState CurveTextureSampler;
 #if MAX_VECTOR_FIELDS != 4
 #error This must match MAX_VECTOR_FIELDS in C++ land
 #endif
-Texture3D VectorFieldTextures[MAX_VECTOR_FIELDS];
-SamplerState VectorFieldTexturesSampler;
+Texture3D VectorFieldTextures0;
+Texture3D VectorFieldTextures1;
+Texture3D VectorFieldTextures2;
+Texture3D VectorFieldTextures3;
+SamplerState VectorFieldTexturesSampler0;
+SamplerState VectorFieldTexturesSampler1;
+SamplerState VectorFieldTexturesSampler2;
+SamplerState VectorFieldTexturesSampler3;
 
 /**
  * Computes the orbit velocity to apply to the particle based on time.
@@ -131,10 +137,10 @@ float3 ComputeOrbitVelocity(float Time, float RandomOrbit)
  */
  float3 SampleVectorFieldTexture(int Index, float3 UV)
  {
-	if (Index == 0) return Texture3DSample(VectorFieldTextures[0], VectorFieldTexturesSampler, UV).xyz;
-	if (Index == 1) return Texture3DSample(VectorFieldTextures[1], VectorFieldTexturesSampler, UV).xyz;
-	if (Index == 2) return Texture3DSample(VectorFieldTextures[2], VectorFieldTexturesSampler, UV).xyz;
-	return Texture3DSample(VectorFieldTextures[3], VectorFieldTexturesSampler, UV).xyz;
+	if (Index == 0) return Texture3DSample(VectorFieldTextures0, VectorFieldTexturesSampler0, UV).xyz;
+	if (Index == 1) return Texture3DSample(VectorFieldTextures1, VectorFieldTexturesSampler1, UV).xyz;
+	if (Index == 2) return Texture3DSample(VectorFieldTextures2, VectorFieldTexturesSampler2, UV).xyz;
+	return Texture3DSample(VectorFieldTextures3, VectorFieldTexturesSampler3, UV).xyz;
  }
 
 /**
@@ -168,7 +174,7 @@ void EvaluateVectorFields(out float3 OutForce, out float4 OutVelocity, float3 Po
 
 		// @todo compat hack: Some compilers only allow constant indexing into a texture array
 //		float3 VectorSample = Texture3DSample(VectorFieldTextures[VectorFieldIndex], VectorFieldTexturesSampler, saturate(VolumeUV)).xyz;
-		float3 VectorSample = SampleVectorFieldTexture(VectorFieldIndex, saturate(VolumeUV));
+float3 VectorSample = SampleVectorFieldTexture(VectorFieldIndex, saturate(VolumeUV));
 
 		float3 Vec = mul(float4(VectorSample,0), VectorFields.VolumeToWorld[VectorFieldIndex]).xyz;
 		TotalForce += (Vec * DistanceWeight * Intensity);

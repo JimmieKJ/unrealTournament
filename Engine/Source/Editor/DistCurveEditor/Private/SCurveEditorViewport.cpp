@@ -102,8 +102,6 @@ TSharedPtr<SScrollBar> SCurveEditorViewport::GetVerticalScrollBar() const
 
 void SCurveEditorViewport::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	// Check to see if we need to update the scrollbars due to a size change
 	const int32 CurrentHeight = AllottedGeometry.Size.Y;
 	if (CurrentHeight != PrevViewportHeight)

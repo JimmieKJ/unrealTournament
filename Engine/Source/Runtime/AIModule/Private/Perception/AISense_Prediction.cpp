@@ -49,3 +49,23 @@ void UAISense_Prediction::RegisterEvent(const FAIPredictionEvent& Event)
 	RegisteredEvents.Add(Event);
 	RequestImmediateUpdate();
 }
+
+void UAISense_Prediction::RequestControllerPredictionEvent(AAIController* Requestor, AActor* PredictedActor, float PredictionTime)
+{
+	UAIPerceptionSystem* PerceptionSystem = UAIPerceptionSystem::GetCurrent(Requestor);
+	if (PerceptionSystem)
+	{
+		FAIPredictionEvent Event(Requestor, PredictedActor, PredictionTime);
+		PerceptionSystem->OnEvent(Event);
+	}
+}
+
+void UAISense_Prediction::RequestPawnPredictionEvent(APawn* Requestor, AActor* PredictedActor, float PredictionTime)
+{
+	UAIPerceptionSystem* PerceptionSystem = UAIPerceptionSystem::GetCurrent(Requestor);
+	if (PerceptionSystem && Requestor->GetController())
+	{
+		FAIPredictionEvent Event(Requestor->GetController(), PredictedActor, PredictionTime);
+		PerceptionSystem->OnEvent(Event);
+	}
+}

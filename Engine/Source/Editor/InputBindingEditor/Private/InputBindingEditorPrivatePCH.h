@@ -14,7 +14,7 @@
 /* Private includes
  *****************************************************************************/
 
-#include "SGestureEditBox.h"
-#include "SGestureTreeItem.h"
-#include "SGestureEditor.h"
+#include "SChordEditBox.h"
+#include "SChordTreeItem.h"
+#include "SChordEditor.h"
 #include "SInputBindingEditorPanel.h"

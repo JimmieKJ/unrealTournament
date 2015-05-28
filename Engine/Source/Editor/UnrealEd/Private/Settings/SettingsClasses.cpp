@@ -5,6 +5,16 @@
 #include "Components/BillboardComponent.h"
 #include "AI/Navigation/NavigationSystem.h"
 #include "Components/ArrowComponent.h"
+#include "AutoReimport/AutoReimportUtilities.h"
+
+#include "SNotificationList.h"
+#include "NotificationManager.h"
+#include "ISettingsModule.h"
+#include "EditorProjectSettings.h"
+
+#include "SourceCodeNavigation.h"
+
+#define LOCTEXT_NAMESPACE "SettingsClasses"
 
 /* UContentBrowserSettings interface
  *****************************************************************************/
@@ -53,7 +63,6 @@ UDestructableMeshEditorSettings::UDestructableMeshEditorSettings( const FObjectI
 
 UEditorExperimentalSettings::UEditorExperimentalSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
-	, bInWorldBPEditing(true)
 	, bUnifiedBlueprintEditor(true)
 	, bBlueprintableComponents(true)
 
@@ -94,13 +103,19 @@ void UEditorExperimentalSettings::PostEditChangeProperty( struct FPropertyChange
 
 UEditorLoadingSavingSettings::UEditorLoadingSavingSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
-	, bMonitorContentDirectories(true)
+	, bEnableSourceControlCompatabilityCheck(true)
+	, bMonitorContentDirectories(false)
+	, AutoReimportThreshold(3.f)
 	, bAutoCreateAssets(true)
 	, bAutoDeleteAssets(true)
+	, bDetectChangesOnRestart(true)
 	, bDeleteSourceFilesWithAssets(false)
 {
 	TextDiffToolPath.FilePath = TEXT("P4Merge.exe");
-	AutoReimportDirectories.Add("/Game/");
+
+	FAutoReimportDirectoryConfig Default;
+	Default.SourceDirectory = TEXT("/Game/");
+	AutoReimportDirectorySettings.Add(Default);
 }
 
 
@@ -114,7 +129,8 @@ void UEditorLoadingSavingSettings::PostEditChangeProperty( struct FPropertyChang
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	const FName Name = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+	// Use MemberProperty here so we report the correct member name for nested changes
+	const FName Name = (PropertyChangedEvent.MemberProperty != nullptr) ? PropertyChangedEvent.MemberProperty->GetFName() : NAME_None;
 
 	if (Name == FName(TEXT("bSCCUseGlobalSettings")))
 	{
@@ -130,13 +146,162 @@ void UEditorLoadingSavingSettings::PostEditChangeProperty( struct FPropertyChang
 	SettingChangedEvent.Broadcast(Name);
 }
 
+void UEditorLoadingSavingSettings::PostInitProperties()
+{
+	if (AutoReimportDirectories_DEPRECATED.Num() != 0)
+	{
+		AutoReimportDirectorySettings.Empty();
+		for (const auto& String : AutoReimportDirectories_DEPRECATED)
+		{
+			FAutoReimportDirectoryConfig Config;
+			Config.SourceDirectory = String;
+			AutoReimportDirectorySettings.Add(Config);
+		}
+		AutoReimportDirectories_DEPRECATED.Empty();
+	}
+	Super::PostInitProperties();
+}
+
+void UEditorLoadingSavingSettings::CheckSourceControlCompatability()
+{
+	if (!bEnableSourceControlCompatabilityCheck || !bMonitorContentDirectories)
+	{
+		return;
+	}
+
+	if (ISourceControlModule::Get().IsEnabled() && bDetectChangesOnRestart)
+	{
+		// Persistent shared payload captured by the lambdas below
+		struct FPersistentPayload { TSharedPtr<SNotificationItem> Notification; };
+		TSharedRef<FPersistentPayload> Payload = MakeShareable(new FPersistentPayload);
+
+		FNotificationInfo Info(LOCTEXT("AutoReimport_NotificationTitle", "We noticed that your auto-reimport settings are set up to detect source content changes on restart.\nThis might cause unexpected behavior when starting up after getting latest from source control.\n\nWe recommend disabling this specific behavior."));
+
+ 		auto OnTurnOffClicked = [=]{
+			auto* Settings = GetMutableDefault<UEditorLoadingSavingSettings>();
+			Settings->bDetectChangesOnRestart = false;
+			Settings->SaveConfig();
+
+			Payload->Notification->SetEnabled(false);
+			Payload->Notification->Fadeout();
+		};
+		Info.ButtonDetails.Emplace(LOCTEXT("AutoReimport_TurnOff", "Don't detect changes on start-up"), FText(), FSimpleDelegate::CreateLambda(OnTurnOffClicked), SNotificationItem::ECompletionState::CS_None);
+
+ 		auto OnIgnoreClicked = [=]{
+
+			Payload->Notification->SetEnabled(false);
+ 			Payload->Notification->Fadeout();
+		};
+		Info.ButtonDetails.Emplace(LOCTEXT("AutoReimport_Ignore", "Ignore"), FText(), FSimpleDelegate::CreateLambda(OnIgnoreClicked), SNotificationItem::ECompletionState::CS_None);
+
+		Info.bUseLargeFont = false;
+		Info.bFireAndForget = false;
+
+		Info.CheckBoxStateChanged = FOnCheckStateChanged::CreateLambda([](ECheckBoxState State){
+			GetMutableDefault<UEditorLoadingSavingSettings>()->bEnableSourceControlCompatabilityCheck = (State != ECheckBoxState::Checked);
+		});
+		Info.CheckBoxText = LOCTEXT("AutoReimport_DontShowAgain", "Don't show again");
+
+		Info.Hyperlink = FSimpleDelegate::CreateLambda([]{
+			// Open Settings
+			ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
+			if (SettingsModule != nullptr)
+			{
+				// Ensure that the advanced properties are visible
+				GConfig->SetBool(TEXT("DetailCategoriesAdvanced"), TEXT("EditorLoadingSavingSettings.AutoReimport"), true, GEditorPerProjectIni);
+				SettingsModule->ShowViewer("Editor", "General", "LoadingSaving");
+			}
+		});
+		Info.HyperlinkText = LOCTEXT("AutoReimport_OpenSettings", "Settings");
+
+		Payload->Notification = FSlateNotificationManager::Get().AddNotification(Info);
+	}
+}
+
+FAutoReimportDirectoryConfig::FParseContext::FParseContext(bool bInEnableLogging)
+	: bEnableLogging(bInEnableLogging)
+{
+	TArray<FString> RootContentPaths;
+	FPackageName::QueryRootContentPaths( RootContentPaths );
+	for (FString& RootPath : RootContentPaths)
+	{
+		FString ContentFolder = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(RootPath));
+		MountedPaths.Add( TPairInitializer<FString, FString>(MoveTemp(ContentFolder), MoveTemp(RootPath)) );
+	}
+}
+
+bool FAutoReimportDirectoryConfig::ParseSourceDirectoryAndMountPoint(FString& SourceDirectory, FString& MountPoint, const FParseContext& InContext)
+{
+	SourceDirectory.ReplaceInline(TEXT("\\"), TEXT("/"));
+
+	// Check if the source directory is actually a mount point
+	if (!FPackageName::GetPackageMountPoint(SourceDirectory).IsNone())
+	{
+		MountPoint = SourceDirectory;
+		SourceDirectory = FString();
+	}
+
+	if (!SourceDirectory.IsEmpty() && !MountPoint.IsEmpty())
+	{
+		// We have both a source directory and a mount point. Verify that the source dir exists, and that the mount point is valid.
+		if (!IFileManager::Get().DirectoryExists(*SourceDirectory))
+		{
+			UE_CLOG(InContext.bEnableLogging, LogAutoReimportManager, Warning, TEXT("Unable to watch directory %s as it doesn't exist."), *SourceDirectory);
+			return false;
+		}
+
+		if (FPackageName::GetPackageMountPoint(MountPoint).IsNone())
+		{
+			UE_CLOG(InContext.bEnableLogging, LogAutoReimportManager, Warning, TEXT("Unable to setup directory %s to map to %s, as it's not a valid mounted path. Continuing without mounted path (auto reimports will still work, but auto add won't)."), *SourceDirectory, *MountPoint);
+		}
+	}
+	else if(!MountPoint.IsEmpty())
+	{
+		// We have just a mount point - validate it, and find its source directory
+		if (FPackageName::GetPackageMountPoint(MountPoint).IsNone())
+		{
+			UE_CLOG(InContext.bEnableLogging, LogAutoReimportManager, Warning, TEXT("Unable to setup directory monitor for %s, as it's not a valid mounted path."), *MountPoint);
+			return false;
+		}
+
+		SourceDirectory = FPackageName::LongPackageNameToFilename(MountPoint);
+	}
+	else if(!SourceDirectory.IsEmpty())
+	{
+		// We have just a source directory - verify whether it's a mounted path, and set up the mount point if so
+		if (!IFileManager::Get().DirectoryExists(*SourceDirectory))
+		{
+			UE_CLOG(InContext.bEnableLogging, LogAutoReimportManager, Warning, TEXT("Unable to watch directory %s as it doesn't exist."), *SourceDirectory);
+			return false;
+		}
+
+		// Set the mounted path if necessary
+		auto* Pair = InContext.MountedPaths.FindByPredicate([&](const TPair<FString, FString>& InPair){
+			return SourceDirectory.StartsWith(InPair.Key);
+		});
+
+		if (Pair)
+		{
+			MountPoint = Pair->Value / SourceDirectory.RightChop(Pair->Key.Len());
+			MountPoint.ReplaceInline(TEXT("\\"), TEXT("/"));
+		}
+	}
+	else
+	{
+		// Don't have any valid settings
+		return false;
+	}
+
+	return true;
+}
 
 /* UEditorMiscSettings interface
  *****************************************************************************/
 
 UEditorMiscSettings::UEditorMiscSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
-{ }
+{
+}
 
 
 /* ULevelEditorMiscSettings interface
@@ -146,6 +311,8 @@ ULevelEditorMiscSettings::ULevelEditorMiscSettings( const FObjectInitializer& Ob
 	: Super(ObjectInitializer)
 {
 	bAutoApplyLightingEnable = true;
+	SectionName = TEXT("Misc");
+	CategoryName = TEXT("LevelEditor");
 }
 
 
@@ -182,9 +349,16 @@ ULevelEditorPlaySettings::ULevelEditorPlaySettings( const FObjectInitializer& Ob
 	PlayNetDedicated = false;
 	RunUnderOneProcess = true;
 	RouteGamepadToSecondWindow = false;
+	BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Default;
 }
 
-
+void ULevelEditorPlaySettings::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (BuildGameBeforeLaunch != EPlayOnBuildMode::PlayOnBuild_Always && !FSourceCodeNavigation::IsCompilerAvailable())
+	{
+		BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Never;
+	}
+}
 /* ULevelEditorViewportSettings interface
  *****************************************************************************/
 
@@ -215,7 +389,7 @@ void ULevelEditorViewportSettings::PostEditChangeProperty( struct FPropertyChang
 		? PropertyChangedEvent.Property->GetFName()
 		: NAME_None;
 
-	if (Name == FName(TEXT("bAllowTranslateRotateZWidget")))
+	if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, bAllowTranslateRotateZWidget))
 	{
 		if (bAllowTranslateRotateZWidget)
 		{
@@ -226,31 +400,31 @@ void ULevelEditorViewportSettings::PostEditChangeProperty( struct FPropertyChang
 			GLevelEditorModeTools().SetWidgetMode(FWidget::WM_Translate);
 		}
 	}
-	else if (Name == FName(TEXT("bHighlightWithBrackets")))
+	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, bHighlightWithBrackets))
 	{
 		GEngine->SetSelectedMaterialColor(bHighlightWithBrackets
 			? FLinearColor::Black
 			: GetDefault<UEditorStyleSettings>()->SelectionColor);
 	}
-	else if (Name == FName(TEXT("HoverHighlightIntensity")))
+	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, HoverHighlightIntensity))
 	{
 		GEngine->HoverHighlightIntensity = HoverHighlightIntensity;
 	}
-	else if (Name == FName(TEXT("SelectionHighlightIntensity")))
+	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, SelectionHighlightIntensity))
 	{
 		GEngine->SelectionHighlightIntensity = SelectionHighlightIntensity;
 	}
-	else if (Name == FName(TEXT("BSPSelectionHighlightIntensity")))
+	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, BSPSelectionHighlightIntensity))
 	{
 		GEngine->BSPSelectionHighlightIntensity = BSPSelectionHighlightIntensity;
 	}
-	else if ((Name == FName(TEXT("UserDefinedPosGridSizes"))) || (Name == FName(TEXT("UserDefinedRotGridSizes"))) || (Name == FName(TEXT("ScalingGridSizes"))) || (Name == FName(TEXT("GridIntervals"))))
+	else if ((Name == FName(TEXT("UserDefinedPosGridSizes"))) || (Name == FName(TEXT("UserDefinedRotGridSizes"))) || (Name == FName(TEXT("ScalingGridSizes"))) || (Name == FName(TEXT("GridIntervals")))) //@TODO: This should use GET_MEMBER_NAME_CHECKED
 	{
-		const float MinGridSize = (Name == FName(TEXT("GridIntervals"))) ? 4.0f : 0.0001f;
+		const float MinGridSize = (Name == FName(TEXT("GridIntervals"))) ? 4.0f : 0.0001f; //@TODO: This should use GET_MEMBER_NAME_CHECKED
 		TArray<float>* ArrayRef = nullptr;
 		int32* IndexRef = nullptr;
 
-		if (Name == FName(TEXT("ScalingGridSizes")))
+		if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, ScalingGridSizes))
 		{
 			ArrayRef = &(ScalingGridSizes);
 			IndexRef = &(CurrentScalingGridSize);
@@ -271,15 +445,23 @@ void ULevelEditorViewportSettings::PostEditChangeProperty( struct FPropertyChang
 			}
 		}
 	}
-	else if (Name == FName(TEXT("bUsePowerOf2SnapSize")))
+	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, bUsePowerOf2SnapSize))
 	{
 		const float BSPSnapSize = bUsePowerOf2SnapSize ? 128.0f : 100.0f;
 		UModel::SetGlobalBSPTexelScale(BSPSnapSize);
 	}
-	else if (Name == FName(TEXT("BillboardScale")))
+	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, BillboardScale))
 	{
 		UBillboardComponent::SetEditorScale(BillboardScale);
 		UArrowComponent::SetEditorScale(BillboardScale);
+	}
+	else if (Name == GET_MEMBER_NAME_CHECKED(ULevelEditorViewportSettings, bEnableLayerSnap))
+	{
+		ULevelEditor2DSettings* Settings2D = GetMutableDefault<ULevelEditor2DSettings>();
+		if (bEnableLayerSnap && !Settings2D->bEnableSnapLayers)
+		{
+			Settings2D->bEnableSnapLayers = true;
+		}
 	}
 
 	if (!FUnrealEdMisc::Get().IsDeletePreferences())
@@ -333,6 +515,39 @@ void UProjectPackagingSettings::PostEditChangeProperty( FPropertyChangedEvent& P
 			BuildConfiguration = EProjectPackagingBuildConfigurations::PPBC_Shipping;
 		}
 	}
+	else if (Name == FName(TEXT("bGenerateChunks")))
+	{
+		if (bGenerateChunks)
+		{
+			UsePakFile = true;
+		}
+	}
+	else if (Name == FName(TEXT("UsePakFile")))
+	{
+		if (!UsePakFile)
+		{
+			bGenerateChunks = false;
+			bBuildHttpChunkInstallData = false;
+		}
+	}
+	else if (Name == FName(TEXT("bBuildHTTPChunkInstallData")))
+	{
+		if (bBuildHttpChunkInstallData)
+		{
+			UsePakFile = true;
+			bGenerateChunks = true;
+			//Ensure data is something valid
+			if (HttpChunkInstallDataDirectory.Path.IsEmpty())
+			{
+				auto CloudInstallDir = FPaths::ConvertRelativePathToFull(FPaths::GetPath(FPaths::GetProjectFilePath())) / TEXT("ChunkInstall");
+				HttpChunkInstallDataDirectory.Path = CloudInstallDir;
+			}
+			if (HttpChunkInstallDataVersion.IsEmpty())
+			{
+				HttpChunkInstallDataVersion = TEXT("release1");
+			}
+		}
+	}
 }
 
 bool UProjectPackagingSettings::CanEditChange( const UProperty* InProperty ) const
@@ -344,3 +559,5 @@ bool UProjectPackagingSettings::CanEditChange( const UProperty* InProperty ) con
 
 	return Super::CanEditChange(InProperty);
 }
+
+#undef LOCTEXT_NAMESPACE

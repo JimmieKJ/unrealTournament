@@ -13,7 +13,9 @@ const float FAIStimulus::NeverHappenedAge = FLT_MAX;
 FAIStimulus::FAIStimulus(const UAISense& Sense, float StimulusStrength, const FVector& InStimulusLocation, const FVector& InReceiverLocation, FResult Result)
 	: Age(0.f), Strength(Result == SensingSucceeded ? StimulusStrength : -1.f)
 	, StimulusLocation(InStimulusLocation)
-	, ReceiverLocation(InReceiverLocation), bLastSensingResult(Result == SensingSucceeded)
+	, ReceiverLocation(InReceiverLocation)
+	, bWantsToNotifyOnlyOnValueChange(Sense.WantsUpdateOnlyOnPerceptionValueChange())
+	, bSuccessfullySensed(Result == SensingSucceeded)
 	, bExpired(false)
 {
 	Type = Sense.GetSenseID();

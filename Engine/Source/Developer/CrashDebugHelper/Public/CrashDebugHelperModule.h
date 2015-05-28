@@ -2,16 +2,18 @@
 
 #pragma once
 
+#include "Core.h"
+#include "ModuleManager.h"
 #include "CrashDebugHelper.h"
 
-class CRASHDEBUGHELPER_API FCrashDebugHelperModule : public IModuleInterface
+class FCrashDebugHelperModule : public IModuleInterface
 {
 public:
 	virtual void StartupModule();
 	virtual void ShutdownModule();
 
 	/** Gets the crash debug helper singleton or returns NULL */
-	virtual ICrashDebugHelper* Get();
+	CRASHDEBUGHELPER_API virtual ICrashDebugHelper* Get();
 
 private:
 	class ICrashDebugHelper* CrashDebugHelper;

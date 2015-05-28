@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
@@ -30,6 +30,7 @@
 #include "SourceCodeNavigation.h"
 #include "SourceControlWindows.h"
 #include "ISettingsModule.h"
+#include "ILocalizationDashboardModule.h"
 #include "TargetPlatform.h"
 #include "PlatformInfo.h"
 #include "UnrealEd.h"

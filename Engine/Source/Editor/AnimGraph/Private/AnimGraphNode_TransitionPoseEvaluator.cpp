@@ -58,11 +58,6 @@ bool UAnimGraphNode_TransitionPoseEvaluator::CanUserDeleteNode() const
 	return !(GetGraph()->IsA(UAnimationCustomTransitionGraph::StaticClass()));
 }
 
-void UAnimGraphNode_TransitionPoseEvaluator::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	// Intentionally empty: Don't allow an option to create them, as they're auto-created when custom blend graphs are made
-}
-
 void UAnimGraphNode_TransitionPoseEvaluator::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
 	// Intentionally empty: Don't allow an option to create them, as they're auto-created when custom blend graphs are made

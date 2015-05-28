@@ -5,7 +5,9 @@
 =============================================================================*/
 
 #pragma once
+
 #include "Sound/SoundClass.h"
+#include "Sound/SoundAttenuation.h"
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAudio, Warning, All);
 
@@ -147,6 +149,23 @@ private:
 	TArray<FNotifyBufferDetails> Notifies;
 };
 
+
+/**
+* Enumeration of audio plugin types
+*
+*/
+struct EAudioPlugin
+{
+	enum Type
+	{
+		SPATIALIZATION,
+	};
+};
+
+/** Queries if a plugin of the given type is enabled. */
+ENGINE_API bool IsAudioPluginEnabled(EAudioPlugin::Type PluginType);
+
+
 /**
  * Structure encapsulating all information required to play a USoundWave on a channel/source. This is required
  * as a single USoundWave object can be used in multiple active cues or multiple times in the same cue.
@@ -200,7 +219,8 @@ struct ENGINE_API FWaveInstance
 	uint32				bAlreadyNotifiedHook:1;
 	/** Whether to use spatialization */
 	uint32				bUseSpatialization:1;
-
+	/** Which algorithm to use to spatialize 3d sounds. */
+	ESoundSpatializationAlgorithm SpatializationAlgorithm;
 	/** Whether to apply audio effects */
 	uint32				bEQFilterApplied:1;
 	/** Whether or not this sound plays when the game is paused in the UI */
@@ -278,10 +298,11 @@ inline uint32 GetTypeHash( FWaveInstance* A ) { return A->TypeHash; }
 class FSoundBuffer
 {
 public:
-	FSoundBuffer()
+	FSoundBuffer(class FAudioDevice * InAudioDevice)
 		: ResourceID(0)
 		, NumChannels(0)
 		, bAllocationInPermanentPool(false)
+		, AudioDevice(InAudioDevice)
 	{
 
 	}
@@ -325,6 +346,8 @@ public:
 	FString	ResourceName;
 	/** Whether memory for this buffer has been allocated from permanent pool. */
 	bool	bAllocationInPermanentPool;
+	/** Parent Audio Device used when creating the sound buffer. Used to remove tracking info on this sound buffer when its done. */
+	class FAudioDevice * AudioDevice;
 };
 
 /*-----------------------------------------------------------------------------
@@ -450,6 +473,13 @@ public:
 
 	const FSoundBuffer* GetBuffer() const {return Buffer;}
 
+	/**
+	* Initializes any source effects for this sound source
+	*/
+	virtual void InitializeSourceEffects(uint32 InVoiceId)
+	{
+	}
+
 protected:
 	// Variables.	
 	class FAudioDevice*		AudioDevice;
@@ -476,7 +506,6 @@ protected:
 	int32					LastUpdate;
 	/** Last tick when this source was active *and* had a hearable volume */
 	int32					LastHeardUpdate;
-
 
 	friend class FAudioDevice;
 };
@@ -547,3 +576,5 @@ ENGINE_API void SetCompressedAudioFormatsToBuild(const TCHAR* Platform = NULL);
  * @param	Platform				Name of platform to cook for, or NULL if all platforms
  */
 ENGINE_API const TArray<FName>& GetCompressedAudioFormatsToBuild();
+
+

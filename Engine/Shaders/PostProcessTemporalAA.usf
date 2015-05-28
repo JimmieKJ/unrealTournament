@@ -207,12 +207,17 @@ void DOFTemporalAAPS( float4 UVAndScreenPos : TEXCOORD0, float3 InExposureScaleV
 {
 #if ENABLE_TEMPORAL_AA
 	float InExposureScale = InExposureScaleVignette.x;
+	#define AA_FILTERED 0
+	#define AA_VELOCITY_WEIGHTING 0
 	#define AA_ALPHA 0
 	#define AA_CROSS 4
-	#define AA_DYNAMIC 0
+	#define AA_DYNAMIC 1
 	#define AA_NAN 1
 	#define AA_BORDER 1
 	#define AA_FORCE_ALPHA_CLAMP 1
+	#define AA_GREEN_AS_LUMA 1
+	#define AA_YCOCG 1
+	#define AA_DOF 1
 	#include "PostProcessTemporalCommon.usf"
 #else 
 	OutColor = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UVAndScreenPos.xy, 0);
@@ -241,11 +246,12 @@ void MainTemporalAAPS( float4 UVAndScreenPos : TEXCOORD0, float3 InExposureScale
 	#define AA_FILTERED 1
 	#define AA_BORDER 1
 	#define AA_CROSS 2
-	#define AA_GREEN_AS_LUMA 0
+	#define AA_GREEN_AS_LUMA 1
 	#define AA_AABB 1
-	#define AA_LOWPASS 1
+	#define AA_LOWPASS 0
 	#define AA_DEBUG 0
 	#define AA_VELOCITY_WEIGHTING 1
+	#define AA_YCOCG 1
 	#include "PostProcessTemporalCommon.usf"
 #else 
 	OutColor = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UVAndScreenPos.xy, 0);

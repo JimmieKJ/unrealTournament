@@ -21,7 +21,7 @@ namespace EVertexColorImportOption
 	};
 }
 
-UCLASS(config=EditorUserSettings, AutoExpandCategories=(Options), MinimalAPI)
+UCLASS(config=EditorPerProjectUserSettings, AutoExpandCategories=(Options), MinimalAPI)
 class UFbxStaticMeshImportData : public UFbxMeshImportData
 {
 	GENERATED_UCLASS_BODY()
@@ -56,7 +56,7 @@ class UFbxStaticMeshImportData : public UFbxMeshImportData
 	/** Gets or creates fbx import data for the specified static mesh */
 	static UFbxStaticMeshImportData* GetImportDataForStaticMesh(UStaticMesh* StaticMesh, UFbxStaticMeshImportData* TemplateForCreation);
 
-	bool CanEditChange( const UProperty* InProperty ) const;
+	bool CanEditChange( const UProperty* InProperty ) const override;
 };
 
 

@@ -144,31 +144,32 @@ private:
 
 void FAssetRenameManager::RenameAssets(const TArray<FAssetRenameData>& AssetsAndNames) const
 {
-	// Prep a list of assets to rename with an extra boolean to determine if they should leave a redirector or not
-	TArray<FAssetRenameDataWithReferencers> AssetsToRename;
-	for ( int32 AssetIdx = 0; AssetIdx < AssetsAndNames.Num(); ++AssetIdx )
-	{
-		new(AssetsToRename) FAssetRenameDataWithReferencers(AssetsAndNames[AssetIdx]);
-	}
-
 	// If the asset registry is still loading assets, we cant check for referencers, so we must open the rename dialog
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	if ( AssetRegistryModule.Get().IsLoadingAssets() )
 	{
 		// Open a dialog asking the user to wait while assets are being discovered
 		SDiscoveringAssetsDialog::OpenDiscoveringAssetsDialog(
-			SDiscoveringAssetsDialog::FOnAssetsDiscovered::CreateSP(this, &FAssetRenameManager::FixReferencesAndRename, AssetsToRename)
+			SDiscoveringAssetsDialog::FOnAssetsDiscovered::CreateSP(this, &FAssetRenameManager::FixReferencesAndRename, AssetsAndNames)
 			);
 	}
 	else
 	{
 		// No need to wait, attempt to fix references and rename now.
-		FixReferencesAndRename(AssetsToRename);
+		FixReferencesAndRename(AssetsAndNames);
 	}
 }
 
-void FAssetRenameManager::FixReferencesAndRename(TArray<FAssetRenameDataWithReferencers> AssetsToRename) const
+void FAssetRenameManager::FixReferencesAndRename(TArray<FAssetRenameData> AssetsAndNames) const
 {
+	// Prep a list of assets to rename with an extra boolean to determine if they should leave a redirector or not
+	TArray<FAssetRenameDataWithReferencers> AssetsToRename;
+	AssetsToRename.Reset(AssetsAndNames.Num());
+	for (int32 AssetIdx = 0; AssetIdx < AssetsAndNames.Num(); ++AssetIdx)
+	{
+		new(AssetsToRename)FAssetRenameDataWithReferencers(AssetsAndNames[AssetIdx]);
+	}
+
 	// Warn the user if they are about to rename an asset that is referenced by a CDO
 	auto CDOAssets = FindCDOReferencedAssets(AssetsToRename);
 
@@ -215,6 +216,9 @@ void FAssetRenameManager::FixReferencesAndRename(TArray<FAssetRenameDataWithRefe
 
 			// Save all packages that were referencing any of the assets that were moved without redirectors
 			SaveReferencingPackages(ReferencingPackagesToSave);
+
+			// Issue post rename event
+			AssetPostRenameEvent.Broadcast(AssetsAndNames);
 		}
 	}
 
@@ -432,31 +436,28 @@ bool FAssetRenameManager::CheckOutPackages(TArray<FAssetRenameDataWithReferencer
 	// Check out the packages
 	if (PackagesToCheckOut.Num() > 0)
 	{
-		if ( ISourceControlModule::Get().IsEnabled() )
+		TArray<UPackage*> PackagesCheckedOutOrMadeWritable;
+		TArray<UPackage*> PackagesNotNeedingCheckout;
+		bUserAcceptedCheckout = FEditorFileUtils::PromptToCheckoutPackages( false, PackagesToCheckOut, &PackagesCheckedOutOrMadeWritable, &PackagesNotNeedingCheckout );
+		if ( bUserAcceptedCheckout )
 		{
-			TArray<UPackage*> PackagesCheckedOutOrMadeWritable;
-			TArray<UPackage*> PackagesNotNeedingCheckout;
-			bUserAcceptedCheckout = FEditorFileUtils::PromptToCheckoutPackages( false, PackagesToCheckOut, &PackagesCheckedOutOrMadeWritable, &PackagesNotNeedingCheckout );
-			if ( bUserAcceptedCheckout )
+			// Make a list of any packages in the list which weren't checked out for some reason
+			TArray<UPackage*> PackagesThatCouldNotBeCheckedOut = PackagesToCheckOut;
+
+			for ( auto PackageIt = PackagesCheckedOutOrMadeWritable.CreateConstIterator(); PackageIt; ++PackageIt )
 			{
-				// Make a list of any packages in the list which weren't checked out for some reason
-				TArray<UPackage*> PackagesThatCouldNotBeCheckedOut = PackagesToCheckOut;
+				PackagesThatCouldNotBeCheckedOut.Remove(*PackageIt);
+			}
 
-				for ( auto PackageIt = PackagesCheckedOutOrMadeWritable.CreateConstIterator(); PackageIt; ++PackageIt )
-				{
-					PackagesThatCouldNotBeCheckedOut.Remove(*PackageIt);
-				}
+			for ( auto PackageIt = PackagesNotNeedingCheckout.CreateConstIterator(); PackageIt; ++PackageIt )
+			{
+				PackagesThatCouldNotBeCheckedOut.Remove(*PackageIt);
+			}
 
-				for ( auto PackageIt = PackagesNotNeedingCheckout.CreateConstIterator(); PackageIt; ++PackageIt )
-				{
-					PackagesThatCouldNotBeCheckedOut.Remove(*PackageIt);
-				}
-
-				// If there's anything which couldn't be checked out, abort the operation.
-				if (PackagesThatCouldNotBeCheckedOut.Num() > 0)
-				{
-					bUserAcceptedCheckout = false;
-				}
+			// If there's anything which couldn't be checked out, abort the operation.
+			if (PackagesThatCouldNotBeCheckedOut.Num() > 0)
+			{
+				bUserAcceptedCheckout = false;
 			}
 		}
 	}
@@ -511,8 +512,8 @@ void FAssetRenameManager::RenameReferencingStringAssetReferences(const TArray<UP
 {
 	struct FStringAssetReferenceRenameSerializer : public FArchiveUObject
 	{
-		FStringAssetReferenceRenameSerializer(const FString& OldAssetPath, const FString& NewAssetPath)
-			: OldAssetPath(OldAssetPath), NewAssetPath(NewAssetPath)
+		FStringAssetReferenceRenameSerializer(const FString& InOldAssetPath, const FString& InNewAssetPath)
+			: OldAssetPath(InOldAssetPath), NewAssetPath(InNewAssetPath)
 		{ }
 
 		FArchive& operator<<(FStringAssetReference& Reference) override
@@ -581,7 +582,6 @@ void FAssetRenameManager::PerformAssetRename(TArray<FAssetRenameDataWithReferenc
 		}
 
 		UObject* Asset = RenameData.Asset.Get();
-		FString OldAssetPath = Asset->GetPathName();
 
 		if ( !Asset )
 		{
@@ -590,10 +590,12 @@ void FAssetRenameManager::PerformAssetRename(TArray<FAssetRenameDataWithReferenc
 			continue;
 		}
 
+		FString OldAssetPath = Asset->GetPathName();
+
 		ObjectTools::FPackageGroupName PGN;
 		PGN.ObjectName = RenameData.NewName;
 		PGN.GroupName = TEXT("");
-		PGN.PackageName = RenameData.PackagePath + TEXT("/") + PGN.ObjectName;
+		PGN.PackageName = RenameData.PackagePath / PGN.ObjectName;
 		const bool bLeaveRedirector = RenameData.bCreateRedirector;
 
 		UPackage* OldPackage = Asset->GetOutermost();
@@ -638,7 +640,11 @@ void FAssetRenameManager::PerformAssetRename(TArray<FAssetRenameDataWithReferenc
 
 		for (auto PackageNameIt = RenameData.ReferencingPackageNames.CreateConstIterator(); PackageNameIt; ++PackageNameIt)
 		{
-			PackagesToCheck.Add(LoadPackage(NULL, *PackageNameIt->ToString(), LOAD_None));
+			UPackage* PackageToCheck = FindPackage(NULL, *PackageNameIt->ToString());
+			if (PackageToCheck)
+			{
+				PackagesToCheck.Add(PackageToCheck);
+			}
 		}
 
 		RenameReferencingStringAssetReferences(PackagesToCheck, OldAssetPath, Asset->GetPathName());

@@ -31,7 +31,7 @@ void SMontageEditor::Construct(const FArguments& InArgs)
 	check(MontageObj);
 
 	bDragging = false;
-	bRebuildMontagePanel = false;
+	bIsActiveTimerRegistered = false;
 
 	SAnimEditorBase::Construct( SAnimEditorBase::FArguments()
 		.Persona(InArgs._Persona)
@@ -297,18 +297,26 @@ void SMontageEditor::RebuildMontagePanel()
 {
 	SortAndUpdateMontage();
 	AnimMontageSectionsPanel->Update();
-	bRebuildMontagePanel = false;
+}
+
+EActiveTimerReturnType SMontageEditor::TriggerRebuildMontagePanel(double InCurrentTime, float InDeltaTime)
+{
+	RebuildMontagePanel();
+
+	bIsActiveTimerRegistered = false;
+	return EActiveTimerReturnType::Stop;
 }
 
 void SMontageEditor::OnMontageChange(class UObject *EditorAnimBaseObj, bool Rebuild)
 {
 	bDragging = false;
 
-	if(MontageObj!=NULL)
+	if ( MontageObj != nullptr )
 	{
-		if(Rebuild)
+		if(Rebuild && !bIsActiveTimerRegistered)
 		{
-			bRebuildMontagePanel = true;
+			bIsActiveTimerRegistered = true;
+			RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SMontageEditor::TriggerRebuildMontagePanel));
 		} 
 		else
 		{
@@ -465,7 +473,7 @@ bool SMontageEditor::ClampToEndTime(float NewEndTime)
 
 void SMontageEditor::AddNewSection(float StartTime, FString SectionName)
 {
-	if(MontageObj!=NULL)
+	if ( MontageObj != nullptr )
 	{
 		const FScopedTransaction Transaction( LOCTEXT("AddNewSection", "Add New Section") );
 		MontageObj->Modify();
@@ -519,7 +527,7 @@ void SMontageEditor::RenameSlotNode(int32 SlotIndex, FString NewSlotName)
 
 void SMontageEditor::AddNewMontageSlot( FString NewSlotName )
 {
-	if(MontageObj != NULL)
+	if ( MontageObj != nullptr )
 	{
 		const FScopedTransaction Transaction( LOCTEXT("AddSlot", "Add Slot") );
 		MontageObj->Modify();
@@ -544,7 +552,7 @@ FText SMontageEditor::GetMontageSlotName(int32 SlotIndex) const
 
 void SMontageEditor::RemoveMontageSlot(int32 AnimSlotIndex)
 {
-	if(MontageObj != NULL && MontageObj->SlotAnimTracks.IsValidIndex(AnimSlotIndex))
+	if ( MontageObj != nullptr && MontageObj->SlotAnimTracks.IsValidIndex( AnimSlotIndex ) )
 	{
 		const FScopedTransaction Transaction( LOCTEXT("RemoveSlot", "Remove Slot") );
 		MontageObj->Modify();
@@ -558,7 +566,7 @@ void SMontageEditor::RemoveMontageSlot(int32 AnimSlotIndex)
 void SMontageEditor::ShowSectionInDetailsView(int32 SectionIndex)
 {
 	UEditorCompositeSection *Obj = Cast<UEditorCompositeSection>(ShowInDetailsView(UEditorCompositeSection::StaticClass()));
-	if(Obj != NULL)
+	if ( Obj != nullptr )
 	{
 		Obj->InitSection(SectionIndex);
 	}
@@ -594,7 +602,7 @@ void SMontageEditor::RestartPreviewPlayAllSections()
 
 void SMontageEditor::MakeDefaultSequentialSections()
 {
-	check(MontageObj!=NULL);
+	check( MontageObj != nullptr );
 	SortSections();
 	for(int32 SectionIdx=0; SectionIdx < MontageObj->CompositeSections.Num(); SectionIdx++)
 	{
@@ -605,25 +613,13 @@ void SMontageEditor::MakeDefaultSequentialSections()
 
 void SMontageEditor::ClearSquenceOrdering()
 {
-	check(MontageObj!=NULL);
+	check( MontageObj != nullptr );
 	SortSections();
 	for(int32 SectionIdx=0; SectionIdx < MontageObj->CompositeSections.Num(); SectionIdx++)
 	{
 		MontageObj->CompositeSections[SectionIdx].NextSectionName = NAME_None;
 	}
 	RestartPreview();
-}
-
-void SMontageEditor::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-	// we should not update any property related within PostEditChange, 
-	// so this is defered to Tick, when it needs to rebuild, just mark it and this will update in the next tick
-	if (bRebuildMontagePanel)
-	{
-		RebuildMontagePanel();
-	}
-
-	SWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 void SMontageEditor::PostUndo()
@@ -634,7 +630,7 @@ void SMontageEditor::PostUndo()
 		MontageObj->SequenceLength = 0.f;
 	}
 
-	RebuildMontagePanel(); //Rebuild here, undoing adds can cause slate to crash later on if we don't
+	RebuildMontagePanel(); //Rebuild here, undoing adds can cause slate to crash later on if we don't (using dummy args since they aren't used by the method
 }
 #undef LOCTEXT_NAMESPACE
 

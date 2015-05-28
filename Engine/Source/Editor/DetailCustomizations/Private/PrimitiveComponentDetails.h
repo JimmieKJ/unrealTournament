@@ -13,6 +13,9 @@ public:
 
 private:
 	void AddMaterialCategory( IDetailLayoutBuilder& DetailBuilder);
+	void AddLightingCategory(IDetailLayoutBuilder& DetailBuilder);
+	void AddPhysicsCategory(IDetailLayoutBuilder& DetailBuilder);
+	void AddCollisionCategory(IDetailLayoutBuilder& DetailBuilder);
 
 	ECheckBoxState IsMobilityActive(TSharedRef<IPropertyHandle> MobilityHandle, EComponentMobility::Type InMobility) const;
 
@@ -29,20 +32,20 @@ private:
 	/** Returns whether to enable editing the 'Use Async Scene' checkbox based on the selected objects' mobility and if the project uses an AsyncScene */
 	bool IsUseAsyncEditable() const;
 
-	FText OnGetBodyMass() const;
+	TOptional<float> OnGetBodyMass() const;
 	bool IsBodyMassReadOnly() const;
 	bool IsBodyMassEnabled() const { return !IsBodyMassReadOnly(); }
 
 private:
 	/** Objects being customized so we can update the 'Simulate Physics' state if physics geometry is added/removed */
 	TArray< TWeakObjectPtr<UObject> > ObjectsCustomized;
-	TSharedPtr<IPropertyHandle> LockedAxisProperty;
+	TSharedPtr<IPropertyHandle> DOFModeProperty;
 	TSharedPtr<class FComponentMaterialCategory> MaterialCategory;
-	EVisibility IsCustomLockedAxisSelected() const;
-	EVisibility IsLockAxisEnabled() const;
+	EVisibility IsDOFMode(EDOFMode::Type Mode) const;
 
 	bool IsAutoWeldEditable() const;
 	EVisibility IsAutoWeldVisible() const;
 	EVisibility IsMassVisible(bool bOverrideMass) const;
+
 };
 

@@ -61,6 +61,9 @@ public:
 
 	TSharedPtr<SReimportFeedback> GetContent() { return NotificationContent; }
 
+	/** Get the message log that this context is using */
+	FMessageLog& GetMessageLog() { return MessageLog; }
+
 	/** Add a message to the context (and message log) */
 	void AddMessage(EMessageSeverity::Type Severity, const FText& Message);
 
@@ -73,12 +76,12 @@ public:
 	virtual TSharedRef<SWidget> AsWidget() override { return NotificationContent.ToSharedRef(); };
 	virtual void StartSlowTask( const FText& Task, bool bShowCancelButton=false) override;
 
+	/** True if we will suppress slow task messages from being shown on the UI, false if otherwise */
+	bool bSuppressSlowTaskMessages;
+
 private:
 	/** Message log for output of errors and log messages */
 	FMessageLog MessageLog;
-
-	/** True if we need to notifiy about new messages on the message log */
-	bool NotifyMessageLog;
 
 	/** The notification that is shown when the context is active */
 	TSharedPtr<class SNotificationItem> Notification;

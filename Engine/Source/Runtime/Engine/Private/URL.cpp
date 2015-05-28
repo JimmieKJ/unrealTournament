@@ -225,7 +225,6 @@ FURL::FURL( FURL* Base, const TCHAR* TextURL, ETravelType Type )
 		{
 			// Pure filename.
 			Protocol = UrlConfig.DefaultProtocol;
-			Host = UrlConfig.DefaultHost;
 			Map = URL;
 			Portal = UrlConfig.DefaultPortal;
 			URL = NULL;

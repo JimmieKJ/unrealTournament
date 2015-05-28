@@ -71,12 +71,12 @@ bool FOnlineSubsystemSteamModule::AreSteamDllsLoaded() const
 	bool bLoadedClientDll = true;
 	bool bLoadedServerDll = true;
 
-#if PLATFORM_WINDOWS || PLATFORM_MAC
+#if LOADING_STEAM_LIBRARIES_DYNAMICALLY
 	bLoadedClientDll = (SteamDLLHandle != NULL) ? true : false;
-#if PLATFORM_32BITS
+	#if LOADING_STEAM_SERVER_LIBRARY_DYNAMICALLY
 	bLoadedServerDll = IsRunningDedicatedServer() ? ((SteamServerDLLHandle != NULL) ? true : false) : true;
-#endif //PLATFORM_32BITS
-#endif //PLATFORM_WINDOWS || PLATFORM_MAC
+	#endif //LOADING_STEAM_SERVER_LIBRARY_DYNAMICALLY
+#endif // LOADING_STEAM_LIBRARIES_DYNAMICALLY
 
 	return bLoadedClientDll && bLoadedServerDll;
 }
@@ -108,6 +108,7 @@ void FOnlineSubsystemSteamModule::LoadSteamModules()
 		FPlatformProcess::PushDllDirectory(*RootSteamPath);
 		SteamDLLHandle = FPlatformProcess::GetDllHandle(*(RootSteamPath + "steam_api64.dll"));
 #if 0 //64 bit not supported well at present, use Steam Client dlls
+		// [RCL] 2015-02-09 the above comment ("64 bit not supported well...") is from (early) 2012, things might have changed
 		// Load the Steam dedicated server dlls (assumes no Steam Client running)
 		if (IsRunningDedicatedServer())
 		{
@@ -127,12 +128,28 @@ void FOnlineSubsystemSteamModule::LoadSteamModules()
 	#endif	//PLATFORM_64BITS
 #elif PLATFORM_MAC
 	SteamDLLHandle = FPlatformProcess::GetDllHandle(TEXT("libsteam_api.dylib"));
+#elif PLATFORM_LINUX
+
+#if LOADING_STEAM_LIBRARIES_DYNAMICALLY
+	UE_LOG_ONLINE(Log, TEXT("Loading system libsteam_api.so."));
+	SteamDLLHandle = FPlatformProcess::GetDllHandle(TEXT("libsteam_api.so"));
+	if (SteamDLLHandle == nullptr)
+	{
+		// try bundled one
+		UE_LOG_ONLINE(Log, TEXT("Could not find system one, loading bundled libsteam_api.so."));
+		FString RootSteamPath = FPaths::EngineDir() / FString::Printf(TEXT("Binaries/ThirdParty/Steamworks/%s/Linux/"), STEAM_SDK_VER); 
+		SteamDLLHandle = FPlatformProcess::GetDllHandle(*(RootSteamPath + "libsteam_api.so"));
+	}
+#else
+	UE_LOG_ONLINE(Log, TEXT("libsteam_api.so is linked explicitly and should be already loaded."));
+#endif // LOADING_STEAM_LIBRARIES_DYNAMICALLY
+
 #endif	//PLATFORM_WINDOWS
 }
 
 void FOnlineSubsystemSteamModule::UnloadSteamModules()
 {
-#if PLATFORM_WINDOWS || PLATFORM_MAC
+#if LOADING_STEAM_LIBRARIES_DYNAMICALLY
 	if (SteamDLLHandle != NULL)
 	{
 		FPlatformProcess::FreeDllHandle(SteamDLLHandle);
@@ -144,7 +161,7 @@ void FOnlineSubsystemSteamModule::UnloadSteamModules()
 		FPlatformProcess::FreeDllHandle(SteamServerDLLHandle);
 		SteamServerDLLHandle = NULL;
 	}
-#endif	//PLATFORM_WINDOWS
+#endif	//LOADING_STEAM_LIBRARIES_DYNAMICALLY
 }
 
 void FOnlineSubsystemSteamModule::StartupModule()

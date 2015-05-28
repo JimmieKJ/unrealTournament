@@ -363,31 +363,6 @@ float FOpenGLEventNode::GetTiming()
 	return Result;
 }
 
-class FOpenGLRHILongGPUTaskPS : public FGlobalShader
-{
-	DECLARE_SHADER_TYPE(FOpenGLRHILongGPUTaskPS,Global);
-public:
-	FOpenGLRHILongGPUTaskPS( )	{ }
-	FOpenGLRHILongGPUTaskPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-		:	FGlobalShader( Initializer )
-	{
-	}
-
-	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
-	{
-		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		return bShaderHasOutdatedParameters;
-	}
-
-	static bool ShouldCache(EShaderPlatform Platform)
-	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
-	}
-};
-
-IMPLEMENT_SHADER_TYPE(,FOpenGLRHILongGPUTaskPS,TEXT("OneColorShader"),TEXT("MainLongGPUTask"),SF_Pixel);
-
 static FGlobalBoundShaderState LongGPUTaskBoundShaderState;
 
 void FOpenGLDynamicRHI::IssueLongGPUTask()
@@ -412,7 +387,7 @@ void FOpenGLDynamicRHI::IssueLongGPUTask()
 
 		const auto FeatureLevel = GMaxRHIFeatureLevel;
 
-		FRHICommandList_RecursiveHazardous RHICmdList;
+		FRHICommandList_RecursiveHazardous RHICmdList(this);
 		SetRenderTarget(RHICmdList, Viewport->GetBackBuffer(), FTextureRHIRef());
 		RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One>::GetRHI(), FLinearColor::Black);
 		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI(), 0);
@@ -420,7 +395,7 @@ void FOpenGLDynamicRHI::IssueLongGPUTask()
 
 		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
 		TShaderMapRef<TOneColorVS<true> > VertexShader(ShaderMap);
-		TShaderMapRef<FOpenGLRHILongGPUTaskPS> PixelShader(ShaderMap);
+		TShaderMapRef<FLongGPUTaskPS> PixelShader(ShaderMap);
 
 		SetGlobalBoundShaderState(RHICmdList, FeatureLevel, LongGPUTaskBoundShaderState, GOpenGLVector4VertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader, 0);
 
@@ -449,6 +424,7 @@ GLint FOpenGLBase::MaxVertexTextureImageUnits = -1;
 GLint FOpenGLBase::MaxGeometryTextureImageUnits = -1;
 GLint FOpenGLBase::MaxHullTextureImageUnits = -1;
 GLint FOpenGLBase::MaxDomainTextureImageUnits = -1;
+GLint FOpenGLBase::MaxVaryingVectors = -1;
 GLint FOpenGLBase::MaxVertexUniformComponents = -1;
 GLint FOpenGLBase::MaxPixelUniformComponents = -1;
 GLint FOpenGLBase::MaxGeometryUniformComponents = -1;
@@ -511,11 +487,29 @@ void FOpenGLBase::ProcessExtensions( const FString& ExtensionsString )
 
 #if PLATFORM_WINDOWS || PLATFORM_LINUX
 	FString VendorName( ANSI_TO_TCHAR((const ANSICHAR*)glGetString(GL_VENDOR) ) );
-	if (VendorName.Contains(TEXT("ATI ")) || VendorName.Contains(TEXT("Intel ")))
+	if (VendorName.Contains(TEXT("ATI ")))
 	{
 		bAmdWorkaround = true;
+		GRHIVendorId = 0x1002;
+	}
+	else if (VendorName.Contains(TEXT("Intel ")))
+	{
+		bAmdWorkaround = true;
+		GRHIVendorId = 0x8086;
+	}
+	else if (VendorName.Contains(TEXT("NVIDIA ")))
+	{
+		GRHIVendorId = 0x10DE;
 	}
 #endif
+
+	// Setup CVars that require the RHI initialized
+
+	//@todo-rco: Workaround Nvidia driver crash
+	if (PLATFORM_DESKTOP && !PLATFORM_LINUX && IsRHIDeviceNVIDIA())
+	{
+		OpenGLConsoleVariables::bUseVAB = 0;
+	}
 }
 
 void GetExtensionsString( FString& ExtensionsString)

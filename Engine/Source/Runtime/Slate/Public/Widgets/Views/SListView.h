@@ -2,6 +2,7 @@
 
 #pragma once
 #include "STableViewBase.h"
+#include "TableViewTypeTraits.h"
 
 
 /**
@@ -43,17 +44,6 @@ public:
 	typedef typename TSlateDelegates< ItemType >::FOnMouseButtonDoubleClick FOnMouseButtonDoubleClick;
 
 public:
-
-	class FColumnHeaderSlot
-	{
-	public:
-		FColumnHeaderSlot& operator[]( const TSharedRef< SHeaderRow >& InColumnHeaders )
-		{
-			HeaderRow = InColumnHeaders;
-		}			
-		TSharedPtr<SHeaderRow> HeaderRow;
-	};
-
 	SLATE_BEGIN_ARGS( SListView<ItemType> )
 		: _OnGenerateRow()
 		, _ListItemsSource( static_cast<const TArray<ItemType>*>(nullptr) ) //@todo Slate Syntax: Initializing from nullptr without a cast
@@ -66,9 +56,12 @@ public:
 		, _ClearSelectionOnClick(true)
 		, _ExternalScrollbar()
 		, _AllowOverscroll(EAllowOverscroll::Yes)
-	{ }
+		, _ConsumeMouseWheel( EConsumeMouseWheel::WhenScrollingPossible )
+		{ }
 
 		SLATE_EVENT( FOnGenerateRow, OnGenerateRow )
+
+		SLATE_EVENT( FOnTableViewScrolled, OnListViewScrolled )
 
 		SLATE_EVENT( FOnItemScrolledIntoView, OnItemScrolledIntoView )
 
@@ -96,14 +89,16 @@ public:
 		
 		SLATE_ARGUMENT( EAllowOverscroll, AllowOverscroll );
 
-		SLATE_END_ARGS()
+		SLATE_ARGUMENT( EConsumeMouseWheel, ConsumeMouseWheel );
 
-		/**
-		 * Construct this widget
-		 *
-		 * @param	InArgs	The declaration data for this widget
-		 */
-		void Construct( const typename SListView<ItemType>::FArguments& InArgs )
+	SLATE_END_ARGS()
+
+	/**
+		* Construct this widget
+		*
+		* @param	InArgs	The declaration data for this widget
+		*/
+	void Construct( const typename SListView<ItemType>::FArguments& InArgs )
 	{
 		this->OnGenerateRow = InArgs._OnGenerateRow;
 		this->OnItemScrolledIntoView = InArgs._OnItemScrolledIntoView;
@@ -118,6 +113,7 @@ public:
 		this->bClearSelectionOnClick = InArgs._ClearSelectionOnClick;
 
 		this->AllowOverscroll = InArgs._AllowOverscroll;
+		this->ConsumeMouseWheel = InArgs._ConsumeMouseWheel;
 
 		// Check for any parameters that the coder forgot to specify.
 		FString ErrorString;
@@ -141,13 +137,13 @@ public:
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(ErrorString)
+					.Text(FText::FromString(ErrorString))
 				];
 		}
 		else
 		{
 			// Make the TableView
-			ConstructChildren( 0, InArgs._ItemHeight, EListItemAlignment::LeftAligned, InArgs._HeaderRow, InArgs._ExternalScrollbar );
+			ConstructChildren( 0, InArgs._ItemHeight, EListItemAlignment::LeftAligned, InArgs._HeaderRow, InArgs._ExternalScrollbar, InArgs._OnListViewScrolled );
 			if(ScrollBar.IsValid())
 			{
 				ScrollBar->SetUserVisibility(InArgs._ScrollbarVisibility);
@@ -713,7 +709,7 @@ public:
 	/**
 	 * Remove any items that are no longer in the list from the selection set.
 	 */
-	virtual void UpdateSelectionSet()
+	virtual void UpdateSelectionSet() override
 	{
 		// Trees take care of this update in a different way.
 		if ( TableViewMode != ETableViewMode::Tree )
@@ -791,11 +787,12 @@ public:
 			bool bGeneratedEnoughForSmoothScrolling = false;
 			bool bAtEndOfList = false;
 
+			const float LayoutScaleMultiplier = MyGeometry.GetAccumulatedLayoutTransform().GetScale();
 			for( int32 ItemIndex = StartIndex; !bGeneratedEnoughForSmoothScrolling && ItemIndex < SourceItems->Num(); ++ItemIndex )
 			{
 				const ItemType& CurItem = (*SourceItems)[ItemIndex];
 
-				const float ItemHeight = GenerateWidgetForItem( CurItem, ItemIndex, StartIndex );
+				const float ItemHeight = GenerateWidgetForItem(CurItem, ItemIndex, StartIndex, LayoutScaleMultiplier);
 
 				const bool bIsFirstItem = ItemIndex == StartIndex;
 
@@ -808,7 +805,13 @@ public:
 				if (bIsFirstItem)
 				{
 					// The first item may not be fully visible (but cannot exceed 1)
-					ItemsInView += 1.0f - FMath::Max(FMath::Fractional(ScrollOffset), 0.0f);
+					// FirstItemFractionScrolledIntoView is the fraction of the item that is visible after taking into account anything that may be scrolled off the top of the list view
+					// FirstItemHeightScrolledIntoView is the height of the item, ignoring anything that is scrolled off the top of the list view
+					// FirstItemVisibleFraction is either: The visible item height as a fraction of the available list view height (if the item size is larger than the available size, otherwise this will be >1), or just FirstItemFractionScrolledIntoView (which can never be >1)
+					const float FirstItemFractionScrolledIntoView = 1.0f - FMath::Max(FMath::Fractional(ScrollOffset), 0.0f);
+					const float FirstItemHeightScrolledIntoView = ItemHeight * FirstItemFractionScrolledIntoView;
+					const float FirstItemVisibleFraction = FMath::Min(MyGeometry.Size.Y / FirstItemHeightScrolledIntoView, FirstItemFractionScrolledIntoView);
+					ItemsInView += FirstItemVisibleFraction;
 				}
 				else if (ViewHeightUsedSoFar + ItemHeight > MyGeometry.Size.Y)
 				{
@@ -848,7 +851,7 @@ public:
 				{
 					const ItemType& CurItem = (*SourceItems)[ItemIndex];
 
-					const float ItemHeight = GenerateWidgetForItem( CurItem, ItemIndex, StartIndex );
+					const float ItemHeight = GenerateWidgetForItem(CurItem, ItemIndex, StartIndex, LayoutScaleMultiplier);
 
 					if (HeightGeneratedSoFar + ItemHeight > MyGeometry.Size.Y)
 					{
@@ -871,7 +874,7 @@ public:
 
 	}
 
-	float GenerateWidgetForItem( const ItemType& CurItem, int32 ItemIndex, int32 StartIndex )
+	float GenerateWidgetForItem( const ItemType& CurItem, int32 ItemIndex, int32 StartIndex, float LayoutScaleMultiplier )
 	{
 		// Find a previously generated Widget for this item, if one exists.
 		TSharedPtr<ITableRow> WidgetForItem = WidgetGenerator.GetWidgetForItem( CurItem );
@@ -891,7 +894,7 @@ public:
 
 		// We rely on the widgets desired size in order to determine how many will fit on screen.
 		const TSharedRef<SWidget> NewlyGeneratedWidget = WidgetForItem->AsWidget();
-		NewlyGeneratedWidget->SlatePrepass();		
+		NewlyGeneratedWidget->SlatePrepass(LayoutScaleMultiplier);
 
 		const bool IsFirstWidgetOnScreen = (ItemIndex == StartIndex);
 		const float ItemHeight = NewlyGeneratedWidget->GetDesiredSize().Y;
@@ -912,7 +915,7 @@ public:
 	}
 
 	/** @return how many items there are in the TArray being observed */
-	virtual int32 GetNumItemsBeingObserved() const
+	virtual int32 GetNumItemsBeingObserved() const override
 	{
 		return ItemsSource == nullptr ? 0 : ItemsSource->Num();
 	}
@@ -1102,7 +1105,7 @@ protected:
 	 * 
 	 * @param ListViewGeometry  The geometry of the listView; can be useful for centering the item.
 	 */
-	virtual void ScrollIntoView( const FGeometry& ListViewGeometry ) override
+	virtual EScrollIntoViewResult ScrollIntoView( const FGeometry& ListViewGeometry ) override
 	{
 		if ( TListTypeTraits<ItemType>::IsPtrValid(ItemToScrollIntoView) && ItemsSource != nullptr )
 		{
@@ -1114,20 +1117,29 @@ protected:
 				{
 					// Use the last number of widgets on screen to estimate if we actually need to scroll.
 					NumLiveWidgets = LastGenerateResults.ExactNumRowsOnScreen;
-				}
 
+					// If we still don't have any widgets, we're not in a situation where we can scroll an item into view
+					// (probably as nothing has been generated yet), so we'll defer this again until the next frame
+					if (NumLiveWidgets == 0)
+					{
+						return EScrollIntoViewResult::Deferred;
+					}
+				}
+				
 				// Only scroll the item into view if it's not already in the visible range
 				const double IndexPlusOne = IndexOfItem+1;
 				if (IndexOfItem < ScrollOffset || IndexPlusOne > (ScrollOffset + NumLiveWidgets))
 				{
 					// Scroll the top of the listview to the item in question
-					ScrollOffset = IndexOfItem;
+					double NewScrollOffset = IndexOfItem;
 					// Center the list view on the item in question.
-					ScrollOffset -= (NumLiveWidgets / 2);
+					NewScrollOffset -= (NumLiveWidgets / 2);
 					//we also don't want the widget being chopped off if it is at the end of the list
-					const double MoveBackBy = FMath::Clamp<double>(IndexPlusOne - (ScrollOffset + NumLiveWidgets), 0, FLT_MAX);
+					const double MoveBackBy = FMath::Clamp<double>(IndexPlusOne - (NewScrollOffset + NumLiveWidgets), 0, FLT_MAX);
 					//Move to the correct center spot
-					ScrollOffset += MoveBackBy;
+					NewScrollOffset += MoveBackBy;
+
+					SetScrollOffset( NewScrollOffset );
 				}
 
 				RequestListRefresh();
@@ -1137,6 +1149,8 @@ protected:
 
 			TListTypeTraits<ItemType>::ResetPtr(ItemToScrollIntoView);
 		}
+
+		return EScrollIntoViewResult::Success;
 	}
 
 	virtual void NotifyItemScrolledIntoView() override
@@ -1196,6 +1210,7 @@ protected:
 			if ( SourceItems != nullptr && SourceItems->Num() > 0 )
 			{
 				int ItemIndex = StartingItemIndex;
+				const float LayoutScaleMultiplier = MyGeometry.GetAccumulatedLayoutTransform().GetScale();
 				while( AbsScrollByAmount != 0 && ItemIndex < SourceItems->Num() && ItemIndex >= 0 )
 				{
 					const ItemType CurItem = (*SourceItems)[ ItemIndex ];
@@ -1213,7 +1228,7 @@ protected:
 						// Let the item generator know that we encountered the current Item and associated Widget.
 						WidgetGenerator.OnItemSeen( CurItem, RowWidget.ToSharedRef() );
 
-						RowWidget->AsWidget()->SlatePrepass();
+						RowWidget->AsWidget()->SlatePrepass(LayoutScaleMultiplier);
 					}
 
 					if ( ScrollByAmountInSlateUnits > 0 )
@@ -1372,7 +1387,7 @@ protected:
 	/** Delegate to invoke when selection changes. */
 	FOnSelectionChanged OnSelectionChanged;
 
-	/** Caled when the user clicks on an element int he list view with the left mouse button */
+	/** Called when the user clicks on an element int he list view with the left mouse button */
 	FOnMouseButtonClick OnClick;
 
 	/** Called when the user double-clicks on an element in the list view with the left mouse button */

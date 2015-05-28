@@ -43,10 +43,10 @@ public:
 		}
 
 		// initialize supported media formats
-		SupportedFormats.Add(TEXT("avi"), LOCTEXT("FormatAvi", "Audio Video Interleave File"));
-		SupportedFormats.Add(TEXT("m4v"), LOCTEXT("FormatM4v", "Apple MPEG-4 Video"));
-		SupportedFormats.Add(TEXT("mov"), LOCTEXT("FormatMov", "Apple QuickTime Movie"));
-		SupportedFormats.Add(TEXT("mp4"), LOCTEXT("FormatMp4", "MPEG-4 Movie"));
+		SupportedFileTypes.Add(TEXT("avi"), LOCTEXT("FormatAvi", "Audio Video Interleave File"));
+		SupportedFileTypes.Add(TEXT("m4v"), LOCTEXT("FormatM4v", "Apple MPEG-4 Video"));
+		SupportedFileTypes.Add(TEXT("mov"), LOCTEXT("FormatMov", "Apple QuickTime Movie"));
+		SupportedFileTypes.Add(TEXT("mp4"), LOCTEXT("FormatMp4", "MPEG-4 Movie"));
 
 		// register factory
 		MediaModule->RegisterPlayerFactory(*this);
@@ -87,9 +87,14 @@ public:
 		return nullptr;
 	}
 
-	virtual const FMediaFormats& GetSupportedFormats() const override
+	virtual const FMediaFileTypes& GetSupportedFileTypes() const override
 	{
-		return SupportedFormats;
+		return SupportedFileTypes;
+	}
+
+	virtual bool SupportsUrl(const FString& Url) const override
+	{
+		return SupportedFileTypes.Contains(FPaths::GetExtension(Url));
 	}
 
 protected:
@@ -109,8 +114,8 @@ private:
 	/** Whether the module has been initialized. */
 	bool Initialized;
 
-	/** The collection of supported media formats. */
-	FMediaFormats SupportedFormats;
+	/** The collection of supported media file types. */
+	FMediaFileTypes SupportedFileTypes;
 };
 
 

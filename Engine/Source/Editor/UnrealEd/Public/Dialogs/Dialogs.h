@@ -98,9 +98,9 @@ public:
 		* @param Prompt					The message that appears to the user
 		* @param Title					The title of the dialog
 		* @param InIniSettingName		The name of the entry in the INI where the state of the "Disable this warning" check box is stored
-		* @param InIniSettingFileName	The name of the INI where the state of the InIniSettingName flag is stored (defaults to GEditorUserSettingsIni)
+		* @param InIniSettingFileName	The name of the INI where the state of the InIniSettingName flag is stored (defaults to GEditorPerProjectIni)
 		*/
-		FSetupInfo(const FText& InMessage, const FText& InTitle, const FString& InIniSettingName, const FString& InIniSettingFileName=GEditorUserSettingsIni )
+		FSetupInfo(const FText& InMessage, const FText& InTitle, const FString& InIniSettingName, const FString& InIniSettingFileName=GEditorPerProjectIni )
 			: Message(InMessage)
 			, Title(InTitle)
 			, IniSettingName(InIniSettingName)

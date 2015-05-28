@@ -85,8 +85,7 @@ namespace SceneOutliner
 		// Validate now to make sure we don't doing anything we shouldn't
 		if (!DraggedObjects.ParseDrag(*DragDropEvent.GetOperation()))
 		{
-			// Return handled here to stop anything else trying to handle it - the operation is invalid as far as we're concerned
-			return FReply::Handled();
+			return FReply::Unhandled();
 		}
 
 		ValidationInfo = DropTarget.ValidateDrop(DraggedObjects, *SharedData.RepresentingWorld);
@@ -330,8 +329,6 @@ namespace SceneOutliner
 
 		// We'll draw with the 'focused' look if we're either focused or we have a context menu summoned
 		const bool bShouldAppearFocused = HasKeyboardFocus();
-
-		const float DrawPositionY = ( AllottedGeometry.Size.Y / 2 ) - ( AllottedGeometry.Size.Y / 2 );
 
 		// Draw highlight targeting effect
 		const float TimeSinceHighlightInteraction = (float)( CurrentTime - LastHighlightInteractionTime );

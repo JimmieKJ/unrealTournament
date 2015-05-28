@@ -48,6 +48,7 @@
 
 -(bool)CreateFramebuffer:(bool)bIsForOnDevice;
 -(void)DestroyFramebuffer;
+-(void)UpdateRenderWidth:(uint32)Width andHeight:(uint32)Height;
 
 //// GL FUNCTIONALITY
 @property (nonatomic) GLuint OnScreenColorRenderBuffer;

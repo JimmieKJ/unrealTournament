@@ -13,6 +13,7 @@ public class LinuxNoEditorTargetPlatform : ModuleRules
 				"Core",
 				"TargetPlatform",
 				"DesktopPlatform",
+				"Projects"
 			}
         );
 

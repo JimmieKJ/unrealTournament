@@ -3,6 +3,7 @@
 #include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintNodeTemplateCache.h"
+#include "BlueprintNodeSpawnerUtils.h"
 
 /*******************************************************************************
  * Static UBlueprintNodeSpawner Helpers
@@ -68,6 +69,13 @@ void UBlueprintNodeSpawner::BeginDestroy()
 //------------------------------------------------------------------------------
 void UBlueprintNodeSpawner::Prime()
 {
+	if (FBlueprintNodeSpawnerUtils::IsStaleFieldAction(this))
+	{
+		UField const* AssociatedField = FBlueprintNodeSpawnerUtils::GetAssociatedField(this);
+		ensureMsgf(false, TEXT("Priming invalid BlueprintActionDatabase entry (for %s). Was the database properly updated when this class was compiled?"), *AssociatedField->GetPathName());
+		return;
+	}
+
 	if (UEdGraphNode* CachedTemplateNode = GetTemplateNode())
 	{
 		// since we're priming incrementally, someone could have already
@@ -162,6 +170,11 @@ FBlueprintActionUiSpec const& UBlueprintNodeSpawner::PrimeDefaultUiSpec(UEdGraph
 		NodeTemplate = bTemplateNodeFetched ? NodeTemplate : GetTemplateNode(TargetGraph);
 		if (NodeTemplate != nullptr)
 		{
+			if (NodeClass == UK2Node_IfThenElse::StaticClass())
+			{
+				bool bIsAvail = true;
+				bIsAvail = false;
+			}
 			MenuSignature.Keywords = NodeTemplate->GetKeywords();
 		}
 		// if a target graph was provided, then we've done all we can to spawn a
@@ -169,7 +182,7 @@ FBlueprintActionUiSpec const& UBlueprintNodeSpawner::PrimeDefaultUiSpec(UEdGraph
 		if (MenuSignature.Keywords.IsEmpty() && (TargetGraph != nullptr))
 		{
 			// want to set it to something so we won't end up back in this condition
-			MenuSignature.Keywords = TEXT(" ");
+			MenuSignature.Keywords = FText::FromString(TEXT(" "));
 		}
 		bTemplateNodeFetched = true;
 	}
@@ -191,6 +204,29 @@ FBlueprintActionUiSpec const& UBlueprintNodeSpawner::PrimeDefaultUiSpec(UEdGraph
 		{
 			// want to set it to something so we won't end up back in this condition
 			MenuSignature.IconName = TEXT("GraphEditor.Default_16x");
+		}
+		bTemplateNodeFetched = true;
+	}
+
+	//--------------------------------------
+	// Verify Documentation Link
+	//--------------------------------------
+
+	if (MenuSignature.DocExcerptTag.IsEmpty())
+	{
+		NodeTemplate = bTemplateNodeFetched ? NodeTemplate : GetTemplateNode(TargetGraph);
+		if (NodeTemplate != nullptr)
+		{
+			MenuSignature.DocLink = NodeTemplate->GetDocumentationLink();
+			MenuSignature.DocExcerptTag = NodeTemplate->GetDocumentationExcerptName();
+		}
+
+		// if a target graph was provided, then we've done all we can to spawn a
+		// template node... we have to default to something
+		if (MenuSignature.DocExcerptTag.IsEmpty() && (TargetGraph != nullptr))
+		{
+			// want to set it to something so we won't end up back in this condition
+			MenuSignature.DocExcerptTag = TEXT(" ");
 		}
 		bTemplateNodeFetched = true;
 	}

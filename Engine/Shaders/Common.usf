@@ -130,8 +130,12 @@
 	#define SM4_PROFILE 1
 	#define FCOLOR_COMPONENT_SWIZZLE .bgra  
 #elif ES2_PROFILE || ES3_1_PROFILE
-	//@todo ES3_1 GL
-	#define FEATURE_LEVEL FEATURE_LEVEL_ES2
+	#if ES3_1_PROFILE
+		#define FEATURE_LEVEL FEATURE_LEVEL_ES3_1
+	#else
+		//@todo ES3_1 GL
+		#define FEATURE_LEVEL FEATURE_LEVEL_ES2
+	#endif
 
 	#if COMPILER_GLSL_ES2 
 		// Swizzle as we only support GL_BGRA on non-ES2 platforms that have that extension
@@ -152,8 +156,12 @@
 
 #endif
 
+// non-editor platforms generally never want development/editor features.
+#define PLATFORM_SUPPORTS_DEVELOPMENT_SHADERS (!PS4_PROFILE && !XBOXONE_PROFILE && !ES31_AEP_PROFILE)
+#define USE_DEVELOPMENT_SHADERS (COMPILE_SHADERS_FOR_DEVELOPMENT && PLATFORM_SUPPORTS_DEVELOPMENT_SHADERS)
+
 #ifndef ES2_EMULATION
-#define ES2_EMULATION ((FEATURE_LEVEL == FEATURE_LEVEL_ES2) && (!COMPILER_GLSL_ES2 && COMPILE_SHADERS_FOR_DEVELOPMENT && !METAL_PROFILE))
+#define ES2_EMULATION ((FEATURE_LEVEL == FEATURE_LEVEL_ES2) && (!COMPILER_GLSL_ES2 && USE_DEVELOPMENT_SHADERS && !METAL_PROFILE))
 #endif
 
 // If we didn't request color component swizzling, just make it empty
@@ -171,23 +179,43 @@
 // for type checking of the parameters - ironically the type checking is really only needed in GLSL!
 MaterialFloat4 Texture1DSample(Texture1D Tex, SamplerState Sampler, float UV)
 {
+#if COMPUTESHADER
+	return Tex.SampleLevel(Sampler, UV, 0);
+#else
 	return Tex.Sample(Sampler, UV);
+#endif
 }
 MaterialFloat4 Texture2DSample(Texture2D Tex, SamplerState Sampler, float2 UV)
 {
+#if COMPUTESHADER
+	return Tex.SampleLevel(Sampler, UV, 0);
+#else
 	return Tex.Sample(Sampler, UV);
+#endif
 }
 MaterialFloat Texture2DSample_A8(Texture2D Tex, SamplerState Sampler, float2 UV)
 {
+#if COMPUTESHADER
+	return Tex.SampleLevel(Sampler, UV, 0) A8_SAMPLE_MASK;
+#else
 	return Tex.Sample(Sampler, UV) A8_SAMPLE_MASK;
+#endif
 }
 MaterialFloat4 Texture3DSample(Texture3D Tex, SamplerState Sampler, float3 UV)
 {
+#if COMPUTESHADER
+	return Tex.SampleLevel(Sampler, UV, 0);
+#else
 	return Tex.Sample(Sampler, UV);
+#endif
 }
 MaterialFloat4 TextureCubeSample(TextureCube Tex, SamplerState Sampler, float3 UV)
 {
+#if COMPUTESHADER
+	return Tex.SampleLevel(Sampler, UV, 0);
+#else
 	return Tex.Sample(Sampler, UV);
+#endif
 }
 MaterialFloat4 Texture1DSampleLevel(Texture1D Tex, SamplerState Sampler, float UV, MaterialFloat Mip)
 {
@@ -199,7 +227,11 @@ MaterialFloat4 Texture2DSampleLevel(Texture2D Tex, SamplerState Sampler, float2 
 }
 MaterialFloat4 Texture2DSampleBias(Texture2D Tex, SamplerState Sampler, float2 UV, MaterialFloat MipBias)
 {
+#if COMPUTESHADER
+	return Tex.SampleLevel(Sampler, UV, 0);
+#else
 	return Tex.SampleBias(Sampler, UV, MipBias);
+#endif
 }
 MaterialFloat4 Texture3DSampleLevel(Texture3D Tex, SamplerState Sampler, float3 UV, MaterialFloat Mip)
 {
@@ -211,7 +243,11 @@ MaterialFloat4 TextureCubeSampleLevel(TextureCube Tex, SamplerState Sampler, flo
 }
 MaterialFloat4 TextureCubeSampleBias(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat MipBias)
 {
+#if COMPUTESHADER
+	return Tex.SampleLevel(Sampler, UV, 0);
+#else
 	return Tex.SampleBias(Sampler, UV, MipBias);
+#endif
 }
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5 // Cubemap arrays are not supported in SM4 feature level
@@ -304,6 +340,78 @@ MaterialFloat4 ClampedPow(MaterialFloat4 X,MaterialFloat4 Y)
 	return pow(max(abs(X),MaterialFloat4(0.000001f,0.000001f,0.000001f,0.000001f)),Y);
 } 
 
+float DDX(float Input)
+{
+#if COMPUTESHADER
+	return 0;
+#else
+	return ddx(Input);
+#endif
+}
+
+float2 DDX(float2 Input)
+{
+#if COMPUTESHADER
+	return 0;
+#else
+	return ddx(Input);
+#endif
+}
+
+float3 DDX(float3 Input)
+{
+#if COMPUTESHADER
+	return 0;
+#else
+	return ddx(Input);
+#endif
+}
+
+float4 DDX(float4 Input)
+{
+#if COMPUTESHADER
+	return 0;
+#else
+	return ddx(Input);
+#endif
+}
+
+float DDY(float Input)
+{
+#if COMPUTESHADER
+	return 0;
+#else
+	return ddy(Input);
+#endif
+}
+
+float2 DDY(float2 Input)
+{
+#if COMPUTESHADER
+	return 0;
+#else
+	return ddy(Input);
+#endif
+}
+
+float3 DDY(float3 Input)
+{
+#if COMPUTESHADER
+	return 0;
+#else
+	return ddy(Input);
+#endif
+}
+
+float4 DDY(float4 Input)
+{
+#if COMPUTESHADER
+	return 0;
+#else
+	return ddy(Input);
+#endif
+}
+
 #include "Random.usf"	// used by MaterialExpressionNoise
   
 /** 
@@ -380,8 +488,6 @@ SamplerState	LightAttenuationTextureSampler;
 // Tangent space bias
 // We don't use a function so we can avoid type promotion/ coercion.
 #define TangentBias(X) (X * 2.0f - 1.0f)
-
-#define TERRAIN_ZSCALE				(1.0f/128.0f)
 
 float Square( float x )
 {
@@ -718,7 +824,7 @@ MaterialFloat2 GetViewportCoordinates(MaterialFloat2 InFragmentCoordinates)
  */
 MaterialFloat4 UnpackNormalMap( MaterialFloat4 TextureSample )
 {
-#if COMPILER_GLSL_ES2
+#if COMPILER_GLSL_ES2 && IOS
 	return MaterialFloat4(TextureSample.rgb * 2 - 1, 1);
 #else
 	#if DXT5_NORMALMAPS
@@ -967,7 +1073,7 @@ struct FWriteToSliceGeometryOutput
 
 // Helper macro to globally ignore requests for non-offset world positions in materials when lower than shader model 4. We do this
 // because we are using an extra interpolator for this second world position, and in < SM4 there may not be enough
-#define USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS	(NEEDS_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS && FEATURE_LEVEL >= FEATURE_LEVEL_SM4)
+#define USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS	(NEEDS_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS && FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1)
 
 /** Used for calculating vertex positions and UVs when drawing with DrawRectangle */
 void DrawRectangle( in float4 InPosition, in float2 InTexCoord, out float4 OutPosition, out float2 OutTexCoord)
@@ -1001,3 +1107,33 @@ SafeSaturate_Def(float)
 SafeSaturate_Def(float2)
 SafeSaturate_Def(float3)
 SafeSaturate_Def(float4)
+
+// Experimental way to allow adjusting the OpacityMask for shadow map rendering of masked materials.
+// Can be accessed with a Custom material node. If this turns out to be very useful we can expose as MaterialFunction
+// and potentially expose other queries as well (e.g. SkeletalMesh, HitProxy, ).
+// @return 0:no, 1:yes
+float IsShadowDepthShader()
+{
+#ifdef SHADOW_DEPTH_SHADER
+	return 1;
+#else
+	return 0;
+#endif
+}
+#define TERRAIN_ZSCALE (1.0f/128.0f)
+
+// Decodes a value which was packed into two 8 bit channels
+float DecodePackedTwoChannelValue(float2 PackedHeight)
+{
+	return PackedHeight.x * 255.0 * 256.0 + PackedHeight.y * 255.0;
+}
+
+float DecodeHeightValue(float InValue)
+{
+	return (InValue - 32768.0) * TERRAIN_ZSCALE;
+}
+
+float DecodePackedHeight(float2 PackedHeight)
+{
+	return DecodeHeightValue(DecodePackedTwoChannelValue(PackedHeight));
+}

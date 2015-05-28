@@ -112,6 +112,8 @@ void FBrushDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 
 		static void OnClassPicked(UClass* InChosenClass, TSharedRef<IPropertyHandle> BrushBuilderHandle, IDetailLayoutBuilder* InDetailLayout)
 		{
+			FSlateApplication::Get().DismissAllMenus();
+
 			TArray<UObject*> OuterObjects;
 			BrushBuilderHandle->GetOuterObjects(OuterObjects);
 
@@ -128,14 +130,14 @@ void FBrushDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 				const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "BrushSet", "Brush Set"));
 				for (UObject* OuterObject : OuterObjects)
 				{
-					UBrushBuilder* NewObject = ConstructObject<UBrushBuilder>(InChosenClass, OuterObject, NAME_None, RF_Transactional);
+					UBrushBuilder* NewUObject = NewObject<UBrushBuilder>(OuterObject, InChosenClass, NAME_None, RF_Transactional);
 
 					FNewBrushBuilder NewBuilder;
-					NewBuilder.Builder = NewObject;
+					NewBuilder.Builder = NewUObject;
 					NewBuilder.Brush = CastChecked<ABrush>(OuterObject);
 
 					NewBuilders.Add(NewBuilder);
-					NewObjectPaths.Add(NewObject->GetPathName());
+					NewObjectPaths.Add(NewUObject->GetPathName());
 				}
 
 				BrushBuilderHandle->SetPerObjectValues(NewObjectPaths);
@@ -145,9 +147,11 @@ void FBrushDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 				{
 					NewObject.Builder->Build(NewObject.Brush->GetWorld(), NewObject.Brush);
 				}
+
+				GEditor->RebuildAlteredBSP();
 			}
 
-			FSlateApplication::Get().DismissAllMenus();
+
 
 			InDetailLayout->ForceRefreshDetails();
 		}

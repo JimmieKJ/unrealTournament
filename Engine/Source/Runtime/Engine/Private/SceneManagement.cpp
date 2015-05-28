@@ -277,7 +277,7 @@ float ComputeBoundsScreenSize( const FVector4& Origin, const float SphereRadius,
 	return FMath::Clamp(ScreenArea / View.ViewRect.Area(), 0.0f, 1.0f);
 }
 
-int8 ComputeStaticMeshLOD( const FStaticMeshRenderData* RenderData, const FVector4& Origin, const float SphereRadius, const FSceneView& View, float FactorScale )
+int8 ComputeStaticMeshLOD( const FStaticMeshRenderData* RenderData, const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale )
 {
 	const int32 NumLODs = MAX_STATIC_MESH_LODS;
 
@@ -288,11 +288,11 @@ int8 ComputeStaticMeshLOD( const FStaticMeshRenderData* RenderData, const FVecto
 	{
 		if(RenderData->ScreenSize[LODIndex] > ScreenSize)
 		{
-			return LODIndex;
+			return FMath::Max(LODIndex, MinLOD);
 		}
 	}
 
-	return 0;
+	return MinLOD;
 }
 
 int8 ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMeshes, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float ScreenSizeScale )
@@ -310,8 +310,10 @@ int8 ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMeshes,
 		}
 		LODToRender = FMath::Clamp<int8>(ForcedLODLevel, 0, MaxLOD);
 	}
-	else
+	else if (View.Family->EngineShowFlags.LOD)
 	{
+		int32 MinLODFound = INT_MAX;
+		bool bFoundLOD = false;
 		int32 NumMeshes = StaticMeshes.Num();
 
 		const float ScreenSize = ComputeBoundsScreenSize(Origin, SphereRadius, View);
@@ -320,16 +322,22 @@ int8 ComputeLODForMeshes( const TIndirectArray<class FStaticMesh>& StaticMeshes,
 		{
 			const FStaticMesh& Mesh = StaticMeshes[MeshIndex];
 
-			if(View.Family->EngineShowFlags.LOD == 1)
-			{
-				float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
+			float MeshScreenSize = Mesh.ScreenSize * ScreenSizeScale;
 
-				if(MeshScreenSize >= ScreenSize)
-				{
-					LODToRender = Mesh.LODIndex;
-					break;
-				}
+			if(MeshScreenSize >= ScreenSize)
+			{
+				LODToRender = Mesh.LODIndex;
+				bFoundLOD = true;
+				break;
 			}
+
+			MinLODFound = FMath::Min<int32>(MinLODFound, Mesh.LODIndex);
+		}
+
+		// If no LOD was found matching the screen size, use the lowest in the array instead of LOD 0, to handle non-zero MinLOD
+		if (!bFoundLOD)
+		{
+			LODToRender = MinLODFound;
 		}
 	}
 	return LODToRender;
@@ -347,7 +355,7 @@ void FSharedSamplerState::InitRHI()
 
 	FSamplerStateInitializerRHI SamplerStateInitializer
 	(
-		GSystemSettings.TextureLODSettings.GetSamplerFilter(TEXTUREGROUP_World),
+	(ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter(TEXTUREGROUP_World),
 		bWrap ? AM_Wrap : AM_Clamp,
 		bWrap ? AM_Wrap : AM_Clamp,
 		bWrap ? AM_Wrap : AM_Clamp,

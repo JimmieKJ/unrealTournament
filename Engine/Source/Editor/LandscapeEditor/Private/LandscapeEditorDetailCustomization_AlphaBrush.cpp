@@ -223,6 +223,38 @@ void FLandscapeEditorDetailCustomization_AlphaBrush::CustomizeDetails(IDetailLay
 
 	BrushSettingsCategory.AddProperty(PropertyHandle_AlphaTextureChannel)
 	.OverrideResetToDefault(false, FSimpleDelegate());
+
+	if (IsBrushSetActive("BrushSet_Pattern"))
+	{
+		TSharedRef<IPropertyHandle> PropertyHandle_bUseWorldSpacePatternBrush = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, bUseWorldSpacePatternBrush));
+		TSharedRef<IPropertyHandle> PropertyHandle_AlphaBrushScale    = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, AlphaBrushScale));
+		TSharedRef<IPropertyHandle> PropertyHandle_AlphaBrushRotation = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, AlphaBrushRotation));
+		TSharedRef<IPropertyHandle> PropertyHandle_AlphaBrushPanU     = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, AlphaBrushPanU));
+		TSharedRef<IPropertyHandle> PropertyHandle_AlphaBrushPanV     = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, AlphaBrushPanV));
+
+		auto NonWorld_Visibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateLambda([=]() { return GetPropertyValue<bool>(PropertyHandle_bUseWorldSpacePatternBrush) ? EVisibility::Collapsed : EVisibility::Visible;   } ));
+		auto World_Visibility    = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateLambda([=]() { return GetPropertyValue<bool>(PropertyHandle_bUseWorldSpacePatternBrush) ? EVisibility::Visible   : EVisibility::Collapsed; } ));
+
+		BrushSettingsCategory.AddProperty(PropertyHandle_bUseWorldSpacePatternBrush);
+		BrushSettingsCategory.AddProperty(PropertyHandle_AlphaBrushScale)
+			.Visibility(NonWorld_Visibility);
+		BrushSettingsCategory.AddProperty(PropertyHandle_AlphaBrushRotation)
+			.Visibility(NonWorld_Visibility);
+		BrushSettingsCategory.AddProperty(PropertyHandle_AlphaBrushPanU)
+			.Visibility(NonWorld_Visibility);
+		BrushSettingsCategory.AddProperty(PropertyHandle_AlphaBrushPanV)
+			.Visibility(NonWorld_Visibility);
+
+		TSharedRef<IPropertyHandle> PropertyHandle_WorldSpacePatternBrushSettings = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, WorldSpacePatternBrushSettings));
+		PropertyHandle_WorldSpacePatternBrushSettings->MarkHiddenByCustomization();
+		uint32 NumWorldSpaceSettings = 0;
+		PropertyHandle_WorldSpacePatternBrushSettings->GetNumChildren(NumWorldSpaceSettings);
+		for (uint32 i = 0; i < NumWorldSpaceSettings; i++)
+		{
+			BrushSettingsCategory.AddProperty(PropertyHandle_WorldSpacePatternBrushSettings->GetChildHandle(i))
+				.Visibility(World_Visibility);
+		}
+	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 

@@ -181,6 +181,16 @@ FReply UBorder::HandleMouseDoubleClick(const FGeometry& Geometry, const FPointer
 	return FReply::Unhandled();
 }
 
+void UBorder::SetBrush(const FSlateBrush& Brush)
+{
+	Background = Brush;
+
+	if ( MyBorder.IsValid() )
+	{
+		MyBorder->SetBorderImage(&Background);
+	}
+}
+
 void UBorder::SetBrushFromAsset(USlateBrushAsset* Asset)
 {
 	Background = Asset ? Asset->Brush : FSlateBrush();
@@ -269,7 +279,7 @@ void UBorder::PostLoad()
 			UBorderSlot* BorderSlot = Cast<UBorderSlot>(PanelSlot);
 			if ( BorderSlot == NULL )
 			{
-				BorderSlot = ConstructObject<UBorderSlot>(UBorderSlot::StaticClass(), this);
+				BorderSlot = NewObject<UBorderSlot>(this);
 				BorderSlot->Content = GetContentSlot()->Content;
 				BorderSlot->Content->Slot = BorderSlot;
 				Slots[0] = BorderSlot;

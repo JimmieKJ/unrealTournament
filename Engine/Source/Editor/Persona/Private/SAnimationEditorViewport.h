@@ -91,7 +91,6 @@ public:
 	SAnimationEditorViewportTabBody();
 	virtual ~SAnimationEditorViewportTabBody();
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	void RefreshViewport();
 
 	/**
@@ -160,6 +159,9 @@ public:
 	/** Function to check whether floor is displayed or not */
 	bool IsShowingFloor() const;
 
+	/** Function to check whether floor is auto aligned or not */
+	bool IsAutoAlignFloor() const;
+
 	/** Clears our reference to Persona, also cleaning up anything that depends on Persona first */
 	void CleanupPersonaReferences();
 
@@ -202,6 +204,11 @@ private:
 	void OnShowBones();
 
 	bool IsShowingBones() const;
+
+	/** Show Morphtarget of SkeletalMesh **/
+	void OnShowMorphTargets();
+
+	bool IsShowingMorphTargets() const;
 
 	/** Show Raw Animation on top of Compressed Animation **/
 	void OnShowRawAnimation();
@@ -269,6 +276,9 @@ private:
 
 	/** Function to show/hide floor in the viewport */
 	void OnShowFloor();
+
+	/** Function to enable/disable floor auto align */
+	void OnToggleAutoAlignFloor();
 
 	/** Function to show/hide floor in the viewport */
 	void OnShowSky();
@@ -340,10 +350,24 @@ private:
 	/** Whether or not we are previewing root motion */
 	bool IsPreviewingRootMotion() const;
 
+private:
+	/** Selected Turn Table speed  */
+	EAnimationPlaybackSpeeds::Type SelectedTurnTableSpeed;
+	/** Selected turn table mode */
+	EPersonaTurnTableMode::Type SelectedTurnTableMode;
+
+	void OnSetTurnTableSpeed(int32 SpeedIndex);
+	void OnSetTurnTableMode(int32 ModeIndex);
+	bool IsTurnTableModeSelected(int32 ModeIndex) const;
+
+public:
+	bool IsTurnTableSpeedSelected(int32 SpeedIndex) const;
+
 #if WITH_APEX_CLOTHING
 	/** 
 	 * clothing show options 
 	*/
+private:
 	/** disable cloth simulation */
 	void OnDisableClothSimulation();
 	bool IsDisablingClothSimulation() const;
@@ -444,14 +468,12 @@ private:
 private:
 	friend class FPersona;
 
-	/** Function to replace root translation */
-	void UpdateMeshRootTranslation(const FText& NewText, ETextCommit::Type CommitInfo, int32 Dimension);
-
 	EVisibility GetViewportCornerImageVisibility() const;
-	const FSlateBrush * GetViewportCornerImage() const;
+	const FSlateBrush* GetViewportCornerImage() const;
 
 	EVisibility GetViewportCornerTextVisibility() const;
 	FText GetViewportCornerText() const;
 	FText GetViewportCornerTooltip() const;
 	FReply ClickedOnViewportCornerText();
+
 };

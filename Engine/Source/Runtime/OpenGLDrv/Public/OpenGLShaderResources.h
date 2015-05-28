@@ -93,15 +93,18 @@ struct FOpenGLShaderBindings
 	uint8	NumUniformBuffers;
 	uint8	NumUAVs;
 	bool	bFlattenUB;
-
+	uint8	VertexAttributeRemap[16];
+	uint8	VertexRemappedMask;
 
 	FOpenGLShaderBindings() :
 		InOutMask(0),
 		NumSamplers(0),
 		NumUniformBuffers(0),
 		NumUAVs(0),
-		bFlattenUB(false)
+		bFlattenUB(false),
+		VertexRemappedMask(0)
 	{
+		FMemory::Memset(VertexAttributeRemap, 0xFF);
 	}
 
 	friend bool operator==( const FOpenGLShaderBindings &A, const FOpenGLShaderBindings& B)
@@ -190,6 +193,11 @@ inline FArchive& operator<<(FArchive& Ar, FOpenGLShaderBindings& Bindings)
 	Ar << Bindings.NumUniformBuffers;
 	Ar << Bindings.NumUAVs;
 	Ar << Bindings.bFlattenUB;
+	for (uint32 i = 0; i < ARRAY_COUNT(Bindings.VertexAttributeRemap); i++)
+	{
+		Ar << Bindings.VertexAttributeRemap[i];
+	}
+	Ar << Bindings.VertexRemappedMask;
 	return Ar;
 }
 

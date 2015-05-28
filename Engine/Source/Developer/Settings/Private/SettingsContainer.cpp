@@ -20,7 +20,8 @@ ISettingsSectionPtr FSettingsContainer::AddSection( const FName& CategoryName, c
 
 	if (!Category.IsValid())
 	{
-		return nullptr;
+		DescribeCategory(CategoryName, FText::FromString(FName::NameToDisplayString(CategoryName.ToString(), false)), FText::GetEmpty());
+		Category = Categories.FindRef(CategoryName);
 	}
 
 	ISettingsSectionRef Section = Category->AddSection(SectionName, InDisplayName, InDescription, SettingsObject);
@@ -36,7 +37,8 @@ ISettingsSectionPtr FSettingsContainer::AddSection( const FName& CategoryName, c
 
 	if (!Category.IsValid())
 	{
-		return nullptr;
+		DescribeCategory(CategoryName, FText::FromString(FName::NameToDisplayString(CategoryName.ToString(), false)), FText::GetEmpty());
+		Category = Categories.FindRef(CategoryName);
 	}
 
 	ISettingsSectionRef Section = Category->AddSection(SectionName, InDisplayName, InDescription, CustomWidget);

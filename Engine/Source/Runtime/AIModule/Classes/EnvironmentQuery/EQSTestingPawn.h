@@ -10,6 +10,14 @@
 class UEnvQuery;
 class UEQSRenderingComponent;
 
+UENUM()
+enum class EEnvQueryHightlightMode : uint8
+{
+	All,
+	Best5Pct UMETA(DisplayName = "Best 5%"),
+	Best25Pct UMETA(DisplayName = "Best 25%"),
+};
+
 /** this class is abstract even though it's perfectly functional on its own.
  *	The reason is to stop it from showing as valid player pawn type when configuring 
  *	project's game mode. */
@@ -31,7 +39,10 @@ class AIMODULE_API AEQSTestingPawn : public ACharacter, public IEQSQueryResultSo
 	UPROPERTY(Category=EQS, EditAnywhere)
 	int32 StepToDebugDraw;
 
-	UPROPERTY(Category=EQS, EditAnywhere)
+	UPROPERTY(Category = EQS, EditAnywhere)
+	EEnvQueryHightlightMode HighlightMode;
+
+	UPROPERTY(Category = EQS, EditAnywhere)
 	uint32 bDrawLabels:1;
 
 	UPROPERTY(Category=EQS, EditAnywhere)
@@ -76,12 +87,13 @@ public:
 
 	virtual bool GetShouldDebugDrawLabels() const override { return bDrawLabels; }
 	virtual bool GetShouldDrawFailedItems() const override{ return bDrawFailedItems; }
+	virtual float GetHighlightRangePct() const override;
 	// IEQSQueryResultSourceInterface end
 
 	void RunEQSQuery();
 
 protected:	
-	void Reset();
+	void Reset() override;
 	void MakeOneStep();
 
 	void UpdateDrawing();

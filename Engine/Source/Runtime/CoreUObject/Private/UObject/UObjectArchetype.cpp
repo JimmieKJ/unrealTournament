@@ -13,12 +13,7 @@ UObject* UObject::GetArchetypeFromRequiredInfo(UClass* Class, UObject* Outer, FN
 	const bool bIsCDO = !!(ObjectFlags&RF_ClassDefaultObject);
 	if (bIsCDO)
 	{
-		static UClass* UObjectStaticClass(UObject::StaticClass());
-		if (Class != UObjectStaticClass)
-		{
-			Result = Class->GetSuperClass()->GetDefaultObject(); // the archetype of any CDO (other than the UObject CDO) is the CDO of the super class
-		}
-		// else the archetype of the UObject CDO is NULL
+		Result = Class->GetArchetypeForCDO();
 	}
 	else
 	{

@@ -28,11 +28,21 @@ public:
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
 	// End of SWidget interface
 
+protected:
+
+	/** Returns a custom hover state for the comment bubble */
+	bool IsKnotHovered() const;
+
 	/** Returns Offset to center comment on the node's only pin */
 	FVector2D GetCommentOffset() const;
 
+	/** Called to override the comment bubble's current visibility */
+	ECheckBoxState GetBubbleCheckState() const;
+
 protected:
 
+	/** The hovered visibility state */
+	bool bHoveredCommentVisibility;
 	/** SharedPtr to comment bubble */
 	TSharedPtr<SCommentBubble> CommentBubble;
 

@@ -15,7 +15,7 @@ enum EShaderFrequency
 	SF_Vertex			= 0,
 	SF_Hull				= 1,
 	SF_Domain			= 2,
-	SF_Pixel			= 3,
+	SF_Pixel				= 3,
 	SF_Geometry			= 4,
 	SF_Compute			= 5,
 
@@ -27,25 +27,29 @@ static_assert(SF_NumFrequencies <= (1 << SF_NumBits), "SF_NumFrequencies will no
 /** @warning: update *LegacyShaderPlatform* when the below changes */
 enum EShaderPlatform
 {
-	SP_PCD3D_SM5		= 0,
+	SP_PCD3D_SM5			= 0,
 	SP_OPENGL_SM4		= 1,
 	SP_PS4				= 2,
 	/** Used when running in Feature Level ES2 in OpenGL. */
 	SP_OPENGL_PCES2		= 3,
 	SP_XBOXONE			= 4,
-	SP_PCD3D_SM4		= 5,
+	SP_PCD3D_SM4			= 5,
 	SP_OPENGL_SM5		= 6,
 	/** Used when running in Feature Level ES2 in D3D11. */
-	SP_PCD3D_ES2		= 7,
+	SP_PCD3D_ES2			= 7,
 	SP_OPENGL_ES2		= 8,
 	SP_OPENGL_ES2_WEBGL = 9, 
 	SP_OPENGL_ES2_IOS	= 10,
-	SP_METAL			= 11,
+	SP_METAL				= 11,
 	SP_OPENGL_SM4_MAC	= 12,
-	SP_METAL_MRT		= 13,
+	SP_METAL_MRT			= 13,
 	SP_OPENGL_ES31_EXT	= 14,
+	/** Used when running in Feature Level ES3_1 in D3D11. */
+	SP_PCD3D_ES3_1		= 15,
+	/** Used when running in Feature Level ES3_1 in OpenGL. */
+	SP_OPENGL_PCES3_1	= 16,
 
-	SP_NumPlatforms		= 15,
+	SP_NumPlatforms		= 17,
 	SP_NumBits			= 5,
 };
 static_assert(SP_NumPlatforms <= (1 << SP_NumBits), "SP_NumPlatforms will not fit on SP_NumBits");
@@ -74,6 +78,18 @@ enum { MaxSimultaneousRenderTargets = 8 };
 
 /** The number of UAVs that may be simultaneously bound to a shader. */
 enum { MaxSimultaneousUAVs = 8 };
+
+enum class ERHIZBuffer
+{
+	// Before changing this, make sure all math & shader assumptions are correct! Also wrap your C++ assumptions with
+	//		static_assert(ERHIZBuffer::IsInvertedZBuffer(), ...);
+	// Shader-wise, make sure to update Definitions.usf, HAS_INVERTED_Z_BUFFER
+	FarPlane = 0,
+	NearPlane = 1,
+
+	// 'bool' for knowing if the API is using Inverted Z buffer
+	IsInverted = (int32)((int32)ERHIZBuffer::FarPlane < (int32)ERHIZBuffer::NearPlane),
+};
 
 /**
  * The RHI's feature level indicates what level of support can be relied upon.
@@ -157,7 +173,13 @@ enum ECompareFunction
 	CF_Equal,
 	CF_NotEqual,
 	CF_Never,
-	CF_Always
+	CF_Always,
+
+	// Utility enumerations
+	CF_DepthNearOrEqual		= (((int32)ERHIZBuffer::IsInverted != 0) ? CF_GreaterEqual : CF_LessEqual),
+	CF_DepthNear				= (((int32)ERHIZBuffer::IsInverted != 0) ? CF_Greater : CF_Less),
+	CF_DepthFartherOrEqual	= (((int32)ERHIZBuffer::IsInverted != 0) ? CF_LessEqual : CF_GreaterEqual),
+	CF_DepthFarther			= (((int32)ERHIZBuffer::IsInverted != 0) ? CF_Less : CF_Greater),
 };
 
 enum EStencilOp
@@ -213,6 +235,11 @@ enum EVertexElementType
 	VET_Short2N,		// 16 bit word normalized to (value/32767.0,value/32767.0,0,0,1)
 	VET_Half2,			// 16 bit float using 1 bit sign, 5 bit exponent, 10 bit mantissa 
 	VET_Half4,
+	VET_Short4N,		// 4 X 16 bit word, normalized 
+	VET_UShort2,
+	VET_UShort4,
+	VET_UShort2N,		// 16 bit word normalized to (value/65535.0,value/65535.0,0,0,1)
+	VET_UShort4N,		// 4 X 16 bit word unsigned, normalized 
 	VET_MAX
 };
 
@@ -412,42 +439,37 @@ enum EBufferUsageFlags
 	BUF_AnyDynamic      = (BUF_Dynamic|BUF_Volatile),
 };
 
-#define ENUM_RHI_RESOURCE_TYPES(EnumerationMacro) \
-	EnumerationMacro(SamplerState,None) \
-	EnumerationMacro(RasterizerState,None) \
-	EnumerationMacro(DepthStencilState,None) \
-	EnumerationMacro(BlendState,None) \
-	EnumerationMacro(VertexDeclaration,None) \
-	EnumerationMacro(VertexShader,None) \
-	EnumerationMacro(HullShader,None) \
-	EnumerationMacro(DomainShader,None) \
-	EnumerationMacro(PixelShader,None) \
-	EnumerationMacro(GeometryShader,None) \
-	EnumerationMacro(ComputeShader,None) \
-	EnumerationMacro(BoundShaderState,None) \
-	EnumerationMacro(UniformBuffer,None) \
-	EnumerationMacro(IndexBuffer,None) \
-	EnumerationMacro(VertexBuffer,None) \
-	EnumerationMacro(StructuredBuffer,None) \
-	EnumerationMacro(Texture,None) \
-	EnumerationMacro(Texture2D,Texture) \
-	EnumerationMacro(Texture2DArray,Texture) \
-	EnumerationMacro(Texture3D,Texture) \
-	EnumerationMacro(TextureCube,Texture) \
-	EnumerationMacro(TextureReference,Texture) \
-	EnumerationMacro(RenderQuery,None) \
-	EnumerationMacro(Viewport,None) \
-	EnumerationMacro(UnorderedAccessView,None) \
-	EnumerationMacro(ShaderResourceView,None)
-
 /** An enumeration of the different RHI reference types. */
 enum ERHIResourceType
 {
 	RRT_None,
 
-#define DECLARE_RESOURCETYPE_ENUM(Type,ParentType) RRT_##Type,
-	ENUM_RHI_RESOURCE_TYPES(DECLARE_RESOURCETYPE_ENUM)
-#undef DECLARE_RESOURCETYPE_ENUM
+	RRT_SamplerState,
+	RRT_RasterizerState,
+	RRT_DepthStencilState,
+	RRT_BlendState,
+	RRT_VertexDeclaration,
+	RRT_VertexShader,
+	RRT_HullShader,
+	RRT_DomainShader,
+	RRT_PixelShader,
+	RRT_GeometryShader,
+	RRT_ComputeShader,
+	RRT_BoundShaderState,
+	RRT_UniformBuffer,
+	RRT_IndexBuffer,
+	RRT_VertexBuffer,
+	RRT_StructuredBuffer,
+	RRT_Texture,
+	RRT_Texture2D,
+	RRT_Texture2DArray,
+	RRT_Texture3D,
+	RRT_TextureCube,
+	RRT_TextureReference,
+	RRT_RenderQuery,
+	RRT_Viewport,
+	RRT_UnorderedAccessView,
+	RRT_ShaderResourceView,
 
 	RRT_Num
 };
@@ -545,23 +567,23 @@ enum class ERenderTargetStoreAction
 enum class ESimpleRenderTargetMode
 {
 	// These will all store out color and depth
-	EExistingColorAndDepth,			// Color = Existing, Depth = Existing
-	EUninitializedColorAndDepth,	// Color = ????, Depth = ????
-	EUninitializedColorExistingDepth,// Color = ????, Depth = Existing
-	EUninitializedColorClearDepth,	// Color = ????, Depth = Default
-	EClearToDefault,				// Default Color = (0,0,0,0), Default Depth = 0.0f
-	EClearColorToBlack,				// Color = (0,0,0,0), Depth = Existing
-	EClearColorToBlackWithFullAlpha,// Color = (0,0,0,1), Depth = Existing
-	EClearColorToWhite,				// Color = (1,1,1,1), Depth = Existing
-	EClearDepthToOne,				// Color = Existing, Depth = 1.0
-	EExistingContents_NoDepthStore,	// Load existing contents, but don't store depth out
+	EExistingColorAndDepth,							// Color = Existing, Depth = Existing
+	EUninitializedColorAndDepth,					// Color = ????, Depth = ????
+	EUninitializedColorExistingDepth,				// Color = ????, Depth = Existing
+	EUninitializedColorClearDepth,					// Color = ????, Depth = Default
+	EClearToDefault,								// Default Color = (0,0,0,0), Default Depth = 0.0f
+	EClearColorToBlack,								// Color = (0,0,0,0), Depth = Existing
+	EClearColorToBlackWithFullAlpha,				// Color = (0,0,0,1), Depth = Existing
+	EClearColorToWhite,								// Color = (1,1,1,1), Depth = Existing
+	EClearDepthToOne,								// Color = Existing, Depth = 1.0
+	EExistingContents_NoDepthStore,					// Load existing contents, but don't store depth out.  depth can be written.
 
 	// If you add an item here, make sure to add it to DecodeRenderTargetMode() as well!
 };
 
 inline bool IsPCPlatform(const EShaderPlatform Platform)
 {
-	return Platform == SP_PCD3D_SM5 || Platform == SP_PCD3D_SM4 || Platform == SP_PCD3D_ES2 || Platform ==  SP_OPENGL_SM4 || Platform == SP_OPENGL_SM4_MAC || Platform == SP_OPENGL_SM5 || Platform == SP_OPENGL_PCES2;
+	return Platform == SP_PCD3D_SM5 || Platform == SP_PCD3D_SM4 || Platform == SP_PCD3D_ES2 || Platform == SP_PCD3D_ES3_1 || Platform ==  SP_OPENGL_SM4 || Platform == SP_OPENGL_SM4_MAC || Platform == SP_OPENGL_SM5 || Platform == SP_OPENGL_PCES2 || Platform == SP_OPENGL_PCES3_1;
 }
 
 /** Whether the shader platform corresponds to the ES2 feature level. */
@@ -573,7 +595,7 @@ inline bool IsES2Platform(const EShaderPlatform Platform)
 /** Whether the shader platform corresponds to the ES2 feature level. */
 inline bool IsMobilePlatform(const EShaderPlatform Platform)
 {
-	return IsES2Platform(Platform) || Platform == SP_METAL;
+	return IsES2Platform(Platform) || Platform == SP_METAL || Platform == SP_PCD3D_ES3_1 || Platform == SP_OPENGL_PCES3_1;
 }
 
 inline bool IsOpenGLPlatform(const EShaderPlatform Platform)
@@ -609,6 +631,8 @@ inline ERHIFeatureLevel::Type GetMaxSupportedFeatureLevel(EShaderPlatform InShad
 	case SP_OPENGL_ES2_IOS:
 		return ERHIFeatureLevel::ES2;
 	case SP_METAL:
+	case SP_PCD3D_ES3_1:
+	case SP_OPENGL_PCES3_1:
 		return ERHIFeatureLevel::ES3_1;
 	default:
 		check(0);
@@ -627,8 +651,12 @@ inline bool IsFeatureLevelSupported(EShaderPlatform InShaderPlatform, ERHIFeatur
 		return InFeatureLevel <= ERHIFeatureLevel::SM4;
 	case SP_PCD3D_ES2:
 		return InFeatureLevel <= ERHIFeatureLevel::ES2;
+	case SP_PCD3D_ES3_1:
+		return InFeatureLevel <= ERHIFeatureLevel::ES3_1;
 	case SP_OPENGL_PCES2:
 		return InFeatureLevel <= ERHIFeatureLevel::ES2;
+	case SP_OPENGL_PCES3_1:
+		return InFeatureLevel <= ERHIFeatureLevel::ES3_1;
 	case SP_OPENGL_ES2:
 		return InFeatureLevel <= ERHIFeatureLevel::ES2;
 	case SP_OPENGL_ES2_WEBGL: 
@@ -690,7 +718,7 @@ inline bool RHISupportsSeparateMSAAAndResolveTextures(const EShaderPlatform Plat
 inline bool RHISupportsComputeShaders(const EShaderPlatform Platform)
 {
 	//@todo-rco: Add Metal support
-	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5);// || (Platform == SP_METAL);
+	return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) || (Platform == SP_METAL_MRT);
 }
 
 inline bool RHISupportsGeometryShaders(const EShaderPlatform Platform)

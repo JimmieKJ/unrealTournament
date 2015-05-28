@@ -18,10 +18,37 @@ public:
 	virtual ~FChatRoomInfo() {}
 
 	virtual const FChatRoomId& GetRoomId() const = 0;
-	virtual const FUniqueNetId& GetOwnerId() const = 0;
+	virtual const TSharedRef<FUniqueNetId>& GetOwnerId() const = 0;
 	virtual const FString& GetSubject() const = 0;
 	virtual bool IsPrivate() const = 0;
 	virtual bool IsJoined() const = 0;
+	virtual const class FChatRoomConfig& GetRoomConfig() const = 0;
+};
+
+/**
+ * Configuration for creating a chat room
+ */
+class FChatRoomConfig
+{
+public:
+	FChatRoomConfig()
+		: bPasswordRequired(false)
+		, Password(TEXT(""))
+	{}
+
+	bool bPasswordRequired;
+	FString Password;
+
+private:
+	// Below are unused, move to public when hooking up to functionality
+	bool bMembersOnly;
+	bool bHidden;
+	bool bPersistent;
+	bool bAllowMemberInvites;
+	bool bLoggingEnabled;
+	int32 MessageHistory;
+	int32 MaxMembers;
+	FString PubSubNode;
 };
 
 /**
@@ -32,7 +59,7 @@ class FChatRoomMember
 public:
 	virtual ~FChatRoomMember() {}
 
-	virtual const FUniqueNetId& GetUserId() const = 0;
+	virtual const TSharedRef<FUniqueNetId>& GetUserId() const = 0;
 	virtual const FString& GetNickname() const = 0;
 };
 
@@ -44,7 +71,7 @@ class FChatMessage
 public:
 	virtual ~FChatMessage() {}
 
-	virtual const FUniqueNetId& GetUserId() const = 0;
+	virtual const TSharedRef<FUniqueNetId>& GetUserId() const = 0;
 	virtual const FString& GetNickname() const = 0;
 	virtual const FString& GetBody() const = 0;
 	virtual const FDateTime& GetTimestamp() const = 0;
@@ -127,6 +154,29 @@ typedef FOnChatPrivateMessageReceived::FDelegate FOnChatPrivateMessageReceivedDe
 class IOnlineChat
 {
 public:
+
+	/**
+	 * Kick off request for creating a chat room with a provided configuration
+	 * 
+	 * @param UserId id of user that is creating the room
+	 * @param RoomId name of room to create
+	 * @param Nickname display name for the chat room. Name must be unique and is reserved for duration of join
+	 * @param RoomConfig configuration for the room
+	 *
+	 * @return if successfully started the async operation
+	 */
+	virtual bool CreateRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FString& Nickname, const FChatRoomConfig& ChatRoomConfig) = 0;
+
+	/**
+	* Kick off request for configuring a chat room with a provided configuration
+	*
+	* @param UserId id of user that is creating the room
+	* @param RoomId name of room to create
+	* @param RoomConfig configuration for the room
+	*
+	* @return if successfully started the async operation
+	*/
+	virtual bool ConfigureRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FChatRoomConfig& ChatRoomConfig) = 0;
 	
 	/**
 	 * Kick off request for joining a public chat room

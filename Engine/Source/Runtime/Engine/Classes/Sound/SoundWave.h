@@ -136,15 +136,15 @@ class ENGINE_API USoundWave : public USoundBase
 	uint32 bDynamicResource:1;
 
 	/** If set to true if this sound is considered to contain mature/adult content. */
-	UPROPERTY(EditAnywhere, localized, Category=Subtitles, AssetRegistrySearchable)
+	UPROPERTY(EditAnywhere, Category=Subtitles, AssetRegistrySearchable)
 	uint32 bMature:1;
 
 	/** If set to true will disable automatic generation of line breaks - use if the subtitles have been split manually. */
-	UPROPERTY(EditAnywhere, localized, Category=Subtitles )
+	UPROPERTY(EditAnywhere, Category=Subtitles )
 	uint32 bManualWordWrap:1;
 
 	/** If set to true the subtitles display as a sequence of single lines as opposed to multiline. */
-	UPROPERTY(EditAnywhere, localized, Category=Subtitles )
+	UPROPERTY(EditAnywhere, Category=Subtitles )
 	uint32 bSingleLine:1;
 
 	/** Whether this SoundWave was decompressed from OGG. */
@@ -193,12 +193,12 @@ class ENGINE_API USoundWave : public USoundBase
 	 * Subtitle cues.  If empty, use SpokenText as the subtitle.  Will often be empty,
 	 * as the contents of the subtitle is commonly identical to what is spoken.
 	 */
-	UPROPERTY(EditAnywhere, localized, Category=Subtitles)
+	UPROPERTY(EditAnywhere, Category=Subtitles)
 	TArray<struct FSubtitleCue> Subtitles;
 
 #if WITH_EDITORONLY_DATA
 	/** Provides contextual information for the sound to the translator. */
-	UPROPERTY(EditAnywhere, localized, Category=Subtitles )
+	UPROPERTY(EditAnywhere, Category=Subtitles )
 	FString Comment;
 
 #endif // WITH_EDITORONLY_DATA
@@ -267,7 +267,6 @@ public:
 	virtual void FinishDestroy() override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
-	virtual void CookerWillNeverCookAgain() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;	
 #endif // WITH_EDITOR
 	virtual bool IsLocalizedResource() override;
@@ -372,7 +371,6 @@ public:
 	void UpdatePlatformData();
 
 	void CleanupCachedRunningPlatformData();
-	void CleanupCachedCookedPlatformData();
 
 	/**
 	 * Serializes cooked platform data.
@@ -380,17 +378,30 @@ public:
 	void SerializeCookedPlatformData(class FArchive& Ar);
 
 #if WITH_EDITORONLY_DATA
-	/**
-	 * Caches platform data for the sound.
-	 */
-	void CachePlatformData(bool bAsyncCache = false);
-
+	
+#if WITH_EDITOR
 	/**
 	 * Begins caching platform data in the background for the platform requested
 	 */
 	virtual void BeginCacheForCookedPlatformData(  const ITargetPlatform *TargetPlatform ) override;
 
 	virtual bool IsCachedCookedPlatformDataLoaded( const ITargetPlatform* TargetPlatform ) override;
+
+	/**
+	 * Clear all the cached cooked platform data which we have accumulated with BeginCacheForCookedPlatformData calls
+	 * The data can still be cached again using BeginCacheForCookedPlatformData again
+	 */
+	virtual void ClearAllCachedCookedPlatformData() override;
+
+	virtual void ClearCachedCookedPlatformData( const ITargetPlatform* TargetPlatform ) override;
+
+	virtual void WillNeverCacheCookedPlatformDataAgain() override;
+#endif
+	
+	/**
+	 * Caches platform data for the sound.
+	 */
+	void CachePlatformData(bool bAsyncCache = false);
 
 	/**
 	 * Begins caching platform data in the background.

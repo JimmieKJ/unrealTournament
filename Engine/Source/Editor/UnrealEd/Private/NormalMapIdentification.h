@@ -6,8 +6,8 @@ namespace NormalMapIdentification
 {
 	/**
 	 * Handle callback when an asset is imported.
-	 * @param	InFactory	The factory being used.
-	 * @param	InObject	The object that was imported.
+	 * @param	InFactory	The texture factory being used.
+	 * @param	InTexture	The texture that was imported.
 	 */
-	void HandleAssetPostImport( UFactory* InFactory, UObject* InObject );
+	void HandleAssetPostImport( UTextureFactory* InFactory, UTexture* InTexture );
 }

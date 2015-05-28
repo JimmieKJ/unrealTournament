@@ -13,6 +13,7 @@ public class CurveTableEditor : ModuleRules
 				"Core", 
 				"CoreUObject", 
 				"Engine", 
+				"InputCore",
 				"Slate",
 				"SlateCore",
                 "EditorStyle",

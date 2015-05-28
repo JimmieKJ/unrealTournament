@@ -8,7 +8,7 @@
 /**
  * A light component which emits light from a single point equally in all directions.
  */
-UCLASS(ClassGroup=(Lights,Common), hidecategories=(Object, LightShafts), editinlinenew, meta=(BlueprintSpawnableComponent))
+UCLASS(Blueprintable, ClassGroup=(Lights,Common), hidecategories=(Object, LightShafts), editinlinenew, meta=(BlueprintSpawnableComponent))
 class ENGINE_API UPointLightComponent : public ULightComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -65,7 +65,10 @@ class ENGINE_API UPointLightComponent : public ULightComponent
 	void SetLightFalloffExponent(float NewLightFalloffExponent);
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
-	void SetSourceRadius(float bNewValue);
+	void SetSourceRadius(float NewValue);
+
+	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
+	void SetSourceLength(float NewValue);
 
 protected:
 	// Begin UActorComponent Interface
@@ -75,11 +78,11 @@ protected:
 public:
 
 	// ULightComponent interface.
-	virtual bool AffectsBounds(const FBoxSphereBounds& Bounds) const;
-	virtual FVector4 GetLightPosition() const;
-	virtual FBox GetBoundingBox() const;
-	virtual FSphere GetBoundingSphere() const;
-	virtual ELightComponentType GetLightType() const;
+	virtual bool AffectsBounds(const FBoxSphereBounds& Bounds) const override;
+	virtual FVector4 GetLightPosition() const override;
+	virtual FBox GetBoundingBox() const override;
+	virtual FSphere GetBoundingSphere() const override;
+	virtual ELightComponentType GetLightType() const override;
 	virtual FLightSceneProxy* CreateSceneProxy() const override;
 
 	// Begin UObject Interface
@@ -96,7 +99,7 @@ public:
 	 *
 	 * @param PropertyThatChanged	Property that changed
 	 */
-	virtual void PostInterpChange(UProperty* PropertyThatChanged);
+	virtual void PostInterpChange(UProperty* PropertyThatChanged) override;
 
 private:
 

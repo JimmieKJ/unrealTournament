@@ -102,6 +102,16 @@ public:
 						.Text(FText::FromName(EndpointInfo->Name))
 				];
 		}
+		else if (ColumnName == "RecipientThread")
+		{
+			return SNew(SBox)
+				.Padding(FMargin(4.0f, 0.0f))
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+						.Text(NamedThreadToReadableText(DispatchState->RecipientThread))
+				];
+		}
 
 		return SNullWidget::NullWidget;
 	}
@@ -133,6 +143,43 @@ protected:
 		}
 
 		return FSlateColor::UseForeground();
+	}
+
+	/**
+	 * Converts a named thread to a human readable string.
+	 *
+	 * @param NamedThread The named thread.
+	 * @return The text representation.
+	 */
+	FText NamedThreadToReadableText( ENamedThreads::Type NamedThread )
+	{
+		switch (NamedThread)
+		{
+		case ENamedThreads::AnyThread:
+			return LOCTEXT("AnyThread", "AnyThread");
+			break;
+
+		case ENamedThreads::RHIThread:
+			return LOCTEXT("RHIThread", "RHIThread");
+			break;
+
+		case ENamedThreads::GameThread:
+			return LOCTEXT("GameThread", "GameThread");
+			break;
+
+		case ENamedThreads::ActualRenderingThread:
+			return LOCTEXT("ActualRenderingThread", "ActualRenderingThread");
+			break;
+
+#if STATS
+		case ENamedThreads::StatsThread:
+			return LOCTEXT("StatsThread", "StatsThread");
+			break;
+#endif
+
+		default:
+			return LOCTEXT("UnknownThread", "Unknown");
+		}
 	}
 
 	/**
@@ -205,7 +252,7 @@ private:
 			return LOCTEXT("DispatchTaskGraphTooltip", "Dispatched with Task Graph (asynchronously)");
 		}
 
-		return LOCTEXT("DispatchPendingTooltip", "Dispatched pending");
+		return LOCTEXT("DispatchPendingTooltip", "Dispatch pending");
 	}
 
 	/** Callback for getting the handling time text. */

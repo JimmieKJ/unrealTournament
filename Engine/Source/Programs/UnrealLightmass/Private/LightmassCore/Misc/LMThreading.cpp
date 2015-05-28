@@ -71,18 +71,18 @@ FSemaphore::~FSemaphore(void)
  *
  * @return Returns true if the event was created, false otherwise
  */
-bool FSemaphore::Create(int32 MaxCount)
+bool FSemaphore::Create(int32 InMaxCount)
 {
 	// Create the event and default it to non-signaled
 #if PLATFORM_WINDOWS
-	Semaphore = CreateSemaphore(NULL, 0, MaxCount, NULL);
+	Semaphore = CreateSemaphore(NULL, 0, InMaxCount, NULL);
 	return Semaphore != NULL;
 #else
 	if( !bInitialized )
 	{
-		check( MaxCount > 0 );
-		this->MaxCount = MaxCount;
-		this->Counter = 0;
+		check( InMaxCount > 0 );
+		MaxCount = InMaxCount;
+		Counter = 0;
 
 		int Result = pthread_mutex_init( &Guard, NULL );
 		if( Result == 0 )

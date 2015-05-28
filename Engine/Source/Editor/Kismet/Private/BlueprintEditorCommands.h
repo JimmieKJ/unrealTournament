@@ -81,22 +81,39 @@ class FBlueprintSpawnNodeCommands : public TCommands<FBlueprintSpawnNodeCommands
 public:
 
 	FBlueprintSpawnNodeCommands()
-		: TCommands<FBlueprintSpawnNodeCommands>(TEXT("BlueprintEditorSpawnNodes"), NSLOCTEXT("Contexts", "BlueprintEditor_SpawnNodes", "Blueprint Editor - Spawn Nodes by gesture"), NAME_None, FEditorStyle::GetStyleSetName())
+		: TCommands<FBlueprintSpawnNodeCommands>(TEXT("BlueprintEditorSpawnNodes"), NSLOCTEXT("Contexts", "BlueprintEditor_SpawnNodes", "Blueprint Editor - Spawn Nodes by chord"), NAME_None, FEditorStyle::GetStyleSetName())
 	{
 	}	
 
 	virtual void RegisterCommands() override;
 
 	/**
-	 * Returns a graph action assigned to the passed in gesture
+	 * Returns a graph action assigned to the passed in chord
 	 *
-	 * @param InGesture			The gesture to use for lookup
-	 * @param InPaletteBuilder	The Blueprint palette to create the graph action for, used for validation purposes and to link any important node data to the blueprint
-	 * @param InDestGraph		The graph to create the graph action for, used for validation purposes and to link any important node data to the graph
+	 * @param InChord					The chord to use for lookup
+	 * @param InDestGraph				The graph to create the graph action for, used for validation purposes and to link any important node data to the graph
+	 * @param InOutDestPosition			Position to start placing nodes, will be updated to be at the next safe position for node placement
+	 * @param OutNodes					All nodes spawned by this operation
 	 */
-	void GetGraphActionByGesture(FInputGesture& InGesture, struct FBlueprintPaletteListBuilder& InPaletteBuilder, UEdGraph* InDestGraph) const;
+	void GetGraphActionByChord(FInputChord& InChord, UEdGraph* InDestGraph, FVector2D& InOutDestPosition, TArray<UEdGraphNode*>& OutNodes) const;
 
 private:
 	/** An array of all the possible commands for spawning nodes */
 	TArray< TSharedPtr< class FNodeSpawnInfo > > NodeCommands;
+};
+
+//////////////////////////////////////////////////////////////////////////
+// FSCSEditorViewportCommands
+
+class FSCSEditorViewportCommands : public TCommands<FSCSEditorViewportCommands>
+{
+public:
+
+	FSCSEditorViewportCommands()
+		: TCommands<FSCSEditorViewportCommands>(TEXT("SCSEditorViewport"), NSLOCTEXT("Contexts", "SCSEditorViewport", "SCS Editor Viewport"), NAME_None, FEditorStyle::GetStyleSetName())
+	{}
+
+	virtual void RegisterCommands() override;
+
+	TSharedPtr< FUICommandInfo > DeleteComponent;
 };

@@ -1055,7 +1055,7 @@ void UModel::ApplyStaticLighting()
 					uint32 BaseY = SurfaceInfo.BaseY - SurfaceStaticLighting->MappedRect.Min.Y;
 					if (GLightmassDebugOptions.bPadMappings && GAllowLightmapPadding)
 					{
-						if ((PaddedSizeX - 2 > 0) && ((PaddedSizeY - 2) > 0))
+						if ((PaddedSizeX > 2) && (PaddedSizeY > 2))
 						{
 							PaddedSizeX -= 2;
 							PaddedSizeY -= 2;

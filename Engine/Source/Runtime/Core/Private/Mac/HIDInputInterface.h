@@ -62,6 +62,12 @@ private:
 		void SetupMappings();
 	};
 
+	struct FXBox360ControllerID
+	{
+		const int32 VendorID;
+		const int32 ProductID;
+	};
+
 	struct FControllerState
 	{
 		/** Last frame's button states, so we only send events on edges */

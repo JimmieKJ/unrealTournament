@@ -22,6 +22,7 @@ public:
 	float RangeSq;
 	float InformationAge;
 	FGenericTeamId TeamIdentifier;
+	float Strength;
 private:
 	UPROPERTY()
 	AActor* Broadcaster;
@@ -30,7 +31,7 @@ public:
 	AActor* Enemy;
 		
 	FAITeamStimulusEvent(){}	
-	FAITeamStimulusEvent(AActor* InBroadcaster, AActor* InEnemy, const FVector& InLastKnowLocation, float EventRange, float PassedInfoAge = 0.f);
+	FAITeamStimulusEvent(AActor* InBroadcaster, AActor* InEnemy, const FVector& InLastKnowLocation, float EventRange, float PassedInfoAge = 0.f, float InStrength = 1.f);
 
 	FORCEINLINE void CacheBroadcastLocation()
 	{

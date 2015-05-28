@@ -36,8 +36,8 @@ class UMaterialExpressionFunctionOutput : public UMaterialExpression
 
 
 	// Begin UObject interface.
-	virtual void PostLoad();
-	virtual void PostDuplicate(bool bDuplicateForPIE);
+	virtual void PostLoad() override;
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 #if WITH_EDITOR
 	virtual void PostEditImport() override;
 	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;

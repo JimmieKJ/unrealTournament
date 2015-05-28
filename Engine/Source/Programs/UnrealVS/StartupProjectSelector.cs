@@ -130,7 +130,7 @@ namespace UnrealVS
 		{
 			foreach (Project Project in DirtyProjects)
 			{
-				if (ProjectFilter(Project))
+				if (ProjectPredicate(Project))
 				{
 					if (!_CachedStartupProjects.Any(ProjRef => ProjRef.Project == Project))
 					{
@@ -143,8 +143,7 @@ namespace UnrealVS
 				}
 			}
 
-			// Sort projects alphabetically
-			_CachedStartupProjects.Sort((A, B) => string.CompareOrdinal(A.Name, B.Name));
+			SortCachedStartupProjects();
 
 			if (StartupProjectListChanged != null)
 			{
@@ -152,7 +151,14 @@ namespace UnrealVS
 			}
 		}
 
-		private bool ProjectFilter(Project Project)
+		private void SortCachedStartupProjects()
+		{
+			// Sort projects by game y/n then alphabetically
+			_CachedStartupProjects = (_CachedStartupProjects.OrderBy(ProjectRef => Utils.IsGameProject(ProjectRef.Project) ? 0 : 1)
+				.ThenBy(ProjectRef => ProjectRef.Name)).ToList();
+		}
+
+		private bool ProjectPredicate(Project Project)
 		{
 			// Initialize the cached options if they haven't been read from UnrealVSOptions yet
 			if (!CachedHideNonGameStartupProjects.HasValue)
@@ -163,7 +169,7 @@ namespace UnrealVS
 			// Optionally, ignore non-game projects
 			if (CachedHideNonGameStartupProjects.Value)
 			{
-				if (!Project.Name.EndsWith("Game", StringComparison.InvariantCultureIgnoreCase))
+				if (!Utils.IsGameProject(Project))
 				{
 					Logging.WriteLine("StartupProjectSelector: Not listing project " + Project.Name + " because it is not a game");
 					return false;
@@ -171,7 +177,7 @@ namespace UnrealVS
 			}
 
 			// Always filter out non-executable projects
-			if (!Utils.IsProjectExecutable(Project))
+			if (!Utils.IsProjectSuitable(Project))
 			{
 				Logging.WriteLine("StartupProjectSelector: Not listing project " + Project.Name + " because it is not executable");
 				return false;
@@ -282,6 +288,6 @@ namespace UnrealVS
 		bool _bIsSolutionOpened;
 
 		/// Store the list of projects that should be shown in the dropdown list
-		readonly List<ProjectReference> _CachedStartupProjects = new List<ProjectReference>();
+		List<ProjectReference> _CachedStartupProjects = new List<ProjectReference>();
 	}
 }

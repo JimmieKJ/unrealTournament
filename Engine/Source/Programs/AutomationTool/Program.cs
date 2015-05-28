@@ -54,10 +54,14 @@ namespace AutomationTool
         Error_ObbNotFound = 53,
         Error_AndroidBuildToolsPathNotFound = 54,
         Error_NoApkSuitableForArchitecture = 55,
-        Error_LauncherFailed = 100,
+		Error_FilesInstallFailed = 56,
+		Error_RemoteCertificatesNotFound = 57,
+		Error_LauncherFailed = 100,
 		Error_UATLaunchFailure = 101,
 		Error_FailedToDeleteStagingDirectory = 102,
 		Error_MissingExecutable = 103,
+		Error_DeviceNotSetupForDevelopment = 150,
+		Error_DeviceOSNewerThanSDK = 151,
 	};
 
 	public class ErrorReporter
@@ -130,7 +134,7 @@ namespace AutomationTool
 			Environment.ExitCode = ReturnCode;
 
 			// Try to kill process before app domain exits to leave the other KillAll call to extreme edge cases
-			if (ShouldKillProcesses)
+			if (ShouldKillProcesses && !Utils.IsRunningOnMono)
 			{
 				ProcessManager.KillAll();
 			}
@@ -156,7 +160,7 @@ namespace AutomationTool
 		{
 			// Kill all spawned processes (Console instead of Log because logging is closed at this time anyway)
 			Console.WriteLine("Domain_ProcessExit");
-			if (ShouldKillProcesses)
+			if (ShouldKillProcesses && !Utils.IsRunningOnMono)
 			{			
 				ProcessManager.KillAll();
 			}

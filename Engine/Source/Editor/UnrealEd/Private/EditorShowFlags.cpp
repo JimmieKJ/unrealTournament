@@ -13,11 +13,11 @@ FShowFlagData::FShowFlagData(const FString& InName, const FText& InDisplayName, 
 	ShowFlagName = *InName;
 }
 
-FShowFlagData::FShowFlagData(const FString& InName, const FText& InDisplayName, const uint32 InEngineShowFlagIndex, EShowFlagGroup InGroup, const FInputGesture& InInputGesture)
+FShowFlagData::FShowFlagData(const FString& InName, const FText& InDisplayName, const uint32 InEngineShowFlagIndex, EShowFlagGroup InGroup, const FInputChord& InInputChord)
 	:	DisplayName( InDisplayName )
 	,	EngineShowFlagIndex( InEngineShowFlagIndex )
 	,	Group( InGroup )
-	,	InputGesture( InInputGesture )
+	,	InputChord( InInputChord )
 {
 	ShowFlagName = *InName;
 }
@@ -45,21 +45,21 @@ TArray<FShowFlagData>& GetShowFlagMenuItems()
 
 		// FEngineShowFlags 
 		{
-			TMap<FString, FInputGesture> EngineFlagsGestures;
+			TMap<FString, FInputChord> EngineFlagsChords;
 
-			EngineFlagsGestures.Add("Navigation", FInputGesture(EKeys::P) );
-			EngineFlagsGestures.Add("BSP", FInputGesture() );
-			EngineFlagsGestures.Add("Collision", FInputGesture(EKeys::C, EModifierKey::Alt) );
-			EngineFlagsGestures.Add("Fog", FInputGesture(EKeys::F, EModifierKey::Alt ) );
-			EngineFlagsGestures.Add("LightRadius", FInputGesture(EKeys::R, EModifierKey::Alt) );
-			EngineFlagsGestures.Add("StaticMeshes", FInputGesture() );
-			EngineFlagsGestures.Add("Landscape", FInputGesture(EKeys::L, EModifierKey::Alt) );
-			EngineFlagsGestures.Add("Volumes", FInputGesture(EKeys::O, EModifierKey::Alt) );
+			EngineFlagsChords.Add("Navigation", FInputChord(EKeys::P) );
+			EngineFlagsChords.Add("BSP", FInputChord() );
+			EngineFlagsChords.Add("Collision", FInputChord(EKeys::C, EModifierKey::Alt) );
+			EngineFlagsChords.Add("Fog", FInputChord(EKeys::F, EModifierKey::Alt ) );
+			EngineFlagsChords.Add("LightRadius", FInputChord(EKeys::R, EModifierKey::Alt) );
+			EngineFlagsChords.Add("StaticMeshes", FInputChord() );
+			EngineFlagsChords.Add("Landscape", FInputChord(EKeys::L, EModifierKey::Alt) );
+			EngineFlagsChords.Add("Volumes", FInputChord(EKeys::O, EModifierKey::Alt) );
 
 			struct FIterSink
 			{
-				FIterSink(TArray<FShowFlagData>& InShowFlagData, const TMap<FString, FInputGesture>& InGesturesMap) 
-					: ShowFlagData(InShowFlagData), GesturesMap(InGesturesMap)
+				FIterSink(TArray<FShowFlagData>& InShowFlagData, const TMap<FString, FInputChord>& InChordsMap) 
+					: ShowFlagData(InShowFlagData), ChordsMap(InChordsMap)
 				{
 				}
 
@@ -71,10 +71,10 @@ TArray<FShowFlagData>& GetShowFlagMenuItems()
 						FText FlagDisplayName;
 						FEngineShowFlags::FindShowFlagDisplayName(InName, FlagDisplayName);
 
-						const FInputGesture* Gesture = GesturesMap.Find(InName);
-						if (Gesture != NULL)
+						const FInputChord* Chord = ChordsMap.Find(InName);
+						if (Chord != NULL)
 						{
-							ShowFlagData.Add( FShowFlagData( InName, FlagDisplayName, InIndex, Group, *Gesture ) );
+							ShowFlagData.Add( FShowFlagData( InName, FlagDisplayName, InIndex, Group, *Chord ) );
 						}
 						else
 						{
@@ -85,10 +85,10 @@ TArray<FShowFlagData>& GetShowFlagMenuItems()
 				}
 
 				TArray<FShowFlagData>& ShowFlagData;
-				const TMap<FString, FInputGesture>& GesturesMap;
+				const TMap<FString, FInputChord>& ChordsMap;
 			};
 
-			FIterSink Sink(OutShowFlags, EngineFlagsGestures);
+			FIterSink Sink(OutShowFlags, EngineFlagsChords);
 
 			FEngineShowFlags::IterateAllFlags(Sink);
 		}	

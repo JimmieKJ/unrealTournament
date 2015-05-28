@@ -62,9 +62,13 @@ namespace iPhonePackager
         Error_AndroidBuildToolsPathNotFound = 54,
         Error_NoApkSuitableForArchitecture = 55,
 		Error_FilesInstallFailed = 56,
+		Error_RemoteCertificatesNotFound = 57,
 		Error_LauncherFailed = 100,
         Error_UATLaunchFailure = 101,
         Error_FailedToDeleteStagingDirectory = 102,
+		Error_MissingExecutable = 103,
+		Error_DeviceNotSetupForDevelopment = 150,
+		Error_DeviceOSNewerThanSDK = 151,
 	};
 
 	public partial class Program

@@ -132,7 +132,7 @@ UObject* FDuplicateDataWriter::GetDuplicatedObject(UObject* Object, bool bCreate
 			if(DupOuter != NULL)
 			{
 				// The object's outer is being duplicated, create a duplicate of this object.
-				UObject* NewEmptyDuplicate = StaticConstructObject(Object->GetClass(), DupOuter, Object->GetFName(), ApplyFlags|Object->GetMaskedFlags(FlagMask),
+				UObject* NewEmptyDuplicate = StaticConstructObject_Internal(Object->GetClass(), DupOuter, Object->GetFName(), ApplyFlags|Object->GetMaskedFlags(FlagMask),
 					Object->GetArchetype(), true, InstanceGraph);
 
 				Result = AddDuplicate(Object, NewEmptyDuplicate);

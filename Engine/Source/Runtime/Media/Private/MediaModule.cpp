@@ -39,7 +39,7 @@ public:
 
 		for (IMediaPlayerFactory* PlayerFactory : MediaPlayerFactories)
 		{
-			if (PlayerFactory->SupportsFile(Url))
+			if (PlayerFactory->SupportsUrl(Url))
 			{
 				Player = PlayerFactory->CreatePlayer();
 
@@ -53,16 +53,16 @@ public:
 		return Player;
 	}
 
-	virtual int32 GetSupportedFormats( FMediaFormats& OutFormats ) override
+	virtual int32 GetSupportedFileTypes( FMediaFileTypes& OutFileTypes ) override
 	{
-		OutFormats.Reset();
+		OutFileTypes.Reset();
 
 		for (IMediaPlayerFactory* Factory : MediaPlayerFactories)
 		{
-			OutFormats.Append(Factory->GetSupportedFormats());
+			OutFileTypes.Append(Factory->GetSupportedFileTypes());
 		}
 	
-		return OutFormats.Num();
+		return OutFileTypes.Num();
 	}
 
 	DECLARE_DERIVED_EVENT(FMediaModule, IMediaModule::FOnFactoryAdded, FOnFactoryAdded);

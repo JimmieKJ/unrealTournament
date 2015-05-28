@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "Paper2DEditorPrivatePCH.h"
+#include "PaperTileMapComponent.h"
 #include "TileMapEditor.h"
 #include "SSingleObjectDetailsPanel.h"
 #include "SceneViewport.h"
@@ -54,6 +55,7 @@ public:
 	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() override;
 	virtual TSharedPtr<SWidget> MakeViewportToolbar() override;
 	virtual EVisibility GetTransformToolbarVisibility() const override;
+	virtual void OnFocusViewportToSelection() override;
 	// End of SEditorViewport interface
 
 	// ICommonEditorViewportToolbarInfoProvider interface
@@ -78,10 +80,6 @@ private:
 
 	// Viewport client
 	TSharedPtr<FTileMapEditorViewportClient> EditorViewportClient;
-
-private:
-	// Returns true if the viewport is visible
-	bool IsVisible() const;
 };
 
 void STileMapEditorViewport::Construct(const FArguments& InArgs, TSharedPtr<FTileMapEditor> InTileMapEditor)
@@ -112,24 +110,30 @@ void STileMapEditorViewport::BindCommands()
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(EditorViewportClientRef, &FTileMapEditorViewportClient::IsShowPivotChecked));
 
-	// Misc. actions
 	CommandList->MapAction(
-		Commands.FocusOnTileMap,
-		FExecuteAction::CreateSP(EditorViewportClientRef, &FTileMapEditorViewportClient::FocusOnTileMap));
+		Commands.SetShowTileGrid,
+		FExecuteAction::CreateSP(EditorViewportClientRef, &FTileMapEditorViewportClient::ToggleShowTileGrid),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(EditorViewportClientRef, &FTileMapEditorViewportClient::IsShowTileGridChecked));
+
+	CommandList->MapAction(
+		Commands.SetShowLayerGrid,
+		FExecuteAction::CreateSP(EditorViewportClientRef, &FTileMapEditorViewportClient::ToggleShowLayerGrid),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(EditorViewportClientRef, &FTileMapEditorViewportClient::IsShowLayerGridChecked));
+
+	CommandList->MapAction(
+		Commands.SetShowTileMapStats,
+		FExecuteAction::CreateSP(EditorViewportClientRef, &FTileMapEditorViewportClient::ToggleShowTileMapStats),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(EditorViewportClientRef, &FTileMapEditorViewportClient::IsShowTileMapStatsChecked));
 }
 
 TSharedRef<FEditorViewportClient> STileMapEditorViewport::MakeEditorViewportClient()
 {
 	EditorViewportClient = MakeShareable(new FTileMapEditorViewportClient(TileMapEditorPtr, SharedThis(this)));
 
-	EditorViewportClient->VisibilityDelegate.BindSP(this, &STileMapEditorViewport::IsVisible);
-
 	return EditorViewportClient.ToSharedRef();
-}
-
-bool STileMapEditorViewport::IsVisible() const
-{
-	return true;//@TODO: Determine this better so viewport ticking optimizations can take place
 }
 
 TSharedPtr<SWidget> STileMapEditorViewport::MakeViewportToolbar()
@@ -140,6 +144,11 @@ TSharedPtr<SWidget> STileMapEditorViewport::MakeViewportToolbar()
 EVisibility STileMapEditorViewport::GetTransformToolbarVisibility() const
 {
 	return EVisibility::Visible;
+}
+
+void STileMapEditorViewport::OnFocusViewportToSelection()
+{
+	EditorViewportClient->RequestFocusOnSelection(/*bInstant=*/ false);
 }
 
 TSharedRef<class SEditorViewport> STileMapEditorViewport::GetViewportWidget()
@@ -174,7 +183,7 @@ public:
 	{
 		TileMapEditorPtr = InTileMapEditor;
 
-		SSingleObjectDetailsPanel::Construct(SSingleObjectDetailsPanel::FArguments());
+		SSingleObjectDetailsPanel::Construct(SSingleObjectDetailsPanel::FArguments().HostCommandList(InTileMapEditor->GetToolkitCommands()), /*bAutoObserve=*/ true, /*bAllowSearch=*/ true);
 	}
 
 	// SSingleObjectDetailsPanel interface
@@ -220,7 +229,7 @@ TSharedRef<SDockTab> FTileMapEditor::SpawnTab_Viewport(const FSpawnTabArgs& Args
 					SNew(STextBlock)
 					.Visibility(EVisibility::HitTestInvisible)
 					.TextStyle(FEditorStyle::Get(), "Graph.CornerText")
-					.Text(LOCTEXT("TileMapEditorViewportExperimentalWarning", "Experimental!"))
+					.Text(LOCTEXT("TileMapEditorViewportEarlyAccessPreviewWarning", "Early access preview"))
 				]
 		];
 }
@@ -358,24 +367,7 @@ void FTileMapEditor::InitTileMapEditor(const EToolkitMode::Type Mode, const TSha
 
 void FTileMapEditor::BindCommands()
 {
-	// 	const FTileMapEditorCommands& Commands = FTileMapEditorCommands::Get();
-	// 
-	// 	const TSharedRef<FUICommandList>& UICommandList = GetToolkitCommands();
-	// 
-	// 	UICommandList->MapAction( FGenericCommands::Get().Delete,
-	// 		FExecuteAction::CreateSP( this, &FStaticMeshEditor::DeleteSelectedSockets ),
-	// 		FCanExecuteAction::CreateSP( this, &FStaticMeshEditor::HasSelectedSockets ));
-	// 
-	// 	UICommandList->MapAction( FGenericCommands::Get().Undo, 
-	// 		FExecuteAction::CreateSP( this, &FStaticMeshEditor::UndoAction ) );
-	// 
-	// 	UICommandList->MapAction( FGenericCommands::Get().Redo, 
-	// 		FExecuteAction::CreateSP( this, &FStaticMeshEditor::RedoAction ) );
-	// 
-	// 	UICommandList->MapAction(
-	// 		FGenericCommands::Get().Duplicate,
-	// 		FExecuteAction::CreateSP(this, &FStaticMeshEditor::DuplicateSelectedSocket),
-	// 		FCanExecuteAction::CreateSP(this, &FStaticMeshEditor::HasSelectedSockets));
+	// Commands would go here
 }
 
 FName FTileMapEditor::GetToolkitFName() const
@@ -463,24 +455,10 @@ void FTileMapEditor::ExtendToolbar()
 	{
 		static void FillToolbar(FToolBarBuilder& ToolbarBuilder)
 		{
-			// 			ToolbarBuilder.BeginSection("Realtime");
-			// 			{
-			// 				ToolbarBuilder.AddToolBarButton(FEditorViewportCommands::Get().ToggleRealTime);
-			// 			}
-			// 			ToolbarBuilder.EndSection();
-
-// 			ToolbarBuilder.BeginSection("Command");
-// 			{
-// 				ToolbarBuilder.AddToolBarButton(FTileMapEditorCommands::Get().SetShowSourceTexture);
-// 			}
-// 			ToolbarBuilder.EndSection();
-// 
-// 			ToolbarBuilder.BeginSection("Tools");
-// 			{
-// 				ToolbarBuilder.AddToolBarButton(FTileMapEditorCommands::Get().AddPolygon);
-// 				ToolbarBuilder.AddToolBarButton(FTileMapEditorCommands::Get().SnapAllVertices);
-// 			}
-// 			ToolbarBuilder.EndSection();
+			const FTileMapEditorCommands& Commands = FTileMapEditorCommands::Get();
+			ToolbarBuilder.AddToolBarButton(Commands.SetShowTileGrid);
+			ToolbarBuilder.AddToolBarButton(Commands.SetShowLayerGrid);
+			ToolbarBuilder.AddToolBarButton(Commands.SetShowTileMapStats);
 		}
 	};
 
@@ -493,16 +471,7 @@ void FTileMapEditor::ExtendToolbar()
 		FToolBarExtensionDelegate::CreateStatic(&Local::FillToolbar)
 		);
 
-// 	ToolbarExtender->AddToolBarExtension(
-// 		"Asset",
-// 		EExtensionHook::After,
-// 		ViewportPtr->GetCommandList(),
-// 		FToolBarExtensionDelegate::CreateSP(this, &FTileMapEditor::CreateModeToolbarWidgets));
-
 	AddToolbarExtender(ToolbarExtender);
-// 
-// 	IPaper2DEditorModule* Paper2DEditorModule = &FModuleManager::LoadModuleChecked<IPaper2DEditorModule>("Paper2DEditor");
-// 	AddToolbarExtender(Paper2DEditorModule->GetTileMapEditorToolBarExtensibilityManager()->GetAllExtenders());
 }
 
 void FTileMapEditor::SetTileMapBeingEdited(UPaperTileMap* NewTileMap)
@@ -519,17 +488,6 @@ void FTileMapEditor::SetTileMapBeingEdited(UPaperTileMap* NewTileMap)
 		RemoveEditingObject(OldTileMap);
 		AddEditingObject(NewTileMap);
 	}
-}
-
-
-void FTileMapEditor::CreateModeToolbarWidgets(FToolBarBuilder& IgnoredBuilder)
-{
-// 	FToolBarBuilder ToolbarBuilder(ViewportPtr->GetCommandList(), FMultiBoxCustomization::None);
-// 	ToolbarBuilder.AddToolBarButton(FTileMapEditorCommands::Get().EnterViewMode);
-// 	ToolbarBuilder.AddToolBarButton(FTileMapEditorCommands::Get().EnterSourceRegionEditMode);
-// 	ToolbarBuilder.AddToolBarButton(FTileMapEditorCommands::Get().EnterCollisionEditMode);
-// 	ToolbarBuilder.AddToolBarButton(FTileMapEditorCommands::Get().EnterRenderingEditMode);
-// 	AddToolbarWidget(ToolbarBuilder.MakeWidget());
 }
 
 //////////////////////////////////////////////////////////////////////////

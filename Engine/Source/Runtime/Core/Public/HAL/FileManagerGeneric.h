@@ -69,9 +69,9 @@ public:
 	bool SetTimeStamp( const TCHAR* Filename, FDateTime Timestamp ) override;
 	virtual FString GetFilenameOnDisk(const TCHAR* Filename) override;
 
-	virtual uint32	Copy( const TCHAR* InDestFile, const TCHAR* InSrcFile, bool ReplaceExisting, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress );
-	virtual bool	MakeDirectory( const TCHAR* Path, bool Tree=0 );
-	virtual bool	DeleteDirectory( const TCHAR* Path, bool RequireExists=0, bool Tree=0 );
+	virtual uint32	Copy( const TCHAR* InDestFile, const TCHAR* InSrcFile, bool ReplaceExisting, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress ) override;
+	virtual bool	MakeDirectory( const TCHAR* Path, bool Tree=0 ) override;
+	virtual bool	DeleteDirectory( const TCHAR* Path, bool RequireExists=0, bool Tree=0 ) override;
 
 	/** 
 	 * Call the Visit function of the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
@@ -173,6 +173,10 @@ public:
 	}
 	virtual bool Close() final;
 	virtual void Serialize( void* V, int64 Length ) final;
+	virtual FString GetArchiveName() const override
+	{
+		return Filename;
+	}
 
 protected:
 	bool InternalPrecache( int64 PrecacheOffset, int64 PrecacheSize );
@@ -222,6 +226,10 @@ public:
 	virtual bool Close() final;
 	virtual void Serialize( void* V, int64 Length ) final;
 	virtual void Flush() final;
+	virtual FString GetArchiveName() const override
+	{
+		return Filename;
+	}
 
 protected:
 	/** 
@@ -243,6 +251,14 @@ protected:
 	**/
 	virtual bool WriteLowLevel(const uint8* Src, int64 CountToWrite);
 
+	/** 
+	 * Logs I/O error
+	 * It is important to not call any platform API functions after the error occurred and before 
+	 * calling this functions as the system error code may get reset and will not be properly
+	 * logged in this message.
+	 * @param Message Brief description of what went wrong
+	 */
+	void LogWriteError(const TCHAR* Message);
 
 	/** Filename for debugging purposes */
 	FString			Filename;

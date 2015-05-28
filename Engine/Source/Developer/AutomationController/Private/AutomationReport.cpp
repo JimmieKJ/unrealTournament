@@ -30,6 +30,7 @@ void FAutomationReport::Empty()
 {
 	//release references to all child tests
 	ChildReports.Empty();
+	ChildReportNameHashes.Empty();
 	FilteredChildReports.Empty();
 }
 
@@ -295,7 +296,7 @@ void FAutomationReport::ClustersUpdated(const int32 NumClusters)
 			Results.Add( AutomationTestResult );
 		}
 	}
-	else if( NumClusters > Results.Num() )
+	else if( NumClusters < Results.Num() )
 	{
 		Results.RemoveAt(NumClusters, Results.Num() - NumClusters);
 	}
@@ -445,13 +446,10 @@ void FAutomationReport::AddToHistory()
 }
 
 
-void FAutomationReport::MaintainHistory()
+void FAutomationReport::MaintainHistory(TArray<FString>& InLogFiles)
 {
 	// Find all the logs in this reports log location
 	const FString LogsLocation = FPaths::ConvertRelativePathToFull(FPaths::AutomationLogDir()) + GetDisplayName();
-
-	TArray<FString> LogFiles;
-	IFileManager::Get().FindFiles(LogFiles, *(LogsLocation / "*.log"), true, false);
 
 	// Sort the logs in reverse chronological order
 	struct FLogSortPredicate
@@ -479,14 +477,13 @@ void FAutomationReport::MaintainHistory()
 			return LHSDate > RHSDate;
 		}
 	};
-	LogFiles.Sort(FLogSortPredicate(GetDisplayName()));
+	InLogFiles.Sort(FLogSortPredicate(GetDisplayName()));
 
 	// For logs, we keep the number equal to AutomationReportConstants::MaximumLogsToKeep around.
 	// This will mean that we can extend or history to see when changed within the report
-	for (int32 LogIndex = LogFiles.Num() - 1; LogIndex >= AutomationReportConstants::MaximumLogsToKeep; LogIndex--)
+	for (int32 LogIndex = InLogFiles.Num() - 1; LogIndex >= AutomationReportConstants::MaximumLogsToKeep; LogIndex--)
 	{
-		check(IFileManager::Get().Delete(*FPaths::Combine(*LogsLocation, *LogFiles[LogIndex])));
-		LogFiles.RemoveAt(LogIndex);
+		check(IFileManager::Get().Delete(*FPaths::Combine(*LogsLocation, *InLogFiles[LogIndex])));
 	}
 
 
@@ -564,7 +561,10 @@ void FAutomationReport::LoadHistory()
 	}
 
 	// Do a pass on the existing logs for any we no longer wish to maintain.
-	MaintainHistory();
+	if (LogFiles.Num())
+	{
+		MaintainHistory(LogFiles);
+	}
 }
 
 
@@ -596,7 +596,8 @@ void FAutomationReport::SetResults( const int32 ClusterIndex, const int32 PassIn
 	if (bTrackingHistory && (InResults.State == EAutomationState::Success || InResults.State == EAutomationState::Fail))
 	{
 		AddToHistory();
-		MaintainHistory();
+		//Remove find files as it was too expensive.  And definitely too expensive for just updating one test
+		//MaintainHistory();
 	}
 }
 
@@ -706,18 +707,25 @@ TSharedPtr<IAutomationReport> FAutomationReport::EnsureReportExists(FAutomationT
 		InTestInfo.SetDisplayName( NameRemainder );
 	}
 
+	uint32 NameToMatchHash = GetTypeHash(NameToMatch);
+
 	TSharedPtr<IAutomationReport> MatchTest;
-	//go backwards.  Most recent event most likely matches
-	int32 TestIndex = ChildReports.Num()-1;
-	for (; TestIndex >=0; --TestIndex)
+	//check hash table first to see if it exists yet
+	if (ChildReportNameHashes.Contains(NameToMatchHash))
 	{
-		//if the name matches
-		if (ChildReports[TestIndex]->GetDisplayName() == NameToMatch)
+		//go backwards.  Most recent event most likely matches
+		int32 TestIndex = ChildReports.Num() - 1;
+		for (; TestIndex >= 0; --TestIndex)
 		{
-			MatchTest = ChildReports[TestIndex];
-			break;
+			//if the name matches
+			if (ChildReports[TestIndex]->GetDisplayName() == NameToMatch)
+			{
+				MatchTest = ChildReports[TestIndex];
+				break;
+			}
 		}
 	}
+
 	//if there isn't already a test like this
 	if (!MatchTest.IsValid())
 	{
@@ -734,6 +742,7 @@ TSharedPtr<IAutomationReport> FAutomationReport::EnsureReportExists(FAutomationT
 		}
 		//make new test
 		ChildReports.Add(MatchTest);
+		ChildReportNameHashes.Add(NameToMatchHash, NameToMatchHash);
 	}
 	//mark this test as supported on a particular platform
 	MatchTest->SetSupport(ClusterIndex);

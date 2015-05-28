@@ -231,7 +231,9 @@ public:
 	virtual void GetUserFileList(const FUniqueNetId& UserId, TArray<FCloudFileHeader>& UserFiles) override;
 	virtual bool ReadUserFile(const FUniqueNetId& UserId, const FString& FileName) override;
 	virtual bool WriteUserFile(const FUniqueNetId& UserId, const FString& FileName, TArray<uint8>& FileContents) override;
+	virtual void CancelWriteUserFile(const FUniqueNetId& UserId, const FString& FileName) override;
 	virtual bool DeleteUserFile(const FUniqueNetId& UserId, const FString& FileName, bool bShouldCloudDelete, bool bShouldLocallyDelete) override;
+	virtual bool RequestUsageInfo(const FUniqueNetId& UserId) override;
 	virtual void DumpCloudState(const FUniqueNetId& UserId) override;
 	virtual void DumpCloudFileState(const FUniqueNetId& UserId, const FString& FileName) override;
 

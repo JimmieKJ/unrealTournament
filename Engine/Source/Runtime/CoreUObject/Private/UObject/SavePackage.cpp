@@ -1,18 +1,15 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	SavePackage.cpp: File saving support.
-=============================================================================*/
-
 #include "CoreUObjectPrivate.h"
 #include "UObject/UTextProperty.h"
 #include "Interface.h"
 #include "TargetPlatform.h"
+#include "UObject/UObjectThreadContext.h"
+
 
 DEFINE_LOG_CATEGORY_STATIC(LogSavePackage, Log, All);
 
 static const int32 MAX_MERGED_COMPRESSION_CHUNKSIZE = 1024 * 1024;
-
 static const FName WorldClassName = FName("World");
 
 
@@ -46,10 +43,10 @@ static void CheckObjectPriorToSave(FArchiveUObject& Ar, UObject* InObj, UPackage
 	{
 		return;
 	}
-	extern UObject* GSerializedObject;
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 	if (!InObj->IsValidLowLevelFast() || !InObj->IsValidLowLevel())
 	{
-		UE_LOG(LogLinker, Fatal, TEXT("Attempt to save bogus object %p GSerializedObject=%s  SerializedProperty=%s"), (void*)InObj, *GetFullNameSafe(GSerializedObject), *GetFullNameSafe(Ar.GetSerializedProperty()));
+		UE_LOG(LogLinker, Fatal, TEXT("Attempt to save bogus object %p ThreadContext.SerializedObject=%s  SerializedProperty=%s"), (void*)InObj, *GetFullNameSafe(ThreadContext.SerializedObject), *GetFullNameSafe(Ar.GetSerializedProperty()));
 		return;
 	}
 	// if the object class is abstract or has been marked as deprecated, mark this
@@ -64,7 +61,7 @@ static void CheckObjectPriorToSave(FArchiveUObject& Ar, UObject* InObj, UPackage
 		{
 			TArray<UObject*> ComponentReferences;
 			FReferenceFinder ComponentCollector(ComponentReferences, InObj, false, true, true);
-			ComponentCollector.FindReferences(InObj, GSerializedObject, Ar.GetSerializedProperty());
+			ComponentCollector.FindReferences(InObj, ThreadContext.SerializedObject, Ar.GetSerializedProperty());
 
 			for ( int32 Index = 0; Index < ComponentReferences.Num(); Index++ )
 			{
@@ -106,7 +103,7 @@ static void CheckObjectPriorToSave(FArchiveUObject& Ar, UObject* InObj, UPackage
 	}
 }
 
-static bool EndSavingIfCancelled( ULinkerSave* Linker, const FString& TempFilename ) 
+static bool EndSavingIfCancelled( FLinkerSave* Linker, const FString& TempFilename ) 
 {
 	if ( GWarn->ReceivedUserCancel() )
 	{
@@ -191,12 +188,10 @@ void AsyncWriteFile(const TArray<uint8>& Data, const TCHAR* Filename, const FDat
 			}
 			OutstandingAsyncWrites.Decrement();
 		}
-		/** Give the name for external event viewers
-		* @return	the name to display in external event viewers
-		*/
-		static const TCHAR *Name()
+
+		FORCEINLINE TStatId GetStatId() const
 		{
-			return TEXT("FAsyncWriteWorker");
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncWriteWorker, STATGROUP_ThreadPoolAsyncTasks);
 		}
 	};
 
@@ -216,7 +211,7 @@ public:
 	 */
 	void MarkNameAsReferenced(const FName& Name)
 	{
-		// We need to store the FName without the number, as the number is stored separately by ULinkerSave 
+		// We need to store the FName without the number, as the number is stored separately by FLinkerSave 
 		// and we don't want duplicate entries in the name table just because of the number
 		const FName NameNoNumber(Name, 0);
 		ReferencedNames.Add(NameNoNumber);
@@ -226,7 +221,7 @@ public:
 	 * Add the marked names to a linker
 	 * @param Linker linker to save the marked names to
 	 */
-	void UpdateLinkerWithMarkedNames(ULinkerSave* Linker)
+	void UpdateLinkerWithMarkedNames(FLinkerSave* Linker)
 	{
 		Linker->NameMap.Reserve(Linker->NameMap.Num() + ReferencedNames.Num());
 		for (const FName& Name : ReferencedNames)
@@ -520,12 +515,12 @@ void FArchiveSaveTagExports::ProcessTaggedObjects()
 class FArchiveSaveTagImports : public FArchiveUObject
 {
 public:
-	ULinkerSave* Linker;
+	FLinkerSave* Linker;
 	TArray<UObject*> Dependencies;
 	TArray<FString>& StringAssetReferencesMap;
 
-	FArchiveSaveTagImports(ULinkerSave* InLinker, TArray<FString>& StringAssetReferencesMap)
-		: Linker(InLinker), StringAssetReferencesMap(StringAssetReferencesMap)
+	FArchiveSaveTagImports(FLinkerSave* InLinker, TArray<FString>& InStringAssetReferencesMap)
+		: Linker(InLinker), StringAssetReferencesMap(InStringAssetReferencesMap)
 	{
 		ArIsSaving				= true;
 		ArIsPersistent			= true;
@@ -560,7 +555,7 @@ public:
 	 *
 	 * This is overridden for the specific Archive Types
 	 **/
-	virtual FString GetArchiveName() const;
+	virtual FString GetArchiveName() const override;
 
 };
 
@@ -671,11 +666,11 @@ public:
 	 *
 	 * @param	SrcFilename		Filename to compress
 	 * @param	DstFilename		Output name of compressed file, cannot be the same as SrcFilename
-	 * @param	SrcLinker		ULinkerSave object used to save src file
+	 * @param	SrcLinker		FLinkerSave object used to save src file
 	 *
 	 * @return true if sucessful, false otherwise
 	 */
-	bool CompressFile( const TCHAR* SrcFilename, const TCHAR* DstFilename, ULinkerSave* SrcLinker )
+	bool CompressFile( const TCHAR* SrcFilename, const TCHAR* DstFilename, FLinkerSave* SrcLinker )
 	{
 		FString TmpFilename = FPaths::GetPath( DstFilename ) / ( FPaths::GetBaseFilename( DstFilename ) + TEXT( "_SaveCompressed.tmp" ));
 
@@ -705,22 +700,21 @@ public:
 		return bMoveSucceded;
 	}
 	/**
-	 * Compresses the passed in src file and writes it to destination. The file comes from the "Saver" in the ULinker
+	 * Compresses the passed in src file and writes it to destination. The file comes from the "Saver" in the FLinker
 	 *
 	 * @param	DstFilename		Output name of compressed file, cannot be the same as SrcFilename
-	 * @param	SrcLinker		ULinkerSave object used to save src file
+	 * @param	SrcLinker		FLinkerSave object used to save src file
 	 *
 	 * @return true if sucessful, false otherwise
 	 */
-	bool CompressFile( const TCHAR* DstFilename, ULinkerSave* SrcLinker )
+	bool CompressFile( const TCHAR* DstFilename, FLinkerSave* SrcLinker )
 	{
 		FString TmpFilename = FPaths::GetPath( DstFilename ) / ( FPaths::GetBaseFilename( DstFilename ) + TEXT( "_SaveCompressed.tmp" ));
 		// Create file reader and writer...
 		FMemoryReader Reader(*(FBufferArchive*)(SrcLinker->Saver),true);
-		FArchive* FileReader = &Reader;
 		FArchive* FileWriter = IFileManager::Get().CreateFileWriter( *TmpFilename );
 		// ... and abort if either operation wasn't successful.
-		if( !FileReader || !FileWriter )
+		if( !FileWriter )
 		{
 			// Delete potentially created reader or writer.
 			delete FileWriter;
@@ -731,7 +725,7 @@ public:
 		}
 
 
-		CompressArchive(FileReader,FileWriter,SrcLinker);
+		CompressArchive(&Reader,FileWriter,SrcLinker);
 
 		// Tear down file writer. This will flush the writer first.
 		delete FileWriter;
@@ -745,11 +739,11 @@ public:
 	 *
 	 * @param	FileReader		archive to read from
 	 * @param	FileWriter		archive to write to
-	 * @param	SrcLinker		ULinkerSave object used to save src file
+	 * @param	SrcLinker		FLinkerSave object used to save src file
 	 *
 	 * @return true if sucessful, false otherwise
 	 */
-	void CompressArchive( FArchive* FileReader, FArchive* FileWriter, ULinkerSave* SrcLinker )
+	void CompressArchive( FArchive* FileReader, FArchive* FileWriter, FLinkerSave* SrcLinker )
 	{
 
 		// Read package file summary from source file.
@@ -1025,7 +1019,7 @@ public:
 	 * @param	Linker				linker containing the names that need to be sorted
 	 * @param	LinkerToConformTo	optional linker to conform against.
 	 */
-	void SortNames( ULinkerSave* Linker, ULinkerLoad* LinkerToConformTo=NULL )
+	void SortNames( FLinkerSave* Linker, FLinkerLoad* LinkerToConformTo=NULL )
 	{
 		int32 SortStartPosition = 0;
 
@@ -1112,7 +1106,7 @@ public:
 	 * @param	Linker				linker containing the imports that need to be sorted
 	 * @param	LinkerToConformTo	optional linker to conform against.
 	 */
-	void SortImports( ULinkerSave* Linker, ULinkerLoad* LinkerToConformTo=NULL )
+	void SortImports( FLinkerSave* Linker, FLinkerLoad* LinkerToConformTo=NULL )
 	{
 		int32 SortStartPosition=0;
 		TArray<FObjectImport>& Imports = Linker->ImportMap;
@@ -1243,7 +1237,7 @@ public:
 	 * @param	Linker				linker containing the exports that need to be sorted
 	 * @param	LinkerToConformTo	optional linker to conform against.
 	 */
-	void SortExports( ULinkerSave* Linker, ULinkerLoad* LinkerToConformTo=NULL )
+	void SortExports( FLinkerSave* Linker, FLinkerLoad* LinkerToConformTo=NULL )
 	{
 		int32 SortStartPosition=0;
 		if ( LinkerToConformTo )
@@ -1890,7 +1884,8 @@ public:
 				if ( ClassObject != NULL )
 				{
 					UObject* CDO = ClassObject->GetDefaultObject();
-					if ( ProcessedObjects.Find(CDO) == INDEX_NONE )
+					ensureMsgf(nullptr != CDO, TEXT("Error: Invalid CDO in class %s"), *GetPathNameSafe(ClassObject));
+					if ((ProcessedObjects.Find(CDO) == INDEX_NONE) && (nullptr != CDO))
 					{
 						ProcessedObjects.Add(CDO);
 
@@ -1988,7 +1983,7 @@ struct FObjectExportSeekFreeSorter
 	 * @param	Linker				LinkerSave to sort export map
 	 * @param	LinkerToConformTo	LinkerLoad to conform LinkerSave to if non- NULL
 	 */
-	void SortExports( ULinkerSave* Linker, ULinkerLoad* LinkerToConformTo )
+	void SortExports( FLinkerSave* Linker, FLinkerLoad* LinkerToConformTo )
 	{
 		SortArchive.SetCookingTarget(Linker->CookingTarget());
 
@@ -2189,7 +2184,7 @@ struct FPackageExportTagger
  * @param Error - log device to send any errors
  * @return whether NewPackage can be conformed
  */
-static bool ValidateConformCompatibility(UPackage* NewPackage, ULinkerLoad* OldLinker, FOutputDevice* Error)
+static bool ValidateConformCompatibility(UPackage* NewPackage, FLinkerLoad* OldLinker, FOutputDevice* Error)
 {
 	// various assumptions made about Core and its contents prevent loading a version mapped to a different name from working correctly
 	// Core script typically doesn't have any replication related definitions in it anyway
@@ -2219,6 +2214,9 @@ static bool ValidateConformCompatibility(UPackage* NewPackage, ULinkerLoad* OldL
 		if (OldClass != NULL && NewClass != NULL && OldClass->HasAnyFlags(RF_Native) && NewClass->HasAnyFlags(RF_Native))
 		{
 			OldClass->ClassConstructor = NewClass->ClassConstructor;
+#if WITH_HOT_RELOAD_CTORS
+			OldClass->ClassVTableHelperCtorCaller = NewClass->ClassVTableHelperCtorCaller;
+#endif // WITH_HOT_RELOAD_CTORS
 			OldClass->ClassAddReferencedObjects = NewClass->ClassAddReferencedObjects;
 		}
 	}
@@ -2335,6 +2333,95 @@ EObjectMark UPackage::GetObjectMarksForTargetPlatform( const class ITargetPlatfo
 	return ObjectMarks;
 }
 
+#if WITH_EDITOR
+/**
+ * Helper function to sort export objects by fully qualified names.
+ */
+bool ExportObjectSorter(const UObject& Lhs, const UObject& Rhs)
+{
+	// Check names first.
+	if (Lhs.GetFName() < Rhs.GetFName())
+	{
+		return true;
+	}
+
+	if (Lhs.GetFName() > Rhs.GetFName())
+	{
+		return false;
+	}
+
+	// Names equal, compare class names.
+	if (Lhs.GetClass()->GetFName() < Rhs.GetClass()->GetFName())
+	{
+		return true;
+	}
+
+	if (Lhs.GetClass()->GetFName() > Rhs.GetClass()->GetFName())
+	{
+		return false;
+	}
+
+	// Compare by outers if they exist.
+	if (Lhs.GetOuter() && Rhs.GetOuter())
+	{
+		return Lhs.GetOuter()->GetFName() < Rhs.GetOuter()->GetFName();
+	}
+
+	if (Lhs.GetOuter())
+	{
+		return true;
+	}
+
+	return false;
+}
+
+/**
+* Helper equality comparator for export objects. Compares by names, class names and outer names.
+*/
+bool ExportEqualityComparator(UObject* Lhs, UObject* Rhs)
+{
+	check(Lhs && Rhs);
+	return Lhs->GetOuter() == Rhs->GetOuter()
+		&& Lhs->GetClass() == Rhs->GetClass()
+		&& Lhs->GetFName() == Rhs->GetFName();
+}
+
+/**
+ * Remove OBJECTMARK_TagExp from duplicated objects.
+ */
+TMap<UObject*, UObject*> UnmarkExportTagFromDuplicates()
+{
+	TMap<UObject*, UObject*> RedirectDuplicatesToOriginals;
+	TArray<UObject*> Objects;
+	GetObjectsWithAnyMarks(Objects, OBJECTMARK_TagExp);
+
+	Objects.Sort(ExportObjectSorter);
+
+	int32 LastUniqueObjectIndex = 0;
+	for (int32 CurrentObjectIndex = 1; CurrentObjectIndex < Objects.Num(); ++CurrentObjectIndex)
+	{
+		UObject* LastUniqueObject = Objects[LastUniqueObjectIndex];
+		UObject* CurrentObject = Objects[CurrentObjectIndex];
+
+		// Check if duplicates with different pointers
+		if (LastUniqueObject != CurrentObject
+			// but matching names
+			&& ExportEqualityComparator(LastUniqueObject, CurrentObject))
+		{
+			// Don't export duplicates.
+			CurrentObject->UnMark(OBJECTMARK_TagExp);
+			RedirectDuplicatesToOriginals.Add(CurrentObject, LastUniqueObject);
+		}
+		else
+		{
+			LastUniqueObjectIndex = CurrentObjectIndex;
+		}
+	}
+
+	return RedirectDuplicatesToOriginals;
+}
+#endif // WITH_EDITOR
+
 /**
  * Save one specific object (along with any objects it references contained within the same Outer) into an Unreal package.
  * 
@@ -2382,8 +2469,12 @@ EObjectMark UPackage::GetObjectMarksForTargetPlatform( const class ITargetPlatfo
 #define UE_FINISH_LOG_COOK_TIME()
 #endif
 
+#if WITH_EDITOR
+COREUOBJECT_API extern bool GOutputCookingWarnings;
+#endif
+
 bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename, 
-	FOutputDevice* Error, ULinkerLoad* Conform, bool bForceByteSwapping, bool bWarnOfLongFilename, uint32 SaveFlags, 
+	FOutputDevice* Error, FLinkerLoad* Conform, bool bForceByteSwapping, bool bWarnOfLongFilename, uint32 SaveFlags, 
 	const class ITargetPlatform* TargetPlatform, const FDateTime&  FinalTimeStamp, bool bSlowTask)
 {
 	UE_START_LOG_COOK_TIME( Filename );
@@ -2648,17 +2739,17 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 
 				bool bSaveUnversioned = !!(SaveFlags & SAVE_Unversioned);
 
-				ULinkerSave* Linker = NULL;
+				FLinkerSave* Linker = nullptr;
 				
 				if (bCompressFromMemory || bSaveAsync)
 				{
 					// Allocate the linker with a memory writer, forcing byte swapping if wanted.
-					Linker = new(EC_InternalUseOnlyConstructor) ULinkerSave(FObjectInitializer(), InOuter, bForceByteSwapping, bSaveUnversioned);
+					Linker = new FLinkerSave(InOuter, bForceByteSwapping, bSaveUnversioned);
 				}
 				else
 				{
 					// Allocate the linker, forcing byte swapping if wanted.
-					Linker = new(EC_InternalUseOnlyConstructor) ULinkerSave(FObjectInitializer(), InOuter, *TempFilename, bForceByteSwapping, bSaveUnversioned);
+					Linker = new FLinkerSave(InOuter, *TempFilename, bForceByteSwapping, bSaveUnversioned);
 				}
 
 				// Use the custom versions we had previously gleaned from the export tag pass
@@ -2667,6 +2758,11 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 				Linker->SetPortFlags(ComparisonFlags);
 				Linker->SetFilterEditorOnly( FilterEditorOnly );
 				Linker->SetCookingTarget(TargetPlatform);
+
+				// Make sure the package has the same version as the linker
+				InOuter->LinkerPackageVersion = Linker->UE4Ver();
+				InOuter->LinkerLicenseeVersion = Linker->LicenseeUE4Ver();
+				InOuter->LinkerCustomVersion = Linker->GetCustomVersions();
 
 				if ( EndSavingIfCancelled( Linker, TempFilename ) ) { return false; }
 				SlowTask.EnterProgressFrame();
@@ -2763,6 +2859,11 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 						}
 					}
 				}
+
+#if WITH_EDITOR
+				// Remove TagExp from duplicate objects.
+				TMap<UObject*, UObject*> DuplicateRedirects = UnmarkExportTagFromDuplicates();
+#endif // WITH_EDITOR
 
 				UE_LOG_COOK_TIME(TEXT("Serialize Imports"));
 				
@@ -3009,6 +3110,25 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 				Linker->Summary.NameOffset = Linker->Tell();
 				SavePackageState->UpdateLinkerWithMarkedNames(Linker);
 
+#if WITH_EDITOR
+				if ( GOutputCookingWarnings )
+				{
+					// check the name list for uniqueobjectnamefor cooking
+					static FName NAME_UniqueObjectNameForCooking(TEXT("UniqueObjectNameForCooking"));
+
+					for (const auto& NameInUse : Linker->NameMap)
+					{
+						if (NameInUse.GetComparisonIndex() == NAME_UniqueObjectNameForCooking.GetComparisonIndex())
+						{
+							//UObject *Object = FindObject<UObject>( ANY_PACKAGE, *NameInUse.ToString());
+
+							// error
+							// check(Object);
+							UE_LOG(LogSavePackage, Warning, TEXT("Saving object into cooked package which was created at cook time, Object Name %s"), *NameInUse.ToString());
+						}
+					}
+				}
+#endif
 
 				UE_LOG_COOK_TIME(TEXT("Serialize Summary"));
 
@@ -3072,6 +3192,26 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 						new( Linker->ExportMap )FObjectExport( Obj );
 					}
 				}
+
+
+
+#if WITH_EDITOR
+				if (GOutputCookingWarnings)
+				{
+					// check the name list for uniqueobjectnamefor cooking
+					static FName NAME_UniqueObjectNameForCooking(TEXT("UniqueObjectNameForCooking"));
+
+					for (const auto& Export : Linker->ExportMap)
+					{
+						const auto& NameInUse = Export.ObjectName;
+						if (NameInUse.GetComparisonIndex() == NAME_UniqueObjectNameForCooking.GetComparisonIndex())
+						{
+							UE_LOG(LogSavePackage, Warning, TEXT("Saving object into cooked package which was created at cook time, Object Name %s, Full Path %s, Class %s"), *NameInUse.ToString(), *Export.Object->GetFullName(), *Export.Object->GetClass()->GetName());
+						}
+					}
+				}
+#endif
+
 
 				UE_LOG_COOK_TIME(TEXT("Build Export Map"));
 
@@ -3155,6 +3295,14 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 								DependencyIndex = ImportToIndexMap.FindRef(DependentObject);
 							}
 					
+#if WITH_EDITOR
+							// If we still didn't find index, maybe it was a duplicate export which got removed.
+							// Check if we have a redirect to original.
+							if (DependencyIndex.IsNull())
+							{
+								DependencyIndex = ExportToIndexMap.FindRef(DuplicateRedirects[DependentObject]);
+							}
+#endif
 							// if we didn't find it (FindRef returns 0 on failure, which is good in this case), then we are in trouble, something went wrong somewhere
 							checkf(!DependencyIndex.IsNull(), TEXT("Failed to find dependency index for %s (%s)"), *DependentObject->GetFullName(), *Object->GetFullName());
 
@@ -3324,7 +3472,7 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 				SlowTask.EnterProgressFrame(1, NSLOCTEXT("Core", "ProcessingExports", "ProcessingExports..."));
 
 				// look for this package in the list of packages to generate script SHA for 
-				TArray<uint8>* ScriptSHABytes = ULinkerSave::PackagesToScriptSHAMap.Find(*FPaths::GetBaseFilename(Filename));
+				TArray<uint8>* ScriptSHABytes = FLinkerSave::PackagesToScriptSHAMap.Find(*FPaths::GetBaseFilename(Filename));
 
 				// if we want to generate the SHA key, start tracking script writes
 				if (ScriptSHABytes)
@@ -3446,24 +3594,33 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 					{
 						BulkDataFeedback.EnterProgressFrame();
 
-						ULinkerSave::FBulkDataStorageInfo& BulkData = Linker->BulkDataToAppend[i];
+						FLinkerSave::FBulkDataStorageInfo& BulkDataStorageInfo = Linker->BulkDataToAppend[i];
+
+						// Set bulk data flags to what they were during initial serialization (they might have changed after that)
+						const uint32 OldBulkDataFlags = BulkDataStorageInfo.BulkData->GetBulkDataFlags();
+						BulkDataStorageInfo.BulkData->SetBulkDataFlags(BulkDataStorageInfo.BulkDataFlags);
 
 						int64 BulkStartOffset = Linker->Tell();
 						int64 StoredBulkStartOffset = BulkStartOffset - StartOfBulkDataArea;
 
-						BulkData.BulkData->SerializeBulkData(*Linker, BulkData.BulkData->Lock(LOCK_READ_ONLY));
-						BulkData.BulkData->Unlock();
+						BulkDataStorageInfo.BulkData->SerializeBulkData(*Linker, BulkDataStorageInfo.BulkData->Lock(LOCK_READ_ONLY));
 
 						int64 BulkEndOffset = Linker->Tell();
 						int32 SizeOnDisk = (int32)(BulkEndOffset - BulkStartOffset);
 				
-						Linker->Seek(BulkData.BulkDataOffsetInFilePos);
+						Linker->Seek(BulkDataStorageInfo.BulkDataOffsetInFilePos);
 						*Linker << StoredBulkStartOffset;
 
-						Linker->Seek(BulkData.BulkDataSizeOnDiskPos);
+						Linker->Seek(BulkDataStorageInfo.BulkDataSizeOnDiskPos);
 						*Linker << SizeOnDisk;
 
 						Linker->Seek(BulkEndOffset);
+
+						// Restore BulkData flags to before serialization started
+						BulkDataStorageInfo.BulkData->ClearBulkDataFlags(0xFFFFFFFF);
+						BulkDataStorageInfo.BulkData->SetBulkDataFlags(OldBulkDataFlags);
+
+						BulkDataStorageInfo.BulkData->Unlock();
 					}
 				}
 
@@ -3554,7 +3711,7 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 				Linker->LinkerRoot->ThisRequiresLocalizationGather(Linker->RequiresLocalizationGather());
 				
 				// Update package flags from package, in case serialization has modified package flags.
-				Linker->Summary.PackageFlags  = Linker->LinkerRoot->PackageFlags;
+				Linker->Summary.PackageFlags  = Linker->LinkerRoot->PackageFlags & ~PKG_NewlyCreated;
 
 				Linker->Seek(0);
 				*Linker << Linker->Summary;
@@ -3606,11 +3763,10 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 					{
 						UE_LOG(LogSavePackage, Log,  TEXT("Async saving from memory to '%s'"), *NewPath );
 
-						AsyncWriteFile(*(FBufferArchive*)(Linker->Saver), *NewPath, FinalTimeStamp);
-
 						// Detach archive used for memory saving.
 						if( Linker )
 						{
+							AsyncWriteFile(*(FBufferArchive*)(Linker->Saver), *NewPath, FinalTimeStamp);
 							Linker->Detach();
 						}
 					}
@@ -3715,16 +3871,20 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
 
 				SlowTask.EnterProgressFrame();
 			
-
+#if WITH_EDITOR
 				for ( int CachedObjectIndex = 0; CachedObjectIndex < CachedObjects.Num(); ++CachedObjectIndex )
 				{
 					CachedObjects[CachedObjectIndex]->ClearCachedCookedPlatformData(TargetPlatform);
 				}
+#endif
 			}
 
 		}
 		if( Success == true )
 		{
+			// Package has been save, so unmark NewlyCreated flag.
+			InOuter->PackageFlags &= ~PKG_NewlyCreated;
+
 			// send a message that the package was saved
 			UPackage::PackageSavedEvent.Broadcast(Filename, InOuter);
 		}
@@ -3750,7 +3910,7 @@ bool UPackage::SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLe
  * @param	InOuter							the outer to use for the new package
  * @param	Linker							linker we're currently saving with
  */
-void UPackage::SaveThumbnails( UPackage* InOuter, ULinkerSave* Linker )
+void UPackage::SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker )
 {
 	Linker->Summary.ThumbnailTableOffset = 0;
 
@@ -3859,7 +4019,7 @@ void UPackage::SaveThumbnails( UPackage* InOuter, ULinkerSave* Linker )
 	}
 }
 
-void UPackage::SaveAssetRegistryData( UPackage* InOuter, ULinkerSave* Linker )
+void UPackage::SaveAssetRegistryData( UPackage* InOuter, FLinkerSave* Linker )
 {
 	// Make a copy of the tag map
 	TArray<UObject*> AssetObjects;
@@ -3912,7 +4072,7 @@ void UPackage::SaveAssetRegistryData( UPackage* InOuter, ULinkerSave* Linker )
 	}
 }
 
-void UPackage::SaveWorldLevelInfo( UPackage* InOuter, ULinkerSave* Linker )
+void UPackage::SaveWorldLevelInfo( UPackage* InOuter, FLinkerSave* Linker )
 {
 	Linker->Summary.WorldTileInfoDataOffset = 0;
 	

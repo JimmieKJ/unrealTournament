@@ -80,7 +80,7 @@ public:
 	/**
 	 * Exports the camera-specific information for a camera actor.
 	 */
-	virtual void ExportCamera( ACameraActor* Actor, AMatineeActor* InMatineeActor );
+	virtual void ExportCamera( ACameraActor* Actor, AMatineeActor* InMatineeActor, bool bExportComponents );
 
 	/**
 	 * Exports the mesh and the actor information for a brush actor.
@@ -152,12 +152,17 @@ public:
 	/**
 	 * Exports a single UAnimSequence, and optionally a skeletal mesh
 	 */
-	void ExportAnimSequence( const UAnimSequence* AnimSeq, USkeletalMesh* SkelMesh, bool bExportSkelMesh );
+	FbxNode* ExportAnimSequence( const UAnimSequence* AnimSeq, const USkeletalMesh* SkelMesh, bool bExportSkelMesh, const TCHAR* MeshNames=NULL, FbxNode* ActorRootNode=NULL);
 
 	/**
 	 * Exports the list of UAnimSequences as a single animation based on the settings in the TrackKeys
 	 */
 	void ExportAnimSequencesAsSingle( USkeletalMesh* SkelMesh, const ASkeletalMeshActor* SkelMeshActor, const FString& ExportName, const TArray<UAnimSequence*>& AnimSeqList, const TArray<FAnimControlTrackKey>& TrackKeys );
+
+	/**
+	 * Export Anim Track of the given SkeletalMeshComponent
+	 */
+	void ExportAnimTrack(class AMatineeActor* MatineeActor, USkeletalMeshComponent* SkeletalMeshComponent);
 
 private:
 	FFbxExporter();
@@ -174,6 +179,7 @@ private:
 	
 	TMap<FString,int32> FbxNodeNameToIndexMap;
 	TMap<AActor*, FbxNode*> FbxActors;
+	TMap<USkeletalMeshComponent*, FbxNode*> FbxSkeletonRoots;
 	TMap<UMaterial*, FbxSurfaceMaterial*> FbxMaterials;
 	
 	/** The frames-per-second (FPS) used when baking transforms */
@@ -223,17 +229,17 @@ private:
 	 * Adds FBX skeleton nodes to the FbxScene based on the skeleton in the given USkeletalMesh, and fills
 	 * the given array with the nodes created
 	 */
-	FbxNode* CreateSkeleton(const USkeletalMesh& SkelMesh, TArray<FbxNode*>& BoneNodes);
+	FbxNode* CreateSkeleton(const USkeletalMesh* SkelMesh, TArray<FbxNode*>& BoneNodes);
 
 	/**
 	 * Adds an Fbx Mesh to the FBX scene based on the data in the given FStaticLODModel
 	 */
-	FbxNode* CreateMesh(const USkeletalMesh& SkelMesh, const TCHAR* MeshName);
+	FbxNode* CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* MeshName);
 
 	/**
 	 * Adds Fbx Clusters necessary to skin a skeletal mesh to the bones in the BoneNodes list
 	 */
-	void BindMeshToSkeleton(const USkeletalMesh& SkelMesh, FbxNode* MeshRootNode, TArray<FbxNode*>& BoneNodes);
+	void BindMeshToSkeleton(const USkeletalMesh* SkelMesh, FbxNode* MeshRootNode, TArray<FbxNode*>& BoneNodes);
 
 	/**
 	 * Add a bind pose to the scene based on the FbxMesh and skinning settings of the given node
@@ -243,7 +249,10 @@ private:
 	/**
 	 * Add the given skeletal mesh to the Fbx scene in preparation for exporting.  Makes all new nodes a child of the given node
 	 */
-	void ExportSkeletalMeshToFbx(const USkeletalMesh& SkelMesh, const TCHAR* MeshName, FbxNode* FbxActor);
+	FbxNode* ExportSkeletalMeshToFbx(const USkeletalMesh* SkelMesh, const UAnimSequence* AnimSeq, const TCHAR* MeshName, FbxNode* ActorRootNode);
+
+	/** Export SkeletalMeshComponent */
+	void ExportSkeletalMeshComponent(USkeletalMeshComponent* SkelMeshComp, const TCHAR* MeshName, FbxNode* ActorRootNode);
 
 	/**
 	 * Add the given animation sequence as rotation and translation tracks to the given list of bone nodes
@@ -285,7 +294,15 @@ private:
 	 * @return FbxNode* the FBX node created from the UE4 actor
 	 */
 	FbxNode* FindActor(AActor* Actor);
-	
+
+	/**
+	 * Find bone array of FbxNOdes of the given skeletalmeshcomponent  
+	 */
+	bool FindSkeleton(const USkeletalMeshComponent* SkelComp, TArray<FbxNode*>& BoneNodes);
+
+	/** recursively get skeleton */
+	void GetSkeleton(FbxNode* RootNode, TArray<FbxNode*>& BoneNodes);
+
 	/**
 	 * Exports the profile_COMMON information for a material.
 	 */

@@ -620,10 +620,34 @@ void FHotReloadModule::DoHotReloadCallback(bool bRecompileFinished, ECompilation
 	DoHotReloadInternal(bRecompileFinished, CompilationResult, Packages, InDependentModules, HotReloadAr);
 }
 
+#if WITH_HOT_RELOAD
+/**
+ * Gets duplicated CDO from the cache, renames it and returns.
+ */
+UObject* GetCachedCDODuplicate(UClass* Class, FName Name)
+{
+	UObject* DupCDO = nullptr;
+
+	UObject** DupCDOPtr = GetDuplicatedCDOMap().Find(Class);
+	if (DupCDOPtr != nullptr)
+	{
+		DupCDO = *DupCDOPtr;
+		DupCDO->Rename(*Name.ToString(), GetTransientPackage(),
+			REN_DoNotDirty | REN_DontCreateRedirectors | REN_ForceNoResetLoaders | REN_NonTransactional | REN_SkipGeneratedClasses);
+	}
+
+	return DupCDO;
+}
+#endif // WITH_HOT_RELOAD
+
 ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFinished, ECompilationResult::Type CompilationResult, TArray<UPackage*> Packages, TArray< FName > InDependentModules, FOutputDevice &HotReloadAr)
 {
 	ECompilationResult::Type Result = ECompilationResult::Unsupported;
 #if WITH_HOT_RELOAD
+	FBlueprintCompileReinstancer::FCDODuplicatesProvider& CDODuplicatesProvider = FBlueprintCompileReinstancer::GetCDODuplicatesProviderDelegate();
+
+	CDODuplicatesProvider.BindStatic(&GetCachedCDODuplicate);
+
 	if (CompilationResult == ECompilationResult::Succeeded)
 	{
 		FFeedbackContext& ErrorsFC = UClass::GetDefaultPropertiesFeedbackContext();
@@ -645,7 +669,8 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 
 			// Abandon the old module.  We can't unload it because various data structures may be living
 			// that have vtables pointing to code that would become invalidated.
-			FModuleManager::Get().AbandonModule(ShortPackageName);
+			const bool bAbandonModule = true;
+			FModuleManager::Get().UnloadOrAbandonModuleWithCallback(ShortPackageName, HotReloadAr, bAbandonModule);
 
 			// Module should never be loaded at this point
 			check(!FModuleManager::Get().IsModuleLoaded(ShortPackageName));
@@ -740,6 +765,9 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 		HotReloadAr.Logf(ELogVerbosity::Warning, TEXT("HotReload failed, recompile failed"));
 		Result = ECompilationResult::OtherCompilationError;
 	}
+
+	CDODuplicatesProvider.Unbind();
+	GetDuplicatedCDOMap().Empty();
 #endif
 	bIsHotReloadingFromEditor = false;
 	return Result;
@@ -842,11 +870,11 @@ ECompilationResult::Type FHotReloadModule::RebindPackagesInternal(TArray<UPackag
 #if WITH_ENGINE
 void FHotReloadModule::ReinstanceClass(UClass* OldClass, UClass* NewClass)
 {	
-	FHotReloadClassReinstancer ReinstanceHelper(NewClass, OldClass);
-	if (ReinstanceHelper.ClassNeedsReinstancing())
+	auto ReinstanceHelper = FHotReloadClassReinstancer::Create(NewClass, OldClass);
+	if (ReinstanceHelper->ClassNeedsReinstancing())
 	{
 		UE_LOG(LogHotReload, Log, TEXT("Re-instancing %s after hot-reload."), NewClass ? *NewClass->GetName() : *OldClass->GetName());
-		ReinstanceHelper.ReinstanceObjectsAndUpdateDefaults();
+		ReinstanceHelper->ReinstanceObjectsAndUpdateDefaults();
 	}
 }
 #endif
@@ -1309,15 +1337,8 @@ bool FHotReloadModule::InvokeUnrealBuildToolForCompile(const FString& InCmdLineP
 	check(!IsCurrentlyCompiling());
 
 	// Setup output redirection pipes, so that we can harvest compiler output and display it ourselves
-#if PLATFORM_LINUX
-	int pipefd[2];
-	pipe(pipefd);
-	void* PipeRead = &pipefd[0];
-	void* PipeWrite = &pipefd[1];
-#else
 	void* PipeRead = NULL;
 	void* PipeWrite = NULL;
-#endif
 
 	verify(FPlatformProcess::CreatePipe(PipeRead, PipeWrite));
 	ModuleCompileReadPipeText = TEXT("");
@@ -1326,11 +1347,7 @@ bool FHotReloadModule::InvokeUnrealBuildToolForCompile(const FString& InCmdLineP
 
 	// We no longer need the Write pipe so close it.
 	// We DO need the Read pipe however...
-#if PLATFORM_LINUX
-	close(*(int*)PipeWrite);
-#else
 	FPlatformProcess::ClosePipe(0, PipeWrite);
-#endif
 
 	if (!ProcHandle.IsValid())
 	{
@@ -1444,14 +1461,10 @@ void FHotReloadModule::CheckForFinishedModuleDLLCompile(const bool bWaitForCompl
 			ModulesThatWereBeingRecompiled.Empty();
 
 			// We're done with the process handle now
-			ModuleCompileProcessHandle.Close();
+			FPlatformProcess::CloseProc(ModuleCompileProcessHandle);
 			ModuleCompileProcessHandle.Reset();
 
-#if PLATFORM_LINUX
-			close(*(int *)ModuleCompileReadPipe);
-#else
 			FPlatformProcess::ClosePipe(ModuleCompileReadPipe, 0);
-#endif
 
 			Ar.Log(*ModuleCompileReadPipeText);
 			const FString FinalOutput = ModuleCompileReadPipeText;
@@ -1542,7 +1555,7 @@ void FHotReloadModule::UpdateModuleCompileData(FName ModuleName)
 void FHotReloadModule::ReadModuleCompilationInfoFromConfig(FName ModuleName, FModuleCompilationData& CompileData)
 {
 	FString DateTimeString;
-	if (GConfig->GetString(*HotReloadDefs::CompilationInfoConfigSection, *FString::Printf(TEXT("%s.TimeStamp"), *ModuleName.ToString()), DateTimeString, GEditorUserSettingsIni))
+	if (GConfig->GetString(*HotReloadDefs::CompilationInfoConfigSection, *FString::Printf(TEXT("%s.TimeStamp"), *ModuleName.ToString()), DateTimeString, GEditorPerProjectIni))
 	{
 		FDateTime TimeStamp;
 		if (!DateTimeString.IsEmpty() && FDateTime::Parse(DateTimeString, TimeStamp))
@@ -1551,7 +1564,7 @@ void FHotReloadModule::ReadModuleCompilationInfoFromConfig(FName ModuleName, FMo
 			CompileData.FileTimeStamp = TimeStamp;
 
 			FString CompileMethodString;
-			if (GConfig->GetString(*HotReloadDefs::CompilationInfoConfigSection, *FString::Printf(TEXT("%s.LastCompileMethod"), *ModuleName.ToString()), CompileMethodString, GEditorUserSettingsIni))
+			if (GConfig->GetString(*HotReloadDefs::CompilationInfoConfigSection, *FString::Printf(TEXT("%s.LastCompileMethod"), *ModuleName.ToString()), CompileMethodString, GEditorPerProjectIni))
 			{
 				if (CompileMethodString.Equals(HotReloadDefs::CompileMethodRuntime, ESearchCase::IgnoreCase))
 				{
@@ -1574,7 +1587,7 @@ void FHotReloadModule::WriteModuleCompilationInfoToConfig(FName ModuleName, cons
 		DateTimeString = CompileData.FileTimeStamp.ToString();
 	}
 
-	GConfig->SetString(*HotReloadDefs::CompilationInfoConfigSection, *FString::Printf(TEXT("%s.TimeStamp"), *ModuleName.ToString()), *DateTimeString, GEditorUserSettingsIni);
+	GConfig->SetString(*HotReloadDefs::CompilationInfoConfigSection, *FString::Printf(TEXT("%s.TimeStamp"), *ModuleName.ToString()), *DateTimeString, GEditorPerProjectIni);
 
 	FString CompileMethodString = HotReloadDefs::CompileMethodUnknown;
 	if (CompileData.CompileMethod == EModuleCompileMethod::Runtime)
@@ -1586,7 +1599,7 @@ void FHotReloadModule::WriteModuleCompilationInfoToConfig(FName ModuleName, cons
 		CompileMethodString = HotReloadDefs::CompileMethodExternal;
 	}
 
-	GConfig->SetString(*HotReloadDefs::CompilationInfoConfigSection, *FString::Printf(TEXT("%s.LastCompileMethod"), *ModuleName.ToString()), *CompileMethodString, GEditorUserSettingsIni);
+	GConfig->SetString(*HotReloadDefs::CompilationInfoConfigSection, *FString::Printf(TEXT("%s.LastCompileMethod"), *ModuleName.ToString()), *CompileMethodString, GEditorPerProjectIni);
 }
 
 bool FHotReloadModule::GetModuleFileTimeStamp(FName ModuleName, FDateTime& OutFileTimeStamp) const

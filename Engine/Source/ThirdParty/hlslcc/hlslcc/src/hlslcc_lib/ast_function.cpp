@@ -726,7 +726,7 @@ static ir_function_signature* match_function_by_name(const char *name,
 			goto done;
 		}
 
-		if (!state->es_shader && f->has_user_signature())
+		if (f->has_user_signature())
 		{
 			/* In desktop GL, the presence of a user-defined signature hides any
 			* built-in signatures, so we must ignore them.  In contrast, in ES2
@@ -2393,6 +2393,11 @@ struct _mesa_glsl_parse_state *state)
 		if (SamplerStateDeRef)
 		{
 			texop->SamplerState = SamplerStateDeRef->clone(ctx, NULL);
+			auto* VarDeRef = SamplerStateDeRef->as_dereference_variable();
+			if (VarDeRef && VarDeRef->var && VarDeRef->var->name)
+			{
+				texop->SamplerStateName = VarDeRef->var->name;
+			}
 		}
 
 		// txs sets its own return type. Which is void, so it doesn't need to be converted.

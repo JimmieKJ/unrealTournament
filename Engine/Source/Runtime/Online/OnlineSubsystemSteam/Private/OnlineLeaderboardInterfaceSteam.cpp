@@ -464,7 +464,7 @@ public:
 						{
 							int32 Value;
 							bSuccess = SteamUserStatsPtr->GetUserStat(SteamUserId, TCHAR_TO_UTF8(*StatName), &Value) ? true : false;
-							LastColumn = UserRow->Columns.Add(ColumnMeta.ColumnName, FVariantData(Value));
+							LastColumn = &(UserRow->Columns.Add(ColumnMeta.ColumnName, FVariantData(Value)));
 							break;
 						}
 
@@ -472,12 +472,12 @@ public:
 						{
 							float Value;
 							bSuccess = SteamUserStatsPtr->GetUserStat(SteamUserId, TCHAR_TO_UTF8(*StatName), &Value) ? true : false;
-							LastColumn = UserRow->Columns.Add(ColumnMeta.ColumnName, FVariantData(Value));
+							LastColumn = &(UserRow->Columns.Add(ColumnMeta.ColumnName, FVariantData(Value)));
 							break;
 						}
 					default:
 						UE_LOG_ONLINE(Warning, TEXT("Unsupported key value pair during retrieval from Steam %s"), *StatName);
-						LastColumn = UserRow->Columns.Add(ColumnMeta.ColumnName, FVariantData());
+						LastColumn = &(UserRow->Columns.Add(ColumnMeta.ColumnName, FVariantData()));
 						break;
 					}
 
@@ -648,17 +648,17 @@ private:
 	 * @param SortMethod method the leaderboard scores will be sorted, ignored if leaderboard exists
 	 * @param DisplayFormat type of data the leaderboard represents, ignored if leaderboard exists
 	 */
-	void CreateOrFindLeaderboard(const FName& LeaderboardName, ELeaderboardSort::Type InSortMethod, ELeaderboardFormat::Type InDisplayFormat)
+	void CreateOrFindLeaderboard(const FName& InLeaderboardName, ELeaderboardSort::Type InSortMethod, ELeaderboardFormat::Type InDisplayFormat)
 	{
 		if (bFindOnly)
 		{
-			CallbackHandle = SteamUserStats()->FindLeaderboard(TCHAR_TO_UTF8(*LeaderboardName.ToString()));
+			CallbackHandle = SteamUserStats()->FindLeaderboard(TCHAR_TO_UTF8(*InLeaderboardName.ToString()));
 		}
 		else
 		{
 			ELeaderboardSortMethod SortMethodSteam = ToSteamLeaderboardSortMethod(InSortMethod);
 			ELeaderboardDisplayType DisplayTypeSteam = ToSteamLeaderboardDisplayType(InDisplayFormat);
-			CallbackHandle = SteamUserStats()->FindOrCreateLeaderboard(TCHAR_TO_UTF8(*LeaderboardName.ToString()), SortMethodSteam, DisplayTypeSteam);
+			CallbackHandle = SteamUserStats()->FindOrCreateLeaderboard(TCHAR_TO_UTF8(*InLeaderboardName.ToString()), SortMethodSteam, DisplayTypeSteam);
 		}
 	}
 

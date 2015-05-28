@@ -91,7 +91,6 @@ public:
 	bool SnapToBSPVertex( FVector& Location, FVector GridBase, FRotator& Rotation );
 
 private:
-	static const UEditorUserSettings& GetEditorUserSettings();
 
 	/** Vertex snapping implementation */
 	FVertexSnappingImpl VertexSnappingImpl;
@@ -134,12 +133,12 @@ bool FEditorViewportSnapping::IsSnapToVertexEnabled()
 		FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>( TEXT("LevelEditor") );
 		const FLevelEditorCommands& Commands = LevelEditor.GetLevelEditorCommands();
 
-		const FInputGesture& Gesture = *Commands.HoldToEnableVertexSnapping->GetActiveGesture();
+		const FInputChord& Chord = *Commands.HoldToEnableVertexSnapping->GetActiveChord();
 
-		return (Gesture.NeedsControl() == GCurrentLevelEditingViewportClient->IsCtrlPressed() ) 
-			&& (Gesture.NeedsAlt() ==  GCurrentLevelEditingViewportClient->IsAltPressed() ) 
-			&& (Gesture.NeedsShift() == GCurrentLevelEditingViewportClient->IsShiftPressed() ) 
-			&& GCurrentLevelEditingViewportClient->Viewport->KeyState(Gesture.Key) == true;
+		return (Chord.NeedsControl() == GCurrentLevelEditingViewportClient->IsCtrlPressed() ) 
+			&& (Chord.NeedsAlt() ==  GCurrentLevelEditingViewportClient->IsAltPressed() ) 
+			&& (Chord.NeedsShift() == GCurrentLevelEditingViewportClient->IsShiftPressed() ) 
+			&& GCurrentLevelEditingViewportClient->Viewport->KeyState(Chord.Key) == true;
 	}
 	else
 	{
@@ -356,11 +355,6 @@ bool FEditorViewportSnapping::SnapToBSPVertex(FVector& Location, FVector GridBas
 	}
 
 	return bSnapped;
-}
-
-const UEditorUserSettings& FEditorViewportSnapping::GetEditorUserSettings()
-{
-	return GEditor->GetEditorUserSettings();
 }
 
 void FEditorViewportSnapping::ClearSnappingHelpers( bool bClearImmediately )

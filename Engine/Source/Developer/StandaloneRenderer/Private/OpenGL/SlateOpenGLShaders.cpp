@@ -95,7 +95,11 @@ void FSlateOpenGLShader::CompileShader( const FString& Filename, GLenum ShaderTy
 #if PLATFORM_USES_ES2
 	Chars[0] = (ANSICHAR*)"#define PLATFORM_USES_ES2 1\n\n#define PLATFORM_LINUX 0\n";
 #elif PLATFORM_LINUX
+	#if LINUX_USE_OPENGL_3_2
 	Chars[0] = (ANSICHAR*)"#version 150\n\n#define PLATFORM_USES_ES2 0\n\n#define PLATFORM_LINUX 1\n";
+	#else
+	Chars[0] = (ANSICHAR*)"#version 120\n\n#define PLATFORM_USES_ES2 0\n\n#define PLATFORM_LINUX 1\n";
+	#endif // LINUX_USE_OPENGL_3_2
 #else
 	Chars[0] = (ANSICHAR*)"#version 120\n\n#define PLATFORM_USES_ES2 0\n\n#define PLATFORM_LINUX 0\n";
 #endif

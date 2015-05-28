@@ -3,6 +3,7 @@
 
 #include "PropertyEditorPrivatePCH.h"
 #include "AssetSelection.h"
+#include "AssetToolsModule.h"
 #include "SPropertyTreeViewImpl.h"
 #include "SlateBasics.h"
 #include "PropertyNode.h"
@@ -520,8 +521,6 @@ void FPropertyEditorModule::UpdatePropertyViews( const TArray<UObject*>& NewObje
 
 void FPropertyEditorModule::ReplaceViewedObjects( const TMap<UObject*, UObject*>& OldToNewObjectMap )
 {
-	DestroyColorPicker();
-
 	// Replace objects from detail views
 	for( int32 ViewIndex = 0; ViewIndex < AllDetailViews.Num(); ++ViewIndex )
 	{
@@ -653,29 +652,60 @@ FPropertyTypeLayoutCallback FPropertyEditorModule::GetPropertyTypeCustomization(
 	return FPropertyTypeLayoutCallback();
 }
 
-TSharedRef<class IStructureDetailsView> FPropertyEditorModule::CreateStructureDetailView(const FDetailsViewArgs& DetailsViewArgs, TSharedPtr<FStructOnScope> StructData, bool bShowObjects, const FText& CustomName)
+TSharedRef<class IStructureDetailsView> FPropertyEditorModule::CreateStructureDetailView(const FDetailsViewArgs& DetailsViewArgs, const FStructureDetailsViewArgs& StructureDetailsViewArgs, TSharedPtr<FStructOnScope> StructData, const FText& CustomName)
 {
 	TSharedRef<SStructureDetailsView> DetailView =
 		SNew(SStructureDetailsView)
 		.DetailsViewArgs(DetailsViewArgs)
 		.CustomName(CustomName);
 
-	if (!bShowObjects)
+	struct FStructureDetailsViewFilter
 	{
-		struct FDontShowObjects
+		static bool HasFilter( const FStructureDetailsViewArgs InStructureDetailsViewArgs )
 		{
-			static bool CanShow( const FPropertyAndParent& PropertyAndParent )
-			{
-				const auto ArrayProperty = Cast<UArrayProperty>(&PropertyAndParent.Property);
-				const auto TrueProperty = ArrayProperty ? ArrayProperty->Inner : &PropertyAndParent.Property;
-				const bool bCanShow = TrueProperty 
-					&& !TrueProperty->IsA<UObjectPropertyBase>()
-					&& !TrueProperty->IsA<UInterfaceProperty>();
-				return bCanShow;
-			}
-		};
+			const bool bShowEverything = InStructureDetailsViewArgs.bShowObjects 
+				&& InStructureDetailsViewArgs.bShowAssets 
+				&& InStructureDetailsViewArgs.bShowClasses 
+				&& InStructureDetailsViewArgs.bShowInterfaces;
+			return !bShowEverything;
+		}
 
-		DetailView->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateStatic(&FDontShowObjects::CanShow));
+		static bool PassesFilter( const FPropertyAndParent& PropertyAndParent, const FStructureDetailsViewArgs InStructureDetailsViewArgs )
+		{
+			const auto ArrayProperty = Cast<UArrayProperty>(&PropertyAndParent.Property);
+			const auto PropertyToTest = ArrayProperty ? ArrayProperty->Inner : &PropertyAndParent.Property;
+
+			if( InStructureDetailsViewArgs.bShowClasses && (PropertyToTest->IsA<UClassProperty>() || PropertyToTest->IsA<UAssetClassProperty>()) )
+			{
+				return true;
+			}
+
+			if( InStructureDetailsViewArgs.bShowInterfaces && PropertyToTest->IsA<UInterfaceProperty>() )
+			{
+				return true;
+			}
+
+			const auto ObjectProperty = Cast<UObjectPropertyBase>(PropertyToTest);
+			if( ObjectProperty )
+			{
+				if( InStructureDetailsViewArgs.bShowAssets && ObjectProperty->PropertyClass )
+				{
+					// We can use the asset tools module to see whether this type has asset actions (which likely means it's an asset class type)
+					FAssetToolsModule& AssetToolsModule = FAssetToolsModule::GetModule();
+					return AssetToolsModule.Get().GetAssetTypeActionsForClass(ObjectProperty->PropertyClass).IsValid();
+				}
+
+				return InStructureDetailsViewArgs.bShowObjects;
+			}
+
+			return true;
+		}
+	};
+
+	// Only add the filter if we need to exclude things
+	if (FStructureDetailsViewFilter::HasFilter(StructureDetailsViewArgs))
+	{
+		DetailView->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateStatic(&FStructureDetailsViewFilter::PassesFilter, StructureDetailsViewArgs));
 	}
 	DetailView->SetStructureData(StructData);
 

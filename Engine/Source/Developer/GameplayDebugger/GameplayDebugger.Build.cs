@@ -11,6 +11,7 @@ namespace UnrealBuildTool.Rules
 				    "Developer/GameplayDebugger/Public",
 				    "Developer/AIModule/Public",
                     "Developer/Settings/Public",
+                    "Runtime/GameplayAbilities/Public",
 				    // ... add public include paths required here ...
 			    }
             );
@@ -36,6 +37,7 @@ namespace UnrealBuildTool.Rules
                     "ShaderCore",
                     "Settings",
                     "AIModule",  // it have to be here for now. It'll be changed to remove any dependency to AIModule in future
+                    "GameplayAbilities",
 				}
                 );
 

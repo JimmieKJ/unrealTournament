@@ -39,7 +39,7 @@ public:
 		}
 		else
 		{
-			FrameRate = Numerator / Denominator;
+			FrameRate = static_cast<float>(Numerator) / Denominator;
 		}
 	}
 

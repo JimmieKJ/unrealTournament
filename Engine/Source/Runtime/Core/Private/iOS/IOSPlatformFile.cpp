@@ -518,7 +518,7 @@ FString FIOSPlatformFile::GetFilenameOnDisk(const TCHAR* Filename)
 	return Filename;
 }
 
-IFileHandle* FIOSPlatformFile::OpenRead(const TCHAR* Filename)
+IFileHandle* FIOSPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrite)
 {
 	FString NormalizedFilename = NormalizeFilename(Filename);
 

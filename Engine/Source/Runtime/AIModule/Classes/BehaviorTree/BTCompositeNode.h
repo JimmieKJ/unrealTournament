@@ -145,7 +145,7 @@ class AIMODULE_API UBTCompositeNode : public UBTNode
 	uint16 GetLastExecutionIndex() const;
 
 	/** set override for next child index */
-	void SetChildOverride(FBehaviorTreeSearchData& SearchData, int8 Index) const;
+	virtual void SetChildOverride(FBehaviorTreeSearchData& SearchData, int8 Index) const;
 
 	/** gathers description of all runtime parameters */
 	virtual void DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const override;

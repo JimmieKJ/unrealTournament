@@ -9,6 +9,9 @@ FLinuxCursor::FLinuxCursor()
 	: 	bHidden(false)
 	,	AccumulatedOffsetX(0)
 	,	AccumulatedOffsetY(0)
+	,	CachedGlobalXPosition(0)
+	,	CachedGlobalYPosition(0)
+	,	bPositionCacheIsValid(false)
 {
 	if (!FPlatformMisc::PlatformInitMultimedia()) //	will not initialize more than once
 	{
@@ -162,13 +165,24 @@ FLinuxCursor::~FLinuxCursor()
 
 FVector2D FLinuxCursor::GetPosition() const
 {
-	int CursorX, CursorY;
+	if (!bPositionCacheIsValid)
+	{
+		SDL_GetGlobalMouseState(&CachedGlobalXPosition, &CachedGlobalYPosition);
+		bPositionCacheIsValid = true;
+	}
 
-	SDL_GetGlobalMouseState(&CursorX, &CursorY);
+	int CursorX = CachedGlobalXPosition;
+	int CursorY = CachedGlobalYPosition;
+	
 	CursorX += AccumulatedOffsetX;
 	CursorY += AccumulatedOffsetY;
 
 	return FVector2D( CursorX, CursorY );
+}
+
+void FLinuxCursor::InvalidateCaches()
+{
+	bPositionCacheIsValid = false;
 }
 
 void FLinuxCursor::SetPosition( const int32 X, const int32 Y )
@@ -179,6 +193,8 @@ void FLinuxCursor::SetPosition( const int32 X, const int32 Y )
 
 	SDL_GetWindowPosition( WndFocus, &WndX, &WndY );	//	get top left
 	SDL_WarpMouseInWindow( NULL, X - WndX, Y - WndY );
+
+	InvalidateCaches();
 }
 
 void FLinuxCursor::AddOffset(const int32 DX, const int32 DY)

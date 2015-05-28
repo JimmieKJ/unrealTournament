@@ -20,9 +20,10 @@ bool UBTDecorator_ConditionalLoop::CalculateRawConditionValue(UBehaviorTreeCompo
 	return true;
 }
 
-void UBTDecorator_ConditionalLoop::OnBlackboardChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID)
+EBlackboardNotificationResult UBTDecorator_ConditionalLoop::OnBlackboardKeyValueChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID)
 {
 	// empty, don't react to blackboard value changes
+	return EBlackboardNotificationResult::RemoveObserver;
 }
 
 void UBTDecorator_ConditionalLoop::OnNodeDeactivation(FBehaviorTreeSearchData& SearchData, EBTNodeResult::Type NodeResult)

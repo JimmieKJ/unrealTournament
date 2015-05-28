@@ -261,9 +261,11 @@ public:
 	static FString MungeLogOutput( const FString& InString );
 
 	// Wrappers for extracting config values
-	bool GetConfigBool( const TCHAR* Section, const TCHAR* Key, bool& OutValue, const FString& Filename );
-	bool GetConfigString( const TCHAR* Section, const TCHAR* Key, FString& OutValue, const FString& Filename );
-	int32 GetConfigArray( const TCHAR* Section, const TCHAR* Key, TArray<FString>& OutArr, const FString& Filename );
+	bool GetBoolFromConfig( const TCHAR* Section, const TCHAR* Key, bool& OutValue, const FString& Filename );
+	bool GetStringFromConfig( const TCHAR* Section, const TCHAR* Key, FString& OutValue, const FString& Filename );
+	bool GetPathFromConfig( const TCHAR* Section, const TCHAR* Key, FString& OutValue, const FString& Filename );
+	int32 GetStringArrayFromConfig( const TCHAR* Section, const TCHAR* Key, TArray<FString>& OutArr, const FString& Filename );
+	int32 GetPathArrayFromConfig( const TCHAR* Section, const TCHAR* Key, TArray<FString>& OutArr, const FString& Filename );
 
 protected:
 	TSharedPtr< FManifestInfo > ManifestInfo;

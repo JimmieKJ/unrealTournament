@@ -391,6 +391,12 @@ float dtObstacleAvoidanceQuery::processSample(const float* vcand, const float cs
 				continue;
 		}
 		
+		// UE4: when sample is too close to segment (navmesh wall) - disable it completely
+		if (htmin < 0.1f)
+		{
+			return -1.0f;
+		}
+
 		// Avoid less when facing walls.
 		htmin *= 2.0f;
 		
@@ -444,7 +450,8 @@ bool dtObstacleAvoidanceQuery::getCustomSamplingPattern(int idx, float* angles, 
 	return true;
 }
 
-int dtObstacleAvoidanceQuery::sampleVelocityCustom(const float* pos, const float rad, const float vmax,
+int dtObstacleAvoidanceQuery::sampleVelocityCustom(const float* pos, const float rad,
+												   const float vmax, const float vmult,
 												   const float* vel, const float* dvel, float* nvel,
 												   const dtObstacleAvoidanceParams* params,
 											  	   dtObstacleAvoidanceDebugData* debug)
@@ -473,7 +480,7 @@ int dtObstacleAvoidanceQuery::sampleVelocityCustom(const float* pos, const float
 	}
 
 	float minPenalty = FLT_MAX;
-	float cr = vmax * (1.0f - m_params.velBias);
+	float cr = vmax * vmult * (1.0f - m_params.velBias);
 	float res[3];
 	bool bFoundSample = false;
 	dtVset(res, dvel[0] * m_params.velBias, 0, dvel[2] * m_params.velBias);
@@ -485,10 +492,10 @@ int dtObstacleAvoidanceQuery::sampleVelocityCustom(const float* pos, const float
 		vcand[1] = 0;
 		vcand[2] = res[2] + pat[i * 2 + 1] * cr;
 
-		if (dtSqr(vcand[0]) + dtSqr(vcand[2]) > dtSqr(vmax + 0.001f)) continue;
+		if (dtSqr(vcand[0]) + dtSqr(vcand[2]) > dtSqr((vmax * vmult) + 0.001f)) continue;
 
 		const float penalty = processSample(vcand, 20.0f, pos, rad, vel, dvel, debug);
-		if (penalty < minPenalty)
+		if (penalty < minPenalty && penalty >= 0.0f)
 		{
 			bFoundSample = true;
 			minPenalty = penalty;
@@ -500,11 +507,16 @@ int dtObstacleAvoidanceQuery::sampleVelocityCustom(const float* pos, const float
 	{
 		dtVcopy(nvel, dvel);
 	}
+	else
+	{
+		dtVscale(nvel, nvel, 1.0f / vmult);
+	}
 
 	return pattern.nsamples;
 }
 
-int dtObstacleAvoidanceQuery::sampleVelocityAdaptive(const float* pos, const float rad, const float vmax,
+int dtObstacleAvoidanceQuery::sampleVelocityAdaptive(const float* pos, const float rad,
+													 const float vmax, const float vmult,
 													 const float* vel, const float* dvel, float* nvel,
 													 const dtObstacleAvoidanceParams* params,
 													 dtObstacleAvoidanceDebugData* debug)
@@ -513,8 +525,8 @@ int dtObstacleAvoidanceQuery::sampleVelocityAdaptive(const float* pos, const flo
 	
 	memcpy(&m_params, params, sizeof(dtObstacleAvoidanceParams));
 	m_invHorizTime = 1.0f / m_params.horizTime;
-	m_vmax = vmax;
-	m_invVmax = 1.0f / vmax;
+	m_vmax = vmax * vmult;
+	m_invVmax = 1.0f / (vmax * vmult);
 	
 	dtVset(nvel, 0,0,0);
 	
@@ -553,11 +565,12 @@ int dtObstacleAvoidanceQuery::sampleVelocityAdaptive(const float* pos, const flo
 	}
 
 	// Start sampling.
-	float cr = vmax * (1.0f - m_params.velBias);
+	float cr = vmax * vmult * (1.0f - m_params.velBias);
 	float res[3];
 	dtVset(res, dvel[0] * m_params.velBias, 0, dvel[2] * m_params.velBias);
 	int ns = 0;
 
+	const float invVmult = 1.0f / vmult;
 	for (int k = 0; k < depth; ++k)
 	{
 		float minPenalty = FLT_MAX;
@@ -571,18 +584,18 @@ int dtObstacleAvoidanceQuery::sampleVelocityAdaptive(const float* pos, const flo
 			vcand[1] = 0;
 			vcand[2] = res[2] + pat[i*2+1]*cr;
 			
-			if (dtSqr(vcand[0])+dtSqr(vcand[2]) > dtSqr(vmax+0.001f)) continue;
+			if (dtSqr(vcand[0])+dtSqr(vcand[2]) > dtSqr((vmax * vmult)+0.001f)) continue;
 			
 			const float penalty = processSample(vcand,cr/10, pos,rad,vel,dvel, debug);
 			ns++;
-			if (penalty < minPenalty)
+			if (penalty < minPenalty && penalty >= 0.0f)
 			{
 				minPenalty = penalty;
 				dtVcopy(bvel, vcand);
 			}
 		}
 
-		dtVcopy(res, bvel);
+		dtVscale(res, bvel, invVmult);
 
 		cr *= 0.5f;
 	}	

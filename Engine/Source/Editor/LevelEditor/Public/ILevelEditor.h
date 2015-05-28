@@ -21,6 +21,9 @@ public:
 
 	/** Gets an array of all viewports in this level editor */
 	virtual TArray< TSharedPtr< ILevelViewport > > GetViewports() const = 0;
+	
+	/** Gets the active level viewport for this level editor */
+	virtual TSharedPtr<ILevelViewport> GetActiveViewportInterface() = 0;
 
 	/** Get the thumbnail pool used by this level editor */
 	virtual TSharedPtr< class FAssetThumbnailPool > GetThumbnailPool() const = 0;

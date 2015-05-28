@@ -1,12 +1,22 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashDebugHelperPrivatePCH.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
-#include "CrashDebugHelperModule.h"
 
 IMPLEMENT_MODULE(FCrashDebugHelperModule, CrashDebugHelper);
 DEFINE_LOG_CATEGORY(LogCrashDebugHelper);
+
+#if PLATFORM_WINDOWS
+	#include "CrashDebugHelperWindows.h"
+
+#elif PLATFORM_LINUX
+	#include "CrashDebugHelperLinux.h"
+
+#elif PLATFORM_MAC
+	#include "CrashDebugHelperMac.h"
+
+#else
+	#error "Unknown platform"
+#endif
 
 void FCrashDebugHelperModule::StartupModule()
 {
@@ -16,7 +26,6 @@ void FCrashDebugHelperModule::StartupModule()
 		CrashDebugHelper->Init();
 	}
 }
-
 
 void FCrashDebugHelperModule::ShutdownModule()
 {

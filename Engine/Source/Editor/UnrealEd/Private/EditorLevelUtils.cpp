@@ -15,7 +15,6 @@
 #include "LevelEditor.h"
 #include "ScopedTransaction.h"
 #include "ActorEditorUtils.h"
-#include "Editor/Levels/Public/LevelEdMode.h"
 #include "ContentStreaming.h"
 #include "PackageTools.h"
 
@@ -200,7 +199,7 @@ namespace EditorLevelUtils
 
 			const FScopedBusyCursor BusyCursor;
 
-			ULevelStreaming* StreamingLevel = static_cast<ULevelStreaming*>( StaticConstructObject( LevelStreamingClass, InWorld, NAME_None, RF_NoFlags, NULL) );
+			ULevelStreaming* StreamingLevel = NewObject<ULevelStreaming>(InWorld, LevelStreamingClass, NAME_None, RF_NoFlags, NULL);
 
 			// Associate a package name.
 			StreamingLevel->SetWorldAssetByPackageName(LevelPackageName);
@@ -241,6 +240,11 @@ namespace EditorLevelUtils
 					FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "LevelHasNoWorldSettings", "AddLevelToWorld: The level has no World Settings.") );
 				}
 			}
+		}
+
+		if(NewLevel) // if the level was successfully added
+		{
+			FEditorDelegates::OnAddLevelToWorld.Broadcast(NewLevel);
 		}
 
 		return NewLevel;
@@ -383,24 +387,16 @@ namespace EditorLevelUtils
 	
 	bool RemoveLevelFromWorld(ULevel* InLevel)
 	{
-		// If we're removing a level, lets make sure to close the level transform mode if its the same level currently selected for edit
-		FEdModeLevel* LevelMode = static_cast<FEdModeLevel*>(GLevelEditorModeTools().GetActiveMode( FBuiltinEditorModes::EM_Level ));		
-		if( LevelMode )
+		if (GEditor->Layers.IsValid())
 		{
-			ULevelStreaming* LevelStream = FLevelUtils::FindStreamingLevel( InLevel ); 
-			if( LevelMode->IsEditing( LevelStream ) )
-			{
-				GLevelEditorModeTools().DeactivateMode( FBuiltinEditorModes::EM_Level );
-			}
+			GEditor->Layers->RemoveLevelLayerInformation( InLevel );
 		}
-
-		GEditor->Layers->RemoveLevelLayerInformation( InLevel );
-
+		
 		GEditor->CloseEditedWorldAssets(CastChecked<UWorld>(InLevel->GetOuter()));
 
 		UWorld* OwningWorld = InLevel->OwningWorld;
 		const FName LevelPackageName		= InLevel->GetOutermost()->GetFName();
-		const bool bRemovingCurrentLevel	= InLevel && InLevel->IsCurrentLevel();
+		const bool bRemovingCurrentLevel	= InLevel->IsCurrentLevel();
 		const bool bRemoveSuccessful		= PrivateRemoveLevelFromWorld( InLevel );
 		if ( bRemoveSuccessful )
 		{
@@ -489,9 +485,6 @@ namespace EditorLevelUtils
 		World->RemoveLevel(InLevel);
 		InLevel->ClearLevelComponents();
 
-		int32 NumFailedDestroyedAttempts = 0;
-		bool bDestroyedActor = false;
-
 		// remove all group actors from the world in the level we are removing
 		// otherwise, this will cause group actors to not be garbage collected
 		for (int32 GroupIndex = World->ActiveGroupActors.Num()-1; GroupIndex >= 0; --GroupIndex)
@@ -502,25 +495,24 @@ namespace EditorLevelUtils
 				World->ActiveGroupActors.RemoveAt(GroupIndex);
 			}
 		}
-
-		for(int32 ActorIndex = 0; ActorIndex < InLevel->Actors.Num(); ++ActorIndex)
+		
+		// Mark all model components as pending kill so GC deletes references to them.
+		for (UModelComponent* ModelComponent : InLevel->ModelComponents)
 		{
-			AActor* ActorToRemove = InLevel->Actors[ActorIndex];
-			if (ActorToRemove)
+			if (ModelComponent != nullptr)
 			{
-				bDestroyedActor = World->EditorDestroyActor(ActorToRemove, false);
-
-				// Keep track of how many actors were not destroyed because all actors need to be destroyed
-				if(!bDestroyedActor)
-				{
-					NumFailedDestroyedAttempts++;
-				}
+				ModelComponent->MarkPendingKill();
 			}
 		}
 
-		if(NumFailedDestroyedAttempts > 0)
+		// Mark all actors and their components as pending kill so GC will delete references to them.
+		for (AActor* Actor : InLevel->Actors)
 		{
-			UE_LOG(LogLevelTools, Log, TEXT("Failed to destroy %d actors after attempting to destroy level!"), NumFailedDestroyedAttempts);
+			if (Actor != nullptr)
+			{
+				Actor->MarkComponentsAsPendingKill();
+				Actor->MarkPendingKill();
+			}
 		}
 
 		World->MarkPackageDirty();
@@ -563,7 +555,7 @@ namespace EditorLevelUtils
 		if (UEditorEngine::IsUsingWorldAssets())
 		{
 			// Create a new world
-			UWorldFactory* Factory = ConstructObject<UWorldFactory>(UWorldFactory::StaticClass());
+			UWorldFactory* Factory = NewObject<UWorldFactory>();
 			Factory->WorldType = EWorldType::Inactive;
 			UPackage* Pkg = CreatePackage(NULL, NULL);
 			FName WorldName(TEXT("NewWorld"));
@@ -684,7 +676,7 @@ namespace EditorLevelUtils
 				UModelComponent* CurLevelModelCmp = Level->ModelComponents[ComponentIndex];
 				if(CurLevelModelCmp)
 				{
-					if (bShouldBeVisible && CurLevelModelCmp)
+					if (bShouldBeVisible)
 					{
 						CurLevelModelCmp->RegisterComponentWithWorld(Level->OwningWorld);
 					}
@@ -705,13 +697,6 @@ namespace EditorLevelUtils
 				StreamingLevel = FLevelUtils::FindStreamingLevel( Level );
 			}
 
-			// If were hiding a level, lets make sure to close the level transform mode if its the same level currently selected for edit
-			FEdModeLevel* LevelMode = static_cast<FEdModeLevel*>(GLevelEditorModeTools().GetActiveMode( FBuiltinEditorModes::EM_Level ));
-			if( LevelMode && LevelMode->IsEditing( StreamingLevel ) )
-			{
-				GLevelEditorModeTools().DeactivateMode( FBuiltinEditorModes::EM_Level );
-			}
-
 			//create a transaction so we can undo the visibilty toggle
 			const FScopedTransaction Transaction( LOCTEXT( "ToggleLevelVisibility", "Toggle Level Visibility" ) );		
 
@@ -728,7 +713,7 @@ namespace EditorLevelUtils
 				StreamingLevel->bShouldBeVisibleInEditor = bShouldBeVisible;
 			}
 
-			if( !bShouldBeVisible )
+			if (!bShouldBeVisible && GEditor->Layers.IsValid())
 			{
 				GEditor->Layers->RemoveLevelLayerInformation( Level );
 			}
@@ -765,7 +750,7 @@ namespace EditorLevelUtils
 				check(Level->bIsVisible == bShouldBeVisible);
 			}
 
-			if( bShouldBeVisible )
+			if (bShouldBeVisible && GEditor->Layers.IsValid())
 			{
 				GEditor->Layers->AddLevelLayerInformation( Level );
 			}
@@ -781,7 +766,9 @@ namespace EditorLevelUtils
 				if ( Actor )
 				{
 					bool bModified = false;
-					if ( bShouldBeVisible && bForceLayersVisible && GEditor->Layers->IsActorValidForLayer( Actor ) )
+					if (bShouldBeVisible && bForceLayersVisible && 
+						GEditor->Layers.IsValid() && 
+						GEditor->Layers->IsActorValidForLayer( Actor ))
 					{
 						// Make the actor layer visible, if it's not already.
 						if ( Actor->bHiddenEdLayer )

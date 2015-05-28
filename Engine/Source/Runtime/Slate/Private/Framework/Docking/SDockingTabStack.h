@@ -17,7 +17,7 @@ public:
 		SLATE_ARGUMENT( bool, IsDocumentArea )
 	SLATE_END_ARGS()
 
-	virtual Type GetNodeType() const
+	virtual Type GetNodeType() const override
 	{
 		return SDockingNode::DockTabStack;
 	}
@@ -98,6 +98,8 @@ public:
 	virtual void OnFocusChanging( const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath ) override;
 
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 
@@ -222,19 +224,32 @@ private:
 	/** @return Gets the visibility state for spacers that pad out the tab well to make room for title bar widgets */
 	EVisibility GetTitleAreaSpacerVisibility();
 
-	/** The tab in this dock stack that is active */
-	TSharedPtr<SDockTab> ActiveTab;
-
 	/** Visibility of TitleBar spacer based on maximize/restore status of the window.
 	 ** This gives us a little more space to grab the title bar when the window is not maximized
 	*/
 	EVisibility GetMaximizeSpacerVisibility() const;
 
+	/** Bind tab commands into the ActionList */
+	void BindTabCommands();
+
+	/** Attempts to close the foreground tab when the CloseMajorTab command is executed */
+	void ExecuteCloseMajorTabCommand();
+
+	/** Attempts to find the foreground tab that can be closed by the CloseMajorTab command */
+	bool CanExecuteCloseMajorTabCommand();
+
+	/** Attempts to close the active tab when the CloseMinorTab command is executed */
+	void ExecuteCloseMinorTabCommand();
+
+	/** Attempts to find the active tab that can be closed by the CloseMinorTab command */
+	bool CanExecuteCloseMinorTabCommand();
 
 #if DEBUG_TAB_MANAGEMENT
 	FString ShowPersistentTabs() const;
 #endif
 
+	/** Tab command list */
+	TSharedPtr<FUICommandList> ActionList;
 };
 
 

@@ -61,48 +61,53 @@ struct FFocusEvent
 public:
 
 	/**
-	 * UStruct Constructor.  Not meant for normal usage.
-	 */
+	* UStruct Constructor.  Not meant for normal usage.
+	*/
 	FFocusEvent()
-		: Cause(EFocusCause::SetDirectly)
+		: Cause(EFocusCause::SetDirectly),
+		UserIndex(0)
 	{ }
 
 	/**
-	 * Constructor.  Events are immutable once constructed.
-	 *
-	 * @param  InCause  The cause of the focus event
-	 */
-	FFocusEvent(const EFocusCause InCause)
-		: Cause(InCause)
+	* Constructor.  Events are immutable once constructed.
+	*
+	* @param  InCause  The cause of the focus event
+	*/
+	FFocusEvent(const EFocusCause InCause, uint32 InUserIndex)
+		: Cause(InCause),
+		UserIndex(InUserIndex)
 	{ }
 
 
 	/**
-	 * Queries the reason for the focus change
-	 *
-	 * @return  The cause of the focus change
-	 */
+	* Queries the reason for the focus change
+	*
+	* @return  The cause of the focus change
+	*/
 	EFocusCause GetCause() const
 	{
 		return Cause;
+	}
+
+	/**
+	* Queries the user that is changing focus
+	*
+	* @return  The user that is changing focus
+	*/
+	uint32 GetUser() const
+	{
+		return UserIndex;
 	}
 
 private:
 
 	/** The cause of the focus change */
 	EFocusCause Cause;
+
+	/** User that is changing focus*/
+	uint32 UserIndex;
 };
 
-//@Todo slate: Remove this as soon as the 4.6 deprecated API is Removed.
-USTRUCT()
-//struct DEPRECATED(4.6, "Use FFocusEvent") FKeyboardFocusEvent : public FFocusEvent
-struct FKeyboardFocusEvent : public FFocusEvent
-{
-	GENERATED_USTRUCT_BODY()
-public:
-	FKeyboardFocusEvent() { }
-	FKeyboardFocusEvent(const EFocusCause InCause) : FFocusEvent(InCause) { }
-};
 
 /**
  * Represents the current and last cursor position in a "virtual window" for events that are routed to widgets transformed in a 3D scene.
@@ -325,7 +330,7 @@ public:
 	}
 
 	SLATECORE_API virtual FText ToText() const;
-
+	
 	/** Is this event a pointer event (touch or cursor). */
 	SLATECORE_API virtual bool IsPointerEvent() const;
 
@@ -417,7 +422,7 @@ public:
 		return KeyCode;
 	}
 
-	SLATECORE_API virtual FText ToText() const override;
+	SLATECORE_API virtual FText ToText() const override;	
 
 private:
 	// Name of the key that was pressed.

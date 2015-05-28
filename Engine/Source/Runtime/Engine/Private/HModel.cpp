@@ -61,9 +61,9 @@ public:
 	}
 
 	int32 GetMinX() const { return HitState.HitX; }
-	int32 GetMaxX() const { return HitState.HitX; }
+	int32 GetMaxX() const { return HitState.HitX; } //-V524
 	int32 GetMinY() const { return HitState.HitY; }
-	int32 GetMaxY() const { return HitState.HitY; }
+	int32 GetMaxY() const { return HitState.HitY; } //-V524
 
 private:
 	uint32 SurfaceIndex;

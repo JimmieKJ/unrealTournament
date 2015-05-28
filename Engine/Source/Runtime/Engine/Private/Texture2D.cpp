@@ -230,7 +230,7 @@ void UTexture2D::PostEditUndo()
 void UTexture2D::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 #if WITH_EDITORONLY_DATA
-	if (!Source.IsPowerOfTwo())
+	if (!Source.IsPowerOfTwo() && (PowerOfTwoMode == ETexturePowerOfTwoSetting::None))
 	{
 		// Force NPT textures to have no mipmaps.
 		MipGenSettings = TMGS_NoMipmaps;
@@ -380,7 +380,7 @@ void UTexture2D::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	const FString DimensionsStr = FString::Printf(TEXT("%dx%d"), SizeX, SizeY);
 	OutTags.Add( FAssetRegistryTag("Dimensions", DimensionsStr, FAssetRegistryTag::TT_Dimensional) );
 	OutTags.Add( FAssetRegistryTag("HasAlphaChannel", HasAlphaChannel() ? TEXT("True") : TEXT("False"), FAssetRegistryTag::TT_Alphabetical) );
-	
+	OutTags.Add( FAssetRegistryTag("Format", GPixelFormats[GetPixelFormat()].Name, FAssetRegistryTag::TT_Alphabetical) );
 
 	Super::GetAssetRegistryTags(OutTags);
 }
@@ -405,12 +405,6 @@ void UTexture2D::UpdateResource()
 
 
 #if WITH_EDITOR
-void UTexture2D::CookerWillNeverCookAgain()
-{
-	Super::CookerWillNeverCookAgain();
-
-	CleanupCachedCookedPlatformData();
-}
 void UTexture2D::PostLinkerChange()
 {
 	// Changing the linker requires re-creating the resource to make sure streaming behavior is right.
@@ -445,7 +439,7 @@ FString UTexture2D::GetDesc()
 	UpdateCachedLODBias();
 #endif //#if WITH_EDITOR
 
-	GSystemSettings.TextureLODSettings.ComputeInGameMaxResolution(GetCachedLODBias(), *this, EffectiveSizeX, EffectiveSizeY);
+	UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->ComputeInGameMaxResolution(GetCachedLODBias(), *this, EffectiveSizeX, EffectiveSizeY);
 
 	return FString::Printf( TEXT("%s %dx%d -> %dx%d[%s]"), 
 		NeverStream ? TEXT("NeverStreamed") : TEXT("Streamed"), 
@@ -558,6 +552,12 @@ bool UTexture2D::UpdateStreamingStatus( bool bWaitForMipFading /*= false*/ )
 			else
 			{
 				ResidentMips = RequestedMips;
+#if WITH_EDITOR
+				// When all the requested mips are streamed in, generate an empty property changed event, to force the
+				// ResourceSize asset registry tag to be recalculated.
+				FPropertyChangedEvent EmptyPropertyChangedEvent(nullptr);
+				FCoreUObjectDelegates::OnObjectPropertyChanged.Broadcast(this, EmptyPropertyChangedEvent);
+#endif
 			}
 			bHasPendingRequestInFlight = false;
 
@@ -742,7 +742,9 @@ int32 UTexture2D::GetNumNonStreamingMips() const
 void UTexture2D::CalcAllowedMips( int32 MipCount, int32 NumNonStreamingMips, int32 LODBias, int32& OutMinAllowedMips, int32& OutMaxAllowedMips )
 {
 	// Calculate the minimum number of mip-levels required.
-	int32 MinAllowedMips = FMath::Max( UTexture2D::GetMinTextureResidentMipCount(), NumNonStreamingMips );
+	int32 MinAllowedMips = UTexture2D::GetMinTextureResidentMipCount();
+	MinAllowedMips = FMath::Max( MinAllowedMips, MipCount - LODBias );
+	MinAllowedMips = FMath::Min( MinAllowedMips, NumNonStreamingMips );
 	MinAllowedMips = FMath::Min( MinAllowedMips, MipCount );
 
 	// Calculate the maximum number of mip-levels.
@@ -756,11 +758,14 @@ void UTexture2D::CalcAllowedMips( int32 MipCount, int32 NumNonStreamingMips, int
 
 FTextureResource* UTexture2D::CreateResource()
 {
-	ULinker* Linker = GetLinker();
+	FLinker* Linker = GetLinker();
 	int32 NumMips = GetNumMips();
 
 	// Determine whether or not this texture can be streamed.
-	bIsStreamable = IStreamingManager::Get().IsTextureStreamingEnabled() &&
+	bIsStreamable = 
+#if !PLATFORM_ANDROID
+					IStreamingManager::Get().IsTextureStreamingEnabled() &&
+#endif
 					!NeverStream && 
 					(NumMips > 1) && 
 					(LODGroup != TEXTUREGROUP_UI) && 
@@ -810,7 +815,7 @@ FTextureResource* UTexture2D::CreateResource()
 		}
 		else if (bIncompatibleTexture)
 		{
-			UE_LOG(LogTexture, Error, TEXT("%s contains no miplevels! Please delete."), *GetFullName());
+			UE_LOG(LogTexture, Error, TEXT("%s contains no miplevels! Please delete. (Format: %d)"), *GetFullName(), (int)GetPixelFormat());
 		}
 	}
 	else
@@ -820,9 +825,15 @@ FTextureResource* UTexture2D::CreateResource()
 		// Handle streaming textures.
 		if( bIsStreamable )
 		{
+#if PLATFORM_SUPPORTS_TEXTURE_STREAMING
 			// Only request lower miplevels and let texture streaming code load the rest.
 			NumNonStreamingMips = GetNumNonStreamingMips();
 			RequestedMips = NumNonStreamingMips;
+#else
+			static auto* MobileReduceLoadedMipsCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileReduceLoadedMips"));
+			NumNonStreamingMips = GetNumNonStreamingMips();
+			RequestedMips = FMath::Min(NumMips, GMaxTextureMipCount) - MobileReduceLoadedMipsCvar->GetValueOnAnyThread();
+#endif
 		}
 		// Handle non- streaming textures.
 		else
@@ -916,7 +927,7 @@ bool UTexture2D::IsFullyStreamedIn()
 	{
 		// Calculate maximum number of mips potentially being resident based on LOD settings and device max texture count.
 		int32 MaxResidentMips = FMath::Max( 1, FMath::Min( GetNumMips() - GetCachedLODBias(), GMaxTextureMipCount ) );
-		// >= as LOD settings can change dynamically and we consider a texture that is about to loose miplevels to still
+		// >= as LOD settings can change dynamically and we consider a texture that is about to lose miplevels to still
 		// be fully streamed.
 		bIsFullyStreamedIn = ResidentMips >= MaxResidentMips;
 	}
@@ -931,8 +942,7 @@ UTexture2D* UTexture2D::CreateTransient(int32 InSizeX, int32 InSizeY, EPixelForm
 		(InSizeX % GPixelFormats[InFormat].BlockSizeX) == 0 &&
 		(InSizeY % GPixelFormats[InFormat].BlockSizeY) == 0)
 	{
-		NewTexture = ConstructObject<UTexture2D>(
-			UTexture2D::StaticClass(),
+		NewTexture = NewObject<UTexture2D>(
 			GetTransientPackage(),
 			NAME_None,
 			RF_Transient
@@ -1199,7 +1209,9 @@ void FTexture2DResource::InitRHI()
 	if( Owner->PendingMipChangeRequestStatus.GetValue() == TexState_InProgress_Initialization )
 	{
 		bool bSkipRHITextureCreation = false; //Owner->bIsCompositingSource;
-		if (GIsEditor || (!bSkipRHITextureCreation))
+		// PVS - Studio has pointed out that bSkipRHITextureCreation is a codesmell (!bSkipRHITextureCreation is always true)
+		// for now, we have disabled the warning, but consider removing the variable if requirements indicate it will never be used.
+		if (GIsEditor || (!bSkipRHITextureCreation)) //-V560 
 		{
 			if ( CanCreateAsVirtualTexture(Owner, TexCreateFlags) )
 			{
@@ -1287,7 +1299,9 @@ void FTexture2DResource::InitRHI()
 	{
 		// Recreate the texture from the texture contents that were saved by ReleaseRHI.
 		bool bSkipRHITextureCreation = false; //Owner->bIsCompositingSource;
-		if (GIsEditor || (!bSkipRHITextureCreation))
+		// PVS - Studio has pointed out that bSkipRHITextureCreation is a codesmell (!bSkipRHITextureCreation is always true)
+		// for now, we have disabled the warning, but consider removing the variable if requirements indicate it will never be used.
+		if (GIsEditor || (!bSkipRHITextureCreation)) //-V560
 		{
 			FRHIResourceCreateInfo CreateInfo;
 			Texture2DRHI	= RHICreateTexture2D( SizeX, SizeY, EffectiveFormat, Owner->RequestedMips, 1, TexCreateFlags, CreateInfo );
@@ -1342,7 +1356,7 @@ void FTexture2DResource::CreateSamplerStates(float MipMapBias)
 	// Create the sampler state RHI resource.
 	FSamplerStateInitializerRHI SamplerStateInitializer
 	(
-	  GSystemSettings.TextureLODSettings.GetSamplerFilter(Owner),
+	  (ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter(Owner),
 	  Owner->AddressX == TA_Wrap ? AM_Wrap : (Owner->AddressX == TA_Clamp ? AM_Clamp : AM_Mirror),
 	  Owner->AddressY == TA_Wrap ? AM_Wrap : (Owner->AddressY == TA_Clamp ? AM_Clamp : AM_Mirror),
 	  AM_Wrap,
@@ -1353,7 +1367,7 @@ void FTexture2DResource::CreateSamplerStates(float MipMapBias)
 	// Create a custom sampler state for using this texture in a deferred pass, where ddx / ddy are discontinuous
 	FSamplerStateInitializerRHI DeferredPassSamplerStateInitializer
 	(
-	  GSystemSettings.TextureLODSettings.GetSamplerFilter(Owner),
+	  (ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter(Owner),
 	  Owner->AddressX == TA_Wrap ? AM_Wrap : (Owner->AddressX == TA_Clamp ? AM_Clamp : AM_Mirror),
 	  Owner->AddressY == TA_Wrap ? AM_Wrap : (Owner->AddressY == TA_Clamp ? AM_Clamp : AM_Mirror),
 	  AM_Wrap,
@@ -1552,10 +1566,10 @@ void FTexture2DResource::BeginCancelUpdate()
  */
 void FTexture2DResource::UpdateMipCount()
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FTexture2DResource::UpdateMipCount"), STAT_Texture2DResource_UpdateMipCount, STATGROUP_StreamingDetails);
+
 	FTexture2DScopedDebugInfo ScopedDebugInfo(Owner);
 	const TIndirectArray<FTexture2DMipMap>& OwnerMips = Owner->GetPlatformMips();
-
-	SCOPE_CYCLE_COUNTER(STAT_RenderingThreadUpdateTime);
 
 	static auto CVarVirtualTextureReducedMemoryEnabled = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.VirtualTextureReducedMemory"));
 	check(CVarVirtualTextureReducedMemoryEnabled);
@@ -1618,7 +1632,16 @@ void FTexture2DResource::UpdateMipCount()
 		PendingFirstMip	= OwnerMips.Num() - Owner->RequestedMips;
 		check(PendingFirstMip>=0);
 
-		RHIVirtualTextureSetFirstMipInMemory(Texture2DRHI, PendingFirstMip);
+		// When removing levels we need to start the process of the mip not being visible to the GPU
+		// Whereas when we are streaming in levels we need to allocate physical backing for the mip
+		if ( Owner->RequestedMips < Owner->ResidentMips )
+		{
+			RHIVirtualTextureSetFirstMipVisible(Texture2DRHI, PendingFirstMip);
+		}
+		else
+		{
+			RHIVirtualTextureSetFirstMipInMemory(Texture2DRHI, PendingFirstMip);
+		}
 
 		bUsingAsyncCreation = false;
 
@@ -1714,7 +1737,8 @@ void FTexture2DResource::UpdateMipCount()
  */
 void FTexture2DResource::LoadMipData()
 {
-	SCOPE_CYCLE_COUNTER(STAT_RenderingThreadUpdateTime);
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FTexture2DResource::LoadMipData"), STAT_Texture2DResource_LoadMipData, STATGROUP_StreamingDetails);
+
 	check(Owner->bIsStreamable);
 	check(Owner->PendingMipChangeRequestStatus.GetValue() == TexState_InProgress_Loading);
 
@@ -1781,6 +1805,9 @@ void FTexture2DResource::LoadMipData()
 					}
 					check(IORequestIndices[MipIndex]);
 				}
+
+				// For consistency with other code paths, track the pointer to the locked buffer.
+				MipData[ActualMipIndex] = TheMipData;
 			}
 
 			// Are we reducing the mip-count?
@@ -1829,18 +1856,16 @@ void FTexture2DResource::LoadMipData()
 			const FTexture2DMipMap& MipMap = OwnerMips[ActualMipIndex];
 			int32 MipSize = CalcTextureMipMapSize(MipMap.SizeX, MipMap.SizeY, TextureRHI->GetFormat(), 0);
 
-			void* TheMipData = NULL;
 			if (bUsingAsyncCreation)
 			{
-				// Allocate temporary system memory to stream in to.
-				MipData[ActualMipIndex] = FMemory::Malloc(MipSize);
-				TheMipData = MipData[ActualMipIndex];
+				// The async task will allocate temporary system memory to stream in to.
+				check(MipData[ActualMipIndex] == NULL);
 			}
 			else
 			{
 				// Lock the new texture.
 				uint32 DestPitch;
-				TheMipData = RHILockTexture2D( IntermediateTextureRHI, MipIndex, RLM_WriteOnly, DestPitch, false );
+				MipData[ActualMipIndex] = RHILockTexture2D( IntermediateTextureRHI, MipIndex, RLM_WriteOnly, DestPitch, false );
 			}
 
 			// Pass the request on to the async io manager after increasing the request count. The request count 
@@ -1857,7 +1882,7 @@ void FTexture2DResource::LoadMipData()
 			{
 				FAsyncStreamDerivedMipTask* Task = new(PendingAsyncStreamDerivedMipTasks) FAsyncStreamDerivedMipTask(
 					MipMap.DerivedDataKey,
-					TheMipData,
+					&MipData[ActualMipIndex],
 					MipSize,
 					&Owner->PendingMipChangeRequestStatus
 					);
@@ -1866,6 +1891,11 @@ void FTexture2DResource::LoadMipData()
 			else
 #endif // #if WITH_EDITORONLY_DATA
 			{
+				if (!MipData[ActualMipIndex])
+				{
+					QUICK_SCOPE_CYCLE_COUNTER(STAT_FTexture2DResource_LoadMipData_Malloc);
+					MipData[ActualMipIndex] = FMemory::Malloc(MipSize);
+				}
 				check(MipMap.BulkData.GetFilename().Len());
 				if( MipMap.BulkData.IsStoredCompressedOnDisk() )
 				{
@@ -1874,7 +1904,7 @@ void FTexture2DResource::LoadMipData()
 						MipMap.BulkData.GetBulkDataOffsetInFile(),			// offset
 						MipMap.BulkData.GetBulkDataSizeOnDisk(),			// compressed size
 						MipMap.BulkData.GetBulkDataSize(),					// uncompressed size
-						TheMipData,											// dest pointer
+						MipData[ActualMipIndex],							// dest pointer
 						MipMap.BulkData.GetDecompressionFlags(),			// compressed data format
 						&Owner->PendingMipChangeRequestStatus,				// counter to decrement
 						AsyncIOPriority										// priority
@@ -1887,7 +1917,7 @@ void FTexture2DResource::LoadMipData()
 						MipMap.BulkData.GetFilename(),						// filename
 						MipMap.BulkData.GetBulkDataOffsetInFile(),			// offset
 						MipMap.BulkData.GetBulkDataSize(),					// size
-						TheMipData,											// dest pointer
+						MipData[ActualMipIndex],							// dest pointer
 						&Owner->PendingMipChangeRequestStatus,				// counter to decrement
 						AsyncIOPriority										// priority
 						);
@@ -1911,6 +1941,8 @@ void FTexture2DResource::LoadMipData()
 
 void FCreateTextureTask::DoWork()
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FCreateTextureTask::DoWork"), STAT_CreateTextureTask_DoWork, STATGROUP_StreamingDetails);
+
 	{
 		FTexture2DRHIRef AsyncTexture = RHIAsyncCreateTexture2D(Args.SizeX,Args.SizeY,Args.Format,Args.NumMips,Args.Flags,Args.MipData,Args.NumNewMips);
 		check(IsValidRef(AsyncTexture));
@@ -1932,7 +1964,7 @@ void FCreateTextureTask::DoWork()
 
 void FTexture2DResource::UploadMipData()
 {
-	SCOPE_CYCLE_COUNTER(STAT_RenderingThreadFinalizeTime);
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FTexture2DResource::UploadMipData"), STAT_Texture2DResource_UploadMipData, STATGROUP_StreamingDetails);
 
 	check(Owner->bIsStreamable);
 	check(Owner->PendingMipChangeRequestStatus.GetValue()==TexState_InProgress_Upload);
@@ -1949,6 +1981,7 @@ void FTexture2DResource::UploadMipData()
 			{
 				int32 ActualMipIndex = MipIndex + PendingFirstMip;
 				RHIUnlockTexture2D( Texture2DRHI, ActualMipIndex, false );
+				MipData[ActualMipIndex] = NULL;
 			}
 		}
 
@@ -1995,6 +2028,7 @@ void FTexture2DResource::UploadMipData()
 				// Intermediate texture has RequestedMips miplevels, all of which have been locked.
 				// DEXTEX: Do not unload as we didn't locked the textures in the first place
 				RHIUnlockTexture2D( IntermediateTextureRHI, MipIndex, false );
+				MipData[MipIndex + PendingFirstMip] = NULL;
 			}
 		}
 	}
@@ -2059,6 +2093,7 @@ void FTexture2DResource::FinalizeMipCount()
 		{
 			// Show the streamed in mip levels
 			RHIVirtualTextureSetFirstMipVisible(Texture2DRHI, PendingFirstMip);
+			RHIVirtualTextureSetFirstMipInMemory(Texture2DRHI, PendingFirstMip);
 			bSuccess		= true;
 			CurrentFirstMip = PendingFirstMip;
 
@@ -2167,7 +2202,7 @@ void FTexture2DResource::FinalizeMipCount()
  */
 void FTexture2DResource::CancelUpdate()
 {
-	SCOPE_CYCLE_COUNTER(STAT_RenderingThreadUpdateTime);
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FTexture2DResource::CancelUpdate"), STAT_Texture2DResource_CancelUpdate, STATGROUP_StreamingDetails);
 
 	// TexState_InProgress_Finalization is valid as the request status gets decremented in the main thread. The actual
 	// call to FinalizeMipCount will happen after this one though.
@@ -2299,7 +2334,7 @@ FIncomingTextureArrayDataEntry::FIncomingTextureArrayDataEntry(UTexture2D* InTex
 	NumMips = InTexture->GetNumMips();
 	LODGroup = (TextureGroup)InTexture->LODGroup;
 	Format = InTexture->GetPixelFormat();
-	Filter = GSystemSettings.TextureLODSettings.GetSamplerFilter(InTexture);
+	Filter = (ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter(InTexture);
 	bSRGB = InTexture->SRGB;
 
 	MipData.Empty(NumMips);

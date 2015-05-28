@@ -47,7 +47,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		public string BuildVersion { get; set; }
 
 		/// <summary>A dictionary of the number of Buggs per user group.</summary>
-		public Dictionary<string, int> GroupCounts { get; set; }
+		public SortedDictionary<string, int> GroupCounts { get; set; }
 
 		/// <summary>The set of statuses a Bugg could have its status set to.</summary>
 		public IEnumerable<string> SetStatus
@@ -89,5 +89,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					} );
 			}
 		}
+
+		/// <summary></summary>
+		public string GenerationTime { get; set; }
 	}
 }

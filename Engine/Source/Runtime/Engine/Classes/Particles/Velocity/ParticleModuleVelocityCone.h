@@ -5,7 +5,7 @@
 #include "Particles/Velocity/ParticleModuleVelocityBase.h"
 #include "ParticleModuleVelocityCone.generated.h"
 
-UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "Velocity Cone"))
+UCLASS(editinlinenew, hidecategories=Object, MinimalAPI, meta=( DisplayName = "Velocity Cone" ))
 class UParticleModuleVelocityCone : public UParticleModuleVelocityBase
 {
 	GENERATED_UCLASS_BODY()

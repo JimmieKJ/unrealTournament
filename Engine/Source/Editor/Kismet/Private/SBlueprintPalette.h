@@ -61,6 +61,9 @@ private:
 
 	/** Pointer back to the blueprint editor that owns this */
 	TWeakPtr<FBlueprintEditor> BlueprintEditorPtr;
+
+	/** Cache for the MenuDescription to be displayed for this item */
+	FNodeTextCache MenuDescriptionCache;
 };
 
 

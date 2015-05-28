@@ -159,9 +159,6 @@ TSharedRef< class IMultiBlockBaseWidget > FMenuEntryBlock::ConstructWidget() con
 	return SNew( SMenuEntryBlock );
 }
 
-
-
-
 /**
  * Construct this widget
  *
@@ -170,8 +167,8 @@ TSharedRef< class IMultiBlockBaseWidget > FMenuEntryBlock::ConstructWidget() con
 void SMenuEntryBlock::Construct( const FArguments& InArgs )
 {
 	// No initial sub-menus should be opened
-	TimeToSubMenuOpen = 0.0f;
-	SubMenuRequestState = Idle;
+	/*TimeToSubMenuOpen = 0.0f;*/
+	//SubMenuRequestState = Idle;
 
 	// No images by default
 	CheckedImage = nullptr;
@@ -814,17 +811,25 @@ void SMenuEntryBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet, const F
 void SMenuEntryBlock::RequestSubMenuToggle( bool bOpenMenu, const bool bClobber )
 {
 	// Reset the time before the menu opens
-	TimeToSubMenuOpen = bClobber ? MultiBoxConstants::SubMenuClobberTime : MultiBoxConstants::SubMenuOpenTime;
-	SubMenuRequestState = bOpenMenu ? WantOpen : WantClose;
-	UpdateSubMenuState();
+	float TimeToSubMenuOpen = bClobber ? MultiBoxConstants::SubMenuClobberTime : MultiBoxConstants::SubMenuOpenTime;
+	//SubMenuRequestState = bOpenMenu ? WantOpen : WantClose;
+	if (!ActiveTimerHandle.IsValid())
+	{
+		ActiveTimerHandle = RegisterActiveTimer(TimeToSubMenuOpen, FWidgetActiveTimerDelegate::CreateSP(this, &SMenuEntryBlock::UpdateSubMenuState, bOpenMenu));
+	}
+	//UpdateSubMenuState();
 }
 
 void SMenuEntryBlock::CancelPendingSubMenu()
 {
 	// Reset any pending sub-menu openings
-	TimeToSubMenuOpen = 0.0f;
-	SubMenuRequestState = Idle;
-	UpdateSubMenuState();
+	//SubMenuRequestState = Idle;
+	
+	auto PinnedActiveTimerHandle = ActiveTimerHandle.Pin();
+	if (PinnedActiveTimerHandle.IsValid())
+	{
+		UnRegisterActiveTimer(PinnedActiveTimerHandle.ToSharedRef());
+	}
 }
 
 bool SMenuEntryBlock::ShouldSubMenuAppearHovered() const
@@ -1085,61 +1090,102 @@ FReply SMenuEntryBlock::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent&
 	return FReply::Unhandled();
 }
 
-void SMenuEntryBlock::UpdateSubMenuState()
+//void SMenuEntryBlock::UpdateSubMenuState()
+//{
+//	// Check to see if there is a pending sub-menu request
+//	if( SubMenuRequestState != Idle )
+//	{
+//		// Reduce the time until the new menu opens
+//		TimeToSubMenuOpen -= FSlateApplication::Get().GetDeltaTime();
+//		if( TimeToSubMenuOpen <= 0.0f )
+//		{
+//			const bool bSubMenuNeedsToOpen = ( SubMenuRequestState == WantOpen );
+//			SubMenuRequestState = Idle;
+//
+//			// The menu should be opened now as our timer is up
+//			TSharedRef< const FMenuEntryBlock > MenuEntryBlock = StaticCastSharedRef< const FMenuEntryBlock >( MultiBlock.ToSharedRef() );
+//
+//			TSharedPtr< SMultiBoxWidget > PinnedOwnerMultiBoxWidget( OwnerMultiBoxWidget.Pin() );
+//			check( PinnedOwnerMultiBoxWidget.IsValid() );
+//
+//			if( bSubMenuNeedsToOpen )
+//			{
+//				// For menu bar entries, we also need to handle mouse enter/leave events, so we can show and hide
+//				// the pull-down menu appropriately
+//				check( MenuEntryBlock->EntryBuilder.IsBound() || MenuEntryBlock->MenuBuilder.IsBound() || MenuEntryBlock->EntryWidget.IsValid() );
+//
+//				// Close other open pull-down menus from this menu bar
+//				// Do we have a different pull-down menu open?
+//				TSharedPtr< SMenuAnchor > PinnedMenuAnchor( MenuAnchor.Pin() );
+//				if( PinnedOwnerMultiBoxWidget->GetOpenMenu() != PinnedMenuAnchor )
+//				{
+//					PinnedOwnerMultiBoxWidget->CloseSummonedMenus();
+//
+//					// Summon the new pull-down menu!
+//					if( PinnedMenuAnchor.IsValid() )
+//					{
+//						PinnedMenuAnchor->SetIsOpen( true );
+//					}
+//
+//					// Also tell the multibox about this open pull-down menu, so it can be closed later if we need to
+//					PinnedOwnerMultiBoxWidget->SetSummonedMenu( PinnedMenuAnchor.ToSharedRef() );
+//				}
+//			}
+//			else
+//			{
+//				PinnedOwnerMultiBoxWidget->CloseSummonedMenus();
+//			}
+//		}
+//
+//	}
+//}
+
+EActiveTimerReturnType SMenuEntryBlock::UpdateSubMenuState(double InCurrentTime, float InDeltaTime, bool bWantsOpen)
 {
-	// Check to see if there is a pending sub-menu request
-	if( SubMenuRequestState != Idle )
+	//const bool bSubMenuNeedsToOpen = ( SubMenuRequestState == WantOpen );
+	//SubMenuRequestState = Idle;
+
+	// The menu should be opened now as our timer is up
+	TSharedRef< const FMenuEntryBlock > MenuEntryBlock = StaticCastSharedRef< const FMenuEntryBlock >(MultiBlock.ToSharedRef());
+
+	TSharedPtr< SMultiBoxWidget > PinnedOwnerMultiBoxWidget(OwnerMultiBoxWidget.Pin());
+	check(PinnedOwnerMultiBoxWidget.IsValid());
+
+	if (bWantsOpen)
 	{
-		// Reduce the time until the new menu opens
-		TimeToSubMenuOpen -= FSlateApplication::Get().GetDeltaTime();
-		if( TimeToSubMenuOpen <= 0.0f )
+		// For menu bar entries, we also need to handle mouse enter/leave events, so we can show and hide
+		// the pull-down menu appropriately
+		check(MenuEntryBlock->EntryBuilder.IsBound() || MenuEntryBlock->MenuBuilder.IsBound() || MenuEntryBlock->EntryWidget.IsValid());
+
+		// Close other open pull-down menus from this menu bar
+		// Do we have a different pull-down menu open?
+		TSharedPtr< SMenuAnchor > PinnedMenuAnchor(MenuAnchor.Pin());
+		if (PinnedOwnerMultiBoxWidget->GetOpenMenu() != PinnedMenuAnchor)
 		{
-			const bool bSubMenuNeedsToOpen = ( SubMenuRequestState == WantOpen );
-			SubMenuRequestState = Idle;
+			PinnedOwnerMultiBoxWidget->CloseSummonedMenus();
 
-			// The menu should be opened now as our timer is up
-			TSharedRef< const FMenuEntryBlock > MenuEntryBlock = StaticCastSharedRef< const FMenuEntryBlock >( MultiBlock.ToSharedRef() );
-
-			TSharedPtr< SMultiBoxWidget > PinnedOwnerMultiBoxWidget( OwnerMultiBoxWidget.Pin() );
-			check( PinnedOwnerMultiBoxWidget.IsValid() );
-
-			if( bSubMenuNeedsToOpen )
+			// Summon the new pull-down menu!
+			if (PinnedMenuAnchor.IsValid())
 			{
-				// For menu bar entries, we also need to handle mouse enter/leave events, so we can show and hide
-				// the pull-down menu appropriately
-				check( MenuEntryBlock->EntryBuilder.IsBound() || MenuEntryBlock->MenuBuilder.IsBound() || MenuEntryBlock->EntryWidget.IsValid() );
-
-				// Close other open pull-down menus from this menu bar
-				// Do we have a different pull-down menu open?
-				TSharedPtr< SMenuAnchor > PinnedMenuAnchor( MenuAnchor.Pin() );
-				if( PinnedOwnerMultiBoxWidget->GetOpenMenu() != PinnedMenuAnchor )
-				{
-					PinnedOwnerMultiBoxWidget->CloseSummonedMenus();
-
-					// Summon the new pull-down menu!
-					if( PinnedMenuAnchor.IsValid() )
-					{
-						PinnedMenuAnchor->SetIsOpen( true );
-					}
-
-					// Also tell the multibox about this open pull-down menu, so it can be closed later if we need to
-					PinnedOwnerMultiBoxWidget->SetSummonedMenu( PinnedMenuAnchor.ToSharedRef() );
-				}
+				PinnedMenuAnchor->SetIsOpen(true);
 			}
-			else
-			{
-				PinnedOwnerMultiBoxWidget->CloseSummonedMenus();
-			}
+
+			// Also tell the multibox about this open pull-down menu, so it can be closed later if we need to
+			PinnedOwnerMultiBoxWidget->SetSummonedMenu(PinnedMenuAnchor.ToSharedRef());
 		}
-
 	}
+	else
+	{
+		PinnedOwnerMultiBoxWidget->CloseSummonedMenus();
+	}
+
+	return EActiveTimerReturnType::Stop;
 }
 
-
-void SMenuEntryBlock::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-	UpdateSubMenuState();
-}
+//void SMenuEntryBlock::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+//{
+//	UpdateSubMenuState();
+//}
 
 /**
  * Called to create content for a pull-down or sub-menu window when it's summoned by the user

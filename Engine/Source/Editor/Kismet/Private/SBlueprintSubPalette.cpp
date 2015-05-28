@@ -70,7 +70,7 @@ static bool CanPaletteItemBePlaced(TSharedPtr<FEdGraphSchemaAction> DropActionIn
 		{
 			FName const FuncName = CallFuncNode->FunctionReference.GetMemberName();
 			check(FuncName != NAME_None);
-			UClass const* const FuncOwner = CallFuncNode->FunctionReference.GetMemberParentClass(CallFuncNode);
+			UClass const* const FuncOwner = CallFuncNode->FunctionReference.GetMemberParentClass(CallFuncNode->GetBlueprintClassFromNode());
 			check(FuncOwner != nullptr);
 
 			UFunction* const Function = FindField<UFunction>(FuncOwner, FuncName);
@@ -100,7 +100,7 @@ static bool CanPaletteItemBePlaced(TSharedPtr<FEdGraphSchemaAction> DropActionIn
 					}
 
 					const UClass* GeneratedClass = FBlueprintEditorUtils::FindBlueprintForGraphChecked(HoveredGraphIn)->GeneratedClass;
-					bCanBePlaced = K2Schema->CanFunctionBeUsedInGraph(GeneratedClass, Function, HoveredGraphIn, AllowedFunctionTypes, false, FFunctionTargetInfo(), &ImpededReasonOut);
+					bCanBePlaced = K2Schema->CanFunctionBeUsedInGraph(GeneratedClass, Function, HoveredGraphIn, AllowedFunctionTypes, false, &ImpededReasonOut);
 				}
 			}
 		}
@@ -176,7 +176,7 @@ public:
 	 */
 	virtual void RegisterCommands() override
 	{
-		UI_COMMAND(RefreshPalette, "Refresh List", "Refreshes the list of nodes.", EUserInterfaceActionType::Button, FInputGesture());
+		UI_COMMAND(RefreshPalette, "Refresh List", "Refreshes the list of nodes.", EUserInterfaceActionType::Button, FInputChord());
 	}
 };
 
@@ -195,6 +195,7 @@ SBlueprintSubPalette::~SBlueprintSubPalette()
 //------------------------------------------------------------------------------
 void SBlueprintSubPalette::Construct(FArguments const& InArgs, TWeakPtr<FBlueprintEditor> InBlueprintEditor)
 {
+	bIsActiveTimerRegistered = false;
 	BlueprintEditorPtr = InBlueprintEditor;
 
 	struct LocalUtils
@@ -256,15 +257,11 @@ void SBlueprintSubPalette::Construct(FArguments const& InArgs, TWeakPtr<FBluepri
 }
 
 //------------------------------------------------------------------------------
-void SBlueprintSubPalette::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+EActiveTimerReturnType SBlueprintSubPalette::TriggerRefreshActionsList(double InCurrentTime, float InDeltaTime)
 {
-	SGraphPalette::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-	if(bNeedsRefresh)
-	{
-		bNeedsRefresh = false;
-		RefreshActionsList(/*bPreserveExpansion =*/true);
-	}
+	RefreshActionsList(true);
+	bIsActiveTimerRegistered = false;
+	return EActiveTimerReturnType::Stop;
 }
 
 //------------------------------------------------------------------------------
@@ -304,8 +301,7 @@ void SBlueprintSubPalette::RefreshActionsList(bool bPreserveExpansion)
 //------------------------------------------------------------------------------
 TSharedRef<SWidget> SBlueprintSubPalette::OnCreateWidgetForAction(FCreateWidgetForActionData* const InCreateData)
 {
-	return SNew(SBlueprintPaletteItem, InCreateData, BlueprintEditorPtr.Pin())
-		.ShowClassInTooltip(true);
+	return SNew(SBlueprintPaletteItem, InCreateData, BlueprintEditorPtr.Pin());
 }
 
 //------------------------------------------------------------------------------
@@ -395,7 +391,11 @@ void SBlueprintSubPalette::GenerateContextMenuEntries(FMenuBuilder& MenuBuilder)
 //------------------------------------------------------------------------------
 void SBlueprintSubPalette::RequestRefreshActionsList()
 {
-	bNeedsRefresh = true;
+	if (!bIsActiveTimerRegistered)
+	{
+		bIsActiveTimerRegistered = true;
+		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SBlueprintSubPalette::TriggerRefreshActionsList));
+	}
 }
 
 //------------------------------------------------------------------------------

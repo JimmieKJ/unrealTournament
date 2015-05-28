@@ -48,7 +48,7 @@ public:
 
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 	virtual FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual void OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
@@ -81,10 +81,20 @@ private:
 	void SetStartupResolution();
 
 	/** The width of the preview screen for the UI */
-	FOptionalSize GetPreviewWidth() const;
+	FOptionalSize GetPreviewAreaWidth() const;
 
 	/** The height of the preview screen for the UI */
-	FOptionalSize GetPreviewHeight() const;
+	FOptionalSize GetPreviewAreaHeight() const;
+
+	/** The width of the preview widget for the UI */
+	FOptionalSize GetPreviewSizeWidth() const;
+
+	/** The height of the preview widget for the UI */
+	FOptionalSize GetPreviewSizeHeight() const;
+
+	const FSlateBrush* GetPreviewBackground() const;
+
+	void GetPreviewAreaAndSize(FVector2D& Area, FVector2D& Size) const;
 
 	/** Gets the DPI scale that would be applied given the current preview width and height */
 	float GetPreviewDPIScale() const;
@@ -107,6 +117,12 @@ private:
 	void ShowContextMenu(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 
 	void OnEditorSelectionChanged();
+
+	/** Called when a new widget is being hovered */
+	void OnHoveredWidgetSet(const FWidgetReference& InHoveredWidget);
+
+	/** Called when a widget is no longer being hovered */
+	void OnHoveredWidgetCleared();
 
 	/** Gets the blueprint being edited by the designer */
 	UWidgetBlueprint* GetBlueprint() const;
@@ -134,9 +150,13 @@ private:
 	void HandleOnCommonResolutionSelected(int32 Width, int32 Height, FString AspectRatio);
 	bool HandleIsCommonResolutionSelected(int32 Width, int32 Height) const;
 	void AddScreenResolutionSection(FMenuBuilder& MenuBuilder, const TArray<FPlayScreenResolution>& Resolutions, const FText& SectionName);
-	bool HandleIsCustomResolutionSelected() const;
-	void HandleOnCustomResolutionSelected();
-	TSharedRef<SWidget> GetAspectMenu();
+	TSharedRef<SWidget> GetResolutionsMenu();
+
+	TSharedRef<SWidget> GetScreenSizingFillMenu();
+	void CreateScreenFillEntry(FMenuBuilder& MenuBuilder, EDesignPreviewSizeMode SizeMode);
+	FText GetScreenSizingFillText() const;
+	bool GetIsScreenFillRuleSelected(EDesignPreviewSizeMode SizeMode) const;
+	void OnScreenFillRuleSelected(EDesignPreviewSizeMode SizeMode);
 
 	EVisibility PIENotification() const;
 
@@ -212,6 +232,8 @@ private:
 	UPanelWidget* DropPreviewParent;
 
 	TSharedPtr<class SZoomPan> PreviewHitTestRoot;
+	TSharedPtr<SBox> PreviewAreaConstraint;
+	TSharedPtr<SBox> PreviewSizeConstraint;
 	TSharedPtr<SDPIScaler> PreviewSurface;
 	TSharedPtr<SCanvas> ExtensionWidgetCanvas;
 	TSharedPtr<SPaintSurface> EffectsLayer;
@@ -240,11 +262,20 @@ private:
 	/** The configured Height of the preview area, simulates screen size. */
 	int32 PreviewHeight;
 
+	/** The slate brush we use to hold the background image shown in the designer. */
+	mutable FSlateBrush BackgroundImage;
+
+	/** We cache the desired preview desired size to maintain the same size between compiles when it lags a frame behind and no widget is available. */
+	FVector2D CachedPreviewDesiredSize;
+
 	// Resolution Info
 	FString PreviewAspectRatio;
 
 	/** Curve to handle fading of the resolution */
 	FCurveSequence ResolutionTextFade;
+
+	/** Curve to handle the fade-in of the border around the hovered widget */
+	FCurveSequence HoveredWidgetOutlineFade;
 
 	/**  */
 	FWeakWidgetPath SelectedWidgetPath;
@@ -263,7 +294,4 @@ private:
 
 	/**  */
 	TMap<TSharedRef<SWidget>, FArrangedWidget> CachedWidgetGeometry;
-
-	/**  */
-	FGeometry CachedDesignerGeometry;
 };

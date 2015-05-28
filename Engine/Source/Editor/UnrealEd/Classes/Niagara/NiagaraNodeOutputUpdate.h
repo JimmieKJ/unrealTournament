@@ -3,8 +3,8 @@
 #pragma once
 #include "NiagaraNodeOutputUpdate.generated.h"
 
-UCLASS(MinimalAPI)
-class UNiagaraNodeOutputUpdate : public UNiagaraNode
+UCLASS(MinimalAPI, Deprecated)
+class UDEPRECATED_NiagaraNodeOutputUpdate : public UNiagaraNode
 {
 	GENERATED_UCLASS_BODY()
 

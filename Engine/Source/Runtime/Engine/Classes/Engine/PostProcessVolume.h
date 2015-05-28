@@ -20,7 +20,7 @@ class APostProcessVolume : public AVolume, public IInterface_PostProcessVolume
 	GENERATED_UCLASS_BODY()
 
 	/** Post process settings to use for this volume. */
-	UPROPERTY(interp, Category=PostProcessVolume, meta=(ShowOnlyInnerProperties))
+	UPROPERTY(interp, Category=PostProcessVolume, meta=(DisplayName="Post Process Settings"))
 	struct FPostProcessSettings Settings;
 
 	/**

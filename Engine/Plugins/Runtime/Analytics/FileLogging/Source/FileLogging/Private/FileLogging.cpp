@@ -29,6 +29,7 @@ TSharedPtr<IAnalyticsProvider> FAnalyticsFileLogging::CreateAnalyticsProvider(co
 FAnalyticsProviderFileLogging::FAnalyticsProviderFileLogging() :
 	bHasSessionStarted(false),
 	bHasWrittenFirstEvent(false),
+	Age(0),
 	FileArchive(nullptr)
 {
 	FileArchive = nullptr;
@@ -59,6 +60,22 @@ bool FAnalyticsProviderFileLogging::StartSession(const TArray<FAnalyticsEventAtt
 		FileArchive->Logf(TEXT("{"));
 		FileArchive->Logf(TEXT("\t\"sessionId\" : \"%s\","), *SessionId);
 		FileArchive->Logf(TEXT("\t\"userId\" : \"%s\","), *UserId);
+		if (BuildInfo.Len() > 0)
+		{
+			FileArchive->Logf(TEXT("\t\"buildInfo\" : \"%s\","), *BuildInfo);
+		}
+		if (Age != 0)
+		{
+			FileArchive->Logf(TEXT("\t\"age\" : %d,"), Age);
+		}
+		if (Gender.Len() > 0)
+		{
+			FileArchive->Logf(TEXT("\t\"gender\" : \"%s\","), *Gender);
+		}
+		if (Location.Len() > 0)
+		{
+			FileArchive->Logf(TEXT("\t\"location\" : \"%s\","), *Location);
+		}
 		FileArchive->Logf(TEXT("\t\"events\" : ["));
 		bHasSessionStarted = true;
 		UE_LOG(LogFileLoggingAnalytics, Display, TEXT("Session created file (%s) for user (%s)"), *FileName, *UserId);
@@ -274,6 +291,249 @@ void FAnalyticsProviderFileLogging::RecordCurrencyGiven(const FString& GameCurre
 		FileArchive->Logf(TEXT("\t\t}"));
 
 		UE_LOG(LogFileLoggingAnalytics, Display, TEXT("(%d) amount of in game currency (%s) given to user"), GameCurrencyAmount, *GameCurrencyType);
+	}
+	else
+	{
+		UE_LOG(LogFileLoggingAnalytics, Warning, TEXT("FAnalyticsProviderFileLogging::RecordCurrencyGiven called before StartSession. Ignoring."));
+	}
+}
+
+void FAnalyticsProviderFileLogging::SetAge(int InAge)
+{
+	Age = InAge;
+}
+
+void FAnalyticsProviderFileLogging::SetLocation(const FString& InLocation)
+{
+	Location = InLocation;
+}
+
+void FAnalyticsProviderFileLogging::SetGender(const FString& InGender)
+{
+	Gender = InGender;
+}
+
+void FAnalyticsProviderFileLogging::SetBuildInfo(const FString& InBuildInfo)
+{
+	BuildInfo = InBuildInfo;
+}
+
+void FAnalyticsProviderFileLogging::RecordError(const FString& Error, const TArray<FAnalyticsEventAttribute>& Attributes)
+{
+	if (bHasSessionStarted)
+	{
+		check(FileArchive != nullptr);
+
+		if (bHasWrittenFirstEvent)
+		{
+			FileArchive->Logf(TEXT("\t\t,"));
+		}
+		bHasWrittenFirstEvent = true;
+
+		FileArchive->Logf(TEXT("\t\t{"));
+		FileArchive->Logf(TEXT("\t\t\t\"error\" : \"%s\","), *Error);
+
+		FileArchive->Logf(TEXT("\t\t\t\"attributes\" :"));
+		FileArchive->Logf(TEXT("\t\t\t["));
+		bool bHasWrittenFirstAttr = false;
+		// Write out the list of attributes as an array of attribute objects
+		for (auto Attr : Attributes)
+		{
+			if (bHasWrittenFirstAttr)
+			{
+				FileArchive->Logf(TEXT("\t\t\t,"));
+			}
+			FileArchive->Logf(TEXT("\t\t\t{"));
+			FileArchive->Logf(TEXT("\t\t\t\t\"name\" : \"%s\","), *Attr.AttrName);
+			FileArchive->Logf(TEXT("\t\t\t\t\"value\" : \"%s\""), *Attr.AttrValue);
+			FileArchive->Logf(TEXT("\t\t\t}"));
+			bHasWrittenFirstAttr = true;
+		}
+		FileArchive->Logf(TEXT("\t\t\t]"));
+
+		FileArchive->Logf(TEXT("\t\t}"));
+
+		UE_LOG(LogFileLoggingAnalytics, Display, TEXT("Error is (%s) number of attributes is (%d)"), *Error, Attributes.Num());
+	}
+	else
+	{
+		UE_LOG(LogFileLoggingAnalytics, Warning, TEXT("FAnalyticsProviderFileLogging::RecordError called before StartSession. Ignoring."));
+	}
+}
+
+void FAnalyticsProviderFileLogging::RecordProgress(const FString& ProgressType, const FString& ProgressName, const TArray<FAnalyticsEventAttribute>& Attributes)
+{
+	if (bHasSessionStarted)
+	{
+		check(FileArchive != nullptr);
+
+		if (bHasWrittenFirstEvent)
+		{
+			FileArchive->Logf(TEXT("\t\t,"));
+		}
+		bHasWrittenFirstEvent = true;
+
+		FileArchive->Logf(TEXT("\t\t{"));
+		FileArchive->Logf(TEXT("\t\t\t\"eventType\" : \"Progress\","));
+		FileArchive->Logf(TEXT("\t\t\t\"progressType\" : \"%s\","), *ProgressType);
+		FileArchive->Logf(TEXT("\t\t\t\"progressName\" : \"%s\","), *ProgressName);
+
+		FileArchive->Logf(TEXT("\t\t\t\"attributes\" :"));
+		FileArchive->Logf(TEXT("\t\t\t["));
+		bool bHasWrittenFirstAttr = false;
+		// Write out the list of attributes as an array of attribute objects
+		for (auto Attr : Attributes)
+		{
+			if (bHasWrittenFirstAttr)
+			{
+				FileArchive->Logf(TEXT("\t\t\t,"));
+			}
+			FileArchive->Logf(TEXT("\t\t\t{"));
+			FileArchive->Logf(TEXT("\t\t\t\t\"name\" : \"%s\","), *Attr.AttrName);
+			FileArchive->Logf(TEXT("\t\t\t\t\"value\" : \"%s\""), *Attr.AttrValue);
+			FileArchive->Logf(TEXT("\t\t\t}"));
+			bHasWrittenFirstAttr = true;
+		}
+		FileArchive->Logf(TEXT("\t\t\t]"));
+
+		FileArchive->Logf(TEXT("\t\t}"));
+
+		UE_LOG(LogFileLoggingAnalytics, Display, TEXT("Progress event is type (%s), named (%s), number of attributes is (%d)"), *ProgressType, *ProgressName, Attributes.Num());
+	}
+	else
+	{
+		UE_LOG(LogFileLoggingAnalytics, Warning, TEXT("FAnalyticsProviderFileLogging::RecordProgress called before StartSession. Ignoring."));
+	}
+}
+
+void FAnalyticsProviderFileLogging::RecordItemPurchase(const FString& ItemId, int ItemQuantity, const TArray<FAnalyticsEventAttribute>& Attributes)
+{
+	if (bHasSessionStarted)
+	{
+		check(FileArchive != nullptr);
+
+		if (bHasWrittenFirstEvent)
+		{
+			FileArchive->Logf(TEXT("\t\t,"));
+		}
+		bHasWrittenFirstEvent = true;
+
+		FileArchive->Logf(TEXT("\t\t{"));
+		FileArchive->Logf(TEXT("\t\t\t\"eventType\" : \"ItemPurchase\","));
+		FileArchive->Logf(TEXT("\t\t\t\"itemId\" : \"%s\","), *ItemId);
+		FileArchive->Logf(TEXT("\t\t\t\"itemQuantity\" : %d,"), ItemQuantity);
+
+		FileArchive->Logf(TEXT("\t\t\t\"attributes\" :"));
+		FileArchive->Logf(TEXT("\t\t\t["));
+		bool bHasWrittenFirstAttr = false;
+		// Write out the list of attributes as an array of attribute objects
+		for (auto Attr : Attributes)
+		{
+			if (bHasWrittenFirstAttr)
+			{
+				FileArchive->Logf(TEXT("\t\t\t,"));
+			}
+			FileArchive->Logf(TEXT("\t\t\t{"));
+			FileArchive->Logf(TEXT("\t\t\t\t\"name\" : \"%s\","), *Attr.AttrName);
+			FileArchive->Logf(TEXT("\t\t\t\t\"value\" : \"%s\""), *Attr.AttrValue);
+			FileArchive->Logf(TEXT("\t\t\t}"));
+			bHasWrittenFirstAttr = true;
+		}
+		FileArchive->Logf(TEXT("\t\t\t]"));
+
+		FileArchive->Logf(TEXT("\t\t}"));
+
+		UE_LOG(LogFileLoggingAnalytics, Display, TEXT("Item purchase id (%s), quantity (%d), number of attributes is (%d)"), *ItemId, ItemQuantity, Attributes.Num());
+	}
+	else
+	{
+		UE_LOG(LogFileLoggingAnalytics, Warning, TEXT("FAnalyticsProviderFileLogging::RecordItemPurchase called before StartSession. Ignoring."));
+	}
+}
+
+void FAnalyticsProviderFileLogging::RecordCurrencyPurchase(const FString& GameCurrencyType, int GameCurrencyAmount, const TArray<FAnalyticsEventAttribute>& Attributes)
+{
+	if (bHasSessionStarted)
+	{
+		check(FileArchive != nullptr);
+
+		if (bHasWrittenFirstEvent)
+		{
+			FileArchive->Logf(TEXT("\t\t,"));
+		}
+		bHasWrittenFirstEvent = true;
+
+		FileArchive->Logf(TEXT("\t\t{"));
+		FileArchive->Logf(TEXT("\t\t\t\"eventType\" : \"CurrencyPurchase\","));
+		FileArchive->Logf(TEXT("\t\t\t\"gameCurrencyType\" : \"%s\","), *GameCurrencyType);
+		FileArchive->Logf(TEXT("\t\t\t\"gameCurrencyAmount\" : %d,"), GameCurrencyAmount);
+
+		FileArchive->Logf(TEXT("\t\t\t\"attributes\" :"));
+		FileArchive->Logf(TEXT("\t\t\t["));
+		bool bHasWrittenFirstAttr = false;
+		// Write out the list of attributes as an array of attribute objects
+		for (auto Attr : Attributes)
+		{
+			if (bHasWrittenFirstAttr)
+			{
+				FileArchive->Logf(TEXT("\t\t\t,"));
+			}
+			FileArchive->Logf(TEXT("\t\t\t{"));
+			FileArchive->Logf(TEXT("\t\t\t\t\"name\" : \"%s\","), *Attr.AttrName);
+			FileArchive->Logf(TEXT("\t\t\t\t\"value\" : \"%s\""), *Attr.AttrValue);
+			FileArchive->Logf(TEXT("\t\t\t}"));
+			bHasWrittenFirstAttr = true;
+		}
+		FileArchive->Logf(TEXT("\t\t\t]"));
+
+		FileArchive->Logf(TEXT("\t\t}"));
+
+		UE_LOG(LogFileLoggingAnalytics, Display, TEXT("Currency purchase type (%s), quantity (%d), number of attributes is (%d)"), *GameCurrencyType, GameCurrencyAmount, Attributes.Num());
+	}
+	else
+	{
+		UE_LOG(LogFileLoggingAnalytics, Warning, TEXT("FAnalyticsProviderFileLogging::RecordCurrencyPurchase called before StartSession. Ignoring."));
+	}
+}
+
+void FAnalyticsProviderFileLogging::RecordCurrencyGiven(const FString& GameCurrencyType, int GameCurrencyAmount, const TArray<FAnalyticsEventAttribute>& Attributes)
+{
+	if (bHasSessionStarted)
+	{
+		check(FileArchive != nullptr);
+
+		if (bHasWrittenFirstEvent)
+		{
+			FileArchive->Logf(TEXT("\t\t,"));
+		}
+		bHasWrittenFirstEvent = true;
+
+		FileArchive->Logf(TEXT("\t\t{"));
+		FileArchive->Logf(TEXT("\t\t\t\"eventType\" : \"CurrencyGiven\","));
+		FileArchive->Logf(TEXT("\t\t\t\"gameCurrencyType\" : \"%s\","), *GameCurrencyType);
+		FileArchive->Logf(TEXT("\t\t\t\"gameCurrencyAmount\" : %d,"), GameCurrencyAmount);
+
+		FileArchive->Logf(TEXT("\t\t\t\"attributes\" :"));
+		FileArchive->Logf(TEXT("\t\t\t["));
+		bool bHasWrittenFirstAttr = false;
+		// Write out the list of attributes as an array of attribute objects
+		for (auto Attr : Attributes)
+		{
+			if (bHasWrittenFirstAttr)
+			{
+				FileArchive->Logf(TEXT("\t\t\t,"));
+			}
+			FileArchive->Logf(TEXT("\t\t\t{"));
+			FileArchive->Logf(TEXT("\t\t\t\t\"name\" : \"%s\","), *Attr.AttrName);
+			FileArchive->Logf(TEXT("\t\t\t\t\"value\" : \"%s\""), *Attr.AttrValue);
+			FileArchive->Logf(TEXT("\t\t\t}"));
+			bHasWrittenFirstAttr = true;
+		}
+		FileArchive->Logf(TEXT("\t\t\t]"));
+
+		FileArchive->Logf(TEXT("\t\t}"));
+
+		UE_LOG(LogFileLoggingAnalytics, Display, TEXT("Currency given type (%s), quantity (%d), number of attributes is (%d)"), *GameCurrencyType, GameCurrencyAmount, Attributes.Num());
 	}
 	else
 	{

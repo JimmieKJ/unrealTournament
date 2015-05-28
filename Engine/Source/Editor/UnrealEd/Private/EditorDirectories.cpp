@@ -29,18 +29,18 @@ void FEditorDirectories::LoadLastDirectories()
 	LastDir[ELastDirectory::PROJECT] = FPaths::RootDir();
 
 	// NOTE: We append a "2" to the section name to enforce backwards compatibility.  "Directories" is deprecated.
-	GConfig->GetString( TEXT("Directories2"), TEXT("UNR"),				LastDir[ELastDirectory::UNR],					GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("BRUSH"),			LastDir[ELastDirectory::BRUSH],				GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("FBX"),				LastDir[ELastDirectory::FBX],					GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("FBXAnim"),			LastDir[ELastDirectory::FBX_ANIM],			GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("GenericImport"),	LastDir[ELastDirectory::GENERIC_IMPORT],		GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("GenericExport"),	LastDir[ELastDirectory::GENERIC_EXPORT],		GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("GenericOpen"),		LastDir[ELastDirectory::GENERIC_OPEN],		GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("GenericSave"),		LastDir[ELastDirectory::GENERIC_SAVE],		GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("MeshImportExport"),	LastDir[ELastDirectory::MESH_IMPORT_EXPORT],	GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("WorldRoot"),		LastDir[ELastDirectory::WORLD_ROOT],			GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("Level"),			LastDir[ELastDirectory::LEVEL],					GEditorUserSettingsIni );
-	GConfig->GetString( TEXT("Directories2"), TEXT("Project"),			LastDir[ELastDirectory::PROJECT],				GEditorUserSettingsIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("UNR"),				LastDir[ELastDirectory::UNR],					GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("BRUSH"),			LastDir[ELastDirectory::BRUSH],				GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("FBX"),				LastDir[ELastDirectory::FBX],					GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("FBXAnim"),			LastDir[ELastDirectory::FBX_ANIM],			GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("GenericImport"),	LastDir[ELastDirectory::GENERIC_IMPORT],		GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("GenericExport"),	LastDir[ELastDirectory::GENERIC_EXPORT],		GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("GenericOpen"),		LastDir[ELastDirectory::GENERIC_OPEN],		GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("GenericSave"),		LastDir[ELastDirectory::GENERIC_SAVE],		GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("MeshImportExport"),	LastDir[ELastDirectory::MESH_IMPORT_EXPORT],	GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("WorldRoot"),		LastDir[ELastDirectory::WORLD_ROOT],			GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("Level"),			LastDir[ELastDirectory::LEVEL],					GEditorPerProjectIni );
+	GConfig->GetString( TEXT("Directories2"), TEXT("Project"),			LastDir[ELastDirectory::PROJECT],				GEditorPerProjectIni );
 
 }
 
@@ -48,18 +48,18 @@ void FEditorDirectories::LoadLastDirectories()
 void FEditorDirectories::SaveLastDirectories()
 {
 	// Save out default file directories
-	GConfig->SetString( TEXT("Directories2"), TEXT("UNR"),				*LastDir[ELastDirectory::UNR],				GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("BRUSH"),			*LastDir[ELastDirectory::BRUSH],				GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("FBX"),				*LastDir[ELastDirectory::FBX],				GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("FBXAnim"),			*LastDir[ELastDirectory::FBX_ANIM],			GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("GenericImport"),	*LastDir[ELastDirectory::GENERIC_IMPORT],		GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("GenericExport"),	*LastDir[ELastDirectory::GENERIC_EXPORT],		GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("GenericOpen"),		*LastDir[ELastDirectory::GENERIC_OPEN],		GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("GenericSave"),		*LastDir[ELastDirectory::GENERIC_SAVE],		GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("MeshImportExport"),	*LastDir[ELastDirectory::MESH_IMPORT_EXPORT],	GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("WorldRoot"),		*LastDir[ELastDirectory::WORLD_ROOT],			GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("Level"),			*LastDir[ELastDirectory::LEVEL],				GEditorUserSettingsIni );
-	GConfig->SetString( TEXT("Directories2"), TEXT("Project"),			*LastDir[ELastDirectory::PROJECT],				GEditorUserSettingsIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("UNR"),				*LastDir[ELastDirectory::UNR],				GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("BRUSH"),			*LastDir[ELastDirectory::BRUSH],				GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("FBX"),				*LastDir[ELastDirectory::FBX],				GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("FBXAnim"),			*LastDir[ELastDirectory::FBX_ANIM],			GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("GenericImport"),	*LastDir[ELastDirectory::GENERIC_IMPORT],		GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("GenericExport"),	*LastDir[ELastDirectory::GENERIC_EXPORT],		GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("GenericOpen"),		*LastDir[ELastDirectory::GENERIC_OPEN],		GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("GenericSave"),		*LastDir[ELastDirectory::GENERIC_SAVE],		GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("MeshImportExport"),	*LastDir[ELastDirectory::MESH_IMPORT_EXPORT],	GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("WorldRoot"),		*LastDir[ELastDirectory::WORLD_ROOT],			GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("Level"),			*LastDir[ELastDirectory::LEVEL],				GEditorPerProjectIni );
+	GConfig->SetString( TEXT("Directories2"), TEXT("Project"),			*LastDir[ELastDirectory::PROJECT],				GEditorPerProjectIni );
 }
 
 FString FEditorDirectories::GetLastDirectory( const ELastDirectory::Type InLastDir ) const

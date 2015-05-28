@@ -147,6 +147,7 @@ namespace UnrealBuildTool
                 GCCPath = Which("g++");
                 ArPath = Which("ar");
                 RanlibPath = Which("ranlib");
+				StripPath = Which("strip");
 
 				// if clang is available, zero out gcc (@todo: support runtime switching?)
 				if (!String.IsNullOrEmpty(ClangPath))
@@ -171,6 +172,7 @@ namespace UnrealBuildTool
 				// ar and ranlib will be switched later to match the architecture
 				ArPath = "ar.exe";
 				RanlibPath = "ranlib.exe";
+				StripPath = "strip.exe";
 			}
 
 			if (!DetermineCompilerVersion())
@@ -262,6 +264,17 @@ namespace UnrealBuildTool
 			return RanlibPath;
 		}
 
+		/** Gets architecture-specific strip path */
+		private static string GetStripPath(string Architecture)
+		{
+			if (CrossCompiling())
+			{
+				return Path.Combine(Path.Combine(BaseLinuxPath, String.Format("bin/{0}-{1}", Architecture, StripPath)));
+			}
+
+			return StripPath;
+		}
+
 		static string GetCLArguments_Global(CPPEnvironment CompileEnvironment)
         {
             string Result = "";
@@ -309,7 +322,10 @@ namespace UnrealBuildTool
             else
             {
                 // Clang only options
-                Result += " -fdiagnostics-format=msvc";     // make diagnostics compatible with MSVC
+				if (CrossCompiling())
+				{
+					Result += " -fdiagnostics-format=msvc";     // make diagnostics compatible with MSVC when cross-compiling
+				}
                 Result += " -Wno-unused-private-field";     // MultichannelTcpSocket.h triggers this, possibly more
                 // this hides the "warning : comparison of unsigned expression < 0 is always false" type warnings due to constant comparisons, which are possible with template arguments
                 Result += " -Wno-tautological-compare";
@@ -318,6 +334,12 @@ namespace UnrealBuildTool
 				if (CompilerVersionGreaterOrEqual(3, 5, 0))
 				{
 					Result += " -Wno-undefined-bool-conversion";	// hides checking if 'this' pointer is null
+				}
+
+				if (CompilerVersionGreaterOrEqual(3, 6, 0))
+				{
+					Result += " -Wno-unused-local-typedef";	// clang is being overly strict here? PhysX headers trigger this.
+					Result += " -Wno-inconsistent-missing-override";	// these have to be suppressed for UE 4.8, should be fixed later.
 				}
             }
 
@@ -329,6 +351,11 @@ namespace UnrealBuildTool
             Result += " -Wno-unknown-pragmas";			// Slate triggers this (with its optimize on/off pragmas)
 			Result += " -Wno-invalid-offsetof"; // needed to suppress warnings about using offsetof on non-POD types.
 
+			if (CompileEnvironment.Config.bEnableShadowVariableWarning)
+			{
+				Result += " -Wshadow";
+			}
+
             //Result += " -DOPERATOR_NEW_INLINE=FORCENOINLINE";
 
             // shipping builds will cause this warning with "ensure", so disable only in those case
@@ -336,10 +363,8 @@ namespace UnrealBuildTool
             {
                 Result += " -Wno-unused-value";
 
-                // in shipping, strip as much info as possible
-                Result += " -g0";
-                Result += " -fomit-frame-pointer";
-                //Result += " -fvisibility=hidden";           // prevents from exporting all symbols (reduces the size of the binary)
+				// Not stripping debug info in Shipping @FIXME: temporary hack for FN to enable callstack in Shipping builds (proper resolution: UEPLAT-205)
+				Result += " -fomit-frame-pointer";
             }
             // switches to help debugging
             else if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
@@ -350,12 +375,13 @@ namespace UnrealBuildTool
                 //Result += " -fsanitize=address";            // detect address based errors (support properly and link to libasan)
             }
 
-            // debug info
-            if (CompileEnvironment.Config.bCreateDebugInfo)
+            // debug info (bCreateDebugInfo is normally set for all configurations, and we don't want it to affect Development/Shipping performance)
+            if (CompileEnvironment.Config.bCreateDebugInfo && CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
             {
                 Result += " -g3";
             }
-            else if (CompileEnvironment.Config.Target.Configuration < CPPTargetConfiguration.Shipping)
+			// Applying to all configurations, including Shipping @FIXME: temporary hack for FN to enable callstack in Shipping builds (proper resolution: UEPLAT-205)
+			else
             {
                 Result += " -gline-tables-only"; // include debug info for meaningful callstacks
             }
@@ -376,6 +402,9 @@ namespace UnrealBuildTool
             if (CompileEnvironment.Config.bIsBuildingDLL)
             {
                 Result += " -fPIC";
+                // Use local-dynamic TLS model. This generates less efficient runtime code for __thread variables, but avoids problems of running into
+                // glibc/ld.so limit (DTV_SURPLUS) for number of dlopen()'ed DSOs with static TLS (see e.g. https://www.cygwin.com/ml/libc-help/2013-11/msg00033.html)
+                Result += " -ftls-model=local-dynamic";
             }
 
             //Result += " -v";                            // for better error diagnosis
@@ -387,7 +416,7 @@ namespace UnrealBuildTool
                 {
                     Result += String.Format(" -target {0}", CompileEnvironment.Config.Target.Architecture);        // Set target triple
                 }
-                Result += String.Format(" --sysroot={0}", BaseLinuxPath);
+                Result += String.Format(" --sysroot=\"{0}\"", BaseLinuxPath);
             }
 
             return Result;
@@ -442,16 +471,10 @@ namespace UnrealBuildTool
             string Result = "";
 
             // debugging symbols
-            if (LinkEnvironment.Config.Target.Configuration < CPPTargetConfiguration.Shipping)
-            {
-                Result += " -rdynamic";   // needed for backtrace_symbols()...
-            }
-            else
-            {
-                Result += " -s"; // Strip binaries in Shipping
-            }
+			// Applying to all configurations @FIXME: temporary hack for FN to enable callstack in Shipping builds (proper resolution: UEPLAT-205)
+            Result += " -rdynamic";   // needed for backtrace_symbols()...
 
-            if (LinkEnvironment.Config.bIsBuildingDLL)
+			if (LinkEnvironment.Config.bIsBuildingDLL)
             {
                 Result += " -shared";
             }
@@ -461,12 +484,6 @@ namespace UnrealBuildTool
                 Result += string.Format(" -Wl,--unresolved-symbols=ignore-in-shared-libs");
             }
 
-            if (UnrealBuildTool.BuildingRocket())
-            {
-                // strip symbols for Rocket in every configuration
-                Result += " -Wl,-s";
-            }
-
             // RPATH for third party libs
             Result += " -Wl,-rpath=${ORIGIN}";
             Result += " -Wl,-rpath-link=${ORIGIN}";
@@ -474,6 +491,7 @@ namespace UnrealBuildTool
 			Result += " -Wl,-rpath=${ORIGIN}/..";	// for modules that are in sub-folders of the main Engine/Binary/Linux folder
 			// FIXME: really ugly temp solution. Modules need to be able to specify this
             Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Linux/x86_64-unknown-linux-gnu";
+            Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/LinuxNativeDialogs/Linux/x86_64-unknown-linux-gnu";
 
             if (CrossCompiling())
             {
@@ -501,37 +519,48 @@ namespace UnrealBuildTool
                 return;
             }
 
-            // Need to match following for clickable links
-            string RegexFilePath = @"^[A-Z]\:([\\\/][A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
-            string RegexLineNumber = @"\:\d+\:\d+\:";
-            string RegexDescription = @"(\serror:\s|\swarning:\s|\snote:\s).*";
+			if (CrossCompiling())
+			{
+				// format the string so the output errors are clickable in Visual Studio
 
-            // Get Matches
-            string MatchFilePath = Regex.Match(Output, RegexFilePath).Value.Replace("Engine\\Source\\..\\..\\", "");
-            string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
-            string MatchDescription = Regex.Match(Output, RegexDescription).Value;
+				// Need to match following for clickable links
+				string RegexFilePath = @"^[A-Z]\:([\\\/][A-Za-z0-9_\-\.]*)+\.(cpp|c|mm|m|hpp|h)";
+				string RegexLineNumber = @"\:\d+\:\d+\:";
+				string RegexDescription = @"(\serror:\s|\swarning:\s|\snote:\s).*";
 
-            // If any of the above matches failed, do nothing
-            if (MatchFilePath.Length == 0 ||
-                MatchLineNumber.Length == 0 ||
-                MatchDescription.Length == 0)
-            {
-                Console.WriteLine(Output);
-                return;
-            }
+				// Get Matches
+				string MatchFilePath = Regex.Match(Output, RegexFilePath).Value.Replace("Engine\\Source\\..\\..\\", "");
+				string MatchLineNumber = Regex.Match(Output, RegexLineNumber).Value;
+				string MatchDescription = Regex.Match(Output, RegexDescription).Value;
 
-            // Convert Path
-            string RegexStrippedPath = @"\\Engine\\.*"; //@"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
-            string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
-            ConvertedFilePath = Path.GetFullPath("..\\.." + ConvertedFilePath);
+				// If any of the above matches failed, do nothing
+				if (MatchFilePath.Length == 0 ||
+					MatchLineNumber.Length == 0 ||
+					MatchDescription.Length == 0)
+				{
+					Console.WriteLine(Output);
+					return;
+				}
 
-            // Extract Line + Column Number
-            string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
-            string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
+				// Convert Path
+				string RegexStrippedPath = @"\\Engine\\.*"; //@"(Engine\/|[A-Za-z0-9_\-\.]*\/).*";
+				string ConvertedFilePath = Regex.Match(MatchFilePath, RegexStrippedPath).Value;
+				ConvertedFilePath = Path.GetFullPath("..\\.." + ConvertedFilePath);
 
-            // Write output
-            string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
-            Console.WriteLine(ConvertedExpression); // To create clickable vs link
+				// Extract Line + Column Number
+				string ConvertedLineNumber = Regex.Match(MatchLineNumber, @"\d+").Value;
+				string ConvertedColumnNumber = Regex.Match(MatchLineNumber, @"(?<=:\d+:)\d+").Value;
+
+				// Write output
+				string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
+				Console.WriteLine(ConvertedExpression); // To create clickable vs link
+			}
+			else
+			{
+				// native platform tools expect this in stderror
+
+				Console.Error.WriteLine(Output);
+			}
         }
 
         // cache the location of NDK tools
@@ -540,6 +569,7 @@ namespace UnrealBuildTool
         static string GCCPath;
         static string ArPath;
         static string RanlibPath;
+		static string StripPath;
 
 		/** Version string of the current compiler, whether clang or gcc or whatever */
 		static string CompilerVersionString;
@@ -559,11 +589,6 @@ namespace UnrealBuildTool
         {
             string Arguments = GetCLArguments_Global(CompileEnvironment);
             string PCHArguments = "";
-
-            if (CompileEnvironment.Config.bIsBuildingDLL)
-            {
-                Arguments += " -fPIC";
-            }
 
             if (CompileEnvironment.Config.PrecompiledHeaderAction == PrecompiledHeaderAction.Include)
             {
@@ -717,7 +742,7 @@ namespace UnrealBuildTool
             else
             {
                 ArchiveAction.CommandPath = "cmd.exe";
-                ArchiveAction.CommandArguments = "/c ";
+                ArchiveAction.CommandArguments = "/c \"";
             }
 
             // this will produce a final library
@@ -728,7 +753,7 @@ namespace UnrealBuildTool
             ArchiveAction.ProducedItems.Add(OutputFile);
             ArchiveAction.CommandDescription = "Archive";
             ArchiveAction.StatusDescription = Path.GetFileName(OutputFile.AbsolutePath);
-            ArchiveAction.CommandArguments += string.Format("{0} {1} \"{2}\"",  GetArPath(LinkEnvironment.Config.Target.Architecture), GetArchiveArguments(LinkEnvironment), OutputFile.AbsolutePath);
+            ArchiveAction.CommandArguments += string.Format("\"{0}\" {1} \"{2}\"",  GetArPath(LinkEnvironment.Config.Target.Architecture), GetArchiveArguments(LinkEnvironment), OutputFile.AbsolutePath);
 
             // Add the input files to a response file, and pass the response file on the command-line.
             List<string> InputFileNames = new List<string>();
@@ -741,7 +766,7 @@ namespace UnrealBuildTool
             }
 
             // add ranlib
-            ArchiveAction.CommandArguments += string.Format(" && {0} \"{1}\"", GetRanlibPath(LinkEnvironment.Config.Target.Architecture), OutputFile.AbsolutePath);
+            ArchiveAction.CommandArguments += string.Format(" && \"{0}\" \"{1}\"", GetRanlibPath(LinkEnvironment.Config.Target.Architecture), OutputFile.AbsolutePath);
 
             // Add the additional arguments specified by the environment.
             ArchiveAction.CommandArguments += LinkEnvironment.Config.AdditionalArguments;
@@ -751,6 +776,10 @@ namespace UnrealBuildTool
             {
                 ArchiveAction.CommandArguments += "'";
             }
+			else
+			{
+				ArchiveAction.CommandArguments += "\"";
+			}
 
             // Only execute linking on the local PC.
             ArchiveAction.bCanExecuteRemotely = false;
@@ -1104,6 +1133,18 @@ namespace UnrealBuildTool
 		public override UnrealTargetPlatform GetPlatform()
 		{
 			return UnrealTargetPlatform.Linux;
+		}
+
+		public override void StripSymbols(string SourceFileName, string TargetFileName)
+		{
+			File.Copy(SourceFileName, TargetFileName, true);
+
+			ProcessStartInfo StartInfo = new ProcessStartInfo();
+			StartInfo.FileName = GetStripPath(UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Linux).GetActiveArchitecture());
+			StartInfo.Arguments = TargetFileName;
+			StartInfo.UseShellExecute = false;
+			StartInfo.CreateNoWindow = true;
+			Utils.RunLocalProcessAndLogOutput(StartInfo);
 		}
 	}
 }

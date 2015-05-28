@@ -15,10 +15,17 @@ class UK2Node_ActorBoundEvent : public UK2Node_Event
 	UPROPERTY()
 	FName DelegatePropertyName;
 
+	/** Delegate property's owner class that this event is associated with */
+	UPROPERTY()
+	UClass* DelegateOwnerClass;
+
 	/** The event that this event is bound to */
 	UPROPERTY()
 	class AActor* EventOwner;
 
+	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	// End of UObject interface
 
 	// Begin UEdGraphNode interface
 	virtual void ReconstructNode() override;

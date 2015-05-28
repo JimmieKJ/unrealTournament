@@ -53,10 +53,10 @@ void UAnimGraphNode_Fabrik::DoTranslation(const USkeletalMeshComponent* SkelComp
 {
 	FAnimNode_Fabrik* Fabrik = static_cast<FAnimNode_Fabrik*>(InOutAnimNode);
 
-	FVector Offset = ConvertCSVectorToBoneSpace(SkelComp, Drag, Fabrik->ForwardedPose, Node.EffectorTransformBone.BoneName, Node.EffectorTransformSpace);
-
 	if (Fabrik)
 	{
+		FVector Offset = ConvertCSVectorToBoneSpace(SkelComp, Drag, Fabrik->ForwardedPose, Node.EffectorTransformBone.BoneName, Node.EffectorTransformSpace);
+
 		Fabrik->EffectorTransform.AddToTranslation(Offset);
 		// copy same value to internal node for data consistency
 		Node.EffectorTransform.SetTranslation(Fabrik->EffectorTransform.GetTranslation());

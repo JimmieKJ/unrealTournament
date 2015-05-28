@@ -510,7 +510,7 @@ UStaticMesh* CreateStaticMesh(struct FRawMesh& RawMesh,TArray<UMaterialInterface
 {
 	// Create the UStaticMesh object.
 	FStaticMeshComponentRecreateRenderStateContext RecreateRenderStateContext(FindObject<UStaticMesh>(InOuter,*InName.ToString()));
-	auto StaticMesh = NewNamedObject<UStaticMesh>(InOuter, InName, RF_Public | RF_Standalone);
+	auto StaticMesh = NewObject<UStaticMesh>(InOuter, InName, RF_Public | RF_Standalone);
 
 	// Add one LOD for the base mesh
 	FStaticMeshSourceModel* SrcModel = new(StaticMesh->SourceModels) FStaticMeshSourceModel();
@@ -814,17 +814,26 @@ static void TransformPolys(UPolys* Polys,const FMatrix& Matrix)
 
 }
 
+// LOD data to copy over
+struct ExistingLODMeshData
+{
+	FMeshBuildSettings			ExistingBuildSettings;
+	FMeshReductionSettings		ExistingReductionSettings;
+	FRawMesh					ExistingRawMesh;
+	TArray<UMaterialInterface*>	ExistingMaterials;
+	float						ExistingScreenSize;
+};
+
 struct ExistingStaticMeshData
 {
-	TArray<UMaterialInterface*>	ExistingMaterials;
 	FMeshSectionInfoMap			ExistingSectionInfoMap;
-	TArray<FMeshBuildSettings>	ExistingBuildSettings;
-	TArray<FMeshReductionSettings> ExistingReductionSettings;
-	
+	TArray<ExistingLODMeshData>	ExistingLODData;
+
 	TArray<UStaticMeshSocket*>	ExistingSockets;
 
 	bool						ExistingUseMaximumStreamingTexelRatio;
 	bool						ExistingCustomizedCollision;
+	bool						bAutoComputeLODScreenSize;
 
 	int32							ExistingLightMapResolution;
 	int32							ExistingLightMapCoordinateIndex;
@@ -850,19 +859,52 @@ ExistingStaticMeshData* SaveExistingStaticMeshData(UStaticMesh* ExistingMesh)
 	{
 		ExistingMeshDataPtr = new ExistingStaticMeshData();
 
-		ExistingMeshDataPtr->ExistingMaterials = ExistingMesh->Materials;
-		ExistingMeshDataPtr->ExistingSectionInfoMap = ExistingMesh->SectionInfoMap;
+		FMeshSectionInfoMap OldSectionInfoMap = ExistingMesh->SectionInfoMap;
 
+		ExistingMeshDataPtr->ExistingLODData.AddZeroed(ExistingMesh->SourceModels.Num());
+
+		// refresh material and section info map here
+		// we have to make sure it only contains valid item
+		// we go through section info and only add it back if used, otherwise we don't want to use
+		ExistingMesh->SectionInfoMap.Clear();
+		int32 TotalMaterialIndex=0;
 		for(int32 i=0; i<ExistingMesh->SourceModels.Num(); i++)
 		{
-			ExistingMeshDataPtr->ExistingBuildSettings.Add(ExistingMesh->SourceModels[i].BuildSettings);
-			ExistingMeshDataPtr->ExistingReductionSettings.Add(ExistingMesh->SourceModels[i].ReductionSettings);
+			FStaticMeshLODResources& LOD = ExistingMesh->RenderData->LODResources[i];
+			int32 NumSections = LOD.Sections.Num();
+			for(int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
+			{
+				FMeshSectionInfo Info = OldSectionInfoMap.Get(i, SectionIndex);
+				if(ExistingMesh->Materials.IsValidIndex(Info.MaterialIndex))
+				{
+					// we only save per LOD separeate IF the material index isn't added yet. 
+					// if it's already added, we don't have to add another one. 
+					if (Info.MaterialIndex >= TotalMaterialIndex)
+					{
+						ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials.Add(ExistingMesh->Materials[Info.MaterialIndex]);
+
+						// @Todo @fixme
+						// have to refresh material index since it might be pointing at wrong one
+						// this will break IF the base material number grows or shoterns and index will be off
+						// I think we have to save material index per section, so that we don't have to worry about global index
+						Info.MaterialIndex = TotalMaterialIndex++;
+					}
+
+					ExistingMeshDataPtr->ExistingSectionInfoMap.Set(i, SectionIndex, Info);
+				}
+			}
+
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings = ExistingMesh->SourceModels[i].BuildSettings;
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings = ExistingMesh->SourceModels[i].ReductionSettings;
+			ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize = ExistingMesh->SourceModels[i].ScreenSize;
+			ExistingMesh->SourceModels[i].RawMeshBulkData->LoadRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
 		}
 
 		ExistingMeshDataPtr->ExistingSockets = ExistingMesh->Sockets;
 
 		ExistingMeshDataPtr->ExistingUseMaximumStreamingTexelRatio = ExistingMesh->bUseMaximumStreamingTexelRatio;
 		ExistingMeshDataPtr->ExistingCustomizedCollision = ExistingMesh->bCustomizedCollision;
+		ExistingMeshDataPtr->bAutoComputeLODScreenSize = ExistingMesh->bAutoComputeLODScreenSize;
 
 		ExistingMeshDataPtr->ExistingLightMapResolution = ExistingMesh->LightMapResolution;
 		ExistingMeshDataPtr->ExistingLightMapCoordinateIndex = ExistingMesh->LightMapCoordinateIndex;
@@ -882,25 +924,40 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 {
 	if ( ExistingMeshDataPtr && NewMesh )
 	{
-		int32 NumCommonMaterials = FMath::Min(NewMesh->Materials.Num(), ExistingMeshDataPtr->ExistingMaterials.Num());
-		for (int32 MaterialIndex = 0; MaterialIndex < NumCommonMaterials; ++MaterialIndex)
-		{
-			NewMesh->Materials[MaterialIndex] = ExistingMeshDataPtr->ExistingMaterials[MaterialIndex];
-		}
-
+		NewMesh->SectionInfoMap.Clear();
 		NewMesh->SectionInfoMap.CopyFrom(ExistingMeshDataPtr->ExistingSectionInfoMap);
 
-		int32 NumCommonLODs = FMath::Min<int32>(ExistingMeshDataPtr->ExistingBuildSettings.Num(), NewMesh->SourceModels.Num());
+		NewMesh->Materials.Reset();
+
+		int32 NumCommonLODs = FMath::Min<int32>(ExistingMeshDataPtr->ExistingLODData.Num(), NewMesh->SourceModels.Num());
 		for(int32 i=0; i<NumCommonLODs; i++)
 		{
-			NewMesh->SourceModels[i].BuildSettings = ExistingMeshDataPtr->ExistingBuildSettings[i];
-			NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingReductionSettings[i];
+			NewMesh->SourceModels[i].BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
+			NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
+			NewMesh->SourceModels[i].ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
+
+			if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials.Num() > 0)
+			{
+				NewMesh->Materials.Append(ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials);
+			}
 		}
-		for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingBuildSettings.Num(); ++i)
+
+		for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingLODData.Num(); ++i)
 		{
+			if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials.Num() > 0)
+			{
+				NewMesh->Materials.Append(ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials);
+			}
+
 			FStaticMeshSourceModel* SrcModel = new(NewMesh->SourceModels) FStaticMeshSourceModel();
-			SrcModel->BuildSettings = ExistingMeshDataPtr->ExistingBuildSettings[i];
-			SrcModel->ReductionSettings = ExistingMeshDataPtr->ExistingReductionSettings[i];
+
+			if (ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh.IsValidOrFixable())
+			{
+				SrcModel->RawMeshBulkData->SaveRawMesh(ExistingMeshDataPtr->ExistingLODData[i].ExistingRawMesh);
+			}
+			SrcModel->BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
+			SrcModel->ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
+			SrcModel->ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
 		}
 
 		// Assign sockets from old version of this StaticMesh.
@@ -911,6 +968,7 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 
 		NewMesh->bUseMaximumStreamingTexelRatio = ExistingMeshDataPtr->ExistingUseMaximumStreamingTexelRatio;
 		NewMesh->bCustomizedCollision = ExistingMeshDataPtr->ExistingCustomizedCollision;
+		NewMesh->bAutoComputeLODScreenSize = ExistingMeshDataPtr->bAutoComputeLODScreenSize;
 
 		NewMesh->LightMapResolution = ExistingMeshDataPtr->ExistingLightMapResolution;
 		NewMesh->LightMapCoordinateIndex = ExistingMeshDataPtr->ExistingLightMapCoordinateIndex;
@@ -950,6 +1008,8 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 			}
 		}
 	}
+
+	delete ExistingMeshDataPtr;
 }
 
 #undef LOCTEXT_NAMESPACE

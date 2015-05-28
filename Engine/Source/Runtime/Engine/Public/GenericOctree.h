@@ -696,6 +696,9 @@ public:
 	/** Accesses an octree element by ID. */
 	ElementType& GetElementById(FOctreeElementId ElementId);
 
+	/** Accesses an octree element by ID. */
+	const ElementType& GetElementById(FOctreeElementId ElementId) const;
+
 	/** Checks if given ElementId represents a valid Octree element */
 	bool IsValidElementId(FOctreeElementId ElementId) const;
 
@@ -728,6 +731,11 @@ public:
 
 	/** Initialization constructor. */
 	TOctree(const FVector& InOrigin,float InExtent);
+
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	TOctree();
+#endif // WITH_HOT_RELOAD_CTORS
 			
 private:
 

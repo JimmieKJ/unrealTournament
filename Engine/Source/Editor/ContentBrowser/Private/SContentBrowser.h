@@ -37,7 +37,7 @@ public:
 	 *	@param bAllowImplicitSync	- true to allow the view to sync to parent folders if they are already selected,
 	 *								  false to force the view to select the explicit Parent folders of each asset 
 	 */
-	void SyncToAssets( const TArray<FAssetData>& AssetDataList, const bool bAllowImplicitSync = false );
+	void SyncToAssets( const TArray<FAssetData>& AssetDataList, const bool bAllowImplicitSync = false, const bool bDisableFiltersThatHideAssets = true );
 
 	/** Sets this content browser as the primary browser. The primary browser is the target for asset syncs and contributes to the global selection set. */
 	void SetIsPrimaryContentBrowser (bool NewIsPrimary);
@@ -379,7 +379,7 @@ private:
 	bool bIsLocked;
 
 	/** The list of FrontendFilters currently applied to the asset view */
-	TSharedPtr<AssetFilterCollectionType> FrontendFilters;
+	TSharedPtr<FAssetFilterCollectionType> FrontendFilters;
 
 	/** The text filter to use on the assets */
 	TSharedPtr< FFrontendFilter_Text > TextFilter;
@@ -398,6 +398,6 @@ private:
 
 public: 
 
-	/** The section of EditorUserSettings in which to save content browser settings */
+	/** The section of EditorPerProjectUserSettings in which to save content browser settings */
 	static const FString SettingsIniSection;
 };

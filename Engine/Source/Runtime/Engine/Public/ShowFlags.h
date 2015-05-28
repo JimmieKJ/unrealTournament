@@ -135,83 +135,17 @@ struct FEngineShowFlags
 	/** this constructor defines the default view settings */
 	FEngineShowFlags(EShowFlagInitMode InitMode)
 	{
-		if(InitMode == ESFIM_All0)
-		{
-			FMemory::Memset(this, 0x00, sizeof(*this));
-			return;
-		}
-
-		// Most flags are on by default. With the following line we only need disable flags.
-		FMemory::Memset(this, 0xff, sizeof(*this));
-
-		// The following code sets what should be off by default.
-		SetVisualizeHDR(false);
-		SetOverrideDiffuseAndSpecular(false);
-		SetReflectionOverride(false);
-		SetLpvLightingOnly(false);
-		SetVisualizeBuffer(false);
-		SetVectorFields(false);
-		SetGBufferHints(false);
-		SetCompositeEditorPrimitives(InitMode == ESFIM_Editor);
-		SetTestImage(false);
-		SetVisualizeDOF(false);
-		SetVisualizeAdaptiveDOF(false);
-		SetVertexColors(false);
-		SetVisualizeMotionBlur(false);
-		SetSelectionOutline(false);
-		SetDebugAI(false);
-		SetNavigation(false);
-		SetLightComplexity(false);
-		SetShaderComplexity(false);
-		SetStationaryLightOverlap(false);
-		SetLightMapDensity(false);
-		SetVisualizeLPV(false);
-		SetStreamingBounds(false);
-		SetConstraints(false);
-		SetCameraFrustums(false);
-		SetAudioRadius(InitMode == ESFIM_Editor);
-		SetBSPSplit(false);
-		SetBrushes(false);
-		SetEditor(InitMode == ESFIM_Editor);
-		SetLargeVertices(false);
-		SetGrid(InitMode == ESFIM_Editor);
-		SetMeshEdges(false);
-		SetCover(false);
-		SetSplines(InitMode == ESFIM_Editor);
-		SetSelection(InitMode == ESFIM_Editor);
-		SetModeWidgets(InitMode == ESFIM_Editor);
-		SetBounds(false);
-		SetHitProxies(false);
-		SetPropertyColoration(false);
-		SetLightInfluences(false);
-		SetPivot(InitMode == ESFIM_Editor);
-		SetShadowFrustums(false);
-		SetWireframe(false);
-		SetLightRadius(InitMode == ESFIM_Editor);
-		SetVolumes(InitMode == ESFIM_Editor);
-		SetGame(InitMode != ESFIM_Editor);
-		SetLevelColoration(false);
-		SetCollision(false);
-		SetCollisionPawn(false);
-		SetCollisionVisibility(false);
-		SetCameraAspectRatioBars(false);
-		SetCameraSafeFrames(false);
-		SetVisualizeOutOfBoundsPixels(false);
-		SetHighResScreenshotMask(false);
-		SetHMDDistortion(true); // only effective if a HMD is in use
-		SetStereoRendering(false);
-		SetDistanceCulledPrimitives(InitMode == ESFIM_Editor);
-		SetVisualizeLightCulling(false);
-		SetPrecomputedVisibilityCells(false);
-		SetVolumeLightingSamples(false);
-		// we enable it manually on the editor view ports
-		SetSnap(false);
-		SetVisualizeMeshDistanceFields(false);
-		SetVisualizeDistanceFieldAO(false);
-		SetVisualizeSSR(false);
-		SetForceGBuffer(false);
-		SetVisualizeSSS(false);
+		Init(InitMode);
 	}
+
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	FEngineShowFlags()
+	{
+		EnsureRetrievingVTablePtr();
+		Init(ESFIM_Game);
+	}
+#endif // WITH_HOT_RELOAD_CTORS
 
 	static bool CanBeToggledInEditor(const TCHAR* Name)
 	{
@@ -250,6 +184,7 @@ struct FEngineShowFlags
 		SetHMDDistortion(false);
 		SetStereoRendering(false);
 		SetDistanceFieldAO(false);
+		SetDistanceFieldGI(false);
 
 		SetForceGBuffer(true);
 	}
@@ -323,6 +258,89 @@ struct FEngineShowFlags
 	}
 
 private:
+	/** Initializes the struct. */
+	void Init(EShowFlagInitMode InitMode)
+	{
+		if (InitMode == ESFIM_All0)
+		{
+			FMemory::Memset(this, 0x00, sizeof(*this));
+			return;
+		}
+
+		// Most flags are on by default. With the following line we only need disable flags.
+		FMemory::Memset(this, 0xff, sizeof(*this));
+
+		// The following code sets what should be off by default.
+		SetVisualizeHDR(false);
+		SetOverrideDiffuseAndSpecular(false);
+		SetReflectionOverride(false);
+		SetLpvLightingOnly(false);
+		SetVisualizeBuffer(false);
+		SetVectorFields(false);
+		SetGBufferHints(false);
+		SetCompositeEditorPrimitives(InitMode == ESFIM_Editor);
+		SetTestImage(false);
+		SetVisualizeDOF(false);
+		SetVisualizeAdaptiveDOF(false);
+		SetVertexColors(false);
+		SetVisualizeMotionBlur(false);
+		SetSelectionOutline(false);
+		SetDebugAI(false);
+		SetNavigation(false);
+		SetLightComplexity(false);
+		SetShaderComplexity(false);
+		SetStationaryLightOverlap(false);
+		SetLightMapDensity(false);
+		SetVisualizeLPV(false);
+		SetStreamingBounds(false);
+		SetConstraints(false);
+		SetCameraFrustums(false);
+		SetAudioRadius(InitMode == ESFIM_Editor);
+		SetBSPSplit(false);
+		SetBrushes(false);
+		SetEditor(InitMode == ESFIM_Editor);
+		SetLargeVertices(false);
+		SetGrid(InitMode == ESFIM_Editor);
+		SetMeshEdges(false);
+		SetCover(false);
+		SetSplines(InitMode == ESFIM_Editor);
+		SetSelection(InitMode == ESFIM_Editor);
+		SetModeWidgets(InitMode == ESFIM_Editor);
+		SetBounds(false);
+		SetHitProxies(false);
+		SetPropertyColoration(false);
+		SetLightInfluences(false);
+		SetPivot(InitMode == ESFIM_Editor);
+		SetShadowFrustums(false);
+		SetWireframe(false);
+		SetLightRadius(InitMode == ESFIM_Editor);
+		SetVolumes(InitMode == ESFIM_Editor);
+		SetGame(InitMode != ESFIM_Editor);
+		SetLevelColoration(false);
+		SetCollision(false);
+		SetCollisionPawn(false);
+		SetCollisionVisibility(false);
+		SetCameraAspectRatioBars(false);
+		SetCameraSafeFrames(false);
+		SetVisualizeOutOfBoundsPixels(false);
+		SetHighResScreenshotMask(false);
+		SetHMDDistortion(true); // only effective if a HMD is in use
+		SetStereoRendering(false);
+		SetDistanceCulledPrimitives(InitMode == ESFIM_Editor);
+		SetVisualizeLightCulling(false);
+		SetPrecomputedVisibilityCells(false);
+		SetVolumeLightingSamples(false);
+		// we enable it manually on the editor view ports
+		SetSnap(false);
+		SetVisualizeMeshDistanceFields(false);
+		SetVisualizeDistanceFieldAO(false);
+		SetVisualizeDistanceFieldGI(false);
+		SetVisualizeSSR(false);
+		SetForceGBuffer(false);
+		SetVisualizeSSS(false);
+		SetVisualizeBloom(false);
+	}
+
 
 	/**
 	 * Allows to iterate through all flags (if you want to change or read the actual flag settings you need to pass in your own instance of FEngineShowFlags).

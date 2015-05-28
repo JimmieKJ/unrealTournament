@@ -69,7 +69,7 @@ public:
 	 * @param  Linker    The linker/archiver that the structs were originally meant to be loaded by.
 	 * @return The number of structs that were loaded with new bytecode.
 	 */
-	static int32 ResolveDeferredScriptLoads(ULinkerLoad* Linker);
+	static int32 ResolveDeferredScriptLoads(FLinkerLoad* Linker);
 
 private:
 	/**

@@ -3,8 +3,7 @@
 #pragma once
 
 
-class FHittestGrid;
-
+class FHitTesting;
 
 /**
  * Interface for window title bars.
@@ -16,6 +15,29 @@ public:
 	virtual void Flash( ) = 0;
 };
 
+class FSlateApplicationBase;
+
+
+/**
+ * Private interface to control which classes are allowed to perform hit-testing.
+ */
+class FHitTesting
+{
+public:
+	FHitTesting(FSlateApplicationBase* InSlateApplication)
+		: SlateApp(InSlateApplication)
+	{
+	}
+
+private:
+	// SWindow must be able to test which part of the window is being moused-over
+	friend class SWindow;
+	
+private:	
+	FSlateApplicationBase* SlateApp;
+	// @see FSlateApplicationBase::LocateWidgetInWindow
+	FWidgetPath LocateWidgetInWindow(FVector2D ScreenspaceMouseCoordinate, const TSharedRef<SWindow>& Window, bool bIgnoreEnabledStatus) const;
+};
 
 /**
  * Base class for Slate applications.
@@ -27,6 +49,8 @@ class SLATECORE_API FSlateApplicationBase
 {
 	friend class SWidget;
 public:
+
+	FSlateApplicationBase();
 
 	/**
 	 * Gets the renderer being used to draw this application.
@@ -143,6 +167,13 @@ public:
 	void GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics) const { FDisplayMetrics::GetDisplayMetrics(OutDisplayMetrics); }
 
 	/**
+	 * Get the highest level of window transparency support currently enabled by this application
+	 *
+	 * @return Enumeration value specifying the level of transparency currently supported
+	 */
+	virtual EWindowTransparency GetWindowTransparencySupport() const = 0;
+
+	/**
 	 * Gets the widget that currently has keyboard focus, if any.
 	 *
 	 * @return The focused widget, or nullptr if no widget has focus.
@@ -207,6 +238,10 @@ public:
 	 * @return true if an external UI is open, false otherwise.
 	 */
 	virtual bool IsExternalUIOpened( ) = 0;
+
+	/** @return a hittesting object that can perform hittests agains widgets. Only certain classes can make use of FHitTesting */
+	friend class FHitTesting;
+	const FHitTesting& GetHitTesting() const;
 
 	/** 
 	 * Given the screen-space coordinate of the mouse cursor, searches for a string of widgets that are under the mouse.
@@ -292,6 +327,27 @@ public:
 	 */
 	virtual bool SetUserFocus(const uint32 InUserIndex, const FWidgetPath& InFocusPath, const EFocusCause InCause) = 0;
 
+private:
+	/**
+	 * Implementation for active timer registration. See SWidget::RegisterActiveTimer.
+	 */
+	void RegisterActiveTimer( const TSharedRef<FActiveTimerHandle>& ActiveTimerHandle );
+
+	/**
+	 * Implementation for active timer registration. See SWidget::UnRegisterActiveTimer.
+	 */
+	void UnRegisterActiveTimer( const TSharedRef<FActiveTimerHandle>& ActiveTimerHandle );
+
+	/** The list of active timer handles. */
+	TArray<TWeakPtr<FActiveTimerHandle>> ActiveTimerHandles;
+
+protected:
+	/**
+	 * Used to determine if any active timer handles are ready to fire.
+	 * Means we need to tick slate even if no user interaction.
+	 */
+	bool AnyActiveTimersArePending();
+
 public:
 	const static uint32 CursorPointerIndex;
 
@@ -347,10 +403,16 @@ protected:
 	 */
 	virtual bool ShowUserFocus(const TSharedPtr<const SWidget> Widget) const = 0;
 
+	/** Given a window, locate a widget under the cursor in it; returns an invalid path if cursor is not over this window. */
+	virtual FWidgetPath LocateWidgetInWindow(FVector2D ScreenspaceMouseCoordinate, const TSharedRef<SWindow>& Window, bool bIgnoreEnabledStatus) const = 0;
+
 protected:
 
 	// Holds the Slate renderer used to render this application.
 	TSharedPtr<FSlateRenderer> Renderer;
+
+	// Private interface for select entities that are allowed to perform hittesting
+	FHitTesting HitTesting;
 
 protected:
 
@@ -360,3 +422,4 @@ protected:
 	// Holds a pointer to the platform application.
 	static TSharedPtr<class GenericApplication> PlatformApplication;
 };
+

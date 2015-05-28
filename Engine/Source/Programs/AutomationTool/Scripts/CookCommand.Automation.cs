@@ -100,6 +100,14 @@ public partial class Project : CommandUtils
 			if (Params.HasMapsToCook)
 			{
 				Maps = Params.MapsToCook.ToArray();
+                foreach (var M in Maps)
+                {
+                    Log("HasMapsToCook " + M.ToString());
+                }
+                foreach (var M in Params.MapsToCook)
+                {
+                    Log("Params.HasMapsToCook " + M.ToString());
+                }
 			}
 
 			string[] Dirs = null;
@@ -122,7 +130,11 @@ public partial class Project : CommandUtils
 
             try
             {
-                var CommandletParams = "-buildmachine -Unversioned -fileopenlog";
+                var CommandletParams = "-buildmachine -fileopenlog";
+                if (Params.UnversionedCookedContent)
+                {
+                    CommandletParams += " -unversioned";
+                }
                 if (Params.UseDebugParamForEditorExe)
                 {
                     CommandletParams += " -debug";
@@ -135,27 +147,69 @@ public partial class Project : CommandUtils
                 {
                     CommandletParams += " -iterate";
                 }
+                if (Params.CookMapsOnly)
+                {
+                    CommandletParams += " -mapsonly";
+                }
                 if (Params.NewCook)
                 {
                     CommandletParams += " -newcook";
+                }
+                if (Params.OldCook)
+                {
+                    CommandletParams += " -oldcook";
+                }
+                if (Params.CookAll)
+                {
+                    CommandletParams += " -cookall";
+                }
+                if (Params.CookMapsOnly)
+                {
+                    CommandletParams += " -mapsonly";
                 }
                 if (Params.HasCreateReleaseVersion)
                 {
                     CommandletParams += " -createreleaseversion=" + Params.CreateReleaseVersion;
                 }
-                if (Params.HasBasedOnReleaseVersion)
-                {
-                    CommandletParams += " -basedonreleaseversion=" + Params.BasedOnReleaseVersion;
-                }
                 if (Params.HasDLCName)
                 {
                     CommandletParams += " -dlcname=" + Params.DLCName;
+                    if ( !Params.DLCIncludeEngineContent )
+                    {
+                        CommandletParams += " -errorOnEngineContentUse";
+                    }
+                }
+                // don't include the based on release version unless we are cooking dlc or creating a new release version
+                // in this case the based on release version is used in packaging
+                if (Params.HasBasedOnReleaseVersion && (Params.HasDLCName || Params.HasCreateReleaseVersion))
+                {
+                    CommandletParams += " -basedonreleaseversion=" + Params.BasedOnReleaseVersion;
+                }
+                // if we are not going to pak but we specified compressed then compress in the cooker ;)
+                // otherwise compress the pak files
+                if (!Params.Pak && !Params.SkipPak && Params.Compressed)
+                {
+                    CommandletParams += " -compressed";
                 }
                 if (Params.HasAdditionalCookerOptions)
                 {
                     string FormatedAdditionalCookerParams = Params.AdditionalCookerOptions.TrimStart(new char[] { '\"', ' ' }).TrimEnd(new char[] { '\"', ' ' });
+                    CommandletParams += " ";
                     CommandletParams += FormatedAdditionalCookerParams;
                 }
+
+                if (!Params.NoClient)
+                {
+                    var MapsList = Maps == null ? new List<string>() :  Maps.ToList(); 
+                    foreach (var ClientPlatform in Params.ClientTargetPlatforms)
+                    {
+                        var DataPlatform = Params.GetCookedDataPlatformForClientTarget(ClientPlatform);
+                        CommandletParams += (Params.GetTargetPlatformInstance(DataPlatform).GetCookExtraCommandLine(Params));
+                        MapsList.AddRange((Params.GetTargetPlatformInstance(ClientPlatform).GetCookExtraMaps()));
+                    }
+                    Maps = MapsList.ToArray();
+                }
+
                 CookCommandlet(Params.RawProjectPath, Params.UE4Exe, Maps, Dirs, InternationalizationPreset, Cultures, CombineCommandletParams(PlatformsToCook.ToArray()), CommandletParams);
             }
 			catch (Exception Ex)

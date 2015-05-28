@@ -1,11 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-/*================================================================================
-	GenericPlatform.h: Generic platform classes, mostly implemented with ANSI C++
-==================================================================================*/
-
 #pragma once
+
 
 //---------------------------------------------------------------------
 // Utility for automatically setting up the pointer-sized integer type

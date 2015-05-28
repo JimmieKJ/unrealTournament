@@ -15,7 +15,7 @@ class GAMEPLAYABILITIES_API UGameplayAbility_Montage : public UGameplayAbility
 
 public:
 	
-	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* OwnerInfo, const FGameplayAbilityActivationInfo ActivationInfo) override;
+	virtual void ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* OwnerInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData) override;
 
 	UPROPERTY(EditDefaultsOnly, Category = MontageAbility)
 	UAnimMontage *	MontageToPlay;

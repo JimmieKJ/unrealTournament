@@ -18,6 +18,8 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 
+#include "Settings/EditorSettings.h"
+
 #define LOCTEXT_NAMESPACE "EpicSurvey"
 
 DEFINE_LOG_CATEGORY(LogEpicSurvey);
@@ -310,16 +312,18 @@ void FEpicSurvey::OnReadFileComplete( bool bSuccess, const FString& DLName )
 							{
 							case ESurveyType::Normal:
 								{
+									auto* Settings = GetDefault<UEditorSettings>();
+
 									Surveys.Add( NewSurvey.ToSharedRef() );
-									const bool IsActiveSurveyInProgress = ActiveSurvey.IsValid() ? GEditor->AccessGameAgnosticSettings().InProgressSurveys.Contains( ActiveSurvey->GetIdentifier() ) : false;
+									const bool IsActiveSurveyInProgress = ActiveSurvey.IsValid() ? Settings->InProgressSurveys.Contains( ActiveSurvey->GetIdentifier() ) : false;
 
 									if ( !IsActiveSurveyInProgress )
 									{
-										const bool HasBeenCompleted = GEditor->AccessGameAgnosticSettings().CompletedSurveys.Contains( NewSurvey->GetIdentifier() );
+										const bool HasBeenCompleted = Settings->CompletedSurveys.Contains( NewSurvey->GetIdentifier() );
 
 										if ( !HasBeenCompleted )
 										{
-											const bool IsInProgress = GEditor->AccessGameAgnosticSettings().InProgressSurveys.Contains( NewSurvey->GetIdentifier() );
+											const bool IsInProgress = Settings->InProgressSurveys.Contains( NewSurvey->GetIdentifier() );
 
 											if ( NewSurvey->CanAutoPrompt() )
 											{
@@ -487,7 +491,7 @@ void FEpicSurvey::SetActiveSurvey( const TSharedPtr< FSurvey >& Survey, bool Aut
 
 	if ( Survey.IsValid() )
 	{
-		HasBeenCompleted = GEditor->AccessGameAgnosticSettings().CompletedSurveys.Contains( Survey->GetIdentifier() );
+		HasBeenCompleted = GetDefault<UEditorSettings>()->CompletedSurveys.Contains( Survey->GetIdentifier() );
 
 		if ( !HasBeenCompleted )
 		{
@@ -512,16 +516,17 @@ void FEpicSurvey::SetActiveSurvey( const TSharedPtr< FSurvey >& Survey, bool Aut
 
 void FEpicSurvey::SubmitSurvey( const TSharedRef< FSurvey >& Survey )
 {
-	if ( GEditor->AccessGameAgnosticSettings().CompletedSurveys.Contains( Survey->GetIdentifier() ) )
+	auto* Settings = GetMutableDefault<UEditorSettings>();
+	if ( Settings->CompletedSurveys.Contains( Survey->GetIdentifier() ) )
 	{
 		return;
 	}
 
 	Survey->Submit();
 
-	GEditor->AccessGameAgnosticSettings().CompletedSurveys.Add( Survey->GetIdentifier() );
-	GEditor->AccessGameAgnosticSettings().InProgressSurveys.Remove( Survey->GetIdentifier() );
-	GEditor->AccessGameAgnosticSettings().PostEditChange();
+	Settings->CompletedSurveys.Add( Survey->GetIdentifier() );
+	Settings->InProgressSurveys.Remove( Survey->GetIdentifier() );
+	Settings->PostEditChange();
 
 	SetActiveSurvey( NULL );
 
@@ -683,10 +688,11 @@ void FEpicSurvey::OpenEpicSurveyWindow()
 		{
 			ActiveSurvey->Initialize();
 
-			if ( !GEditor->AccessGameAgnosticSettings().InProgressSurveys.Contains( ActiveSurvey->GetIdentifier() ) )
+			auto* Settings = GetMutableDefault<UEditorSettings>();
+			if ( !Settings->InProgressSurveys.Contains( ActiveSurvey->GetIdentifier() ) )
 			{
-				GEditor->AccessGameAgnosticSettings().InProgressSurveys.Add( ActiveSurvey->GetIdentifier() );
-				GEditor->AccessGameAgnosticSettings().PostEditChange();
+				Settings->InProgressSurveys.Add( ActiveSurvey->GetIdentifier() );
+				Settings->PostEditChange();
 
 				if ( FEngineAnalytics::IsAvailable() )
 				{

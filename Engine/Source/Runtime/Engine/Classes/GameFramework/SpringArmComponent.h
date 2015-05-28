@@ -67,7 +67,7 @@ class ENGINE_API USpringArmComponent : public USceneComponent
 	uint32 bEnableCameraLag : 1;
 
 	/**
-	 * If true, camera lags behind target position to smooth its movement.
+	 * If true, camera lags behind target rotation to smooth its movement.
 	 * @see CameraRotationLagSpeed
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Lag)

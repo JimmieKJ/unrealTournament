@@ -21,12 +21,12 @@ public:
 		check(InnerBackend);
 	}
 
-	virtual bool IsWritable()
+	virtual bool IsWritable() override
 	{
 		return true;
 	}
 
-	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey)
+	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey) override
 	{
 		FScopeLock ScopeLock(&SynchronizationObject);
 		if (AlreadyTested.Contains(FString(CacheKey)))
@@ -35,7 +35,7 @@ public:
 		}
 		return false;
 	}
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData)
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
 	{
 		bool bAlreadyTested = false;
 		{

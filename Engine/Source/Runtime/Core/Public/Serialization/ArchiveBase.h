@@ -5,7 +5,7 @@
 #include "Containers/EnumAsByte.h"
 #include "HAL/PlatformProperties.h"
 #include "Misc/Compression.h"
-
+#include "Misc/EngineVersionBase.h"
 
 class FAssetPtr;
 class FCustomVersionContainer;
@@ -348,11 +348,11 @@ public:
 	virtual FString GetArchiveName() const;
 
 	/**
-	 * If this archive is a ULinkerLoad or ULinkerSave, returns a pointer to the ULinker portion.
+	 * If this archive is a FLinkerLoad or FLinkerSave, returns a pointer to the ULinker portion.
 	 *
 	 * @return The linker, or nullptr if the archive is not a linker.
 	 */
-	virtual class ULinker* GetLinker()
+	virtual class FLinker* GetLinker()
 	{
 		return nullptr;
 	}
@@ -547,6 +547,11 @@ public:
 		return ArLicenseeUE4Ver;
 	}
 
+	FORCEINLINE FEngineVersionBase EngineVer() const
+	{
+		return ArEngineVer;
+	}
+
 	/**
 	 * Registers the custom version to the archive.  This is used to inform the archive that custom version information is about to be stored.
 	 * There is no effect when the archive is being loaded from.
@@ -706,7 +711,7 @@ public:
 	}
 
 	/**
-	 * Sets the archive licensee version number. Used by the code that makes sure that ULinkerLoad's 
+	 * Sets the archive version number. Used by the code that makes sure that FLinkerLoad's 
 	 * internal archive versions match the file reader it creates.
 	 *
 	 * @param UE4Ver	new version number
@@ -717,7 +722,7 @@ public:
 	}
 
 	/**
-	 * Sets the archive licensee version number. Used by the code that makes sure that ULinkerLoad's 
+	 * Sets the archive licensee version number. Used by the code that makes sure that FLinkerLoad's 
 	 * internal archive versions match the file reader it creates.
 	 *
 	 * @param Ver	new version number
@@ -725,6 +730,17 @@ public:
 	void SetLicenseeUE4Ver(int32 InVer)
 	{
 		ArLicenseeUE4Ver = InVer;
+	}
+
+	/**
+	* Sets the archive engine version. Used by the code that makes sure that FLinkerLoad's
+	* internal archive versions match the file reader it creates.
+	*
+	* @param InVer	new version number
+	*/
+	void SetEngineVer(const FEngineVersionBase& InVer)
+	{
+		ArEngineVer = InVer;
 	}
 
 	/**
@@ -919,6 +935,9 @@ protected:
 	/** Holds the archive version for licensees. */
 	int32 ArLicenseeUE4Ver;
 
+	/** Holds the engine version. */
+	FEngineVersionBase ArEngineVer;
+
 private:
 
 	/**
@@ -1050,12 +1069,12 @@ public:
 	 */
 	CORE_API FArchiveProxy(FArchive& InInnerArchive);
 
-	virtual FArchive& operator<<(class FName& Value)
+	virtual FArchive& operator<<(class FName& Value) override
 	{
 		return InnerArchive << Value;
 	}
 
-	virtual FArchive& operator<<(class UObject*& Value)
+	virtual FArchive& operator<<(class UObject*& Value) override
 	{
 		return InnerArchive << Value;
 	}
@@ -1065,104 +1084,104 @@ public:
 		return InnerArchive << Value;
 	}
 
-	virtual void Serialize(void* V, int64 Length)
+	virtual void Serialize(void* V, int64 Length) override
 	{
 		InnerArchive.Serialize(V, Length);
 	}
 
-	virtual void SerializeBits(void* Bits, int64 LengthBits)
+	virtual void SerializeBits(void* Bits, int64 LengthBits) override
 	{
 		InnerArchive.SerializeBits(Bits, LengthBits);
 	}
 
-	virtual void SerializeInt(uint32& Value, uint32 Max)
+	virtual void SerializeInt(uint32& Value, uint32 Max) override
 	{
 		InnerArchive.SerializeInt(Value, Max);
 	}
 
-	virtual void Preload(UObject* Object)
+	virtual void Preload(UObject* Object) override
 	{
 		InnerArchive.Preload(Object);
 	}
 
-	virtual void CountBytes(SIZE_T InNum, SIZE_T InMax)
+	virtual void CountBytes(SIZE_T InNum, SIZE_T InMax) override
 	{
 		InnerArchive.CountBytes(InNum, InMax);
 	}
 
-	CORE_API virtual FString GetArchiveName() const;
+	CORE_API virtual FString GetArchiveName() const override;
 
-	virtual class ULinker* GetLinker()
+	virtual class FLinker* GetLinker() override
 	{
 		return InnerArchive.GetLinker();
 	}
 
-	virtual int64 Tell()
+	virtual int64 Tell() override
 	{
 		return InnerArchive.Tell();
 	}
 
-	virtual int64 TotalSize()
+	virtual int64 TotalSize() override
 	{
 		return InnerArchive.TotalSize();
 	}
 
-	virtual bool AtEnd()
+	virtual bool AtEnd() override
 	{
 		return InnerArchive.AtEnd();
 	}
 
-	virtual void Seek(int64 InPos)
+	virtual void Seek(int64 InPos) override
 	{
 		InnerArchive.Seek(InPos);
 	}
 
-	virtual void AttachBulkData(UObject* Owner, FUntypedBulkData* BulkData)
+	virtual void AttachBulkData(UObject* Owner, FUntypedBulkData* BulkData) override
 	{
 		InnerArchive.AttachBulkData(Owner, BulkData);
 	}
 
-	virtual void DetachBulkData(FUntypedBulkData* BulkData, bool bEnsureBulkDataIsLoaded)
+	virtual void DetachBulkData(FUntypedBulkData* BulkData, bool bEnsureBulkDataIsLoaded) override
 	{
 		InnerArchive.DetachBulkData(BulkData, bEnsureBulkDataIsLoaded);
 	}
 
-	virtual bool Precache(int64 PrecacheOffset, int64 PrecacheSize)
+	virtual bool Precache(int64 PrecacheOffset, int64 PrecacheSize) override
 	{
 		return InnerArchive.Precache(PrecacheOffset, PrecacheSize);
 	}
 
-	virtual bool SetCompressionMap(TArray<struct FCompressedChunk>* CompressedChunks, ECompressionFlags CompressionFlags)
+	virtual bool SetCompressionMap(TArray<struct FCompressedChunk>* CompressedChunks, ECompressionFlags CompressionFlags) override
 	{
 		return InnerArchive.SetCompressionMap(CompressedChunks, CompressionFlags);
 	}
 
-	virtual void Flush()
+	virtual void Flush() override
 	{
 		InnerArchive.Flush();
 	}
 
-	virtual bool Close()
+	virtual bool Close() override
 	{
 		return InnerArchive.Close();
 	}
 
-	virtual bool GetError()
+	virtual bool GetError() override
 	{
 		return InnerArchive.GetError();
 	}
 
-	virtual void MarkScriptSerializationStart(const UObject* Obj)
+	virtual void MarkScriptSerializationStart(const UObject* Obj) override
 	{
 		InnerArchive.MarkScriptSerializationStart(Obj);
 	}
 
-	virtual void MarkScriptSerializationEnd(const UObject* Obj)
+	virtual void MarkScriptSerializationEnd(const UObject* Obj) override
 	{
 		InnerArchive.MarkScriptSerializationEnd(Obj);
 	}
 
-	virtual bool IsCloseComplete(bool& bHasError)
+	virtual bool IsCloseComplete(bool& bHasError) override
 	{
 		return InnerArchive.IsCloseComplete(bHasError);
 	}

@@ -43,6 +43,11 @@ namespace UnrealBuildTool.Rules
 					ConfigurationName = "Release/";
 					break;
 			}
+
+			if (UnrealBuildTool.RunningRocket())
+			{
+				throw new BuildException("This module requires a source code build of the engine from Github. Please refer to the Engine/Source/ThirdParty/sqlite/README.txt file prior to enabling this module.");
+			}
 		
 			string LibraryPath = "" + UEBuildConfiguration.UEThirdPartySourceDirectory + "sqlite/lib/" + PlatformName + ConfigurationName;
 			string LibraryFilename = Path.Combine(LibraryPath, "sqlite" + UEBuildPlatform.GetBuildPlatform(Target.Platform).GetBinaryExtension(UEBuildBinaryType.StaticLibrary));

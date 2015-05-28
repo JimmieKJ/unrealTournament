@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "SourceCodeNavigation.h"
@@ -51,101 +51,66 @@ int32 UGatherTextFromMetaDataCommandlet::Main( const FString& Params )
 
 	//Modules to Preload
 	TArray<FString> ModulesToPreload;
-	GetConfigArray(*SectionName, TEXT("ModulesToPreload"), ModulesToPreload, GatherTextConfigPath);
+	GetStringArrayFromConfig(*SectionName, TEXT("ModulesToPreload"), ModulesToPreload, GatherTextConfigPath);
 
 	for (const FString& ModuleName : ModulesToPreload)
 	{
 		FModuleManager::Get().LoadModule(*ModuleName);
 	}
 
-	//Include paths
-	TArray<FString> IncludePaths;
-	GetConfigArray(*SectionName, TEXT("IncludePaths"), IncludePaths, GatherTextConfigPath);
+	// IncludePathFilters
+	TArray<FString> IncludePathFilters;
+	GetPathArrayFromConfig(*SectionName, TEXT("IncludePathFilters"), IncludePathFilters, GatherTextConfigPath);
 
-	if (IncludePaths.Num() == 0)
+	// IncludePaths (DEPRECATED)
 	{
-		UE_LOG(LogGatherTextFromMetaDataCommandlet, Error, TEXT("No include paths in section %s"), *SectionName);
+		TArray<FString> IncludePaths;
+		GetPathArrayFromConfig(*SectionName, TEXT("IncludePaths"), IncludePaths, GatherTextConfigPath);
+		if (IncludePaths.Num())
+		{
+			IncludePathFilters.Append(IncludePaths);
+			UE_LOG(LogGatherTextFromMetaDataCommandlet, Warning, TEXT("IncludePaths detected in section %s. IncludePaths is deprecated, please use IncludePathFilters."), *SectionName);
+		}
+	}
+
+	if (IncludePathFilters.Num() == 0)
+	{
+		UE_LOG(LogGatherTextFromMetaDataCommandlet, Error, TEXT("No include path filters in section %s."), *SectionName);
 		return -1;
 	}
 
-	for (FString& IncludePath : IncludePaths)
+	// ExcludePathFilters
+	TArray<FString> ExcludePathFilters;
+	GetPathArrayFromConfig(*SectionName, TEXT("ExcludePathFilters"), ExcludePathFilters, GatherTextConfigPath);
+
+	// ExcludePaths (DEPRECATED)
 	{
-		FPaths::NormalizeDirectoryName(IncludePath);
-		if (FPaths::IsRelative(IncludePath))
+		TArray<FString> ExcludePaths;
+		GetPathArrayFromConfig(*SectionName, TEXT("ExcludePaths"), ExcludePaths, GatherTextConfigPath);
+		if (ExcludePaths.Num())
 		{
-			if (!FPaths::GameDir().IsEmpty())
-			{
-				IncludePath = FPaths::Combine( *( FPaths::GameDir() ), *IncludePath );
-			}
-			else
-			{
-				IncludePath = FPaths::Combine( *( FPaths::EngineDir() ), *IncludePath );
-			}
+			ExcludePathFilters.Append(ExcludePaths);
+			UE_LOG(LogGatherTextFromMetaDataCommandlet, Warning, TEXT("ExcludePaths detected in section %s. ExcludePaths is deprecated, please use ExcludePathFilters."), *SectionName);
 		}
-
-		IncludePath = FPaths::ConvertRelativePathToFull(IncludePath);
-
-		// All paths must ends with "/*"
-		if ( !IncludePath.EndsWith(TEXT("/*")) )
-		{
-			// If it ends in a slash, add the star.
-			if ( IncludePath.EndsWith(TEXT("/")) )
-			{
-				IncludePath.AppendChar(TEXT('*'));
-			}
-			// If it doesn't end in a slash or slash star, just add slash star.
-			else
-			{
-				IncludePath.Append(TEXT("/*"));
-			}
-		}
-	}
-
-	//Exclude paths
-	TArray<FString> ExcludePaths;
-	GetConfigArray(*SectionName, TEXT("ExcludePaths"), ExcludePaths, GatherTextConfigPath);
-
-	//Required module names
-	TArray<FString> RequiredModuleNames;
-	GetConfigArray(*SectionName, TEXT("RequiredModuleNames"), RequiredModuleNames, GatherTextConfigPath);
-
-	// Pre-load all required modules so that UFields from those modules can be guaranteed a chance to have their metadata gathered.
-	for(const FString& RequiredModuleName : RequiredModuleNames)
-	{
-		FModuleManager::Get().LoadModule(*RequiredModuleName);
 	}
 
 	FGatherParameters Arguments;
-	GetConfigArray(*SectionName, TEXT("InputKeys"), Arguments.InputKeys, GatherTextConfigPath);
-	GetConfigArray(*SectionName, TEXT("OutputNamespaces"), Arguments.OutputNamespaces, GatherTextConfigPath);
+	GetStringArrayFromConfig(*SectionName, TEXT("InputKeys"), Arguments.InputKeys, GatherTextConfigPath);
+	GetStringArrayFromConfig(*SectionName, TEXT("OutputNamespaces"), Arguments.OutputNamespaces, GatherTextConfigPath);
 	TArray<FString> OutputKeys;
-	GetConfigArray(*SectionName, TEXT("OutputKeys"), OutputKeys, GatherTextConfigPath);
+	GetStringArrayFromConfig(*SectionName, TEXT("OutputKeys"), OutputKeys, GatherTextConfigPath);
 	for(const auto& OutputKey : OutputKeys)
 	{
 		Arguments.OutputKeys.Add(FText::FromString(OutputKey));
 	}
 
 	// Execute gather.
-	GatherTextFromUObjects(IncludePaths, ExcludePaths, Arguments);
+	GatherTextFromUObjects(IncludePathFilters, ExcludePathFilters, Arguments);
 
 	// Add any manifest dependencies if they were provided
 	TArray<FString> ManifestDependenciesList;
-	GetConfigArray(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
-	
-	for (FString& ManifestDependency : ManifestDependenciesList)
-	{
-		if (FPaths::IsRelative(ManifestDependency))
-		{
-			if (!FPaths::GameDir().IsEmpty())
-			{
-				ManifestDependency = FPaths::Combine( *( FPaths::GameDir() ), *ManifestDependency );
-			}
-			else
-			{
-				ManifestDependency = FPaths::Combine( *( FPaths::EngineDir() ), *ManifestDependency );
-			}
-		}
-	}
+	GetPathArrayFromConfig(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
+
 
 	if( !ManifestInfo->AddManifestDependencies( ManifestDependenciesList ) )
 	{
@@ -163,6 +128,8 @@ void UGatherTextFromMetaDataCommandlet::GatherTextFromUObjects(const TArray<FStr
 		FString SourceFilePath;
 		FSourceCodeNavigation::FindClassHeaderPath(*It, SourceFilePath);
 		SourceFilePath = FPaths::ConvertRelativePathToFull(SourceFilePath);
+
+		check(!SourceFilePath.IsEmpty());
 
 		// Returns true if in an include path. False otherwise.
 		auto IncludePathLogic = [&]() -> bool
@@ -214,7 +181,7 @@ void UGatherTextFromMetaDataCommandlet::GatherTextFromUObject(UField* const Fiel
 		for(int32 i = 0; i < Arguments.InputKeys.Num(); ++i)
 		{
 			FFormatNamedArguments PatternArguments;
-			PatternArguments.Add( TEXT("FieldPath"), FText::FromString( Field->GetFullGroupName(true) + TEXT(".") + Field->GetName() ) );
+			PatternArguments.Add( TEXT("FieldPath"), FText::FromString( Field->GetFullGroupName(false) ) );
 
 			if( Field->HasMetaData( *Arguments.InputKeys[i] ) )
 			{
@@ -250,7 +217,7 @@ void UGatherTextFromMetaDataCommandlet::GatherTextFromUObject(UField* const Fiel
 				for(int32 j = 0; j < Arguments.InputKeys.Num(); ++j)
 				{
 					FFormatNamedArguments PatternArguments;
-					PatternArguments.Add( TEXT("FieldPath"), FText::FromString( Enum->GetFullGroupName(true) + TEXT(".") + Enum->GetName() + TEXT(".") + Enum->GetEnumName(i) ) );
+					PatternArguments.Add( TEXT("FieldPath"), FText::FromString( Enum->GetFullGroupName(false) + TEXT(".") + Enum->GetEnumName(i) ) );
 
 					if( Enum->HasMetaData(*Arguments.InputKeys[j], i) )
 					{

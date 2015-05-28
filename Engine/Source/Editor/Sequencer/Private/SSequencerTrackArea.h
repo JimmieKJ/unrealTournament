@@ -21,7 +21,10 @@ public:
 	/**
 	 * Updates the track area with new nodes
 	 */
-	virtual void Update( const FSequencerNodeTree& InSequencerNodeTree );
+	virtual void Update( TSharedPtr<FSequencerNodeTree> InSequencerNodeTree );
+
+	TSharedPtr<SSequencerCurveEditor> GetCurveEditor() { return CurveEditor; }
+
 private:
 	/**
 	 * Generates a widget for the specified node and puts it into the scroll box
@@ -36,6 +39,19 @@ private:
 	 * @param Nodes to generate widgets for.  Will recurse into each node's children
 	 */
 	void GenerateLayoutNodeWidgetsRecursive( const TArray< TSharedRef<FSequencerDisplayNode> >& Nodes );
+
+	/** Gets the visibility of the curve editor based on the the current settings. */
+	EVisibility GetCurveEditorVisibility() const;
+	/** Gets the visibility of the default section controls based on the current settings. */
+	EVisibility GetSectionControlVisibility() const;
+
+	/** Gets the fill value for the slot which contains the scrollbar.  This allows the scroll bar to move depending
+	  * whether or not the curve editor is visible. */
+	float GetScrollBarSlotFill() const;
+	/** Gets the fill value for the spacer slot which is to the right of the scrollbar.  This allows the scroll bar 
+	  * to move depending whether or not the curve editor is visible. */
+	float GetScrollBarSpacerSlotFill() const;
+
 private:
 	/** Scrollable area to display widgets */
 	TSharedPtr<SScrollBox> ScrollBox;
@@ -45,4 +61,6 @@ private:
 	TAttribute<float> OutlinerFillPercent;
 	/** The main sequencer interface */
 	TWeakPtr<FSequencer> Sequencer;
+	/** The curve editor. */
+	TSharedPtr<SSequencerCurveEditor> CurveEditor;
 };

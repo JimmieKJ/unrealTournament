@@ -122,9 +122,6 @@ private:
 	void AddIndices( TArray<SlateIndex>& OutIndices, FSlateElementBatch& ElementBatch, const TArray<SlateIndex>& IndexBatch );
 
 private:
-
-	const FSlateBrush *SplineBrush;
-
 	// Element batch maps sorted by layer.
 	TMap<uint32, TSet<FSlateElementBatch>> LayerToElementBatches;
 

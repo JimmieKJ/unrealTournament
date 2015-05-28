@@ -8,6 +8,9 @@
 class UNREALED_API FComponentEditorUtils
 {
 public:
+	/** Tests whether the native component is editable */
+	static bool CanEditNativeComponent(const UActorComponent* NativeComponent);
+
 	/** Test whether or not the given string is a valid variable name string for the given component instance */
 	static bool IsValidVariableNameString(const UActorComponent* InComponent, const FString& InString);
 
@@ -43,7 +46,7 @@ public:
 	 * @param bOverrideCanAttach Optional override declaring that components can be attached and a check is not needed
 	 * @return Whether components can be pasted
 	 */
-	static bool CanPasteComponents(USceneComponent* RootComponent, bool bOverrideCanAttach = false);
+	static bool CanPasteComponents(USceneComponent* RootComponent, bool bOverrideCanAttach = false, bool bPasteAsArchetypes = false);
 
 	/**
 	 * Attempts to paste components from the clipboard as siblings of the target component
@@ -194,10 +197,10 @@ public:
 	static FName FindVariableNameGivenComponentInstance(UActorComponent* ComponentInstance);
 
 	/**
-	 * Populates the given menu with basic options for operations on components in the world.
-	 * @param MenuBuilder Used to create the menu options
-	 * @param SelectedComponents The selected components to create menu options for
-	 */
+	* Populates the given menu with basic options for operations on components in the world.
+	* @param MenuBuilder Used to create the menu options
+	* @param SelectedComponents The selected components to create menu options for
+	*/
 	static void FillComponentContextMenuOptions(FMenuBuilder& MenuBuilder, const TArray<UActorComponent*>& SelectedComponents);
 
 private:	

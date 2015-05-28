@@ -28,6 +28,7 @@ public:
 		FText LabelText,
 		FAnchors Anchors)
 	{
+		bIsHovered = false;
 		ResizeCurve = FCurveSequence(0, 0.40f);
 
 		ChildSlot
@@ -82,39 +83,46 @@ public:
 		];
 	}
 
-	void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 	{
-		if ( AllottedGeometry.IsUnderLocation(FSlateApplication::Get().GetCursorPos()) )
+		if ( bIsHovered )
 		{
 			if ( !ResizeCurve.IsPlaying() )
 			{
 				if ( ResizeCurve.IsAtStart() )
 				{
-					ResizeCurve.Play();
+					ResizeCurve.Play( this->AsShared() );
 				}
 				else if ( ResizeCurve.IsAtEnd() )
 				{
-					ResizeCurve.PlayReverse();
+					ResizeCurve.Reverse();
 				}
 			}
 		}
-		else
+		//Make sure the preview animation goes all the way back to the initial position before we stop ticking
+		else if ( !ResizeCurve.IsAtStart() && !ResizeCurve.IsInReverse() )
 		{
-			if ( !ResizeCurve.IsAtStart() && ((!ResizeCurve.IsInReverse() && ResizeCurve.IsPlaying()) || !ResizeCurve.IsPlaying()) )
-			{
-				ResizeCurve.PlayReverse();
-			}
+			ResizeCurve.Reverse();
 		}
 	}
 
-private:
+	virtual void OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+	{
+		bIsHovered = true;
+	}
 
+	virtual void OnMouseLeave( const FPointerEvent& MouseEvent )
+	{
+		bIsHovered = false;
+	}
+
+private:
 	FOptionalSize GetCurrentWidth() const
 	{
 		return 48 + ( 16 * ResizeCurve.GetLerp() );
 	}
 
-	FOptionalSize GetCurrentHeight() const
+	FOptionalSize GetCurrentHeight() const //-V524
 	{
 		return 48 + ( 16 * ResizeCurve.GetLerp() );
 	}
@@ -156,6 +164,8 @@ private:
 
 private:
 	FCurveSequence ResizeCurve;
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
+	bool bIsHovered;
 };
 
 

@@ -9,6 +9,18 @@
 
 #include "SlateTypes.generated.h"
 
+/** Used to determine how we should handle mouse wheel input events when someone scrolls. */
+UENUM()
+enum class EConsumeMouseWheel
+{
+	/** Only consume the mouse wheel event when we actually scroll some amount. */
+	WhenScrollingPossible,
+
+	/** Always consume mouse wheel event even if we don't scroll at all. */
+	Always,
+};
+
+
 /** Type of check box */
 UENUM()
 namespace ESlateCheckBoxType
@@ -249,8 +261,8 @@ struct SLATECORE_API FButtonStyle : public FSlateWidgetStyle
 	FSlateBrush Pressed;
 	FButtonStyle& SetPressed( const FSlateBrush& InPressed ){ Pressed = InPressed; return *this; }
 
-	/** Button appearance when disabled */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
+	/** Button appearance when disabled, not exposed as a UProperty, because they don't have an effect in the general case. */
+	UPROPERTY()
 	FSlateBrush Disabled;
 	FButtonStyle& SetDisabled( const FSlateBrush& InDisabled ){ Disabled = InDisabled; return *this; }
 
@@ -302,6 +314,7 @@ struct TStructOpsTypeTraits<FButtonStyle> : public TStructOpsTypeTraitsBase
 	enum 
 	{
 		WithPostSerialize = true,
+		WithCopy = true,
 	};
 };
 
@@ -1080,11 +1093,6 @@ struct SLATECORE_API FTableRowStyle : public FSlateWidgetStyle
 	FSlateBrush OddRowBackgroundBrush;
 	FTableRowStyle& SetOddRowBackgroundBrush( const FSlateBrush& InOddRowBackgroundBrush ){ OddRowBackgroundBrush = InOddRowBackgroundBrush; return *this; }
 
-	/** Brush used when drawing the drag-drop indicator lines above and below rows */
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush DragDropLineIndicatorBrush;
-	FTableRowStyle& SetDragDropLineIndicatorBrush(const FSlateBrush& InDragDropLineIndicatorBrush){ DragDropLineIndicatorBrush = InDragDropLineIndicatorBrush; return *this; }
-
 	/** Text color used for all rows */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
 	FSlateColor TextColor;
@@ -1471,6 +1479,6 @@ UCLASS()
 class USlateTypes : public UObject
 {
 public:
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
 };

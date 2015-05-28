@@ -26,12 +26,13 @@ struct FBlueprintSupport
 	static bool IsResolvingDeferredDependenciesDisabled();
 	static bool IsDeferredCDOSerializationDisabled();
 	static bool IsDeferredExportCreationDisabled();
+	static bool IsDeferredCDOInitializationDisabled();
 };
 
 #if WITH_EDITOR
 /**
  * This is a helper struct that allows us to gather all previously unloaded class dependencies of a UClass
- * The first time we create a new UClass object in ULinkerLoad::CreateExport(), we register it as a dependency
+ * The first time we create a new UClass object in FLinkerLoad::CreateExport(), we register it as a dependency
  * master.  Any subsequent UClasses that are created for the first time during the preload of that class are
  * added to the list as potential cyclic referencers.  We then step over the list at the end of the load, and
  * recompile any classes that may depend on each other a second time to ensure that that functions and properties
@@ -65,3 +66,52 @@ private:
 	FScopedClassDependencyGather();
 };
 #endif //WITH_EDITOR
+
+/** 
+ * A helper struct for storing FObjectInitializers that were not run on 
+ * Blueprint CDO's post-construction (presumably because that CDO's super had 
+ * not been fully serialized yet). 
+ * 
+ * This was designed to hold onto FObjectInitializers until a later point, when 
+ * they can properly be ran (presumably in FLinkerLoad::ResolveDeferredExports,
+ * after the super has been finalized).
+ */
+struct FDeferredObjInitializerTracker : TThreadSingleton<FDeferredObjInitializerTracker>
+{
+public:
+	FDeferredObjInitializerTracker() : ResolvingClass(nullptr) {}
+
+	/** Stores a copy of the specified FObjectInitializer and returns a pointer to it (could be null if a corresponding class could not be determined). */
+	static FObjectInitializer* Add(const FObjectInitializer& DeferringInitializer);
+
+	/** Looks up a FObjectInitializer that was deferred for the specified class (an FObjectInitializer for that class's CDO). */
+	static FObjectInitializer* Find(UClass* LoadClass);
+
+	/** Checks to see if the specified class has been logged as deferred (meaning its CDO hasn't had FObjectInitializer::PostConstructInit() ran on it yet). */
+	static bool IsCdoDeferred(UClass* LoadClass);
+
+	/** Determines if the specified sub-object should have its Preload() skipped; if so, this will cache the sub-object and return true. */
+	static bool DeferSubObjectPreload(UObject* SubObject);
+
+	/** Destroys any FObjectInitializers that were cached corresponding to the specified class. */
+	static void Remove(UClass* LoadClass);
+
+	/** Runs FObjectInitializer::PostConstructInit() on the specified class's CDO (if it was deferred), and preloads any sub-objects that were skipped. */
+	static bool ResolveDeferredInitialization(UClass* LoadClass);
+
+	/**  */
+	static void ResolveDeferredSubObjects(UObject* CDO);
+
+	/**  */
+	static void ResolveDeferredSubClassObjects(UClass* SuperClass);
+
+private:
+	/** A map that tracks the relationship between Blueprint classes and FObjectInitializers for their CDOs */
+	TMap<UClass*, FObjectInitializer> DeferredInitializers;
+	/** Track default sub-objects that had their Preload() skipped, because the owning CDO's initialization should happen first */
+	TMultiMap<UClass*, UObject*> DeferredSubObjects;
+	/** Used to keep ResolveDeferredSubObjects() from re-adding sub-objects via DeferSubObjectPreload() */
+	UClass* ResolvingClass;
+	/** Tracks sub-classes that have had their CDO deferred as a result of the super not being fully serialized */
+	TMultiMap<UClass*, UClass*> SuperClassMap;
+};

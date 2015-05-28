@@ -190,6 +190,13 @@ public:
 	virtual void GetAddress(FInternetAddr& OutAddr) override;
 
 	/**
+	 * Reads the address of the peer the socket is connected to and returns it
+	 * 
+	 * @param OutAddr address of the peer the socket is connected to
+	 */
+	virtual bool GetPeerAddress(FInternetAddr& OutAddr) override;
+
+	/**
 	 * Sets this socket into non-blocking mode
 	 *
 	 * @param bIsNonBlocking whether to enable blocking or not

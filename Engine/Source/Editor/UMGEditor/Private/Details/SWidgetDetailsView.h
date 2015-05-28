@@ -41,6 +41,8 @@ private:
 
 	void ClearFocusIfOwned();
 
+	bool IsWidgetCDOSelected() const;
+
 	EVisibility GetNameAreaVisibility() const;
 
 	const FSlateBrush* GetNameIcon() const;

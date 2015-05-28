@@ -38,15 +38,35 @@ struct CORE_API FMemory
 		return FPlatformMemory::Memset( Dest, Char, Count );
 	}
 
+	template< class T > 
+	static FORCEINLINE void Memset( T& Src, uint8 ValueToSet )
+	{
+		static_assert( !TIsPointerType<T>::Value, "For pointers use the three parameters function");
+		Memset( &Src, ValueToSet, sizeof( T ) );
+	}
+
 	static FORCEINLINE void* Memzero(void* Dest, SIZE_T Count)
 	{
 		return FPlatformMemory::Memzero( Dest, Count );
 	}
 
+	template< class T > 
+	static FORCEINLINE void Memzero( T& Src )
+	{
+		static_assert( !TIsPointerType<T>::Value, "For pointers use the two parameters function");
+		Memzero( &Src, sizeof( T ) );
+	}
 
 	static FORCEINLINE void* Memcpy(void* Dest, const void* Src, SIZE_T Count)
 	{
 		return FPlatformMemory::Memcpy(Dest,Src,Count);
+	}
+
+	template< class T > 
+	static FORCEINLINE void Memcpy( T& Dest, const T& Src )
+	{
+		static_assert( !TIsPointerType<T>::Value, "For pointers use the three parameters function");
+		Memcpy( &Dest, &Src, sizeof( T ) );
 	}
 
 	static FORCEINLINE void* BigBlockMemcpy(void* Dest, const void* Src, SIZE_T Count)
@@ -64,22 +84,27 @@ struct CORE_API FMemory
 		FPlatformMemory::Memswap(Ptr1,Ptr2,Size);
 	}
 
-	template< class T > 
+	template< class T >
+	DEPRECATED(4.8, "Please use Memset.")
 	static FORCEINLINE void MemSet( T& Src, uint8 ValueToSet )
 	{
+		static_assert( !TIsPointerType<T>::Value, "For pointers use the three parameters function");
 		FMemory::Memset( &Src, ValueToSet, sizeof( T ) );
 	}
 
 	template< class T > 
+	DEPRECATED(4.8, "Please use Memzero.")
 	static FORCEINLINE void MemZero( T& Src )
 	{
+		static_assert( !TIsPointerType<T>::Value, "For pointers use the two parameters function");
 		FMemory::Memset( &Src, 0, sizeof( T ) );
 	}
 
-
-	template< class T > 
+	template< class T >
+	DEPRECATED(4.8, "Please use Memcpy.")
 	static FORCEINLINE void MemCopy( T& Dest, const T& Src )
 	{
+		static_assert( !TIsPointerType<T>::Value, "For pointers use the three parameters function");
 		FMemory::Memcpy( &Dest, &Src, sizeof( T ) );
 	}
 

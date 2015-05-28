@@ -27,6 +27,7 @@
 #include "ComponentReregisterContext.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "Engine/AssetUserData.h"
+#include "Animation/AnimMontage.h"
 
 #if WITH_EDITOR
 #include "MeshUtilities.h"
@@ -127,10 +128,9 @@ FSkeletalMeshVertexBuffer::FSkeletalMeshVertexBuffer()
 :	bInfluencesByteSwapped(false)
 ,	bUseFullPrecisionUVs(false)
 ,	bNeedsCPUAccess(false)
-,	bProcessedPackedPositions(false)
 ,	bExtraBoneInfluences(false)
-,	VertexData(NULL)
-,	Data(NULL)
+,	VertexData(nullptr)
+,	Data(nullptr)
 ,	Stride(0)
 ,	NumVertices(0)
 ,	MeshOrigin(FVector::ZeroVector)
@@ -165,7 +165,6 @@ FSkeletalMeshVertexBuffer::FSkeletalMeshVertexBuffer(const FSkeletalMeshVertexBu
 :	bInfluencesByteSwapped(false)
 ,	bUseFullPrecisionUVs(Other.bUseFullPrecisionUVs)
 ,	bNeedsCPUAccess(Other.bNeedsCPUAccess)
-,	bProcessedPackedPositions(Other.bProcessedPackedPositions)
 ,	bExtraBoneInfluences(Other.bExtraBoneInfluences)
 ,	VertexData(NULL)
 ,	Data(NULL)
@@ -250,9 +249,9 @@ FArchive& operator<<(FArchive& Ar,FSkeletalMeshVertexBuffer& VertexBuffer)
 			VertexBuffer.VertexData->Serialize(Ar);	
 
 			// update cached buffer info
-			VertexBuffer.Data = VertexBuffer.VertexData->GetDataPointer();
-			VertexBuffer.Stride = VertexBuffer.VertexData->GetStride();
 			VertexBuffer.NumVertices = VertexBuffer.VertexData->GetNumVertices();
+			VertexBuffer.Data = (VertexBuffer.NumVertices > 0) ? VertexBuffer.VertexData->GetDataPointer() : nullptr;
+			VertexBuffer.Stride = VertexBuffer.VertexData->GetStride();
 		}
 	}
 
@@ -356,27 +355,21 @@ void FSkeletalMeshVertexBuffer::SetVertexFast(uint32 VertexIndex,const FSoftSkin
 	FMemory::Memcpy(VertBase->InfluenceWeights,SrcVertex.InfluenceWeights, TGPUSkinVertexBase<bExtraBoneInfluencesT>::NumInfluences);
 	if( !bUseFullPrecisionUVs )
 	{
-#if !WITH_EDITORONLY_DATA // I don't expect this to happen on console. If so this won't work with PackedPosition. Having check just in case.
-		check (false);
-#else
-		((TGPUSkinVertexFloat16Uvs<MAX_TEXCOORDS, bExtraBoneInfluencesT>*)(VertBase))->Position = SrcVertex.Position;
+		auto* Vertex = (TGPUSkinVertexFloat16Uvs<MAX_TEXCOORDS, bExtraBoneInfluencesT>*)VertBase;
+		Vertex->Position = SrcVertex.Position;
 		for( uint32 UVIndex = 0; UVIndex < NumTexCoords; ++UVIndex )
 		{
-			((TGPUSkinVertexFloat16Uvs<MAX_TEXCOORDS, bExtraBoneInfluencesT>*)(VertBase))->UVs[UVIndex] = FVector2DHalf( SrcVertex.UVs[UVIndex] );
+			Vertex->UVs[UVIndex] = FVector2DHalf( SrcVertex.UVs[UVIndex] );
 		}
-#endif
 	}
 	else
 	{
-#if !WITH_EDITORONLY_DATA // I don't expect this to happen on console. If so this won't work with PackedPosition. Having check just in case.
-		check (false);
-#else
-		((TGPUSkinVertexFloat32Uvs<MAX_TEXCOORDS, bExtraBoneInfluencesT>*)(VertBase))->Position = SrcVertex.Position;
+		auto* Vertex = (TGPUSkinVertexFloat32Uvs<MAX_TEXCOORDS, bExtraBoneInfluencesT>*)VertBase;
+		Vertex->Position = SrcVertex.Position;
 		for( uint32 UVIndex = 0; UVIndex < NumTexCoords; ++UVIndex )
 		{
-			((TGPUSkinVertexFloat32Uvs<MAX_TEXCOORDS, bExtraBoneInfluencesT>*)(VertBase))->UVs[UVIndex] = FVector2D( SrcVertex.UVs[UVIndex] );
+			Vertex->UVs[UVIndex] = FVector2D( SrcVertex.UVs[UVIndex] );
 		}
-#endif
 	}
 }
 
@@ -554,9 +547,9 @@ FSkeletalMeshVertexColorBuffer& FSkeletalMeshVertexColorBuffer::operator=(const 
 	return *this;
 }
 
-void FSkeletalMeshVertexColorBuffer::ResizeData(int32 NumVertices)
+void FSkeletalMeshVertexColorBuffer::ResizeData(int32 InNumVertices)
 {
-	VertexData->ResizeBuffer(NumVertices);
+	VertexData->ResizeBuffer(InNumVertices);
 	UpdateCachedInfo();
 }
 
@@ -679,9 +672,9 @@ FArchive& operator<<( FArchive& Ar, FSkeletalMeshVertexAPEXClothBuffer& VertexBu
 			VertexBuffer.VertexData->Serialize( Ar );
 
 			// update cached buffer info
-			VertexBuffer.Data = VertexBuffer.VertexData->GetDataPointer();
-			VertexBuffer.Stride = VertexBuffer.VertexData->GetStride();
 			VertexBuffer.NumVertices = VertexBuffer.VertexData->GetNumVertices();
+			VertexBuffer.Data = (VertexBuffer.NumVertices > 0) ? VertexBuffer.VertexData->GetDataPointer() : nullptr;
+			VertexBuffer.Stride = VertexBuffer.VertexData->GetStride();
 		}
 	}
 
@@ -1001,6 +994,7 @@ void FMultiSizeIndexContainer::CopyIndexBuffer(const TArray<uint32>& NewArray)
 
 void FMultiSizeIndexContainer::Serialize(FArchive& Ar, bool bNeedsCPUAccess)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("FMultiSizeIndexContainer::Serialize"), STAT_MultiSizeIndexContainer_Serialize, STATGROUP_LoadTime );
 	if (Ar.UE4Ver() < VER_UE4_KEEP_SKEL_MESH_INDEX_DATA)
 	{
 		bool bOldNeedsCPUAccess = true;
@@ -1151,6 +1145,8 @@ FArchive& operator<<(FArchive& Ar,FSkelMeshSection& S)
 */
 void FStaticLODModel::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("FStaticLODModel::Serialize"), STAT_StaticLODModel_Serialize, STATGROUP_LoadTime );
+
 	const uint8 LodAdjacencyStripFlag = 1;
 	FStripDataFlags StripFlags( Ar, Ar.IsCooking() && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::Tessellation) ? LodAdjacencyStripFlag : 0 );
 
@@ -1159,7 +1155,7 @@ void FStaticLODModel::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.FreeSkeletalMeshBuffers"));
 	if(CVar)
 	{
-		bKeepBuffersInCPUMemory = !CVar->GetValueOnGameThread();
+		bKeepBuffersInCPUMemory = !CVar->GetValueOnAnyThread();
 	}
 
 	Ar << Sections;
@@ -1567,6 +1563,9 @@ void FStaticLODModel::SortTriangles( FVector SortCenter, bool bUseSortCenter, in
 			MultiSizeIndexContainer.CopyIndexBuffer( Indices );
 		}
 		break;
+	case TRISORT_Custom:
+	case TRISORT_CustomLeftRight:
+		break;
 	}
 
 	Section.TriangleSorting = NewTriangleSorting;
@@ -1687,6 +1686,8 @@ void FSkeletalMeshSourceData::Clear()
 /** Serialization. */
 void FSkeletalMeshSourceData::Serialize( FArchive& Ar, USkeletalMesh* SkeletalMesh )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("FSkeletalMeshSourceData::Serialize"), STAT_SkeletalMeshSourceData_Serialize, STATGROUP_LoadTime );
+
 	if ( Ar.IsLoading() )
 	{
 		bool bHaveSourceData = false;
@@ -1864,6 +1865,8 @@ void FSkeletalMeshResource::ReleaseResources()
 
 void FSkeletalMeshResource::Serialize(FArchive& Ar, USkeletalMesh* Owner)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("FSkeletalMeshResource::Serialize"), STAT_SkeletalMeshResource_Serialize, STATGROUP_LoadTime );
+
 	LODModels.Serialize(Ar,Owner);
 }
 
@@ -1932,8 +1935,9 @@ void USkeletalMesh::ReleaseResources()
 	ReleaseResourcesFence.BeginFence();
 }
 
+// @param InStreamingDistanceMultiplier should be >= 0
 template <bool bExtraBoneInfluencesT>
-static void GetStreamingTextureFactorForLOD(FStaticLODModel& LODModel, TArray<float>& CachedStreamingTextureFactors, float StreamingDistanceMultiplier)
+static void GetStreamingTextureFactorForLOD(FStaticLODModel& LODModel, TArray<float>& CachedStreamingTextureFactors, float InStreamingDistanceMultiplier)
 {
 	int32 NumTotalTriangles = LODModel.GetTotalFaces();
 
@@ -2003,7 +2007,7 @@ static void GetStreamingTextureFactorForLOD(FStaticLODModel& LODModel, TArray<fl
 					float TexelRatio = TexelRatios[UVIndex][ FMath::TruncToInt(TexelRatios[UVIndex].Num() * 0.75f) ];
 					if ( UVIndex == 0 )
 					{
-						TexelRatio *= StreamingDistanceMultiplier;
+						TexelRatio *= InStreamingDistanceMultiplier;
 					}
 					CachedStreamingTextureFactors[UVIndex] = TexelRatio;
 				}
@@ -2035,11 +2039,11 @@ float USkeletalMesh::GetStreamingTextureFactor( int32 RequestedUVIndex )
 			FStaticLODModel& LODModel = Resource->LODModels[0];
 			if (LODModel.DoesVertexBufferHaveExtraBoneInfluences())
 			{
-				GetStreamingTextureFactorForLOD<true>(LODModel, CachedStreamingTextureFactors, StreamingDistanceMultiplier);
+				GetStreamingTextureFactorForLOD<true>(LODModel, CachedStreamingTextureFactors, FMath::Max(0.0f, StreamingDistanceMultiplier));
 			}
 			else
 			{
-				GetStreamingTextureFactorForLOD<false>(LODModel, CachedStreamingTextureFactors, StreamingDistanceMultiplier);
+				GetStreamingTextureFactorForLOD<false>(LODModel, CachedStreamingTextureFactors, FMath::Max(0.0f, StreamingDistanceMultiplier));
 			}
 		}
 		else
@@ -2277,6 +2281,8 @@ bool USkeletalMesh::IsReadyForFinishDestroy()
 
 void USkeletalMesh::Serialize( FArchive& Ar )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("USkeletalMesh::Serialize"), STAT_SkeletalMesh_Serialize, STATGROUP_LoadTime );
+
 	Super::Serialize(Ar);
 
 	FStripDataFlags StripFlags( Ar );
@@ -2341,7 +2347,7 @@ void USkeletalMesh::Serialize( FArchive& Ar )
 	{
 		if ( AssetImportData == NULL )
 		{
-			AssetImportData = ConstructObject<UAssetImportData>(UAssetImportData::StaticClass(), this);
+			AssetImportData = NewObject<UAssetImportData>(this);
 		}
 
 		AssetImportData->SourceFilePath = SourceFilePath_DEPRECATED;
@@ -2705,6 +2711,14 @@ void USkeletalMesh::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) con
 	Super::GetAssetRegistryTags(OutTags);
 }
 
+#if WITH_EDITOR
+void USkeletalMesh::GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const
+{
+	Super::GetAssetRegistryTagMetadata(OutMetadata);
+	OutMetadata.Add("PhysicsAsset", FAssetRegistryTagMetadata().SetImportantValue(TEXT("None")));
+}
+#endif
+
 void USkeletalMesh::DebugVerifySkeletalMeshLOD()
 {
 	// if LOD do not have displayfactor set up correctly
@@ -2816,7 +2830,7 @@ UMorphTarget* USkeletalMesh::FindMorphTarget( FName MorphTargetName ) const
 	return NULL;
 }
 
-USkeletalMeshSocket const* USkeletalMesh::FindSocket(FName InSocketName) const
+USkeletalMeshSocket* USkeletalMesh::FindSocket(FName InSocketName) const
 {
 	if(InSocketName == NAME_None)
 	{
@@ -2876,36 +2890,41 @@ FMatrix USkeletalMesh::GetComposedRefPoseMatrix( FName InBoneName ) const
 	if ( InBoneName != NAME_None )
 	{
 		int32 BoneIndex = RefSkeleton.FindBoneIndex(InBoneName);
-
-		if ( BoneIndex != INDEX_NONE )
+		if (BoneIndex != INDEX_NONE)
 		{
-			while ( BoneIndex != INDEX_NONE )
-			{
-				LocalPose = LocalPose * GetRefPoseMatrix( BoneIndex );
-				BoneIndex = RefSkeleton.GetParentIndex( BoneIndex );
-			}
+			return GetComposedRefPoseMatrix(BoneIndex);
 		}
 		else
 		{
-			USkeletalMeshSocket const* Socket = FindSocket( InBoneName );
+			USkeletalMeshSocket const* Socket = FindSocket(InBoneName);
 
-			if ( Socket != NULL )
+			if(Socket != NULL)
 			{
-				BoneIndex = RefSkeleton.FindBoneIndex( Socket->BoneName );
+				BoneIndex = RefSkeleton.FindBoneIndex(Socket->BoneName);
 
-				if ( BoneIndex != INDEX_NONE )
+				if(BoneIndex != INDEX_NONE)
 				{
-					const FRotationTranslationMatrix SocketMatrix( Socket->RelativeRotation, Socket->RelativeLocation );
-					LocalPose = SocketMatrix * GetRefPoseMatrix( BoneIndex );
-					BoneIndex = RefSkeleton.GetParentIndex( BoneIndex );
-
-					while ( BoneIndex != INDEX_NONE )
-					{
-						LocalPose = LocalPose * GetRefPoseMatrix( BoneIndex );
-						BoneIndex = RefSkeleton.GetParentIndex( BoneIndex );
-					}
+					const FRotationTranslationMatrix SocketMatrix(Socket->RelativeRotation, Socket->RelativeLocation);
+					LocalPose = SocketMatrix * GetComposedRefPoseMatrix(BoneIndex);
 				}
 			}
+		}
+	}
+
+	return LocalPose;
+}
+
+FMatrix USkeletalMesh::GetComposedRefPoseMatrix(int32 InBoneIndex) const
+{
+	FMatrix LocalPose(FMatrix::Identity);
+	int32 BoneIndex = InBoneIndex;
+
+	if(BoneIndex != INDEX_NONE)
+	{
+		while(BoneIndex != INDEX_NONE)
+		{
+			LocalPose = LocalPose * GetRefPoseMatrix(BoneIndex);
+			BoneIndex = RefSkeleton.GetParentIndex(BoneIndex);
 		}
 	}
 
@@ -3045,6 +3064,41 @@ FArchive& operator<<( FArchive& Ar, FSkeletalMaterial& Elem )
 	return Ar;
 }
 
+TArray<USkeletalMeshSocket*> USkeletalMesh::GetActiveSocketList() const
+{
+	TArray<USkeletalMeshSocket*> ActiveSockets = Sockets;
+
+	// Then the skeleton sockets that aren't in the mesh
+	if (Skeleton)
+	{
+		for (auto SkeletonSocketIt = Skeleton->Sockets.CreateConstIterator(); SkeletonSocketIt; ++SkeletonSocketIt)
+		{
+			USkeletalMeshSocket* Socket = *(SkeletonSocketIt);
+
+			if (!IsSocketOnMesh(Socket->SocketName))
+			{
+				ActiveSockets.Add(Socket);
+			}
+		}
+	}
+	return ActiveSockets;
+}
+
+bool USkeletalMesh::IsSocketOnMesh(const FName& InSocketName) const
+{
+	for(int32 SocketIdx=0; SocketIdx < Sockets.Num(); SocketIdx++)
+	{
+		USkeletalMeshSocket* Socket = Sockets[SocketIdx];
+
+		if(Socket != NULL && Socket->SocketName == InSocketName)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 #if WITH_EDITOR
 
 
@@ -3069,45 +3123,6 @@ FStaticLODModel& USkeletalMesh::PreModifyMesh()
 	}
 	check( SkelSourceData.IsInitialized() );
 	return GetSourceModel();
-}
-
-const TArray<USkeletalMeshSocket*>& USkeletalMesh::GetActiveSocketList() const
-{
-	// Static so we can return by reference - really don't want to go down the road of passing this array around by value!
-	static TArray<USkeletalMeshSocket*> ActiveSocketList;
-	
-	ActiveSocketList = Sockets;
-
-	// Then the skeleton sockets that aren't in the mesh
-	if ( Skeleton )
-	{
-		for ( auto SkeletonSocketIt = Skeleton->Sockets.CreateConstIterator(); SkeletonSocketIt; ++SkeletonSocketIt )
-		{
-			USkeletalMeshSocket* Socket = *(SkeletonSocketIt);
-
-			if ( !IsSocketOnMesh( Socket->SocketName ) )
-			{
-				ActiveSocketList.Add( Socket );
-			}
-		}
-	}
-
-	return ActiveSocketList;
-}
-
-bool USkeletalMesh::IsSocketOnMesh( const FName& InSocketName ) const
-{
-	for( int32 SocketIdx=0; SocketIdx < Sockets.Num(); SocketIdx++ )
-	{
-		USkeletalMeshSocket* Socket = Sockets[SocketIdx];
-
-		if ( Socket != NULL && Socket->SocketName == InSocketName )
-		{
-			return true;
-		}
-	}
-
-	return false;
 }
 
 int32 USkeletalMesh::ValidatePreviewAttachedObjects()
@@ -3313,7 +3328,7 @@ void USkeletalMesh::CreateBodySetup()
 {
 	if (BodySetup == nullptr)
 	{
-		BodySetup = ConstructObject<UBodySetup>(UBodySetup::StaticClass(), this);
+		BodySetup = NewObject<UBodySetup>(this);
 		BodySetup->bSharedCookedData = true;
 	}
 }
@@ -3484,6 +3499,7 @@ USkeletalMeshSocket
 -----------------------------------------------------------------------------*/
 USkeletalMeshSocket::USkeletalMeshSocket(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bForceAlwaysAnimated(true)
 {
 	RelativeScale = FVector(1.0f, 1.0f, 1.0f);
 }
@@ -3621,7 +3637,7 @@ ASkeletalMeshActor::ASkeletalMeshActor(const FObjectInitializer& ObjectInitializ
 	: Super(ObjectInitializer)
 {
 
-	SkeletalMeshComponent = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("SkeletalMeshComponent0"));
+	SkeletalMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMeshComponent0"));
 	SkeletalMeshComponent->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose;
 	// check BaseEngine.ini for profile setup
 	SkeletalMeshComponent->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
@@ -3644,9 +3660,12 @@ void ASkeletalMeshActor::PreviewBeginAnimControl(UInterpGroup* InInterpGroup)
 {
 	if (CanPlayAnimation())
 	{
-		SavedAnimationMode = SkeletalMeshComponent->GetAnimationMode();
+		UAnimInstance* AnimInst = SkeletalMeshComponent->GetAnimInstance();
+		if (!AnimInst)
+		{
 		SkeletalMeshComponent->SetAnimationMode(EAnimationMode::Type::AnimationSingleNode);
 	}
+}
 }
 
 
@@ -3656,8 +3675,15 @@ void ASkeletalMeshActor::PreviewFinishAnimControl(UInterpGroup* InInterpGroup)
 	{
 		// if in editor, reset the Animations, makes easier for artist to see them visually and align them
 		// in game, we keep the last pose that matinee kept. If you'd like it to have animation, you'll need to have AnimTree or AnimGraph to handle correctly
-		SkeletalMeshComponent->SetAnimationMode(SavedAnimationMode);
-
+		if (SkeletalMeshComponent->GetAnimationMode()== EAnimationMode::Type::AnimationBlueprint)
+		{
+			UAnimInstance* AnimInst = SkeletalMeshComponent->GetAnimInstance();
+			if(AnimInst)
+			{
+				AnimInst->Montage_Stop(0.f);
+				AnimInst->UpdateAnimation(0.f);
+			}
+		}
 		// Update space bases to reset it back to ref pose
 		SkeletalMeshComponent->RefreshBoneTransforms();
 		SkeletalMeshComponent->RefreshSlaveComponents();
@@ -3668,33 +3694,78 @@ void ASkeletalMeshActor::PreviewFinishAnimControl(UInterpGroup* InInterpGroup)
 
 void ASkeletalMeshActor::PreviewSetAnimPosition(FName SlotName, int32 ChannelIndex, UAnimSequence* InAnimSequence, float InPosition, bool bLooping, bool bFireNotifies, float DeltaTime)
 {
-	UAnimSingleNodeInstance * SingleNodeInst = SkeletalMeshComponent->GetSingleNodeInstance();
-	if (SingleNodeInst)
+	UAnimInstance* AnimInst = SkeletalMeshComponent->GetAnimInstance();
+	if (AnimInst && CanPlayAnimation(InAnimSequence))
 	{
-		if (SingleNodeInst->CurrentAsset != InAnimSequence)
+		UAnimSingleNodeInstance * SingleNodeInst = SkeletalMeshComponent->GetSingleNodeInstance();
+		if(SingleNodeInst)
 		{
-			SingleNodeInst->SetAnimationAsset(InAnimSequence, bLooping);
+			if(SingleNodeInst->CurrentAsset != InAnimSequence)
+			{
+				SingleNodeInst->SetAnimationAsset(InAnimSequence, bLooping);
+			}
+
+			SingleNodeInst->SetLooping(bLooping);
+			SingleNodeInst->SetPosition(InPosition, bFireNotifies);
+		}
+		else
+		{
+			bool bShouldChange = AnimInst->IsPlayingSlotAnimation(InAnimSequence, SlotName ) == false; 
+			if(bShouldChange)
+			{
+				if (CurrentlyPlayingMontage.IsValid())
+				{
+					// set it's weight to 0
+					struct FAnimMontageInstance* PrevAnimMontageInst = AnimInst->GetActiveInstanceForMontage(*CurrentlyPlayingMontage);
+					if (PrevAnimMontageInst)
+					{
+						PrevAnimMontageInst->Weight=0.f;
+					}
+				}
+
+				AnimInst->PlaySlotAnimationAsDynamicMontage(InAnimSequence, SlotName, 0.0f, 0.0f, 0.f, 1);
+				CurrentlyPlayingMontage = AnimInst->GetCurrentActiveMontage();
+			}
+
+			ensure(CurrentlyPlayingMontage.IsValid());
+
+			struct FAnimMontageInstance* AnimMontageInst = AnimInst->GetActiveInstanceForMontage(*CurrentlyPlayingMontage);
+			if (AnimMontageInst)
+			{
+				AnimMontageInst->Weight = 1.f;
+
+				float OldMontagePosition = AnimInst->Montage_GetPosition(CurrentlyPlayingMontage.Get());
+				AnimInst->Montage_SetPosition(CurrentlyPlayingMontage.Get(), InPosition);
+				AnimInst->UpdateAnimation(DeltaTime);
+
+				// since we don't advance montage in the tick, we manually have to handle notifies
+				AnimMontageInst->HandleEvents(OldMontagePosition, InPosition, NULL);
+				AnimInst->TriggerAnimNotifies(DeltaTime);
+			}
+			else
+			{
+				UE_LOG(LogSkeletalMesh, Warning, TEXT("Invalid Slot Node Name: %s"), *SlotName.ToString() );
+			}
 		}
 
-		SingleNodeInst->SetLooping(bLooping);
-		SingleNodeInst->SetPosition(InPosition, bFireNotifies);
+		// Update space bases so new animation position has an effect.
+		SkeletalMeshComponent->UpdateMaterialParameters();
+		SkeletalMeshComponent->RefreshBoneTransforms();
+		SkeletalMeshComponent->RefreshSlaveComponents();
+		SkeletalMeshComponent->UpdateComponentToWorld();
 	}
-
-	// Update space bases so new animation position has an effect.
-	SkeletalMeshComponent->RefreshBoneTransforms();
-	SkeletalMeshComponent->RefreshSlaveComponents();
-	SkeletalMeshComponent->UpdateComponentToWorld();
+	SkeletalMeshComponent->FlipEditableSpaceBases();
 }
 
 
 void ASkeletalMeshActor::PreviewSetAnimWeights(TArray<FAnimSlotInfo>& SlotInfos)
 {
-	// do nothing
+	//no support yet
 }
 
 void ASkeletalMeshActor::SetAnimWeights( const TArray<struct FAnimSlotInfo>& SlotInfos )
 {
-	// do nothing
+	//no support yet
 }
 
 /** Check SkeletalMeshActor for errors. */
@@ -3811,58 +3882,107 @@ void ASkeletalMeshActor::BeginAnimControl(UInterpGroup* InInterpGroup)
 {
 	if (CanPlayAnimation())
 	{
-		SavedAnimationMode = SkeletalMeshComponent->GetAnimationMode();
+		UAnimInstance* AnimInst = SkeletalMeshComponent->GetAnimInstance();
+		if (!AnimInst)
+		{
 		SkeletalMeshComponent->SetAnimationMode(EAnimationMode::Type::AnimationSingleNode);
 	}
 }
-
-bool ASkeletalMeshActor::CanPlayAnimation()
-{
-	return (SkeletalMeshComponent->SkeletalMesh && SkeletalMeshComponent->SkeletalMesh->Skeleton);
 }
 
-// @todo ps4 clang bug: this works around a PS4/clang compiler bug (optimizations)
-void SetAnimPositionInner(USkeletalMeshComponent* SkeletalMeshComponent, UAnimSequence *InAnimSequence, float InPosition, bool bLooping)
+bool ASkeletalMeshActor::CanPlayAnimation(class UAnimSequenceBase* AnimAssetBase/*=NULL*/) const
 {
-	UAnimSingleNodeInstance * SingleNodeInst = SkeletalMeshComponent->GetSingleNodeInstance();
-	if (SingleNodeInst)
-	{
-		if (SingleNodeInst->CurrentAsset != InAnimSequence)
-		{
-			SingleNodeInst->SetAnimationAsset(InAnimSequence, bLooping);
-			SingleNodeInst->SetPosition(0.0f);
-			SingleNodeInst->bPlaying = false;
-		}
+	return (SkeletalMeshComponent->SkeletalMesh && SkeletalMeshComponent->SkeletalMesh->Skeleton && 
+		(!AnimAssetBase || SkeletalMeshComponent->SkeletalMesh->Skeleton->IsCompatible(AnimAssetBase->GetSkeleton())));
+}
 
-		if (SingleNodeInst->bLooping!=bLooping)
+void SetAnimPositionInner(FName SlotName, USkeletalMeshComponent* SkeletalMeshComponent, UAnimSequence* InAnimSequence, TWeakObjectPtr<UAnimMontage>& CurrentlyPlayingMontage, float InPosition, bool bLooping)
+{
+	UAnimInstance* AnimInst = SkeletalMeshComponent->GetAnimInstance();
+	if(AnimInst)
+	{
+		UAnimSingleNodeInstance * SingleNodeInst = SkeletalMeshComponent->GetSingleNodeInstance();
+		if(SingleNodeInst)
 		{
-			SingleNodeInst->SetLooping(bLooping);
+			if(SingleNodeInst->CurrentAsset != InAnimSequence)
+			{
+				SingleNodeInst->SetAnimationAsset(InAnimSequence, bLooping);
+				SingleNodeInst->SetPosition(0.0f);
+				SingleNodeInst->bPlaying = false;
+			}
+
+			if(SingleNodeInst->bLooping!=bLooping)
+			{
+				SingleNodeInst->SetLooping(bLooping);
+			}
+			if(SingleNodeInst->CurrentTime != InPosition)
+			{
+				SingleNodeInst->SetPosition(InPosition);
+			}
 		}
-		if (SingleNodeInst->CurrentTime != InPosition)
+		else
 		{
-			SingleNodeInst->SetPosition(InPosition);
+			bool bShouldChange = AnimInst->IsPlayingSlotAnimation(InAnimSequence, SlotName) == false;
+			if(bShouldChange)
+			{
+				if(CurrentlyPlayingMontage.IsValid())
+				{
+					// set it's weight to 0
+					struct FAnimMontageInstance* PrevAnimMontageInst = AnimInst->GetActiveInstanceForMontage(*CurrentlyPlayingMontage);
+					if(PrevAnimMontageInst)
+					{
+						PrevAnimMontageInst->Weight=0.f;
+					}
+				}
+
+				AnimInst->PlaySlotAnimationAsDynamicMontage(InAnimSequence, SlotName, 0.0f, 0.0f, 0.f, 1);
+				CurrentlyPlayingMontage = AnimInst->GetCurrentActiveMontage();
+			}
+
+			ensure(CurrentlyPlayingMontage.IsValid());
+
+			struct FAnimMontageInstance* AnimMontageInst = AnimInst->GetActiveInstanceForMontage(*CurrentlyPlayingMontage);
+			if(AnimMontageInst)
+			{
+				AnimMontageInst->Weight = 1.f;
+
+				float OldMontagePosition = AnimInst->Montage_GetPosition(CurrentlyPlayingMontage.Get());
+				AnimInst->Montage_SetPosition(CurrentlyPlayingMontage.Get(), InPosition);
+
+				// since we don't advance montage in the tick, we manually have to handle notifies
+				AnimMontageInst->HandleEvents(OldMontagePosition, InPosition, NULL);
+				AnimInst->TriggerAnimNotifies(0.f);
+			}
+			else
+			{
+				UE_LOG(LogSkeletalMesh, Warning, TEXT("Invalid Slot Node Name: %s"), *SlotName.ToString() );
+			}
 		}
 	}
 }
-
-// @todo ps4 clang bug: this works around a PS4/clang compiler bug (optimizations)
-#if !PLATFORM_PS4
-void ASkeletalMeshActor::SetAnimPosition(FName SlotName, int32 ChannelIndex, UAnimSequence *InAnimSequence, float InPosition, bool bFireNotifies, bool bLooping)
+void ASkeletalMeshActor::SetAnimPosition(FName SlotName, int32 ChannelIndex, UAnimSequence* InAnimSequence, float InPosition, bool bFireNotifies, bool bLooping)
 {
-	if (CanPlayAnimation())
+	if (CanPlayAnimation(InAnimSequence))
 	{
-		SetAnimPositionInner(SkeletalMeshComponent, InAnimSequence, InPosition, bLooping);
+		SetAnimPositionInner(SlotName, SkeletalMeshComponent, InAnimSequence, CurrentlyPlayingMontage, InPosition, bLooping);
 	}
 }
-#endif
 
 void ASkeletalMeshActor::FinishAnimControl(UInterpGroup* InInterpGroup)
 {
-	if (CanPlayAnimation())
+	if(SkeletalMeshComponent->GetAnimationMode()== EAnimationMode::Type::AnimationBlueprint)
 	{
-		// if in editor, reset the Animations, makes easier for artist to see them visually and align them
-		// in game, we keep the last pose that matinee kept. If you'd like it to have animation, you'll need to have AnimTree or AnimGraph to handle correctly
-		SkeletalMeshComponent->SetAnimationMode(SavedAnimationMode);
+		UAnimInstance* AnimInst = SkeletalMeshComponent->GetAnimInstance();
+		if(AnimInst)
+	{
+			AnimInst->Montage_Stop(0.f);
+			AnimInst->UpdateAnimation(0.f);
+		}
+
+		// Update space bases to reset it back to ref pose
+		SkeletalMeshComponent->RefreshBoneTransforms();
+		SkeletalMeshComponent->RefreshSlaveComponents();
+		SkeletalMeshComponent->UpdateComponentToWorld();
 	}
 }
 
@@ -4424,7 +4544,7 @@ FPrimitiveViewRelevance FSkeletalMeshSceneProxy::GetViewRelevance(const FSceneVi
 
 bool FSkeletalMeshSceneProxy::CanBeOccluded() const
 {
-	return !MaterialRelevance.bDisableDepthTest;
+	return !MaterialRelevance.bDisableDepthTest && !ShouldRenderCustomDepth();
 }
 
 /** Util for getting LOD index currently used by this SceneProxy. */
@@ -4530,9 +4650,9 @@ void FSkeletalMeshSceneProxy::UpdateMorphMaterialUsage_GameThread(bool bNeedsMor
 	}
 }
 
-
 USkinnedMeshComponent::USkinnedMeshComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, AnimUpdateRateParams(NULL)
 {
 	bAutoActivate = true;
 	PrimaryComponentTick.bCanEverTick = true;
@@ -4557,6 +4677,8 @@ USkinnedMeshComponent::USkinnedMeshComponent(const FObjectInitializer& ObjectIni
 	CurrentEditableSpaceBases = 0;
 	CurrentReadSpaceBases = 1;
 	bNeedToFlipSpaceBaseBuffers = false;
+
+	bCanEverAffectNavigation = false;
 }
 
 
@@ -4679,3 +4801,16 @@ FPrimitiveSceneProxy* USkinnedMeshComponent::CreateSceneProxy()
 
 /** Returns SkeletalMeshComponent subobject **/
 USkeletalMeshComponent* ASkeletalMeshActor::GetSkeletalMeshComponent() { return SkeletalMeshComponent; }
+
+
+#if WITH_EDITOR
+void USkeletalMeshSocket::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (PropertyChangedEvent.Property)
+	{
+		ChangedEvent.Broadcast(this, PropertyChangedEvent.MemberProperty);
+	}
+}
+#endif

@@ -7,7 +7,7 @@ set -e
 cd "`dirname "$0"`/../../../.." 
 
 # First make sure that the UnrealBuildTool is up-to-date
-if ! xbuild /property:Configuration=Development /property:TargetFrameworkVersion=v4.0 /verbosity:quiet /nologo Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool_Mono.csproj; then
+if ! xbuild /property:Configuration=Development /property:TargetFrameworkVersion=v4.0 /verbosity:quiet /nologo Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj; then
   echo "Failed to build to build tool (UnrealBuildTool)"
   exit 1
 fi

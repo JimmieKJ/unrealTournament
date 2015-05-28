@@ -6,6 +6,11 @@
  */
 
 #pragma once
+
+#if WITH_EDITOR
+#include "ComponentEditorUtils.h"
+#endif
+
 #include "Selection.generated.h"
 
 UCLASS(customConstructor, transient)
@@ -30,7 +35,7 @@ public:
 	/** Called to deselect everything */
 	static FSimpleMulticastDelegate SelectNoneEvent;
 
-	USelection(const FObjectInitializer& ObjectInitializer);
+	USelection(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	typedef ClassArray::TIterator TClassIterator;
 	typedef ClassArray::TConstIterator TClassConstIterator;
@@ -466,8 +471,15 @@ class FSelectedEditableComponentFilter
 public:
 	bool IsObjectValid(const UObject* Object) const
 	{
+#if WITH_EDITOR
 		const UActorComponent* Comp = Cast<UActorComponent>( Object );
-		return Comp && !Comp->IsCreatedByConstructionScript();
+		if (Comp)
+		{
+			return Comp->IsEditableWhenInherited();
+		}
+#endif
+		
+		return false;
 	}
 };
 

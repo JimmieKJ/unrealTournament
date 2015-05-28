@@ -31,7 +31,7 @@ struct FLinkerIndexPair
 	FORCEINLINE bool IsDefault()
 	{
 		CheckInvariants();
-		return Linker == NULL;
+		return Linker == nullptr;
 	}
 
 	/**
@@ -39,7 +39,7 @@ struct FLinkerIndexPair
 	 * @param InLinker linker to assign
 	 * @param InLinkerIndex linker index to assign
 	 */
-	FLinkerIndexPair(ULinkerLoad* InLinker, int32 InLinkerIndex) :
+	FLinkerIndexPair(FLinkerLoad* InLinker, int32 InLinkerIndex) :
 		Linker(InLinker),
 		LinkerIndex(InLinkerIndex)
 	{
@@ -51,7 +51,7 @@ struct FLinkerIndexPair
 	 */
 	FORCEINLINE void CheckInvariants()
 	{
-		check(!((Linker == 0) ^ (LinkerIndex == INDEX_NONE))); // you need either a valid linker and index or neither valid
+		check(!((Linker == nullptr) ^ (LinkerIndex == INDEX_NONE))); // you need either a valid linker and index or neither valid
 	}
 
 	/**
@@ -60,7 +60,7 @@ struct FLinkerIndexPair
 	 * in an Unreal package), or if this object has been detached from its
 	 * linker, for e.g. renaming operations, saving the package, etc.
 	 */
-	ULinkerLoad*				Linker; 
+	FLinkerLoad*			Linker; 
 
 	/**
 	 * Index into the linker's ExportMap array for the FObjectExport resource
@@ -69,7 +69,7 @@ struct FLinkerIndexPair
 	int32							LinkerIndex; 
 };
 
-template <> struct TIsPODType<FLinkerIndexPair> { enum { Value = true }; };
+template <> struct TIsPODType<FLinkerIndexPair> { enum { Value = false }; };
 
 
 /**
@@ -86,7 +86,7 @@ static FUObjectAnnotationDense<FLinkerIndexPair,false> LinkerAnnotation;
 
 
 
-void UObject::SetLinker( ULinkerLoad* LinkerLoad, int32 LinkerIndex, bool bShouldDetachExisting )
+void UObject::SetLinker( FLinkerLoad* LinkerLoad, int32 LinkerIndex, bool bShouldDetachExisting )
 {
 	FLinkerIndexPair Existing = LinkerAnnotation.GetAnnotation(this);
 	Existing.CheckInvariants();
@@ -110,13 +110,11 @@ void UObject::SetLinker( ULinkerLoad* LinkerLoad, int32 LinkerIndex, bool bShoul
 		PostLinkerChange();
 #else
 		UE_CLOG(Existing.Linker && LinkerLoad, LogUObjectLinker, Fatal,
-			TEXT("It is only legal to change linkers in the editor. Trying to change linker on %s from %s (%s->LinkerRoot=%s) to %s (%s->LinkerRoot=%s)"),
+			TEXT("It is only legal to change linkers in the editor. Trying to change linker on %s from %s (Existing->LinkerRoot=%s) to %s (LinkerLoad->LinkerRoot=%s)"),
 			*GetFullName(),
 			*Existing.Linker->Filename,
-			*Existing.Linker->GetName(),
 			*GetNameSafe(Existing.Linker->LinkerRoot),
 			*LinkerLoad->Filename,
-			*LinkerLoad->GetName(),
 			*GetNameSafe(LinkerLoad->LinkerRoot));
 #endif
 	}
@@ -127,7 +125,7 @@ void UObject::SetLinker( ULinkerLoad* LinkerLoad, int32 LinkerIndex, bool bShoul
  *
  * @return	a pointer to the linker for this object, or NULL if this object has no linker
  */
-ULinkerLoad* UObjectBaseUtility::GetLinker() const
+FLinkerLoad* UObjectBaseUtility::GetLinker() const
 {
 	FLinkerIndexPair Existing = LinkerAnnotation.GetAnnotation(this);
 	Existing.CheckInvariants();

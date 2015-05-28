@@ -90,13 +90,13 @@ public:
 		// Verify that the event has a darget to be bound to
 		UEdGraphPin* DelegateOwnerPin = DelegateNode->GetDelegateOwner();
 
-		if( DelegateOwnerPin->LinkedTo.Num() == 0 )
+		if (DelegateOwnerPin == nullptr || DelegateOwnerPin->LinkedTo.Num() == 0)
 		{
 			CompilerContext.MessageLog.Error(*FString(*LOCTEXT("FindDynamicallyBoundDelegate_Error", "Couldn't find target for dynamically bound delegate node @@").ToString()), DelegateNode);
 			return;
 		}
 
-		FBPTerminal** pDelegateOwnerTerm = DelegateOwnerPin ? Context.NetMap.Find(DelegateOwnerPin) : NULL;
+		FBPTerminal** pDelegateOwnerTerm = Context.NetMap.Find(DelegateOwnerPin);
 
 		// Create a delegate name term
 		FBPTerminal* DelegateNameTerm = Context.CreateLocalTerminal(ETerminalSpecification::TS_Literal);
@@ -148,17 +148,17 @@ void UK2Node_DelegateSet::AllocateDefaultPins()
 
 FText UK2Node_DelegateSet::GetTooltipText() const
 {
-	if (CachedTooltip.IsOutOfDate())
+	if (CachedTooltip.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "CreateEventForDelegate", "Create an event tied to the delegate {0}"), FText::FromName(DelegatePropertyName));
+		CachedTooltip.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "CreateEventForDelegate", "Create an event tied to the delegate {0}"), FText::FromName(DelegatePropertyName)), this);
 		if (UFunction* Function = GetDelegateSignature())
 		{
 			const FText SignatureTooltip = Function->GetToolTipText();
 
 			if (!SignatureTooltip.IsEmpty())
 			{
-				CachedTooltip = FText::Format(LOCTEXT("DelegateSet_SubtitledTooltip", "{0}\n{1}"), (FText&)CachedTooltip, SignatureTooltip);
+				CachedTooltip.SetCachedText(FText::Format(LOCTEXT("DelegateSet_SubtitledTooltip", "{0}\n{1}"), (FText&)CachedTooltip, SignatureTooltip), this);
 			}
 		}
 	}
@@ -167,12 +167,12 @@ FText UK2Node_DelegateSet::GetTooltipText() const
 
 FText UK2Node_DelegateSet::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	if (CachedNodeTitle.IsOutOfDate())
+	if (CachedNodeTitle.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("DelegatePropertyName"), FText::FromName(DelegatePropertyName));
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedNodeTitle = FText::Format(NSLOCTEXT("K2Node", "Assign_Name", "Assign {DelegatePropertyName}"), Args);
+		CachedNodeTitle.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "Assign_Name", "Assign {DelegatePropertyName}"), Args), this);
 	}
 	return CachedNodeTitle;
 }
@@ -194,7 +194,7 @@ UFunction* UK2Node_DelegateSet::GetDelegateSignature()
 	if( !DelegateProperty )
 	{
 		// Attempt to find a remapped delegate property
-		UMulticastDelegateProperty* NewProperty = Cast<UMulticastDelegateProperty>(FindRemappedField(DelegatePropertyClass, DelegatePropertyName));
+		UMulticastDelegateProperty* NewProperty = Cast<UMulticastDelegateProperty>(FMemberReference::FindRemappedField(DelegatePropertyClass, DelegatePropertyName));
 		if( NewProperty )
 		{
 			// Found a remapped property, update the node
@@ -214,7 +214,7 @@ UFunction* UK2Node_DelegateSet::GetDelegateSignature() const
 	if( !DelegateProperty )
 	{
 		// Attempt to find a remapped delegate property
-		DelegateProperty = Cast<UMulticastDelegateProperty>(FindRemappedField(DelegatePropertyClass, DelegatePropertyName));
+		DelegateProperty = Cast<UMulticastDelegateProperty>(FMemberReference::FindRemappedField(DelegatePropertyClass, DelegatePropertyName));
 	}
 
 	return (DelegateProperty != NULL) ? DelegateProperty->SignatureFunction : NULL;
@@ -272,8 +272,7 @@ void UK2Node_DelegateSet::ExpandNode(class FKismetCompilerContext& CompilerConte
 
 			// First, create an event node matching the delegate signature
 			UK2Node_Event* DelegateEvent = CompilerContext.SpawnIntermediateNode<UK2Node_Event>(this, SourceGraph);
-			DelegateEvent->EventSignatureClass = Cast<UClass>(TargetFunction->GetOuter());
-			DelegateEvent->EventSignatureName = TargetFunction->GetFName();
+			DelegateEvent->EventReference.SetFromField<UFunction>(TargetFunction, false);
 			DelegateEvent->CustomFunctionName = GetDelegateTargetEntryPointName();
 			DelegateEvent->bInternalEvent = true;
 			DelegateEvent->AllocateDefaultPins();

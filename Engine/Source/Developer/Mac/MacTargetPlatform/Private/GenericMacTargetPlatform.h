@@ -33,7 +33,7 @@ public:
 
 		#if WITH_ENGINE
 			FConfigCacheIni::LoadLocalIniFile(EngineSettings, TEXT("Engine"), true, *this->PlatformName());
-			TextureLODSettings.Initialize(EngineSettings, TEXT("SystemSettings"));
+			TextureLODSettings = nullptr;
 			StaticMeshLODSettings.Initialize(EngineSettings);
 		#endif
 	}
@@ -114,38 +114,25 @@ return TSuper::SupportsFeature(Feature);
 		return StaticMeshLODSettings;
 	}
 
-	virtual void GetTextureFormats( const UTexture* InTexture, TArray<FName>& OutFormats ) const override
+	virtual void GetTextureFormats( const UTexture* Texture, TArray<FName>& OutFormats ) const override
 	{
-		static FName NameBC6H(TEXT("BC6H"));
-		static FName NameBC7(TEXT("BC7"));
-		static FName NameRGBA16F(TEXT("RGBA16F"));
-		static FName NameAutoDXT(TEXT("AutoDXT"));
-
-		if (IS_DEDICATED_SERVER)
+		if (!IS_DEDICATED_SERVER)
 		{
-			// no textures needed for dedicated server target
-			OutFormats.Add(NAME_None);
-		}
-		else
-		{
-			// just use the standard texture format name for this texture
-			FName TextureFormatName = this->GetDefaultTextureFormatName(InTexture, EngineSettings);
-			if (TextureFormatName == NameBC6H)
-			{
-				TextureFormatName = NameRGBA16F;
-			}
-			else if (TextureFormatName == NameBC7)
-			{
-				TextureFormatName = NameAutoDXT;
-			}
+			// just use the standard texture format name for this texture (with no DX11 support)
+			FName TextureFormatName = this->GetDefaultTextureFormatName(Texture, EngineSettings, false);
 			OutFormats.Add(TextureFormatName);
 		}
 	}
 
 
-	virtual const struct FTextureLODSettings& GetTextureLODSettings( ) const override
+	virtual const UTextureLODSettings& GetTextureLODSettings() const override
 	{
-		return TextureLODSettings;
+		return *TextureLODSettings;
+	}
+
+	virtual void RegisterTextureLODSettings(const UTextureLODSettings* InTextureLODSettings) override
+	{
+		TextureLODSettings = InTextureLODSettings;
 	}
 
 
@@ -221,7 +208,7 @@ private:
 	FConfigFile EngineSettings;
 
 	// Holds the texture LOD settings.
-	FTextureLODSettings TextureLODSettings;
+	const UTextureLODSettings* TextureLODSettings;
 
 	// Holds the static mesh LOD settings.
 	FStaticMeshLODSettings StaticMeshLODSettings;

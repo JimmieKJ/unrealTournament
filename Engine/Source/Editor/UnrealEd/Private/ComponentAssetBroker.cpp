@@ -225,7 +225,7 @@ public:
 			}
 			if (Class && Class->IsChildOf<AActor>())
 			{
-				ChildActorComp->ChildActorClass = Class;
+				ChildActorComp->SetChildActorClass(Class);
 				return true;
 			}
 		}
@@ -237,7 +237,7 @@ public:
 	{
 		if (UChildActorComponent* ChildActorComp = Cast<UChildActorComponent>(InComponent))
 		{
-			return UBlueprint::GetBlueprintFromClass(*(ChildActorComp->ChildActorClass));
+			return UBlueprint::GetBlueprintFromClass(*(ChildActorComp->GetChildActorClass()));
 		}
 		return NULL;
 	}
@@ -373,7 +373,7 @@ void FComponentAssetBrokerage::InitializeMap()
 	}
 }
 
-void FComponentAssetBrokerage::RegisterBroker(TSharedPtr<IComponentAssetBroker> Broker, TSubclassOf<UActorComponent> InComponentClass, bool bSetAsPrimary, bool bMapCompnentForAssets)
+void FComponentAssetBrokerage::RegisterBroker(TSharedPtr<IComponentAssetBroker> Broker, TSubclassOf<UActorComponent> InComponentClass, bool bSetAsPrimary, bool bMapComponentForAssets)
 {
 	InitializeMap();
 
@@ -394,7 +394,7 @@ void FComponentAssetBrokerage::RegisterBroker(TSharedPtr<IComponentAssetBroker> 
 		AssetToBrokerMap.FindOrAdd(AssetClass).Add(Broker);
 	}
 
-	if (bMapCompnentForAssets)
+	if (bMapComponentForAssets)
 	{
 		FComponentClassList& ValidComponentTypes = AssetToComponentClassMap.FindOrAdd(AssetClass);
 		if (bSetAsPrimary)

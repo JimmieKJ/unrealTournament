@@ -10,9 +10,9 @@ static const FVector DefaultLevelSize = FVector(1000.f);
 ALevelBounds::ALevelBounds(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	UBoxComponent* BoxComponent = ObjectInitializer.CreateDefaultSubobject<UBoxComponent>(this, TEXT("BoxComponent0"));
+	UBoxComponent* BoxComponent = CreateDefaultSubobject<UBoxComponent>(TEXT("BoxComponent0"));
 	RootComponent = BoxComponent;
-	RootComponent->Mobility = EComponentMobility::Static;
+	RootComponent->Mobility = EComponentMobility::Movable;
 	RootComponent->RelativeScale3D = DefaultLevelSize;
 
 	bAutoUpdateBounds = true;
@@ -27,7 +27,6 @@ ALevelBounds::ALevelBounds(const FObjectInitializer& ObjectInitializer)
 	
 #if WITH_EDITOR
 	bLevelBoundsDirty = true;
-	bSubscribedToEvents = false;
 	bUsingDefaultBounds = false;
 #endif
 }
@@ -75,40 +74,73 @@ FBox ALevelBounds::CalculateLevelBounds(ULevel* InLevel)
 void ALevelBounds::PostEditUndo()
 {
 	Super::PostEditUndo();
-	bLevelBoundsDirty = true;
+	
+	MarkLevelBoundsDirty();
 }
 
 void ALevelBounds::PostEditMove(bool bFinished)
 {
 	Super::PostEditMove(bFinished);
-	bLevelBoundsDirty = true;
+	
+	MarkLevelBoundsDirty();
 }
 
 void ALevelBounds::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty( PropertyChangedEvent );
-
-	if (GIsEditor && !GetWorld()->IsPlayInEditor())
-	{
-		if (bAutoUpdateBounds)
-		{
-			UpdateLevelBounds();
-		}
-	}
+	
+	MarkLevelBoundsDirty();
 }
 
 void ALevelBounds::PostRegisterAllComponents()
 {
 	Super::PostRegisterAllComponents();
 	
-	GetLevel()->LevelBoundsActor = this;
-	SubscribeToUpdateEvents();
+	if (!IsTemplate())
+	{
+		GetLevel()->LevelBoundsActor = this;
+		SubscribeToUpdateEvents();
+	}
 }
 
 void ALevelBounds::PostUnregisterAllComponents()
 {
-	UnsubscribeFromUpdateEvents();
+	if (!IsTemplate())
+	{
+		UnsubscribeFromUpdateEvents();
+	}
+	
 	Super::PostUnregisterAllComponents();
+}
+
+void ALevelBounds::Tick(float DeltaTime)
+{
+	if (bLevelBoundsDirty)
+	{
+		UpdateLevelBounds();
+		bLevelBoundsDirty = false;
+	}
+}
+
+TStatId ALevelBounds::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(ALevelBounds, STATGROUP_Tickables);
+}
+
+bool ALevelBounds::IsTickable() const
+{
+	if (GIsEditor && bAutoUpdateBounds && !IsTemplate())
+	{
+		UWorld* World = GetWorld();
+		return (World && World->WorldType == EWorldType::Editor);
+	}
+
+	return false;
+}
+
+bool ALevelBounds::IsTickableInEditor() const
+{
+	return IsTickable();
 }
 
 void ALevelBounds::UpdateLevelBounds()
@@ -131,7 +163,7 @@ void ALevelBounds::UpdateLevelBounds()
 	BroadcastLevelBoundsUpdated();
 }
 
-void ALevelBounds::OnLevelBoundsDirtied()
+void ALevelBounds::MarkLevelBoundsDirty()
 {
 	bLevelBoundsDirty = true;
 }
@@ -158,7 +190,7 @@ void ALevelBounds::OnLevelActorMoved(AActor* InActor)
 		}
 		else
 		{
-			OnLevelBoundsDirtied();
+			MarkLevelBoundsDirty();
 		}
 	}
 }
@@ -167,16 +199,7 @@ void ALevelBounds::OnLevelActorAddedRemoved(AActor* InActor)
 {
 	if (InActor->GetOuter() == GetOuter())
 	{
-		OnLevelBoundsDirtied();
-	}
-}
-
-void ALevelBounds::OnTimerTick()
-{
-	if (bLevelBoundsDirty && bAutoUpdateBounds)
-	{
-		UpdateLevelBounds();
-		bLevelBoundsDirty = false;
+		MarkLevelBoundsDirty();
 	}
 }
 
@@ -192,31 +215,22 @@ void ALevelBounds::BroadcastLevelBoundsUpdated()
 
 void ALevelBounds::SubscribeToUpdateEvents()
 {
-	if (bSubscribedToEvents == false && GIsEditor && !GetWorld()->IsPlayInEditor())
+	// Subscribe only in editor worlds
+	if (!GetWorld()->IsGameWorld())
 	{
-		GetWorldTimerManager().SetTimer(TimerHandle_OnTimerTick, this, &ALevelBounds::OnTimerTick, 1.f, true);
+		UnsubscribeFromUpdateEvents();
+
 		OnLevelActorMovedDelegateHandle   = GEngine->OnActorMoved       ().AddUObject(this, &ALevelBounds::OnLevelActorMoved);
 		OnLevelActorDeletedDelegateHandle = GEngine->OnLevelActorDeleted().AddUObject(this, &ALevelBounds::OnLevelActorAddedRemoved);
 		OnLevelActorAddedDelegateHandle   = GEngine->OnLevelActorAdded  ().AddUObject(this, &ALevelBounds::OnLevelActorAddedRemoved);
-		
-		bSubscribedToEvents = true;
 	}
 }
 
 void ALevelBounds::UnsubscribeFromUpdateEvents()
 {
-	if (bSubscribedToEvents == true)
-	{
-		if (GetWorld())
-		{
-			GetWorldTimerManager().ClearTimer(TimerHandle_OnTimerTick);
-		}
-		GEngine->OnActorMoved       ().Remove(OnLevelActorMovedDelegateHandle);
-		GEngine->OnLevelActorDeleted().Remove(OnLevelActorDeletedDelegateHandle);
-		GEngine->OnLevelActorAdded  ().Remove(OnLevelActorAddedDelegateHandle);
-
-		bSubscribedToEvents = false;
-	}
+	GEngine->OnActorMoved       ().Remove(OnLevelActorMovedDelegateHandle);
+	GEngine->OnLevelActorDeleted().Remove(OnLevelActorDeletedDelegateHandle);
+	GEngine->OnLevelActorAdded  ().Remove(OnLevelActorAddedDelegateHandle);
 }
 
 

@@ -95,11 +95,11 @@ struct COREUOBJECT_API FStringAssetReference
 
 	static int32 GetCurrentTag()
 	{
-		return CurrentTag;
+		return CurrentTag.GetValue();
 	}
 	static int32 InvalidateTag()
 	{
-		return CurrentTag++;
+		return CurrentTag.Increment();
 	}
 
 	static FStringAssetReference GetOrCreateIDForObject(const UObject *Object);
@@ -116,7 +116,7 @@ private:
 	void FixupForPIE();
 
 	/** Global counter that determines when we need to re-search for GUIDs because more objects have been loaded **/
-	static int32 CurrentTag;
+	static FThreadSafeCounter CurrentTag;
 	static TArray<FString> PackageNamesBeingDuplicatedForPIE;
 };
 

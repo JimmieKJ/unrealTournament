@@ -54,7 +54,7 @@ public:
 	virtual FLinearColor GetWorldCentricTabColorScale() const override;
 
 	/** IStaticMeshEditor interface */
-	virtual UStaticMesh* GetStaticMesh() { return StaticMesh; }
+	virtual UStaticMesh* GetStaticMesh() override { return StaticMesh; }
 	virtual UStaticMeshComponent* GetStaticMeshComponent() const override;
 
 	virtual UStaticMeshSocket* GetSelectedSocket() const override ;
@@ -63,7 +63,7 @@ public:
 	virtual void RequestRenameSelectedSocket() override;
 
 	virtual bool IsPrimValid(const FPrimData& InPrimData) const override;
-	virtual bool HasSelectedPrims() const;
+	virtual bool HasSelectedPrims() const override;
 	virtual void AddSelectedPrim(const FPrimData& InPrimData, bool bClearSelection) override;
 	virtual void RemoveSelectedPrim(const FPrimData& InPrimData) override;
 	virtual void RemoveInvalidPrims() override;
@@ -74,9 +74,9 @@ public:
 	virtual void RotateSelectedPrims(const FRotator& InRot) override;
 	virtual void ScaleSelectedPrims(const FVector& InScale) override;
 	virtual bool CalcSelectedPrimsAABB(FBox &OutBox) const override;
-	virtual bool GetLastSelectedPrimTransform(FTransform& OutTransform) const;
-	FTransform GetPrimTransform(const FPrimData& InPrimData) const;
-	void SetPrimTransform(const FPrimData& InPrimData, const FTransform& InPrimTransform) const;
+	virtual bool GetLastSelectedPrimTransform(FTransform& OutTransform) const override;
+	FTransform GetPrimTransform(const FPrimData& InPrimData) const override;
+	void SetPrimTransform(const FPrimData& InPrimData, const FTransform& InPrimTransform) const override;
 	bool OverlapsExistingPrim(const FPrimData& InPrimData) const;
 
 	virtual int32 GetNumTriangles( int32 LODLevel = 0 ) const override;
@@ -89,9 +89,7 @@ public:
 
 	virtual void RefreshTool() override;
 	virtual void RefreshViewport() override;
-
-	/** This is called when Apply is pressed in the dialog. Does the actual processing. */
-	virtual void DoDecomp(int32 InMaxHullCount, int32 InMaxHullVerts) override;
+	virtual void DoDecomp(float InAccuracy, int32 InMaxHullVerts) override;
 
 	virtual TSet< int32 >& GetSelectedEdges() override;
 	// End of IStaticMeshEditor
@@ -158,12 +156,6 @@ private:
 	/** Callback for creating sphyl collision. */
 	void OnCollisionSphyl();
 
-	/** Event for exporting the light map channel of a static mesh to an intermediate file for Max/Maya */
-	void OnExportLightmapMesh( bool IsFBX );
-
-	/** Event for importing the light map channel to a static mesh from an intermediate file from Max/Maya */
-	void OnImportLightmapMesh( bool IsFBX );
-
 	/**
 	* Quick and dirty way of creating box vertices from a box collision representation
 	* Grossly inefficient, but not time critical
@@ -179,11 +171,26 @@ private:
 	/** Copy the collision data from the selected static mesh in Content Browser*/
 	void OnCopyCollisionFromSelectedStaticMesh(void);
 
+	/** Whether there is a valid static mesh to copy collision from selected in the content browser */
+	bool CanCopyCollisionFromSelectedStaticMesh() const;
+
+	/** Get the first static mesh selected in the content browser */
+	UStaticMesh* GetFirstSelectedStaticMeshInContentBrowser() const;
+
 	/** Clears the collision data for the static mesh */
 	void OnRemoveCollision(void);
 
+	/** Whether there is collision to remove from the static mesh */
+	bool CanRemoveCollision();
+
 	/** Change the mesh the editor is viewing. */
 	void OnChangeMesh();
+
+	/** Whether there is a static mesh selected in the content browser to change to*/
+	bool CanChangeMesh() const;
+
+	/** Replace the generated LODs in the original source mesh with the reduced versions.*/
+	void OnSaveGeneratedLODs();
 
 	/** Rebuilds the LOD combo list and sets it to "auto", a safe LOD level. */
 	void RegenerateLODComboList();

@@ -69,7 +69,7 @@ void FVisualLoggerCanvasRenderer::DrawOnCanvas(class UCanvas* Canvas, class APla
 		return;
 	}
 
-	UWorld* World = VisualLoggerInterface->GetWorld();
+	UWorld* World = FLogVisualizer::Get().GetWorld();
 	if (World == NULL)
 	{
 		return;
@@ -84,7 +84,7 @@ void FVisualLoggerCanvasRenderer::DrawOnCanvas(class UCanvas* Canvas, class APla
 	for (const auto CurrentData : SelectedEntry.DataBlocks)
 	{
 		const FName TagName = CurrentData.TagName;
-		const bool bIsValidByFilter = VisualLoggerInterface->IsValidCategory(CurrentData.Category.ToString(), ELogVerbosity::All) && VisualLoggerInterface->IsValidCategory(CurrentData.TagName.ToString(), ELogVerbosity::All);
+		const bool bIsValidByFilter = FCategoryFiltersManager::Get().MatchCategoryFilters(CurrentData.Category.ToString(), ELogVerbosity::All) && FCategoryFiltersManager::Get().MatchCategoryFilters(CurrentData.TagName.ToString(), ELogVerbosity::All);
 		FVisualLogExtensionInterface* Extension = FVisualLogger::Get().GetExtensionForTag(TagName);
 		if (!Extension)
 		{
@@ -93,11 +93,11 @@ void FVisualLoggerCanvasRenderer::DrawOnCanvas(class UCanvas* Canvas, class APla
 
 		if (!bIsValidByFilter)
 		{
-			Extension->DisableDrawingForData(VisualLoggerInterface->GetWorld(), Canvas, NULL, TagName, CurrentData, SelectedEntry.TimeStamp);
+			Extension->DisableDrawingForData(FLogVisualizer::Get().GetWorld(), Canvas, NULL, TagName, CurrentData, SelectedEntry.TimeStamp);
 		}
 		else
 		{
-			Extension->DrawData(VisualLoggerInterface->GetWorld(), Canvas, NULL, TagName, CurrentData, SelectedEntry.TimeStamp);
+			Extension->DrawData(FLogVisualizer::Get().GetWorld(), Canvas, NULL, TagName, CurrentData, SelectedEntry.TimeStamp);
 		}
 	}
 
@@ -112,9 +112,9 @@ void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, cla
 	struct FGraphLineData
 	{
 		FName DataName;
+		FVector2D LeftExtreme, RightExtreme;
 		TArray<FVector2D> Samples;
 	};
-	typedef TMap<FName, FGraphLineData > FGraphLines;
 
 	struct FGraphData
 	{
@@ -124,14 +124,14 @@ void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, cla
 		TMap<FName, FGraphLineData> GraphLines;
 	};
 
-	if (VisualLoggerInterface->GetTimeSliderController() == NULL)
+	if (FLogVisualizer::Get().GetTimeSliderController().IsValid() == false)
 	{
 		return;
 	}
 
 	TMap<FName, FGraphData>	CollectedGraphs;
 
-	const FVisualLoggerTimeSliderArgs&  TimeSliderArgs = VisualLoggerInterface->GetTimeSliderController()->GetTimeSliderArgs();
+	const FVisualLoggerTimeSliderArgs&  TimeSliderArgs = FLogVisualizer::Get().GetTimeSliderController()->GetTimeSliderArgs();
 	TRange<float> LocalViewRange = TimeSliderArgs.ViewRange.Get();
 	const float LocalViewRangeMin = LocalViewRange.GetLowerBoundValue();
 	const float LocalViewRangeMax = LocalViewRange.GetUpperBoundValue();
@@ -141,16 +141,21 @@ void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, cla
 
 	const TArray<FVisualLogDevice::FVisualLogEntryItem> &ObjectItems = CurrentTimeLine.Pin()->GetEntries();
 	int32 ColorIndex = 0;
+	int32 LeftSideOutsideIndex = INDEX_NONE;
+	int32 RightSideOutsideIndex = INDEX_NONE;
+
 	for (int32 EntryIndex = 0; EntryIndex < ObjectItems.Num(); ++EntryIndex)
 	{
 		const FVisualLogEntry* CurrentEntry = &(ObjectItems[EntryIndex].Entry);
 		if (CurrentEntry->TimeStamp < TimeStampWindow.X)
 		{
+			LeftSideOutsideIndex = EntryIndex;
 			continue;
 		}
 
 		if (CurrentEntry->TimeStamp > TimeStampWindow.Y)
 		{
+			RightSideOutsideIndex = EntryIndex;
 			break;
 		}
 
@@ -163,11 +168,10 @@ void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, cla
 			const FName CurrentGraphName = CurrentSample.GraphName;
 			const FName CurrentDataName = CurrentSample.DataName;
 
-			const bool bIsValidByFilter = VisualLoggerInterface->IsValidCategory(CurrentSample.GraphName.ToString(), CurrentSample.DataName.ToString(), ELogVerbosity::All);
-			const bool bCurrentDataNamePassed = true;// !bHistogramGraphsFilter || (QuickFilterText.Len() == 0 || CurrentDataName.ToString().Find(QuickFilterText) != INDEX_NONE);
+			FString GraphFilterName = CurrentSample.GraphName.ToString() +TEXT("$") + CurrentSample.DataName.ToString();
+			const bool bIsValidByFilter = FCategoryFiltersManager::Get().MatchCategoryFilters(GraphFilterName, ELogVerbosity::All);
 
-
-			if (bIsValidByFilter /*&& bCurrentCategoryPassed*/ && bCurrentDataNamePassed)
+			if (bIsValidByFilter)
 			{
 				FGraphData &GraphData = CollectedGraphs.FindOrAdd(CurrentSample.GraphName);
 				FGraphLineData &LineData = GraphData.GraphLines.FindOrAdd(CurrentSample.DataName);
@@ -182,9 +186,36 @@ void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, cla
 			}
 		}
 	}
+	
+	const int32 ExtremeValueIndexes[] = { LeftSideOutsideIndex != INDEX_NONE ? LeftSideOutsideIndex : 0, RightSideOutsideIndex != INDEX_NONE ? RightSideOutsideIndex : ObjectItems.Num() - 1 };
+	for (int32 ObjectIndex = 0; ObjectIndex < 2; ++ObjectIndex)
+	{
+		const FVisualLogEntry* CurrentEntry = &(ObjectItems[ExtremeValueIndexes[ObjectIndex]].Entry);
+		const int32 SamplesNum = CurrentEntry->HistogramSamples.Num();
+		for (int32 SampleIndex = 0; SampleIndex < SamplesNum; ++SampleIndex)
+		{
+			FVisualLogHistogramSample CurrentSample = CurrentEntry->HistogramSamples[SampleIndex];
+
+			const FName CurrentCategory = CurrentSample.Category;
+			const FName CurrentGraphName = CurrentSample.GraphName;
+			const FName CurrentDataName = CurrentSample.DataName;
+
+			FString GraphFilterName = CurrentSample.GraphName.ToString() + TEXT("_") + CurrentSample.DataName.ToString();
+			const bool bIsValidByFilter = FCategoryFiltersManager::Get().MatchCategoryFilters(GraphFilterName, ELogVerbosity::All);
+			if (bIsValidByFilter)
+			{
+				FGraphData &GraphData = CollectedGraphs.FindOrAdd(CurrentSample.GraphName);
+				FGraphLineData &LineData = GraphData.GraphLines.FindOrAdd(CurrentSample.DataName);
+				LineData.DataName = CurrentSample.DataName;
+				if (ObjectIndex == 0)
+					LineData.LeftExtreme = CurrentSample.SampleValue;
+				else
+					LineData.RightExtreme = CurrentSample.SampleValue;
+			}
+		}
+	}
 
 	const float GoldenRatioConjugate = 0.618033988749895f;
-	int32 GraphIndex = 0;
 	if (CollectedGraphs.Num() > 0)
 	{
 		const FColor GraphsBackgroundColor = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->GraphsBackgroundColor;
@@ -211,6 +242,7 @@ void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, cla
 		int32 GraphIndex = 0;
 		int32 CurrentColumn = 0;
 		int32 CurrentRow = 0;
+		bool bDrawExtremesOnGraphs = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bDrawExtremesOnGraphs;
 		for (auto It(CollectedGraphs.CreateIterator()); It; ++It)
 		{
 			TWeakObjectPtr<UReporterGraph> HistogramGraph = Canvas->GetReporterGraph();
@@ -222,7 +254,7 @@ void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, cla
 			int32 LineIndex = 0;
 			UFont* Font = GEngine->GetSmallFont();
 			int32 MaxStringSize = 0;
-			float Hue = 0;//StartGoldenRatio[GraphIndex++];
+			float Hue = 0;
 
 			auto& CategoriesForGraph = UsedGraphCategories.FindOrAdd(It->Key.ToString());
 
@@ -244,10 +276,12 @@ void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, cla
 				HistogramGraph->GetGraphLine(LineIndex)->Color = FLinearColor::FGetHSV(Hue * 255, 0, 244);
 				HistogramGraph->GetGraphLine(LineIndex)->LineName = DataName;
 				HistogramGraph->GetGraphLine(LineIndex)->Data.Append(LinesIt->Value.Samples);
+				HistogramGraph->GetGraphLine(LineIndex)->LeftExtreme = LinesIt->Value.LeftExtreme;
+				HistogramGraph->GetGraphLine(LineIndex)->RightExtreme = LinesIt->Value.RightExtreme;
 
-				int32 DummyY, CurrentX;
-				StringSize(Font, CurrentX, DummyY, *LinesIt->Value.DataName.ToString());
-				MaxStringSize = CurrentX > MaxStringSize ? CurrentX : MaxStringSize;
+				int32 DummyY, StringSizeX;
+				StringSize(Font, StringSizeX, DummyY, *LinesIt->Value.DataName.ToString());
+				MaxStringSize = StringSizeX > MaxStringSize ? StringSizeX : MaxStringSize;
 
 				++LineIndex;
 			}
@@ -267,6 +301,7 @@ void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, cla
 			HistogramGraph->SetBackgroundColor(GraphsBackgroundColor);
 			HistogramGraph->SetLegendPosition(/*bShowHistogramLabelsOutside*/ false ? ELegendPosition::Outside : ELegendPosition::Inside);
 			HistogramGraph->OffsetDataSets(/*bOffsetDataSet*/false);
+			HistogramGraph->DrawExtremesOnGraph(bDrawExtremesOnGraphs);
 			HistogramGraph->bVisible = true;
 			HistogramGraph->Draw(Canvas);
 

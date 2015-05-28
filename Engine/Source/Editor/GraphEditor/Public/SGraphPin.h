@@ -16,12 +16,10 @@ public:
 
 	SLATE_BEGIN_ARGS(SGraphPin)
 		: _PinLabelStyle(NAME_DefaultPinLabelStyle)
-		, _HasToolTip(true)
 		, _UsePinColorForText(false)
 		, _SideToSideMargin(5.0f)
 		{}
 		SLATE_ARGUMENT(FName, PinLabelStyle)
-		SLATE_ARGUMENT(bool, HasToolTip)
 		SLATE_ARGUMENT(bool, UsePinColorForText)
 		SLATE_ARGUMENT(float, SideToSideMargin)
 	SLATE_END_ARGS()
@@ -143,7 +141,7 @@ protected:
 	virtual FSlateColor GetPinTextColor() const;
 
 	/** @return The tooltip to display for this pin */
-	FText GetTooltip() const;
+	FText GetTooltipText() const;
 
 	TOptional<EMouseCursor::Type> GetPinCursor() const;
 

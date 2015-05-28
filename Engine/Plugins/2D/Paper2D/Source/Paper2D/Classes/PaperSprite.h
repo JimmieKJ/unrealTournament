@@ -7,17 +7,6 @@
 #include "Interfaces/Interface_CollisionDataProvider.h"
 #include "PaperSprite.generated.h"
 
-UENUM()
-namespace ESpriteCollisionMode
-{
-	enum Type
-	{
-		None,
-		Use2DPhysics,
-		Use3DPhysics
-	};
-}
-
 //@TODO: Should have some nice UI and enforce unique names, etc...
 USTRUCT()
 struct FPaperSpriteSocket
@@ -28,15 +17,20 @@ struct FPaperSpriteSocket
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Sockets)
 	FTransform LocalTransform;
 
+	// Name of the socket
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Sockets)
 	FName SocketName;
 };
+
+typedef TArray<class UTexture*, TInlineAllocator<4>> FAdditionalSpriteTextureArray;
 
 /**
  * Sprite Asset
  *
  * Stores the data necessary to render a single 2D sprite (from a region of a texture)
  * Can also contain collision shapes for the sprite.
+ *
+ * @see UPaperSpriteComponent
  */
 
 UCLASS(BlueprintType, meta=(DisplayThumbnail = "true"))
@@ -47,11 +41,11 @@ class PAPER2D_API UPaperSprite : public UObject, public IInterface_CollisionData
 protected:
 
 #if WITH_EDITORONLY_DATA
-	// Position with SourceTexture
+	// Position with SourceTexture (in pixels)
 	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable)
 	FVector2D SourceUV;
 
-	// Dimensions within SourceTexture
+	// Dimensions within SourceTexture (in pixels)
 	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable)
 	FVector2D SourceDimension;
 
@@ -85,6 +79,10 @@ protected:
 	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable)
 	UTexture2D* SourceTexture;
 
+	// Additional source textures for other slots
+	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable, meta=(DisplayName="Additional Textures"))
+	TArray<UTexture*> AdditionalSourceTextures;
+
 	UPROPERTY()
 	UTexture2D* BakedSourceTexture;
 
@@ -93,7 +91,7 @@ protected:
 	UMaterialInterface* DefaultMaterial;
 
 	// The alternate material to use on a sprite instance if not overridden (this is only used for Diced render geometry, and will be the opaque material in that case, slot 1)
-	UPROPERTY(Category=Sprite, EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(Category=Rendering, EditAnywhere, BlueprintReadOnly)
 	UMaterialInterface* AlternateMaterial;
 
 	// List of sockets on this sprite
@@ -130,7 +128,7 @@ protected:
 
 	// Custom collision geometry polygons (in texture space)
 	UPROPERTY(Category=Collision, EditAnywhere)
-	FSpritePolygonCollection CollisionGeometry;
+	FSpriteGeometryCollection CollisionGeometry;
 
 	// The extrusion thickness of collision geometry when using a 3D collision domain
 	UPROPERTY(Category=Collision, EditAnywhere)
@@ -138,11 +136,15 @@ protected:
 
 	// Custom render geometry polygons (in texture space)
 	UPROPERTY(Category=Rendering, EditAnywhere)
-	FSpritePolygonCollection RenderGeometry;
+	FSpriteGeometryCollection RenderGeometry;
 
 	// Spritesheet group that this sprite belongs to
 	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable)
 	class UPaperSpriteAtlas* AtlasGroup;
+
+	// The previous spritesheet group this belonged to
+	// To make sure we remove ourselves from it if changed or nulled out
+	TAssetPtr<class UPaperSpriteAtlas> PreviousAtlasGroup;
 
 #endif
 
@@ -160,20 +162,22 @@ public:
 
 public:
 
-#if WITH_EDITOR
 	// UObject interface
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
+#if WITH_EDITOR
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
 	// End of UObject interface
 
+#if WITH_EDITOR
 	FVector2D ConvertTextureSpaceToPivotSpace(FVector2D Input) const;
 	FVector2D ConvertPivotSpaceToTextureSpace(FVector2D Input) const;
 	FVector ConvertTextureSpaceToPivotSpace(FVector Input) const;
 	FVector ConvertPivotSpaceToTextureSpace(FVector Input) const;
 	FVector2D ConvertWorldSpaceToTextureSpace(const FVector& WorldPoint) const;
-	FVector2D ConvertWorldSpaceDeltaToTextureSpace(const FVector& WorldDelta) const;
+	FVector2D ConvertWorldSpaceDeltaToTextureSpace(const FVector& WorldDelta, bool bIgnoreRotation = false) const;
 
 	// World space WRT the sprite editor *only*
 	FVector ConvertTextureSpaceToWorldSpace(const FVector2D& SourcePoint) const;
@@ -185,8 +189,20 @@ public:
 	// Returns the current pivot position in texture space
 	FVector2D GetPivotPosition() const;
 
+	// Returns the extrusion thickness of collision geometry when using a 3D collision domain
+	float GetCollisionThickness() const
+	{
+		return CollisionThickness;
+	}
+
+	// Returns the collision domain (no collision, 2D, or 3D)
+	ESpriteCollisionMode::Type GetSpriteCollisionDomain() const
+	{
+		return SpriteCollisionDomain;
+	}
+
 	// Rescale properties to handle source texture size change
-	void RescaleSpriteData(const UTexture2D* Texture);
+	void RescaleSpriteData(UTexture2D* Texture);
 	bool NeedRescaleSpriteData();
 
 	void RebuildCollisionData();
@@ -194,17 +210,15 @@ public:
 
 	void ExtractSourceRegionFromTexturePoint(const FVector2D& Point);
 
+	// Evaluates the SourceUV/SourceDimensons rectangle, finding the tightest bounds that still include all pixels with alpha above AlphaThreshold.
+	// The output box position is the top left corner of the box, not the center.
 	void FindTextureBoundingBox(float AlphaThreshold, /*out*/ FVector2D& OutBoxPosition, /*out*/ FVector2D& OutBoxSize);
-	static void FindContours(const FIntPoint& ScanPos, const FIntPoint& ScanSize, float AlphaThreshold, UTexture2D* Texture, TArray< TArray<FIntPoint> >& OutPoints);
+
+	static void FindContours(const FIntPoint& ScanPos, const FIntPoint& ScanSize, float AlphaThreshold, float Detail, UTexture2D* Texture, TArray< TArray<FIntPoint> >& OutPoints);
 	static void ExtractRectsFromTexture(UTexture2D* Texture, TArray<FIntRect>& OutRects);
-	void BuildGeometryFromContours(FSpritePolygonCollection& GeomOwner);
+	void BuildGeometryFromContours(FSpriteGeometryCollection& GeomOwner);
 
-	void BuildBoundingBoxCollisionData(bool bUseTightBounds);
-	void BuildCustomCollisionData();
-
-	void CreatePolygonFromBoundingBox(FSpritePolygonCollection& GeomOwner, bool bUseTightBounds);
-
-	void Triangulate(const FSpritePolygonCollection& Source, TArray<FVector2D>& Target);
+	void CreatePolygonFromBoundingBox(FSpriteGeometryCollection& GeomOwner, bool bUseTightBounds);
 
 	// Reinitializes this sprite (NOTE: Does not register existing components in the world)
 	void InitializeSprite(const FSpriteAssetInitParameters& InitParams);
@@ -233,12 +247,22 @@ public:
 	FVector2D GetSourceUV() const { return SourceUV; }
 	FVector2D GetSourceSize() const { return SourceDimension; }
 	UTexture2D* GetSourceTexture() const { return SourceTexture; }
+
+	const UPaperSpriteAtlas* GetAtlasGroup() const { return AtlasGroup; }
 #endif
 
 #if WITH_EDITOR
-	bool bRegisteredObjectReimport;
-	// Called via delegate when an object is re-imported in the editor
-	void OnObjectReimported(UObject* InObject);
+	// Called when an object is re-imported in the editor
+	void OnObjectReimported(UTexture2D* InObject);
+#endif
+
+#if WITH_EDITOR
+	// Make sure all socket names are valid
+	// All duplicate / empty names will be made unique
+	void ValidateSocketNames();
+
+	// Removes the specified socket
+	void RemoveSocket(FName SocketName);
 #endif
 
 	// Return the scaling factor between pixels and Unreal units (cm)
@@ -249,6 +273,9 @@ public:
 
 	// Returns the texture this should be rendered with
 	UTexture2D* GetBakedTexture() const;
+
+	// Returns the list of additional source textures this should be rendered with
+	void GetBakedAdditionalSourceTextures(FAdditionalSpriteTextureArray& OutTextureList) const;
 
 	// Return the default material for this sprite
 	UMaterialInterface* GetDefaultMaterial() const { return DefaultMaterial; }
@@ -284,8 +311,10 @@ public:
 	friend class FSpriteEditorViewportClient;
 	friend class FSpriteDetailsCustomization;
 	friend class FSpriteSelectedVertex;
+	friend class FSpriteSelectedShape;
 	friend class FSpriteSelectedEdge;
 	friend class FSpriteSelectedSourceRegion;
 	friend struct FPaperAtlasGenerator;
+	friend class FSingleTileEditorViewportClient;
 };
 

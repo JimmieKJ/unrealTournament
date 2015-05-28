@@ -2,6 +2,8 @@
 
 #include "UMGPrivatePCH.h"
 
+#include "Widgets/Layout/SDPIScaler.h"
+
 #include "UMGDragDropOp.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -15,6 +17,11 @@ FUMGDragDropOp::FUMGDragDropOp()
 void FUMGDragDropOp::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObject(DragOperation);
+}
+
+void FUMGDragDropOp::Construct()
+{
+
 }
 
 void FUMGDragDropOp::OnDrop( bool bDropWasHandled, const FPointerEvent& MouseEvent )
@@ -96,11 +103,12 @@ void FUMGDragDropOp::OnDragged( const class FDragDropEvent& DragDropEvent )
 	{
 		float T = DeltaTime / AnimationTime;
 		FVector2D LerpPosition = ( Position - StartingScreenPos ) * T;
-		CursorDecoratorWindow->MoveWindowTo(StartingScreenPos + LerpPosition);
+		
+		DecoratorPosition = StartingScreenPos + LerpPosition;
 	}
 	else
 	{
-		CursorDecoratorWindow->MoveWindowTo(Position);
+		DecoratorPosition = Position;
 	}
 }
 
@@ -109,7 +117,7 @@ TSharedPtr<SWidget> FUMGDragDropOp::GetDefaultDecorator() const
 	return DecoratorWidget;
 }
 
-TSharedRef<FUMGDragDropOp> FUMGDragDropOp::New(UDragDropOperation* InOperation, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfDragee, TSharedPtr<SObjectWidget> SourceUserWidget)
+TSharedRef<FUMGDragDropOp> FUMGDragDropOp::New(UDragDropOperation* InOperation, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfDragee, float DPIScale, TSharedPtr<SObjectWidget> SourceUserWidget)
 {
 	check(InOperation);
 
@@ -117,18 +125,25 @@ TSharedRef<FUMGDragDropOp> FUMGDragDropOp::New(UDragDropOperation* InOperation, 
 	Operation->MouseDownOffset = ScreenPositionOfDragee - CursorPosition;
 	Operation->StartingScreenPos = ScreenPositionOfDragee;
 	Operation->SourceUserWidget = SourceUserWidget;
-
 	Operation->DragOperation = InOperation;
 
+	TSharedPtr<SWidget> DragVisual;
 	if ( InOperation->DefaultDragVisual == nullptr )
 	{
-		Operation->DecoratorWidget = SNew(STextBlock)
+		DragVisual = SNew(STextBlock)
 			.Text(FText::FromString(InOperation->Tag));
 	}
 	else
 	{
-		Operation->DecoratorWidget = InOperation->DefaultDragVisual->TakeWidget();
+		DragVisual = InOperation->DefaultDragVisual->TakeWidget();
 	}
+
+	Operation->DecoratorWidget =
+		SNew(SDPIScaler)
+		.DPIScale(DPIScale)
+		[
+			DragVisual.ToSharedRef()
+		];
 
 	Operation->DecoratorWidget->SlatePrepass();
 

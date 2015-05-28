@@ -21,13 +21,13 @@ class ENGINE_API UAnimNotifyState : public UObject
 	FString GetNotifyName() const;
 
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual bool Received_NotifyBegin(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation, float TotalDuration) const;
+	bool Received_NotifyBegin(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation, float TotalDuration) const;
 	
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual bool Received_NotifyTick(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation, float FrameDeltaTime) const;
+	bool Received_NotifyTick(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation, float FrameDeltaTime) const;
 
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual bool Received_NotifyEnd(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation) const;
+	bool Received_NotifyEnd(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation) const;
 
 #if WITH_EDITORONLY_DATA
 	/** Color of Notify in editor */
@@ -35,6 +35,10 @@ class ENGINE_API UAnimNotifyState : public UObject
 	FColor NotifyColor;
 
 #endif // WITH_EDITORONLY_DATA
+
+#if WITH_EDITOR
+	virtual void OnAnimNotifyCreatedInEditor(FAnimNotifyEvent& ContainingAnimNotifyEvent) {};
+#endif
 
 	virtual void NotifyBegin(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation, float TotalDuration);
 	virtual void NotifyTick(USkeletalMeshComponent * MeshComp, UAnimSequenceBase * Animation, float FrameDeltaTime);
@@ -55,14 +59,6 @@ class ENGINE_API UAnimNotifyState : public UObject
 		return FLinearColor::Black;
 #endif // WITH_EDITORONLY_DATA
 	}
-
-	/**
-	 *	Called by the AnimSet viewer when the 'parent' FAnimNotifyEvent is edited.
-	 *
-	 *	@param	AnimSeq			The animation sequence this notify is associated with.
-	 *	@param	OwnerEvent		The event that 'owns' this AnimNotify.
-	 */
-	virtual void AnimNotifyEventChanged(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, FAnimNotifyEvent * OwnerEvent) {}
 
 	/** UObject Interface */
 	virtual void PostLoad();

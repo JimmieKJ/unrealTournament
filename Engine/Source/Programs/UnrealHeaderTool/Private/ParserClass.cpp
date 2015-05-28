@@ -5,11 +5,6 @@
 #include "Classes.h"
 #include "ClassMaps.h"
 
-bool FClass::Inherits(const FClass* SuspectBase) const
-{
-	return IsChildOf(SuspectBase);
-}
-
 FString FClass::GetNameWithPrefix(EEnforceInterfacePrefix::Type EnforceInterfacePrefix) const
 {
 	const TCHAR* Prefix = 0;
@@ -62,18 +57,6 @@ FClass* FClass::GetClassWithin() const
 	return (FClass*)ClassWithin;
 }
 
-TArray<FName> FClass::GetDependentNames() const
-{
-	TArray<FName> Result;
-
-	for (auto Name : *GClassDependentOnMap.FindOrAdd(const_cast<FClass*>(this)))
-	{
-		Result.Add(Name);
-	}
-
-	return Result;
-}
-
 TArray<FClass*> FClass::GetInterfaceTypes() const
 {
 	TArray<FClass*> Result;
@@ -90,7 +73,7 @@ void FClass::GetHideCategories(TArray<FString>& OutHideCategories) const
 	if (HasMetaData(NAME_HideCategories))
 	{
 		const FString& HideCategories = GetMetaData(NAME_HideCategories);
-		HideCategories.ParseIntoArray(&OutHideCategories, TEXT(" "), true);
+		HideCategories.ParseIntoArray(OutHideCategories, TEXT(" "), true);
 	}
 }
 
@@ -100,6 +83,6 @@ void FClass::GetShowCategories(TArray<FString>& OutShowCategories) const
 	if (HasMetaData(NAME_ShowCategories))
 	{
 		const FString& ShowCategories = GetMetaData(NAME_ShowCategories);
-		ShowCategories.ParseIntoArray(&OutShowCategories, TEXT(" "), true);
+		ShowCategories.ParseIntoArray(OutShowCategories, TEXT(" "), true);
 	}
 }

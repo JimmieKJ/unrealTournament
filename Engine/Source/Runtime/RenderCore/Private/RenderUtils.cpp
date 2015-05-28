@@ -177,13 +177,13 @@ public:
 	}
 
 	/** Returns the width of the texture in pixels. */
-	virtual uint32 GetSizeX() const
+	virtual uint32 GetSizeX() const override
 	{
 		return 1;
 	}
 
 	/** Returns the height of the texture in pixels. */
-	virtual uint32 GetSizeY() const
+	virtual uint32 GetSizeY() const override
 	{
 		return 1;
 	}
@@ -264,7 +264,7 @@ public:
 	/**
 	 * Return the size of the texture in the X dimension.
 	 */
-	virtual uint32 GetSizeX() const
+	virtual uint32 GetSizeX() const override
 	{
 		return 1;
 	}
@@ -272,7 +272,7 @@ public:
 	/**
 	 * Return the size of the texture in the Y dimension.
 	 */
-	virtual uint32 GetSizeY() const
+	virtual uint32 GetSizeY() const override
 	{
 		return 1;
 	}
@@ -306,13 +306,13 @@ public:
 	}
 
 	/** Returns the width of the texture in pixels. */
-	virtual uint32 GetSizeX() const
+	virtual uint32 GetSizeX() const override
 	{
 		return 1;
 	}
 
 	/** Returns the height of the texture in pixels. */
-	virtual uint32 GetSizeY() const
+	virtual uint32 GetSizeY() const override
 	{
 		return 1;
 	}
@@ -369,14 +369,16 @@ public:
 	}
 
 	/** Returns the width of the texture in pixels. */
-	virtual uint32 GetSizeX() const
+	virtual uint32 GetSizeX() const override
 	{
 		int32 TextureSize = 1 << (NumMips - 1);
 		return TextureSize;
 	}
 
 	/** Returns the height of the texture in pixels. */
-	virtual uint32 GetSizeY() const
+	// PVS-Studio notices that the implementation of GetSizeX is identical to this one
+	// and warns us. In this case, it is intentional, so we disable the warning:
+	virtual uint32 GetSizeY() const override //-V524
 	{
 		int32 TextureSize = 1 << (NumMips - 1);
 		return TextureSize;
@@ -441,13 +443,13 @@ public:
 	}
 
 	/** Returns the width of the texture in pixels. */
-	virtual uint32 GetSizeX() const
+	virtual uint32 GetSizeX() const override
 	{
 		return 1;
 	}
 
 	/** Returns the height of the texture in pixels. */
-	virtual uint32 GetSizeY() const
+	virtual uint32 GetSizeY() const override
 	{
 		return 1;
 	}
@@ -502,13 +504,13 @@ public:
 	}
 
 	/** Returns the width of the texture in pixels. */
-	virtual uint32 GetSizeX() const
+	virtual uint32 GetSizeX() const override
 	{
 		return 1;
 	}
 
 	/** Returns the height of the texture in pixels. */
-	virtual uint32 GetSizeY() const
+	virtual uint32 GetSizeY() const override
 	{
 		return 1;
 	}

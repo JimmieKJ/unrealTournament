@@ -7,15 +7,15 @@ enum EEdGraphActionType
 {
 	/** A default edit with no information occurred */
 	GRAPHACTION_Default = 0x0,
-	/** An action involving a user initiated action occurred on the graph */
-	GRAPHACTION_UserInitiated = 0x1 << 0,
 
 	/** A node was added to the graph */
-	GRAPHACTION_AddNode = 0x1 << 1,
-	/** A node was added to the graph at the users' request */
-	GRAPHACTION_AddNodeUI = GRAPHACTION_AddNode | GRAPHACTION_UserInitiated,
+	GRAPHACTION_AddNode = 0x1 << 0,
 
-	GRAPHACTION_SelectNode = 0x1 << 2,
+	/** A node was selected */
+	GRAPHACTION_SelectNode = 0x1 << 1,
+
+	/** A node was removed from the graph at the user's request */
+	GRAPHACTION_RemoveNode = 0x1 << 2,
 };
 
 
@@ -28,15 +28,19 @@ struct FEdGraphEditAction
 	class UEdGraph* Graph;
 	/** [Optional] The object the action occurred on */
 	TSet<const class UEdGraphNode*> Nodes;
+	/** Whether the user invoked this change or not */
+	bool bUserInvoked;
 
 	FEdGraphEditAction()
 		: Action(GRAPHACTION_Default)
 		, Graph (NULL)
+		, bUserInvoked(false)
 	{}
 
-	explicit FEdGraphEditAction(EEdGraphActionType InAction, class UEdGraph* InGraph, class UEdGraphNode* InNode)
+	explicit FEdGraphEditAction(EEdGraphActionType InAction, class UEdGraph* InGraph, class UEdGraphNode* InNode, bool bInUserInvoked)
 		: Action(InAction) 
 		, Graph(InGraph)
+		, bUserInvoked(bInUserInvoked)
 	{
 		Nodes.Add(InNode);
 	}

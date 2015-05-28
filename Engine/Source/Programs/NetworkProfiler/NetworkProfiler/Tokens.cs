@@ -21,6 +21,13 @@ namespace NetworkProfiler
 		EndOfStreamMarker,			// End of stream marker		
 		Event,						// Event
 		RawSocketData,				// Raw socket data being sent
+		SendAck,					// Ack being sent
+		WritePropertyHeader,		// Property header being written
+		ExportBunch,				// Exported GUIDs
+		MustBeMappedGuids,			// Must be mapped GUIDs
+		BeginContentBlock,			// Content block headers
+		EndContentBlock,			// Content block footers
+		WritePropertyHandle,		// Property handles
 		MaxAndInvalid,				// Invalid token, also used as the max token index
 	}
 
@@ -90,6 +97,27 @@ namespace NetworkProfiler
 					break;
 				case ETokenTypes.RawSocketData:
 					SerializedToken = new TokenRawSocketData( BinaryStream );
+					break;
+				case ETokenTypes.SendAck:
+					SerializedToken = new TokenSendAck( BinaryStream );
+					break;
+				case ETokenTypes.WritePropertyHeader:
+					SerializedToken = new TokenWritePropertyHeader( BinaryStream );
+					break;
+				case ETokenTypes.ExportBunch:
+					SerializedToken = new TokenExportBunch( BinaryStream );
+					break;
+				case ETokenTypes.MustBeMappedGuids:
+					SerializedToken = new TokenMustBeMappedGuids( BinaryStream );
+					break;
+				case ETokenTypes.BeginContentBlock:
+					SerializedToken = new TokenBeginContentBlock( BinaryStream );
+					break;
+				case ETokenTypes.EndContentBlock:
+					SerializedToken = new TokenEndContentBlock( BinaryStream );
+					break;
+				case ETokenTypes.WritePropertyHandle:
+					SerializedToken = new TokenWritePropertyHandle( BinaryStream );
 					break;
 				default:
 					throw new InvalidDataException();
@@ -167,6 +195,14 @@ namespace NetworkProfiler
 		public int SocketNameIndex;
 		/** Bytes actually sent by low level code. */
 		public UInt16 BytesSent;
+		/** Number of bits representing the packet id */
+		public UInt16 NumPacketIdBits;
+		/** Number of bits representing bunches */
+		public UInt16 NumBunchBits;
+		/** Number of bits representing acks */
+		public UInt16 NumAckBits;
+		/** Number of bits used for padding */
+		public UInt16 NumPaddingBits;
 		/** IP in network byte order. */
 		public UInt32 NetworkByteOrderIP;
 
@@ -176,6 +212,10 @@ namespace NetworkProfiler
 			ThreadId = BinaryStream.ReadUInt32();
 			SocketNameIndex = BinaryStream.ReadInt32();
 			BytesSent = BinaryStream.ReadUInt16();
+			NumPacketIdBits = BinaryStream.ReadUInt16();
+			NumBunchBits = BinaryStream.ReadUInt16();
+			NumAckBits = BinaryStream.ReadUInt16();
+			NumPaddingBits = BinaryStream.ReadUInt16();
 			NetworkByteOrderIP = BinaryStream.ReadUInt32();
 		}
 
@@ -188,6 +228,11 @@ namespace NetworkProfiler
 			ReturnList.Add( "SOCKET SEND TO" );
 			ReturnList.Add( "   ThreadId      : " + ThreadId );
 			ReturnList.Add( "   SocketName    : " + NetworkStream.GetName(SocketNameIndex) );
+			ReturnList.Add( "   DesiredBytesSent : " + (NumPacketIdBits + NumBunchBits + NumAckBits + NumPaddingBits) / 8.0f );
+			ReturnList.Add( "      NumPacketIdBits  : " + NumPacketIdBits );
+			ReturnList.Add( "      NumBunchBits     : " + NumBunchBits );
+			ReturnList.Add( "      NumAckBits       : " + NumAckBits );
+			ReturnList.Add( "      NumPaddingBits   : " + NumPaddingBits );
 			ReturnList.Add( "   BytesSent     : " + BytesSent );
 			ReturnList.Add( "   Destination   : " + NetworkByteOrderIP );
 			return ReturnList;
@@ -203,15 +248,26 @@ namespace NetworkProfiler
 		public UInt16 ChannelIndex;
 		/** Channel type. */
 		public byte ChannelType;
-		/** Number of bits serialized/ sent. */
-		public UInt16 NumBits;
+		/** Number of header bits serialized/sent. */
+		public UInt16 NumHeaderBits;
+		/** Number of non-header bits serialized/sent. */
+		public UInt16 NumPayloadBits;
 
 		/** Constructor, serializing members from passed in stream. */
 		public TokenSendBunch(BinaryReader BinaryStream)
 		{
 			ChannelIndex = BinaryStream.ReadUInt16();
 			ChannelType = BinaryStream.ReadByte();
-			NumBits = BinaryStream.ReadUInt16();
+			NumHeaderBits = BinaryStream.ReadUInt16();
+			NumPayloadBits = BinaryStream.ReadUInt16();
+		}
+
+		/**
+		 * Gets the total number of bits serialized for the bunch.
+		 */
+		public int GetNumTotalBits()
+		{
+			return NumHeaderBits + NumPayloadBits;
 		}
 
 		/**
@@ -223,8 +279,10 @@ namespace NetworkProfiler
 			ReturnList.Add( "SEND BUNCH" );
 			ReturnList.Add( "   Channel Index : " + ChannelIndex );
 			ReturnList.Add( "   Channel Type  : " + ChannelType );
-			ReturnList.Add( "   NumBits       : " + NumBits );
-			ReturnList.Add( "   NumBytes      : " + NumBits / 8.0f );
+			ReturnList.Add( "   NumTotalBits  : " + GetNumTotalBits() );
+			ReturnList.Add( "      NumHeaderBits : " + NumHeaderBits );
+			ReturnList.Add( "      NumPayloadBits: " + NumPayloadBits );
+			ReturnList.Add( "   NumTotalBytes : " + GetNumTotalBits() / 8.0f );
 			return ReturnList;
 		}
 	}
@@ -238,15 +296,29 @@ namespace NetworkProfiler
 		public int ActorNameIndex;
 		/** Name table index of function name. */
 		public int FunctionNameIndex;
-		/** Number of bits serialized/ sent. */
-		public UInt16 NumBits;
+		/** Number of bits serialized/sent for the header. */
+		public UInt16 NumHeaderBits;
+		/** Number of bits serialized/sent for the parameters. */
+		public UInt16 NumParameterBits;
+		/** Number of bits serialized/sent for the footer. */
+		public UInt16 NumFooterBits;
 
 		/** Constructor, serializing members from passed in stream. */
 		public TokenSendRPC( BinaryReader BinaryStream )
 		{
 			ActorNameIndex = BinaryStream.ReadInt32();
 			FunctionNameIndex = BinaryStream.ReadInt32();
-			NumBits = BinaryStream.ReadUInt16(); 					
+			NumHeaderBits = BinaryStream.ReadUInt16(); 					
+			NumParameterBits = BinaryStream.ReadUInt16();
+			NumFooterBits = BinaryStream.ReadUInt16();
+		}
+
+		/**
+		 * Gets the total number of bits serialized for the RPC.
+		 */
+		public int GetNumTotalBits()
+		{
+			return NumHeaderBits + NumParameterBits + NumFooterBits;
 		}
 
 		/**
@@ -258,8 +330,11 @@ namespace NetworkProfiler
 			ReturnList.Add( "SEND RPC" );
 			ReturnList.Add( "   Actor         : " + NetworkStream.GetName(ActorNameIndex) );
 			ReturnList.Add( "   Function      : " + NetworkStream.GetName(FunctionNameIndex) );
-			ReturnList.Add( "   NumBits       : " + NumBits );
-			ReturnList.Add( "   NumBytes      : " + NumBits / 8.0f );
+			ReturnList.Add( "   NumTotalBits  : " + GetNumTotalBits() );
+			ReturnList.Add( "      NumHeaderBits    : " + NumHeaderBits );
+			ReturnList.Add( "      NumParameterBits : " + NumParameterBits );
+			ReturnList.Add( "      NumFooterBits    : " + NumFooterBits );
+			ReturnList.Add( "   NumTotalBytes : " + GetNumTotalBits() / 8.0f );
 			return ReturnList;
 		}
 
@@ -300,6 +375,9 @@ namespace NetworkProfiler
         /** List of property tokens that were serialized for this actor. */
 		public List<TokenReplicateProperty> Properties;
 
+		/** List of property header tokens that were serialized for this actor. */
+		public List<TokenWritePropertyHeader> PropertyHeaders;
+
 		/** Constructor, serializing members from passed in stream. */
 		public TokenReplicateActor(BinaryReader BinaryStream)
 		{
@@ -310,6 +388,7 @@ namespace NetworkProfiler
 			ActorNameIndex = BinaryStream.ReadInt32();
             TimeInMS = BinaryStream.ReadSingle();
 			Properties = new List<TokenReplicateProperty>();
+			PropertyHeaders = new List<TokenWritePropertyHeader>();
 		}
 
 		/**
@@ -329,6 +408,15 @@ namespace NetworkProfiler
 					NumReplicatedBits += Property.NumBits;
 				}
 			}
+
+			foreach( var PropertyHeader in PropertyHeaders )
+			{
+				if( PropertyHeader.MatchesFilters( ActorFilter, PropertyFilter, RPCFilter ) )
+				{
+					NumReplicatedBits += PropertyHeader.NumBits;
+				}
+			}
+
 			return NumReplicatedBits;
 		}
 	 
@@ -349,14 +437,32 @@ namespace NetworkProfiler
 			ReturnList.Add( "   Flags         : " + (bNetDirty ? "bNetDirty " : "") + (bNetInitial ? "bNetInitial" : "") + (bNetOwner ? "bNetOwner" : "") );
 			ReturnList.Add( "   NumBits       : " + NumReplicatedBits );
 			ReturnList.Add( "   NumBytes      : " + NumReplicatedBits / 8.0f );
-			ReturnList.Add( "   PROPERTIES" );
-			foreach( var Property in  Properties )
+			
+			if( Properties.Count > 0 )
 			{
-				if( Property.MatchesFilters( ActorFilter, PropertyFilter, RPCFilter ) )
+				ReturnList.Add( "   PROPERTIES" );
+				foreach( var Property in  Properties )
 				{
-					ReturnList.Add( "      Property      : " + NetworkStream.GetName(Property.PropertyNameIndex) );
-					ReturnList.Add( "      NumBits       : " + Property.NumBits );
-					ReturnList.Add( "      NumBytes      : " + Property.NumBits / 8.0f);
+					if( Property.MatchesFilters( ActorFilter, PropertyFilter, RPCFilter ) )
+					{
+						ReturnList.Add( "      Property      : " + NetworkStream.GetName(Property.PropertyNameIndex) );
+						ReturnList.Add( "      NumBits       : " + Property.NumBits );
+						ReturnList.Add( "      NumBytes      : " + Property.NumBits / 8.0f);
+					}
+				}
+			}
+
+			if( PropertyHeaders.Count > 0 )
+			{
+				ReturnList.Add( "   PROPERTY HEADERS" );
+				foreach( var PropertyHeader in  PropertyHeaders )
+				{
+					if( PropertyHeader.MatchesFilters( ActorFilter, PropertyFilter, RPCFilter ) )
+					{
+						ReturnList.Add( "      Property      : " + NetworkStream.GetName(PropertyHeader.PropertyNameIndex) );
+						ReturnList.Add( "      NumBits       : " + PropertyHeader.NumBits );
+						ReturnList.Add( "      NumBytes      : " + PropertyHeader.NumBits / 8.0f);
+					}
 				}
 			}
 			return ReturnList;
@@ -419,6 +525,176 @@ namespace NetworkProfiler
 	}			
 
 	/**
+	 * Token for property header replication. Context determines which actor this belongs to.
+	 */
+	class TokenWritePropertyHeader : TokenBase
+	{
+		/** Name table index of property name. */
+		public int		PropertyNameIndex;
+		/** Number of bits serialized/ sent. */
+		public UInt16	NumBits;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenWritePropertyHeader(BinaryReader BinaryStream)
+		{
+            PropertyNameIndex = BinaryStream.ReadInt32();
+			NumBits = BinaryStream.ReadUInt16();
+		}
+
+		/**
+		 * Returns whether the token matches/ passes based on the passed in filters.
+		 * 
+		 * @param	ActorFilter		Actor filter to match against
+		 * @param	PropertyFilter	Property filter to match against
+		 * @param	RPCFilter		RPC filter to match against
+		 * 
+		 * @return true if it matches, false otherwise
+		 */
+		public override bool MatchesFilters( string ActorFilter, string PropertyFilter, string RPCFilter )
+		{
+			return PropertyFilter.Length == 0 || NetworkStream.GetName(PropertyNameIndex).ToUpperInvariant().Contains( PropertyFilter.ToUpperInvariant() );
+		}
+	}
+
+	/**
+	 * Token for exported GUID bunches.
+	 */
+	class TokenExportBunch : TokenBase
+	{
+		/** Number of bits serialized/ sent. */
+		public UInt16	NumBits;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenExportBunch(BinaryReader BinaryStream)
+		{
+			NumBits = BinaryStream.ReadUInt16();
+		}
+
+		/**
+		 * Converts the token into a multi-string description.
+		 */
+		public override List<string> ToDetailedStringList( string ActorFilter, string PropertyFilter, string RPCFilter )
+		{
+			var ReturnList = new List<string>();
+			ReturnList.Add( "EXPORTED GUIDS" );
+			ReturnList.Add( "   NumBits          : " + NumBits );
+			ReturnList.Add( "   NumBytes         : " + NumBits / 8.0f);
+			return ReturnList;
+		}
+	}
+
+	/**
+	 * Token for must be mapped GUIDs.
+	 */
+	class TokenMustBeMappedGuids : TokenBase
+	{
+		/** Number of GUIDs serialized/sent. */
+		public UInt16	NumGuids;
+
+		/** Number of bits serialized/sent. */
+		public UInt16	NumBits;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenMustBeMappedGuids(BinaryReader BinaryStream)
+		{
+			NumGuids = BinaryStream.ReadUInt16();
+			NumBits = BinaryStream.ReadUInt16();
+		}
+
+		/**
+		 * Converts the token into a multi-string description.
+		 */
+		public override List<string> ToDetailedStringList( string ActorFilter, string PropertyFilter, string RPCFilter )
+		{
+			var ReturnList = new List<string>();
+			ReturnList.Add( "MUST BE MAPPED GUIDS" );
+			ReturnList.Add( "   NumGuids         : " + NumGuids );
+			ReturnList.Add( "   NumBits          : " + NumBits );
+			ReturnList.Add( "   NumBytes         : " + NumBits / 8.0f);
+			return ReturnList;
+		}
+	}
+
+	/**
+	 * Token for content block headers.
+	 */
+	class TokenBeginContentBlock : TokenBase
+	{
+		/** Name table index of property name. */
+		public int		ObjectNameIndex;
+		/** Number of bits serialized/ sent. */
+		public UInt16	NumBits;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenBeginContentBlock(BinaryReader BinaryStream)
+		{
+            ObjectNameIndex = BinaryStream.ReadInt32();
+			NumBits = BinaryStream.ReadUInt16();
+		}
+
+		/**
+		 * Returns whether the token matches/ passes based on the passed in filters.
+		 * 
+		 * @param	ActorFilter		Actor filter to match against
+		 * @param	PropertyFilter	Property filter to match against
+		 * @param	RPCFilter		RPC filter to match against
+		 * 
+		 * @return true if it matches, false otherwise
+		 */
+		public override bool MatchesFilters( string ActorFilter, string PropertyFilter, string RPCFilter )
+		{
+			return ActorFilter.Length == 0 || NetworkStream.GetName(ObjectNameIndex).ToUpperInvariant().Contains( ActorFilter.ToUpperInvariant() );
+		}
+	}
+
+	/**
+	 * Token for property header replication. Context determines which actor this belongs to.
+	 */
+	class TokenEndContentBlock : TokenBase
+	{
+		/** Name table index of property name. */
+		public int		ObjectNameIndex;
+		/** Number of bits serialized/ sent. */
+		public UInt16	NumBits;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenEndContentBlock(BinaryReader BinaryStream)
+		{
+            ObjectNameIndex = BinaryStream.ReadInt32();
+			NumBits = BinaryStream.ReadUInt16();
+		}
+
+		/**
+		 * Returns whether the token matches/ passes based on the passed in filters.
+		 * 
+		 * @param	ActorFilter		Actor filter to match against
+		 * @param	PropertyFilter	Property filter to match against
+		 * @param	RPCFilter		RPC filter to match against
+		 * 
+		 * @return true if it matches, false otherwise
+		 */
+		public override bool MatchesFilters( string ActorFilter, string PropertyFilter, string RPCFilter )
+		{
+			return ActorFilter.Length == 0 || NetworkStream.GetName(ObjectNameIndex).ToUpperInvariant().Contains( ActorFilter.ToUpperInvariant() );
+		}
+	}
+
+	/**
+	 * Token for property hgandle replication. Context determines which actor this belongs to.
+	 */
+	class TokenWritePropertyHandle : TokenBase
+	{
+		/** Number of bits serialized/ sent. */
+		public UInt16	NumBits;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenWritePropertyHandle(BinaryReader BinaryStream)
+		{
+			NumBits = BinaryStream.ReadUInt16();
+		}
+	}
+
+	/**
 	 * Token for events.
 	 */
 	class TokenEvent : TokenBase
@@ -461,6 +737,33 @@ namespace NetworkProfiler
 		{
 			int Size = BinaryStream.ReadUInt16();
 			RawData = BinaryStream.ReadBytes( Size );
+		}
+	}
+
+	/**
+	 * Token for sent acks.
+	 */
+	class TokenSendAck : TokenBase
+	{
+		/** Number of bits serialized/sent. */
+		public UInt16	NumBits;
+
+		/** Constructor, serializing members from passed in stream. */
+		public TokenSendAck(BinaryReader BinaryStream)
+		{
+			NumBits = BinaryStream.ReadUInt16();
+		}
+
+		/**
+		 * Converts the token into a multi-string description.
+		 */
+		public override List<string> ToDetailedStringList( string ActorFilter, string PropertyFilter, string RPCFilter )
+		{
+			var ReturnList = new List<string>();
+			ReturnList.Add( "SEND ACK" );
+			ReturnList.Add( "   NumBits  : " + NumBits );
+			ReturnList.Add( "   NumBytes : " + NumBits / 8.0f );
+			return ReturnList;
 		}
 	}
 }

@@ -18,7 +18,7 @@ fi
 
 source SetupMono.sh "`dirname "$0"`"
 
-xbuild ../../../Source/Programs/UnrealBuildTool/UnrealBuildTool_Mono.csproj /property:Configuration="Development" /verbosity:quiet /nologo |grep -i error
+xbuild ../../../Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj /property:Configuration="Development" /verbosity:quiet /nologo |grep -i error
 
 # pass all parameters to UBT
 mono ../../../Binaries/DotNET/UnrealBuildTool.exe -XcodeProjectFile "$@"

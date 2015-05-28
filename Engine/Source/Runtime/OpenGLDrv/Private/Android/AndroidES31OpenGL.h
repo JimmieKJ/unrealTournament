@@ -64,6 +64,13 @@ typedef FEGLGLSync UGLsync;
 #define EGL_OPENGL_ES3_BIT_KHR                             0x40       /* 64 */
 #endif
 
+// _EXT was needed for Android, so make both work if non _EXT isn't defined
+#ifndef GL_TESS_CONTROL_SHADER_BIT
+#define GL_TESS_CONTROL_SHADER_BIT GL_TESS_CONTROL_SHADER_BIT_EXT
+#define GL_TESS_EVALUATION_SHADER_BIT GL_TESS_EVALUATION_SHADER_BIT_EXT
+#define GL_GEOMETRY_SHADER_BIT GL_GEOMETRY_SHADER_BIT_EXT
+#endif
+
 #ifndef GL_NV_bindless_texture
 #define GL_NV_bindless_texture 1
 typedef uint64_t GLuint64EXT;

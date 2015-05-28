@@ -4,6 +4,7 @@
 #include "SeparableSSS.h"
 #include "RendererInterface.h"
 #include "Engine/SubsurfaceProfile.h"
+#include "EngineModule.h" // GetRendererModule()
 
 DEFINE_LOG_CATEGORY_STATIC(LogSubsurfaceProfile, Log, All);
 
@@ -15,8 +16,9 @@ static TRefCountPtr<IPooledRenderTarget> GSSProfiles;
 
 
 FSubsurfaceProfileTexture::FSubsurfaceProfileTexture()
-	: RendererModule(0)
 {
+	check(IsInGameThread());
+
 	FSubsurfaceProfileStruct DefaultSkin;
 
 	// add element 0, it is used as default profile
@@ -25,14 +27,16 @@ FSubsurfaceProfileTexture::FSubsurfaceProfileTexture()
 
 FSubsurfaceProfileTexture::~FSubsurfaceProfileTexture()
 {
-	// we assume all ~USubsurfaceProfile() have bene called already
+	check(IsInGameThread());
+
+	// we assume all ~USubsurfaceProfile() have been called already
 	for (int32 i = 0; i < SubsurfaceProfileEntries.Num(); ++i)
 	{
-		check(SubsurfaceProfileEntries[i].GameThreadObject == 0);
+		check(SubsurfaceProfileEntries[i].Profile == 0);
 	}
 }
 
-int32 FSubsurfaceProfileTexture::AddProfile(const FSubsurfaceProfileStruct Settings, const USubsurfaceProfilePointer InProfile)
+int32 FSubsurfaceProfileTexture::AddProfile(const FSubsurfaceProfileStruct Settings, const USubsurfaceProfile* InProfile)
 {
 	check(InProfile);
 	check(FindAllocationId(InProfile) == -1);
@@ -41,7 +45,7 @@ int32 FSubsurfaceProfileTexture::AddProfile(const FSubsurfaceProfileStruct Setti
 	{
 		for (int32 i = 1; i < SubsurfaceProfileEntries.Num(); ++i)
 		{
-			if (SubsurfaceProfileEntries[i].GameThreadObject == 0)
+			if (SubsurfaceProfileEntries[i].Profile == 0)
 			{
 				RetAllocationId = i; break;
 			}
@@ -60,7 +64,7 @@ int32 FSubsurfaceProfileTexture::AddProfile(const FSubsurfaceProfileStruct Setti
 }
 
 
-void FSubsurfaceProfileTexture::RemoveProfile(const USubsurfaceProfilePointer InProfile)
+void FSubsurfaceProfileTexture::RemoveProfile(const USubsurfaceProfile* InProfile)
 {
 	int32 AllocationId = FindAllocationId(InProfile);
 
@@ -73,10 +77,10 @@ void FSubsurfaceProfileTexture::RemoveProfile(const USubsurfaceProfilePointer In
 	// >0 as 0 is used as default profile which should never be removed
 	check(AllocationId > 0);
 
-	check(SubsurfaceProfileEntries[AllocationId].GameThreadObject == InProfile);
+	check(SubsurfaceProfileEntries[AllocationId].Profile == InProfile);
 
 	// make it available for reuse
-	SubsurfaceProfileEntries[AllocationId].GameThreadObject = 0;
+	SubsurfaceProfileEntries[AllocationId].Profile = 0;
 	SubsurfaceProfileEntries[AllocationId].Settings.Invalidate();
 }
 
@@ -91,9 +95,6 @@ void FSubsurfaceProfileTexture::UpdateProfile(int32 AllocationId, const FSubsurf
 		return;
 	}
 
-	// call SetRendererModule() is missing
-	check(RendererModule);
-
 	check(AllocationId < SubsurfaceProfileEntries.Num());
 
 	SubsurfaceProfileEntries[AllocationId].Settings = Settings;
@@ -103,12 +104,6 @@ void FSubsurfaceProfileTexture::UpdateProfile(int32 AllocationId, const FSubsurf
 
 const IPooledRenderTarget* FSubsurfaceProfileTexture::GetTexture(FRHICommandListImmediate& RHICmdList)
 {
-	if(!RendererModule)
-	{
-		// call SetRendererModule() is missing, thiscan be if no SubsurfaceProfile was used yet but VisualizeSubsurface requests the texture
-		return 0;
-	}
-
 	if (!GSSProfiles)
 	{
 		CreateTexture(RHICmdList);
@@ -122,11 +117,19 @@ void FSubsurfaceProfileTexture::ReleaseDynamicRHI()
 	GSSProfiles.SafeRelease();
 }
 
+static float GetNextSmallerPositiveFloat(float x)
+{
+	check(x > 0);
+	uint32 bx = *(uint32 *)&x;
+
+	// float are ordered like int, at least for the positive part
+	uint32 ax = bx - 1;
+
+	return *(float *)&ax;
+}
+
 void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdList)
 {
-	// call SetRendererModule() is missing
-	check(RendererModule);
-
 	uint32 Height = SubsurfaceProfileEntries.Num();
 
 	check(Height);
@@ -144,7 +147,7 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 		Desc.Format = PF_A16B16G16R16;
 	}
 
-	RendererModule->RenderTargetPoolFindFreeElement(Desc, GSSProfiles, TEXT("SSProfiles"));
+	GetRendererModule().RenderTargetPoolFindFreeElement(Desc, GSSProfiles, TEXT("SSProfiles"));
 
 	// Write the contents of the texture.
 	uint32 DestStride;
@@ -159,6 +162,9 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 	check(KernelTotalSize < Width);
 
 	FLinearColor kernel[Width];
+
+	const float FloatScale = GetNextSmallerPositiveFloat(0x10000);
+	check((int32)GetNextSmallerPositiveFloat(0x10000) == 0xffff);
 
 	for (uint32 y = 0; y < Height; ++y)
 	{
@@ -190,12 +196,15 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 
 			if (b16Bit)
 			{
+				// scale from 0..1 to 0..0xffff
+				// scale with 0x10000 and round down to evenly distribute, avoid 0x10000
+
 				uint16* Dest = (uint16*)(DestBuffer + DestStride * y);
 
-				Dest[Pos * 4 + 0] = (uint16)(C.X * (256 * 256 - 0.0001f));
-				Dest[Pos * 4 + 1] = (uint16)(C.Y * (256 * 256 - 0.0001f));
-				Dest[Pos * 4 + 2] = (uint16)(C.Z * (256 * 256 - 0.0001f));
-				Dest[Pos * 4 + 3] = (uint16)(C.W * (256 * 256 - 0.0001f));
+				Dest[Pos * 4 + 0] = (uint16)(C.X * FloatScale);
+				Dest[Pos * 4 + 1] = (uint16)(C.Y * FloatScale);
+				Dest[Pos * 4 + 2] = (uint16)(C.Z * FloatScale);
+				Dest[Pos * 4 + 3] = (uint16)(C.W * FloatScale);
 			}
 			else
 			{
@@ -238,7 +247,7 @@ bool FSubsurfaceProfileTexture::GetEntryString(uint32 Index, FString& Out) const
 
 	Out = FString::Printf(TEXT(" %c. %p ScatterRadius=%.1f, SubsurfaceColor=%.1f %.1f %.1f, FalloffColor=%.1f %.1f %.1f"), 
 		MiniFontCharFromIndex(Index), 
-		SubsurfaceProfileEntries[Index].GameThreadObject,
+		SubsurfaceProfileEntries[Index].Profile,
 		ref.ScatterRadius,
 		ref.SubsurfaceColor.R, ref.SubsurfaceColor.G, ref.SubsurfaceColor.B,
 		ref.FalloffColor.R, ref.FalloffColor.G, ref.FalloffColor.B);
@@ -246,12 +255,12 @@ bool FSubsurfaceProfileTexture::GetEntryString(uint32 Index, FString& Out) const
 	return true;
 }
 
-int32 FSubsurfaceProfileTexture::FindAllocationId(const USubsurfaceProfilePointer InProfile) const
+int32 FSubsurfaceProfileTexture::FindAllocationId(const USubsurfaceProfile* InProfile) const
 {
-	// we start at 1 because [0] is the default profile and always [0].GameThreadObject = 0 so we don't need to iterate that one
+	// we start at 1 because [0] is the default profile and always [0].Profile = 0 so we don't need to iterate that one
 	for (int32 i = 1; i < SubsurfaceProfileEntries.Num(); ++i)
 	{
-		if (SubsurfaceProfileEntries[i].GameThreadObject == InProfile)
+		if (SubsurfaceProfileEntries[i].Profile == InProfile)
 		{
 			return i;
 		}
@@ -268,7 +277,7 @@ void FSubsurfaceProfileTexture::Dump()
 	for (int32 i = 0; i < SubsurfaceProfileEntries.Num(); ++i)
 	{
 		// + 1 as the Id is one higher than the array index, 0 is used for the default profile (not assigned)
-		UE_LOG(LogSubsurfaceProfile, Log, TEXT("  %d. AllocationId=%d, Pointer=%p"), i, i + 1, SubsurfaceProfileEntries[i].GameThreadObject);
+		UE_LOG(LogSubsurfaceProfile, Log, TEXT("  %d. AllocationId=%d, Pointer=%p"), i, i + 1, SubsurfaceProfileEntries[i].Profile);
 
 		{
 			UE_LOG(LogSubsurfaceProfile, Log, TEXT("     ScatterRadius = %f"),
@@ -304,7 +313,7 @@ void USubsurfaceProfile::BeginDestroy()
 {
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
 		RemoveSubsurfaceProfile,
-		USubsurfaceProfilePointer, Ref, (USubsurfaceProfilePointer)this,
+		USubsurfaceProfile*, Ref, this,
 		{
 			GSubsufaceProfileTextureObject.RemoveProfile(Ref);
 		});
@@ -317,7 +326,7 @@ void USubsurfaceProfile::PostEditChangeProperty(struct FPropertyChangedEvent& Pr
 	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 		UpdateSubsurfaceProfile,
 		const FSubsurfaceProfileStruct, Settings, this->Settings,
-		USubsurfaceProfilePointer, Profile, (USubsurfaceProfilePointer)this,
+		USubsurfaceProfile*, Profile, this,
 	{
 		// any changes to the setting require an update of the texture
 		GSubsufaceProfileTextureObject.UpdateProfile(Settings, Profile);

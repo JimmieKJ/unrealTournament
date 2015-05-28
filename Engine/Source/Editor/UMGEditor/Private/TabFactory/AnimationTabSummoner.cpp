@@ -208,6 +208,8 @@ public:
 					.AutoWidth()
 					[
 						SNew(SButton)
+						.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+						.ForegroundColor(FEditorStyle::Get().GetSlateColor("Foreground"))
 						.ContentPadding(FMargin(2.0f, 1.0f))
 						.OnClicked( this, &SUMGAnimationList::OnNewAnimationClicked )
 						.HAlign(HAlign_Center)
@@ -218,14 +220,18 @@ public:
 							.VAlign(VAlign_Center)
 							.AutoWidth()
 							[
-								SNew( SImage )
-								.Image( FEditorStyle::GetBrush("UMGEditor.AddAnimationIcon")) 
+								SNew(STextBlock)
+								.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+								.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+								.Text(FText::FromString(FString(TEXT("\xf067"))) /*fa-plus*/)
 							]
+
 							+ SHorizontalBox::Slot()
 							.Padding( 2.0f, 0.0f )
 							[
 								SNew( STextBlock )
-								.Text( LOCTEXT("NewAnimationButtonText", "New") )
+								.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+								.Text( LOCTEXT("NewAnimationButtonText", "Animation") )
 							]
 						]
 					]
@@ -311,8 +317,8 @@ private:
 	{
 		UWidgetBlueprint* WidgetBlueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
 
-		UWidgetAnimation* NewAnimation = ConstructObject<UWidgetAnimation>(UWidgetAnimation::StaticClass(), WidgetBlueprint, MakeUniqueObjectName(WidgetBlueprint, UWidgetAnimation::StaticClass(), "NewAnimation"), RF_Transactional);
-		NewAnimation->MovieScene =  ConstructObject<UMovieScene>(UMovieScene::StaticClass(), NewAnimation, NewAnimation->GetFName(), RF_Transactional);
+		UWidgetAnimation* NewAnimation = NewObject<UWidgetAnimation>(WidgetBlueprint, MakeUniqueObjectName(WidgetBlueprint, UWidgetAnimation::StaticClass(), "NewAnimation"), RF_Transactional);
+		NewAnimation->MovieScene = NewObject<UMovieScene>(NewAnimation, NewAnimation->GetFName(), RF_Transactional);
 
 		bool bRequestRename = true;
 		bool bNewAnimation = true;
@@ -363,11 +369,17 @@ private:
 
 	void OnSelectionChanged( TSharedPtr<FWidgetAnimationListItem> InSelectedItem, ESelectInfo::Type SelectionInfo )
 	{
+		UWidgetBlueprint* WidgetBlueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
+		UWidgetAnimation* WidgetAnimation;
 		if( InSelectedItem.IsValid() )
 		{
-			UWidgetBlueprint* WidgetBlueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
-			BlueprintEditor.Pin()->ChangeViewedAnimation( *InSelectedItem->Animation );
+			WidgetAnimation = InSelectedItem->Animation;
 		}
+		else
+		{
+			WidgetAnimation = UWidgetAnimation::GetNullAnimation();
+		}
+		BlueprintEditor.Pin()->ChangeViewedAnimation( *WidgetAnimation );
 	}
 
 	TSharedPtr<SWidget> OnContextMenuOpening() const
@@ -464,7 +476,8 @@ private:
 		{
 			const FScopedTransaction Transaction(LOCTEXT("DeleteAnimationTransaction", "Delete Animation"));
 			WidgetBlueprint->Modify();
-
+			// Rename the animation and move it to the transient package to avoid collisions.
+			SelectedAnimation->Animation->Rename( NULL, GetTransientPackage() );
 			WidgetAnimations.Remove(SelectedAnimation->Animation);
 
 			UpdateAnimationList();
@@ -472,16 +485,7 @@ private:
 
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(WidgetBlueprint);
 
-		if(Animations.Num() > 0)
-		{
-			// Ensure we are viewing a valid animation
-			WidgetBlueprintEditorPin->ChangeViewedAnimation(*Animations[0]->Animation);
-			AnimationListView->SetSelection( Animations[0] );
-		}
-		else
-		{
-			WidgetBlueprintEditorPin->ChangeViewedAnimation(*UWidgetAnimation::GetNullAnimation());
-		}
+		WidgetBlueprintEditorPin->ChangeViewedAnimation(*UWidgetAnimation::GetNullAnimation());
 	}
 
 	void OnRenameAnimation()

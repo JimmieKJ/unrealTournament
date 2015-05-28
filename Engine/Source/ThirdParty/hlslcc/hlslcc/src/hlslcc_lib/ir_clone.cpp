@@ -325,7 +325,7 @@ ir_texture * ir_texture::clone(void *mem_ctx, struct hash_table *ht) const
 	}
 
 	new_tex->channel = this->channel;
-
+	new_tex->SamplerStateName = this->SamplerStateName;
 	if (this->SamplerState)
 	{
 		new_tex->SamplerState = this->SamplerState->clone(mem_ctx, ht);

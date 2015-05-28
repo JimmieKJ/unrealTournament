@@ -23,6 +23,8 @@ UScrollBox::UScrollBox(const FObjectInitializer& ObjectInitializer)
 	AlwaysShowScrollbar = false;
 	ScrollbarThickness = FVector2D(5, 5);
 	ScrollBarVisibility = ESlateVisibility::Visible;
+
+	ConsumeMouseWheel = EConsumeMouseWheel::WhenScrollingPossible;
 }
 
 void UScrollBox::ReleaseSlateResources(bool bReleaseChildren)
@@ -64,7 +66,8 @@ TSharedRef<SWidget> UScrollBox::RebuildWidget()
 	MyScrollBox = SNew(SScrollBox)
 		.Style(&WidgetStyle)
 		.ScrollBarStyle(&WidgetBarStyle)
-		.Orientation(Orientation);
+		.Orientation(Orientation)
+		.ConsumeMouseWheel(ConsumeMouseWheel);
 
 	for ( UPanelSlot* Slot : Slots )
 	{
@@ -85,6 +88,16 @@ void UScrollBox::SynchronizeProperties()
 	MyScrollBox->SetScrollBarVisibility(UWidget::ConvertSerializedVisibilityToRuntime(ScrollBarVisibility));
 	MyScrollBox->SetScrollBarThickness(ScrollbarThickness);
 	MyScrollBox->SetScrollBarAlwaysVisible(AlwaysShowScrollbar);
+}
+
+float UScrollBox::GetScrollOffset() const
+{
+	if ( MyScrollBox.IsValid() )
+	{
+		return MyScrollBox->GetScrollOffset();
+	}
+
+	return 0;
 }
 
 void UScrollBox::SetScrollOffset(float NewScrollOffset)

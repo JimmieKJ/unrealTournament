@@ -1,19 +1,17 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-/*=============================================================================================
-	GenericPlatformTime.h: Generic platform Time classes, mostly implemented with ANSI C++
-==============================================================================================*/
-
 #pragma once
 
 #include "HAL/Platform.h"
 
+
 class FString;
 
+
 #if PLATFORM_HAS_BSD_TIME 
-#include <sys/time.h>
+	#include <sys/time.h>
 #endif
+
 
 /** Contains CPU utilization data. */
 struct FCPUTime
@@ -38,6 +36,7 @@ struct FCPUTime
 	 ** so if CPUTimePct is 8.0% and you have 6 core this value will be 48.0%. */
 	float CPUTimePctRelative;
 };
+
 
 /**
 * Generic implementation for most platforms
@@ -79,17 +78,17 @@ struct CORE_API FGenericPlatformTime
 	/**
 	 * Get the system date
 	 * 
-	 * @param Dest - destination buffer to copy to
-	 * @param DestSize - size of destination buffer in characters
-	 * @return date string
+	 * @param Dest Destination buffer to copy to
+	 * @param DestSize Size of destination buffer in characters
+	 * @return Date string
 	 */
 	static TCHAR* StrDate( TCHAR* Dest, SIZE_T DestSize );
 	/**
 	 * Get the system time
 	 * 
-	 * @param Dest - destination buffer to copy to
-	 * @param DestSize - size of destination buffer in characters
-	 * @return time string
+	 * @param Dest Destination buffer to copy to
+	 * @param DestSize Size of destination buffer in characters
+	 * @return Time string
 	 */
 	static TCHAR* StrTime( TCHAR* Dest, SIZE_T DestSize );
 
@@ -98,15 +97,15 @@ struct CORE_API FGenericPlatformTime
 	 * NOTE: Only one return value is valid at a time!
 	 *
 	 * @return timestamp string
-	 **/
+	 */
 	static const TCHAR* StrTimestamp();
 
 	/**
 	 * Returns a pretty-string for a time given in seconds. (I.e. "4:31 min", "2:16:30 hours", etc)
 	 *
-	 * @param Seconds	Time in seconds
-	 * @return			Time in a pretty formatted string
-	 **/
+	 * @param Seconds Time in seconds
+	 * @return Time in a pretty formatted string
+	 */
 	static FString PrettyTime( double Seconds );
 
 	/** Updates CPU utilization, called through a delegate from the Core ticker. */
@@ -144,6 +143,6 @@ struct CORE_API FGenericPlatformTime
 	}
 
 protected:
+
 	static double SecondsPerCycle;
 };
-

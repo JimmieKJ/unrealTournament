@@ -21,7 +21,7 @@ enum ETextureEditorBackgrounds
 /**
  * Implements the Editor's user settings.
  */
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class TEXTUREEDITOR_API UTextureEditorSettings
 	: public UObject
 {

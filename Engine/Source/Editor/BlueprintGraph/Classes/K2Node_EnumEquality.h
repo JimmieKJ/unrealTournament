@@ -5,7 +5,7 @@
 #include "K2Node.h"
 #include "K2Node_EnumEquality.generated.h"
 
-UCLASS(MinimalAPI)
+UCLASS(MinimalAPI, meta=(Keywords = "=="))
 class UK2Node_EnumEquality : public UK2Node
 {
 	GENERATED_UCLASS_BODY()
@@ -14,7 +14,6 @@ class UK2Node_EnumEquality : public UK2Node
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
-	virtual FString GetKeywords() const override;
 	// End UEdGraphNode interface
 
 	// Begin UK2Node interface
@@ -23,7 +22,6 @@ class UK2Node_EnumEquality : public UK2Node
 	virtual bool IsNodePure() const override { return true; }
 	virtual bool ShouldDrawCompact() const override { return true; }
 	virtual FText GetCompactNodeTitle() const override { return NSLOCTEXT("K2Node", "EqualEqual", "=="); }
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
@@ -41,6 +39,6 @@ class UK2Node_EnumEquality : public UK2Node
 	BLUEPRINTGRAPH_API UEdGraphPin* GetInput2Pin() const;
 
 	/** Gets the name and class of the EqualEqual_ByteByte function */
-	BLUEPRINTGRAPH_API void GetConditionalFunction(FName& FunctionName, UClass** FunctionClass);
+	BLUEPRINTGRAPH_API virtual void GetConditionalFunction(FName& FunctionName, UClass** FunctionClass) const;
 };
 

@@ -109,6 +109,28 @@ bool FJsonValue::TryGetNumber( uint32& OutNumber ) const
 }
 
 
+bool FJsonValue::TryGetNumber( int64& OutNumber ) const
+{
+	double Double;
+
+	if (TryGetNumber(Double) && (Double >= INT64_MIN) && (Double <= INT64_MAX))
+	{
+		if (Double >= 0.0)
+		{
+			OutNumber = (int64)(Double + 0.5);
+		}
+		else
+		{
+			OutNumber = (int64)(Double - 0.5);
+		}
+		
+		return true;
+	}
+
+	return false;
+}
+
+
 //static 
 bool FJsonValue::CompareEqual( const FJsonValue& Lhs, const FJsonValue& Rhs )
 {

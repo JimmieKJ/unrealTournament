@@ -32,7 +32,7 @@ namespace ContentBrowserUtils
 	  * @param LoadedObjects The returned list of objects that were already loaded or loaded by this method.
 	  * @return false if user canceled after being warned about loading very many packages.
 	  */
-	bool LoadAssetsIfNeeded(const TArray<FString>& ObjectPaths, TArray<UObject*>& LoadedObjects, bool bAllowedToPromptToLoadAssets = true);
+	bool LoadAssetsIfNeeded(const TArray<FString>& ObjectPaths, TArray<UObject*>& LoadedObjects, bool bAllowedToPromptToLoadAssets = true, bool bLoadRedirects = false);
 
 	/**
 	 * Determines if enough assets are unloaded that we should prompt the user to load them instead of loading them automatically

@@ -9,11 +9,14 @@ class FAssetTypeActions_GameplayAbilitiesBlueprint : public FAssetTypeActions_Bl
 public:
 	// IAssetTypeActions Implementation
 	virtual FText GetName() const override;
-	virtual FColor GetTypeColor() const override { return FColor(255,255,255); }
+	virtual FColor GetTypeColor() const override;
 	virtual UClass* GetSupportedClass() const override;
 	virtual void OpenAssetEditor(const TArray<UObject*>& InObjects, TSharedPtr<class IToolkitHost> EditWithinLevelEditor = TSharedPtr<IToolkitHost>()) override;
 	virtual uint32 GetCategories() override { return EAssetTypeCategories::Blueprint | EAssetTypeCategories::Gameplay; }
 	// End IAssetTypeActions Implementation
+
+	// FAssetTypeActions_Blueprint interface
+	virtual UFactory* GetFactoryForBlueprintType(UBlueprint* InBlueprint) const override;
 
 private:
 	/** Returns true if the blueprint is data only */

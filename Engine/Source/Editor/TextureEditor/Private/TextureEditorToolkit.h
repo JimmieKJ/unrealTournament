@@ -82,7 +82,7 @@ protected:
 protected:
 
 	/**
-     * Binds the UI commands to delegates.
+	 * Binds the UI commands to delegates.
 	 */
 	void BindCommands( );
 
@@ -204,11 +204,11 @@ private:
 	// Callback that is executed before the reimport manager reimported an asset.
 	void HandleReimportManagerPreReimport( UObject* InObject );
 
-	// Callback for toggling the Saturation channel action.
-	void HandleSaturationChannelActionExecute( );
+	// Callback for toggling the Desaturation channel action.
+	void HandleDesaturationChannelActionExecute( );
 
-	// Callback for getting the checked state of the Saturation channel action.
-	bool HandleSaturationChannelActionIsChecked( ) const;
+	// Callback for getting the checked state of the Desaturation channel action.
+	bool HandleDesaturationChannelActionIsChecked( ) const;
 
 	// Callback for determining whether the Settings action can execute.
 	void HandleSettingsActionExecute( );
@@ -246,9 +246,12 @@ private:
 	TSharedPtr<STextBlock> ImportedText;
 	TSharedPtr<STextBlock> CurrentText;
 	TSharedPtr<STextBlock> MaxInGameText;
+	TSharedPtr<STextBlock> SizeText;
 	TSharedPtr<STextBlock> MethodText;
 	TSharedPtr<STextBlock> FormatText;
 	TSharedPtr<STextBlock> LODBiasText;
+	TSharedPtr<STextBlock> HasAlphaChannelText;
+	TSharedPtr<STextBlock> NumMipsText;
 
 	/** If true, displays the red channel */
 	bool bIsRedChannel;
@@ -263,7 +266,7 @@ private:
 	bool bIsAlphaChannel;
 
 	/** If true, desaturates the texture */
-	bool bIsSaturation;
+	bool bIsDesaturation;
 
 	/** The maximum width/height at which the texture will render in the preview window */
 	uint32 PreviewEffectiveTextureWidth;

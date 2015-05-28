@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Writes analytic API calls to local disk for debugging or local use",
-	"Category" : "Analytics.Provider",
+	"Category" : "Analytics",
 	
 	"Modules" :
 	[

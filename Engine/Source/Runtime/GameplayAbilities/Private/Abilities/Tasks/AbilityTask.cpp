@@ -135,3 +135,38 @@ FString UAbilityTask::GetDebugString() const
 {
 	return FString::Printf(TEXT("Generic %s"), *GetName());
 }
+
+FGameplayAbilitySpecHandle UAbilityTask::GetAbilitySpecHandle() const
+{
+	UGameplayAbility* MyAbility = Ability.Get();
+	return MyAbility ? MyAbility->GetCurrentAbilitySpecHandle() : FGameplayAbilitySpecHandle();
+}
+
+FPredictionKey UAbilityTask::GetActivationPredictionKey() const
+{
+	UGameplayAbility* MyAbility = Ability.Get();
+	return MyAbility ? MyAbility->GetCurrentActivationInfo().GetActivationPredictionKey() : FPredictionKey();
+}
+
+bool UAbilityTask::IsPredictingClient() const
+{
+	UGameplayAbility* MyAbility = Ability.Get();
+	return MyAbility && MyAbility->IsPredictingClient();
+}
+
+bool UAbilityTask::IsForRemoteClient() const
+{
+	UGameplayAbility* MyAbility = Ability.Get();
+	return MyAbility && MyAbility->IsForRemoteClient();
+}
+
+bool UAbilityTask::IsLocallyControlled() const
+{
+	UGameplayAbility* MyAbility = Ability.Get();
+	return MyAbility && MyAbility->IsLocallyControlled();
+}
+
+bool UAbilityTask::CallOrAddReplicatedDelegate(EAbilityGenericReplicatedEvent::Type Event, FSimpleMulticastDelegate::FDelegate Delegate)
+{
+	return AbilitySystemComponent->CallOrAddReplicatedDelegate(Event, GetAbilitySpecHandle(), GetActivationPredictionKey(), Delegate);
+}

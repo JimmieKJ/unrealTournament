@@ -26,13 +26,19 @@ void UComboBoxString::ReleaseSlateResources(bool bReleaseChildren)
 	ComoboBoxContent.Reset();
 }
 
+void UComboBoxString::PostLoad()
+{
+	Super::PostLoad();
+
+	// Initialize the set of options from the default set only once.
+	for ( const FString& DefaultOption : DefaultOptions )
+	{
+		AddOption(DefaultOption);
+	}
+}
+
 TSharedRef<SWidget> UComboBoxString::RebuildWidget()
 {
-	for ( FString& DefaultOptions : DefaultOptions )
-	{
-		AddOption(DefaultOptions);
-	}
-
 	int32 InitialIndex = FindOptionIndex(SelectedOption);
 	if ( InitialIndex != -1 )
 	{

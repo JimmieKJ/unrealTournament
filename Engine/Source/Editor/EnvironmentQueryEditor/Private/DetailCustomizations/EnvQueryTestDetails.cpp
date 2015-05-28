@@ -233,15 +233,7 @@ void FEnvQueryTestDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout 
 		SAssignNew(PreviewWidget, STestFunctionWidget)
 	];
 
-	FSimpleDelegate OnGraphPreviewDataChangedDelegate = FSimpleDelegate::CreateSP(this, &FEnvQueryTestDetails::UpdateTestFunctionPreview);
-	TestPurposeHandle->SetOnPropertyValueChanged(OnGraphPreviewDataChangedDelegate);
-	FilterTypeHandle->SetOnPropertyValueChanged(OnGraphPreviewDataChangedDelegate);
-	ClampMaxTypeHandle->SetOnPropertyValueChanged(OnGraphPreviewDataChangedDelegate);
-	ClampMinTypeHandle->SetOnPropertyValueChanged(OnGraphPreviewDataChangedDelegate);
-	ScoreEquationHandle->SetOnPropertyValueChanged(OnGraphPreviewDataChangedDelegate);
-	ScoreHandle->SetOnPropertyValueChanged(OnGraphPreviewDataChangedDelegate);
-
-	UpdateTestFunctionPreview();
+	PreviewWidget->DrawTestOb = Cast<UEnvQueryTest>(MyTest.Get());
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -747,104 +739,6 @@ EVisibility FEnvQueryTestDetails::GetTestPreviewVisibility() const
 	}
 
 	return EVisibility::Collapsed;
-}
-
-void FEnvQueryTestDetails::UpdateTestFunctionPreview() const
-{
-	// read values of properties
-	uint8 TestPurpose = 0;
-	uint8 FilterType = 0;
-	uint8 ClampMinType = 0;
-	uint8 ClampMaxType = 0;
-	uint8 ScoreEquation = 0;
-	float Score = 0.0f;
-
-	TestPurposeHandle->GetValue(TestPurpose);
-	FilterTypeHandle->GetValue(FilterType);
-	ClampMinTypeHandle->GetValue(ClampMinType);
-	ClampMaxTypeHandle->GetValue(ClampMaxType);
-	ScoreEquationHandle->GetValue(ScoreEquation);
-	ScoreHandle->GetValue(Score);
-
-	// fill score equation samples
-	if (TestPurpose == EEnvTestPurpose::Filter)
-	{
-		// pure filtering won't apply any scoring, draw flat line
-		ScoreEquation = EEnvTestScoreEquation::Constant;
-	}
-
-	FillEquationSamples(ScoreEquation, Score < 0.0f, PreviewWidget->ScoreValues);
-
-	// fill everything else
-	const bool bCanFilter = (TestPurpose != EEnvTestPurpose::Score);
-	PreviewWidget->bShowClampMin = (ClampMinType != EEnvQueryTestClamping::None);
-	PreviewWidget->bShowClampMax = (ClampMaxType != EEnvQueryTestClamping::None);
-	PreviewWidget->bShowLowPassFilter = ((FilterType == EEnvTestFilterType::Minimum) || (FilterType == EEnvTestFilterType::Range)) && bCanFilter;
-	PreviewWidget->bShowHiPassFilter = ((FilterType == EEnvTestFilterType::Maximum) || (FilterType == EEnvTestFilterType::Range)) && bCanFilter;
-	PreviewWidget->FilterLowX = 0.2f;
-	PreviewWidget->FilterHiX = 0.8f;
-	PreviewWidget->ClampMinX = (ClampMinType == EEnvQueryTestClamping::FilterThreshold) ? PreviewWidget->FilterLowX : 0.3f;
-	PreviewWidget->ClampMaxX = (ClampMaxType == EEnvQueryTestClamping::FilterThreshold) ? PreviewWidget->FilterHiX : 0.7f;
-	
-	// postprocess samples for clamping
-	if (PreviewWidget->bShowClampMin)
-	{
-		const int32 FixedIdx = FMath::TruncToInt(PreviewWidget->ClampMinX * 10.0f);
-		for (int32 Idx = 0; Idx < FixedIdx; Idx++)
-		{
-			PreviewWidget->ScoreValues[Idx] = PreviewWidget->ScoreValues[FixedIdx];
-		}
-	}
-	
-	if (PreviewWidget->bShowClampMax)
-	{
-		const int32 FixedIdx = FMath::TruncToInt(PreviewWidget->ClampMaxX * 10.0f) + 1;
-		for (int32 Idx = FixedIdx + 1; Idx < PreviewWidget->ScoreValues.Num(); Idx++)
-		{
-			PreviewWidget->ScoreValues[Idx] = PreviewWidget->ScoreValues[FixedIdx];
-		}
-	}
-}
-
-void FEnvQueryTestDetails::FillEquationSamples(uint8 EquationType, bool bInversed, TArray<float>& Samples) const
-{
-	const int32 MaxSamples = 11;
-	static float SamplesLinear[MaxSamples] = { 0.0f };
-	static float SamplesSquare[MaxSamples] = { 0.0f };
-	static float SamplesConstant[MaxSamples] = { 0.0f };
-	static bool bSamplesInitialized = false;
-
-	if (!bSamplesInitialized)
-	{
-		bSamplesInitialized = true;
-
-		for (int32 Idx = 0; Idx < MaxSamples; Idx++)
-		{
-			const float XValue = 1.0f * Idx / (MaxSamples - 1);
-			SamplesLinear[Idx] = XValue;
-			SamplesSquare[Idx] = XValue * XValue;
-			SamplesConstant[Idx] = 0.5f;				// just for looks on preview, not the actual value
-		}
-	}
-
-	const float* AllSamples[] = { SamplesLinear, SamplesSquare, SamplesLinear, SamplesConstant };
-	if (EquationType >= ARRAY_COUNT(AllSamples))
-	{
-		EquationType = EEnvTestScoreEquation::Constant;
-	}
-
-	const float* SamplesArray = AllSamples[EquationType];
-	if (EquationType == EEnvTestScoreEquation::InverseLinear)
-	{
-		bInversed = !bInversed;
-	}
-
-	Samples.Reset();
-	Samples.AddZeroed(MaxSamples);
-	for (int32 Idx = 0; Idx < MaxSamples; Idx++)
-	{
-		Samples[Idx] = bInversed ? (1.0f - SamplesArray[Idx]) : SamplesArray[Idx];
-	}
 }
 
 #undef LOCTEXT_NAMESPACE

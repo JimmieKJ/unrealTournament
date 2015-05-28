@@ -20,6 +20,17 @@ struct FDetailsViewArgs
 		/** Components and actors use the name area. Components will display their actor owner as the name */
 		ComponentsAndActorsUseNameArea,
 	};
+
+	enum class EEditDefaultsOnlyNodeVisibility : uint8
+	{
+		/** Always show nodes that have the EditDefaultsOnly aka CPF_DisableEditOnInstance flag. */
+		Show,
+		/** Always hide nodes that have the EditDefaultsOnly aka CPF_DisableEditOnInstance flag. */
+		Hide,
+		/** Let the details panel control it. If the CDO is selected EditDefaultsOnly nodes will be visible, otherwise false. */
+		Automatic,
+	};
+
 	/** Identifier for this details view; NAME_None if this view is anonymous */
 	FName ViewIdentifier;
 	/** Notify hook to call when properties are changed */
@@ -44,10 +55,16 @@ struct FDetailsViewArgs
 	uint32 bShowActorLabel : 1;
 	/** Bind this delegate to hide differing properties */
 	uint32 bShowDifferingPropertiesOption : 1;
-	/** If true the name area will be created but will not be displayed so it can be placed in a custom location.  */
+	/** If true, the name area will be created but will not be displayed so it can be placed in a custom location.  */
 	uint32 bCustomNameAreaLocation : 1;
-	/** If true the filter area will be created but will not be displayed so it can be placed in a custom location.  */
+	/** If true, the filter area will be created but will not be displayed so it can be placed in a custom location.  */
 	uint32 bCustomFilterAreaLocation : 1;
+	/** Controls how CPF_DisableEditOnInstance nodes will be treated */
+	EEditDefaultsOnlyNodeVisibility DefaultsOnlyVisibility;
+	/** The command list from the host of the details view, allowing child widgets to bind actions with a bound chord */
+	TSharedPtr<class FUICommandList> HostCommandList;
+
+public:
 	/** Default constructor */
 	FDetailsViewArgs( const bool InUpdateFromSelection = false
 					, const bool InLockable = false
@@ -71,6 +88,7 @@ struct FDetailsViewArgs
 		, bShowDifferingPropertiesOption(false)
 		, bCustomNameAreaLocation(false)
 		, bCustomFilterAreaLocation(false)
+		, DefaultsOnlyVisibility(EEditDefaultsOnlyNodeVisibility::Show)
 	{
 	}
 };
@@ -156,7 +174,12 @@ public:
 	 * Sets a delegate to call to determine if a specific property should be visible in this instance of the details view
 	 */ 
 	virtual void SetIsPropertyVisibleDelegate( FIsPropertyVisible InIsPropertyVisible ) = 0;
-		
+
+	/**
+	 * Sets a delegate to call to determine if a specific property should be read-only in this instance of the details view
+	 */ 
+	virtual void SetIsPropertyReadOnlyDelegate( FIsPropertyReadOnly InIsPropertyReadOnly ) = 0;
+
 	/**
 	 * Sets a delegate to call to layout generic details not specific to an object being viewed
 	 */ 
@@ -223,4 +246,7 @@ public:
 
 	/** Returns the search area widget used to display search and view options so it can be placed in a custom location.  Note FDetailsViewArgs.bCustomFilterAreaLocation must be true */
 	virtual TSharedPtr<SWidget> GetFilterAreaWidget() = 0;
+
+	/** Returns the command list of the hosting toolkit (can be nullptr if the widget that contains the details panel didn't route a command list in) */
+	virtual TSharedPtr<class FUICommandList> GetHostCommandList() const = 0;
 };

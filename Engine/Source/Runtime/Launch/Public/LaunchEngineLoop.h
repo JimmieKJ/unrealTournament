@@ -2,11 +2,9 @@
 
 #pragma once
 
-#if WITH_ENGINE
-	#include "ISessionService.h"
-#endif
 
 class FEngineService;
+class ISessionService;
 
 
 /**
@@ -107,7 +105,7 @@ public:
 private:
 
 	/** Utility function that processes Slate operations. */
-	void ProcessPlayerControllersSlateOperations() const;
+	void ProcessLocalPlayerSlateOperations() const;
 
 protected:
 
@@ -141,7 +139,7 @@ private:
 	FEngineService* EngineService;
 
 	/** Holds the application session service. */
-	ISessionServicePtr SessionService;
+	TSharedPtr<ISessionService> SessionService;
 
 #endif // WITH_ENGINE
 };

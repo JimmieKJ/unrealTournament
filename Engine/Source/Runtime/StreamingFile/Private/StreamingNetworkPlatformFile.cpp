@@ -496,7 +496,7 @@ FDateTime FStreamingNetworkPlatformFile::GetAccessTimeStamp(const TCHAR* Filenam
 }
 
 
-IFileHandle* FStreamingNetworkPlatformFile::OpenRead(const TCHAR* Filename)
+IFileHandle* FStreamingNetworkPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrite)
 {
 	FString RelativeFilename = Filename;
 	FPaths::MakeStandardFilename(RelativeFilename);

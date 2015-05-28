@@ -39,7 +39,7 @@ void FAssetTypeActions_Texture2D::ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<
 			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackagePath, Name);
 
 			// Create the factory used to generate the asset
-			USlateBrushAssetFactory* Factory = ConstructObject<USlateBrushAssetFactory>(USlateBrushAssetFactory::StaticClass());
+			USlateBrushAssetFactory* Factory = NewObject<USlateBrushAssetFactory>();
 			Factory->InitialTexture = CastChecked<UTexture2D>(Object);
 			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
 			ContentBrowserModule.Get().CreateNewAsset(Name, FPackageName::GetLongPackagePath(PackagePath), USlateBrushAsset::StaticClass(), Factory);
@@ -60,7 +60,7 @@ void FAssetTypeActions_Texture2D::ExecuteCreateSlateBrush(TArray<TWeakObjectPtr<
 				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
 				// Create the factory used to generate the asset
-				USlateBrushAssetFactory* Factory = ConstructObject<USlateBrushAssetFactory>(USlateBrushAssetFactory::StaticClass());
+				USlateBrushAssetFactory* Factory = NewObject<USlateBrushAssetFactory>();
 				Factory->InitialTexture = CastChecked<UTexture2D>(Object);
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");

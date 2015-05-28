@@ -537,8 +537,6 @@ void SDistributionCurveEditor::OnSetTime()
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SDistributionCurveEditor::OnSetValue()
@@ -563,8 +561,6 @@ void SDistributionCurveEditor::OnSetValue()
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SDistributionCurveEditor::OnSetColor()
@@ -785,8 +781,6 @@ void SDistributionCurveEditor::OnScaleTimes(ECurveScaleScope::Type Scope)
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SDistributionCurveEditor::OnScaleValues(ECurveScaleScope::Type Scope)
@@ -823,8 +817,6 @@ void SDistributionCurveEditor::OnScaleValues(ECurveScaleScope::Type Scope)
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SDistributionCurveEditor::OnFitHorizontally()
@@ -980,8 +972,6 @@ void SDistributionCurveEditor::OnCreateTab()
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SDistributionCurveEditor::OnDeleteTab()

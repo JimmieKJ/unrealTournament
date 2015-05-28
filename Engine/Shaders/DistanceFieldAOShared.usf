@@ -30,6 +30,8 @@ float AOMaxViewDistance;
 
 #define NUM_CULLED_OBJECT_LISTS 3
 
+#define FADE_RECORDS_OVER_TIME 0
+
 void GetPhaseParameters(uint Phase, out uint StartIndex, out uint EndIndex)
 {
 	if (Phase == 0)
@@ -59,9 +61,7 @@ Buffer<uint4> TileHeadData;
 Buffer<uint> TileArrayData;
 uint2 TileListGroupSize;
 
-
 #define UNPACKED_TILE_HEAD 1
-#define COHERENT_OBJECT_LIST_WRITES 1
  
 uint4 GetTileHead(uint2 TileCoordinate) 
 { 
@@ -80,21 +80,41 @@ uint4 GetTileHead(uint2 TileCoordinate)
 Texture2D DistanceFieldNormalTexture;
 SamplerState DistanceFieldNormalSampler;
 
-int CurrentLevelDownsampleFactor;
+float4 EncodeDownsampledGBuffer(FGBufferData GBufferData, float SceneDepth)
+{
+	float DepthSign = GBufferData.HasDistanceFieldRepresentation > 0 ? 1 : -1;
+	float ZSign = GBufferData.HasHeightfieldRepresentation > 0 ? 1 : -1;
+	float ZChannel = GBufferData.WorldNormal.z > 0 ? .5f : 1;
+	float4 OutValue = float4(GBufferData.WorldNormal.xy, ZChannel * ZSign, DepthSign * SceneDepth);
+	return OutValue;
+}
+
+void GetDownsampledGBuffer(float2 ScreenUV, out float3 OutNormal, out float OutDepth, out bool bHasDistanceFieldRepresentation, out bool bHasHeightfieldRepresentation)
+{
+	float4 TextureValue = Texture2DSampleLevel(DistanceFieldNormalTexture, DistanceFieldNormalSampler, ScreenUV, 0);
+	bHasDistanceFieldRepresentation = TextureValue.w > 0;
+	bHasHeightfieldRepresentation = TextureValue.z > 0; 
+	OutDepth = abs(TextureValue.w);
+	OutNormal = float3(TextureValue.xy, sqrt(1 - dot(TextureValue.xy, TextureValue.xy)));
+	OutNormal.z *= abs(TextureValue.z) > .75f ? -1 : 1;
+}
+
+float GetDownsampledDepth(float2 ScreenUV)
+{
+	return abs(Texture2DSampleLevel(DistanceFieldNormalTexture, DistanceFieldNormalSampler, ScreenUV, 0).w);
+}
+
+uint CurrentLevelDownsampleFactor;
 float2 AOBufferSize;
 
-int DownsampleFactorToBaseLevel;
+uint DownsampleFactorToBaseLevel;
 float2 BaseLevelTexelSize;
 
-float3 EncodeNormalForAO(float3 InNormal)
-{
-	return InNormal.xyz;
-}
+Texture2D BentNormalAOTexture;
+SamplerState BentNormalAOSampler;
 
-float3 DecodeNormalForAO(float3 InNormal)
-{
-	return InNormal.xyz;
-}
+Texture2D IrradianceTexture;
+SamplerState IrradianceSampler;
 
 bool SphereIntersectCone(float4 SphereCenterAndRadius, float3 ConeVertex, float3 ConeAxis, float ConeAngleCos, float ConeAngleSin)
 {
@@ -137,4 +157,30 @@ bool SphereIntersectConeWithDepthRanges(float4 SphereCenterAndRadius, float3 Con
 	}
 
 	return false;
+}
+
+Buffer<float> RecordConeVisibility;
+float BentNormalNormalizeFactor;
+
+float3 ComputeBentNormal(float3 RecordWorldNormal, uint RelativeRecordIndex)
+{
+	float3 TangentX;
+	float3 TangentY;
+	FindBestAxisVectors2(RecordWorldNormal, TangentX, TangentY);
+
+	float3 UnoccludedDirection = 0;
+
+	for (uint ConeIndex = 0; ConeIndex < NUM_CONE_DIRECTIONS; ConeIndex++)
+	{
+		float3 ConeDirection = AOSamples2.SampleDirections[ConeIndex].xyz;
+		float3 RotatedConeDirection = ConeDirection.x * TangentX + ConeDirection.y * TangentY + ConeDirection.z * RecordWorldNormal;
+
+		float ConeVisibility = RecordConeVisibility[RelativeRecordIndex * NUM_CONE_DIRECTIONS + ConeIndex];
+		UnoccludedDirection += ConeVisibility * RotatedConeDirection;
+	}
+
+	float InvNumSamples = 1.0f / (float)NUM_CONE_DIRECTIONS;
+	UnoccludedDirection = UnoccludedDirection * (BentNormalNormalizeFactor * InvNumSamples);
+
+	return UnoccludedDirection;
 }

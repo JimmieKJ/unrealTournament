@@ -22,7 +22,7 @@ bool UBlackboardDataFactory::CanCreateNew() const
 UObject* UBlackboardDataFactory::FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn)
 {
 	check(Class->IsChildOf(UBlackboardData::StaticClass()));
-	return ConstructObject<UBlackboardData>(Class, InParent, Name, Flags);
+	return NewObject<UBlackboardData>(InParent, Class, Name, Flags);
 }
 
 #undef LOCTEXT_NAMESPACE

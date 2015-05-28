@@ -48,8 +48,6 @@ public:
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
-		SWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 		MaxDispatchLatency = -1.0;
 		MaxHandlingTime = -1.0;
 

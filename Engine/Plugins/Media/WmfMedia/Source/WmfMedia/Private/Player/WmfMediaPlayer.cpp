@@ -258,7 +258,6 @@ bool FWmfMediaPlayer::SetRate( float Rate )
 }
 
 
-
 /* FWmfMediaPlayer implementation
  *****************************************************************************/
 
@@ -462,13 +461,25 @@ bool FWmfMediaPlayer::InitializeMediaSession( IUnknown* SourceObject, const FStr
 	Duration = FTimespan(PresentationDuration);
 
 	// create session
+	MediaUrl = SourceUrl;
 	MediaSource = MediaSourceObject;
 	MediaSession = new FWmfMediaSession(Duration, Topology);
-	MediaUrl = SourceUrl;
+	{
+		MediaSession->OnError().AddRaw(this, &FWmfMediaPlayer::HandleSessionError);
+	}
 
 	OpenedEvent.Broadcast(SourceUrl);
 
 	return (MediaSession->GetState() != EMediaStates::Error);
+}
+
+
+/* FWmfMediaPlayer callbacks
+ *****************************************************************************/
+
+void FWmfMediaPlayer::HandleSessionError(HRESULT Error)
+{
+	UE_LOG(LogWmfMedia, Error, TEXT("An unrecoverable error occured in the media session: 0x%X"), Error);
 }
 
 

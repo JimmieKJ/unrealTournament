@@ -116,8 +116,6 @@ void FNiagaraOpInfo::Init()
 	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Abs Name", "Abs");
 	Op->Description = NSLOCTEXT("NiagaraOpInfo", "Abs Desc", "Result = |A|");
 	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, AText, AText, DefaultStr_VecOne));
-	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, BText, BText, DefaultStr_VecOne));
-	Op->Inputs.Add(FNiagaraOpInOutInfo(C, ENiagaraDataType::Vector, CText, CText, DefaultStr_VecOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
 	Op->OpDelegate.BindStatic(&INiagaraCompiler::Abs);
 
@@ -518,6 +516,52 @@ void FNiagaraOpInfo::Init()
 	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, BText, BText, DefaultStr_VecOne));
 	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
 	Op->OpDelegate.BindStatic(&INiagaraCompiler::LessThan);
+
+	Op = &OpInfos.Add(Sample);
+	Op->Name = Sample;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Sample Name", "Buffer Sample");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "Sample Desc", "Result = Sample from buffer at index Time [0;1]");
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Curve, NSLOCTEXT("NiagaraOpInfo", "Curve", "Curve"), NSLOCTEXT("NiagaraOpInfo", "Curve", "Curve"), DefaultStr_VecOne));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "Time", "Time"), NSLOCTEXT("NiagaraOpInfo", "Time", "Time"), DefaultStr_VecOne));
+	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
+	Op->OpDelegate.BindStatic(&INiagaraCompiler::Sample);
+
+	Op = &OpInfos.Add(Write);
+	Op->Name = Write;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "Write Name", "Buffer Write");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "Write Desc", "Result = Write Value to buffer at index Coords [0;1]^4");
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Curve, NSLOCTEXT("NiagaraOpInfo", "Curve", "Curve"), NSLOCTEXT("NiagaraOpInfo", "Curve", "Curve"), DefaultStr_VecOne));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "Coords", "Coords"), NSLOCTEXT("NiagaraOpInfo", "Coords", "Coords"), DefaultStr_VecZero));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(B, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "Value", "Value"), NSLOCTEXT("NiagaraOpInfo", "Value", "Value"), DefaultStr_VecZero));
+	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
+	Op->OpDelegate.BindStatic(&INiagaraCompiler::Write);
+
+	Op = &OpInfos.Add(EventBroadcast);
+	Op->Name = EventBroadcast;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "EventBroadcast Name", "Broadcast Event");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "EventBroadcast Desc", "Broadcast Event if trigger is >=1.0");
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "Trigger", "Trigger"), NSLOCTEXT("NiagaraOpInfo", "Trigger", "Trigger"), DefaultStr_VecOne));
+//	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
+	Op->OpDelegate.BindStatic(&INiagaraCompiler::EventBroadcast);
+
+	Op = &OpInfos.Add(EaseIn);
+	Op->Name = EaseIn;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "EaseIn Name", "Ease In 0->1");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "EaseIn Desc", "Ease in for Time; A and B determine the ease length in [0:1]");
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "A", "A"), NSLOCTEXT("NiagaraOpInfo", "A", "A"), DefaultStr_VecZero));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "B", "B"), NSLOCTEXT("NiagaraOpInfo", "B", "B"), DefaultStr_VecOne));
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "Time", "Time"), NSLOCTEXT("NiagaraOpInfo", "Time", "Time"), DefaultStr_VecOne));
+	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
+	Op->OpDelegate.BindStatic(&INiagaraCompiler::EaseIn);
+
+	Op = &OpInfos.Add(EaseInOut);
+	Op->Name = EaseInOut;
+	Op->FriendlyName = NSLOCTEXT("NiagaraOpInfo", "EaseInOut Name", "Ease In/Out 0->1->0");
+	Op->Description = NSLOCTEXT("NiagaraOpInfo", "EaseInOut Desc", "Ease in/out for Time; A and B determine the ease in/out lengths in [0:1]");
+	Op->Inputs.Add(FNiagaraOpInOutInfo(A, ENiagaraDataType::Vector, NSLOCTEXT("NiagaraOpInfo", "Time", "Time"), NSLOCTEXT("NiagaraOpInfo", "Time", "Time"), DefaultStr_VecOne));
+	Op->Outputs.Add(FNiagaraOpInOutInfo(Result, ENiagaraDataType::Vector, ResultText, ResultText, DefaultStr_VecOne));
+	Op->OpDelegate.BindStatic(&INiagaraCompiler::EaseInOut);
+
 
 	#define NiagaraOp(OpName) if (GetOpInfo(OpName) == NULL)\
 	{\

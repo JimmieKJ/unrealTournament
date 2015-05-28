@@ -36,7 +36,7 @@ public:
 	, Context(nullptr)
 	, AuxOut(nullptr)
 	{}
-	void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category )
+	void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override
 	{
 		if( Verbosity==ELogVerbosity::Error || Verbosity==ELogVerbosity::Warning || Verbosity==ELogVerbosity::Display )
 		{
@@ -100,7 +100,7 @@ public:
 		return true;
 	}
 
-	void SetContext( FContextSupplier* InSupplier )
+	void SetContext( FContextSupplier* InSupplier ) override
 	{
 		Context = InSupplier;
 	}

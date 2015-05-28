@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -69,12 +52,13 @@ struct PxHitFlag
 		eUV							= (1<<3),	//!< "u" and "v" barycentric coordinates of #PxQueryHit are valid. Not applicable to sweep queries.
 		eASSUME_NO_INITIAL_OVERLAP	= (1<<4),	//!< Performance hint flag for sweeps when it is known upfront there's no initial overlap.
 												//!< NOTE: using this flag may cause undefined results if shapes are initially overlapping.
-		eMESH_MULTIPLE				= (1<<5),	//!< Report all hits for meshes rather than just the first.
+		eMESH_MULTIPLE				= (1<<5),	//!< Report all hits for meshes rather than just the first. Not applicable to sweep queries.
 												//!< On SPU the number of reported hits per mesh is limited to 16 in no specific order.
-		eMESH_ANY					= (1<<6),	//!< Report any first hit for meshes. If neither eMESH_MULTIPLE or eMESH_ANY is specified,
+		eMESH_ANY					= (1<<6),	//!< Report any first hit for meshes. If neither eMESH_MULTIPLE nor eMESH_ANY is specified,
 												//!< a single closest hit will be reported for meshes.
-		eMESH_BOTH_SIDES			= (1<<7),	//!< Report hits with back faces of triangles. Also report hits for raycast
-												//!< originating on mesh surface and facing away from the surface normal.
+		eMESH_BOTH_SIDES			= (1<<7),	//!< Report hits with back faces of mesh triangles. Also report hits for raycast
+												//!< originating on mesh surface and facing away from the surface normal. Not applicable to sweep queries.
+												//!< Please refer to the user guide for heightfield-specific differences.
 		ePRECISE_SWEEP				= (1<<8),	//!< Use more accurate but slower narrow phase sweep tests.
 												//!< May provide better compatibility with PhysX 3.2 sweep behavior. Ignored on SPU.
 		eMTD						= (1<<9),	//!< Report the minimum translation depth, normal and contact point. Ignored on SPU.
@@ -127,7 +111,8 @@ struct PxQueryHit : PxActorShape
 	/**
 	Face index of touched triangle, for triangle meshes, convex meshes and height fields.
 
-	\note This index will default to 0xFFFFffff value for overlap queries and sweeps with initial overlap.
+	\note This index will default to 0xFFFFffff value for overlap queries.
+	\note Please refer to the user guide for more details for sweep queries.
 	\note This index is remapped by mesh cooking. Use #PxTriangleMesh::getTrianglesRemap() to convert to original mesh index.
 	\note For convex meshes use #PxConvexMesh::getPolygonData() to retrieve touched polygon data.
 	*/
@@ -175,7 +160,7 @@ struct PxLocationHit : public PxQueryHit
 ::PxHitFlag flags can be passed to raycast function, as an optimization, to cause the SDK to only compute specified members of this
 structure.
 
-Some members like barycentric coordinates are currently only computed for triangle meshes and convexes, but next versions
+Some members like barycentric coordinates are currently only computed for triangle meshes and height fields, but next versions
 might provide them in other cases. The client code should check #flags to make sure returned values are valid.
 
 @see PxScene.raycast PxBatchQuery.raycast PxVolumeCache.raycast

@@ -67,7 +67,7 @@ static bool bWantVisibleBanner = false;
 	{
 		[[IOSAppDelegate GetDelegate].RootView addSubview : self.BannerView];
 	}
-	else// if (self.BannerView.bannerLoaded)
+	else if (self.BannerView.bannerLoaded)
 	{
 		[self bannerViewDidLoadAd : self.BannerView];
 	}

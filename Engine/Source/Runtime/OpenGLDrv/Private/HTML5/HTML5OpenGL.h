@@ -10,6 +10,7 @@
 #include <SDL_opengles2.h>
 
 typedef char UGLsync; 
+typedef long long  GLint64;
 typedef unsigned long long  GLuint64;
 
 // empty functions. 

@@ -17,6 +17,10 @@ class UK2Node_CustomEvent : public UK2Node_Event
 
 	virtual bool IsEditable() const override;
 
+	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	// End of UObject interface
+
 	// Begin UEdGraphNode interface
 	virtual void ReconstructNode() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
@@ -32,10 +36,12 @@ class UK2Node_CustomEvent : public UK2Node_Event
 	// Begin UK2Node interface
 	BLUEPRINTGRAPH_API virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
+	BLUEPRINTGRAPH_API virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
 	// End UK2Node interface
 
 	// Begin UK2Node_EditablePinBase interface
 	virtual UEdGraphPin* CreatePinFromUserDefinition(const TSharedPtr<FUserPinInfo> NewPinInfo) override;
+	virtual bool CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage) override;
 	// Begin UK2Node_EditablePinBase interface
 
 	virtual bool IsUsedByAuthorityOnlyDelegate() const override;

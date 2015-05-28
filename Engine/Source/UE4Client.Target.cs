@@ -31,25 +31,12 @@ public class UE4ClientTarget : TargetRules
         ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
         )
     {
-        if (UnrealBuildTool.UnrealBuildTool.BuildingRocket())
-        {
-            UEBuildConfiguration.bCompileLeanAndMeanUE = true;
-
-            // Don't need editor or editor only data
-            UEBuildConfiguration.bBuildEditor = false;
-            UEBuildConfiguration.bBuildWithEditorOnlyData = false;
-
-            UEBuildConfiguration.bCompileAgainstEngine = true;
-
-            // no exports, so no need to verify that a .lib and .exp file was emitted by the linker.
-            OutLinkEnvironmentConfiguration.bHasExports = false;
-        }
-        else
-        {
-            // Tag it as a UE4Game build
-            OutCPPEnvironmentConfiguration.Definitions.Add("UE4GAME=1");
-        }
     }
+
+	public override bool ShouldUseSharedBuildEnvironment(TargetInfo Target)
+	{
+		return true;
+	}
 
     public override List<UnrealTargetPlatform> GUBP_GetPlatforms_MonolithicOnly(UnrealTargetPlatform HostPlatform)
     {

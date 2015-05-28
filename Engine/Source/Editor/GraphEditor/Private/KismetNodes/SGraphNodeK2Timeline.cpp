@@ -7,6 +7,7 @@
 #include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
 #include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
 #include "KismetNodeInfoContext.h"
+#include "Components/TimelineComponent.h"
 
 #define LOCTEXT_NAMESPACE "SGraphNodeK2Base"
 

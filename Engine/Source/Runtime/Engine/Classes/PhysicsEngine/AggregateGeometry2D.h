@@ -82,7 +82,7 @@ struct ENGINE_API FBoxElement2D
 	UPROPERTY(Category=KBoxElem, VisibleAnywhere)
 	float Height;
 
-	// Rotation of the box (in degreens)
+	// Rotation of the box (in degrees)
 	UPROPERTY(Category = KBoxElem, VisibleAnywhere)
 	float Angle;
 

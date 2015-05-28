@@ -22,7 +22,8 @@ public:
 	void SetCultureName(const FString& CultureName);
 	bool ShouldLoadLocalizedPropertyNames() const;
 	void ShouldLoadLocalizedPropertyNames(const bool Value);
-
+	bool ShouldShowNodesAndPinsUnlocalized() const;
+	void ShouldShowNodesAndPinsUnlocalized(const bool Value);
 public:
 
 	/**

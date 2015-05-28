@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
+#include "UObject/UObjectThreadContext.h"
 
 /*----------------------------------------------------------------------------
 	FDuplicateDataReader.
@@ -23,8 +24,8 @@ FDuplicateDataReader::FDuplicateDataReader( class FUObjectAnnotationSparse<FDupl
 
 void FDuplicateDataReader::SerializeFail()
 {
-	extern UObject* GSerializedObject;
-	UE_LOG(LogObj, Fatal, TEXT("FDuplicateDataReader Overread. SerializedObject = %s SerializedProperty = %s"), *GetFullNameSafe(GSerializedObject), *GetFullNameSafe(GetSerializedProperty()));
+	FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+	UE_LOG(LogObj, Fatal, TEXT("FDuplicateDataReader Overread. SerializedObject = %s SerializedProperty = %s"), *GetFullNameSafe(ThreadContext.SerializedObject), *GetFullNameSafe(GetSerializedProperty()));
 }
 
 FArchive& FDuplicateDataReader::operator<<(FName& N)

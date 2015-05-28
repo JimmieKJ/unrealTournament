@@ -6,14 +6,28 @@
 #include "Leap_NoPI.h"
 #include "LeapMotionTypes.generated.h"
 
+
+
 //---------------------------------------------------
 // Common enumerations
 //---------------------------------------------------
 
+/** 
+* \defgroup Enumerations Enumerations
+*
+* Leap Motion enumerations.
+* @{
+*/
+
+/**
+* The names for designating the hands.
+*/
 UENUM(BlueprintType)
 enum class ELeapSide : uint8
 {
+	/** Port */
 	Left,
+	/** Starboard */
 	Right
 };
 
@@ -21,25 +35,42 @@ enum class ELeapSide : uint8
 UENUM(BlueprintType)
 enum class ELeapBone : uint8
 {
+	/** The arm bone from elbow to wrist. */
 	Forearm,
+	/** The central portion of the hand, excluding fingers. */
 	Palm,
+	/** The anatomical thumb metacarpal. */
 	ThumbBase,
+	/** The anatomical thumb proximal phalanx. */
 	ThumbMiddle,
+	/** The anatomical thumb distal phalanx. */
 	ThumbTip,
+	/** The anatomical index finger proximal phalanx. */
 	Finger1Base,
+	/** The anatomical index finger intermediate phalanx. */
 	Finger1Middle,
+	/** The anatomical index finger distal phalanx. */
 	Finger1Tip,
+	/** The anatomical middle finger proximal phalanx. */
 	Finger2Base,
+	/** The anatomical middle finger intermediate phalanx. */
 	Finger2Middle,
+	/** The anatomical middle finger distal phalanx. */
 	Finger2Tip,
+	/** The anatomical ring finger proximal phalanx. */
 	Finger3Base,
+	/** The anatomical ring finger intermediate phalanx. */
 	Finger3Middle,
+	/** The anatomical ring finger distal phalanx. */
 	Finger3Tip,
+	/** The anatomical pinky finger proximal phalanx. */
 	Finger4Base,
+	/** The anatomical pink finger intermediate phalanx. */
 	Finger4Middle,
+	/** The anatomical pinky finger distal phalanx. */
 	Finger4Tip
 };
-
+/**@}*/ //end doxygen group
 
 //---------------------------------------------------
 // Delegate types
@@ -50,12 +81,15 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FLMHandRemovedDelegate, int32, HandI
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FLMHandUpdatedDelegate, int32, HandId, float, DeltaSeconds);
 
 
-//---------------------------------------------------
-// Helper Functions
-//---------------------------------------------------
+/** ---------------------------------------------------
+* \defgroup global Utility Functions
+* Helper Functions
+* @{
+*/ //---------------------------------------------------
 
 /**
-* Helper function to convert from Leap space (in mm) to Unreal space (in cm)
+* Helper function to convert from Leap space to Unreal space (right-handed to left-handed)
+* and units (mm to cm).
 */
 static FORCEINLINE FVector LEAPVECTOR_TO_FVECTOR(Leap::Vector InVector)
 {
@@ -63,12 +97,13 @@ static FORCEINLINE FVector LEAPVECTOR_TO_FVECTOR(Leap::Vector InVector)
 }
 
 /**
-* Helper function to convert direction of the vector only
+* Helper function to convert direction of the vector only.
 */
 static FORCEINLINE FVector LEAPVECTOR_TO_FVECTOR_DIRECTION(Leap::Vector InVector)
 {
 	return FVector(-InVector.z, InVector.x, InVector.y);
 }
+/**@}*/ // End doxygen global group
 
 #define LEAP_BONE_NAME_CASE(LeapBone) case ELeapBone::LeapBone: return #LeapBone
 

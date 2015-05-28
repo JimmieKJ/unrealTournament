@@ -156,7 +156,7 @@ DirectFB_CreateDevice(int devindex)
     return device;
   error:
     if (device)
-        free(device);
+        SDL_free(device);
     return (0);
 }
 
@@ -238,7 +238,7 @@ DirectFB_VideoInit(_THIS)
 
     if (!devdata->use_linux_input)
     {
-        SDL_DFB_LOG("Disabling linxu input\n");
+        SDL_DFB_LOG("Disabling linux input\n");
         DirectFBSetOption("disable-module", "linux_input");
     }
 

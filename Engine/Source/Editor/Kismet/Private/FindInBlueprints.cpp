@@ -249,14 +249,14 @@ bool FFindInBlueprintsResult::ParseSearchInfo(const TArray<FString> &InTokens, F
 
 void FFindInBlueprintsResult::AddExtraSearchInfo(FString InKey, FText InValue, TSharedPtr< FFindInBlueprintsResult > InParent)
 {
-	FText DisplayText;
+	FText ExtraSearchInfoText;
 
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("Key"), FText::FromString(InKey));
 	Args.Add(TEXT("Value"), InValue);
-	DisplayText = FText::Format(LOCTEXT("ExtraSearchInfo", "{Key}: {Value}"), Args);
+	ExtraSearchInfoText = FText::Format(LOCTEXT("ExtraSearchInfo", "{Key}: {Value}"), Args);
 
-	TSharedPtr< FFindInBlueprintsResult > SearchResult(new FFindInBlueprintsResult(DisplayText, InParent) );
+	TSharedPtr< FFindInBlueprintsResult > SearchResult(new FFindInBlueprintsResult(ExtraSearchInfoText, InParent) );
 	InParent->Children.Add(SearchResult);
 }
 
@@ -358,7 +358,7 @@ UBlueprint* FFindInBlueprintsResult::GetParentBlueprint() const
 	else
 	{
 		GIsEditorLoadingPackage = true;
-		UObject* Object = LoadObject<UObject>(NULL, *DisplayText.ToString(), NULL, 0, NULL); //StaticLoadObject(UObject::StaticClass(), NULL, *DisplayText.ToString());
+		UObject* Object = LoadObject<UObject>(NULL, *DisplayText.ToString(), NULL, 0, NULL);
 		GIsEditorLoadingPackage = false;
 
 		if(UBlueprint* BlueprintObj = Cast<UBlueprint>(Object))
@@ -884,40 +884,7 @@ public:
 		return true;
 	}
 
-	virtual uint32 Run() override
-	{
-		FFindInBlueprintSearchManager::Get().BeginSearchQuery(this);
-
-		FSearchData QueryResult;
-
-		// Searching comes to an end if it is requested using the StopTaskCounter or continuing the search query yields no results
-		while(StopTaskCounter.GetValue() == 0 && FFindInBlueprintSearchManager::Get().ContinueSearchQuery(this, QueryResult))
-		{
-			if(QueryResult.BlueprintPath.Len())
-			{
-				//Each blueprints acts as a category
-				FSearchResult BlueprintCategory = FSearchResult(new FFindInBlueprintsResult(FText::FromString(QueryResult.BlueprintPath)));
-				FindInBlueprintsHelpers::Extract(QueryResult.Value, SearchTokens, BlueprintCategory);
-
-				// If there are children, add the item to the search results
-				if(BlueprintCategory->Children.Num() > 0)
-				{
-					FScopeLock ScopeLock(&SearchCriticalSection);
-					ItemsFound.Add(BlueprintCategory);
-				}
-			}
-		}
-
-		if(StopTaskCounter.GetValue() > 0)
-		{
-			// Ensure that the FiB Manager knows that we are done searching
-			FFindInBlueprintSearchManager::Get().EnsureSearchQueryEnds(this);
-		}
-
-		bThreadCompleted = true;
-
-		return 0;
-	}
+	virtual uint32 Run() override;
 
 	virtual void Stop() override
 	{
@@ -929,6 +896,8 @@ public:
 
 	}
 	/** End FRunnable Interface */
+
+	TArray<FSearchData> MakeExtractionBatch() const;
 
 	/** Brings the thread to a safe stop before continuing. */
 	void EnsureCompletion()
@@ -1073,6 +1042,190 @@ void SFindInBlueprints::Construct( const FArguments& InArgs, TSharedPtr<FBluepri
 		];
 }
 
+void SFindInBlueprints::ConditionallyAddCacheBar()
+{
+	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
+
+	// Do not add a second cache bar and do not add it when there are no uncached Blueprints
+	if(FindInBlueprintManager.GetNumberUncachedBlueprints() > 0 || FindInBlueprintManager.GetFailedToCacheCount() > 0)
+	{
+		if(MainVerticalBox.IsValid() && !CacheBarSlot.IsValid())
+		{
+			// Create a single string of all the Blueprint paths that failed to cache, on separate lines
+			FString PackageList;
+			TArray<FString> FailedToCacheList = FFindInBlueprintSearchManager::Get().GetFailedToCachePathList();
+			for (FString Package : FailedToCacheList)
+			{
+				PackageList += Package + TEXT("\n");
+			}
+
+			// Lambda to put together the popup menu detailing the failed to cache paths
+			auto OnDisplayCacheFailLambda = [](TWeakPtr<SWidget> InParentWidget, FString InPackageList)->FReply
+			{
+				if (InParentWidget.IsValid())
+				{
+					TSharedRef<SWidget> DisplayWidget = 
+						SNew(SBox)
+						.MaxDesiredHeight(512)
+						.MaxDesiredWidth(512)
+						.Content()
+						[
+							SNew(SBorder)
+							.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+							[
+								SNew(SScrollBox)
+								+SScrollBox::Slot()
+								[
+									SNew(SMultiLineEditableText)
+									.AutoWrapText(true)
+									.IsReadOnly(true)
+									.Text(FText::FromString(InPackageList))
+								]
+							]
+						];
+
+					FSlateApplication::Get().PushMenu(
+						InParentWidget.Pin().ToSharedRef(),
+						DisplayWidget,
+						FSlateApplication::Get().GetCursorPos(),
+						FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
+						);	
+				}
+				return FReply::Handled();
+			};
+
+			MainVerticalBox.Pin()->AddSlot()
+				.AutoHeight()
+				[
+					SAssignNew(CacheBarSlot, SBorder)
+					.Visibility( this, &SFindInBlueprints::GetCachingBarVisibility )
+					.BorderBackgroundColor( this, &SFindInBlueprints::GetCachingBarColor )
+					.BorderImage( FCoreStyle::Get().GetBrush("ErrorReporting.Box") )
+					.Padding( FMargin(3,1) )
+					[
+						SNew(SVerticalBox)
+
+						+SVerticalBox::Slot()
+						.AutoHeight()
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.VAlign(EVerticalAlignment::VAlign_Center)
+							.AutoWidth()
+							[
+								SNew(STextBlock)
+								.Text(this, &SFindInBlueprints::GetUncachedBlueprintWarningText)
+								.ColorAndOpacity( FCoreStyle::Get().GetColor("ErrorReporting.ForegroundColor") )
+							]
+
+							// Cache All button
+							+SHorizontalBox::Slot()
+								.AutoWidth()
+								.VAlign(EVerticalAlignment::VAlign_Center)
+								.Padding(6.0f, 2.0f, 4.0f, 2.0f)
+								[
+									SNew(SButton)
+									.Text(LOCTEXT("IndexAllBlueprints", "Index All"))
+									.OnClicked( this, &SFindInBlueprints::OnCacheAllBlueprints )
+									.Visibility( this, &SFindInBlueprints::GetCacheAllButtonVisibility )
+									.ToolTip(IDocumentation::Get()->CreateToolTip(
+									LOCTEXT("IndexAlLBlueprints_Tooltip", "Loads all non-indexed Blueprints and saves them with their search data. This can be a very slow process and the editor may become unresponsive."),
+									NULL,
+									TEXT("Shared/Editors/BlueprintEditor"),
+									TEXT("FindInBlueprint_IndexAll")))
+								]
+
+
+							// View of failed Blueprint paths
+							+SHorizontalBox::Slot()
+								.AutoWidth()
+								.Padding(4.0f, 2.0f, 0.0f, 2.0f)
+								[
+									SNew(SButton)
+									.Text(LOCTEXT("ShowFailedPackages", "Show Failed Packages"))
+									.OnClicked(FOnClicked::CreateLambda(OnDisplayCacheFailLambda, TWeakPtr<SWidget>(SharedThis(this)), PackageList))
+									.Visibility( this, &SFindInBlueprints::GetFailedToCacheListVisibility )
+									.ToolTip(IDocumentation::Get()->CreateToolTip(
+									LOCTEXT("FailedCache_Tooltip", "Displays a list of packages that failed to save."),
+									NULL,
+									TEXT("Shared/Editors/BlueprintEditor"),
+									TEXT("FindInBlueprint_FailedCache")))
+								]
+
+							// Cache progress bar
+							+SHorizontalBox::Slot()
+								.FillWidth(1.0f)
+								.Padding(4.0f, 2.0f, 4.0f, 2.0f)
+								[
+									SNew(SProgressBar)
+									.Percent( this, &SFindInBlueprints::GetPercentCompleteCache )
+									.Visibility( this, &SFindInBlueprints::GetCachingProgressBarVisiblity )
+								]
+
+							// Cancel button
+							+SHorizontalBox::Slot()
+								.AutoWidth()
+								.Padding(4.0f, 2.0f, 0.0f, 2.0f)
+								[
+									SNew(SButton)
+									.Text(LOCTEXT("CancelCacheAll", "Cancel"))
+									.OnClicked( this, &SFindInBlueprints::OnCancelCacheAll )
+									.Visibility( this, &SFindInBlueprints::GetCachingProgressBarVisiblity )
+									.ToolTipText( LOCTEXT("CancelCacheAll_Tooltip", "Stops the caching process from where ever it is, can be started back up where it left off when needed.") )
+								]
+
+							// "X" to remove the bar
+							+SHorizontalBox::Slot()
+								.HAlign(HAlign_Right)
+								[
+									SNew(SButton)
+									.ButtonStyle( FCoreStyle::Get(), "NoBorder" )
+									.ContentPadding(0)
+									.HAlign(HAlign_Center)
+									.VAlign(VAlign_Center)
+									.OnClicked( this, &SFindInBlueprints::OnRemoveCacheBar )
+									.ForegroundColor( FSlateColor::UseForeground() )
+									[
+										SNew(SImage)
+										.Image( FCoreStyle::Get().GetBrush("EditableComboBox.Delete") )
+										.ColorAndOpacity( FSlateColor::UseForeground() )
+									]
+								]
+						]
+
+						+SVerticalBox::Slot()
+							.AutoHeight()
+							.Padding(8.0f, 0.0f, 0.0f, 2.0f)
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+									.Text(this, &SFindInBlueprints::GetCurrentCacheBlueprintName)
+									.Visibility( this, &SFindInBlueprints::GetCachingBlueprintNameVisiblity )
+									.ColorAndOpacity( FCoreStyle::Get().GetColor("ErrorReporting.ForegroundColor") )
+								]
+
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+									.Text(LOCTEXT("FiBUnresponsiveEditorWarning", "NOTE: the editor may become unresponsive for some time!"))
+									.TextStyle(&FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>( "SmallText" ))
+								]
+							]
+					]
+				];
+		}
+	}
+	else
+	{
+		// Because there are no uncached Blueprints, remove the bar
+		OnRemoveCacheBar();
+	}
+}
+
 FReply SFindInBlueprints::OnRemoveCacheBar()
 {
 	if(MainVerticalBox.IsValid() && CacheBarSlot.IsValid())
@@ -1090,44 +1243,49 @@ SFindInBlueprints::~SFindInBlueprints()
 		StreamSearch->Stop();
 		StreamSearch->EnsureCompletion();
 	}
+
+	FFindInBlueprintSearchManager::Get().CancelCacheAll(this);
 }
 
-void SFindInBlueprints::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SFindInBlueprints::UpdateSearchResults( double InCurrentTime, float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-	if(StreamSearch.IsValid())
+	if ( StreamSearch.IsValid() )
 	{
 		bool bShouldShutdownThread = false;
 		bShouldShutdownThread = StreamSearch->IsComplete();
 
 		TArray<FSearchResult> BackgroundItemsFound;
 
-		StreamSearch->GetFilteredItems(BackgroundItemsFound);
-		if(BackgroundItemsFound.Num())
+		StreamSearch->GetFilteredItems( BackgroundItemsFound );
+		if ( BackgroundItemsFound.Num() )
 		{
-			for(auto& Item : BackgroundItemsFound)
+			for ( auto& Item : BackgroundItemsFound )
 			{
-				Item->ExpandAllChildren(TreeView);
-				ItemsFound.Add(Item);
+				Item->ExpandAllChildren( TreeView );
+				ItemsFound.Add( Item );
 			}
 			TreeView->RequestTreeRefresh();
 		}
 
 		// If the thread is complete, shut it down properly
-		if(bShouldShutdownThread)
+		if ( bShouldShutdownThread )
 		{
-			if(ItemsFound.Num() == 0)
+			if ( ItemsFound.Num() == 0 )
 			{
 				// Insert a fake result to inform user if none found
-				ItemsFound.Add(FSearchResult(new FFindInBlueprintsResult(LOCTEXT("BlueprintSearchNoResults", "No Results found"))));
+				ItemsFound.Add( FSearchResult( new FFindInBlueprintsResult( LOCTEXT( "BlueprintSearchNoResults", "No Results found" ) ) ) );
 				TreeView->RequestTreeRefresh();
 			}
+
+			// Add the cache bar if needed.
+			ConditionallyAddCacheBar();
 
 			StreamSearch->EnsureCompletion();
 			StreamSearch.Reset();
 		}
 	}
+
+	return StreamSearch.IsValid() ? EActiveTimerReturnType::Continue : EActiveTimerReturnType::Stop;
 }
 
 void SFindInBlueprints::RegisterCommands()
@@ -1201,7 +1359,7 @@ ECheckBoxState SFindInBlueprints::OnGetFindModeChecked() const
 void SFindInBlueprints::InitiateSearch()
 {
 	TArray<FString> Tokens;
-	if(SearchValue.Contains("\"") && SearchValue.ParseIntoArray(&Tokens, TEXT("\""), true)>0)
+	if(SearchValue.Contains("\"") && SearchValue.ParseIntoArray(Tokens, TEXT("\""), true)>0)
 	{
 		for( auto &TokenIt : Tokens )
 		{
@@ -1225,7 +1383,7 @@ void SFindInBlueprints::InitiateSearch()
 	else
 	{
 		// unquoted search equivalent to a match-any-of search
-		SearchValue.ParseIntoArray(&Tokens, TEXT(" "), true);
+		SearchValue.ParseIntoArray(Tokens, TEXT(" "), true);
 	}
 
 	if(ItemsFound.Num())
@@ -1299,6 +1457,11 @@ void SFindInBlueprints::LaunchStreamThread(const TArray<FString>& InTokens)
 	{
 		StreamSearch->Stop();
 		StreamSearch->EnsureCompletion();
+	}
+	else
+	{
+		// If the stream search wasn't already running, register the active timer
+		RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SFindInBlueprints::UpdateSearchResults ) );
 	}
 
 	StreamSearch = MakeShareable(new FStreamSearch(InTokens));
@@ -1406,6 +1569,126 @@ EVisibility SFindInBlueprints::GetSearchbarVisiblity() const
 	return StreamSearch.IsValid()? EVisibility::Visible : EVisibility::Collapsed;
 }
 
+FReply SFindInBlueprints::OnCacheAllBlueprints()
+{
+	if(!FFindInBlueprintSearchManager::Get().IsCacheInProgress())
+	{
+		// Request from the SearchManager a delegate to use for ticking the cache system.
+		FWidgetActiveTimerDelegate WidgetActiveTimer;
+		FFindInBlueprintSearchManager::Get().CacheAllUncachedBlueprints(SharedThis(this), WidgetActiveTimer);
+		RegisterActiveTimer(0.f, WidgetActiveTimer);
+	}
+
+	return FReply::Handled();
+}
+
+FReply SFindInBlueprints::OnCancelCacheAll()
+{
+	FFindInBlueprintSearchManager::Get().CancelCacheAll(this);
+
+	// Resubmit the last search
+	OnSearchTextCommitted(SearchTextField->GetText(), ETextCommit::OnEnter);
+
+	return FReply::Handled();
+}
+
+int32 SFindInBlueprints::GetCurrentCacheIndex() const
+{
+	return FFindInBlueprintSearchManager::Get().GetCurrentCacheIndex();
+}
+
+TOptional<float> SFindInBlueprints::GetPercentCompleteCache() const
+{
+	return FFindInBlueprintSearchManager::Get().GetCacheProgress();
+}
+
+EVisibility SFindInBlueprints::GetCachingProgressBarVisiblity() const
+{
+	return IsCacheInProgress()? EVisibility::Visible : EVisibility::Hidden;
+}
+
+EVisibility SFindInBlueprints::GetCacheAllButtonVisibility() const
+{
+	return IsCacheInProgress()? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+EVisibility SFindInBlueprints::GetCachingBarVisibility() const
+{
+	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
+	return (FindInBlueprintManager.GetNumberUncachedBlueprints() > 0 || FindInBlueprintManager.GetFailedToCacheCount())? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SFindInBlueprints::GetCachingBlueprintNameVisiblity() const
+{
+	return IsCacheInProgress()? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SFindInBlueprints::GetFailedToCacheListVisibility() const
+{
+	return FFindInBlueprintSearchManager::Get().GetFailedToCacheCount()? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+bool SFindInBlueprints::IsCacheInProgress() const
+{
+	return FFindInBlueprintSearchManager::Get().IsCacheInProgress();
+}
+
+FSlateColor SFindInBlueprints::GetCachingBarColor() const
+{
+	// The caching bar's default color is a darkish red
+	FSlateColor ReturnColor = FSlateColor(FLinearColor(0.4f, 0.0f, 0.0f));
+	if(IsCacheInProgress())
+	{
+		// It turns yellow when in progress
+		ReturnColor = FSlateColor(FLinearColor(0.4f, 0.4f, 0.0f));
+	}
+	return ReturnColor;
+}
+
+FText SFindInBlueprints::GetUncachedBlueprintWarningText() const
+{
+	FFindInBlueprintSearchManager& FindInBlueprintManager = FFindInBlueprintSearchManager::Get();
+
+	int32 FailedToCacheCount = FindInBlueprintManager.GetFailedToCacheCount();
+
+	// The number of unindexed Blueprints is the total of those that failed to cache and those that haven't been attempted yet.
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("Count"), FindInBlueprintManager.GetNumberUncachedBlueprints() + FailedToCacheCount);
+
+	FText ReturnDisplayText;
+	if(IsCacheInProgress())
+	{
+		Args.Add(TEXT("CurrentIndex"), FindInBlueprintManager.GetCurrentCacheIndex());
+
+		ReturnDisplayText = FText::Format(LOCTEXT("CachingBlueprints", "Indexing Blueprints... {CurrentIndex}/{Count}"), Args);
+	}
+	else
+	{
+		ReturnDisplayText = FText::Format(LOCTEXT("UncachedBlueprints", "Search incomplete. {Count} Blueprints are not indexed!"), Args);
+
+		if (FailedToCacheCount > 0)
+		{
+			FFormatNamedArguments ArgsWithCacheFails;
+			Args.Add(TEXT("BaseMessage"), ReturnDisplayText);
+			Args.Add(TEXT("CacheFails"), FailedToCacheCount);
+			ReturnDisplayText = FText::Format(LOCTEXT("UncachedBlueprintsWithCacheFails", "{BaseMessage} {CacheFails} Blueprints failed to cache."), Args);
+		}
+	}
+
+	return ReturnDisplayText;
+}
+
+FText SFindInBlueprints::GetCurrentCacheBlueprintName() const
+{
+	return FText::FromString(FFindInBlueprintSearchManager::Get().GetCurrentCacheBlueprintName());
+}
+
+void SFindInBlueprints::OnCacheComplete()
+{
+	// Resubmit the last search, which will also remove the bar if needed
+	OnSearchTextCommitted(SearchTextField->GetText(), ETextCommit::OnEnter);
+}
+
 TSharedPtr<SWidget> SFindInBlueprints::OnContextMenuOpening()
 {
 	const bool bShouldCloseWindowAfterMenuSelection = true;
@@ -1469,6 +1752,142 @@ void SFindInBlueprints::OnCopyAction()
 
 	// Copy text to clipboard
 	FPlatformMisc::ClipboardCopy( *SelectedText );
+}
+
+////////////////////////////////////
+// FExtractionTask
+
+/**
+ * Task to search a batch of blueprints
+ *
+ * Each small batch is non-abandonable, but if the search is cancelled, no more batches are queued
+ */
+class FExtractionTask : public FNonAbandonableTask
+{
+public:
+	/** Async task function */
+	void DoWork();
+
+	/** Batch of blueprints and associated data to search */
+	TArray<FSearchData> QueryResultBatch;
+
+	/** Pointer to array of tokens to search for */
+	const TArray<FString>* Tokens;
+
+	/** Function to call once the search result is ready */
+	TFunction<void(const FSearchResult&)> OnResultReady;
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT( FExtractionTask, STATGROUP_ThreadPoolAsyncTasks );
+	}
+};
+
+TArray<FSearchData> FStreamSearch::MakeExtractionBatch() const
+{
+	// Batch sizes between 10 and 30 seem fastest
+	static const int BatchSize = 15;
+
+	TArray<FSearchData> Batch;
+	do
+	{
+		if (StopTaskCounter.GetValue())
+			return TArray<FSearchData>();
+
+		FSearchData QueryResult;
+		if (!FFindInBlueprintSearchManager::Get().ContinueSearchQuery(this, QueryResult))
+			return Batch;
+
+		Batch.Push(QueryResult);
+	}
+	while (Batch.Num() <= BatchSize);
+
+	return Batch;
+}
+
+uint32 FStreamSearch::Run()
+{
+	FFindInBlueprintSearchManager::Get().BeginSearchQuery(this);
+
+	// Seems to go fastest at or slightly above one thread per physical core
+	TArray<FAsyncTask<FExtractionTask>> ExtractionTasks;
+	ExtractionTasks.SetNum(FPlatformMisc::NumberOfCores());
+
+	TFunction<void(const FSearchResult&)> OnResultReady = [this](const FSearchResult& Result) {
+		FScopeLock ScopeLock(&SearchCriticalSection);
+		ItemsFound.Add(Result);
+	};
+
+	// Searching comes to an end if it is requested using the StopTaskCounter or continuing the search query yields no results
+	TArray<FSearchData> QueryResultBatch;
+	for (;;)
+	{
+		if (QueryResultBatch.Num() == 0)
+		{
+			QueryResultBatch = MakeExtractionBatch();
+		}
+		else
+		{
+			// Spinning until a task becomes available
+			FPlatformProcess::Sleep(0);
+		}
+
+		if (QueryResultBatch.Num() == 0)
+		{
+			// All search work has been dispatched
+			break;
+		}
+
+		for (auto& Task: ExtractionTasks)
+		{
+			if (Task.IsWorkDone())
+			{
+				Task.EnsureCompletion();
+
+				auto& worker = Task.GetTask();
+				worker.QueryResultBatch = MoveTemp(QueryResultBatch);
+				worker.Tokens = &SearchTokens;
+				worker.OnResultReady = OnResultReady;
+
+				Task.StartBackgroundTask();
+
+				// Ensure batch array is empty (probably already is due to move above)
+				QueryResultBatch.Reset();
+				break;
+			}
+		}
+	}
+
+	// Wait for all work to finish
+	for (auto& Task: ExtractionTasks)
+	{
+		Task.EnsureCompletion();
+	}
+
+	if (StopTaskCounter.GetValue())
+	{
+		// Ensure that the FiB Manager knows that we are done searching
+		FFindInBlueprintSearchManager::Get().EnsureSearchQueryEnds(this);
+	}
+
+	bThreadCompleted = true;
+
+	return 0;
+}
+
+void FExtractionTask::DoWork()
+{
+	for (const auto& QueryResult: QueryResultBatch)
+	{
+		FSearchResult BlueprintCategory = FSearchResult(new FFindInBlueprintsResult(FText::FromString(QueryResult.BlueprintPath)));
+		FindInBlueprintsHelpers::Extract(QueryResult.Value, *Tokens, BlueprintCategory);
+
+		// If there are children, add the item to the search results
+		if(BlueprintCategory->Children.Num() != 0)
+		{
+			OnResultReady(BlueprintCategory);
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

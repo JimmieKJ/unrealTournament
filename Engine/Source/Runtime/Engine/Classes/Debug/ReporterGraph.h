@@ -82,6 +82,12 @@ struct FGraphLine
 	/** The colour to graph this data with */
 	FLinearColor Color;
 
+	/** Left extreme value */
+	FVector2D LeftExtreme;
+
+	/** Right extreme value */
+	FVector2D RightExtreme;
+
 	/** The event name */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=FCombatEventData)
 	FString LineName;
@@ -193,7 +199,8 @@ public:
 
 	/** setter to enable or disable cursor for line graphs */
 	void DrawCursorOnGraph(bool InDrawCursorOnGraph) { bDrawCursorOnGraph = InDrawCursorOnGraph;  }
-protected:
+
+	void DrawExtremesOnGraph(bool InDrawExtremes) { bDrawExtremes = InDrawExtremes; }
 
 	/** Draw background under graph
 	* @param Canvas The canvas to draw on
@@ -291,5 +298,8 @@ protected:
 
 	/** if set it enables cursor for line graphs */
 	int32 bDrawCursorOnGraph : 1;
+
+	/** draw extreams on vertical axes */
+	int32 bDrawExtremes : 1;
 };
 

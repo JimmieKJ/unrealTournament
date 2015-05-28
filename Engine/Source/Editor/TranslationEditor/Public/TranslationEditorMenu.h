@@ -45,6 +45,9 @@ public:
 	/** Open the tab for searching */
 	TSharedPtr<FUICommandInfo> OpenSearchTab;
 
+	/** Open the translation picker */
+	TSharedPtr<FUICommandInfo> OpenTranslationPicker;
+
 	/** Initialize commands */
 	virtual void RegisterCommands() override;
 };

@@ -29,8 +29,8 @@ public:
 	virtual TSharedRef<FTranslationEditor> CreateTranslationEditor( const FString& ManifestFile, const FString& ArchiveFile );
 
 	/** Gets the extensibility managers for outside entities to extend translation editor's menus and toolbars */
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() {return MenuExtensibilityManager;}
-	virtual TSharedPtr<FExtensibilityManager> GetToolbarExtensibilityManager() {return ToolbarExtensibilityManager;}
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() override { return MenuExtensibilityManager; }
+	virtual TSharedPtr<FExtensibilityManager> GetToolbarExtensibilityManager() { return ToolbarExtensibilityManager; }
 
 	/** Translation Editor app identifier string */
 	static const FName TranslationEditorAppIdentifier;
@@ -39,5 +39,3 @@ private:
 	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
 	TSharedPtr<FExtensibilityManager> ToolbarExtensibilityManager;
 };
-
-

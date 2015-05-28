@@ -15,5 +15,7 @@ public:
 
 	virtual TSharedPtr<class FExtensibilityManager> GetFlipbookEditorMenuExtensibilityManager() { return nullptr; }
 	virtual TSharedPtr<class FExtensibilityManager> GetFlipbookEditorToolBarExtensibilityManager() { return nullptr; }
+
+	virtual uint32 GetPaper2DAssetCategory() const = 0;
 };
 

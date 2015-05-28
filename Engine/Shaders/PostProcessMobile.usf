@@ -899,7 +899,6 @@ void SunMergeVS_ES2(
 #undef SUN_M
 
 float4 SunColorVignetteIntensity;
-float3 VignetteColor;
 float3 BloomColor;
 
 void SunMergePS_ES2(
@@ -952,7 +951,6 @@ void SunMergePS_ES2(
 
 	OutColor.a = Vignette;
 	OutColor.rgb *= OutColor.a;
-	OutColor.rgb += VignetteColor * (1.0 - Vignette);
 }
 
 #undef SUN_P0
@@ -1041,7 +1039,6 @@ void SunMergeSmallPS_ES2(
 
 	OutColor.a = Vignette;
 	OutColor.rgb *= OutColor.a;
-	OutColor.rgb += VignetteColor * (1.0 - Vignette);
 }
 
 

@@ -14,6 +14,7 @@ NSString* UE4CloseEventMode = @"UE4CloseEventMode";
 NSString* UE4IMEEventMode = @"UE4IMEEventMode";
 
 static FCocoaGameThread* GCocoaGameThread = nil;
+static uint32 GMainThreadId = 0;
 
 class FCocoaRunLoopSource;
 @interface FCocoaRunLoopSourceInfo : NSObject
@@ -168,7 +169,7 @@ private:
 		{
 			CFRunLoopSourceContext Context;
 			FCocoaRunLoopSourceInfo* Info = [[FCocoaRunLoopSourceInfo alloc] initWithSource:this];
-			FMemory::MemZero(Context);
+			FMemory::Memzero(Context);
 			Context.version = 0;
 			Context.info = Info;
 			Context.retain = CFRetain;
@@ -357,14 +358,26 @@ FCocoaRunLoopSource* FCocoaRunLoopSource::GameRunLoopSource = nullptr;
 	
 	[super main];
 	
+	// We have exited the game thread, so any UE4 code running now should treat the Main thread
+	// as the game thread, so we don't crash in static destructors.
+	GGameThreadId = GMainThreadId;
+	
+	// Tell the main thread we are OK to quit, but don't wait for it.
 	if (GIsRequestingExit)
 	{
 		MainThreadCall(^{
-			GGameThreadId = FPlatformTLS::GetCurrentThreadId();
 			[NSApp replyToApplicationShouldTerminate:YES];
+			[[NSProcessInfo processInfo] enableSuddenTermination];
+		}, NSDefaultRunLoopMode, false);
+	}
+	else
+	{
+		MainThreadCall(^{
+			[[NSProcessInfo processInfo] enableSuddenTermination];
 		}, NSDefaultRunLoopMode, false);
 	}
 	
+	// And now it is time to die.
 	[self release];
 }
 
@@ -429,6 +442,12 @@ void GameThreadCall(dispatch_block_t Block, NSArray* SendModes, bool const bWait
 void RunGameThread(id Target, SEL Selector)
 {
 	SCOPED_AUTORELEASE_POOL;
+	
+	// @todo: Proper support for sudden termination (OS termination of application without any events, notifications or signals) - which presently can assert, crash or corrupt. At present we can't deal with this and we need to ensure that we don't permit the system to kill us without warning by disabling & enabling support around operations which must be committed to disk atomically.
+	[[NSProcessInfo processInfo] disableSuddenTermination];
+	
+	GMainThreadId = FPlatformTLS::GetCurrentThreadId();
+	
 #if MAC_SEPARATE_GAME_THREAD
 	// Register main run loop source
 	FCocoaRunLoopSource::RegisterMainRunLoop(CFRunLoopGetCurrent());

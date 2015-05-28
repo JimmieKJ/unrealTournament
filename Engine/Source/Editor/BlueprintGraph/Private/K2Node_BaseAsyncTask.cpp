@@ -5,7 +5,6 @@
 
 #include "CompilerResultsLog.h"
 #include "KismetCompiler.h"
-#include "K2ActionMenuBuilder.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
 
@@ -28,8 +27,12 @@ FText UK2Node_BaseAsyncTask::GetTooltipText() const
 
 FText UK2Node_BaseAsyncTask::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	const FString FunctionToolTipText = UK2Node_CallFunction::GetUserFacingFunctionName(GetFactoryFunction());
-	return FText::FromString(FunctionToolTipText);
+	if (GetFactoryFunction() == nullptr)
+	{
+		return FText(LOCTEXT("UK2Node_BaseAsyncTaskGetNodeTitle", "Async Task: Missing Function"));
+	}
+	const FText FunctionToolTipText = UK2Node_CallFunction::GetUserFacingFunctionName(GetFactoryFunction());
+	return FunctionToolTipText;
 }
 
 bool UK2Node_BaseAsyncTask::IsCompatibleWithGraph(const UEdGraph* TargetGraph) const
@@ -42,28 +45,6 @@ bool UK2Node_BaseAsyncTask::IsCompatibleWithGraph(const UEdGraph* TargetGraph) c
 		bIsCompatible = true;
 	}
 	return bIsCompatible && Super::IsCompatibleWithGraph(TargetGraph);
-}
-
-void UK2Node_BaseAsyncTask::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-	EGraphType GraphType = K2Schema->GetGraphType(ContextMenuBuilder.CurrentGraph);
-	const bool bAllowLatentFuncs = (GraphType == GT_Ubergraph || GraphType == GT_Macro);
-
-	if (bAllowLatentFuncs)
-{
-		UK2Node_BaseAsyncTask* NodeTemplate = NewObject<UK2Node_BaseAsyncTask>(ContextMenuBuilder.OwnerOfTemporaries, GetClass());
-		CreateDefaultMenuEntry(NodeTemplate, ContextMenuBuilder);
-	}
-}
-
-TSharedPtr<FEdGraphSchemaAction_K2NewNode> UK2Node_BaseAsyncTask::CreateDefaultMenuEntry(UK2Node_BaseAsyncTask* NodeTemplate, FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	TSharedPtr<FEdGraphSchemaAction_K2NewNode> NodeAction = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, NodeTemplate->GetMenuCategory().ToString(), NodeTemplate->GetNodeTitle(ENodeTitleType::ListView), NodeTemplate->GetTooltipText().ToString(), 0, NodeTemplate->GetKeywords());
-	
-	NodeAction->NodeTemplate = NodeTemplate;
-
-	return NodeAction;
 }
 
 void UK2Node_BaseAsyncTask::AllocateDefaultPins()
@@ -195,7 +176,7 @@ bool UK2Node_BaseAsyncTask::FBaseAsyncTaskHelper::CopyEventSignature(UK2Node_Cus
 		{
 			FEdGraphPinType PinType;
 			bResult &= Schema->ConvertPropertyToPinType(Param, /*out*/ PinType);
-			bResult &= (NULL != CENode->CreateUserDefinedPin(Param->GetName(), PinType));
+			bResult &= (NULL != CENode->CreateUserDefinedPin(Param->GetName(), PinType, EGPD_Output));
 		}
 	}
 	return bResult;
@@ -272,15 +253,25 @@ void UK2Node_BaseAsyncTask::ExpandNode(class FKismetCompilerContext& CompilerCon
 	UK2Node_CallFunction* const CallCreateProxyObjectNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
 	CallCreateProxyObjectNode->FunctionReference.SetExternalMember(ProxyFactoryFunctionName, ProxyFactoryClass);
 	CallCreateProxyObjectNode->AllocateDefaultPins();
+	if (CallCreateProxyObjectNode->GetTargetFunction() == nullptr)
+	{
+		const FString ClassName = ProxyFactoryClass ? ProxyFactoryClass->GetName() : LOCTEXT("MissingClassString", "Unknown Class").ToString();
+		const FString RawMessage = LOCTEXT("AsyncTaskError", "BaseAsyncTask: Missing function %s from class %s for async task @@").ToString();
+		const FString FormattedMessage = FString::Printf(*RawMessage, *ProxyFactoryFunctionName.GetPlainNameString(), *ClassName);
+		CompilerContext.MessageLog.Error(*FormattedMessage, this);
+		return;
+	}
+
 	bIsErrorFree &= CompilerContext.MovePinLinksToIntermediate(*FindPinChecked(Schema->PN_Execute), *CallCreateProxyObjectNode->FindPinChecked(Schema->PN_Execute)).CanSafeConnect();
+
 	for (auto CurrentPin : Pins)
-		{
+	{
 		if (FBaseAsyncTaskHelper::ValidDataPin(CurrentPin, EGPD_Input, Schema))
-			{
+		{
 			UEdGraphPin* DestPin = CallCreateProxyObjectNode->FindPin(CurrentPin->PinName); // match function inputs, to pass data to function from CallFunction node
 			bIsErrorFree &= DestPin && CompilerContext.MovePinLinksToIntermediate(*CurrentPin, *DestPin).CanSafeConnect();
-			}
 		}
+	}
 
 	// GATHER OUTPUT PARAMETERS AND PAIR THEM WITH LOCAL VARIABLES
 	TArray<FBaseAsyncTaskHelper::FOutputPinAndLocalVariable> VariableOutputs;
@@ -300,15 +291,15 @@ void UK2Node_BaseAsyncTask::ExpandNode(class FKismetCompilerContext& CompilerCon
 	UEdGraphPin* LastThenPin = CallCreateProxyObjectNode->FindPinChecked(Schema->PN_Then);
 	UEdGraphPin* const ProxyObjectPin = CallCreateProxyObjectNode->GetReturnValuePin();
 	for (TFieldIterator<UMulticastDelegateProperty> PropertyIt(ProxyClass, EFieldIteratorFlags::ExcludeSuper); PropertyIt && bIsErrorFree; ++PropertyIt)
-		{
+	{
 		bIsErrorFree &= FBaseAsyncTaskHelper::HandleDelegateImplementation(*PropertyIt, VariableOutputs, ProxyObjectPin, LastThenPin, this, SourceGraph, CompilerContext);
 	}
 
 	if (CallCreateProxyObjectNode->FindPinChecked(Schema->PN_Then) == LastThenPin)
-			{
+	{
 		CompilerContext.MessageLog.Error(*LOCTEXT("MissingDelegateProperties", "BaseAsyncTask: Proxy has no delegates defined. @@").ToString(), this);
 		return;
-			}
+	}
 
 	// Create a call to activate the proxy object if necessary
 	if (ProxyActivateFunctionName != NAME_None)
@@ -337,11 +328,11 @@ void UK2Node_BaseAsyncTask::ExpandNode(class FKismetCompilerContext& CompilerCon
 	if (!bIsErrorFree)
 	{
 		CompilerContext.MessageLog.Error(*LOCTEXT("InternalConnectionError", "BaseAsyncTask: Internal connection error. @@").ToString(), this);
-		}
+	}
 
 	// Make sure we caught everything
 	BreakAllNodeLinks();
-	}
+}
 
 bool UK2Node_BaseAsyncTask::HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput) const
 {
@@ -397,7 +388,7 @@ UFunction* UK2Node_BaseAsyncTask::GetFactoryFunction() const
 {
 	if (ProxyFactoryClass == nullptr)
 	{
-		UE_LOG(LogBlueprint, Fatal, TEXT("ProxyFactoryClass null in %s. Was a class deleted or saved on a non promoted build?"), *GetFullName());
+		UE_LOG(LogBlueprint, Error, TEXT("ProxyFactoryClass null in %s. Was a class deleted or saved on a non promoted build?"), *GetFullName());
 		return nullptr;
 	}
 	

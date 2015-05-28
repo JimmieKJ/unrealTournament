@@ -91,7 +91,7 @@ public:
 	/**
 	 * Constructor. Initializes this big int with a 64 bit integer value.
 	 *
-	 * @parma Other The value to set.
+	 * @param Other The value to set.
 	 */
 	TBigInt(int64 Other)
 	{

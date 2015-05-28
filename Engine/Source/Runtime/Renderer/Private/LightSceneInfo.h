@@ -8,6 +8,7 @@
 #define __LIGHTSCENEINFO_H__
 
 #include "StaticArray.h"
+#include "SceneManagement.h"
 
 /**
  * The information needed to cull a light-primitive interaction.
@@ -15,17 +16,16 @@
 class FLightSceneInfoCompact
 {
 public:
-
-	// must not be 0
-	FLightSceneInfo* LightSceneInfo;
 	// XYZ: origin, W:sphere radius
 	VectorRegister BoundingSphereVector;
 	FLinearColor Color;
+	// must not be 0
+	FLightSceneInfo* LightSceneInfo;
+	// e.g. LightType_Directional, LightType_Point or LightType_Spot
+	uint32 LightType : LightType_NumBits;	
 	uint32 bCastDynamicShadow : 1;
 	uint32 bCastStaticShadow : 1;
 	uint32 bStaticLighting : 1;
-	// e.g. LightType_Directional, LightType_Point or LightType_Spot
-	uint32 LightType : LightType_NumBits;	
 
 	/** Initializes the compact scene info from the light's full scene info. */
 	void Init(FLightSceneInfo* InLightSceneInfo);
@@ -88,6 +88,7 @@ typedef TOctree<FLightSceneInfoCompact,struct FLightOctreeSemantics> FSceneLight
 
 /**
  * The information used to render a light.  This is the rendering thread's mirror of the game thread's ULightComponent.
+ * FLightSceneInfo is internal to the renderer module and contains internal scene state.
  */
 class FLightSceneInfo : public FRenderResource
 {
@@ -120,8 +121,11 @@ public:
 	/** Tile intersection buffer for distance field shadowing, stored on the light to avoid reallocating each frame. */
 	mutable TScopedPointer<class FLightTileIntersectionResources> TileIntersectionResources;
 
+protected:
 	/** True if the light is built. */
 	uint32 bPrecomputedLightingIsValid : 1;
+
+public:
 
 	/** 
 	 * True if the light is visible.  
@@ -191,7 +195,7 @@ public:
 	{
 		return !Proxy->GetColor().IsAlmostBlack()
 			// Only render lights with dynamic lighting or unbuilt static lights
-			&& (!Proxy->HasStaticLighting() || !bPrecomputedLightingIsValid);
+			&& (!Proxy->HasStaticLighting() || !IsPrecomputedLightingValid());
 	}
 
 	/** Encapsulates all View-Independent reasons to render ViewIndependentWholeSceneShadows for this light */
@@ -204,11 +208,13 @@ public:
 		const bool bCreateShadowToPreviewStaticLight =
 			Proxy->HasStaticShadowing()
 			&& bCastDynamicShadow
-			&& !bPrecomputedLightingIsValid;
+			&& !IsPrecomputedLightingValid();
 
 		bool bShouldRenderShadow = bShouldRenderLight && bCastDynamicShadow && (!Proxy->HasStaticLighting() || bCreateShadowToPreviewStaticLight);
 		return bShouldRenderShadow;
 	}
+
+	bool IsPrecomputedLightingValid() const;
 
 	/** Hash function. */
 	friend uint32 GetTypeHash(const FLightSceneInfo* LightSceneInfo)

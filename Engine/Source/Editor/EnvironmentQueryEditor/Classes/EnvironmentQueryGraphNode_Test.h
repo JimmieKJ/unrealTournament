@@ -20,12 +20,7 @@ class UEnvironmentQueryGraphNode_Test : public UEnvironmentQueryGraphNode
 	UPROPERTY()
 	uint32 bTestEnabled : 1;
 
-	UPROPERTY()
-	class UEnvironmentQueryGraphNode_Option* ParentNode;
-
-	virtual void PostPlacedNewNode() override;
-	virtual void DestroyNode() override;
-	virtual bool IsSubNode() const override { return true; }
+	virtual void InitializeInstance() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetDescription() const override;
 

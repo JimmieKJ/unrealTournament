@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 
 
 #ifndef PX_CUDA_CONTEXT_MANAGER_H
@@ -51,7 +34,6 @@ struct PxCudaInteropMode
 	enum Enum
 	{
 		NO_INTEROP = 0,
-		D3D9_INTEROP,
 		D3D10_INTEROP,
 		D3D11_INTEROP,
 		OGL_INTEROP,
@@ -97,7 +79,7 @@ public:
      */
 	void	             *graphicsDevice;
 
-#if defined(PX_WINDOWS)
+#if PX_SUPPORT_GPU_PHYSX
 	/**
 	  * \brief Application-specific GUID
 	  *
@@ -149,7 +131,7 @@ public:
 		ctx = NULL;
 		interopMode = PxCudaInteropMode::NO_INTEROP;
 		graphicsDevice = 0;
-#if defined(PX_WINDOWS)
+#if PX_SUPPORT_GPU_PHYSX
 		appGUID  = NULL;
 #endif
 		for(PxU32 i = 0; i < PxCudaBufferMemorySpace::COUNT; i++)
@@ -248,6 +230,7 @@ public:
 	virtual int	getMultiprocessorCount() const = 0; //!< returns cache value of SM unit count
     virtual unsigned int getClockRate() const = 0; //!< returns cached value of SM clock frequency
     virtual int  getSharedMemPerBlock() const = 0; //!< returns total amount of shared memory available per block in bytes
+	virtual unsigned int getMaxThreadsPerBlock() const = 0; //!< returns the maximum number of threads per block
     virtual const char *getDeviceName() const = 0; //!< returns device name retrieved from driver
 	virtual PxCudaInteropMode::Enum getInteropMode() const = 0; //!< interop mode the context was created with
 
@@ -370,7 +353,7 @@ protected:
     PxCudaContextManager* mCtx;
 };
 
-#if defined(PX_WINDOWS) && !defined(PX_WINMODERN)
+#if PX_SUPPORT_GPU_PHYSX
 /**
  * \brief Ask the NVIDIA control panel which GPU has been selected for use by
  * PhysX.  Returns -1 if no PhysX capable GPU is found or GPU PhysX has

@@ -5,6 +5,12 @@
 DECLARE_DELEGATE_RetVal(bool, FIsMenuOpen);
 DECLARE_DELEGATE_OneParam(FOnDropdownItemClicked, FName);
 
+struct FFriendsAndChatComboButtonStyle
+{
+	const FComboButtonStyle* ComboButtonStyle;
+	const FTextBlockStyle* ButtonTextStyle;
+};
+
 class SFriendsAndChatCombo : public SUserWidget
 {
 public:
@@ -15,11 +21,12 @@ public:
 	public:
 
 		/** Ctor */
-		FItemData(const FText& InEntryText, const FSlateBrush* InEntryIcon, const FName& InButtonTag, bool InIsEnabled)
+		FItemData(const FText& InEntryText, const FSlateBrush* InEntryIcon, const FName& InButtonTag, bool InIsEnabled, bool InIsVisibleOffline)
 			: EntryText(InEntryText)
 			, EntryIcon(InEntryIcon)
 			, bIsEnabled(InIsEnabled)
 			, ButtonTag(InButtonTag)
+			, bIsVisibleOffline(InIsVisibleOffline)
 		{}
 
 		/** Text content */
@@ -33,6 +40,9 @@ public:
 
 		/** Tag that will be returned by OnDropdownItemClicked delegate when button corresponding to this item is clicked */
 		FName ButtonTag;
+
+		/** Should this item be visible when offline*/
+		bool bIsVisibleOffline;
 	};
 
 	/** Helper class allowing to fill array of SItemData with syntax similar to Slate */
@@ -49,20 +59,25 @@ public:
 		}
 
 		/** Adds item to array and returns itself */
-		FItemsArray & AddItem(const FText& InEntryText, const FSlateBrush* InEntryIcon, const FName& InButtonTag, bool InIsEnabled = true)
+		FItemsArray & AddItem(const FText& InEntryText, const FSlateBrush* InEntryIcon, const FName& InButtonTag, bool InIsEnabled = true, bool InIsVisibleOffline = false)
 		{
-			return operator+(FItemData(InEntryText, InEntryIcon, InButtonTag, InIsEnabled));
+			return operator+(FItemData(InEntryText, InEntryIcon, InButtonTag, InIsEnabled, InIsVisibleOffline));
 		}
 	};
 
 	SLATE_USER_ARGS(SFriendsAndChatCombo)
 		: _bShowIcon(false)
+		, _bOnline(true)
 		, _IconBrush(nullptr)
+		, _ButtonStyleOverride(nullptr)
 		, _bSetButtonTextToSelectedItem(false)
 		, _bAutoCloseWhenClicked(true)
 		, _ButtonSize(150, 36)
 		, _Placement(MenuPlacement_ComboBox)
 	{}
+
+		/** Slot for this designers content (optional) */
+		SLATE_NAMED_SLOT(FArguments, Content)
 
 		/** Text to display on main button. */
 		SLATE_TEXT_ATTRIBUTE(ButtonText)
@@ -70,10 +85,15 @@ public:
 		/** Whether the optional icon is shown */
 		SLATE_ATTRIBUTE(bool, bShowIcon)
 
+		/** Whether the optional icon is shown */
+		SLATE_ATTRIBUTE(bool, bOnline)
+
 		/** Optional icon brush */
 		SLATE_ATTRIBUTE(const FSlateBrush*, IconBrush)
 
 		SLATE_ARGUMENT(const FFriendsAndChatStyle*, FriendStyle)
+
+		SLATE_ARGUMENT(const FFriendsAndChatComboButtonStyle*, ButtonStyleOverride)
 
 		/** If true, text displayed on the main button will be set automatically after user selects a dropdown item */
 		SLATE_ARGUMENT(bool, bSetButtonTextToSelectedItem)

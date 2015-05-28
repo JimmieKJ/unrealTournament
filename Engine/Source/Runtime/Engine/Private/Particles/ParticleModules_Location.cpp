@@ -57,7 +57,7 @@ void UParticleModuleLocation::InitializeDefaults()
 {
 	if (!StartLocation.Distribution)
 	{
-		StartLocation.Distribution = NewNamedObject<UDistributionVectorUniform>(this, TEXT("DistributionStartLocation"));
+		StartLocation.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartLocation"));
 	}
 }
 
@@ -280,23 +280,23 @@ void UParticleModuleLocationDirect::InitializeDefaults()
 {
 	if (!Location.Distribution)
 	{
-		Location.Distribution = NewNamedObject<UDistributionVectorUniform>(this, TEXT("DistributionLocation"));
+		Location.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionLocation"));
 	}
 
 	if (!LocationOffset.Distribution)
 	{
-		UDistributionVectorConstant* DistributionLocationOffset = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionLocationOffset"));
+		UDistributionVectorConstant* DistributionLocationOffset = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionLocationOffset"));
 		DistributionLocationOffset->Constant = FVector(0.0f, 0.0f, 0.0f);
 		LocationOffset.Distribution = DistributionLocationOffset;
 	}
 
 	if (!Direction.Distribution)
 	{
-		UDistributionVectorConstant* DistributionScaleFactor = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionScaleFactor"));
+		UDistributionVectorConstant* DistributionScaleFactor = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionScaleFactor"));
 		DistributionScaleFactor->Constant = FVector(1.0f, 1.0f, 1.0f);
 		ScaleFactor.Distribution = DistributionScaleFactor;
 
-		Direction.Distribution = NewNamedObject<UDistributionVectorUniform>(this, TEXT("DistributionDirection"));
+		Direction.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionDirection"));
 	}
 }
 
@@ -648,14 +648,14 @@ void UParticleModuleLocationPrimitiveBase::InitializeDefaults()
 {
 	if (!VelocityScale.Distribution)
 	{
-		UDistributionFloatConstant* DistributionVelocityScale = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionVelocityScale"));
+		UDistributionFloatConstant* DistributionVelocityScale = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionVelocityScale"));
 		DistributionVelocityScale->Constant = 1.0f;
 		VelocityScale.Distribution = DistributionVelocityScale;
 	}
 
 	if (!StartLocation.Distribution)
 	{
-		UDistributionVectorConstant* DistributionStartLocation = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionStartLocation"));
+		UDistributionVectorConstant* DistributionStartLocation = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionStartLocation"));
 		DistributionStartLocation->Constant = FVector(0.0f, 0.0f, 0.0f);
 		StartLocation.Distribution = DistributionStartLocation;
 	}
@@ -764,28 +764,28 @@ void UParticleModuleLocationPrimitiveTriangle::InitializeDefaults()
 {
 	if (!StartOffset.Distribution)
 	{
-		UDistributionVectorConstant* DistributionOffset = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionOffset"));
+		UDistributionVectorConstant* DistributionOffset = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionOffset"));
 		DistributionOffset->Constant = FVector::ZeroVector;
 		StartOffset.Distribution = DistributionOffset;
 	}
 
 	if (!Height.Distribution)
 	{
-		UDistributionFloatConstant* DistributionHeight = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionHeight"));
+		UDistributionFloatConstant* DistributionHeight = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionHeight"));
 		DistributionHeight->Constant = 50.0f;
 		Height.Distribution = DistributionHeight;
 	}
 
 	if (!Angle.Distribution)
 	{
-		UDistributionFloatConstant* DistributionAngle = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionAngle"));
+		UDistributionFloatConstant* DistributionAngle = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionAngle"));
 		DistributionAngle->Constant = 90.0f;
 		Angle.Distribution = DistributionAngle;
 	}
 
 	if (!Thickness.Distribution)
 	{
-		UDistributionFloatConstant* DistributionThickness = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionThickness"));
+		UDistributionFloatConstant* DistributionThickness = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionThickness"));
 		DistributionThickness->Constant = 0.0f;
 		Thickness.Distribution = DistributionThickness;
 	}
@@ -931,14 +931,14 @@ void UParticleModuleLocationPrimitiveCylinder::InitializeDefaults()
 {
 	if (!StartRadius.Distribution)
 	{
-		UDistributionFloatConstant* DistributionStartRadius = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionStartRadius"));
+		UDistributionFloatConstant* DistributionStartRadius = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStartRadius"));
 		DistributionStartRadius->Constant = 50.0f;
 		StartRadius.Distribution = DistributionStartRadius;
 	}
 
 	if (!StartHeight.Distribution)
 	{
-		UDistributionFloatConstant* DistributionStartHeight = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionStartHeight"));
+		UDistributionFloatConstant* DistributionStartHeight = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStartHeight"));
 		DistributionStartHeight->Constant = 50.0f;
 		StartHeight.Distribution = DistributionStartHeight;
 	}
@@ -1133,8 +1133,11 @@ void UParticleModuleLocationPrimitiveCylinder::Render3DPreview(FParticleEmitterI
 			// Draw at the avg. of the min/max extents
 			UDistributionVectorConstantCurve* pkCurve = CastChecked<UDistributionVectorConstantCurve>(StartLocation.Distribution);
 
-			//pkCurve->
-			Position = StartLocation.GetValue(0.0f, Owner->Component);
+			if (Owner != NULL)
+			{
+				//pkCurve->
+				Position = StartLocation.GetValue(0.0f, Owner->Component);
+			}
 		}
 	}
 
@@ -1237,7 +1240,7 @@ void UParticleModuleLocationPrimitiveSphere::InitializeDefaults()
 {
 	if (!StartRadius.Distribution)
 	{
-		UDistributionFloatConstant* DistributionStartRadius = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionStartRadius"));
+		UDistributionFloatConstant* DistributionStartRadius = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionStartRadius"));
 		DistributionStartRadius->Constant = 50.0f;
 		StartRadius.Distribution = DistributionStartRadius;
 	}
@@ -1366,8 +1369,11 @@ void UParticleModuleLocationPrimitiveSphere::Render3DPreview(FParticleEmitterIns
 			// Draw at the avg. of the min/max extents
 			UDistributionVectorConstantCurve* pkCurve = CastChecked<UDistributionVectorConstantCurve>(StartLocation.Distribution);
 
-			//pkCurve->
-			Position = StartLocation.GetValue(0.0f, Owner->Component);
+			if (Owner != NULL)
+			{
+				//pkCurve->
+				Position = StartLocation.GetValue(0.0f, Owner->Component);
+			}
 		}
 	}
 
@@ -1858,6 +1864,12 @@ USkeletalMeshComponent* UParticleModuleLocationBoneSocket::GetSkeletalMeshCompon
 			//@todo. Warn about this...
 		}
 	}
+
+	if (USkeletalMeshComponent* SkelMesh = Cast<USkeletalMeshComponent>(PSysComp->GetAttachParent()))
+	{
+		return SkelMesh;
+	}
+
 	return NULL;
 }
 

@@ -191,7 +191,7 @@ namespace UnrealBuildTool
 
 			var SupportedConfigurations = new List<UnrealTargetConfiguration>();
 			var SupportedPlatforms = new List<UnrealTargetPlatform>();
-			if (!ProjectFileGenerator.bCreateDummyConfigsForUnsupportedPlatforms || ProjectFileGenerator.bGeneratingRocketProjectFiles)
+			if (!ProjectFileGenerator.bCreateDummyConfigsForUnsupportedPlatforms)
 			{
 				if( ProjectTarget.TargetRules != null )
 				{
@@ -240,34 +240,6 @@ namespace UnrealBuildTool
 			if (SupportedConfigurations.Contains(Configuration) == false)
 			{
 				return false;
-			}
-
-			// For Rocket projects, we currently only allow 64-bit versions of Debug and Development binaries to be compiled
-			// and only 32-bit versions of Shipping binaries to be compiled.  This has to do with our choice of which build
-			// configurations we want to ship with that product.  So to simplify things, we're merging Win32 and Win64
-			// configurations together in the IDE under "Windows".  In order for this to work properly, we need to make
-			// sure that Rocket projects only report the respective Windows platform that is valid for each configuration
-			if( UnrealBuildTool.RunningRocket() && ProjectTarget.TargetRules != null )
-			{
-				if( Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64 )
-				{
-					// In Rocket, shipping game targets are always 32-bit
-					if( Configuration == UnrealTargetConfiguration.Shipping && ProjectTarget.TargetRules.Type == TargetRules.TargetType.Game )
-					{
-						if( Platform != UnrealTargetPlatform.Win32 )
-						{
-							return false;
-						}
-					}
-					else
-					{
-						// Everything else is expecting to be 64-bit
-						if( Platform != UnrealTargetPlatform.Win64 )
-						{
-							return false;
-						}
-					}
-				}
 			}
 
 			return true;
@@ -916,20 +888,36 @@ namespace UnrealBuildTool
 					"		<Import Project=\"$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props\" Condition=\"exists('$(UserRootDir)\\Microsoft.Cpp.$(Platform).user.props')\" Label=\"LocalAppDataPlatform\" />" + ProjectFileGenerator.NewLine +
 					"	</ImportGroup>" + ProjectFileGenerator.NewLine);
 
-				VCProjectFileContent.Append(
-					"	<PropertyGroup " + ConditionString + ">" + ProjectFileGenerator.NewLine);
-
 				if (IsStubProject)
 				{
 					string ProjectRelativeUnusedDirectory = NormalizeProjectPath(Path.Combine(ProjectFileGenerator.EngineRelativePath, BuildConfiguration.BaseIntermediateFolder, "Unused"));
 
 					VCProjectFileContent.Append(
+					    "	<PropertyGroup " + ConditionString + ">" + ProjectFileGenerator.NewLine +
 						"		<OutDir>" + ProjectRelativeUnusedDirectory + Path.DirectorySeparatorChar + "</OutDir>" + ProjectFileGenerator.NewLine +
 						"		<IntDir>" + ProjectRelativeUnusedDirectory + Path.DirectorySeparatorChar + "</IntDir>" + ProjectFileGenerator.NewLine +
 						"		<NMakeBuildCommandLine>@rem Nothing to do.</NMakeBuildCommandLine>" + ProjectFileGenerator.NewLine +
 						"		<NMakeReBuildCommandLine>@rem Nothing to do.</NMakeReBuildCommandLine>" + ProjectFileGenerator.NewLine +
 						"		<NMakeCleanCommandLine>@rem Nothing to do.</NMakeCleanCommandLine>" + ProjectFileGenerator.NewLine +
-						"		<NMakeOutput/>" + ProjectFileGenerator.NewLine);
+						"		<NMakeOutput/>" + ProjectFileGenerator.NewLine +
+						"	</PropertyGroup>" + ProjectFileGenerator.NewLine);
+				}
+				else if(ProjectFileGenerator.bGeneratingRocketProjectFiles && Combination.ProjectTarget != null && Combination.ProjectTarget.TargetRules != null && !Combination.ProjectTarget.TargetRules.SupportsPlatform(Combination.Platform))
+				{
+					List<UnrealTargetPlatform> SupportedPlatforms = new List<UnrealTargetPlatform>();
+					Combination.ProjectTarget.TargetRules.GetSupportedPlatforms(ref SupportedPlatforms);
+
+					string ProjectRelativeUnusedDirectory = NormalizeProjectPath(Path.Combine(ProjectFileGenerator.EngineRelativePath, BuildConfiguration.BaseIntermediateFolder, "Unused"));
+
+					VCProjectFileContent.AppendFormat(
+						"	<PropertyGroup " + ConditionString + ">" + ProjectFileGenerator.NewLine +
+						"		<OutDir>" + ProjectRelativeUnusedDirectory + Path.DirectorySeparatorChar + "</OutDir>" + ProjectFileGenerator.NewLine +
+						"		<IntDir>" + ProjectRelativeUnusedDirectory + Path.DirectorySeparatorChar + "</IntDir>" + ProjectFileGenerator.NewLine +
+						"		<NMakeBuildCommandLine>@echo {0} is not a supported platform for {1}. Valid platforms are {2}.</NMakeBuildCommandLine>" + ProjectFileGenerator.NewLine +
+						"		<NMakeReBuildCommandLine>@echo {0} is not a supported platform for {1}. Valid platforms are {2}.</NMakeReBuildCommandLine>" + ProjectFileGenerator.NewLine +
+						"		<NMakeCleanCommandLine>@echo {0} is not a supported platform for {1}. Valid platforms are {2}.</NMakeCleanCommandLine>" + ProjectFileGenerator.NewLine +
+						"		<NMakeOutput/>" + ProjectFileGenerator.NewLine +
+						"	</PropertyGroup>" + ProjectFileGenerator.NewLine, Combination.Platform, Utils.GetFilenameWithoutAnyExtensions(Combination.ProjectTarget.TargetFilePath), String.Join(", ", SupportedPlatforms.Select(x => x.ToString())));
 				}
 				else
 				{
@@ -999,6 +987,9 @@ namespace UnrealBuildTool
 					NMakePath += BuildPlatform.GetBinaryExtension(UEBuildBinaryType.Executable);
 					NMakePath = (BuildPlatform as UEBuildPlatform).ModifyNMakeOutput(NMakePath);
 
+                    VCProjectFileContent.Append(
+                        "	<PropertyGroup " + ConditionString + ">" + ProjectFileGenerator.NewLine);
+
 					string PathStrings = (ProjGenerator != null) ? ProjGenerator.GetVisualStudioPathsEntries(Platform, Configuration, TargetRulesObject.Type, TargetFilePath, ProjectFilePath, NMakePath) : "";
 					if (string.IsNullOrEmpty(PathStrings) || (PathStrings.Contains("<IntDir>") == false))
 					{
@@ -1024,41 +1015,40 @@ namespace UnrealBuildTool
 					//	..\..\Build\BatchFiles\Build.bat <TARGETNAME> <PLATFORM> <CONFIGURATION>
 					//	ie ..\..\Build\BatchFiles\Build.bat BlankProgram Win64 Debug
 
-					string ProjectPlatformConfiguration = " " + TargetName + " " + UBTPlatformName + " " + UBTConfigurationName;
+					string BuildArguments = " " + TargetName + " " + UBTPlatformName + " " + UBTConfigurationName;
+					if(ProjectFileGenerator.bUsePrecompiled)
+					{
+						BuildArguments += " -useprecompiled";
+					}
+					if (IsForeignProject)
+					{
+						BuildArguments += " " + UProjectPath + (UnrealBuildTool.RunningRocket() ? " -rocket" : "");
+					}
 					string BatchFilesDirectoryName = Path.Combine(ProjectFileGenerator.EngineRelativePath, "Build", "BatchFiles");
 
 					// NMake Build command line
 					VCProjectFileContent.Append("		<NMakeBuildCommandLine>");
-					VCProjectFileContent.Append(EscapePath(NormalizeProjectPath(Path.Combine(BatchFilesDirectoryName, "Build.bat"))) + ProjectPlatformConfiguration.ToString());
-					if (IsForeignProject)
-					{
-						VCProjectFileContent.Append(" " + UProjectPath + (UnrealBuildTool.RunningRocket() ? " -rocket" : ""));
-					}
+					VCProjectFileContent.Append(EscapePath(NormalizeProjectPath(Path.Combine(BatchFilesDirectoryName, "Build.bat"))) + BuildArguments.ToString());
 					VCProjectFileContent.Append("</NMakeBuildCommandLine>" + ProjectFileGenerator.NewLine);
 
 					// NMake ReBuild command line
 					VCProjectFileContent.Append("		<NMakeReBuildCommandLine>");
-					VCProjectFileContent.Append(EscapePath(NormalizeProjectPath(Path.Combine(BatchFilesDirectoryName, "Rebuild.bat"))) + ProjectPlatformConfiguration.ToString());
-					if (IsForeignProject)
-					{
-						VCProjectFileContent.Append(" " + UProjectPath + (UnrealBuildTool.RunningRocket() ? " -rocket" : ""));
-					}
+					VCProjectFileContent.Append(EscapePath(NormalizeProjectPath(Path.Combine(BatchFilesDirectoryName, "Rebuild.bat"))) + BuildArguments.ToString());
 					VCProjectFileContent.Append("</NMakeReBuildCommandLine>" + ProjectFileGenerator.NewLine);
 
 					// NMake Clean command line
 					VCProjectFileContent.Append("		<NMakeCleanCommandLine>");
-					VCProjectFileContent.Append(EscapePath(NormalizeProjectPath(Path.Combine(BatchFilesDirectoryName, "Clean.bat"))) + ProjectPlatformConfiguration.ToString());
-					if (IsForeignProject)
-					{
-						VCProjectFileContent.Append(" " + UProjectPath + (UnrealBuildTool.RunningRocket() ? " -rocket" : ""));
-					}
+					VCProjectFileContent.Append(EscapePath(NormalizeProjectPath(Path.Combine(BatchFilesDirectoryName, "Clean.bat"))) + BuildArguments.ToString());
 					VCProjectFileContent.Append("</NMakeCleanCommandLine>" + ProjectFileGenerator.NewLine);
 
 					VCProjectFileContent.Append("		<NMakeOutput>");
 					VCProjectFileContent.Append(NormalizeProjectPath(NMakePath));
 					VCProjectFileContent.Append("</NMakeOutput>" + ProjectFileGenerator.NewLine);
-				}
-				VCProjectFileContent.Append("	</PropertyGroup>" + ProjectFileGenerator.NewLine);
+				    VCProjectFileContent.Append("	</PropertyGroup>" + ProjectFileGenerator.NewLine);
+
+                    string LayoutDirString = (ProjGenerator != null) ? ProjGenerator.GetVisualStudioLayoutDirSection(Platform, Configuration, ConditionString, Combination.ProjectTarget.TargetRules.Type, Combination.ProjectTarget.TargetFilePath, ProjectFilePath, NMakePath) : "";
+                    VCProjectFileContent.Append(LayoutDirString);
+                }
 
 				if (VCUserFileContent != null && Combination.ProjectTarget != null)
 				{
@@ -1106,9 +1096,6 @@ namespace UnrealBuildTool
 					VCUserFileContent.Append(PlatformUserFileStrings);
 				}
 			}
-
-			string LayoutDirString = (ProjGenerator != null) ? ProjGenerator.GetVisualStudioLayoutDirSection(Platform, Configuration, ConditionString, Combination.ProjectTarget.TargetRules.Type, Combination.ProjectTarget.TargetFilePath, ProjectFilePath) : "";
-			VCProjectFileContent.Append(LayoutDirString);
 		}
 	}
 

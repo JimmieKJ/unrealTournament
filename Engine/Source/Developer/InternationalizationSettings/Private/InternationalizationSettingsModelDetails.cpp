@@ -1,6 +1,7 @@
 ﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "InternationalizationSettingsModulePrivatePCH.h"
+#include "EdGraph/EdGraphSchema.h"
 
 #define LOCTEXT_NAMESPACE "InternationalizationSettingsModelDetails"
 
@@ -217,7 +218,32 @@ void FInternationalizationSettingsModelDetails::CustomizeDetails( IDetailLayoutB
 		SAssignNew(FieldNamesCheckBox, SCheckBox)
 		.IsChecked(Model->ShouldLoadLocalizedPropertyNames() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 		.ToolTipText(FieldNamesToolTipText)
-		.OnCheckStateChanged(this, &FInternationalizationSettingsModelDetails::ShoudLoadLocalizedFieldNamesCheckChanged)
+		.OnCheckStateChanged(this, &FInternationalizationSettingsModelDetails::ShouldLoadLocalizedFieldNamesCheckChanged)
+	];
+
+	const FText NodeAndPinsNamesToolTipText = LOCTEXT("GraphEditorNodesAndPinsLocalized_Tooltip", "Toggle localized node and pin titles in all graph editors");
+
+	CategoryBuilder.AddCustomRow(LOCTEXT("GraphEditorNodesAndPinsLocalized", "Use Localized Graph Editor Nodes and Pins"))
+	.NameContent()
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.Padding( FMargin( 0, 1, 0, 1 ) )
+		.FillWidth(1.0f)
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("GraphEditorNodesAndPinsLocalized", "Use Localized Graph Editor Nodes and Pins"))
+			.Font(DetailBuilder.GetDetailFont())
+			.ToolTipText(NodeAndPinsNamesToolTipText)
+		]
+	]
+	.ValueContent()
+	.MaxDesiredWidth(300.0f)
+	[
+		SAssignNew(FieldNamesCheckBox, SCheckBox)
+		.IsChecked(Model->ShouldShowNodesAndPinsUnlocalized() ? ECheckBoxState::Unchecked : ECheckBoxState::Checked)
+		.ToolTipText(NodeAndPinsNamesToolTipText)
+		.OnCheckStateChanged(this, &FInternationalizationSettingsModelDetails::ShouldShowNodesAndPinsUnlocalized)
 	];
 
 	CategoryBuilder.AddCustomRow(LOCTEXT("EditorRestartWarningLabel", "RestartWarning"))
@@ -408,7 +434,7 @@ EVisibility FInternationalizationSettingsModelDetails::GetInternationalizationRe
 	return RequiresRestart ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-void FInternationalizationSettingsModelDetails::ShoudLoadLocalizedFieldNamesCheckChanged(ECheckBoxState CheckState)
+void FInternationalizationSettingsModelDetails::ShouldLoadLocalizedFieldNamesCheckChanged(ECheckBoxState CheckState)
 {
 	HandleShutdownPostPackagesSaved();
 }
@@ -428,6 +454,23 @@ void FInternationalizationSettingsModelDetails::HandleShutdownPostPackagesSaved(
 		else
 		{
 			RequiresRestart = false;
+		}
+	}
+}
+
+void FInternationalizationSettingsModelDetails::ShouldShowNodesAndPinsUnlocalized(ECheckBoxState CheckState)
+{
+	check(Model.IsValid());
+	Model->ShouldShowNodesAndPinsUnlocalized(CheckState == ECheckBoxState::Unchecked);
+
+	// Find all Schemas and force a visualization cache clear
+	for ( TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt )
+	{
+		UClass* CurrentClass = *ClassIt;
+
+		if (UEdGraphSchema* Schema = Cast<UEdGraphSchema>(CurrentClass->GetDefaultObject()))
+		{
+			Schema->ForceVisualizationCacheClear();
 		}
 	}
 }

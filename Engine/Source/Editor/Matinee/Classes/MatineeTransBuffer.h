@@ -13,10 +13,7 @@ UCLASS(transient)
 class UMatineeTransBuffer : public UTransBuffer
 {
 public:
-    GENERATED_BODY()
-	UMatineeTransBuffer(const FObjectInitializer& ObjectInitializer)
-		:	UTransBuffer(ObjectInitializer)
-	{ }
+	GENERATED_BODY()
 
 	/**  
 	 * Begin a Matinee specific transaction

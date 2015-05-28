@@ -133,14 +133,14 @@ public:
 	 * @param Delegate		The delegate to call when the chunk is installed.
 	 * @return				False if the delegate was not registered. True on success.
 	 */
-	virtual bool SetChunkInstallDelgate( uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate ) = 0;
+	virtual FDelegateHandle SetChunkInstallDelgate( uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate ) = 0;
 
 	/**
 	* Remove a delegate callback on chunk install completion.
 	* @param ChunkID		The id of the chunk of interest.
 	* @param Delegate		The delegate to remove.
 	*/
-	virtual void RemoveChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate) = 0;
+	virtual void RemoveChunkInstallDelgate(uint32 ChunkID, FDelegateHandle Delegate) = 0;
 };
 
 
@@ -224,7 +224,7 @@ public:
 	 * Does nothing in a shipping build.
 	 * @return				true if the opreation succeeds.
 	 **/
-	virtual bool DebugStartNextChunk()
+	virtual bool DebugStartNextChunk() override
 	{
 		return true;
 	}
@@ -235,9 +235,9 @@ public:
 	* @param Delegate		The delegate when the chunk is installed.
 	* @return				False if the delegate was not registered or the chunk is already installed. True on success.
 	*/
-	virtual bool SetChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate)
+	virtual FDelegateHandle SetChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate) override
 	{
-		return false;
+		return FDelegateHandle();
 	}
 
 	/**
@@ -246,7 +246,7 @@ public:
 	* @param Delegate		The delegate to remove.
 	* @return				False if the delegate was not registered with a call to SetChunkInstallDelgate. True on success.
 	*/
-	virtual void RemoveChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate)
+	virtual void RemoveChunkInstallDelgate(uint32 ChunkID, FDelegateHandle Delegate) override
 	{
 		return;
 	}

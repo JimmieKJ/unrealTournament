@@ -8,6 +8,7 @@
 #include "PropertyTag.h"
 #include "HotReloadInterface.h"
 #include "LinkerPlaceholderClass.h"
+#include "LinkerPlaceholderFunction.h"
 #include "StructScriptLoader.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogScriptSerialization, Log, All);
@@ -186,7 +187,7 @@ FText UField::GetDisplayNameText() const
 	FText LocalizedDisplayName;
 
 	static const FString Namespace = TEXT("UObjectDisplayNames");
-	const FString Key = GetFullGroupName(true) + TEXT(".") + GetName();
+	const FString Key = GetFullGroupName(false);
 
 	FString NativeDisplayName;
 	if( HasMetaData( TEXT("DisplayName") ) )
@@ -237,12 +238,12 @@ FText UField::GetToolTipText(bool bShortTooltip) const
 	}
 
 	const FString Namespace = bFoundShortTooltip ? TEXT("UObjectShortTooltips") : TEXT("UObjectToolTips");
-	const FString Key = GetFullGroupName(true) + TEXT(".") + GetName();
+	const FString Key = GetFullGroupName(false);
 	if ( !(FText::FindText( Namespace, Key, /*OUT*/LocalizedToolTip )) || *FTextInspector::GetSourceString(LocalizedToolTip) != NativeToolTip)
 	{
 		if (NativeToolTip.IsEmpty())
 		{
-			NativeToolTip = FDisplayNameHelper::Get(*this);
+			NativeToolTip = FName::NameToDisplayString(FDisplayNameHelper::Get(*this), IsA<UBoolProperty>());
 		}
 		else
 		{
@@ -322,6 +323,37 @@ const FString& UField::GetMetaData(const FName& Key) const
 	return MetaDataString;
 }
 
+const FText UField::GetMetaDataText(const TCHAR* MetaDataKey, const FString LocalizationNamespace, const FString LocalizationKey) const
+{
+	FText LocalizedMetaData;
+	if ( !( FText::FindText( LocalizationNamespace, LocalizationKey, /*OUT*/LocalizedMetaData ) ) )
+	{
+		FString DefaultMetaData;
+		if( HasMetaData( MetaDataKey ))
+		{
+			DefaultMetaData = GetMetaData(MetaDataKey);
+			LocalizedMetaData = FText::FromString(DefaultMetaData);
+		}
+	}
+
+	return LocalizedMetaData;
+}
+
+const FText UField::GetMetaDataText(const FName& MetaDataKey, const FString LocalizationNamespace, const FString LocalizationKey) const
+{
+	FText LocalizedMetaData;
+	if ( !( FText::FindText( LocalizationNamespace, LocalizationKey, /*OUT*/LocalizedMetaData ) ) )
+	{
+		FString DefaultMetaData;
+		if( HasMetaData( MetaDataKey ))
+		{
+			DefaultMetaData = GetMetaData(MetaDataKey);
+			LocalizedMetaData = FText::FromString(DefaultMetaData);
+		}
+	}
+	return LocalizedMetaData;
+}
+
 /**
  * Sets the metadata value associated with the key
  * 
@@ -388,6 +420,7 @@ IMPLEMENT_CORE_INTRINSIC_CLASS(UField, UObject,
 //
 UStruct::UStruct( EStaticConstructor, int32 InSize, EObjectFlags InFlags )
 :	UField			( EC_StaticConstructor, InFlags )
+,	SuperStruct		( nullptr )
 ,	Children		( NULL )
 ,	PropertiesSize	( InSize )
 ,	MinAlignment	( 1 )
@@ -395,6 +428,19 @@ UStruct::UStruct( EStaticConstructor, int32 InSize, EObjectFlags InFlags )
 ,	RefLink			( NULL )
 ,	DestructorLink	( NULL )
 , PostConstructLink( NULL )
+{
+}
+
+UStruct::UStruct(UStruct* InSuperStruct, SIZE_T ParamsSize, SIZE_T Alignment)
+	: UField(FObjectInitializer::Get())
+	, SuperStruct(InSuperStruct)
+	, Children(NULL)
+	, PropertiesSize(ParamsSize ? ParamsSize : (InSuperStruct ? InSuperStruct->GetPropertiesSize() : 0))
+	, MinAlignment(Alignment ? Alignment : (FMath::Max(InSuperStruct ? InSuperStruct->GetMinAlignment() : 1, 1)))
+	, PropertyLink(NULL)
+	, RefLink(NULL)
+	, DestructorLink(NULL)
+	, PostConstructLink(NULL)
 {
 }
 
@@ -634,8 +680,7 @@ void UStruct::Link(FArchive& Ar, bool bRelinkExistingProperties)
 		}
 
 		// Link references to properties that require their values to be copied from CDO.
-		if ((Property->HasAnyPropertyFlags(CPF_Config) && Property->GetOwnerClass() && !Property->GetOwnerClass()->HasAnyClassFlags(CLASS_PerObjectConfig)) ||
-			 Property->HasAnyPropertyFlags(CPF_Localized))
+		if ((Property->HasAnyPropertyFlags(CPF_Config) && Property->GetOwnerClass() && !Property->GetOwnerClass()->HasAnyClassFlags(CLASS_PerObjectConfig)))
 		{
 			*PostConstructLinkPtr = Property;
 			PostConstructLinkPtr = &(*PostConstructLinkPtr)->PostConstructLinkNext;
@@ -706,7 +751,7 @@ void UStruct::DestroyStruct(void* Dest, int32 ArrayDim) const
 // Serialize all of the class's data that belongs in a particular
 // bin and resides in Data.
 //
-void UStruct::SerializeBin( FArchive& Ar, void* Data, int32 MaxReadBytes ) const
+void UStruct::SerializeBin( FArchive& Ar, void* Data ) const
 {
 	if( Ar.IsObjectReferenceCollector() )
 	{
@@ -728,7 +773,7 @@ void UStruct::SerializeBinEx( FArchive& Ar, void* Data, void const* DefaultData,
 {
 	if ( !DefaultData || !DefaultStruct )
 	{
-		SerializeBin(Ar, Data, 0);
+		SerializeBin(Ar, Data);
 		return;
 	}
 
@@ -799,6 +844,16 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				UE_LOG(LogClass, Warning, TEXT("Invalid tag name: struct '%s', archive '%s'"), *GetName(), *Ar.GetArchiveName());
 				break;
 			}
+
+			auto CanSerializeFromStructWithDifferentName = [](const FArchive& InAr, const FPropertyTag& PropertyTag, const UStructProperty* StructProperty)
+			{
+				if (InAr.UE4Ver() < VER_UE4_STRUCT_GUID_IN_PROPERTY_TAG)
+				{
+					// Old Implementation
+					return StructProperty && !StructProperty->UseBinaryOrNativeSerialization(InAr);
+				}
+				return PropertyTag.StructGuid.IsValid() && StructProperty && StructProperty->Struct && (PropertyTag.StructGuid == StructProperty->Struct->GetCustomGuid());
+			};
 
 			// Move to the next property to be serialized
 			if( AdvanceProperty && --RemainingArrayDim <= 0 )
@@ -897,7 +952,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			// Check if this is a struct property and we have a redirector
 			if (Tag.Type==NAME_StructProperty && Property != NULL && Tag.Type == Property->GetID())
 			{
-				FName* NewName = ULinkerLoad::StructNameRedirects.Find(Tag.StructName);
+				FName* NewName = FLinkerLoad::StructNameRedirects.Find(Tag.StructName);
 				FName StructName = CastChecked<UStructProperty>(Property)->Struct->GetFName();
 				if (NewName != NULL && *NewName == StructName)
 				{
@@ -925,9 +980,14 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			{
 				UE_LOG(LogClass, Warning, TEXT("Array bounds in %s of %s: %i/%i for package:  %s"), *Tag.Name.ToString(), *GetName(), Tag.ArrayIndex, Property->ArrayDim, *Ar.GetArchiveName() );
 			}
+
+			// Convert properties from old type to new type automatically if types are compatible
+			// If you add an entry to this, you will also need to add an entry to the array case below
+			// For converting to a struct, you can just implement SerializeFromMismatchedTag on the struct
+
 			else if( Tag.Type==NAME_StrProperty && dynamic_cast<UNameProperty*>(Property) )
-			{ 
-				FString str;  
+			{
+				FString str;
 				Ar << str;
 				CastChecked<UNameProperty>(Property)->SetPropertyValue_InContainer(Data, FName(*str), Tag.ArrayIndex);
 				AdvanceProperty = true;
@@ -1021,7 +1081,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				AdvanceProperty = true;
 				continue;
 			}
-			else if(Tag.Type == NAME_IntProperty && Property->GetID() == NAME_BoolProperty )
+			else if (Tag.Type == NAME_IntProperty && Property->GetID() == NAME_BoolProperty)
 			{
 				// Property was saved as an int32, but has been changed to a bool (bitfield)
 				int32 IntValue;
@@ -1075,7 +1135,9 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				FScriptArrayHelper ScriptArrayHelper(ArrayProperty, ArrayPropertyData);
 				ScriptArrayHelper.EmptyAndAddValues(ElementCount);
 
-				if( Tag.InnerType==NAME_StrProperty && dynamic_cast<UTextProperty*>(ArrayProperty->Inner) ) // Convert serialized string to text.
+				// Convert properties from old type to new type automatically if types are compatible (array case)
+
+				if (Tag.InnerType == NAME_StrProperty && dynamic_cast<UTextProperty*>(ArrayProperty->Inner)) // Convert serialized string to text.
 				{ 
 					for(int32 i = 0; i < ElementCount; ++i)
 					{
@@ -1132,19 +1194,20 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 					}
 					continue;
 				}
+				// TODO: Implement SerializeFromMismatchedTag handling for arrays of structs
 				else
 				{
 					UE_LOG(LogClass, Warning, TEXT("Array Inner Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.InnerType.ToString(), *CastChecked<UArrayProperty>(Property)->Inner->GetID().ToString(), *Ar.GetArchiveName() );
 				}
 			}
 			else if( Tag.Type==NAME_StructProperty && Tag.StructName!=CastChecked<UStructProperty>(Property)->Struct->GetFName() 
-				&& CastChecked<UStructProperty>(Property)->UseBinaryOrNativeSerialization(Ar) )
+				&& !CanSerializeFromStructWithDifferentName(Ar, Tag, CastChecked<UStructProperty>(Property)))
 			{
 				UE_LOG(LogClass, Warning, TEXT("Property %s of %s struct type mismatch %s/%s for package:  %s. If that property got renamed, add an ActiveStructRedirect."), *Tag.Name.ToString(), *GetName(), *Tag.StructName.ToString(), *CastChecked<UStructProperty>(Property)->Struct->GetName(), *Ar.GetArchiveName() );
 			}
 			else if( !Property->ShouldSerializeValue(Ar) )
 			{
-				UE_LOG(LogClass, Warning, TEXT("Property %s of %s is not serializable for package:  %s"), *Tag.Name.ToString(), *GetName(), *Ar.GetArchiveName() );
+				UE_CLOG((Ar.IsPersistent() && FPlatformProperties::RequiresCookedData()), LogClass, Warning, TEXT("Skipping saved property %s of %s since it is no longer serializable for asset:  %s. (Maybe resave asset?)"), *Tag.Name.ToString(), *GetName(), *Ar.GetArchiveName() );
 			}
 			else if ( Tag.Type == NAME_ByteProperty && ( (Tag.EnumName == NAME_None && ExactCast<UByteProperty>(Property)->Enum != NULL) || 
 														(Tag.EnumName != NAME_None && ExactCast<UByteProperty>(Property)->Enum == NULL) ))
@@ -1192,9 +1255,10 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			else
 			{
 				uint8* DestAddress = Property->ContainerPtrToValuePtr<uint8>(Data, Tag.ArrayIndex);  
+				uint8* DefaultsFromParent = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Tag.ArrayIndex);
 
 				// This property is ok.			
-				Tag.SerializeTaggedProperty( Ar, Property, DestAddress, Tag.Size, NULL );
+				Tag.SerializeTaggedProperty(Ar, Property, DestAddress, DefaultsFromParent);
 
 				AdvanceProperty = true;
 				continue;
@@ -1231,8 +1295,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				{
 					uint8* DataPtr      = Property->ContainerPtrToValuePtr           <uint8>(Data, Idx);
 					uint8* DefaultValue = Property->ContainerPtrToValuePtrForDefaults<uint8>(DefaultsStruct, Defaults, Idx);
-					if( (!dynamic_cast<const UClass*>(this) && !Defaults) || !Ar.DoDelta() || 
-						!Property->Identical( DataPtr, DefaultValue, Ar.GetPortFlags()) || Ar.IsTransacting() )
+					if( !Ar.DoDelta() || Ar.IsTransacting() || (!Defaults && !dynamic_cast<const UClass*>(this)) || !Property->Identical( DataPtr, DefaultValue, Ar.GetPortFlags()) )
 					{
 						if (bUseAtomicSerialization)
 						{
@@ -1244,7 +1307,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 						// need to know how much data this call to SerializeTaggedProperty consumes, so mark where we are
 						int32 DataOffset = Ar.Tell();
 
-						Tag.SerializeTaggedProperty( Ar, Property, DataPtr, 0, DefaultValue );
+						Tag.SerializeTaggedProperty( Ar, Property, DataPtr, DefaultValue );
 
 						// set the tag's size
 						Tag.Size = Ar.Tell() - DataOffset;
@@ -1278,7 +1341,7 @@ void UStruct::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 
-	Ar << SuperStruct;
+	SerializeSuperStruct(Ar);
 	Ar << Children;
 
 	if (Ar.IsLoading())
@@ -1327,7 +1390,7 @@ void UStruct::Serialize( FArchive& Ar )
 			if (Ar.IsPersistent() && Ar.GetLinker())
 			{
 				// make sure this is a ULinkerSave
-				ULinkerSave* LinkerSave = CastChecked<ULinkerSave>(Ar.GetLinker());
+				FLinkerSave* LinkerSave = CastChecked<FLinkerSave>(Ar.GetLinker());
 
 				// remember how we were saving
 				FArchive* SavedSaver = LinkerSave->Saver;
@@ -1427,6 +1490,11 @@ void UStruct::SetSuperStruct(UStruct* NewSuperStruct)
 	SuperStruct = NewSuperStruct;
 }
 
+void UStruct::SerializeSuperStruct(FArchive& Ar)
+{
+	Ar << SuperStruct;
+}
+
 #if WITH_EDITOR
 bool UStruct::GetBoolMetaDataHierarchical(const FName& Key) const
 {
@@ -1478,9 +1546,13 @@ bool UStruct::GetStringMetaDataHierarchical(const FName& Key, FString* OutValue)
 	static void HandlePlaceholderScriptRef(ScriptPointerType& ScriptPtr)
 	{
 		UObject*& ExprPtrRef = (UObject*&)ScriptPtr;
-		if (ULinkerPlaceholderClass* PlaceholderObj = Cast<ULinkerPlaceholderClass>(ExprPtrRef)) \
+		if (ULinkerPlaceholderClass* PlaceholderObj = Cast<ULinkerPlaceholderClass>(ExprPtrRef))
 		{
-			PlaceholderObj->AddReferencingScriptExpr((ULinkerPlaceholderClass**)(&ExprPtrRef));
+			PlaceholderObj->AddReferencingScriptExpr((UClass**)(&ExprPtrRef));
+		}
+		else if (ULinkerPlaceholderFunction* PlaceholderFunc = Cast<ULinkerPlaceholderFunction>(ExprPtrRef))
+		{
+			PlaceholderFunc->AddReferencingScriptExpr((UFunction**)(&ExprPtrRef));
 		}
 	}
 
@@ -1797,9 +1869,9 @@ UScriptStruct::UScriptStruct( EStaticConstructor, int32 InSize, EObjectFlags InF
 #if HACK_HEADER_GENERATOR
 	, StructMacroDeclaredLineNumber(INDEX_NONE)
 #endif
-	, CppStructOps(NULL)
 	, bCppStructOpsFromBaseClass(false)
 	, bPrepareCppStructOpsCompleted(false)
+	, CppStructOps(NULL)
 {
 }
 
@@ -1809,9 +1881,9 @@ UScriptStruct::UScriptStruct(const FObjectInitializer& ObjectInitializer, UScrip
 #if HACK_HEADER_GENERATOR
 	, StructMacroDeclaredLineNumber(INDEX_NONE)
 #endif
-	, CppStructOps(InCppStructOps)
 	, bCppStructOpsFromBaseClass(false)
 	, bPrepareCppStructOpsCompleted(false)
+	, CppStructOps(InCppStructOps)
 {
 	PrepareCppStructOps(); // propgate flags, etc
 }
@@ -1822,9 +1894,9 @@ UScriptStruct::UScriptStruct(const FObjectInitializer& ObjectInitializer)
 #if HACK_HEADER_GENERATOR
 	, StructMacroDeclaredLineNumber(INDEX_NONE)
 #endif
-	, CppStructOps(NULL)
 	, bCppStructOpsFromBaseClass(false)
 	, bPrepareCppStructOpsCompleted(false)
+	, CppStructOps(NULL)
 {
 }
 
@@ -2021,13 +2093,6 @@ void UScriptStruct::PrepareCppStructOps()
 				UE_LOG(LogClass, Verbose, TEXT("Native struct %s has native SerializeFromMismatchedTag."),*GetName());
 				StructFlags = EStructFlags(StructFlags | STRUCT_SerializeFromMismatchedTag);
 			}
-			if (CppStructOps->HasMessageHandling())
-			{
-				UE_LOG(LogClass, Verbose, TEXT("Natice struct %s is a message type."), *GetName());
-
-				// add to the message type registry
-				FMessageTypeMap::MessageTypeMap.Add(GetName(), this);
-			}
 		}
 	}
 	check(!bPrepareCppStructOpsCompleted); // recursion is unacceptable
@@ -2095,13 +2160,18 @@ void UScriptStruct::Link(FArchive& Ar, bool bRelinkExistingProperties)
 bool UScriptStruct::CompareScriptStruct(const void* A, const void* B, uint32 PortFlags) const
 {
 	check(A);
+
+	if (nullptr == B) // if the comparand is NULL, we just call this no-match
+	{
+		return false;
+	}
+
 	if (StructFlags & STRUCT_IdenticalNative)
 	{
 		UScriptStruct::ICppStructOps* TheCppStructOps = GetCppStructOps();
 		check(TheCppStructOps);
 		bool bResult = false;
-		if (!B || // if the comparand is NULL, we just call this no-match
-			TheCppStructOps->Identical(A, B, PortFlags, bResult))
+		if (TheCppStructOps->Identical(A, B, PortFlags, bResult))
 		{
 			return bResult;
 		}
@@ -2301,6 +2371,11 @@ void UScriptStruct::DestroyStruct(void* Dest, int32 ArrayDim) const
 
 void UScriptStruct::RecursivelyPreload() {}
 
+FGuid UScriptStruct::GetCustomGuid() const
+{
+	return FGuid();
+}
+
 IMPLEMENT_CORE_INTRINSIC_CLASS(UScriptStruct, UStruct,
 	{
 	}
@@ -2325,29 +2400,25 @@ void UClass::PostInitProperties()
 
 UObject* UClass::GetDefaultSubobjectByName(FName ToFind)
 {
-	TArray<UObject*> SubObjects;
-	GetDefaultObjectSubobjects(SubObjects);
-	for (int32 Index = 0; Index < SubObjects.Num(); ++Index)
+	UObject* DefaultObj = GetDefaultObject();
+	UObject* DefaultSubobject = nullptr;
+	if (DefaultObj)
 	{
-		if (SubObjects[Index]->GetFName() == ToFind)
-		{
-			return SubObjects[Index];
-		}
+		DefaultSubobject = DefaultObj->GetDefaultSubobjectByName(ToFind);
 	}
-	return NULL;
+	return DefaultSubobject;
 }
 
 void UClass::GetDefaultObjectSubobjects(TArray<UObject*>& OutDefaultSubobjects)
 {
-	OutDefaultSubobjects.Empty();
-	GetObjectsWithOuter(GetDefaultObject(), OutDefaultSubobjects, false);
-	for ( int32 SubobjectIndex = 0; SubobjectIndex < OutDefaultSubobjects.Num(); SubobjectIndex++ )
+	UObject* DefaultObj = GetDefaultObject();
+	if (DefaultObj)
 	{
-		UObject* PotentialComponent = OutDefaultSubobjects[SubobjectIndex];
-		if (!PotentialComponent->IsDefaultSubobject())
-		{
-			OutDefaultSubobjects.RemoveAtSwap(SubobjectIndex--);
-		}
+		DefaultObj->GetDefaultSubobjects(OutDefaultSubobjects);
+	}
+	else
+	{
+		OutDefaultSubobjects.Empty();
 	}
 }
 
@@ -2404,9 +2475,13 @@ class FRestoreClassInfo: public FRestoreForUObjectOverwrite
 	/** Saved ClassCastFlags **/
 	EClassCastFlags	CastFlags;
 	/** Saved ClassConstructor **/
-	void			(*Constructor)(const FObjectInitializer&);
+	UClass::ClassConstructorType Constructor;
+#if WITH_HOT_RELOAD_CTORS
+	/** Saved ClassVTableHelperCtorCaller **/
+	UClass::ClassVTableHelperCtorCallerType ClassVTableHelperCtorCaller;
+#endif // WITH_HOT_RELOAD_CTORS
 	/** Saved ClassConstructor **/
-	void			(*AddReferencedObjects)(UObject*, FReferenceCollector&);
+	UClass::ClassAddReferencedObjectsType AddReferencedObjects;
 	/** Saved NativeFunctionLookupTable. */
 	TArray<FNativeFunctionLookup> NativeFunctionLookupTable;
 public:
@@ -2424,6 +2499,9 @@ public:
 		Flags(Save->ClassFlags & CLASS_Abstract),
 		CastFlags(Save->ClassCastFlags),
 		Constructor(Save->ClassConstructor),
+#if WITH_HOT_RELOAD_CTORS
+		ClassVTableHelperCtorCaller(Save->ClassVTableHelperCtorCaller),
+#endif // WITH_HOT_RELOAD_CTORS
 		AddReferencedObjects(Save->ClassAddReferencedObjects),
 		NativeFunctionLookupTable(Save->NativeFunctionLookupTable)
 	{
@@ -2438,6 +2516,9 @@ public:
 		Target->ClassFlags |= Flags;
 		Target->ClassCastFlags |= CastFlags;
 		Target->ClassConstructor = Constructor;
+#if WITH_HOT_RELOAD_CTORS
+		Target->ClassVTableHelperCtorCaller = ClassVTableHelperCtorCaller;
+#endif // WITH_HOT_RELOAD_CTORS
 		Target->ClassAddReferencedObjects = AddReferencedObjects;
 		Target->NativeFunctionLookupTable = NativeFunctionLookupTable;
 	}
@@ -2475,8 +2556,8 @@ UObject* UClass::CreateDefaultObject()
 			// If this is a class that can be regenerated, it is potentially not completely loaded.  Preload and Link here to ensure we properly zero memory and read in properties for the CDO
 			if( HasAnyClassFlags(CLASS_CompiledFromBlueprint) && (PropertyLink == NULL) && !GIsDuplicatingClassForReinstancing)
 			{
-				ULinkerLoad* ClassLinker = GetLinker();
-				if( ClassLinker )
+				auto ClassLinker = GetLinker();
+				if (ClassLinker)
 				{
 					UField* FieldIt = Children;
 					while(FieldIt && (FieldIt->GetOuter() == this))
@@ -2595,13 +2676,17 @@ void UClass::DeferredRegister(UClass *UClassStaticClass,const TCHAR* PackageName
 	Super::DeferredRegister(UClassStaticClass,PackageName,Name);
 
 	// Get stashed registration info.
-	const TCHAR* InClassConfigName = *(TCHAR**)&ClassConfigName;
+
+	// PVS-Studio justifiably complains about this cast, but we expect this to work because we 'know' that 
+	// we're coming from the UClass constructor that is used when 'statically linked'. V580 disables 
+	// a warning that indicates this is an 'odd explicit type casting'.
+	const TCHAR* InClassConfigName = *(TCHAR**)&ClassConfigName; //-V580
 	ClassConfigName = InClassConfigName;
 
 	// Propagate inherited flags.
-	if (SuperStruct != NULL)
+	UClass* SuperClass = GetSuperClass();
+	if (SuperClass != NULL)
 	{
-		UClass* SuperClass = GetSuperClass();
 		ClassFlags |= (SuperClass->ClassFlags & CLASS_Inherit);
 		ClassCastFlags |= SuperClass->ClassCastFlags;
 	}
@@ -2645,7 +2730,11 @@ void UClass::Bind()
 	}
 
 	UClass* SuperClass = GetSuperClass();
-	if (SuperClass && (ClassConstructor == NULL || ClassAddReferencedObjects == NULL))
+	if (SuperClass && (ClassConstructor == nullptr || ClassAddReferencedObjects == nullptr
+#if WITH_HOT_RELOAD_CTORS
+		|| ClassVTableHelperCtorCaller == nullptr
+#endif // WITH_HOT_RELOAD_CTORS
+		))
 	{
 		// Chase down constructor in parent class.
 		SuperClass->Bind();
@@ -2653,6 +2742,12 @@ void UClass::Bind()
 		{
 			ClassConstructor = SuperClass->ClassConstructor;
 		}
+#if WITH_HOT_RELOAD_CTORS
+		if (!ClassVTableHelperCtorCaller)
+		{
+			ClassVTableHelperCtorCaller = SuperClass->ClassVTableHelperCtorCaller;
+		}
+#endif // WITH_HOT_RELOAD_CTORS
 		if (!ClassAddReferencedObjects)
 		{
 			ClassAddReferencedObjects = SuperClass->ClassAddReferencedObjects;
@@ -2795,9 +2890,9 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 	if (PropertyLink != NULL)
 	{
 		NetFields.Empty();
-		if (SuperStruct)
+		if (UClass* SuperClass = GetSuperClass())
 		{
-			ClassReps = GetSuperClass()->ClassReps;
+			ClassReps = SuperClass->ClassReps;
 		}
 		else
 		{
@@ -2835,6 +2930,12 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 		{
 			FORCEINLINE bool operator()( UProperty & A, UProperty & B ) const
 			{
+				// Ensure stable sort
+				if ( A.GetOffset_ForGC() == B.GetOffset_ForGC() )
+				{
+					return A.GetName() < B.GetName();
+				}
+
 				return A.GetOffset_ForGC() < B.GetOffset_ForGC();
 			}
 		};
@@ -2863,11 +2964,257 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 	}
 }
 
+#if UCLASS_FAST_ISA_IMPL & 2
+
+	struct FClassParentPair
+	{
+		UClass* Class;
+		UClass* Parent;
+
+		FClassParentPair(UClass* InClass, UClass* InParent)
+			: Class (InClass)
+			, Parent(InParent)
+		{
+		}
+
+		friend bool operator==(const FClassParentPair& Lhs, const UClass* Rhs) { return Lhs.Class == Rhs; }
+		friend bool operator!=(const FClassParentPair& Lhs, const UClass* Rhs) { return Lhs.Class != Rhs; }
+		friend bool operator==(const UClass* Lhs, const FClassParentPair& Rhs) { return Lhs == Rhs.Class; }
+		friend bool operator!=(const UClass* Lhs, const FClassParentPair& Rhs) { return Lhs != Rhs.Class; }
+	};
+
+	/**
+	 * Tree for fast IsA implementation.
+	 *
+	 * Structure is:
+	 * - every class is located at index Class->ClassTreeIndex.
+	 * - the Class->ClassTreeNumChildren classes immediately following each class are the children of the class.
+	 */
+	class FFastIndexingClassTree
+	{
+		friend class UClass;
+		friend class FFastIndexingClassTreeRegistrar;
+
+		static void Register(UClass* NewClass);
+		static void Unregister(UClass* NewClass);
+
+		struct StateType
+		{
+			TArray<FClassParentPair> Classes;
+			TSet<UClass*>            Orphans;
+			FCriticalSection ClassesCriticalSection;
+		};
+
+		static StateType& GetState()
+		{
+			static StateType State;
+			return State;
+		}
+
+	public:
+		static void Validate();
+	};
+
+	void FFastIndexingClassTree::Register(UClass* Class)
+	{
+		StateType& State = GetState();
+		FScopeLock Lock(&State.ClassesCriticalSection);
+
+		// Ensure that the class is not already registered or orphaned
+		check(!State.Classes.Contains(Class) && !State.Orphans.Contains(Class));
+
+		UClass* ParentClass = Class->GetSuperClass();
+
+		// If the parent has previously been orphaned, flag the child as orphaned
+		if (State.Orphans.Contains(ParentClass))
+		{
+			State.Orphans.Add(Class);
+			return;
+		}
+
+		int32 NewIndex;
+		if (ParentClass)
+		{
+			// Can happen if a child is registered *after* the parent
+			if (!State.Classes.Contains(ParentClass))
+			{
+				State.Orphans.Add(Class);
+				return;
+			}
+
+			NewIndex = ParentClass->ClassTreeIndex + ParentClass->ClassTreeNumChildren + 1;
+		}
+		else
+		{
+			NewIndex = State.Classes.Num();
+		}
+
+		// Increment indices of following classes
+		for (auto Index = NewIndex, LastIndex = State.Classes.Num(); Index != LastIndex; ++Index)
+		{
+			++State.Classes[Index].Class->ClassTreeIndex;
+		}
+
+		// Update children count of all parents
+		for (auto* Parent = ParentClass; Parent; Parent = Parent->GetSuperClass())
+		{
+			++Parent->ClassTreeNumChildren;
+		}
+
+		// Add class
+		Class->ClassTreeIndex       = NewIndex;
+		Class->ClassTreeNumChildren = 0;
+		State.Classes.Insert(FClassParentPair(Class, ParentClass), NewIndex);
+
+		// Re-register any children orphaned by a previous Unregister call
+		TArray<UClass*> OrphansToReregister;
+		for (auto It = State.Orphans.CreateIterator(); It; ++It)
+		{
+			UClass* Orphan = *It;
+			if (Orphan->GetSuperClass() == Class)
+			{
+				OrphansToReregister.Add(Orphan);
+				It.RemoveCurrent();
+			}
+		}
+
+		State.Orphans.Compact();
+
+		for (UClass* Orphan : OrphansToReregister)
+		{
+			Register(Orphan);
+		}
+
+		#if DO_CHECK
+			Validate();
+		#endif
+	}
+
+	void FFastIndexingClassTree::Unregister(UClass* Class)
+	{
+		StateType& State = GetState();
+		FScopeLock Lock(&State.ClassesCriticalSection);
+
+		// Remove class if it was already orphaned
+		if (State.Orphans.Remove(Class))
+		{
+			State.Orphans.Compact();
+			return;
+		}
+
+		UClass* ParentClass = State.Classes[Class->ClassTreeIndex].Parent;
+
+		// Ensure that the class and any parent are registered and in the expected location
+		check(                State.Classes[Class      ->ClassTreeIndex].Class == Class);
+		check(!ParentClass || State.Classes[ParentClass->ClassTreeIndex].Class == ParentClass);
+
+		// Remove it and mark its children as orphaned
+		int32 ClassIndex       = Class->ClassTreeIndex;
+		int32 ClassNumChildren = Class->ClassTreeNumChildren;
+		int32 NumRemoved       = ClassNumChildren + 1;
+
+		// Mark any children as orphaned
+		for (int32 Index = ClassIndex + 1, EndIndex = ClassIndex + NumRemoved; Index != EndIndex; ++Index)
+		{
+			State.Orphans.Add(State.Classes[Index].Class);
+		}
+
+		// Decrement indices of following classes
+		for (int32 Index = ClassIndex + NumRemoved, IndexEnd = State.Classes.Num(); Index != IndexEnd; ++Index)
+		{
+			State.Classes[Index].Class->ClassTreeIndex -= NumRemoved;
+		}
+
+		// Update children count of all parents
+		for (auto* Parent = ParentClass; Parent; Parent = Parent->GetSuperClass())
+		{
+			Parent->ClassTreeNumChildren -= NumRemoved;
+		}
+
+		State.Classes.RemoveAt(ClassIndex, NumRemoved, false);
+
+		#if DO_CHECK
+			Validate();
+		#endif
+	}
+
+	void FFastIndexingClassTree::Validate()
+	{
+		StateType& State = GetState();
+		FScopeLock Lock(&State.ClassesCriticalSection);
+
+		for (const FClassParentPair& Pair : State.Classes)
+		{
+			int32 Index = Pair.Class->ClassTreeIndex;
+
+			// Check that the class is not orphaned
+			check(!State.Orphans.Contains(Pair.Class));
+
+			// Check that the class is where it thinks it is
+			check(State.Classes[Index] == Pair.Class);
+
+			if (Pair.Parent)
+			{
+				int32 ParentIndex = Pair.Parent->ClassTreeIndex;
+
+				// Check that the parent is registered and not orphaned
+				check( State.Classes.Contains(Pair.Parent));
+				check(!State.Orphans.Contains(Pair.Parent));
+
+				// Check that class 'is' its parent
+				check(Index - Pair.Parent->ClassTreeIndex <= Pair.Parent->ClassTreeNumChildren);
+			}
+		}
+	}
+
+	FFastIndexingClassTreeRegistrar::FFastIndexingClassTreeRegistrar()
+	{
+		ClassTreeIndex = -1;
+		FFastIndexingClassTree::Register((UClass*)this);
+	}
+
+	FFastIndexingClassTreeRegistrar::FFastIndexingClassTreeRegistrar(const FFastIndexingClassTreeRegistrar&)
+	{
+		ClassTreeIndex = -1;
+		FFastIndexingClassTree::Register((UClass*)this);
+	}
+
+	FFastIndexingClassTreeRegistrar::~FFastIndexingClassTreeRegistrar()
+	{
+		FFastIndexingClassTree::Unregister((UClass*)this);
+	}
+
+#endif
+
 void UClass::SetSuperStruct(UStruct* NewSuperStruct)
 {
 	UnhashObject(this);
+#if UCLASS_FAST_ISA_IMPL & 2
+	FFastIndexingClassTree::Unregister(this);
+#endif
 	Super::SetSuperStruct(NewSuperStruct);
+#if UCLASS_FAST_ISA_IMPL & 2
+	FFastIndexingClassTree::Register(this);
+#endif
 	HashObject(this);
+}
+
+void UClass::SerializeSuperStruct(FArchive& Ar)
+{
+#if UCLASS_FAST_ISA_IMPL & 2
+	bool bIsLoading = Ar.IsLoading();
+	if (bIsLoading)
+	{
+		FFastIndexingClassTree::Unregister(this);
+	}
+#endif
+	Super::SerializeSuperStruct(Ar);
+#if UCLASS_FAST_ISA_IMPL & 2
+	if (bIsLoading)
+	{
+		FFastIndexingClassTree::Register(this);
+	}
+#endif
 }
 
 void UClass::Serialize( FArchive& Ar )
@@ -2878,7 +3225,23 @@ void UClass::Serialize( FArchive& Ar )
 		UnhashObject(this);
 	}
 
+#if UCLASS_FAST_ISA_IMPL & 2
+	UClass* SuperClassBefore = GetSuperClass();
+#endif
 	Super::Serialize( Ar );
+#if UCLASS_FAST_ISA_IMPL & 2
+	// Handle that fact that FArchive takes UObject*s by reference, and archives can just blat
+	// over our SuperStruct with impunity.
+	if (SuperClassBefore)
+	{
+		UClass* SuperClassAfter = GetSuperClass();
+		if (SuperClassBefore != SuperClassAfter)
+		{
+			FFastIndexingClassTree::Unregister(this);
+			FFastIndexingClassTree::Register(this);
+		}
+	}
+#endif
 
 	if ( Ar.IsLoading() || Ar.IsModifyingWeakAndStrongReferences() )
 	{
@@ -3133,7 +3496,7 @@ void UClass::SerializeDefaultObject(UObject* Object, FArchive& Ar)
 	}
 	else
 	{
-		SerializeBin(Ar, Object, 0);
+		SerializeBin(Ar, Object);
 	}
 	Ar.StopSerializingDefaults();
 }
@@ -3148,9 +3511,18 @@ FArchive& operator<<(FArchive& Ar, FImplementedInterface& A)
 	return Ar;
 }
 
+UObject* UClass::GetArchetypeForCDO() const
+{
+	auto SuperClass = GetSuperClass();
+	return SuperClass ? SuperClass->GetDefaultObject() : nullptr;
+}
+
 void UClass::PurgeClass(bool bRecompilingOnLoad)
 {
-	ClassConstructor = NULL;
+	ClassConstructor = nullptr;
+#if WITH_HOT_RELOAD_CTORS
+	ClassVTableHelperCtorCaller = nullptr;
+#endif // WITH_HOT_RELOAD_CTORS
 	ClassFlags = 0;
 	ClassCastFlags = 0;
 	ClassUnique = 0;
@@ -3243,13 +3615,13 @@ bool UClass::HasProperty(UProperty* InProperty) const
  */
 UClass::UClass(const FObjectInitializer& ObjectInitializer)
 :	UStruct( ObjectInitializer )
+,	ClassUnique(0)
 ,	ClassFlags(0)
 ,	ClassCastFlags(0)
-,	ClassUnique(0)
 ,	ClassWithin( UObject::StaticClass() )
 ,	ClassGeneratedBy(NULL)
-,	ClassDefaultObject(NULL)
 ,	bCooked(false)
+,	ClassDefaultObject(NULL)
 {
 	// If you add properties here, please update the other constructors and PurgeClass()
 }
@@ -3259,13 +3631,13 @@ UClass::UClass(const FObjectInitializer& ObjectInitializer)
  */
 UClass::UClass(const FObjectInitializer& ObjectInitializer, UClass* InBaseClass )
 :	UStruct( ObjectInitializer, InBaseClass )
+,	ClassUnique(0)
 ,	ClassFlags(0)
 ,	ClassCastFlags(0)
-,	ClassUnique(0)
 ,	ClassWithin( UObject::StaticClass() )
 ,	ClassGeneratedBy(NULL)
-,	ClassDefaultObject(NULL)
 ,	bCooked(false)
+,	ClassDefaultObject(NULL)
 {
 	// If you add properties here, please update the other constructors and PurgeClass()
 
@@ -3301,24 +3673,35 @@ UClass::UClass
 	EClassCastFlags	InClassCastFlags,
 	const TCHAR*    InConfigName,
 	EObjectFlags	InFlags,
-	void			(*InClassConstructor)(const FObjectInitializer&),
-	void			(*InClassAddReferencedObjects)(UObject*, class FReferenceCollector&)
+	ClassConstructorType InClassConstructor,
+#if WITH_HOT_RELOAD_CTORS
+	ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
+#endif // WITH_HOT_RELOAD_CTORS
+	ClassAddReferencedObjectsType InClassAddReferencedObjects
 )
 :	UStruct					( EC_StaticConstructor, InSize, InFlags )
 ,	ClassConstructor		( InClassConstructor )
+#if WITH_HOT_RELOAD_CTORS
+,	ClassVTableHelperCtorCaller(InClassVTableHelperCtorCaller)
+#endif // WITH_HOT_RELOAD_CTORS
 ,	ClassAddReferencedObjects( InClassAddReferencedObjects )
+,	ClassUnique				( 0 )
 ,	ClassFlags				( InClassFlags | CLASS_Native )
 ,	ClassCastFlags			( InClassCastFlags )
-,	ClassUnique				( 0 )
 ,	ClassWithin				( NULL )
 ,	ClassGeneratedBy		( NULL )
 ,	ClassConfigName			()
+,	bCooked					( false )
 ,	NetFields				()
 ,	ClassDefaultObject		( NULL )
-,	bCooked( false )
 {
 	// If you add properties here, please update the other constructors and PurgeClass()
-	*(const TCHAR**)&ClassConfigName = InConfigName;
+
+	// We store the pointer to the ConfigName in an FName temporarily, this cast is intentional
+	// as we expect the mis-typed data to get picked up in UClass::DeferredRegister. PVS-Studio
+	// complains about this operation, but AFAIK it is safe (and we've been doing it a long time)
+	// so the warning has been disabled for now:
+	*(const TCHAR**)&ClassConfigName = InConfigName; //-V580
 }
 
 #if WITH_HOT_RELOAD
@@ -3328,8 +3711,11 @@ bool UClass::HotReloadPrivateStaticClass(
 	uint32			InClassFlags,
 	EClassCastFlags	InClassCastFlags,
 	const TCHAR*    InConfigName,
-	void			(*InClassConstructor)(const FObjectInitializer&),
-	void			(*InAddReferencedObjects)(UObject*, class FReferenceCollector&),
+	ClassConstructorType InClassConstructor,
+#if WITH_HOT_RELOAD_CTORS
+	ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
+#endif // WITH_HOT_RELOAD_CTORS
+	ClassAddReferencedObjectsType InClassAddReferencedObjects,
 	class UClass* TClass_Super_StaticClass,
 	class UClass* TClass_WithinClass_StaticClass
 	)
@@ -3347,9 +3733,12 @@ bool UClass::HotReloadPrivateStaticClass(
 	//@todo safe? ClassFlags = InClassFlags | CLASS_Native;
 	//@todo safe? ClassCastFlags = InClassCastFlags;
 	//@todo safe? ClassConfigName = InConfigName;
-	void(*OldClassConstructor)(const FObjectInitializer&) = ClassConstructor;
+	ClassConstructorType OldClassConstructor = ClassConstructor;
 	ClassConstructor = InClassConstructor;
-	ClassAddReferencedObjects = InAddReferencedObjects;
+#if WITH_HOT_RELOAD_CTORS
+	ClassVTableHelperCtorCaller = InClassVTableHelperCtorCaller;
+#endif // WITH_HOT_RELOAD_CTORS
+	ClassAddReferencedObjects = InClassAddReferencedObjects;
 	/* No recursive ::StaticClass calls allowed. Setup extras. */
 	/* @todo safe? 
 	if (TClass_Super_StaticClass != this)
@@ -3365,7 +3754,33 @@ bool UClass::HotReloadPrivateStaticClass(
 
 	UE_LOG(LogClass, Verbose, TEXT("Attempting to change VTable for class %s."),*GetName());
 	ClassWithin = UPackage::StaticClass();  // We are just avoiding error checks with this...we don't care about this temp object other than to get the vtable.
-	UObject* TempObjectForVTable = StaticConstructObject(this, GetTransientPackage(), NAME_None, RF_NeedLoad | RF_ClassDefaultObject);
+
+#if WITH_HOT_RELOAD_CTORS
+	static struct FUseVTableConstructorsCache
+	{
+		FUseVTableConstructorsCache()
+		{
+			bUseVTableConstructors = false;
+			GConfig->GetBool(TEXT("Core.System"), TEXT("UseVTableConstructors"), bUseVTableConstructors, GEngineIni);
+		}
+
+		bool bUseVTableConstructors;
+	} UseVTableConstructorsCache;
+
+	UObject* TempObjectForVTable = nullptr;
+	if (UseVTableConstructorsCache.bUseVTableConstructors)
+	{
+		TGuardValue<bool> Guard(GIsRetrievingVTablePtr, true);
+		auto Helper = FVTableHelper();
+		TempObjectForVTable = ClassVTableHelperCtorCaller(Helper);
+	}
+	else
+	{
+		TempObjectForVTable = StaticConstructObject_Internal(this, GetTransientPackage(), NAME_None, RF_NeedLoad | RF_ClassDefaultObject | RF_TagGarbageTemp);
+	}
+#else // WITH_HOT_RELOAD_CTORS
+	UObject* TempObjectForVTable = StaticConstructObject_Internal(this, GetTransientPackage(), NAME_None, RF_NeedLoad | RF_ClassDefaultObject | RF_TagGarbageTemp);
+#endif // WITH_HOT_RELOAD_CTORS
 
 	if( !TempObjectForVTable->IsRooted() )
 	{
@@ -3397,6 +3812,9 @@ bool UClass::HotReloadPrivateStaticClass(
 				if (Class->ClassConstructor == OldClassConstructor)
 				{
 					Class->ClassConstructor = ClassConstructor;
+#if WITH_HOT_RELOAD_CTORS
+					Class->ClassVTableHelperCtorCaller = ClassVTableHelperCtorCaller;
+#endif // WITH_HOT_RELOAD_CTORS
 					Class->ClassAddReferencedObjects = ClassAddReferencedObjects;
 					CountClass++;
 				}
@@ -3498,9 +3916,17 @@ const FString UClass::GetConfigName() const
 	{
 		return GGameIni;
 	}
-	else if ( ClassConfigName == NAME_EditorGameAgnostic )
+	else if ( ClassConfigName == NAME_EditorSettings )
 	{
-		return GEditorGameAgnosticIni;
+		return GEditorSettingsIni;
+	}
+	else if ( ClassConfigName == NAME_EditorLayout )
+	{
+		return GEditorLayoutIni;
+	}
+	else if ( ClassConfigName == NAME_EditorKeyBindings )
+	{
+		return GEditorKeyBindingsIni;
 	}
 	else if( ClassConfigName == NAME_None )
 	{
@@ -3523,7 +3949,7 @@ void UClass::GetHideFunctions(TArray<FString>& OutHideFunctions) const
 	if (HasMetaData(NAME_HideFunctions))
 	{
 		const FString& HideFunctions = GetMetaData(NAME_HideFunctions);
-		HideFunctions.ParseIntoArray(&OutHideFunctions, TEXT(" "), true);
+		HideFunctions.ParseIntoArray(OutHideFunctions, TEXT(" "), true);
 	}
 }
 
@@ -3544,7 +3970,7 @@ void UClass::GetAutoExpandCategories(TArray<FString>& OutAutoExpandCategories) c
 	if (HasMetaData(NAME_AutoExpandCategories))
 	{
 		const FString& AutoExpandCategories = GetMetaData(NAME_AutoExpandCategories);
-		AutoExpandCategories.ParseIntoArray(&OutAutoExpandCategories, TEXT(" "), true);
+		AutoExpandCategories.ParseIntoArray(OutAutoExpandCategories, TEXT(" "), true);
 	}
 }
 
@@ -3565,7 +3991,7 @@ void UClass::GetAutoCollapseCategories(TArray<FString>& OutAutoCollapseCategorie
 	if (HasMetaData(NAME_AutoCollapseCategories))
 	{
 		const FString& AutoCollapseCategories = GetMetaData(NAME_AutoCollapseCategories);
-		AutoCollapseCategories.ParseIntoArray(&OutAutoCollapseCategories, TEXT(" "), true);
+		AutoCollapseCategories.ParseIntoArray(OutAutoCollapseCategories, TEXT(" "), true);
 	}
 }
 
@@ -3586,7 +4012,7 @@ void UClass::GetClassGroupNames(TArray<FString>& OutClassGroupNames) const
 	if (HasMetaData(NAME_ClassGroupNames))
 	{
 		const FString& ClassGroupNames = GetMetaData(NAME_ClassGroupNames);
-		ClassGroupNames.ParseIntoArray(&OutClassGroupNames, TEXT(" "), true);
+		ClassGroupNames.ParseIntoArray(OutClassGroupNames, TEXT(" "), true);
 	}
 }
 
@@ -3634,9 +4060,24 @@ UFunction::UFunction(const FObjectInitializer& ObjectInitializer, UFunction* InS
 , RepOffset(InRepOffset)
 , RPCId(0)
 , RPCResponseId(0)
-, FirstPropertyToInit(NULL)
+, FirstPropertyToInit(nullptr)
+#if UE_BLUEPRINT_EVENTGRAPH_FASTCALLS
+, EventGraphFunction(nullptr)
+, EventGraphCallOffset(0)
+#endif
 {
 }
+
+UFunction::UFunction(UFunction* InSuperFunction, uint32 InFunctionFlags, uint16 InRepOffset, SIZE_T ParamsSize)
+	: UStruct(InSuperFunction, ParamsSize)
+	, FunctionFlags(InFunctionFlags)
+	, RepOffset(InRepOffset)
+	, RPCId(0)
+	, RPCResponseId(0)
+	, FirstPropertyToInit(NULL)
+{
+}
+
 
 void UFunction::InitializeDerivedMembers()
 {
@@ -3681,7 +4122,7 @@ void UFunction::Invoke(UObject* Obj, FFrame& Stack, RESULT_DECL)
 	}
 
 	TGuardValue<UFunction*> NativeFuncGuard(Stack.CurrentNativeFunction, this);
-	return (Obj->*Func)(Stack, Result);
+	return (Obj->*Func)(Stack, RESULT_PARAM);
 }
 
 void UFunction::Serialize( FArchive& Ar )
@@ -3696,6 +4137,18 @@ void UFunction::Serialize( FArchive& Ar )
 	if (FunctionFlags & FUNC_Net)
 	{
 		Ar << RepOffset;
+	}
+
+#if !UE_BLUEPRINT_EVENTGRAPH_FASTCALLS
+	// We need to serialize these values even if the feature is disabled, in order to keep the serialization stream in sync
+	UFunction* EventGraphFunction = nullptr;
+	int32 EventGraphCallOffset = 0;
+#endif
+
+	if (Ar.UE4Ver() >= VER_UE4_SERIALIZE_BLUEPRINT_EVENTGRAPH_FASTCALLS_IN_UFUNCTION)
+	{
+		Ar << EventGraphFunction;
+		Ar << EventGraphCallOffset;
 	}
 
 	// Precomputation.
@@ -3769,6 +4222,60 @@ bool UFunction::IsSignatureCompatibleWith(const UFunction* OtherFunction) const
 	return IsSignatureCompatibleWith(OtherFunction, IgnoreFlags);
 }
 
+bool FStructUtils::ArePropertiesTheSame(const UProperty* A, const UProperty* B, bool bCheckPropertiesNames)
+{
+	if (A == B)
+	{
+		return true;
+	}
+
+	if (!A != !B) //one of properties is null
+	{
+		return false;
+	}
+
+	if (bCheckPropertiesNames && (A->GetFName() != B->GetFName()))
+	{
+		return false;
+	}
+
+	if (A->GetSize() != B->GetSize())
+	{
+		return false;
+	}
+
+	if (A->GetOffset_ForGC() != B->GetOffset_ForGC())
+	{
+		return false;
+	}
+
+	if (!A->SameType(B))
+	{
+		return false;
+	}
+
+	return true;
+}
+
+bool FStructUtils::TheSameLayout(const UStruct* StructA, const UStruct* StructB, bool bCheckPropertiesNames)
+{
+	bool bResult = false;
+	if (StructA && StructB)
+	{
+		const UProperty* PropertyA = StructA->PropertyLink;
+		const UProperty* PropertyB = StructB->PropertyLink;
+
+		bResult = true;
+		while (bResult && (PropertyA != PropertyB))
+		{
+			bResult = ArePropertiesTheSame(PropertyA, PropertyB, bCheckPropertiesNames);
+			PropertyA = PropertyA ? PropertyA->PropertyLinkNext : NULL;
+			PropertyB = PropertyB ? PropertyB->PropertyLinkNext : NULL;
+		}
+	}
+	return bResult;
+}
+
 bool UFunction::IsSignatureCompatibleWith(const UFunction* OtherFunction, uint64 IgnoreFlags) const
 {
 	// Early out if they're exactly the same function
@@ -3791,12 +4298,9 @@ bool UFunction::IsSignatureCompatibleWith(const UFunction* OtherFunction, uint64
 			UProperty* PropA = *IteratorA;
 			UProperty* PropB = *IteratorB;
 
-			FString TypeA(PropA->GetCPPType());
-			FString TypeB(PropB->GetCPPType());
-
 			// Check the flags as well
 			const uint64 PropertyMash = PropA->PropertyFlags ^ PropB->PropertyFlags;
-			if ((TypeA != TypeB) || ((PropertyMash & ~IgnoreFlags) != 0))
+			if (!FStructUtils::ArePropertiesTheSame(PropA, PropB, false) || ((PropertyMash & ~IgnoreFlags) != 0))
 			{
 				// Type mismatch between an argument of A and B
 				return false;
@@ -3815,8 +4319,30 @@ bool UFunction::IsSignatureCompatibleWith(const UFunction* OtherFunction, uint64
 	return !(IteratorB && (IteratorB->PropertyFlags & CPF_Parm));
 }
 
+UScriptStruct* GetBaseStructure(const TCHAR* Name)
+{
+	static auto* CoreUObjectPkg = FindObjectChecked<UPackage>(nullptr, TEXT("/Script/CoreUObject"));
+	return FindObjectChecked<UScriptStruct>(CoreUObjectPkg, Name);
+}
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UFunction, UStruct,
+	{
+	}
+);
+
+UDelegateFunction::UDelegateFunction(const FObjectInitializer& ObjectInitializer, UFunction* InSuperFunction, uint32 InFunctionFlags, uint16 InRepOffset, SIZE_T ParamsSize)
+	: UFunction(ObjectInitializer, InSuperFunction, InFunctionFlags, InRepOffset, ParamsSize)
+{
+
+}
+
+UDelegateFunction::UDelegateFunction(UFunction* InSuperFunction, uint32 InFunctionFlags, uint16 InRepOffset, SIZE_T ParamsSize)
+	: UFunction(InSuperFunction, InFunctionFlags, InRepOffset, ParamsSize)
+{
+
+}
+
+IMPLEMENT_CORE_INTRINSIC_CLASS(UDelegateFunction, UFunction,
 	{
 	}
 );

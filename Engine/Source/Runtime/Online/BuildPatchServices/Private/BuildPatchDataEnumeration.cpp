@@ -4,7 +4,7 @@
 
 #if WITH_BUILDPATCHGENERATION
 
-bool FBuildDataEnumeration::EnumerateManifestData(FString ManifestFilePath, FString OutputFile)
+bool FBuildDataEnumeration::EnumerateManifestData(FString ManifestFilePath, FString OutputFile, const bool bIncludeSizes)
 {
 	bool bSuccess = false;
 	TArray<FGuid> DataList;
@@ -24,10 +24,14 @@ bool FBuildDataEnumeration::EnumerateManifestData(FString ManifestFilePath, FStr
 		FString FullList;
 		for (FGuid& DataGuid : DataList)
 		{
-			FString Path = FBuildPatchUtils::GetDataFilename(AppManifest, FString(), DataGuid);
-			FullList += Path;
-			FullList += TEXT("\r\n");
-			GLog->Log(ELogVerbosity::Log, Path);
+			FString OutputLine = FBuildPatchUtils::GetDataFilename(AppManifest, FString(), DataGuid);
+			if (bIncludeSizes)
+			{
+				uint64 FileSize = AppManifest->GetDataSize(DataGuid);
+				OutputLine += FString::Printf(TEXT("\t%u"), FileSize);
+			}
+			GLog->Log(ELogVerbosity::Log, OutputLine);
+			FullList += OutputLine + TEXT("\r\n");
 		}
 		if (FFileHelper::SaveStringToFile(FullList, *OutputFile))
 		{

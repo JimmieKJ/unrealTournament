@@ -5,6 +5,8 @@
 
 float4x4 ViewProjection;
 
+float SwitchVerticalAxisMultiplier;
+
 struct VertexOut
 {
 	float4 Position : SV_POSITION;
@@ -36,7 +38,7 @@ VertexOut Main(
 
 #if ES2_PROFILE && COMPILER_GLSL_ES2
 	// @todo-mobile: Fix this in the projection matrix
-	VOut.Position.y =  -VOut.Position.y;
+	VOut.Position.y *= SwitchVerticalAxisMultiplier;
 #endif
 
 

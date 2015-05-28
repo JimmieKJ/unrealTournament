@@ -7,6 +7,7 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogHTML5, Log, All);
 DEFINE_LOG_CATEGORY(LogHTML5);
+DEFINE_LOG_CATEGORY_STATIC(LogHTML5Input, Log, All);
 
 
 #if PLATFORM_HTML5_BROWSER
@@ -59,133 +60,32 @@ TSharedRef< FHTML5InputInterface > FHTML5InputInterface::Create(  const TSharedR
 	return MakeShareable( new FHTML5InputInterface( InMessageHandler, InCursor ) );
 }
 
+EM_BOOL mouse_move_callback(int evType, const EmscriptenMouseEvent* evt, void* userData) {
+	/* rescale (in case canvas is being scaled)*/
+	double client_w, client_h, xscale, yscale;
+	int canvas_w, canvas_h, canvas_fs;
+	emscripten_get_canvas_size(&canvas_w, &canvas_h, &canvas_fs);
+	emscripten_get_element_css_size(NULL, &client_w, &client_h);
+	xscale = canvas_w/client_w;
+	yscale = canvas_h/client_h;
+	int calc_x = (int)(evt->canvasX*xscale + .5);
+	int calc_y = (int)(evt->canvasY*yscale + .5);
+	UE_LOG(LogHTML5Input, Verbose, TEXT("MouseMoveCB Pos(%d or %d, %d or %d) XRel:%d YRel:%d"), evt->canvasX, calc_x, evt->canvasY, calc_y, evt->movementX, evt->movementY);
+	(*((const TSharedPtr< ICursor >*)userData))->SetPosition(calc_x, calc_y);
+	return 0;
+}
+
 FHTML5InputInterface::FHTML5InputInterface( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler, const TSharedPtr< ICursor >& InCursor )
 	: MessageHandler( InMessageHandler )
 	, Cursor( InCursor )
 {
+	emscripten_set_mousemove_callback("canvas", (void*)&Cursor, 1, mouse_move_callback);
 }
 
 void FHTML5InputInterface::SetMessageHandler( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )
 {
 	MessageHandler = InMessageHandler;
 }
-
-static TCHAR ConvertChar( SDL_Keysym Keysym )
-{
-	if( Keysym.sym >= 128 )
-	{
-		return 0;
-	}
-
-	TCHAR Char = Keysym.sym;
-
-	if (Keysym.mod & (KMOD_LSHIFT | KMOD_RSHIFT))
-	{
-		// Convert to uppercase (FIXME: what about CAPS?)
-		if( Keysym.sym >= 97 && Keysym.sym <= 122)
-		{
-			return Keysym.sym - 32;
-		}
-		else if( Keysym.sym >= 91 && Keysym.sym <= 93)
-		{
-			return Keysym.sym + 32; // [ \ ] -> { | }
-		}
-		else
-		{
-			switch(Keysym.sym)
-			{
-			case '`': // ` -> ~
-				Char = TEXT('`');
-				break;
-
-			case '-': // - -> _
-				Char = TEXT('_');
-				break;
-
-			case '=': // - -> _
-				Char = TEXT('+');
-				break;
-
-			case ',':
-				Char = TEXT('<');
-				break;
-
-			case '.':
-				Char = TEXT('>');
-				break;
-
-			case ';':
-				Char = TEXT(':');
-				break;
-
-			case '\'':
-				Char = TEXT('\"');
-				break;
-
-			case '/':
-				Char = TEXT('?');
-				break;
-
-			case '0':
-				Char = TEXT(')');
-				break;
-
-			case '9':
-				Char = TEXT('(');
-				break;
-
-			case '8':
-				Char = TEXT('*');
-				break;
-
-			case '7':
-				Char = TEXT('&');
-				break;
-
-			case '6':
-				Char = TEXT('^');
-				break;
-
-			case '5':
-				Char = TEXT('%');
-				break;
-
-			case '4':
-				Char = TEXT('$');
-				break;
-
-			case '3':
-				Char = TEXT('#');
-				break;
-
-			case '2':
-				Char = TEXT('@');
-				break;
-
-			case '1':
-				Char = TEXT('!');
-				break;
-
-			default:
-				break;
-			}
-		}
-	}
-
-	return Char;
-}
-
-
-static bool GeneratesKeyCharMessage(const SDL_KeyboardEvent & KeyDownEvent)
-{
-	bool bCmdKeyPressed = (KeyDownEvent.keysym.mod & (KMOD_LCTRL | KMOD_RCTRL)) != 0;
-	const SDL_Keycode Sym = KeyDownEvent.keysym.sym;
-
-	// filter out command keys, non-ASCI and arrow keycodes that don't generate WM_CHAR under Windows (TODO: find a table?)
-	return !bCmdKeyPressed && Sym < 128 &&
-		(Sym != SDLK_DOWN && Sym != SDLK_LEFT && Sym != SDLK_RIGHT && Sym != SDLK_UP && Sym != SDLK_DELETE);
-}
-
 
 void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedRef < FGenericWindow>& ApplicationWindow )
 {
@@ -201,40 +101,56 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 				// First KeyDown, then KeyChar. This is important, as in-game console ignores first character otherwise
 				MessageHandler->OnKeyDown(KeyCode, KeyEvent.keysym.sym, bIsRepeated);
 
-				if (GeneratesKeyCharMessage(KeyEvent))
+				// Backspace/Return input caught here. 
+				// Note that TextInput still seems to get characters messages too but slate seems to not process them.
+				if (KeyCode == SDL_SCANCODE_BACKSPACE || KeyCode == SDL_SCANCODE_RETURN)
 				{
-					const TCHAR Character = ConvertChar(KeyEvent.keysym);
+					const TCHAR Character = SDL_GetKeyFromScancode(Event.key.keysym.scancode);
+					UE_LOG(LogHTML5Input, Verbose, TEXT("TextInput: Text:%c bIsRepeated:%s"), Character, bIsRepeated ? TEXT("TRUE") : TEXT("FALSE"));
 					MessageHandler->OnKeyChar(Character, bIsRepeated);
 				}
+				UE_LOG(LogHTML5Input, Verbose, TEXT("KeyDown: Code:%d bIsRepeated:%s"), KeyCode, bIsRepeated ? TEXT("TRUE") : TEXT("FALSE"));
 			}
 			break;
 		case SDL_KEYUP:
 			{
 				SDL_KeyboardEvent keyEvent = Event.key;
 				const SDL_Keycode KeyCode = keyEvent.keysym.scancode;
-				const TCHAR Character = ConvertChar( keyEvent.keysym );
 				const bool IsRepeat = keyEvent.repeat != 0;
 
 				MessageHandler->OnKeyUp( KeyCode, keyEvent.keysym.sym, IsRepeat );
+				UE_LOG(LogHTML5Input, Verbose, TEXT("KeyUp Code:%d"), KeyCode);
+			}
+			break;
+		case SDL_TEXTINPUT:
+			{
+				const bool bIsRepeated = Event.key.repeat != 0;
+				const TCHAR Character = *ANSI_TO_TCHAR(Event.text.text);
+
+				MessageHandler->OnKeyChar(Character, bIsRepeated);
+				UE_LOG(LogHTML5Input, Verbose, TEXT("TextInput: Text:%c bIsRepeated:%s"), Character, bIsRepeated ? TEXT("TRUE") : TEXT("FALSE"));
 			}
 			break;
 		case SDL_MOUSEBUTTONDOWN:
 			{
 				EMouseButtons::Type MouseButton = Event.button.button == 1 ? EMouseButtons::Left : Event.button.button == 2 ? EMouseButtons::Middle : EMouseButtons::Right;
 				MessageHandler->OnMouseDown(ApplicationWindow, MouseButton );
+				UE_LOG(LogHTML5Input, Verbose, TEXT("MouseButtonDown ID:%d"), Event.button.button);
 			}
 			break;
 		case SDL_MOUSEBUTTONUP:
 			{
 				EMouseButtons::Type MouseButton = Event.button.button == 1 ? EMouseButtons::Left : Event.button.button == 2 ? EMouseButtons::Middle : EMouseButtons::Right;
 				MessageHandler->OnMouseUp(MouseButton );
+				UE_LOG(LogHTML5Input, Verbose, TEXT("MouseButtonUp ID:%d"), Event.button.button);
 			}
 			break; 
 		case SDL_MOUSEMOTION:
 			{
-				Cursor->SetPosition(Event.motion.x, Event.motion.y);
+				//Cursor->SetPosition(Event.motion.x, Event.motion.y);
 				MessageHandler->OnRawMouseMove(Event.motion.xrel, Event.motion.yrel);
 				MessageHandler->OnMouseMove(); 
+				UE_LOG(LogHTML5Input, Verbose, TEXT("MouseMotion Pos(%d, %d) XRel:%d YRel:%d"), Event.motion.x, Event.motion.y, Event.motion.xrel, Event.motion.yrel);
 			} 
 			break;
 		case SDL_MOUSEWHEEL:
@@ -242,6 +158,7 @@ void FHTML5InputInterface::Tick(float DeltaTime, const SDL_Event& Event,TSharedR
 				SDL_MouseWheelEvent* w = (SDL_MouseWheelEvent*)&Event;
 				const float SpinFactor = 1 / 120.0f;
 				MessageHandler->OnMouseWheel(w->y * SpinFactor);
+				UE_LOG(LogHTML5Input, Verbose, TEXT("MouseWheel %f"), SpinFactor);
 			}
 			break;
 		default:

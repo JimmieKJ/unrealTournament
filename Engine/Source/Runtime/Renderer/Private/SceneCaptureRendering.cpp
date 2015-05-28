@@ -116,7 +116,7 @@ static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHI
 		FIntRect ViewRect = View.ViewRect;
 		FIntRect UnconstrainedViewRect = View.UnconstrainedViewRect;
 		SetRenderTarget(RHICmdList, Target->GetRenderTargetTexture(), NULL);
-		RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, ViewRect);
+		RHICmdList.Clear(true, FLinearColor::Black, false, (float)ERHIZBuffer::FarPlane, false, 0, ViewRect);
 
 		// Render the scene normally
 		{
@@ -125,7 +125,7 @@ static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHI
 			if (bNeedsFlippedRenderTarget)
 			{
 				// Hijack the render target
-				SceneRenderer->ViewFamily.RenderTarget = &FlippedRenderTarget;
+				SceneRenderer->ViewFamily.RenderTarget = &FlippedRenderTarget; //-V506
 			}
 			SceneRenderer->Render(RHICmdList);
 			if (bNeedsFlippedRenderTarget)
@@ -158,7 +158,7 @@ static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHI
 }
 
 
-FSceneRenderer* FScene::CreateSceneRenderer( USceneCaptureComponent* SceneCaptureComponent, UTextureRenderTarget* TextureTarget, const FMatrix& ViewMatrix, const FVector& ViewLocation, float FOV, float MaxViewDistance, bool bCaptureSceneColour, FPostProcessSettings* PostProcessSettings, float PostProcessBlendWeight )
+FSceneRenderer* FScene::CreateSceneRenderer( USceneCaptureComponent* SceneCaptureComponent, UTextureRenderTarget* TextureTarget, const FMatrix& ViewRotationMatrix, const FVector& ViewLocation, float FOV, float MaxViewDistance, bool bCaptureSceneColour, FPostProcessSettings* PostProcessSettings, float PostProcessBlendWeight )
 {
 	FIntPoint CaptureSize(TextureTarget->GetSurfaceWidth(), TextureTarget->GetSurfaceHeight());
 
@@ -172,7 +172,8 @@ FSceneRenderer* FScene::CreateSceneRenderer( USceneCaptureComponent* SceneCaptur
 	FSceneViewInitOptions ViewInitOptions;
 	ViewInitOptions.SetViewRectangle(FIntRect(0, 0, CaptureSize.X, CaptureSize.Y));
 	ViewInitOptions.ViewFamily = &ViewFamily;
-	ViewInitOptions.ViewMatrix = ViewMatrix;
+	ViewInitOptions.ViewOrigin = ViewLocation;
+	ViewInitOptions.ViewRotationMatrix = ViewRotationMatrix;
 	ViewInitOptions.BackgroundColor = FLinearColor::Black;
 	ViewInitOptions.OverrideFarClippingPlaneDistance = MaxViewDistance;
 	ViewInitOptions.SceneViewStateInterface = SceneCaptureComponent->GetViewState();
@@ -201,14 +202,28 @@ FSceneRenderer* FScene::CreateSceneRenderer( USceneCaptureComponent* SceneCaptur
 			YAxisMultiplier = 1.0f;
 		}
 
-		ViewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix (
-			FOV,
-			FOV,
-			XAxisMultiplier,
-			YAxisMultiplier,
-			GNearClippingPlane,
-			GNearClippingPlane
-			);
+		if ((int32)ERHIZBuffer::IsInverted != 0)
+		{
+			ViewInitOptions.ProjectionMatrix = FReversedZPerspectiveMatrix(
+				FOV,
+				FOV,
+				XAxisMultiplier,
+				YAxisMultiplier,
+				GNearClippingPlane,
+				GNearClippingPlane
+				);
+		}
+		else
+		{
+			ViewInitOptions.ProjectionMatrix = FPerspectiveMatrix(
+				FOV,
+				FOV,
+				XAxisMultiplier,
+				YAxisMultiplier,
+				GNearClippingPlane,
+				GNearClippingPlane
+				);
+		}
 	}
 
 	FSceneView* View = new FSceneView(ViewInitOptions);
@@ -241,18 +256,22 @@ void FScene::UpdateSceneCaptureContents(USceneCaptureComponent2D* CaptureCompone
 
 	if (CaptureComponent->TextureTarget)
 	{
-		const FTransform& Transform = CaptureComponent->GetComponentToWorld();
-		FMatrix ViewMatrix = Transform.ToInverseMatrixWithScale();
+		FTransform Transform = CaptureComponent->GetComponentToWorld();
 		FVector ViewLocation = Transform.GetTranslation();
+
+		// Remove the translation from Transform because we only need rotation.
+		Transform.SetTranslation(FVector::ZeroVector);
+		FMatrix ViewRotationMatrix = Transform.ToInverseMatrixWithScale();
+
 		// swap axis st. x=z,y=x,z=y (unreal coord space) so that z is up
-		ViewMatrix = ViewMatrix * FMatrix(
+		ViewRotationMatrix = ViewRotationMatrix * FMatrix(
 			FPlane(0,	0,	1,	0),
 			FPlane(1,	0,	0,	0),
 			FPlane(0,	1,	0,	0),
 			FPlane(0,	0,	0,	1));
 		const float FOV = CaptureComponent->FOVAngle * (float)PI / 360.0f;
 		const bool bUseSceneColorTexture = CaptureComponent->CaptureSource == SCS_SceneColorHDR;
-		FSceneRenderer* SceneRenderer = CreateSceneRenderer(CaptureComponent, CaptureComponent->TextureTarget, ViewMatrix , ViewLocation, FOV, CaptureComponent->MaxViewDistanceOverride, bUseSceneColorTexture, &CaptureComponent->PostProcessSettings, CaptureComponent->PostProcessBlendWeight);
+		FSceneRenderer* SceneRenderer = CreateSceneRenderer(CaptureComponent, CaptureComponent->TextureTarget, ViewRotationMatrix , ViewLocation, FOV, CaptureComponent->MaxViewDistanceOverride, bUseSceneColorTexture, &CaptureComponent->PostProcessSettings, CaptureComponent->PostProcessBlendWeight);
 
 		FTextureRenderTargetResource* TextureRenderTarget = CaptureComponent->TextureTarget->GameThread_GetRenderTargetResource();
 		const FName OwnerName = CaptureComponent->GetOwner() ? CaptureComponent->GetOwner()->GetFName() : NAME_None;
@@ -274,7 +293,7 @@ void FScene::UpdateSceneCaptureContents(USceneCaptureComponentCube* CaptureCompo
 	struct FLocal
 	{
 		/** Creates a transformation for a cubemap face, following the D3D cubemap layout. */
-		static FMatrix CalcCubeFaceTransform(ECubeFace Face, FVector WorldLocation)
+		static FMatrix CalcCubeFaceTransform(ECubeFace Face)
 		{
 			static const FVector XAxis(1.f, 0.f, 0.f);
 			static const FVector YAxis(0.f, 1.f, 0.f);
@@ -309,7 +328,7 @@ void FScene::UpdateSceneCaptureContents(USceneCaptureComponentCube* CaptureCompo
 			// derive right vector
 			FVector vRight(vUp ^ vDir);
 			// create matrix from the 3 axes
-			return FBasisVectorMatrix(vRight, vUp, vDir, -WorldLocation);
+			return FBasisVectorMatrix(vRight, vUp, vDir, FVector::ZeroVector);
 		}
 	} ;
 
@@ -322,8 +341,8 @@ void FScene::UpdateSceneCaptureContents(USceneCaptureComponentCube* CaptureCompo
 		{
 			const ECubeFace TargetFace = (ECubeFace)faceidx;
 			const FVector Location = CaptureComponent->GetComponentToWorld().GetTranslation();
-			const FMatrix ViewMatrix = FLocal::CalcCubeFaceTransform(TargetFace, Location);
-			FSceneRenderer* SceneRenderer = CreateSceneRenderer(CaptureComponent, CaptureComponent->TextureTarget, ViewMatrix, Location, FOV, CaptureComponent->MaxViewDistanceOverride);
+			const FMatrix ViewRotationMatrix = FLocal::CalcCubeFaceTransform(TargetFace);
+			FSceneRenderer* SceneRenderer = CreateSceneRenderer(CaptureComponent, CaptureComponent->TextureTarget, ViewRotationMatrix, Location, FOV, CaptureComponent->MaxViewDistanceOverride);
 
 			FTextureRenderTargetCubeResource* TextureRenderTarget = static_cast<FTextureRenderTargetCubeResource*>(CaptureComponent->TextureTarget->GameThread_GetRenderTargetResource());
 			const FName OwnerName = CaptureComponent->GetOwner() ? CaptureComponent->GetOwner()->GetFName() : NAME_None;

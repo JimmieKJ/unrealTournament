@@ -16,11 +16,19 @@ SWebBrowser::SWebBrowser()
 
 void SWebBrowser::Construct(const FArguments& InArgs)
 {
-    OnJSQueryReceived = InArgs._OnJSQueryReceived;
-    OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
+	OnLoadCompleted = InArgs._OnLoadCompleted;
+	OnLoadError = InArgs._OnLoadError;
+	OnLoadStarted = InArgs._OnLoadStarted;
+	OnTitleChanged = InArgs._OnTitleChanged;
+	OnUrlChanged = InArgs._OnUrlChanged;
+	OnJSQueryReceived = InArgs._OnJSQueryReceived;
+	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
 	OnBeforeBrowse = InArgs._OnBeforeBrowse;
 	OnBeforePopup = InArgs._OnBeforePopup;
-    
+	AddressBarUrl = FText::FromString(InArgs._InitialURL);
+	IsHandlingRedraw = false;
+	
+
 	void* OSWindowHandle = nullptr;
 	if (InArgs._ParentWindow.IsValid())
 	{
@@ -28,11 +36,15 @@ void SWebBrowser::Construct(const FArguments& InArgs)
 		OSWindowHandle = NativeWindow->GetOSWindowHandle();
 	}
 
-	BrowserWindow = IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(OSWindowHandle,
-	                                                                             InArgs._InitialURL,
-	                                                                             InArgs._ViewportSize.Get().X,
-	                                                                             InArgs._ViewportSize.Get().Y,
-	                                                                             InArgs._SupportsTransparency);
+	BrowserWindow = IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(
+		OSWindowHandle,
+		InArgs._InitialURL,
+		InArgs._ViewportSize.Get().X,
+		InArgs._ViewportSize.Get().Y,
+		InArgs._SupportsTransparency,
+		InArgs._ContentsToLoad,
+		InArgs._ShowErrorMessage
+	);
 
 	TSharedPtr<SViewport> ViewportWidget;
 
@@ -44,39 +56,59 @@ void SWebBrowser::Construct(const FArguments& InArgs)
 		.Padding(0, 5)
 		[
 			SNew(SHorizontalBox)
-			.Visibility(InArgs._ShowControls ? EVisibility::Visible : EVisibility::Collapsed)
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew(SButton)
-				.Text(LOCTEXT("Back","Back"))
-				.IsEnabled(this, &SWebBrowser::CanGoBack)
-				.OnClicked(this, &SWebBrowser::OnBackClicked)
+				SNew(SHorizontalBox)
+				.Visibility(InArgs._ShowControls ? EVisibility::Visible : EVisibility::Collapsed)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("Back","Back"))
+					.IsEnabled(this, &SWebBrowser::CanGoBack)
+					.OnClicked(this, &SWebBrowser::OnBackClicked)
+				]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("Forward", "Forward"))
+					.IsEnabled(this, &SWebBrowser::CanGoForward)
+					.OnClicked(this, &SWebBrowser::OnForwardClicked)
+				]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.Text(this, &SWebBrowser::GetReloadButtonText)
+					.OnClicked(this, &SWebBrowser::OnReloadClicked)
+				]
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Right)
+				.Padding(5)
+				[
+					SNew(STextBlock)
+					.Visibility(InArgs._ShowAddressBar ? EVisibility::Collapsed : EVisibility::Visible )
+					.Text(this, &SWebBrowser::GetTitleText)
+					.Justification(ETextJustify::Right)
+				]
 			]
 			+SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SButton)
-				.Text(LOCTEXT("Forward", "Forward"))
-				.IsEnabled(this, &SWebBrowser::CanGoForward)
-				.OnClicked(this, &SWebBrowser::OnForwardClicked)
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SButton)
-				.Text(this, &SWebBrowser::GetReloadButtonText)
-				.OnClicked(this, &SWebBrowser::OnReloadClicked)
-			]
-			+SHorizontalBox::Slot()
-			.FillWidth(1.0f)
 			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Right)
-			.Padding(5)
+			.HAlign(HAlign_Fill)
+			.Padding(5.f, 0.f)
 			[
-				SNew(STextBlock)
-				.Text(this, &SWebBrowser::GetTitleText)
-				.Justification(ETextJustify::Right)
+				// @todo: A proper addressbar widget should go here, for now we use a simple textbox.
+				SAssignNew(InputText, SEditableTextBox)
+				.Visibility(InArgs._ShowAddressBar ? EVisibility::Visible : EVisibility::Collapsed)
+				.OnTextCommitted(this, &SWebBrowser::OnUrlTextCommitted)
+				.Text(this, &SWebBrowser::GetAddressBarUrlText)
+				.SelectAllTextWhenFocused(true)
+				.ClearKeyboardFocusOnCommit(true)
+				.RevertTextOnEscape(true)
 			]
 		]
 		+SVerticalBox::Slot()
@@ -109,9 +141,28 @@ void SWebBrowser::Construct(const FArguments& InArgs)
 		BrowserWindow->OnJSQueryCanceled().BindSP(this, &SWebBrowser::HandleJSQueryCanceled);
 		BrowserWindow->OnBeforeBrowse().BindSP(this, &SWebBrowser::HandleBeforeBrowse);
 		BrowserWindow->OnBeforePopup().BindSP(this, &SWebBrowser::HandleBeforePopup);
-
+		BrowserWindow->OnDocumentStateChanged().AddSP(this, &SWebBrowser::HandleBrowserWindowDocumentStateChanged);
+		BrowserWindow->OnNeedsRedraw().AddSP(this, &SWebBrowser::HandleBrowserWindowNeedsRedraw);
+		BrowserWindow->OnTitleChanged().AddSP(this, &SWebBrowser::HandleTitleChanged);
+		BrowserWindow->OnUrlChanged().AddSP(this, &SWebBrowser::HandleUrlChanged);
 		BrowserViewport = MakeShareable(new FWebBrowserViewport(BrowserWindow, ViewportWidget));
 		ViewportWidget->SetViewportInterface(BrowserViewport.ToSharedRef());
+	}
+}
+
+void SWebBrowser::LoadURL(FString NewURL)
+{
+	if (BrowserWindow.IsValid())
+	{
+		BrowserWindow->LoadURL(NewURL);
+	}
+}
+
+void SWebBrowser::LoadString(FString Contents, FString DummyURL)
+{
+	if (BrowserWindow.IsValid())
+	{
+		BrowserWindow->LoadString(Contents, DummyURL);
 	}
 }
 
@@ -122,6 +173,45 @@ FText SWebBrowser::GetTitleText() const
 		return FText::FromString(BrowserWindow->GetTitle());
 	}
 	return LOCTEXT("InvalidWindow", "Browser Window is not valid/supported");
+}
+
+FString SWebBrowser::GetUrl() const
+{
+	if (BrowserWindow->IsValid())
+	{
+		return BrowserWindow->GetUrl();
+	}
+
+	return FString();
+}
+
+FText SWebBrowser::GetAddressBarUrlText() const
+{
+	if(BrowserWindow.IsValid())
+	{
+		return AddressBarUrl;
+	}
+	return FText::GetEmpty();
+}
+
+bool SWebBrowser::IsLoaded() const
+{
+	if (BrowserWindow.IsValid())
+	{
+		return (BrowserWindow->GetDocumentLoadingState() == EWebBrowserDocumentState::Completed);
+	}
+
+	return false;
+}
+
+bool SWebBrowser::IsLoading() const
+{
+	if (BrowserWindow.IsValid())
+	{
+		return (BrowserWindow->GetDocumentLoadingState() == EWebBrowserDocumentState::Loading);
+	}
+
+	return false;
 }
 
 bool SWebBrowser::CanGoBack() const
@@ -191,6 +281,15 @@ FReply SWebBrowser::OnReloadClicked()
 	return FReply::Handled();
 }
 
+void SWebBrowser::OnUrlTextCommitted( const FText& NewText, ETextCommit::Type CommitType )
+{
+	AddressBarUrl = NewText;
+	if(CommitType == ETextCommit::OnEnter)
+	{
+		LoadURL(AddressBarUrl.ToString());
+	}
+}
+
 EVisibility SWebBrowser::GetViewportVisibility() const
 {
 	if (BrowserWindow.IsValid() && BrowserWindow->HasBeenPainted())
@@ -209,23 +308,23 @@ EVisibility SWebBrowser::GetLoadingThrobberVisibility() const
 	return EVisibility::Hidden;
 }
 
-bool SWebBrowser::HandleJSQueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate )
+bool SWebBrowser::HandleJSQueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate)
 {
-    if (OnJSQueryReceived.IsBound())
-    {
-        return OnJSQueryReceived.Execute(QueryId, QueryString, Persistent, Delegate);
-    }
-    return false;
+	if (OnJSQueryReceived.IsBound())
+	{
+		return OnJSQueryReceived.Execute(QueryId, QueryString, Persistent, Delegate);
+	}
+	return false;
 }
 
-void SWebBrowser::HandleJSQueryCanceled( int64 QueryId )
+void SWebBrowser::HandleJSQueryCanceled(int64 QueryId)
 {
-    OnJSQueryCanceled.ExecuteIfBound(QueryId);
+	OnJSQueryCanceled.ExecuteIfBound(QueryId);
 }
 
 bool SWebBrowser::HandleBeforeBrowse(FString URL, bool bIsRedirect)
 {
-	if ( OnBeforeBrowse.IsBound() )
+	if (OnBeforeBrowse.IsBound())
 	{
 		return OnBeforeBrowse.Execute(URL, bIsRedirect);
 	}
@@ -235,7 +334,7 @@ bool SWebBrowser::HandleBeforeBrowse(FString URL, bool bIsRedirect)
 
 bool SWebBrowser::HandleBeforePopup(FString URL, FString Target)
 {
-	if ( OnBeforePopup.IsBound() )
+	if (OnBeforePopup.IsBound())
 	{
 		return OnBeforePopup.Execute(URL, Target);
 	}
@@ -244,10 +343,51 @@ bool SWebBrowser::HandleBeforePopup(FString URL, FString Target)
 }
 
 void SWebBrowser::ExecuteJavascript(const FString& JS)
-{ 
+{
 	if (BrowserWindow.IsValid())
 	{
 		BrowserWindow->ExecuteJavascript(JS);
 	}
 }
+
+void SWebBrowser::HandleBrowserWindowDocumentStateChanged(EWebBrowserDocumentState NewState)
+{
+	switch (NewState)
+	{
+	case EWebBrowserDocumentState::Completed:
+		OnLoadCompleted.ExecuteIfBound();
+		break;
+
+	case EWebBrowserDocumentState::Error:
+		OnLoadError.ExecuteIfBound();
+		break;
+
+	case EWebBrowserDocumentState::Loading:
+		OnLoadStarted.ExecuteIfBound();
+		break;
+	}
+}
+
+void SWebBrowser::HandleBrowserWindowNeedsRedraw()
+{
+	if (!IsHandlingRedraw)
+	{
+		IsHandlingRedraw = true; // Until the delegate has been invoked we don't need to register another timer
+		// Tell slate that the widget needs to wake up for one frame to get redrawn
+		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateLambda([this](double InCurrentTime, float InDeltaTime) { IsHandlingRedraw = false;  return EActiveTimerReturnType::Stop; }));
+	}
+}
+
+void SWebBrowser::HandleTitleChanged( FString NewTitle )
+{
+	const FText NewTitleText = FText::FromString(NewTitle);
+	OnTitleChanged.ExecuteIfBound(NewTitleText);
+}
+
+void SWebBrowser::HandleUrlChanged( FString NewUrl )
+{
+	AddressBarUrl = FText::FromString(NewUrl);
+	OnTitleChanged.ExecuteIfBound(AddressBarUrl);
+}
+
 #undef LOCTEXT_NAMESPACE

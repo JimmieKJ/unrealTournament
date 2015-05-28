@@ -29,7 +29,7 @@ UThumbnailInfo* FAssetTypeActions_MaterialInterface::GetThumbnailInfo(UObject* A
 	UThumbnailInfo* ThumbnailInfo = MaterialInterface->ThumbnailInfo;
 	if ( ThumbnailInfo == NULL )
 	{
-		ThumbnailInfo = ConstructObject<USceneThumbnailInfoWithPrimitive>(USceneThumbnailInfoWithPrimitive::StaticClass(), MaterialInterface);
+		ThumbnailInfo = NewObject<USceneThumbnailInfoWithPrimitive>(MaterialInterface);
 		MaterialInterface->ThumbnailInfo = ThumbnailInfo;
 	}
 
@@ -51,7 +51,7 @@ void FAssetTypeActions_MaterialInterface::ExecuteNewMIC(TArray<TWeakObjectPtr<UM
 			FString PackageName;
 			CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
-			UMaterialInstanceConstantFactoryNew* Factory = ConstructObject<UMaterialInstanceConstantFactoryNew>(UMaterialInstanceConstantFactoryNew::StaticClass());
+			UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
 			Factory->InitialParent = Object;
 
 			FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
@@ -72,7 +72,7 @@ void FAssetTypeActions_MaterialInterface::ExecuteNewMIC(TArray<TWeakObjectPtr<UM
 				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
 				// Create the factory used to generate the asset
-				UMaterialInstanceConstantFactoryNew* Factory = ConstructObject<UMaterialInstanceConstantFactoryNew>(UMaterialInstanceConstantFactoryNew::StaticClass());
+				UMaterialInstanceConstantFactoryNew* Factory = NewObject<UMaterialInstanceConstantFactoryNew>();
 				Factory->InitialParent = Object;
 
 				FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");

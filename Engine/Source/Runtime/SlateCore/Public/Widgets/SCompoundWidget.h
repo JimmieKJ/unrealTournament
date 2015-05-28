@@ -2,6 +2,10 @@
 
 #pragma once
 
+#include "SWidget.h"
+#include "SlateColor.h"
+#include "Children.h"
+
 
 /**
  * A CompoundWidget is the base from which most non-primitive widgets should be built.
@@ -65,7 +69,7 @@ public:
 
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 	virtual FChildren* GetChildren() override;
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
 	virtual FSlateColor GetForegroundColor() const override;
 

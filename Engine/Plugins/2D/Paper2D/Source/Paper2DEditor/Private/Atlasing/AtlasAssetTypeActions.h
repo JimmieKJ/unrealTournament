@@ -7,6 +7,8 @@
 class FAtlasAssetTypeActions : public FAssetTypeActions_Base
 {
 public:
+	FAtlasAssetTypeActions(EAssetTypeCategories::Type InAssetCategory);
+
 	// IAssetTypeActions interface
 	virtual FText GetName() const override;
 	virtual FColor GetTypeColor() const override;
@@ -15,4 +17,7 @@ public:
 	virtual uint32 GetCategories() override;
 	virtual FText GetAssetDescription(const FAssetData& AssetData) const override;
 	// End of IAssetTypeActions interface
+
+private:
+	EAssetTypeCategories::Type MyAssetCategory;
 };

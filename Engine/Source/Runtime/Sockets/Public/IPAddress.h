@@ -245,12 +245,10 @@ class FResolveInfoAsync :
 		{
 			Parent->DoWork();
 		}
-		/** Give the name for external event viewers
-		* @return	the name to display in external event viewers
-		*/
-		static const TCHAR *Name()
+
+		FORCEINLINE TStatId GetStatId() const
 		{
-			return TEXT("FResolveInfoAsyncWorker");
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FResolveInfoAsyncWorker, STATGROUP_ThreadPoolAsyncTasks);
 		}
 
 		/** Indicates to the thread pool that this task is abandonable */

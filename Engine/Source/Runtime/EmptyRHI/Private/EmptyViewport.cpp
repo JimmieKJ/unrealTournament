@@ -20,7 +20,7 @@ FEmptyViewport::~FEmptyViewport()
 /*=============================================================================
  *	The following RHI functions must be called from the main thread.
  *=============================================================================*/
-FViewportRHIRef FEmptyDynamicRHI::RHICreateViewport(void* WindowHandle,uint32 SizeX,uint32 SizeY,bool bIsFullscreen)
+FViewportRHIRef FEmptyDynamicRHI::RHICreateViewport(void* WindowHandle,uint32 SizeX,uint32 SizeY,bool bIsFullscreen,EPixelFormat PreferredPixelFormat)
 {
 	check( IsInGameThread() );
 	return new FEmptyViewport(WindowHandle, SizeX, SizeY, bIsFullscreen);
@@ -30,7 +30,7 @@ void FEmptyDynamicRHI::RHIResizeViewport(FViewportRHIParamRef ViewportRHI,uint32
 {
 	check( IsInGameThread() );
 
-	DYNAMIC_CAST_EMPTYRESOURCE(Viewport,Viewport);
+	FEmptyViewport* Viewport = ResourceCast(ViewportRHI);
 }
 
 void FEmptyDynamicRHI::RHITick( float DeltaTime )
@@ -45,14 +45,14 @@ void FEmptyDynamicRHI::RHITick( float DeltaTime )
 
 void FEmptyDynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI, FTextureRHIParamRef RenderTargetRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(Viewport,Viewport);
+	FEmptyViewport* Viewport = ResourceCast(ViewportRHI);
 
 	RHISetRenderTarget(RHIGetViewportBackBuffer(ViewportRHI), NULL);
 }
 
 void FEmptyDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bool bPresent,bool bLockToVsync)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(Viewport,Viewport);
+	FEmptyViewport* Viewport = ResourceCast(ViewportRHI);
 }
 
 bool FEmptyDynamicRHI::RHIIsDrawingViewport()
@@ -62,7 +62,11 @@ bool FEmptyDynamicRHI::RHIIsDrawingViewport()
 
 FTexture2DRHIRef FEmptyDynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef ViewportRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(Viewport,Viewport);
+	FEmptyViewport* Viewport = ResourceCast(ViewportRHI);
 
 	return FTexture2DRHIRef();
+}
+
+void FEmptyDynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()
+{
 }

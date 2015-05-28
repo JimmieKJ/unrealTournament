@@ -7,6 +7,9 @@
 #ifndef UNREAL_NETWORK_PROFILER_H
 #define UNREAL_NETWORK_PROFILER_H
 
+class UNetConnection;
+class FInternetAddr;
+
 #if USE_NETWORK_PROFILER 
 
 #define NETWORK_PROFILER( x ) if ( GNetworkProfiler.IsTrackingEnabled() ) { x; }
@@ -42,6 +45,53 @@ private:
 
 	/** URL used for current tracking session.														*/
 	FURL									CurrentURL;
+	
+	/** All the data required for writing sent bunches to the profiler stream						*/
+	struct FSendBunchInfo
+	{
+		uint16 ChannelIndex;
+		uint8 ChannelType;
+		uint16 NumHeaderBits;
+		uint16 NumPayloadBits;
+
+		FSendBunchInfo()
+			: ChannelIndex(0)
+			, ChannelType(0)
+			, NumHeaderBits(0)
+			, NumPayloadBits(0) {}
+
+		FSendBunchInfo( uint16 InChannelIndex, uint8 InChannelType, uint16 InNumHeaderBits, uint16 InNumPayloadBits )
+			: ChannelIndex(InChannelIndex)
+			, ChannelType(InChannelType)
+			, NumHeaderBits(InNumHeaderBits)
+			, NumPayloadBits(InNumPayloadBits) {}
+	};
+
+	/** Stack outgoing bunches per connection, the top bunch for a connection may be popped if it gets merged with a new bunch.		*/
+	TMap<UNetConnection*, TArray<FSendBunchInfo>>	OutgoingBunches;
+
+	/** Data required to write queued RPCs to the profiler stream */
+	struct FQueuedRPCInfo
+	{
+		UNetConnection* Connection;
+		UObject* TargetObject;
+		int32 ActorNameIndex;
+		int32 FunctionNameIndex;
+		uint16 NumHeaderBits;
+		uint16 NumParameterBits;
+		uint16 NumFooterBits;
+
+		FQueuedRPCInfo()
+			: Connection(nullptr)
+			, TargetObject(nullptr)
+			, ActorNameIndex(0)
+			, FunctionNameIndex(0)
+			, NumHeaderBits(0)
+			, NumParameterBits(0)
+			, NumFooterBits(0) {}
+	};
+	
+	TArray<FQueuedRPCInfo> QueuedRPCs;
 
 	/**
 	 * Returns index of passed in name into name array. If not found, adds it.
@@ -67,17 +117,40 @@ public:
 	/**
 	 * Marks the beginning of a frame.
 	 */
-	void TrackFrameBegin();
+	ENGINE_API void TrackFrameBegin();
 	
 	/**
 	 * Tracks and RPC being sent.
 	 * 
-	 * @param	Actor		Actor RPC is being called on
-	 * @param	Function	Function being called
-	 * @param	NumBits		Number of bits serialized into bunch for this RPC
+	 * @param	Actor				Actor RPC is being called on
+	 * @param	Function			Function being called
+	 * @param	NumHeaderBits		Number of bits serialized into the header for this RPC
+	 * @param	NumParameterBits	Number of bits serialized into parameters of this RPC
+	 * @param	NumFooterBits		Number of bits serialized into the footer of this RPC (EndContentBlock)
 	 */
-	void TrackSendRPC( const AActor* Actor, const UFunction* Function, uint16 NumBits );
+	void TrackSendRPC( const AActor* Actor, const UFunction* Function, uint16 NumHeaderBits, uint16 NumParameterBits, uint16 NumFooterBits );
 	
+	/**
+	 * Tracks queued RPCs (unreliable multicast) being sent.
+	 * 
+	 * @param	Connection			The connection on which this RPC is queued
+	 * @param	TargetObject		The target object of the RPC
+	 * @param	Actor				Actor RPC is being called on
+	 * @param	Function			Function being called
+	 * @param	NumHeaderBits		Number of bits serialized into the header for this RPC
+	 * @param	NumParameterBits	Number of bits serialized into parameters of this RPC
+	 * @param	NumFooterBits		Number of bits serialized into the footer of this RPC (EndContentBlock)
+	 */
+	void TrackQueuedRPC( UNetConnection* Connection, UObject* TargetObject, const AActor* Actor, const UFunction* Function, uint16 NumHeaderBits, uint16 NumParameterBits, uint16 NumFooterBits );
+
+	/**
+	 * Writes all queued RPCs for the connection to the profiler stream
+	 *
+	 * @param Connection The connection for which RPCs are being flushed
+	 * @param TargetObject The target object of the RPC
+	 */
+	void FlushQueuedRPCs( UNetConnection* Connection, UObject* TargetObject );
+
 	/**
 	 * Low level FSocket::Send information.
 	 *
@@ -93,9 +166,21 @@ public:
  	 * @param	SocketDesc				Description of socket data is being sent to
 	 * @param	Data					Data sent
 	 * @param	BytesSent				Bytes actually being sent
+	 * @param	NumPacketIdBits			Number of bits sent for the packet id
+	 * @param	NumBunchBits			Number of bits sent in bunches
+	 * @param	NumAckBits				Number of bits sent in acks
+	 * @param	NumPaddingBits			Number of bits appended to the end to byte-align the data
 	 * @param	Destination				Destination address
 	 */
-	ENGINE_API void TrackSocketSendTo( const FString& SocketDesc, const void* Data, uint16 BytesSent, const FInternetAddr& Destination );
+	ENGINE_API void TrackSocketSendTo(
+		const FString& SocketDesc,
+		const void* Data,
+		uint16 BytesSent,
+		uint16 NumPacketIdBits,
+		uint16 NumBunchBits,
+		uint16 NumAckBits,
+		uint16 NumPaddingBits,
+		const FInternetAddr& Destination );
 
 	/**
 	 * Low level FSocket::SendTo information.
@@ -105,7 +190,15 @@ public:
 	 * @param	BytesSent				Bytes actually being sent
 	 * @param	IpAddr					Destination address
 	 */
-	void TrackSocketSendToCore( const FString& SocketDesc, const void* Data, uint16 BytesSent, uint32 IpAddr );
+	void TrackSocketSendToCore(
+		const FString& SocketDesc,
+		const void* Data,
+		uint16 BytesSent,
+		uint16 NumPacketIdBits,
+		uint16 NumBunchBits,
+		uint16 NumAckBits,
+		uint16 NumPaddingBits,
+		uint32 IpAddr );
 
 	
 	/**
@@ -116,6 +209,31 @@ public:
 	 */
 	void TrackSendBunch( FOutBunch* OutBunch, uint16 NumBits );
 	
+	/**
+	 * Add a sent bunch to the stack. These bunches are not written to the stream immediately,
+	 * because they may be merged with another bunch in the future.
+	 *
+	 * @param Connection The connection on which this bunch was sent
+	 * @param OutBunch The bunch being sent
+	 * @param NumHeaderBits Number of bits in the bunch header
+	 * @param NumPayloadBits Number of bits in the bunch, excluding the header
+	 */
+	void PushSendBunch( UNetConnection* Connection, FOutBunch* OutBunch, uint16 NumHeaderBits, uint16 NumPayloadBits );
+
+	/**
+	 * Pops the latest bunch for a connection, since it is going to be merged with the next bunch.
+	 *
+	 * @param Connection the connection which is merging a bunch
+	 */
+	void PopSendBunch( UNetConnection* Connection );
+
+	/**
+	 * Writes all the outgoing bunches for a connection in the stack to the profiler data stream.
+	 *
+	 * @param Connection the connection which is about to send any pending bunches over the network
+	 */
+	ENGINE_API void FlushOutgoingBunches( UNetConnection* Connection );
+
 	/**
 	 * Track actor being replicated.
 	 *
@@ -130,6 +248,14 @@ public:
 	 * @param	NumBits		Number of bits used to replicate this property
 	 */
 	void TrackReplicateProperty( const UProperty* Property, uint16 NumBits );
+
+	/**
+	 * Track property header being written.
+	 *
+	 * @param	Property	Property being replicated
+	 * @param	NumBits		Number of bits used in the header
+	 */
+	void TrackWritePropertyHeader( const UProperty* Property, uint16 NumBits );
 
 	/**
 	 * Track event occuring, like e.g. client join/ leave
@@ -148,6 +274,50 @@ public:
 	 * @param	InURL						URL used for new session
 	 */
 	void TrackSessionChange( bool bShouldContinueTracking, const FURL& InURL );
+
+	/**
+	 * Track sent acks.
+	 *
+	 * @param NumBits Number of bits in the ack
+	 */
+	void TrackSendAck( uint16 NumBits );
+
+	/**
+	 * Track NetGUID export bunches.
+	 *
+	 * @param NumBits Number of bits in the GUIDs
+	 */
+	void TrackExportBunch( uint16 NumBits );
+
+	/**
+	 * Track "must be mapped" GUIDs
+	 *
+	 * @param NumGuids Number of GUIDs added to the bunch
+	 * @param NumBits Number of bits added to the bunch for the GUIDs
+	 */
+	void TrackMustBeMappedGuids( uint16 NumGuids, uint16 NumBits );
+
+	/**
+	 * Track actor content block headers
+	 *
+	 * @param Object the object being replicated (might be a subobject of the actor)
+	 * @param NumBits the number of bits in the content block header
+	 */
+	void TrackBeginContentBlock( UObject* Object, uint16 NumBits );
+
+	/**
+	 * Track actor content block headers
+	 *
+	 * @param Object the object being replicated (might be a subobject of the actor)
+	 * @param NumBits the number of bits in the content block footer
+	 */
+	void TrackEndContentBlock( UObject* Object, uint16 NumBits );
+
+	/** Track property handles
+	 *
+	 * @param NumBits Number of bits in the property handle
+	 */
+	void TrackWritePropertyHandle( uint16 NumBits );
 
 	/**
 	 * Processes any network profiler specific exec commands

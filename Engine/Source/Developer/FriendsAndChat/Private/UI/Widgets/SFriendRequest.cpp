@@ -13,10 +13,10 @@ class SFriendRequestImpl : public SFriendRequest
 {
 public:
 
-	void Construct(const FArguments& InArgs, const TSharedRef<FFriendsViewModel>& ViewModel)
+	void Construct(const FArguments& InArgs, const TSharedRef<FFriendsViewModel>& InViewModel)
 	{
 		FriendStyle = *InArgs._FriendStyle;
-		this->ViewModel = ViewModel;
+		ViewModel = InViewModel;
 		// Set up titles
 		const FText SearchStringLabel = LOCTEXT( "FriendList_SearchLabel", "[Enter Display Name]" );
 

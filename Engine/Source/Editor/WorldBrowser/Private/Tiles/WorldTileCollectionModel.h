@@ -31,9 +31,10 @@ public:
 	virtual void TranslateLevels(const FLevelModelList& InList, FVector2D InAbsoluteDelta, bool bSnapDelta = true)  override;
 	virtual FVector2D SnapTranslationDelta(const FLevelModelList& InList, FVector2D InTranslationDelta, bool bBoundsSnapping, float InSnappingValue) override;
 	virtual TSharedPtr<FLevelDragDropOp> CreateDragDropOp() const override;
-	virtual bool PassesAllFilters(TSharedPtr<FLevelModel> InLevelModel) const override;
+	virtual bool PassesAllFilters(const FLevelModel& InLevelModel) const override;
 	virtual void BuildHierarchyMenu(FMenuBuilder& InMenuBuilder) const override;
 	virtual void CustomizeFileMainMenu(FMenuBuilder& InMenuBuilder) const override;
+	virtual bool GetPlayerView(FVector& Location, FRotator& Rotation) const override;
 	virtual bool GetObserverView(FVector& Location, FRotator& Rotation) const override;
 	virtual bool CompareLevelsZOrder(TSharedPtr<FLevelModel> InA, TSharedPtr<FLevelModel> InB) const override;
 	virtual void RegisterDetailsCustomization(class FPropertyEditorModule& PropertyModule, TSharedPtr<class IDetailsView> InDetailsView)  override;
@@ -77,8 +78,8 @@ public:
 	/** Show a levels in the editor and place them to actual world position */
 	void UnshelveLevels(const FWorldTileModelList& InLevels);
 
-	/** Whether specified list of levels has at least one landscape level */
-	bool HasLandscapeLevel(const FWorldTileModelList& InLevels) const;
+	/** Whether any of the currently selected levels have landscape actor */
+	bool AreAnySelectedLevelsHaveLandscape() const;
 	
 	/** Creates a new empty level 
 	 *	@return LevelModel of a new empty level
@@ -113,7 +114,7 @@ public:
 	void UpdateStreamingPreview(FVector2D InPreviewLocation, bool bEnabled);
 
 	/** Returns list of visible streaming levels for current preview location */
-	const TSet<FName>& GetPreviewStreamingLevels() const;
+	const TMap<FName, int32>& GetPreviewStreamingLevels() const;
 		
 	/** Calculates snapped moving delta based on specified landscape tile */
 	FVector2D SnapTranslationDeltaLandscape(const TSharedPtr<FWorldTileModel>& LandscapeTile, 
@@ -233,9 +234,9 @@ private:
 	void ReimportTiledLandscape_Executed(FName TargetLayer);
 
 public:
-	/** Whether Editor has support for generating LOD levels */	
-	bool HasGenerateLODLevelSupport() const;
-	
+	/** Whether Editor has support for generating static mesh proxies */	
+	bool HasMeshProxySupport() const;
+
 	/** 
 	 * Generates simplified versions of a specified levels. Levels has to be loaded.
 	 * Currently all static meshes found inside one level will be merged into one proxy mesh using Simplygon ProxyLOD
@@ -251,7 +252,7 @@ private:
 	FLevelModelList						StaticTileList;	
 
 	/** Cached streaming tiles which are potentially visible from specified view point*/
-	TSet<FName>							PreviewVisibleTiles;
+	TMap<FName, int32>					PreviewVisibleTiles;
 	
 	/** View point location for calculating potentially visible streaming tiles*/
 	FVector								PreviewLocation;

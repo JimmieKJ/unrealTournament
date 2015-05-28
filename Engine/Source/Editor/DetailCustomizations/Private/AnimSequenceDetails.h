@@ -24,6 +24,7 @@ public:
 	virtual ~FAnimSequenceDetails();
 
 private:
+	
 	TWeakObjectPtr<USkeleton> TargetSkeleton;
 
 	TSharedPtr<IPropertyHandle> AdditiveAnimTypeHandle;
@@ -70,10 +71,14 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	void RefreshViewport();
 
 private:
+
+	/** Called to tick the preview during playback */
+	void OnTickPreview( double InCurrentTime, float InDeltaTime );
+
 	void InitSkeleton();
 
 	TSharedPtr<FEditorViewportClient> LevelViewportClient;

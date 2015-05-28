@@ -72,9 +72,14 @@ namespace EpicGames.MCP.Automation
         Windows,
 
         /// <summary>
-        /// Only other platform MCP understands is Mac.
+        /// Mac platform.
         /// </summary>
         Mac,
+
+		/// <summary>
+		/// Linux platform.
+		/// </summary>
+		Linux
     }
 
     /// <summary>
@@ -155,22 +160,42 @@ namespace EpicGames.MCP.Automation
         /// </summary>
         static public MCPPlatform ToMCPPlatform(UnrealTargetPlatform TargetPlatform)
         {
-            if (TargetPlatform != UnrealTargetPlatform.Win64 && TargetPlatform != UnrealTargetPlatform.Win32 && TargetPlatform != UnrealTargetPlatform.Mac)
+            if (TargetPlatform != UnrealTargetPlatform.Win64 && TargetPlatform != UnrealTargetPlatform.Win32 && TargetPlatform != UnrealTargetPlatform.Mac && TargetPlatform != UnrealTargetPlatform.Linux)
             {
                 throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
             }
-            return (TargetPlatform == UnrealTargetPlatform.Win64 || TargetPlatform == UnrealTargetPlatform.Win32) ? MCPPlatform.Windows : MCPPlatform.Mac;
+
+			if (TargetPlatform == UnrealTargetPlatform.Win64 || TargetPlatform == UnrealTargetPlatform.Win32)
+			{
+				return MCPPlatform.Windows;
+			}
+			else if (TargetPlatform == UnrealTargetPlatform.Mac)
+			{
+				return MCPPlatform.Mac;
+			}
+
+			return MCPPlatform.Linux;
         }
         /// <summary>
         /// Determine the platform name (Win32/64 becomes Windows, Mac is Mac, the rest we don't currently understand)
         /// </summary>
         static public UnrealTargetPlatform FromMCPPlatform(MCPPlatform TargetPlatform)
         {
-            if (TargetPlatform != MCPPlatform.Windows && TargetPlatform != MCPPlatform.Mac)
+            if (TargetPlatform != MCPPlatform.Windows && TargetPlatform != MCPPlatform.Mac && TargetPlatform != MCPPlatform.Linux)
             {
                 throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
             }
-            return (TargetPlatform == MCPPlatform.Windows) ? UnrealTargetPlatform.Win64 : UnrealTargetPlatform.Mac;
+
+			if (TargetPlatform == MCPPlatform.Windows)
+			{
+				return UnrealTargetPlatform.Win64;
+			}
+			else if (TargetPlatform == MCPPlatform.Mac)
+			{
+				return UnrealTargetPlatform.Mac;
+			}
+
+			return UnrealTargetPlatform.Linux;
         }
         /// <summary>
         /// Returns the build root path (P:\Builds on build machines usually)
@@ -331,6 +356,48 @@ namespace EpicGames.MCP.Automation
 			public List<KeyValuePair<string, float>> CustomFloatArgs;
 		}
 
+		/// <summary>
+		/// Represents the options passed to the compactify process
+		/// </summary>
+		public class CompactifyOptions
+		{
+			private static readonly int DefaultDataAgeThreshold = PatchGenerationOptions.DEFAULT_DATA_AGE_THRESHOLD + 2;
+
+			public CompactifyOptions()
+			{
+				DataAgeThreshold = DefaultDataAgeThreshold;
+			}
+
+			/// <summary>
+			/// BuildPatchTool will run a compactify on this directory.
+			/// </summary>
+			public string CompactifyDirectory;
+			/// <summary>
+			/// Corresponds to the -preview parameter
+			/// </summary>
+			public bool bPreviewCompactify;
+			/// <summary>
+			/// Corresponds to the -nopatchdelete parameter
+			/// </summary>
+			public bool bNoPatchDeleteCompactify;
+			/// <summary>
+			/// The full list of manifest files in the compactify directory that we wish to keep; all others will be deleted.
+			/// </summary>
+			public string[] ManifestsToKeep;
+			/// <summary>
+			/// A filename (relative to the compactify directory) which contains a list of manifests to keep, one manifest per line.
+			/// N.b. If ManifestsToKeep is specified, then this option is ignored.
+			/// </summary>
+			public string ManifestsToKeepFile;
+			/// <summary>
+			/// Path data files modified within this number of days will *not* be deleted, allowing them to be reused by patch generation processes.
+			/// IMPORTANT: This should always be larger than the data age threshold for any build processes which will run on the directory, to ensure
+			/// that we do not delete any files which could be reused by a concurrently running build. It is recommended that this number be at least
+			/// two days greater than the build data age threshold.
+			/// </summary>
+			public int DataAgeThreshold;
+		}
+
 		public class DataEnumerationOptions
 		{
 			/// <summary>
@@ -341,6 +408,10 @@ namespace EpicGames.MCP.Automation
 			/// Matches the corresponding BuildPatchTool command line argument.
 			/// </summary>
 			public string OutputFile;
+			/// <summary>
+			/// When true, the output will include the size of individual files
+			/// </summary>
+			public bool bIncludeSize;
 		}
 
         static BuildPatchToolBase Handler = null;
@@ -375,6 +446,12 @@ namespace EpicGames.MCP.Automation
         /// </summary>
 		/// <param name="Opts">Parameters which will be passed to the patch tool generation process</param>
 		public abstract void Execute(PatchGenerationOptions Opts);
+
+		/// <summary>
+		/// Runs the Build Patch Tool executable to compactify a cloud directory using the supplied parameters.
+		/// </summary>
+		/// <param name="Opts">Parameters which will be passed to the patch tool generation process</param>
+		public abstract void Execute(CompactifyOptions Opts);
 
 		/// <summary>
 		/// Runs the Build Patch Tool executable to enumerate patch data files referenced by a manifest using the supplied parameters.
@@ -663,8 +740,40 @@ namespace EpicGames.MCP.Automation
 		/// </summary>
 		/// <param name="Container">The name of the folder or container from which to list files.</param>
 		/// <param name="Prefix">A string with which the identifier or filename should start. Typically used to specify a relative directory within the container to list all of its files recursively. Specify null to return all files.</param>
+		/// <param name="Recursive">Indicates whether the list of files returned should traverse subdirectories</param>
 		/// <returns>An array of paths to the files in the specified location and matching the prefix constraint.</returns>
-		abstract public string[] ListFiles(string Container, string Prefix = null);
+		abstract public string[] ListFiles(string Container, string Prefix = null, bool bRecursive = true);
+
+		/// <summary>
+		/// Sets one or more items of metadata on an object in cloud storage
+		/// </summary>
+		/// <param name="Container">The name of the folder or container in which the file is stored.</param>
+		/// <param name="Identifier">The identifier of filename of the file to set metadata on.</param>
+		/// <param name="Metadata">A dictionary containing the metadata keys and their values</param>
+		/// <param name="bMerge">If true, then existing metadata will be replaced (or overwritten if the keys match). If false, no existing metadata is retained.</param>
+		abstract public void SetMetadata(string Container, string Identifier, IDictionary<string, object> Metadata, bool bMerge = true);
+
+		/// <summary>
+		/// Gets all items of metadata on an object in cloud storage. Metadata values are all returned as strings.
+		/// </summary>
+		/// <param name="Container">The name of the folder or container in which the file is stored.</param>
+		/// <param name="Identifier">The identifier of filename of the file to get metadata.</param>
+		abstract public Dictionary<string, string> GetMetadata(string Container, string Identifier);
+
+		/// <summary>
+		/// Gets an item of metadata from an object in cloud storage. The object is casted to the specified type.
+		/// </summary>
+		/// <param name="Container">The name of the folder or container in which the file is stored.</param>
+		/// <param name="Identifier">The identifier of filename of the file to get metadata.</param>
+		/// <param name="MetadataKey">The key of the item of metadata to retrieve.</param>
+		abstract public T GetMetadata<T>(string Container, string Identifier, string MetadataKey);
+
+		/// <summary>
+		/// Updates the timestamp on a particular file in cloud storage to the current time.
+		/// </summary>
+		/// <param name="Container">The identifier of filename of the file to touch.</param>
+		/// <param name="Identifier">The identifier of filename of the file to touch.</param>
+		abstract public void TouchFile(string Container, string Identifier);
 
 		/// <summary>
 		/// Copies chunks from a staged location to cloud storage.

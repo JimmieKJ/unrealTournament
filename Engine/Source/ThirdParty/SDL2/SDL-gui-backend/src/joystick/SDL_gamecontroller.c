@@ -88,9 +88,8 @@ typedef struct _ControllerMapping_t
 } ControllerMapping_t;
 
 static ControllerMapping_t *s_pSupportedControllers = NULL;
-#if defined(SDL_JOYSTICK_DINPUT) || defined(SDL_JOYSTICK_XINPUT)
 static ControllerMapping_t *s_pXInputMapping = NULL;
-#endif
+static ControllerMapping_t *s_pEmscriptenMapping = NULL;
 
 /* The SDL game controller structure */
 struct _SDL_GameController
@@ -260,9 +259,15 @@ ControllerMapping_t *SDL_PrivateGetControllerMappingForGUID(SDL_JoystickGUID *gu
  */
 ControllerMapping_t *SDL_PrivateGetControllerMapping(int device_index)
 {
-#if defined(SDL_JOYSTICK_DINPUT) || defined(SDL_JOYSTICK_XINPUT)
-    if (SDL_SYS_IsXInputDeviceIndex(device_index) && s_pXInputMapping) {
+#if SDL_JOYSTICK_XINPUT
+    if (SDL_SYS_IsXInputGamepad_DeviceIndex(device_index) && s_pXInputMapping) {
         return s_pXInputMapping;
+    }
+    else
+#endif
+#if defined(SDL_JOYSTICK_EMSCRIPTEN)
+    if (s_pEmscriptenMapping) {
+        return s_pEmscriptenMapping;
     }
     else
 #endif
@@ -608,7 +613,7 @@ SDL_GameControllerAddMappingsFromRW(SDL_RWops * rw, int freerw)
         if (freerw) {
             SDL_RWclose(rw);
         }
-        return SDL_SetError("Could allocate space to not read DB into memory");
+        return SDL_SetError("Could not allocate space to read DB into memory");
     }
     
     if (SDL_RWread(rw, buf, db_size, 1) != 1) {
@@ -669,19 +674,23 @@ SDL_GameControllerAddMapping(const char *mappingString)
     char *pchMapping;
     SDL_JoystickGUID jGUID;
     ControllerMapping_t *pControllerMapping;
-#if defined(SDL_JOYSTICK_DINPUT) || defined(SDL_JOYSTICK_XINPUT)
     SDL_bool is_xinput_mapping = SDL_FALSE;
-#endif
+    SDL_bool is_emscripten_mapping = SDL_FALSE;
+
+    if (!mappingString) {
+        return SDL_InvalidParamError("mappingString");
+    }
 
     pchGUID = SDL_PrivateGetControllerGUIDFromMappingString(mappingString);
     if (!pchGUID) {
         return SDL_SetError("Couldn't parse GUID from %s", mappingString);
     }
-#if defined(SDL_JOYSTICK_DINPUT) || defined(SDL_JOYSTICK_XINPUT)
     if (!SDL_strcasecmp(pchGUID, "xinput")) {
         is_xinput_mapping = SDL_TRUE;
     }
-#endif
+    if (!SDL_strcasecmp(pchGUID, "emscripten")) {
+        is_emscripten_mapping = SDL_TRUE;
+    }
     jGUID = SDL_JoystickGetGUIDFromString(pchGUID);
     SDL_free(pchGUID);
 
@@ -714,11 +723,12 @@ SDL_GameControllerAddMapping(const char *mappingString)
             SDL_free(pchMapping);
             return SDL_OutOfMemory();
         }
-#if defined(SDL_JOYSTICK_DINPUT) || defined(SDL_JOYSTICK_XINPUT)
         if (is_xinput_mapping) {
             s_pXInputMapping = pControllerMapping;
         }
-#endif
+        if (is_emscripten_mapping) {
+            s_pEmscriptenMapping = pControllerMapping;
+        }
         pControllerMapping->guid = jGUID;
         pControllerMapping->name = pchName;
         pControllerMapping->mapping = pchMapping;
@@ -743,6 +753,10 @@ SDL_GameControllerMappingForGUID(SDL_JoystickGUID guid)
         /* allocate enough memory for GUID + ',' + name + ',' + mapping + \0 */
         needed = SDL_strlen(pchGUID) + 1 + SDL_strlen(mapping->name) + 1 + SDL_strlen(mapping->mapping) + 1;
         pMappingString = SDL_malloc(needed);
+        if (!pMappingString) {
+            SDL_OutOfMemory();
+            return NULL;
+        }
         SDL_snprintf(pMappingString, needed, "%s,%s,%s", pchGUID, mapping->name, mapping->mapping);
     }
     return pMappingString;
@@ -754,6 +768,10 @@ SDL_GameControllerMappingForGUID(SDL_JoystickGUID guid)
 char *
 SDL_GameControllerMapping(SDL_GameController * gamecontroller)
 {
+    if (!gamecontroller) {
+        return NULL;
+    }
+
     return SDL_GameControllerMappingForGUID(gamecontroller->mapping.guid);
 }
 
@@ -1000,9 +1018,6 @@ SDL_GameControllerGetAttached(SDL_GameController * gamecontroller)
 }
 
 
-/*
- * Get the number of multi-dimensional axis controls on a joystick
- */
 const char *
 SDL_GameControllerName(SDL_GameController * gamecontroller)
 {
@@ -1074,9 +1089,6 @@ SDL_GameControllerButtonBind SDL_GameControllerGetBindForButton(SDL_GameControll
 }
 
 
-/*
- * Close a joystick previously opened with SDL_JoystickOpen()
- */
 void
 SDL_GameControllerClose(SDL_GameController * gamecontroller)
 {

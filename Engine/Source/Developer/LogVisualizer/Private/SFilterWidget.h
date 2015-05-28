@@ -14,7 +14,7 @@ public:
 
 	SLATE_BEGIN_ARGS(SFilterWidget){}
 		/** If this is an front end filter, this is the filter object */
-		SLATE_ARGUMENT(FName, FilterName)
+	SLATE_ARGUMENT(FName, FilterName)
 		/** Color selected for filter*/
 		SLATE_ARGUMENT(FLinearColor, ColorCategory)
 		/** Invoked when the filter toggled */
@@ -38,21 +38,10 @@ public:
 	FText GetTooltipString() const;
 
 	/** Sets whether or not this filter is applied to the combined filter */
-	void SetEnabled(bool InEnabled)
-	{
-		if (InEnabled != bEnabled)
-		{
-			bEnabled = InEnabled;
-			OnFilterChanged.ExecuteIfBound();
-		}
-	}
+	void SetEnabled(bool InEnabled);
 
 	/** Returns true if this filter contributes to the combined filter */
-	bool IsEnabled() const { return bEnabled; }
-
-	void SetVerbosity(ELogVerbosity::Type InVerbosity) { Verbosity = InVerbosity; }
-
-	ELogVerbosity::Type GetVerbosity() const { return Verbosity; }
+	bool IsEnabled() const;
 
 	FORCEINLINE FName GetFilterName() const { return FilterName; }
 
@@ -68,21 +57,18 @@ public:
 		return UnknownFilter;
 	}
 
+	void SetBorderBackgroundColor(FLinearColor InColor) { BorderBackgroundColor = InColor; }
+
 private:
 	/** Handler for when the filter checkbox is clicked */
-	void FilterToggled(ECheckBoxState NewState)
-	{
-		bEnabled = NewState == ECheckBoxState::Checked;
-		OnFilterChanged.ExecuteIfBound();
-	}
+	void FilterToggled(ECheckBoxState NewState);
 
 	/** Handler for when the filter checkbox is double clicked */
 	FReply FilterDoubleClicked()
 	{
 		// Disable all other filters and enable this one.
 		OnRequestDisableAll.ExecuteIfBound();
-		bEnabled = true;
-		OnFilterChanged.ExecuteIfBound();
+		SetEnabled(true);
 
 		return FReply::Handled();
 	}
@@ -98,11 +84,7 @@ private:
 	TSharedRef<SWidget> GetRightClickMenuContent();
 
 	/** Removes this filter from the filter list */
-	void SetVerbosityFilter(int32 SelectedVerbosityIndex)
-	{
-		Verbosity = (ELogVerbosity::Type)SelectedVerbosityIndex;
-		OnFilterChanged.ExecuteIfBound();
-	}
+	void SetVerbosityFilter(int32 SelectedVerbosityIndex);
 
 	void RemoveFilter()
 	{
@@ -124,7 +106,7 @@ private:
 	void RemoveAllFilters() { OnRequestRemoveAll.ExecuteIfBound(); }
 
 	/** Handler to determine the "checked" state of the filter checkbox */
-	ECheckBoxState IsChecked() const { return bEnabled ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; }
+	ECheckBoxState IsChecked() const { return IsEnabled() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; }
 
 	/** Handler to determine the color of the checkbox when it is checked */
 	FSlateColor GetFilterForegroundColor() const { return IsChecked() == ECheckBoxState::Checked ? FilterColor : FLinearColor::White; }
@@ -136,7 +118,12 @@ private:
 	FSlateColor GetFilterNameColorAndOpacity() const
 	{
 		const float DimFactor = 0.75f;
-		return IsChecked() == ECheckBoxState::Checked ? ( IsHovered() ? ColorCategory * DimFactor : ColorCategory ) : ( IsHovered() ? FLinearColor::White : FLinearColor::White * DimFactor );
+		return IsChecked() == ECheckBoxState::Checked ? (IsHovered() ? ColorCategory * DimFactor : ColorCategory) : (IsHovered() ? FLinearColor::White : FLinearColor::White * DimFactor);
+	}
+
+	FSlateColor GetBorderBackgroundColor() const
+	{
+		return BorderBackgroundColor;
 	}
 
 private:
@@ -155,18 +142,16 @@ private:
 	/** Invoked when a request to remove all filters originated from within this filter */
 	FOnSimpleRequest OnRequestRemoveAll;
 
-	/** true when this filter should be applied to the search */
-	bool bEnabled;
-
 	FName FilterName;
 
 	FLinearColor ColorCategory;
-
-	ELogVerbosity::Type Verbosity;
 
 	/** The button to toggle the filter on or off */
 	TSharedPtr<SFilterCheckBox> ToggleButtonPtr;
 
 	/** The color of the checkbox for this filter */
 	FLinearColor FilterColor;
+
+	/** Default color for border background */
+	FLinearColor BorderBackgroundColor;
 };

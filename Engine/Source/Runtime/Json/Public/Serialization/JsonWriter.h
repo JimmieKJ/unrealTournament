@@ -238,6 +238,44 @@ public:
 		PreviousTokenWritten = EJsonToken::Number;
 	}
 
+	void WriteValue( const int32 Value )
+	{
+		check(CanWriteValueWithoutIdentifier());
+		WriteCommaIfNeeded();
+
+		if ( PreviousTokenWritten != EJsonToken::Number && PreviousTokenWritten != EJsonToken::SquareOpen )
+		{
+			PrintPolicy::WriteLineTerminator(Stream);
+			PrintPolicy::WriteTabs(Stream, IndentLevel);
+		}
+		else
+		{
+			PrintPolicy::WriteSpace( Stream );
+		}
+
+		WriteIntegerValue( Value );
+		PreviousTokenWritten = EJsonToken::Number;
+	}
+
+	void WriteValue( const int64 Value )
+	{
+		check(CanWriteValueWithoutIdentifier());
+		WriteCommaIfNeeded();
+
+		if ( PreviousTokenWritten != EJsonToken::Number && PreviousTokenWritten != EJsonToken::SquareOpen )
+		{
+			PrintPolicy::WriteLineTerminator(Stream);
+			PrintPolicy::WriteTabs(Stream, IndentLevel);
+		}
+		else
+		{
+			PrintPolicy::WriteSpace( Stream );
+		}
+
+		WriteIntegerValue( Value );
+		PreviousTokenWritten = EJsonToken::Number;
+	}
+
 	void WriteValue( const FString& Value )
 	{
 		check(CanWriteValueWithoutIdentifier());
@@ -246,6 +284,11 @@ public:
 		PrintPolicy::WriteTabs(Stream, IndentLevel);
 		WriteStringValue( Value );
 		PreviousTokenWritten = EJsonToken::String;
+	}
+
+	void WriteValue( const TCHAR* Value )
+	{
+		WriteValue(FString(Value));
 	}
 
 	void WriteNull()

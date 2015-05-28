@@ -28,17 +28,17 @@ void AGameplayAbilityWorldReticle::Tick(float DeltaTime)
 	FaceTowardSource(bFaceOwnerFlat);
 }
 
-void AGameplayAbilityWorldReticle::InitializeReticle(AGameplayAbilityTargetActor* InTargetingActor, FWorldReticleParameters InParameters)
+void AGameplayAbilityWorldReticle::InitializeReticle(AActor* InTargetingActor, APlayerController* PlayerController, FWorldReticleParameters InParameters)
 {
 	check(InTargetingActor);
 	TargetingActor = InTargetingActor;
-	MasterPC = InTargetingActor->MasterPC;
+	MasterPC = PlayerController;
 	AddTickPrerequisiteActor(TargetingActor);		//We want the reticle to tick after the targeting actor so that designers have the final say on the position
 	Parameters = InParameters;
 	OnParametersInitialized();
 }
 
-bool AGameplayAbilityWorldReticle::IsNetRelevantFor(const APlayerController* RealViewer, const AActor* Viewer, const FVector& SrcLocation) const
+bool AGameplayAbilityWorldReticle::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
 {
 	//The player who created the ability doesn't need to be updated about it - there should be local prediction in place.
 	if (RealViewer == MasterPC)
@@ -46,7 +46,7 @@ bool AGameplayAbilityWorldReticle::IsNetRelevantFor(const APlayerController* Rea
 		return false;
 	}
 
-	return Super::IsNetRelevantFor(RealViewer, Viewer, SrcLocation);
+	return Super::IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
 }
 
 bool AGameplayAbilityWorldReticle::GetReplicates() const
@@ -78,7 +78,7 @@ void AGameplayAbilityWorldReticle::FaceTowardSource(bool bFaceIn2D)
 	{
 		if (bFaceIn2D)
 		{
-			FVector FacingVector = (TargetingActor->StartLocation.GetTargetingTransform().GetLocation() - GetActorLocation()).GetSafeNormal2D();
+			FVector FacingVector = (TargetingActor->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
 			if (FacingVector.IsZero())
 			{
 				FacingVector = -GetActorForwardVector().GetSafeNormal2D();
@@ -90,7 +90,7 @@ void AGameplayAbilityWorldReticle::FaceTowardSource(bool bFaceIn2D)
 		}
 		else
 		{
-			FVector FacingVector = (TargetingActor->StartLocation.GetTargetingTransform().GetLocation() - GetActorLocation()).GetSafeNormal();
+			FVector FacingVector = (TargetingActor->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 			if (FacingVector.IsZero())
 			{
 				FacingVector = -GetActorForwardVector().GetSafeNormal();

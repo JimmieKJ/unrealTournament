@@ -70,7 +70,7 @@ struct ENGINE_API FEdGraphSchemaAction
 
 	/** This is just an arbitrary dump of extra text that search will match on, in addition to the description and tooltip, e.g., Add might have the keyword Math */
 	UPROPERTY()
-	FString Keywords;
+	FText Keywords;
 
 	/** This is a priority number for overriding alphabetical order in the action list (higher value  == higher in the list) */
 	UPROPERTY()
@@ -83,6 +83,10 @@ struct ENGINE_API FEdGraphSchemaAction
 	/** Search title for the action (doesn't have to be set when instantiated, will be constructed by GetSearchTitle() if left empty)*/
 	UPROPERTY()
 	FText CachedSearchTitle;
+
+	/** Search keywords for the action (doesn't have to be set when instantiated, will be constructed by GetSearchTitle() if left empty)*/
+	UPROPERTY()
+	FText CachedSearchKeywords;
 
 	FEdGraphSchemaAction() 
 		: Grouping(0)
@@ -127,15 +131,25 @@ struct ENGINE_API FEdGraphSchemaAction
 	{
 		if(CachedSearchTitle.IsEmpty())
 		{
-			if(const FString* SourceString = FTextInspector::GetSourceString(MenuDescription))
-			{
-				FFormatNamedArguments Args;
-				Args.Add(TEXT("LocalizedTitle"), MenuDescription);
-				Args.Add(TEXT("SourceTitle"), FText::FromString(*SourceString));
-				CachedSearchTitle = FText::Format(FText::FromString("{LocalizedTitle} {SourceTitle}"), Args);
-			}
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("LocalizedTitle"), MenuDescription);
+			Args.Add(TEXT("SourceTitle"), FText::FromString(MenuDescription.BuildSourceString()));
+			CachedSearchTitle = FText::Format(FText::FromString("{LocalizedTitle} {SourceTitle}"), Args);
 		}
 		return CachedSearchTitle;
+	}
+
+	/** Retrieves the full searchable title for this action */
+	FText GetSearchKeywords()
+	{
+		if(CachedSearchKeywords.IsEmpty())
+		{
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("LocalizedKeywords"), Keywords);
+			Args.Add(TEXT("SourceKeywords"), FText::FromString(Keywords.BuildSourceString()));
+			CachedSearchKeywords = FText::Format(FText::FromString("{LocalizedKeywords} {SourceKeywords}"), Args);
+		}
+		return CachedSearchKeywords;
 	}
 
 	// GC.
@@ -365,10 +379,7 @@ public:
 	// The selected objects
 	TArray<UObject*> SelectedObjects;
 public:
-	ENGINE_API FGraphContextMenuBuilder(const UEdGraph* InGraph) 
-		: CurrentGraph(InGraph)
-	{
-	}
+	ENGINE_API FGraphContextMenuBuilder(const UEdGraph* InGraph);
 };
 
 /** This is a response from GetGraphDisplayInformation */
@@ -620,6 +631,9 @@ class ENGINE_API UEdGraphSchema : public UObject
 	/** Collapses a pin and its siblings back in to the original pin */
 	virtual void RecombinePin(UEdGraphPin* Pin) const { };
 
+	/** Handles double-clicking on a pin<->pin connection */
+	virtual void OnPinConnectionDoubleCicked(UEdGraphPin* PinA, UEdGraphPin* PinB, const FVector2D& GraphPosition) const { }
+
 	/** Break links on this pin and create links instead on MoveToPin */
 	virtual FPinConnectionResponse MovePinLinks(UEdGraphPin& MoveFromPin, UEdGraphPin& MoveToPin, bool bIsIntermediateMove = false) const;
 
@@ -733,4 +747,43 @@ class ENGINE_API UEdGraphSchema : public UObject
 	virtual bool FadeNodeWhenDraggingOffPin(const UEdGraphNode* Node, const UEdGraphPin* Pin) const { return false; }
 
 	virtual void BackwardCompatibilityNodeConversion(UEdGraph* Graph, bool bOnlySafeChanges) const { }
+
+	/* When a node is removed, this method determines whether we should remove it immediately or use the old (slower) code path that results in all node being recreated: */
+	virtual bool ShouldAlwaysPurgeOnModification() const { return true; }
+
+	/*
+	 * Some schemas have nodes that support the user dynamically adding pins when dropping a connection on the node
+	 *
+	 * @param InTargetNode					Node to check for pin adding support
+	 * @param InSourcePinName				Name of the pin being dropped, a new pin of similar name will be constructed
+	 * @param InSourcePinType				Type of pin to drop onto the node
+	 * @param InSourcePinDirection			Direction of the source pin
+	 * @return								Returns the new pin if created
+	 */
+	virtual UEdGraphPin* DropPinOnNode(UEdGraphNode* InTargetNode, const FString& InSourcePinName, const FEdGraphPinType& InSourcePinType, EEdGraphPinDirection InSourcePinDirection) const { return nullptr; }
+
+	/**
+	 * Checks if the node supports dropping a pin on it
+	 *
+	 * @param InTargetNode					Node to check for pin adding support
+	 * @param InSourcePinType				Type of pin to drop onto the node
+	 * @param InSourcePinDirection			Direction of the source pin
+	 * @param OutErrorMessage				Only filled with an error if there is pin add support but there is an error with the pin type
+	 * @return								Returns TRUE if there is support for dropping the pin on the node
+	 */
+	virtual bool SupportsDropPinOnNode(UEdGraphNode* InTargetNode, const FEdGraphPinType& InSourcePinType, EEdGraphPinDirection InSourcePinDirection, FText& OutErrorMessage) const { return false; }
+
+	/**
+	 * Checks if a CacheRefreshID is out of date
+	 *
+	 * @param InVisualizationCacheID	The current refresh ID to check if out of date
+	 * @return							TRUE if dirty
+	 */
+	virtual bool IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const { return false; }
+
+	/** Returns the current cache title refresh ID that is appropriate for the passed node */
+	virtual int32 GetCurrentVisualizationCacheID() const { return 0; }
+
+	/** Forces cached visualization data to refresh */
+	virtual void ForceVisualizationCacheClear() const {};
 };

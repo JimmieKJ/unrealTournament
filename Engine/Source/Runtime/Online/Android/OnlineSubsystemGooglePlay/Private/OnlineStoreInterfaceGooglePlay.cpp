@@ -160,7 +160,7 @@ bool FOnlineStoreGooglePlay::BeginPurchase(const FInAppPurchaseProductRequest& P
 		CachedPurchaseStateObject = InPurchaseStateObject;
 
 		extern bool AndroidThunkCpp_Iap_BeginPurchase(const FString&, const bool);
-		bCreatedNewTransaction = AndroidThunkCpp_Iap_BeginPurchase(ProductRequest.ProductIdentifier, ProductRequest.bIsConsumable); // TPMB - update begin purchase to use a consumable flag.
+		bCreatedNewTransaction = AndroidThunkCpp_Iap_BeginPurchase(ProductRequest.ProductIdentifier, ProductRequest.bIsConsumable);
 		UE_LOG(LogOnline, Display, TEXT("Created Transaction? - %s"), 
 			bCreatedNewTransaction ? TEXT("Created a transaction.") : TEXT("Failed to create a transaction."));
 

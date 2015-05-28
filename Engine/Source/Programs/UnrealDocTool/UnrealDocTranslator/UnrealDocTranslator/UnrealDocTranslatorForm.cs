@@ -1941,13 +1941,14 @@ namespace UnrealDocTranslator
                         HeadSourceUdnFiles[0] = new FileSpec(
                             new DepotPath(_connectionDetails.DepotPath), null, null, VersionSpec.Head);
 
-                        FileSpec[] OpenedSourceUdnFiles = new FileSpec[1];
-                        OpenedSourceUdnFiles[0] = new FileSpec(
-                            new DepotPath(_connectionDetails.DepotPath), null, null, null);
+                        FileSpec[] OpenedFiles = new FileSpec[1];
+                        OpenedFiles[0] = new FileSpec(
+                            new DepotPath("..."), null, null, null);    // Make sure there are no files in any path open for edit in the default changelist
+                                                                        // They will be unintentionally submitted otherwise.
 
                         try
                         {
-                            var ListOfOpenedFileStats = P4Repository.GetOpenedFiles(OpenedSourceUdnFiles, null);
+                            var ListOfOpenedFileStats = P4Repository.GetOpenedFiles(OpenedFiles, null);
 
                             FilesCheckedOut.Clear();
 
@@ -1990,12 +1991,6 @@ namespace UnrealDocTranslator
                         {
                             string PartFileName = FileDetails.DepotPath == null ? "" : ParseINTFileName.Match(FileDetails.DepotPath.ToString()).Groups["FileName"].Value.ToUpper();
 
-                            if (PartFileName.Contains("ENGINE/PERFORMANCE"))
-                            {
-                                int i = 0;
-                            }
-
-
                             if (!string.IsNullOrWhiteSpace(PartFileName))
                             {
                                 //Does anyone else have this checked out?
@@ -2009,15 +2004,9 @@ namespace UnrealDocTranslator
                                 }
                                 else
                                 {
+
                                     if (FileDetails.HeadAction == FileAction.Delete)
                                     {
-
-                                        if (PartFileName.Contains("ENGINE/PERFORMANCE"))
-                                        {
-                                            int i = 0;
-                                        }
-
-
                                         INTDeletedFileProcessingDictionary.Add(PartFileName,
                                                                                new FileProcessingDetails(
                                                                                    FileDetails.DepotPath.ToString(),
@@ -2055,6 +2044,17 @@ namespace UnrealDocTranslator
                                                                                          FileProcessingDetails.State.MoveTo,
                                                                                          IsCheckedOutByOtherUser,
                                                                                          _connectionDetails));
+
+                                            // Even if the most recent perforce action is a MoveAdd, 
+                                            // We need to add this to the file processing dictionary as well, so it can show up in the tool's UI
+                                            INTFileProcessingDictionary.Add(PartFileName,
+                                                                            new FileProcessingDetails(
+                                                                                FileDetails.DepotPath.ToString(),
+                                                                                FileDetails.ClientPath.ToString(),
+                                                                                FileDetails.HeadChange,
+                                                                                FileProcessingDetails.State.NotDeterminedYet,
+                                                                                IsCheckedOutByOtherUser,
+                                                                                _connectionDetails));
                                         }
                                     }
                                     else

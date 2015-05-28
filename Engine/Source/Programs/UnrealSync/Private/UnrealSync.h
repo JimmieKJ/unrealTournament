@@ -6,10 +6,7 @@
 #include "CoreUObject.h"
 #include "P4DataCache.h"
 
-/**
- * Main program function.
- */
-void RunUnrealSync(const TCHAR* CommandLine);
+#define LOCTEXT_NAMESPACE "UnrealSync"
 
 /**
  * Class to store date needed for sync monitoring thread.
@@ -87,6 +84,35 @@ private:
 	FString CurrentGameName;
 };
 
+struct FSyncSettings
+{
+	/* Artist sync? */
+	bool bArtist;
+
+	/* Preview sync? */
+	bool bPreview;
+
+	/* Auto-clobber sync? */
+	bool bAutoClobber;
+
+	/* Override sync step. If set then it overrides collecting sync steps and uses this one instead. */
+	FString OverrideSyncStep;
+
+	FSyncSettings(bool bArtist, bool bPreview, bool bAutoClobber, FString OverrideSyncStep = FString())
+		: bArtist(bArtist)
+		, bPreview(bPreview)
+		, bAutoClobber(bAutoClobber)
+		, OverrideSyncStep(MoveTemp(OverrideSyncStep))
+	{ }
+
+	FSyncSettings(const FSyncSettings&& Other)
+		: bArtist(Other.bArtist)
+		, bPreview(Other.bPreview)
+		, bAutoClobber(Other.bAutoClobber)
+		, OverrideSyncStep(MoveTemp(Other.OverrideSyncStep))
+	{ }
+};
+
 /**
  * Helper class with functions used to sync engine.
  */
@@ -103,6 +129,21 @@ public:
 	DECLARE_DELEGATE_OneParam(FOnSyncFinished, bool);
 	/* On sync log chunk read event delegate. */
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FOnSyncProgress, const FString&);
+
+	/**
+	 * Tells if UnrealSync was run with -Debug param.
+	 */
+	static bool IsDebugParameterSet();
+
+	/**
+	 * This method copies UnrealSync to temp location and run it from there,
+	 * and updates (if needed).
+	 *
+	 * @param CommandLine Command line.
+	 *
+	 * @returns True if initialization phase is over and UnrealSync can build-up GUI. False otherwise.
+	 */
+	static bool Initialization(const TCHAR* CommandLine);
 
 	/**
 	 * Gets latest label for given game name.
@@ -172,6 +213,27 @@ public:
 	static void StartLoadingData();
 
 	/**
+	 * Runs detached UnrealSync process and passes given parameters in command line.
+	 *
+	 * @param USPath UnrealSync executable path.
+	 * @param bDoNotRunFromCopy Should UnrealSync be called with -DoNotRunFromCopy flag?
+	 * @param bDoNotUpdateOnStartUp Should UnrealSync be called with -DoNotUpdateOnStartUp flag?
+	 * @param bPassP4Env Pass P4 environment parameters to UnrealSync?
+	 *
+	 * @returns True if succeeded. False otherwise. Notice that this says of
+	 *			success of launching procedure not launched process, cause
+	 *			its detached.
+	 */
+	static bool RunDetachedUS(const FString& USPath, bool bDoNotRunFromCopy, bool bDoNotUpdateOnStartUp, bool bPassP4Env);
+
+	/**
+	 * Unreal sync main function.
+	 *
+	 * @param CommandLine Command line that the program was called with.
+	 */
+	static void RunUnrealSync(const TCHAR* CommandLine);
+
+	/**
 	 * Tells that labels names are currently being loaded.
 	 *
 	 * @returns True if labels names are currently being loaded. False otherwise.
@@ -185,6 +247,11 @@ public:
 	 * Terminates background P4 data loading process.
 	 */
 	static void TerminateLoadingProcess();
+
+	/**
+	 * Terminates P4 syncing process.
+	 */
+	static void TerminateSyncingProcess();
 
 	/**
 	 * Method to receive p4 data loading finished event.
@@ -208,6 +275,13 @@ public:
 	static bool LoadingFinished();
 
 	/**
+	 * Gets initialization error.
+	 *
+	 * @returns Initialization error.
+	 */
+	static const FString& GetInitializationError() { return InitializationError; }
+
+	/**
 	 * Gets labels from the loaded cache.
 	 *
 	 * @returns Array of loaded labels.
@@ -217,25 +291,43 @@ public:
 	/**
 	 * Launches UAT UnrealSync command with given command line and options.
 	 *
-	 * @param bArtist Perform artist sync?
-	 * @param bPreview Perform preview sync?
+	 * @param Settings Sync settings.
 	 * @param LabelNameProvider Object that will provide label name to syncing thread.
 	 * @param OnSyncFinished Delegate to run when syncing is finished.
 	 * @param OnSyncProgress Delegate to run when syncing has made progress.
 	 */
-	static void LaunchSync(bool bArtist, bool bPreview, ILabelNameProvider& LabelNameProvider, const FOnSyncFinished& OnSyncFinished, const FOnSyncProgress& OnSyncProgress);
+	static void LaunchSync(FSyncSettings Settings, ILabelNameProvider& LabelNameProvider, const FOnSyncFinished& OnSyncFinished, const FOnSyncProgress& OnSyncProgress);
 
 	/**
 	 * Performs the actual sync with given params.
 	 *
-	 * @param bArtist Perform artist sync?
-	 * @param bPreview Perform preview sync?
+	 * @param Settings Sync settings.
 	 * @param Label Chosen label name.
 	 * @param Game Chosen game.
 	 * @param OnSyncProgress Delegate to run when syncing has made progress. 
 	 */
-	static bool Sync(bool bArtist, bool bPreview, const FString& Label, const FString& Game, const FOnSyncProgress& OnSyncProgress);
+	static bool Sync(const FSyncSettings& Settings, const FString& Label, const FString& Game, const FOnSyncProgress& OnSyncProgress);
 private:
+	/**
+	 * Tries to update original UnrealSync at given location.
+	 *
+	 * @param Location of original UnrealSync.
+	 *
+	 * @returns False on failure. True otherwise.
+	 */
+	static bool UpdateOriginalUS(const FString& OriginalUSPath);
+
+	/**
+	 * This function copies file from From to To location and deletes
+	 * if To exists.
+	 *
+	 * @param To Location to which copy the file.
+	 * @param From Location from which copy the file.
+	 *
+	 * @returns True if succeeded. False otherwise.
+	 */
+	static bool DeleteIfExistsAndCopyFile(const FString& To, const FString& From);
+
 	/* Tells if loading has finished. */
 	static bool bLoadingFinished;
 
@@ -253,4 +345,7 @@ private:
 
 	/* Background syncing process monitoring thread. */
 	static TSharedPtr<FSyncingThread> SyncingThread;
+
+	/* Error that happened during application initialization. */
+	static FString InitializationError;
 };

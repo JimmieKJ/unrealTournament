@@ -71,6 +71,16 @@ UAISense_Hearing::UAISense_Hearing(const FObjectInitializer& ObjectInitializer)
 	}
 }
 
+void UAISense_Hearing::ReportNoiseEvent(UObject* WorldContext, FVector NoiseLocation, float Loudness, AActor* Instigator)
+{
+	UAIPerceptionSystem* PerceptionSystem = UAIPerceptionSystem::GetCurrent(WorldContext);
+	if (PerceptionSystem)
+	{
+		FAINoiseEvent Event(Instigator, NoiseLocation, Loudness);
+		PerceptionSystem->OnEvent(Event);
+	}
+}
+
 void UAISense_Hearing::OnNewListenerImpl(const FPerceptionListener& NewListener)
 {
 	check(NewListener.Listener.IsValid());
@@ -124,10 +134,8 @@ float UAISense_Hearing::Update()
 		{
 			const FAINoiseEvent& Event = NoiseEvents[EventIndex];
 		
-			// @todo implement some kind of TeamIdentifierType that would supply comparison operator 
-			// @todo use PropDigest.AffiliationFlags
-			if (Listener.TeamIdentifier == Event.TeamIdentifier 
-				|| FVector::DistSquared(Event.NoiseLocation, Listener.CachedLocation) > PropDigest.HearingRangeSq * Event.Loudness)
+			if (FVector::DistSquared(Event.NoiseLocation, Listener.CachedLocation) > PropDigest.HearingRangeSq * Event.Loudness
+				|| FAISenseAffiliationFilter::ShouldSenseTeam(Listener.TeamIdentifier, Event.TeamIdentifier, PropDigest.AffiliationFlags) == false)
 			{
 				continue;
 			}

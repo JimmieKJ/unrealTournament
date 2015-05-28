@@ -8,29 +8,14 @@
 UBTTask_PawnActionBase::UBTTask_PawnActionBase(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NodeName = "Action Base";
-	ActionPriority = EAIRequestPriority::Logic;
 }
 
 EBTNodeResult::Type UBTTask_PawnActionBase::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-	return AbortTaskHandler(this, OwnerComp, ActionPriority);
-}
-
-EBTNodeResult::Type UBTTask_PawnActionBase::AbortTaskHandler(UBTTaskNode* TaskNode, UBehaviorTreeComponent& OwnerComp, EAIRequestPriority::Type Priority)
-{
-	EBTNodeResult::Type NodeResult = EBTNodeResult::Aborted;
-
-	AAIController* AIOwner = Cast<AAIController>(OwnerComp.GetOwner());
-	if (AIOwner && AIOwner->GetActionsComp())
-	{
-		const int32 NumRequests = AIOwner->GetActionsComp()->AbortActionsInstigatedBy(TaskNode, Priority);
-		if (NumRequests > 0)
-		{
-			NodeResult = EBTNodeResult::InProgress;
-		}
-	}
-
-	return NodeResult;
+	return (OwnerComp.GetAIOwner() != nullptr
+		&& OwnerComp.GetAIOwner()->GetActionsComp() != nullptr
+		&& OwnerComp.GetAIOwner()->GetActionsComp()->AbortActionsInstigatedBy(this, EAIRequestPriority::Logic) > 0) 
+		? EBTNodeResult::InProgress : EBTNodeResult::Aborted;
 }
 
 EBTNodeResult::Type UBTTask_PawnActionBase::PushAction(UBehaviorTreeComponent& OwnerComp, UPawnAction& Action)
@@ -47,7 +32,7 @@ EBTNodeResult::Type UBTTask_PawnActionBase::PushAction(UBehaviorTreeComponent& O
 
 		Action.SetActionObserver(FPawnActionEventDelegate::CreateUObject(this, &UBTTask_PawnActionBase::OnActionEvent));
 
-		const bool bResult = AIOwner->PerformAction(Action, ActionPriority, this);		
+		const bool bResult = AIOwner->PerformAction(Action, EAIRequestPriority::Logic, this);		
 		if (bResult)
 		{
 			// don't bother with handling action events, it will be processed in next tick

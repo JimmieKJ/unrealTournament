@@ -58,6 +58,9 @@ struct PROJECTS_API FPluginDescriptor
 	/** Documentation URL string. */
 	FString DocsURL;
 
+	/** Marketplace URL for this plugin. This URL will be embedded into projects that enable this plugin, so we can redirect to the marketplace if a user doesn't have it installed. */
+	FString MarketplaceURL;
+
 	/** List of all modules associated with this plugin */
 	TArray<FModuleDescriptor> Modules;
 
@@ -70,6 +73,9 @@ struct PROJECTS_API FPluginDescriptor
 	/** Marks the plugin as beta in the UI */
 	bool bIsBetaVersion;
 
+	/** Signifies that the plugin was installed on top of the engine */
+	bool bInstalled;
+
 	/** Constructor. */
 	FPluginDescriptor();
 
@@ -77,7 +83,13 @@ struct PROJECTS_API FPluginDescriptor
 	bool Load(const FString& FileName, FText& OutFailReason);
 
 	/** Reads the descriptor from the given JSON object */
-	bool Read(const FJsonObject& Object, FText& OutFailReason);
+	bool Read(const FString& Text, FText& OutFailReason);
+
+	/** Saves the descriptor from the given file. */
+	bool Save(const FString& FileName, FText& OutFailReason) const;
+
+	/** Writes a descriptor to JSON */
+	FString ToString() const;
 };
 
 /**
@@ -94,6 +106,9 @@ struct PROJECTS_API FPluginReferenceDescriptor
 	/** Description of the plugin for users that do not have it installed. */
 	FString Description;
 
+	/** URL for this plugin on the marketplace, if the user doesn't have it installed. */
+	FString MarketplaceURL;
+
 	/** If enabled, list of platforms for which the plugin should be enabled (or all platforms if blank). */
 	TArray<FString> WhitelistPlatforms;
 
@@ -101,7 +116,7 @@ struct PROJECTS_API FPluginReferenceDescriptor
 	TArray<FString> BlacklistPlatforms;
 
 	/** Constructor */
-	FPluginReferenceDescriptor(const FString& InName = TEXT(""), bool bInEnabled = false);
+	FPluginReferenceDescriptor(const FString& InName = TEXT(""), bool bInEnabled = false, const FString& InMarketplaceURL = TEXT(""));
 
 	/** Determines whether the plugin is enabled for the given platform */
 	bool IsEnabledForPlatform(const FString& Platform) const;

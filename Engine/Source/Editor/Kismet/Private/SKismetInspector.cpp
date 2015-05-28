@@ -23,6 +23,57 @@
 
 #define LOCTEXT_NAMESPACE "KismetInspector"
 
+class SKismetInspectorUneditableComponentWarning : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SKismetInspectorUneditableComponentWarning)
+		: _WarningText()
+		, _OnHyperlinkClicked()
+	{}
+		
+		/** The rich text to show in the warning */
+		SLATE_ATTRIBUTE(FText, WarningText)
+
+		/** Called when the hyperlink in the rich text is clicked */
+		SLATE_EVENT(FSlateHyperlinkRun::FOnClick, OnHyperlinkClicked)
+
+	SLATE_END_ARGS()
+
+	/** Constructs the widget */
+	void Construct(const FArguments& InArgs)
+	{
+		ChildSlot
+		[
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.Padding(2)
+				[
+					SNew(SImage)
+					.Image(FEditorStyle::Get().GetBrush("Icons.Warning"))
+				]
+				+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.Padding(2)
+					[
+						SNew(SRichTextBlock)
+						.DecoratorStyleSet(&FEditorStyle::Get())
+						.Justification(ETextJustify::Left)
+						.TextStyle(FEditorStyle::Get(), "DetailsView.BPMessageTextStyle")
+						.Text(InArgs._WarningText)
+						.AutoWrapText(true)
+						+ SRichTextBlock::HyperlinkDecorator(TEXT("HyperlinkDecorator"), InArgs._OnHyperlinkClicked)
+					]
+			]
+		];
+	}
+};
+
 //////////////////////////////////////////////////////////////////////////
 // FKismetSelectionInfo
 
@@ -82,6 +133,10 @@ TSharedRef<SWidget> SKismetInspector::MakeContextualEditingWidget(struct FKismet
 	// Show the property editor
 	PropertyView->HideFilterArea(Options.bHideFilterArea);
 	PropertyView->SetObjects(SelectionInfo.ObjectsForPropertyEditing, Options.bForceRefresh);
+
+	PropertyView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateSP(this, &SKismetInspector::IsPropertyEditingEnabled));
+
+
 	if (SelectionInfo.ObjectsForPropertyEditing.Num())
 	{
 		ContextualEditingWidget->AddSlot()
@@ -91,7 +146,20 @@ TSharedRef<SWidget> SKismetInspector::MakeContextualEditingWidget(struct FKismet
 			SNew( SBox )
 			.Visibility(this, &SKismetInspector::GetPropertyViewVisibility)
 			[
-				PropertyView.ToSharedRef()
+				SNew( SVerticalBox )
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding( FMargin( 0,0,0,1) )
+				[
+					SNew(SKismetInspectorUneditableComponentWarning)
+					.Visibility(this, &SKismetInspector::GetInheritedBlueprintComponentWarningVisibility)
+					.WarningText(NSLOCTEXT("SKismetInspector", "BlueprintUneditableInheritedComponentWarning", "Components flagged as not editable when inherited must be edited in the <a id=\"HyperlinkDecorator\" style=\"DetailsView.BPMessageHyperlinkStyle\">Parent Blueprint</>"))
+					.OnHyperlinkClicked(this, &SKismetInspector::OnInheritedBlueprintComponentWarningHyperlinkClicked)
+				]
+				+SVerticalBox::Slot()
+				[
+					PropertyView.ToSharedRef()
+				]
 			]
 		];
 
@@ -224,6 +292,7 @@ void SKismetInspector::Construct(const FArguments& InArgs)
 	bShowInspectorPropertyView = true;
 	PublicViewState = ECheckBoxState::Unchecked;
 	bComponenetDetailsCustomizationEnabled = false;
+	bRefreshOnTick = false;
 
 	BlueprintEditorPtr = InArgs._Kismet2;
 	bShowPublicView = InArgs._ShowPublicViewControl;
@@ -427,9 +496,6 @@ void SKismetInspector::UpdateFromObjects(const TArray<UObject*>& PropertyObjects
 		EnableComponentDetailsCustomization(bEnableComponentCustomization);
 	}
 
-	PropertyView->OnFinishedChangingProperties().Clear();
-	PropertyView->OnFinishedChangingProperties().Add( UserOnFinishedChangingProperties );
-
 	if (!Options.bForceRefresh)
 	{
 		// Early out if the PropertyObjects and the SelectedObjects are the same
@@ -452,6 +518,9 @@ void SKismetInspector::UpdateFromObjects(const TArray<UObject*>& PropertyObjects
 			return;
 		}
 	}
+
+	PropertyView->OnFinishedChangingProperties().Clear();
+	PropertyView->OnFinishedChangingProperties().Add( UserOnFinishedChangingProperties );
 
 	// Proceed to update
 	SelectedObjects.Empty();
@@ -544,15 +613,36 @@ void SKismetInspector::UpdateFromObjects(const TArray<UObject*>& PropertyObjects
 
 				if(Object != EditableComponentTemplate)
 				{
-					for(TFieldIterator<UObjectProperty> ObjPropIt(Object->GetClass()); ObjPropIt; ++ObjPropIt)
+					UObjectProperty* ObjectProperty = FindField<UObjectProperty>(Object->GetClass(), EditableComponentTemplate->GetFName());
+					if(ObjectProperty != nullptr)
 					{
-						UObjectProperty* ObjectProperty = *ObjPropIt;
-						check(ObjectProperty != NULL);
-
-						// If the property value matches the current component template, add it as a selected property for filtering
-						if(EditableComponentTemplate == ObjectProperty->GetObjectPropertyValue_InContainer(Object))
+						SelectedObjectProperties.Add(ObjectProperty);
+					}
+					else if(UActorComponent* Archetype = Cast<UActorComponent>(EditableComponentTemplate->GetArchetype()))
+					{
+						if(AActor* Owner = Archetype->GetOwner())
 						{
-							SelectedObjectProperties.Add(ObjectProperty);
+							if(UClass* OwnerClass = Owner->GetClass())
+							{
+								AActor* OwnerCDO = CastChecked<AActor>(OwnerClass->GetDefaultObject());
+								for(TFieldIterator<UObjectProperty> ObjPropIt(OwnerClass, EFieldIteratorFlags::IncludeSuper); ObjPropIt; ++ObjPropIt)
+								{
+									ObjectProperty = *ObjPropIt;
+									check(ObjectProperty != nullptr);
+
+									// If the property value matches the current archetype, add it as a selected property for filtering
+									if(Archetype->GetClass()->IsChildOf(ObjectProperty->PropertyClass)
+										&& Archetype == ObjectProperty->GetObjectPropertyValue_InContainer(OwnerCDO))
+									{
+										ObjectProperty = FindField<UObjectProperty>(Object->GetClass(), ObjectProperty->GetFName());
+										if(ObjectProperty != nullptr)
+										{
+											SelectedObjectProperties.Add(ObjectProperty);
+											break;
+										}
+									}
+								}
+							}
 						}
 					}
 				}
@@ -639,6 +729,59 @@ EVisibility SKismetInspector::GetPropertyViewVisibility() const
 {
 	return bShowInspectorPropertyView? EVisibility::Visible : EVisibility::Collapsed;
 }
+
+bool SKismetInspector::IsPropertyEditingEnabled() const
+{
+	bool bIsEditable = true;
+
+	if (BlueprintEditorPtr.IsValid())
+	{
+		bIsEditable = BlueprintEditorPtr.Pin()->InEditingMode();
+	}
+
+	for (const TWeakObjectPtr<UObject>& SelectedObject : SelectedObjects)
+	{
+		UActorComponent* Component = Cast<UActorComponent>(SelectedObject.Get());
+		if (Component && !CastChecked<UActorComponent>(Component->GetArchetype())->IsEditableWhenInherited() )
+		{
+			bIsEditable = false;
+			break;
+		}
+	}
+	return bIsEditable;
+}
+
+EVisibility SKismetInspector::GetInheritedBlueprintComponentWarningVisibility() const
+{
+	bool bIsUneditableBlueprintComponent = false;
+
+	// Check to see if any selected components are inherited from blueprint
+	for (const TWeakObjectPtr<UObject>& SelectedObject : SelectedObjects)
+	{
+		UActorComponent* Component = Cast<UActorComponent>(SelectedObject.Get());
+		bIsUneditableBlueprintComponent = Component ? !CastChecked<UActorComponent>(Component->GetArchetype())->IsEditableWhenInherited() : false;
+		if (bIsUneditableBlueprintComponent)
+		{
+			break;
+		}
+	}
+
+	return bIsUneditableBlueprintComponent ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+void SKismetInspector::OnInheritedBlueprintComponentWarningHyperlinkClicked(const FSlateHyperlinkRun::FMetadata& Metadata)
+{
+	if (BlueprintEditorPtr.IsValid())
+	{
+		UBlueprint* Blueprint = BlueprintEditorPtr.Pin()->GetBlueprintObj();
+		if (Blueprint && Blueprint->ParentClass->HasAllClassFlags(CLASS_CompiledFromBlueprint))
+		{
+			// Open the blueprint
+			GEditor->EditObject(CastChecked<UBlueprint>(Blueprint->ParentClass->ClassGeneratedBy));
+		}
+	}
+}
+
 
 ECheckBoxState SKismetInspector::GetPublicViewCheckboxState() const
 {

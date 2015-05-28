@@ -41,6 +41,7 @@ struct ENGINE_API FStreamableManager
 	 * Objects will be strongly referenced until the delegate is called, then Unload is called automatically 
 	 */
 	void RequestAsyncLoad(const TArray<FStringAssetReference>& TargetsToStream, FStreamableDelegate DelegateToCall);
+	void RequestAsyncLoad( const FStringAssetReference& TargetToStream, FStreamableDelegate DelegateToCall );
 
 	/** Exposes references to GC system */
 	void AddStructReferencedObjects(class FReferenceCollector& Collector) const;
@@ -68,7 +69,7 @@ private:
 		}
 	};
 
-	static void AsyncLoadCallbackWrapper(const FName& PackageName, UPackage* LevelPackage, FCallback* Handler)
+	static void AsyncLoadCallbackWrapper(const FName& PackageName, UPackage* LevelPackage, EAsyncLoadingResult::Type Result, FCallback* Handler)
 	{
 		FCallback* Callback = Handler;
 		Callback->Manager->AsyncLoadCallback(Callback->Request);

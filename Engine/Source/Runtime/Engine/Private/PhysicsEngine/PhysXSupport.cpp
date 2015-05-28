@@ -6,6 +6,8 @@
 
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "PhysicsEngine/ConvexElem.h"
 
 #if WITH_PHYSX
 
@@ -213,7 +215,7 @@ PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex)
 #endif	// #if WITH_APEX
 
 
-void AddRadialImpulseToPxRigidBody(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange)
+void AddRadialImpulseToPxRigidBody_AssumesLocked(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bVelChange)
 {
 #if WITH_PHYSX
 	if (!(PRigidBody.getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC))
@@ -249,7 +251,7 @@ void AddRadialImpulseToPxRigidBody(PxRigidBody& PRigidBody, const FVector& Origi
 #endif // WITH_PHYSX
 }
 
-void AddRadialForceToPxRigidBody(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff)
+void AddRadialForceToPxRigidBody_AssumesLocked(PxRigidBody& PRigidBody, const FVector& Origin, float Radius, float Strength, uint8 Falloff, bool bAccelChange)
 {
 #if WITH_PHYSX
 	if (!(PRigidBody.getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC))
@@ -279,14 +281,14 @@ void AddRadialForceToPxRigidBody(PxRigidBody& PRigidBody, const FVector& Origin,
 
 		// Apply force
 		PxVec3 PImpulse = PDelta * ForceMag;
-		PRigidBody.addForce(PImpulse, PxForceMode::eFORCE);
+		PRigidBody.addForce(PImpulse, bAccelChange ? PxForceMode::eACCELERATION : PxForceMode::eFORCE);
 	}
 #endif // WITH_PHYSX
 }
 
-bool IsRigidBodyNonKinematic(PxRigidBody* PRigidBody)
+bool IsRigidBodyNonKinematic_AssumesLocked(const PxRigidBody* PRigidBody)
 {
-	if (PRigidBody != NULL)
+	if (PRigidBody)
 	{
 		return !(PRigidBody->getRigidBodyFlags() & PxRigidBodyFlag::eKINEMATIC);
 	}
@@ -397,6 +399,12 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 		pairFlags |= (PxPairFlag::eNOTIFY_TOUCH_FOUND | PxPairFlag::eNOTIFY_TOUCH_PERSISTS | PxPairFlag::eNOTIFY_CONTACT_POINTS );
 	}
 
+
+	if ((FilterFlags0&EPDF_ModifyContacts) || (FilterFlags1&EPDF_ModifyContacts))
+	{
+		pairFlags |= (PxPairFlag::eMODIFY_CONTACTS);
+	}
+
 	return PxFilterFlags();
 }
 
@@ -465,8 +473,11 @@ void FPhysXSimEventCallback::onContact(const PxContactPairHeader& PairHeader, co
 	FPhysScene* PhysScene = FPhysxUserData::Get<FPhysScene>(PScene->userData);
 	check(PhysScene);
 
-	uint32 PreAddingCollisionNotify = PhysScene->PendingCollisionNotifies.Num() - 1;
-	TArray<int32> PairNotifyMapping = FBodyInstance::AddCollisionNotifyInfo(BodyInst0, BodyInst1, Pairs, NumPairs, PhysScene->PendingCollisionNotifies);
+	const EPhysicsSceneType SceneType = PhysScene->GetPhysXScene(PST_Sync) == PScene ? PST_Sync : PST_Async;
+	TArray<FCollisionNotifyInfo>& PendingCollisionNotifies = PhysScene->GetPendingCollisionNotifies(SceneType);
+
+	uint32 PreAddingCollisionNotify = PendingCollisionNotifies.Num() - 1;
+	TArray<int32> PairNotifyMapping = FBodyInstance::AddCollisionNotifyInfo(BodyInst0, BodyInst1, Pairs, NumPairs, PendingCollisionNotifies);
 
 	// Iterate through contact points
 	for(uint32 PairIdx=0; PairIdx<NumPairs; PairIdx++)
@@ -477,7 +488,7 @@ void FPhysXSimEventCallback::onContact(const PxContactPairHeader& PairHeader, co
 			continue;
 		}
 
-		FCollisionNotifyInfo * NotifyInfo = &PhysScene->PendingCollisionNotifies[NotifyIdx];
+		FCollisionNotifyInfo * NotifyInfo = &PendingCollisionNotifies[NotifyIdx];
 		FCollisionImpactData* ImpactInfo = &(NotifyInfo->RigidCollisionData);
 
 		const PxContactPair* Pair = Pairs + PairIdx;
@@ -517,14 +528,14 @@ void FPhysXSimEventCallback::onContact(const PxContactPairHeader& PairHeader, co
 		}	
 	}
 
-	for (int32 NotifyIdx = PreAddingCollisionNotify + 1; NotifyIdx < PhysScene->PendingCollisionNotifies.Num(); NotifyIdx++)
+	for (int32 NotifyIdx = PreAddingCollisionNotify + 1; NotifyIdx < PendingCollisionNotifies.Num(); NotifyIdx++)
 	{
-		FCollisionNotifyInfo * NotifyInfo = &PhysScene->PendingCollisionNotifies[NotifyIdx];
+		FCollisionNotifyInfo * NotifyInfo = &PendingCollisionNotifies[NotifyIdx];
 		FCollisionImpactData* ImpactInfo = &(NotifyInfo->RigidCollisionData);
 		// Discard pairs that don't generate any force (eg. have been rejected through a modify contact callback).
 		if (ImpactInfo->TotalNormalImpulse.SizeSquared() < KINDA_SMALL_NUMBER)
 		{
-			PhysScene->PendingCollisionNotifies.RemoveAt(NotifyIdx);
+			PendingCollisionNotifies.RemoveAt(NotifyIdx);
 			NotifyIdx--;
 		}
 	}
@@ -753,9 +764,18 @@ void FApexChunkReport::onStateChangeNotify(const NxApexChunkStateEventData& visi
 	DestructibleComponent->OnVisibilityEvent(visibilityEvent);
 }
 
+bool FApexChunkReport::releaseOnNoChunksVisible(const NxDestructibleActor* destructible)
+{
+	return false;
+}
+
 ///////// FApexPhysX3Interface //////////////////////////////////
 void FApexPhysX3Interface::setContactReportFlags(physx::PxShape* PShape, physx::PxPairFlags PFlags, NxDestructibleActor* actor, PxU16 actorChunkIndex)
 {
+	UDestructibleComponent* DestructibleComponent = Cast<UDestructibleComponent>(FPhysxUserData::Get<UPrimitiveComponent>(PShape->userData));
+	check(DestructibleComponent);
+
+	DestructibleComponent->Pair(actorChunkIndex, PShape);
 }
 
 physx::PxPairFlags FApexPhysX3Interface::getContactReportFlags(const physx::PxShape* PShape) const
@@ -869,6 +889,43 @@ void FPhysxSharedData::DumpSharedMemoryUsage(FOutputDevice* Ar)
 	{
 		Ar->Logf(TEXT("%-10d %s (%d)"), It.Value().MemorySize, *It.Key(), It.Value().Count );
 	}
+}
+
+void AddToCollection(PxCollection* PCollection, PxBase* PBase)
+{
+	if (PBase)
+	{
+		PCollection->add(*PBase);
+	}
+}
+
+PxCollection* MakePhysXCollection(const TArray<UPhysicalMaterial*>& PhysicalMaterials, const TArray<UBodySetup*>& BodySetups, uint64 BaseId)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_CreateSharedData);
+	PxCollection* PCollection = PxCreateCollection();
+	for (UPhysicalMaterial* PhysicalMaterial : PhysicalMaterials)
+	{
+		if (PhysicalMaterial)
+		{
+			PCollection->add(*PhysicalMaterial->GetPhysXMaterial());
+		}
+	}
+
+	for (UBodySetup* BodySetup : BodySetups)
+	{
+		AddToCollection(PCollection, BodySetup->TriMesh);
+		AddToCollection(PCollection, BodySetup->TriMeshNegX);
+
+		for (const FKConvexElem& ConvexElem : BodySetup->AggGeom.ConvexElems)
+		{
+			AddToCollection(PCollection, ConvexElem.ConvexMesh);
+			AddToCollection(PCollection, ConvexElem.ConvexMeshNegX);
+		}
+	}
+
+	PxSerialization::createSerialObjectIds(*PCollection, PxSerialObjectId(BaseId));
+
+	return PCollection;
 }
 
 #endif // WITH_PHYSX

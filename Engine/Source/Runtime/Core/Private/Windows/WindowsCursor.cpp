@@ -146,7 +146,7 @@ void FWindowsCursor::SetPosition( const int32 X, const int32 Y )
 void FWindowsCursor::SetType( const EMouseCursor::Type InNewCursor )
 {
 	// NOTE: Watch out for contention with FWindowsViewport::UpdateMouseCursor
-	checkf( InNewCursor < EMouseCursor::TotalCursorCount, TEXT("Invalid cursor(%d) supplied"), InNewCursor );
+	checkf( InNewCursor < EMouseCursor::TotalCursorCount, TEXT("Invalid cursor(%d) supplied"), (int)InNewCursor );
 	CurrentType = InNewCursor;
 	::SetCursor( CursorHandles[ InNewCursor ] );
 }

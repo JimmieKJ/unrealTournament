@@ -6,7 +6,9 @@
 #include "PropertyEditorModule.h"
 #include "IStructureDetailsView.h"
 #include "IDetailsView.h"
+#include "DataTableUtils.h"
 #include "DataTableEditorUtils.h"
+#include "Engine/UserDefinedStruct.h"
 
 #define LOCTEXT_NAMESPACE "SRowEditor"
 
@@ -57,7 +59,8 @@ public:
 	}
 };
 
-SRowEditor::SRowEditor() : SCompoundWidget()
+SRowEditor::SRowEditor() 
+	: SCompoundWidget()
 {
 }
 
@@ -65,22 +68,21 @@ SRowEditor::~SRowEditor()
 {
 }
 
-void SRowEditor::OnFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent)
+void SRowEditor::NotifyPreChange( UProperty* PropertyAboutToChange )
 {
-	check(PropertyChangedEvent.MemberProperty
-		&& PropertyChangedEvent.MemberProperty->GetOwnerStruct()
-		&& (PropertyChangedEvent.MemberProperty->GetOwnerStruct() == GetScriptStruct()));
+	check(DataTable.IsValid());
+	DataTable->Modify();
 
-	// TODO:
-	// FNotifyHook won't be called, because the struct has no "property-path" from DT object. THe struct is seen as detached.
-	// But the notification must be called somewhere.
+	FDataTableEditorUtils::BroadcastPreChange(DataTable.Get(), FDataTableEditorUtils::EDataTableChangeInfo::RowData);
+}
 
-	FDataTableEditorUtils::BroadcastPostChange(DataTable.Get(), FDataTableEditorUtils::EDataTableChangeInfo::RowDataPostChangeOnly);
+void SRowEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged )
+{
+	check(DataTable.IsValid());
 
-	if (DataTable.IsValid())
-	{
-		DataTable->MarkPackageDirty();
-	}
+	FDataTableEditorUtils::BroadcastPostChange(DataTable.Get(), FDataTableEditorUtils::EDataTableChangeInfo::RowData);
+
+	DataTable->MarkPackageDirty();
 }
 
 void SRowEditor::PreChange(const class UUserDefinedStruct* Struct, FStructureEditorUtils::EStructureEditorChangeInfo Info)
@@ -145,28 +147,38 @@ void SRowEditor::RefreshNameList()
 
 void SRowEditor::Restore()
 {
-	if (SelectedName.IsValid())
+	if (!SelectedName.IsValid() || !SelectedName->IsNone())
 	{
-		auto CurrentName = *SelectedName;
-		SelectedName = NULL;
-		for (auto Element : CachedRowNames)
+		if (SelectedName.IsValid())
 		{
-			if (*Element == CurrentName)
+			auto CurrentName = *SelectedName;
+			SelectedName = NULL;
+			for (auto Element : CachedRowNames)
 			{
-				SelectedName = Element;
-				break;
+				if (*Element == CurrentName)
+				{
+					SelectedName = Element;
+					break;
+				}
 			}
 		}
-	}
 
-	if (!SelectedName.IsValid() && CachedRowNames.Num() && CachedRowNames[0].IsValid())
-	{
-		SelectedName = CachedRowNames[0];
-	}
+		if (!SelectedName.IsValid() && CachedRowNames.Num() && CachedRowNames[0].IsValid())
+		{
+			SelectedName = CachedRowNames[0];
+		}
 
-	if (RowComboBox.IsValid())
+		if (RowComboBox.IsValid())
+		{
+			RowComboBox->SetSelectedItem(SelectedName);
+		}
+	}
+	else
 	{
-		RowComboBox->SetSelectedItem(SelectedName);
+		if (RowComboBox.IsValid())
+		{
+			RowComboBox->ClearSelection();
+		}
 	}
 
 	auto FinalName = SelectedName.IsValid() ? *SelectedName : NAME_None;
@@ -209,13 +221,19 @@ TSharedRef<SWidget> SRowEditor::OnGenerateWidget(TSharedPtr<FName> InItem)
 
 void SRowEditor::OnSelectionChanged(TSharedPtr<FName> InItem, ESelectInfo::Type InSeletionInfo)
 {
-	if (InItem != SelectedName)
+	if (InItem.IsValid() && InItem != SelectedName)
 	{
 		CleanBeforeChange();
 
 		SelectedName = InItem;
 
 		Restore();
+
+		if (RenameTextBox.IsValid())
+		{
+			// refresh name, in case of a pending rename action
+			RenameTextBox->SetText(TAttribute<FText>(this, &SRowEditor::GetCurrentNameAsText));
+		}
 	}
 }
 
@@ -229,25 +247,31 @@ void SRowEditor::SelectRow(FName InName)
 			NewSelectedName = Name;
 		}
 	}
-	if (!NewSelectedName->IsValid())
+	if (!NewSelectedName.IsValid())
 	{
 		NewSelectedName = MakeShareable(new FName(InName));
 	}
 	OnSelectionChanged(NewSelectedName, ESelectInfo::Direct);
 }
 
+void SRowEditor::HandleUndoRedo()
+{
+	RefreshNameList();
+	Restore();
+}
+
 FReply SRowEditor::OnAddClicked()
 {
 	if (DataTable.IsValid())
 	{
-		FName NewName = DataTable->MakeValidName(TEXT("NewRow"));
+		FName NewName = DataTableUtils::MakeValidName(TEXT("NewRow"));
 		const TArray<FName> ExisitngNames = DataTable->GetRowNames();
 		while (ExisitngNames.Contains(NewName))
 		{
 			NewName.SetNumber(NewName.GetNumber() + 1);
 		}
-		SelectedName = MakeShareable(new FName(NewName));
 		FDataTableEditorUtils::AddRow(DataTable.Get(), NewName);
+		SelectRow(NewName);
 	}
 	return FReply::Handled();
 }
@@ -262,14 +286,44 @@ FReply SRowEditor::OnRemoveClicked()
 	return FReply::Handled();
 }
 
+FReply SRowEditor::OnMoveRowClicked(FDataTableEditorUtils::ERowMoveDirection MoveDirection)
+{
+	if (DataTable.IsValid())
+	{
+		const FName RowToMove = GetCurrentName();
+		FDataTableEditorUtils::MoveRow(DataTable.Get(), RowToMove, MoveDirection);
+	}
+	return FReply::Handled();
+}
+
+FReply SRowEditor::OnMoveToExtentClicked(FDataTableEditorUtils::ERowMoveDirection MoveDirection)
+{
+	if (DataTable.IsValid())
+	{
+		// We move by the row map size, as FDataTableEditorUtils::MoveRow will automatically clamp this as appropriate
+		const FName RowToMove = GetCurrentName();
+		FDataTableEditorUtils::MoveRow(DataTable.Get(), RowToMove, MoveDirection, DataTable->RowMap.Num());
+	}
+	return FReply::Handled();
+}
+
 void SRowEditor::OnRowRenamed(const FText& Text, ETextCommit::Type CommitType)
 {
 	if (!GetCurrentNameAsText().EqualTo(Text) && DataTable.IsValid())
 	{
+		const FName NewName = DataTableUtils::MakeValidName(Text.ToString());
+		for (auto Name : CachedRowNames)
+		{
+			if (Name.IsValid() && (*Name == NewName))
+			{
+				 //the name already exists
+				return;
+			}
+		}
+
 		const FName OldName = GetCurrentName();
-		const FName NewName = DataTable->MakeValidName(Text.ToString());
-		SelectedName = MakeShareable(new FName(NewName));
 		FDataTableEditorUtils::RenameRow(DataTable.Get(), OldName, NewName);
+		SelectRow(NewName);
 	}
 }
 
@@ -282,9 +336,15 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 		ViewArgs.bAllowSearch = false;
 		ViewArgs.bHideSelectionTip = false;
 		ViewArgs.bShowActorLabel = false;
+		ViewArgs.NotifyHook = this;
 
-		StructureDetailsView = PropertyModule.CreateStructureDetailView(ViewArgs, CurrentRow, false, LOCTEXT("RowValue", "Row Value"));
-		StructureDetailsView->GetOnFinishedChangingPropertiesDelegate().AddSP(this, &SRowEditor::OnFinishedChangingProperties);
+		FStructureDetailsViewArgs StructureViewArgs;
+		StructureViewArgs.bShowObjects = false;
+		StructureViewArgs.bShowAssets = true;
+		StructureViewArgs.bShowClasses = true;
+		StructureViewArgs.bShowInterfaces = false;
+
+		StructureDetailsView = PropertyModule.CreateStructureDetailView(ViewArgs, StructureViewArgs, CurrentRow, LOCTEXT("RowValue", "Row Value"));
 	}
 
 	RefreshNameList();
@@ -301,60 +361,32 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 			.AutoWidth()
 			.Padding(2)
 			[
-				SNew(SBox)
-				.MinDesiredWidth(ButtonWidth)
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+				.ForegroundColor(FSlateColor::UseForeground())
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &SRowEditor::OnAddClicked)
+				.ToolTipText(LOCTEXT("AddRowTooltip", "Add a new row to the data table"))
 				[
-					SNew(SButton)
-					.OnClicked(this, &SRowEditor::OnAddClicked)
-					.HAlign(EHorizontalAlignment::HAlign_Center)
-					.Text(LOCTEXT("AddRow", "Add"))
+					SNew(SImage)
+					.Image(FEditorStyle::Get().GetBrush("Plus"))
 				]
 			]
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			.Padding(2)
 			[
-				SNew(SBox)
-				.MinDesiredWidth(ButtonWidth)
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+				.ForegroundColor(FSlateColor::UseForeground())
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &SRowEditor::OnRemoveClicked)
+				.ToolTipText(LOCTEXT("RemoveRowTooltip", "Remove the currently selected row from the data table"))
 				[
-					SNew(SButton)
-					.OnClicked(this, &SRowEditor::OnRemoveClicked)
-					.HAlign(EHorizontalAlignment::HAlign_Center)
-					.Text(LOCTEXT("RemoveRow", "Remove"))
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(2)
-			.VAlign(EVerticalAlignment::VAlign_Center)
-			[
-				SNew(SBox)
-				.HAlign(EHorizontalAlignment::HAlign_Right)
-				[
-					SNew(STextBlock).Text(LOCTEXT("RenameRow", "Rename:"))
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(2)
-			[
-				SNew(SBox)
-				.WidthOverride(2 * ButtonWidth)
-				[
-					SNew(SEditableTextBox)
-					.Text(this, &SRowEditor::GetCurrentNameAsText)
-					.OnTextCommitted(this, &SRowEditor::OnRowRenamed)
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
-			.Padding(2)
-			.VAlign(EVerticalAlignment::VAlign_Center)
-			[
-				SNew(SBox)
-				.HAlign(EHorizontalAlignment::HAlign_Right)
-				[
-					SNew(STextBlock).Text(LOCTEXT("SelectRow", "Select:"))
+					SNew(SImage)
+					.Image(FEditorStyle::Get().GetBrush("Cross"))
 				]
 			]
 			+ SHorizontalBox::Slot()
@@ -363,6 +395,7 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 			[
 				SNew(SBox)
 				.WidthOverride(2 * ButtonWidth)
+				.ToolTipText(LOCTEXT("SelectedRowTooltip", "Select a row to edit"))
 				[
 					SAssignNew(RowComboBox, SComboBox<TSharedPtr<FName>>)
 					.OptionsSource(&CachedRowNames)
@@ -374,9 +407,103 @@ void SRowEditor::Construct(const FArguments& InArgs, UDataTable* Changed)
 					]
 				]
 			]
+			+ SHorizontalBox::Slot()
+			[
+				SNew(SSpacer)
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2)
+			.VAlign(EVerticalAlignment::VAlign_Center)
+			[
+				SNew(SBox)
+				.HAlign(HAlign_Right)
+				[
+					SNew(STextBlock).Text(LOCTEXT("RowNameLabel", "Row Name:"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2)
+			[
+				SNew(SBox)
+				.WidthOverride(2 * ButtonWidth)
+				[
+					SAssignNew(RenameTextBox, SEditableTextBox)
+					.Text(this, &SRowEditor::GetCurrentNameAsText)
+					.OnTextCommitted(this, &SRowEditor::OnRowRenamed)
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2)
+			[
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+				.ForegroundColor(FSlateColor::UseForeground())
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &SRowEditor::OnMoveRowClicked, FDataTableEditorUtils::ERowMoveDirection::Up)
+				.ToolTipText(LOCTEXT("MoveUpTooltip", "Move the currently selected row up by one in the data table"))
+				[
+					SNew(STextBlock)
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.14"))
+					.Text(FText::FromString(FString(TEXT("\xf106"))) /*fa-angle-up*/)
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2)
+			[
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+				.ForegroundColor(FSlateColor::UseForeground())
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &SRowEditor::OnMoveRowClicked, FDataTableEditorUtils::ERowMoveDirection::Down)
+				.ToolTipText(LOCTEXT("MoveDownTooltip", "Move the currently selected row down by one in the data table"))
+				[
+					SNew(STextBlock)
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.14"))
+					.Text(FText::FromString(FString(TEXT("\xf107"))) /*fa-angle-down*/)
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2)
+			[
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+				.ForegroundColor(FSlateColor::UseForeground())
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &SRowEditor::OnMoveToExtentClicked, FDataTableEditorUtils::ERowMoveDirection::Up)
+				.ToolTipText(LOCTEXT("MoveToTopTooltip", "Move the currently selected row to the top of the data table"))
+				[
+					SNew(STextBlock)
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.14"))
+					.Text(FText::FromString(FString(TEXT("\xf102"))) /*fa-angle-double-up*/)
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2)
+			[
+				SNew(SButton)
+				.ButtonStyle(FEditorStyle::Get(), "HoverHintOnly")
+				.ForegroundColor(FSlateColor::UseForeground())
+				.HAlign(HAlign_Center)
+				.VAlign(VAlign_Center)
+				.OnClicked(this, &SRowEditor::OnMoveToExtentClicked, FDataTableEditorUtils::ERowMoveDirection::Down)
+				.ToolTipText(LOCTEXT("MoveToBottomTooltip", "Move the currently selected row to the bottom of the data table"))
+				[
+					SNew(STextBlock)
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.14"))
+					.Text(FText::FromString(FString(TEXT("\xf103"))) /*fa-angle-double-down*/)
+				]
+			]
 		]
 		+ SVerticalBox::Slot()
-		.AutoHeight()
 		[
 			StructureDetailsView->GetWidget().ToSharedRef()
 		]

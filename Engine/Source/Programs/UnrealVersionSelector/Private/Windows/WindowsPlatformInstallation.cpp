@@ -214,8 +214,21 @@ private:
 
 bool FWindowsPlatformInstallation::LaunchEditor(const FString &RootDirName, const FString &Arguments)
 {
-	FString EditorFileName = RootDirName / TEXT("Engine/Binaries/Win64/UE4Editor.exe");
-	return FPlatformProcess::ExecProcess(*EditorFileName, *Arguments, NULL, NULL, NULL);
+	FString CommandLine = FString::Printf(TEXT("\"%s\" %s"), *(RootDirName / TEXT("Engine/Binaries/Win64/UE4Editor.exe")), *Arguments);
+
+	STARTUPINFO StartupInfo;
+	ZeroMemory(&StartupInfo, sizeof(StartupInfo));
+	StartupInfo.cb = sizeof(StartupInfo);
+
+	PROCESS_INFORMATION ProcessInfo;
+	if(!CreateProcess(NULL, CommandLine.GetCharArray().GetData(), NULL, NULL, FALSE, 0, NULL, NULL, &StartupInfo, &ProcessInfo))
+	{
+		return false;
+	}
+
+	CloseHandle(ProcessInfo.hThread);
+	CloseHandle(ProcessInfo.hProcess);
+	return true;
 }
 
 bool FWindowsPlatformInstallation::SelectEngineInstallation(FString &Identifier)

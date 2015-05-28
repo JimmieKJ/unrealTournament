@@ -35,6 +35,8 @@
 #include "SInlineEditableTextBlock.h"
 #include "Engine/SimpleConstructionScript.h"
 #include "Editor/UnrealEd/Public/Kismet2/ComponentEditorUtils.h"
+#include "Engine/SCS_Node.h"
+#include "Components/TimelineComponent.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintPalette"
 
@@ -280,25 +282,17 @@ static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBluep
 	// Default to tooltip based on action supplied
 	ToolTipOut = (ActionIn->TooltipDescription.Len() > 0) ? ActionIn->TooltipDescription : ActionIn->MenuDescription.ToString();
 
-	if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2TargetNode::StaticGetTypeId())
+	if (ActionIn->GetTypeId() == FBlueprintActionMenuItem::StaticGetTypeId())
 	{
-		FEdGraphSchemaAction_K2TargetNode* TargetNodeAction = (FEdGraphSchemaAction_K2TargetNode*)ActionIn.Get();
-		if (UK2Node_Event* EventNode = Cast<UK2Node_Event>(TargetNodeAction->NodeTemplate))
-		{
-			BrushOut = FEditorStyle::GetBrush(TEXT("GraphEditor.Event_16x"));
-		}
+		FBlueprintActionMenuItem* NodeSpawnerAction = (FBlueprintActionMenuItem*)ActionIn.Get();
+		BrushOut = NodeSpawnerAction->GetMenuIcon(ColorOut);
 	}
-	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2AddComponent::StaticGetTypeId())
+	else if (ActionIn->GetTypeId() == FBlueprintDragDropMenuItem::StaticGetTypeId())
 	{
-		FEdGraphSchemaAction_K2AddComponent* AddCompAction = (FEdGraphSchemaAction_K2AddComponent*)ActionIn.Get();
-		// Get icon from class
-		UClass* ComponentClass = *(AddCompAction->ComponentClass);
-		if (ComponentClass)
-		{
-			BrushOut = FClassIconFinder::FindIconForClass(ComponentClass);
-			ToolTipOut = ComponentClass->GetName();
-		}
+		FBlueprintDragDropMenuItem* DragDropAction = (FBlueprintDragDropMenuItem*)ActionIn.Get();
+		BrushOut = DragDropAction->GetMenuIcon(ColorOut);
 	}
+	// for backwards compatibility:
 	else if (UK2Node const* const NodeTemplate = FBlueprintActionMenuUtils::ExtractNodeTemplateFromAction(ActionIn))
 	{
 		// If the node wants to create tooltip text, use that instead, because its probably more detailed
@@ -313,19 +307,20 @@ static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBluep
 		BrushOut = FEditorStyle::GetBrush(NodeTemplate->GetPaletteIcon(IconLinearColor));
 		ColorOut = IconLinearColor;
 	}
-	else if(ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Graph::StaticGetTypeId())
+	// for MyBlueprint tab specific actions:
+	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Graph::StaticGetTypeId())
 	{
 		FEdGraphSchemaAction_K2Graph const* GraphAction = (FEdGraphSchemaAction_K2Graph const*)ActionIn.Get();
 		GetSubGraphIcon(GraphAction, BlueprintIn, BrushOut, ToolTipOut);
 	}
-	else if(ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Delegate::StaticGetTypeId())
+	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Delegate::StaticGetTypeId())
 	{
 		FEdGraphSchemaAction_K2Delegate* DelegateAction = (FEdGraphSchemaAction_K2Delegate*)ActionIn.Get();
 
 		BrushOut = FEditorStyle::GetBrush(TEXT("GraphEditor.Delegate_16x"));
-		ToolTipOut = FString::Printf( *LOCTEXT( "Delegate_Tooltip", "Event Dispatcher '%s'" ).ToString(), *DelegateAction->GetDelegateName().ToString());
+		ToolTipOut = FString::Printf(*LOCTEXT("Delegate_Tooltip", "Event Dispatcher '%s'").ToString(), *DelegateAction->GetDelegateName().ToString());
 	}
-	else if(ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Var::StaticGetTypeId())
+	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Var::StaticGetTypeId())
 	{
 		FEdGraphSchemaAction_K2Var* VarAction = (FEdGraphSchemaAction_K2Var*)ActionIn.Get();
 
@@ -336,7 +331,7 @@ static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBluep
 		DocLinkOut = TEXT("Shared/Editor/Blueprint/VariableTypes");
 		DocExcerptOut = GetVarType(VarClass, VarAction->GetVariableName(), false, false);
 	}
-	else if(ActionIn->GetTypeId() == FEdGraphSchemaAction_K2LocalVar::StaticGetTypeId())
+	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2LocalVar::StaticGetTypeId())
 	{
 		FEdGraphSchemaAction_K2LocalVar* LocalVarAction = (FEdGraphSchemaAction_K2LocalVar*)ActionIn.Get();
 
@@ -347,36 +342,15 @@ static void GetPaletteItemIcon(TSharedPtr<FEdGraphSchemaAction> ActionIn, UBluep
 		DocLinkOut = TEXT("Shared/Editor/Blueprint/VariableTypes");
 		DocExcerptOut = GetVarType(VarScope, LocalVarAction->GetVariableName(), false);
 	}
-	else if(ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Enum::StaticGetTypeId())
+	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Enum::StaticGetTypeId())
 	{
 		BrushOut = FEditorStyle::GetBrush(TEXT("GraphEditor.EnumGlyph"));
-		ToolTipOut = FString::Printf( *LOCTEXT("Enum_Tooltip", "Enum Asset").ToString() );
+		ToolTipOut = FString::Printf(*LOCTEXT("Enum_Tooltip", "Enum Asset").ToString());
 	}
-	else if(ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Struct::StaticGetTypeId())
+	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2Struct::StaticGetTypeId())
 	{
 		BrushOut = FEditorStyle::GetBrush(TEXT("GraphEditor.StructGlyph"));
-		ToolTipOut =  FString::Printf( *LOCTEXT("Struct_Tooltip", "Struct Asset").ToString() );
-	}
-	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2AddComment::StaticGetTypeId() ||
-		ActionIn->GetTypeId() == FEdGraphSchemaAction_NewStateComment::StaticGetTypeId())
-	{
-		ToolTipOut = LOCTEXT("Comment_Tooltip", "Create a resizable comment box.").ToString();
-		BrushOut = FEditorStyle::GetBrush(TEXT("GraphEditor.Comment_16x"));
-	}
-	else if (ActionIn->GetTypeId() == FBlueprintActionMenuItem::StaticGetTypeId())
-	{
-		FBlueprintActionMenuItem* NodeSpawnerAction = (FBlueprintActionMenuItem*)ActionIn.Get();
-		BrushOut = NodeSpawnerAction->GetMenuIcon(ColorOut);
-	}
-	else if (ActionIn->GetTypeId() == FBlueprintDragDropMenuItem::StaticGetTypeId())
-	{
-		FBlueprintDragDropMenuItem* DragDropAction = (FBlueprintDragDropMenuItem*)ActionIn.Get();
-		BrushOut = DragDropAction->GetMenuIcon(ColorOut);
-	}
-	else if (ActionIn->GetTypeId() == FEdGraphSchemaAction_K2AddDocumentation::StaticGetTypeId())
-	{
-		ToolTipOut = LOCTEXT("Documentation_Tooltip", "Create a documentation node.").ToString();
-		BrushOut = FEditorStyle::GetBrush(TEXT("GraphEditor.Documentation_16x"));
+		ToolTipOut = FString::Printf(*LOCTEXT("Struct_Tooltip", "Struct Asset").ToString());
 	}
 }
 
@@ -1044,25 +1018,29 @@ TSharedRef<SWidget> SBlueprintPaletteItem::CreateTextSlotWidget(const FSlateFont
 //------------------------------------------------------------------------------
 FText SBlueprintPaletteItem::GetDisplayText() const
 {
-	FText DisplayText;
+	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+	if (MenuDescriptionCache.IsOutOfDate(K2Schema))
+	{
+		TSharedPtr< FEdGraphSchemaAction > GraphAction = ActionPtr.Pin();
+		if (GraphAction->GetTypeId() == FEdGraphSchemaAction_K2Enum::StaticGetTypeId())
+		{
+			FEdGraphSchemaAction_K2Enum* EnumAction = (FEdGraphSchemaAction_K2Enum*)GraphAction.Get();
+			FText DisplayText = FText::FromString(EnumAction->Enum->GetName());
+			MenuDescriptionCache.SetCachedText(DisplayText, K2Schema);
+		}
+		else if (GraphAction->GetTypeId() == FEdGraphSchemaAction_K2Struct::StaticGetTypeId())
+		{
+			FEdGraphSchemaAction_K2Struct* StructAction = (FEdGraphSchemaAction_K2Struct*)GraphAction.Get();
+			FText DisplayText = StructAction->Struct ? FText::FromString(StructAction->Struct->GetName()) : FText::FromString(TEXT("None"));
+			MenuDescriptionCache.SetCachedText(DisplayText, K2Schema);
+		}
+		else
+		{
+			MenuDescriptionCache.SetCachedText(ActionPtr.Pin()->MenuDescription, K2Schema);
+		}
+	}
 
-	TSharedPtr< FEdGraphSchemaAction > GraphAction = ActionPtr.Pin();
-	if (GraphAction->GetTypeId() == FEdGraphSchemaAction_K2Enum::StaticGetTypeId())
-	{
-		FEdGraphSchemaAction_K2Enum* EnumAction = (FEdGraphSchemaAction_K2Enum*)GraphAction.Get();
-		DisplayText = FText::FromString(EnumAction->Enum->GetName());
-	}
-	else if (GraphAction->GetTypeId() == FEdGraphSchemaAction_K2Struct::StaticGetTypeId())
-	{
-		FEdGraphSchemaAction_K2Struct* StructAction = (FEdGraphSchemaAction_K2Struct*)GraphAction.Get();
-		DisplayText = StructAction->Struct ? FText::FromString(StructAction->Struct->GetName()) : FText::FromString(TEXT("None"));
-	}
-	else
-	{
-		DisplayText = ActionPtr.Pin()->MenuDescription;
-	}
-
-	return DisplayText;
+	return MenuDescriptionCache;
 }
 
 //------------------------------------------------------------------------------
@@ -1108,12 +1086,12 @@ bool SBlueprintPaletteItem::OnNameTextVerifyChanged(const FText& InNewText, FTex
 		}
 	}
 
-	UBlueprint* Blueprint = BlueprintEditorPtr.Pin()->GetBlueprintObj();
-	check(Blueprint != NULL);
+	UBlueprint* BlueprintObj = BlueprintEditorPtr.Pin()->GetBlueprintObj();
+	check(BlueprintObj != NULL);
 
-	if(Blueprint->SimpleConstructionScript != NULL)
+	if(BlueprintObj->SimpleConstructionScript != NULL)
 	{
-		TArray<USCS_Node*> Nodes = Blueprint->SimpleConstructionScript->GetAllNodes();
+		TArray<USCS_Node*> Nodes = BlueprintObj->SimpleConstructionScript->GetAllNodes();
 		for (TArray<USCS_Node*>::TConstIterator NodeIt(Nodes); NodeIt; ++NodeIt)
 		{
 			USCS_Node* Node = *NodeIt;
@@ -1125,7 +1103,7 @@ bool SBlueprintPaletteItem::OnNameTextVerifyChanged(const FText& InNewText, FTex
 		}
 	}
 
-	TSharedPtr<INameValidatorInterface> NameValidator = MakeShareable(new FKismetNameValidator(Blueprint, OriginalName, ValidationScope));
+	TSharedPtr<INameValidatorInterface> NameValidator = MakeShareable(new FKismetNameValidator(BlueprintObj, OriginalName, ValidationScope));
 
 	EValidatorResult ValidatorResult = NameValidator->IsValid(TextAsString);
 	if(ValidatorResult == EValidatorResult::AlreadyInUse)
@@ -1227,22 +1205,8 @@ void SBlueprintPaletteItem::OnNameTextCommitted(const FText& NewText, ETextCommi
 				const FScopedTransaction Transaction( LOCTEXT( "Rename Delegate", "Rename Event Dispatcher" ) );
 				const FName OldName =  Graph->GetFName();
 
-				UBlueprint* Blueprint = BlueprintEditorPtr.Pin()->GetBlueprintObj();
-				FBlueprintEditorUtils::RenameMemberVariable(Blueprint, OldName, NewName);
-
-				TArray<UK2Node_BaseMCDelegate*> NodeUsingDelegate;
-				FBlueprintEditorUtils::GetAllNodesOfClass<UK2Node_BaseMCDelegate>(Blueprint, NodeUsingDelegate);
-				for (auto FuncIt = NodeUsingDelegate.CreateIterator(); FuncIt; ++FuncIt)
-				{
-					UK2Node_BaseMCDelegate* FunctionNode = *FuncIt;
-					if (FunctionNode->DelegateReference.IsSelfContext() && (FunctionNode->DelegateReference.GetMemberName() == OldName))
-					{
-						FunctionNode->Modify();
-						FunctionNode->DelegateReference.SetSelfMember(NewName);
-					}
-				}
-
-				FBlueprintEditorUtils::RenameGraph(Graph, NewNameString );
+				UBlueprint* BlueprintObj = BlueprintEditorPtr.Pin()->GetBlueprintObj();
+				FBlueprintEditorUtils::RenameMemberVariable(BlueprintObj, OldName, NewName);
 			}
 		}
 	}
@@ -1307,13 +1271,13 @@ FText SBlueprintPaletteItem::GetToolTipText() const
 {
 	TSharedPtr<FEdGraphSchemaAction> PaletteAction = ActionPtr.Pin();
 
-	FString ToolTipText;
-	FString ClassDisplayName;
+	FText ToolTipText;
+	FText ClassDisplayName;
 
 	if (PaletteAction.IsValid())
 	{
 		// Default tooltip is taken from the action
-		ToolTipText = (PaletteAction->TooltipDescription.Len() > 0) ? PaletteAction->TooltipDescription : PaletteAction->MenuDescription.ToString();
+		ToolTipText = (PaletteAction->TooltipDescription.Len() > 0) ? FText::FromString(PaletteAction->TooltipDescription) : PaletteAction->MenuDescription;
 
 		if(PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2AddComponent::StaticGetTypeId())
 		{
@@ -1322,30 +1286,31 @@ FText SBlueprintPaletteItem::GetToolTipText() const
 			UClass* ComponentClass = *(AddCompAction->ComponentClass);
 			if (ComponentClass)
 			{
-				ToolTipText = ComponentClass->GetToolTipText().ToString();
+				ToolTipText = ComponentClass->GetToolTipText();
 			}
 		}
 		else if (UK2Node const* const NodeTemplate = FBlueprintActionMenuUtils::ExtractNodeTemplateFromAction(PaletteAction))
 		{
-			// Display the native title of the node when alt is held
-			if(FSlateApplication::Get().GetModifierKeys().IsAltDown())
-			{
-				return FText::FromString(NodeTemplate->GetNodeTitle(ENodeTitleType::ListView).BuildSourceString());
-			}
-
 			// If the node wants to create tooltip text, use that instead, because its probably more detailed
-			FString NodeToolTipText = NodeTemplate->GetTooltipText().ToString();
-			if (NodeToolTipText.Len() > 0)
+			FText NodeToolTipText = NodeTemplate->GetTooltipText();
+			if (!NodeToolTipText.IsEmpty())
 			{
 				ToolTipText = NodeToolTipText;
 			}
 
 			if (UK2Node_CallFunction const* CallFuncNode = Cast<UK2Node_CallFunction const>(NodeTemplate))
 			{			
-				if(UClass* ParentClass = CallFuncNode->FunctionReference.GetMemberParentClass(CallFuncNode))
+				if(UClass* ParentClass = CallFuncNode->FunctionReference.GetMemberParentClass(CallFuncNode->GetBlueprintClassFromNode()))
 				{
-					UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(ParentClass);
-					ClassDisplayName = (Blueprint != NULL) ? Blueprint->GetName() : ParentClass->GetName();
+					UBlueprint* BlueprintObj = UBlueprint::GetBlueprintFromClass(ParentClass);
+					if (BlueprintObj == nullptr)
+					{
+						ClassDisplayName = ParentClass->GetDisplayNameText();
+					}
+					else if (!BlueprintObj->HasAnyFlags(RF_Transient))
+					{
+						ClassDisplayName = FText::FromName(BlueprintObj->GetFName());
+					}					
 				}
 			}
 		}
@@ -1357,7 +1322,7 @@ FText SBlueprintPaletteItem::GetToolTipText() const
 				FGraphDisplayInfo DisplayInfo;
 				GraphAction->EdGraph->GetSchema()->GetGraphDisplayInformation(*(GraphAction->EdGraph), DisplayInfo);
 
-				ToolTipText = DisplayInfo.Tooltip;
+				ToolTipText = FText::FromString(DisplayInfo.Tooltip);
 			}
 		}
 		else if (PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2Var::StaticGetTypeId())
@@ -1366,14 +1331,14 @@ FText SBlueprintPaletteItem::GetToolTipText() const
 			UClass* VarClass = VarAction->GetVariableClass();
 			if (bShowClassInTooltip && (VarClass != NULL))
 			{
-				UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(VarClass);
-				ClassDisplayName = (Blueprint != NULL) ? Blueprint->GetName() : VarClass->GetName();
+				UBlueprint* BlueprintObj = UBlueprint::GetBlueprintFromClass(VarClass);
+				ClassDisplayName = (BlueprintObj != NULL) ? FText::FromName(BlueprintObj->GetFName()) : VarClass->GetDisplayNameText();
 			}
 			else
 			{
 				FString Result = GetVarTooltip(Blueprint, VarClass, VarAction->GetVariableName());
 				// Only use the variable tooltip if it has been filled out.
-				ToolTipText = !Result.IsEmpty() ? Result : GetVarType(VarClass, VarAction->GetVariableName(), true, true);
+				ToolTipText = FText::FromString( !Result.IsEmpty() ? Result : GetVarType(VarClass, VarAction->GetVariableName(), true, true) );
 			}
 		}
 		else if (PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2LocalVar::StaticGetTypeId())
@@ -1385,15 +1350,15 @@ FText SBlueprintPaletteItem::GetToolTipText() const
 				UClass* VarClass = CastChecked<UClass>(LocalVarAction->GetVariableScope()->GetOuter());
 				if (bShowClassInTooltip && (VarClass != NULL))
 				{
-					UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(VarClass);
-					ClassDisplayName = (Blueprint != NULL) ? Blueprint->GetName() : VarClass->GetName();
+					UBlueprint* BlueprintObj = UBlueprint::GetBlueprintFromClass(VarClass);
+					ClassDisplayName = (BlueprintObj != NULL) ? FText::FromName(BlueprintObj->GetFName()) : VarClass->GetDisplayNameText();
 				}
 				else
 				{
 					FString Result;
 					FBlueprintEditorUtils::GetBlueprintVariableMetaData(Blueprint, LocalVarAction->GetVariableName(), LocalVarAction->GetVariableScope(), TEXT("tooltip"), Result);
 					// Only use the variable tooltip if it has been filled out.
-					ToolTipText = !Result.IsEmpty() ? Result : GetVarType(LocalVarAction->GetVariableScope(), LocalVarAction->GetVariableName(), true, true);
+					ToolTipText = FText::FromString( !Result.IsEmpty() ? Result : GetVarType(LocalVarAction->GetVariableScope(), LocalVarAction->GetVariableName(), true, true) );
 				}
 			}
 		}
@@ -1402,14 +1367,14 @@ FText SBlueprintPaletteItem::GetToolTipText() const
 			FEdGraphSchemaAction_K2Delegate* DelegateAction = (FEdGraphSchemaAction_K2Delegate*)PaletteAction.Get();
 			
 			FString Result = GetVarTooltip(Blueprint, DelegateAction->GetDelegateClass(), DelegateAction->GetDelegateName());
-			ToolTipText = !Result.IsEmpty() ? Result : DelegateAction->GetDelegateName().ToString();
+			ToolTipText = !Result.IsEmpty() ? FText::FromString(Result) : FText::FromName(DelegateAction->GetDelegateName());
 		}
 		else if (PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2Enum::StaticGetTypeId())
 		{
 			FEdGraphSchemaAction_K2Enum* EnumAction = (FEdGraphSchemaAction_K2Enum*)PaletteAction.Get();
 			if (EnumAction->Enum)
 			{
-				ToolTipText = EnumAction->Enum->GetName();
+				ToolTipText = FText::FromName(EnumAction->Enum->GetFName());
 			}
 		}
 		else if (PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2TargetNode::StaticGetTypeId())
@@ -1417,33 +1382,45 @@ FText SBlueprintPaletteItem::GetToolTipText() const
 			FEdGraphSchemaAction_K2TargetNode* TargetNodeAction = (FEdGraphSchemaAction_K2TargetNode*)PaletteAction.Get();
 			if (TargetNodeAction->NodeTemplate)
 			{
-				ToolTipText = TargetNodeAction->NodeTemplate->GetTooltipText().ToString();
+				ToolTipText = TargetNodeAction->NodeTemplate->GetTooltipText();
 			}
 		}
 	}
 
 	if (bShowClassInTooltip && !ClassDisplayName.IsEmpty())
 	{
-		FString Format = LOCTEXT("BlueprintItemClassTooltip", "%s\nClass: %s").ToString();
-		ToolTipText = FString::Printf(*Format, *ToolTipText, *ClassDisplayName);
+		ToolTipText = FText::Format(LOCTEXT("BlueprintItemClassTooltip", "{0}\nClass: {1}"), ToolTipText, ClassDisplayName);
 	}
 
-	return FText::FromString(ToolTipText);
+	return ToolTipText;
 }
 
 TSharedPtr<SToolTip> SBlueprintPaletteItem::ConstructToolTipWidget() const
 {
 	TSharedPtr<FEdGraphSchemaAction> PaletteAction = ActionPtr.Pin();
+	UEdGraphNode const* const NodeTemplate = FBlueprintActionMenuUtils::ExtractNodeTemplateFromAction(PaletteAction);
 
-	FString DocLink, DocExcerptName;
+	FBlueprintActionMenuItem::FDocExcerptRef DocExcerptRef;
 
 	if (PaletteAction.IsValid())
 	{
-		if (UEdGraphNode const* const NodeTemplate = FBlueprintActionMenuUtils::ExtractNodeTemplateFromAction(PaletteAction))
+		if (NodeTemplate != nullptr)
 		{
 			// Take rich tooltip from node
-			DocLink = NodeTemplate->GetDocumentationLink();
-			DocExcerptName = NodeTemplate->GetDocumentationExcerptName();
+			DocExcerptRef.DocLink = NodeTemplate->GetDocumentationLink();
+			DocExcerptRef.DocExcerptName = NodeTemplate->GetDocumentationExcerptName();
+
+			// sometimes, with FBlueprintActionMenuItem's, the NodeTemplate 
+			// doesn't always reflect the node that will be spawned (some things 
+			// we don't want to be executed until spawn time, like adding of 
+			// component templates)... in that case, the 
+			// FBlueprintActionMenuItem's may have a more specific documentation 
+			// link of its own (most of the time, it will reflect the NodeTemplate's)
+			if ( !DocExcerptRef.IsValid() && (PaletteAction->GetTypeId() == FBlueprintActionMenuItem::StaticGetTypeId()) )
+			{
+				FBlueprintActionMenuItem* NodeSpawnerAction = (FBlueprintActionMenuItem*)PaletteAction.Get();
+				DocExcerptRef = NodeSpawnerAction->GetDocumentationExcerpt();
+			}
 		}
 		else if (PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2Graph::StaticGetTypeId())
 		{
@@ -1453,8 +1430,8 @@ TSharedPtr<SToolTip> SBlueprintPaletteItem::ConstructToolTipWidget() const
 				FGraphDisplayInfo DisplayInfo;
 				GraphAction->EdGraph->GetSchema()->GetGraphDisplayInformation(*(GraphAction->EdGraph), DisplayInfo);
 
-				DocLink = DisplayInfo.DocLink;
-				DocExcerptName = DisplayInfo.DocExcerptName;
+				DocExcerptRef.DocLink = DisplayInfo.DocLink;
+				DocExcerptRef.DocExcerptName = DisplayInfo.DocExcerptName;
 			}
 		}
 		else if (PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2Var::StaticGetTypeId())
@@ -1464,28 +1441,28 @@ TSharedPtr<SToolTip> SBlueprintPaletteItem::ConstructToolTipWidget() const
 			if (!bShowClassInTooltip || VarClass == NULL)
 			{
 				// Don't show big tooltip if we are showing class as well (means we are not in MyBlueprint)
-				DocLink = TEXT("Shared/Editors/BlueprintEditor/GraphTypes");
-				DocExcerptName = TEXT("Variable");
+				DocExcerptRef.DocLink = TEXT("Shared/Editors/BlueprintEditor/GraphTypes");
+				DocExcerptRef.DocExcerptName = TEXT("Variable");
 			}
 		}
 		else if (PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2Event::StaticGetTypeId())
 		{
-			DocLink = TEXT("Shared/Editors/BlueprintEditor/GraphTypes");
-			DocExcerptName = TEXT("Event");
+			DocExcerptRef.DocLink = TEXT("Shared/Editors/BlueprintEditor/GraphTypes");
+			DocExcerptRef.DocExcerptName = TEXT("Event");
 		}
 		else if (PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2AddComment::StaticGetTypeId() ||
 			PaletteAction->GetTypeId() == FEdGraphSchemaAction_NewStateComment::StaticGetTypeId())
 		{
 			// Taking tooltip from action is fine
 			const UEdGraphNode_Comment* DefaultComment = GetDefault<UEdGraphNode_Comment>();
-			DocLink = DefaultComment->GetDocumentationLink();
-			DocExcerptName = DefaultComment->GetDocumentationExcerptName();
+			DocExcerptRef.DocLink = DefaultComment->GetDocumentationLink();
+			DocExcerptRef.DocExcerptName = DefaultComment->GetDocumentationExcerptName();
 		}
 		else if (PaletteAction->GetTypeId() == FEdGraphSchemaAction_K2LocalVar::StaticGetTypeId())
 		{
 			// Don't show big tooltip if we are showing class as well (means we are not in MyBlueprint)
-			DocLink = TEXT("Shared/Editors/BlueprintEditor/GraphTypes");
-			DocExcerptName = TEXT("LocalVariable");
+			DocExcerptRef.DocLink = TEXT("Shared/Editors/BlueprintEditor/GraphTypes");
+			DocExcerptRef.DocExcerptName = TEXT("LocalVariable");
 		}
 	}
 
@@ -1493,46 +1470,108 @@ TSharedPtr<SToolTip> SBlueprintPaletteItem::ConstructToolTipWidget() const
 	TAttribute<FText> TextAttribute;
 	TextAttribute.Bind(this, &SBlueprintPaletteItem::GetToolTipText);
 
-	TSharedRef< SToolTip > TooltipWidget = IDocumentation::Get()->CreateToolTip(TextAttribute, NULL, DocLink, DocExcerptName);
+	TSharedRef< SToolTip > TooltipWidget = IDocumentation::Get()->CreateToolTip(TextAttribute, NULL, DocExcerptRef.DocLink, DocExcerptRef.DocExcerptName);
 
 	// English speakers have no real need to know this exists.
-	if(FInternationalization::Get().GetCurrentCulture()->GetTwoLetterISOLanguageName() != TEXT("en"))
+	if ( (NodeTemplate != nullptr) && (FInternationalization::Get().GetCurrentCulture()->GetTwoLetterISOLanguageName() != TEXT("en")) )
 	{
-		if (UK2Node const* const NodeTemplate = FBlueprintActionMenuUtils::ExtractNodeTemplateFromAction(PaletteAction))
+		FText NativeNodeName = FText::FromString(NodeTemplate->GetNodeTitle(ENodeTitleType::ListView).BuildSourceString());
+		const FTextBlockStyle& SubduedTextStyle = FEditorStyle::GetWidgetStyle<FTextBlockStyle>("Documentation.SDocumentationTooltipSubdued");
+
+		TSharedPtr<SToolTip> InternationalTooltip;
+		TSharedPtr<SVerticalBox> TooltipBody;
+
+		SAssignNew(InternationalTooltip, SToolTip)
+			// Emulate text-only tool-tip styling that SToolTip uses 
+			// when no custom content is supplied.  We want node tool-
+			// tips to be styled just like text-only tool-tips
+			.BorderImage( FCoreStyle::Get().GetBrush("ToolTip.BrightBackground") )
+			.TextMargin(FMargin(11.0f))
+		[
+			SAssignNew(TooltipBody, SVerticalBox)
+		];
+
+		if (!DocExcerptRef.IsValid())
 		{
-			struct Local
+			auto GetNativeNamePromptVisibility = []()->EVisibility
 			{
-				static EVisibility GetNativeNodeNameVisibility()
-				{
-					return FSlateApplication::Get().GetModifierKeys().IsAltDown()? EVisibility::Collapsed : EVisibility::Visible;
-				}
+				FModifierKeysState KeyState = FSlateApplication::Get().GetModifierKeys();
+				return KeyState.IsAltDown() ? EVisibility::Collapsed : EVisibility::Visible;
 			};
 
-			return 
-				SNew(SToolTip)
+			TooltipBody->AddSlot()
+			[
+				SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "Documentation.SDocumentationTooltip")
+					.Text(NativeNodeName)
+					.Visibility_Lambda([GetNativeNamePromptVisibility]()->EVisibility
+					{
+						return (GetNativeNamePromptVisibility() == EVisibility::Visible) ? EVisibility::Collapsed : EVisibility::Visible;
+					})
+			];
 
-				// Emulate text-only tool-tip styling that SToolTip uses when no custom content is supplied.  We want node tool-tips to 
-				// be styled just like text-only tool-tips
-				.BorderImage( FCoreStyle::Get().GetBrush("ToolTip.BrightBackground") )
-				.TextMargin(FMargin(11.0f))
+			TooltipBody->AddSlot()
+			[
+				SNew(SHorizontalBox)
+					.Visibility_Lambda(GetNativeNamePromptVisibility)
+				+SHorizontalBox::Slot()
 				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					[
-						TooltipWidget->GetContentWidget()
-					]
-					+SVerticalBox::Slot()
-						.AutoHeight()
-						.HAlign( HAlign_Right )
-					[
+					TooltipWidget->GetContentWidget()
+				]
+			];
 
-						SNew( STextBlock )
-						.Text( LOCTEXT( "NativeNodeName", "hold (Alt) for native node name" ) )
-						.TextStyle( FEditorStyle::Get(), "Documentation.SDocumentationTooltipSubdued")
-						.Visibility_Static(&Local::GetNativeNodeNameVisibility)
-					]
-				];
+			TooltipBody->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				.Padding(0.f, 8.f, 0.f, 0.f)
+			[
+
+				SNew(STextBlock)
+					.Text( LOCTEXT("NativeNodeName", "hold (Alt) for native node name") )
+					.TextStyle(&SubduedTextStyle)
+					.Visibility_Lambda(GetNativeNamePromptVisibility)
+			];
 		}
+		else
+		{
+			auto GetNativeNodeNameVisibility = []()->EVisibility
+			{
+				FModifierKeysState KeyState = FSlateApplication::Get().GetModifierKeys();
+				return KeyState.IsAltDown() && KeyState.IsControlDown() ? EVisibility::Visible : EVisibility::Collapsed;
+			};
+
+			// give the "advanced" tooltip a header
+			TooltipBody->AddSlot()
+				.AutoHeight()
+				.HAlign(HAlign_Right)
+				.Padding(0.f, 0.f, 0.f, 8.f)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+					.AutoWidth()
+				[
+					SNew(STextBlock)
+					.TextStyle(&SubduedTextStyle)
+						.Text(LOCTEXT("NativeNodeNameLabel", "Native Node Name: "))
+						.Visibility_Lambda(GetNativeNodeNameVisibility)
+				]
+				+SHorizontalBox::Slot()
+					.AutoWidth()
+				[
+					SNew(STextBlock)
+						.TextStyle(&SubduedTextStyle)
+						.Text(NativeNodeName)
+						.Visibility_Lambda(GetNativeNodeNameVisibility)
+				]
+			];
+
+			TooltipBody->AddSlot()
+			[
+				TooltipWidget->GetContentWidget()
+			];
+		}
+
+		return InternationalTooltip;
 	}
 	return TooltipWidget;
 }
@@ -1549,9 +1588,9 @@ void SBlueprintPalette::Construct(const FArguments& InArgs, TWeakPtr<FBlueprintE
 	TSharedRef<SWidget> AssetDiscoveryIndicator = EditorWidgetsModule.CreateAssetDiscoveryIndicator(EAssetDiscoveryIndicatorScaleMode::Scale_Vertical);
 
 	float FavoritesHeightRatio = 0.33f;
-	GConfig->GetFloat(*BlueprintPalette::ConfigSection, *BlueprintPalette::FavoritesHeightConfigKey, FavoritesHeightRatio, GEditorUserSettingsIni);
+	GConfig->GetFloat(*BlueprintPalette::ConfigSection, *BlueprintPalette::FavoritesHeightConfigKey, FavoritesHeightRatio, GEditorPerProjectIni);
 	float LibraryHeightRatio = 1.f - FavoritesHeightRatio;
-	GConfig->GetFloat(*BlueprintPalette::ConfigSection, *BlueprintPalette::LibraryHeightConfigKey, LibraryHeightRatio, GEditorUserSettingsIni);
+	GConfig->GetFloat(*BlueprintPalette::ConfigSection, *BlueprintPalette::LibraryHeightConfigKey, LibraryHeightRatio, GEditorPerProjectIni);
 
 	bool bUseLegacyLayout = false;
 	GConfig->GetBool(*BlueprintPalette::ConfigSection, TEXT("bUseLegacyLayout"), bUseLegacyLayout, GEditorIni);
@@ -1600,11 +1639,11 @@ void SBlueprintPalette::OnSplitterResized() const
 
 		if (SplitterSlot.GetWidget() == FavoritesWrapper)
 		{
-			GConfig->SetFloat(*BlueprintPalette::ConfigSection, *BlueprintPalette::FavoritesHeightConfigKey, SplitterSlot.SizeValue.Get(), GEditorUserSettingsIni);
+			GConfig->SetFloat(*BlueprintPalette::ConfigSection, *BlueprintPalette::FavoritesHeightConfigKey, SplitterSlot.SizeValue.Get(), GEditorPerProjectIni);
 		}
 		else if (SplitterSlot.GetWidget() == LibraryWrapper)
 		{
-			GConfig->SetFloat(*BlueprintPalette::ConfigSection, *BlueprintPalette::LibraryHeightConfigKey, SplitterSlot.SizeValue.Get(), GEditorUserSettingsIni);
+			GConfig->SetFloat(*BlueprintPalette::ConfigSection, *BlueprintPalette::LibraryHeightConfigKey, SplitterSlot.SizeValue.Get(), GEditorPerProjectIni);
 		}
 
 	}

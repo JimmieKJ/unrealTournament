@@ -40,13 +40,14 @@ public:
 			}
 
 			// At the moment, a term for variable should be already registered
-			auto VariableTerm = Context.NetMap.Find(FEdGraphUtilities::GetNetFromPin(VariablePin));
-			if (!VariableTerm || !*VariableTerm)
+			auto VariableTermPtr = Context.NetMap.Find(FEdGraphUtilities::GetNetFromPin(VariablePin));
+			if (!VariableTermPtr || !*VariableTermPtr)
 			{
 				CompilerContext.MessageLog.Error(*LOCTEXT("NoVarriableTerm_Error", "ICE: no variable term found in @@").ToString(), Node);
 				return;
 			}
-			Context.NetMap.Add(OutputPin, *VariableTerm);
+			FBPTerminal* VariableTerm = *VariableTermPtr; // we must take a copy here because Add takes a reference and the map might be resized
+			Context.NetMap.Add(OutputPin, VariableTerm);
 		}
 
 		auto ValuePin = PureAssignmentNode->GetValuePin();

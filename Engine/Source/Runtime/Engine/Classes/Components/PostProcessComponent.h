@@ -57,8 +57,8 @@ class UPostProcessComponent : public USceneComponent, public IInterface_PostProc
 
 protected:
 
-	virtual void OnRegister();
-	virtual void OnUnregister();
+	virtual void OnRegister() override;
+	virtual void OnUnregister() override;
 };
 
 

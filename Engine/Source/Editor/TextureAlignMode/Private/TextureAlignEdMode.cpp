@@ -125,7 +125,7 @@ bool FEdModeTexture::GetCustomInputCoordinateSystem( FMatrix& InMatrix, void* In
 
 EAxisList::Type FEdModeTexture::GetWidgetAxisToDraw( FWidget::EWidgetMode InWidgetMode ) const
 {
-	switch( InWidgetMode )
+	switch( InWidgetMode ) //-V719
 	{
 	case FWidget::WM_Translate:
 	case FWidget::WM_Scale:

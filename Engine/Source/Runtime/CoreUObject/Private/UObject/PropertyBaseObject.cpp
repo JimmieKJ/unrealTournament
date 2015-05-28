@@ -14,7 +14,7 @@ void UObjectPropertyBase::BeginDestroy()
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(PropertyClass))
 	{
-		PlaceholderClass->RemovePropertyReference(this);
+		PlaceholderClass->RemoveReferencingProperty(this);
 	}
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
@@ -110,7 +110,7 @@ void UObjectPropertyBase::SetPropertyClass(UClass* NewPropertyClass)
 	
 	if (ULinkerPlaceholderClass* OldPlaceholderClass = Cast<ULinkerPlaceholderClass>(PropertyClass))
 	{
-		OldPlaceholderClass->RemovePropertyReference(this);
+		OldPlaceholderClass->RemoveReferencingProperty(this);
 	}
 	PropertyClass = NewPropertyClass;
 }
@@ -122,6 +122,46 @@ void UObjectPropertyBase::AddReferencedObjects(UObject* InThis, FReferenceCollec
 	Collector.AddReferencedObject( This->PropertyClass, This );
 	Super::AddReferencedObjects( This, Collector );
 }
+
+FString UObjectPropertyBase::GetExportPath(const UObject* Object, const UObject* Parent, const UObject* ExportRootScope, const uint32 PortFlags)
+{
+	bool bExportFullyQualified = true;
+
+	// When exporting from one package or graph to another package or graph, we don't want to fully qualify the name, as it may refer
+	// to a level or graph that doesn't exist or cause a linkage to a node in a different graph
+	const UObject* StopOuter = nullptr;
+	if (PortFlags & PPF_ExportsNotFullyQualified)
+	{
+		StopOuter = (ExportRootScope || (Parent == nullptr)) ? ExportRootScope : Parent->GetOutermost();
+		bExportFullyQualified = !Object->IsIn(StopOuter);
+	}
+
+	// if we want a full qualified object reference, use the pathname, otherwise, use just the object name
+	if (bExportFullyQualified)
+	{
+		StopOuter = nullptr;
+		if ( (PortFlags&PPF_SimpleObjectText) != 0 && Parent != nullptr )
+		{
+			StopOuter = Parent->GetOutermost();
+		}
+	}
+	else if (Parent != NULL && Object->IsIn(Parent))
+	{
+		StopOuter = Parent;
+	}
+
+	// Take the path name relative to the stopping point outermost ptr.
+	// This is so that cases like a component referencing a component in another actor work correctly when pasted
+	FString PathName = Object->GetPathName(StopOuter);
+	int32 ResultIdx = 0;
+	// Object names that contain invalid characters and paths that contain spaces must be put into quotes to be handled correctly
+	if ( (PortFlags & PPF_Delimited) && (!Object->GetFName().IsValidXName(INVALID_OBJECTNAME_CHARACTERS) || PathName.FindChar(' ', ResultIdx)) )
+	{
+		PathName = FString::Printf(TEXT("\"%s\""), *PathName.ReplaceQuotesWithEscapedQuotes());
+	}
+	return FString::Printf( TEXT("%s'%s'"), *Object->GetClass()->GetName(), *PathName );
+}
+
 void UObjectPropertyBase::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
 	UObject* Temp = GetObjectPropertyValue(PropertyValue);
@@ -133,43 +173,18 @@ void UObjectPropertyBase::ExportTextItem( FString& ValueStr, const void* Propert
 		}
 		else if (Parent && !Parent->HasAnyFlags(RF_ClassDefaultObject) && Temp->IsDefaultSubobject())
 		{
-			ValueStr += Temp->GetName();
+			if ((PortFlags & PPF_Delimited) && (!Temp->GetFName().IsValidXName(INVALID_OBJECTNAME_CHARACTERS)))
+			{
+				ValueStr += FString::Printf(TEXT("\"%s\""), *Temp->GetName().ReplaceQuotesWithEscapedQuotes());
+			}
+			else
+			{
+				ValueStr += Temp->GetName();
+			}
 		}
 		else
 		{
-			bool bExportFullyQualified = true;
-
-			// When exporting from one package or graph to another package or graph, we don't want to fully qualify the name, as it may refer
-			// to a level or graph that doesn't exist or cause a linkage to a node in a different graph
-			UObject* StopOuter = NULL;
-			if (PortFlags & PPF_ExportsNotFullyQualified)
-			{
-				StopOuter = (ExportRootScope || (Parent == NULL)) ? ExportRootScope : Parent->GetOutermost();
-				bExportFullyQualified = !Temp->IsIn(StopOuter);
-			}
-
-			// if we want a full qualified object reference, use the pathname, otherwise, use just the object name
-			if (bExportFullyQualified)
-			{
-				StopOuter = NULL;
-				if ( (PortFlags&PPF_SimpleObjectText) != 0 && Parent != NULL )
-				{
-					StopOuter = Parent->GetOutermost();
-				}
-			}
-			else if (Parent != NULL && Temp->IsIn(Parent))
-			{
-				StopOuter = Parent;
-			}
-
-			// Take the path name relative to the stopping point outermost ptr.
-			// This is so that cases like a component referencing a component in another actor work correctly when pasted
-			FString PathName = Temp->GetPathName(StopOuter);
-			if ( (PortFlags & PPF_Delimited) && (!Temp->GetFName().IsValidXName(INVALID_OBJECTNAME_CHARACTERS)) )
-			{
-				PathName = FString::Printf(TEXT("\"%s\""), *PathName.ReplaceQuotesWithEscapedQuotes());
-			}
-			ValueStr += FString::Printf( TEXT("%s'%s'"), *Temp->GetClass()->GetName(), *PathName );
+			ValueStr += GetExportPath(Temp, Parent, ExportRootScope, PortFlags);
 		}
 	}
 	else
@@ -414,10 +429,10 @@ void UObjectPropertyBase::CheckValidObject(void* Value) const
 		// so we use this to ensure, in that situation, that we don't clear the 
 		// object value (if CLASS_NewerVersionExists is set, then we are likely 
 		// in the middle of an FArchiveReplaceObjectRef pass)
-		bool bIsReplacingClassRefs = PropertyClass->HasAnyClassFlags(CLASS_NewerVersionExists) != ObjectClass->HasAnyClassFlags(CLASS_NewerVersionExists);
+		bool bIsReplacingClassRefs = PropertyClass && PropertyClass->HasAnyClassFlags(CLASS_NewerVersionExists) != ObjectClass->HasAnyClassFlags(CLASS_NewerVersionExists);
 		
 #if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
-		ULinkerLoad* PropertyLinker = GetLinker();
+		FLinkerLoad* PropertyLinker = GetLinker();
 		bool const bIsDeferringValueLoad = ((PropertyLinker == nullptr) || (PropertyLinker->LoadFlags & LOAD_DeferDependencyLoads)) &&
 			Object->IsA<ULinkerPlaceholderExportObject>();
 

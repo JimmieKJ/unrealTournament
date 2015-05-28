@@ -9,6 +9,11 @@ namespace AutomationTool
 	public partial class CommandUtils
 	{
 		/// <summary>
+		/// True if UBT has deleted junk files
+		/// </summary>
+		private static bool bJunkDeleted = false;
+
+		/// <summary>
 		/// Runs UBT with the specified commandline. Automatically creates a logfile. When 
 		/// no LogName is specified, the executable name is used as logfile base name.
 		/// </summary>
@@ -31,6 +36,16 @@ namespace AutomationTool
 				CommandLine += " -nocreatestub";
 			}
 			CommandLine += " -NoHotReloadFromIDE";
+			if (bJunkDeleted || GlobalCommandLine.IgnoreJunk)
+			{
+				// UBT has already deleted junk files, make sure it doesn't do it again
+				CommandLine += " -ignorejunk";
+			}
+			else
+			{
+				// UBT will delete junk on first run
+				bJunkDeleted = true;
+			}
 
 			CommandUtils.RunAndLog(Env, UBTExecutable, CommandLine, LogName, EnvVars: EnvVars);
 		}

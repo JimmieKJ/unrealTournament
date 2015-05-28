@@ -326,8 +326,7 @@ bool UMatineeTrackDirectorHelper::PreCreateKeyframe( UInterpTrack *Track, float 
 	KeyframeAddDataName = NAME_None;
 
 	FEdModeInterpEdit* Mode = (FEdModeInterpEdit*)GLevelEditorModeTools().GetActiveMode( FBuiltinEditorModes::EM_InterpEdit );
-	check(Mode != NULL);
-	check(Mode->InterpEd != NULL);
+	check(Mode != NULL && Mode->InterpEd != NULL);
 
 	if ( (Mode != NULL) && (Mode->InterpEd != NULL) )
 	{
@@ -356,8 +355,6 @@ bool UMatineeTrackDirectorHelper::PreCreateKeyframe( UInterpTrack *Track, float 
 				FSlateApplication::Get().GetCursorPos(),
 				FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 				);
-
-			TextEntryPopup->FocusDefaultWidget();
 		}
 	}
 
@@ -417,8 +414,6 @@ bool UMatineeTrackEventHelper::PreCreateKeyframe( UInterpTrack *Track, float Key
 			FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 			);
 	}
-
-	TextEntryPopup->FocusDefaultWidget();
 
 	return false;
 }
@@ -798,8 +793,6 @@ bool UMatineeTrackToggleHelper::PreCreateKeyframe( UInterpTrack *Track, float Ke
 			FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
 			);
 	}
-
-	TextEntryPopup->FocusDefaultWidget();
 
 	return bResult;
 }

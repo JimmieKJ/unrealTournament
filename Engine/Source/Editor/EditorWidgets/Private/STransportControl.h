@@ -3,7 +3,7 @@
 #pragma once
 
 
-class STransportControl : public ITransportControl
+class STransportControl : public ITransportControl, public FTickableEditorObject
 {
 public:
 	SLATE_BEGIN_ARGS(STransportControl)
@@ -19,6 +19,15 @@ public:
 	 */
 	void Construct( const FArguments& InArgs );
 
+	virtual ~STransportControl() {}
+
+	using SWidget::Tick;
+
+	// Begin FTickableObjectBase implementation
+	virtual bool IsTickable() const override;
+	virtual void Tick( float DeltaTime ) override;
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT( STransportControl, STATGROUP_Tickables ); }
+	// End FTickableObjectBase
 private:
 	const FSlateBrush* GetForwardStatusIcon() const;
 	FText GetForwardStatusTooltip() const;
@@ -26,8 +35,17 @@ private:
 	const FSlateBrush* GetBackwardStatusIcon() const;
 	FSlateColor GetLoopStatusColor() const;
 
+	/** Executes the OnTickPlayback delegate */
+	EActiveTimerReturnType TickPlayback( double InCurrentTime, float InDeltaTime );
+
 	FReply OnToggleLooping();
 
 private:
+	/** The handle to the active timer */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
+
+	/** Whether the active timer is currently registered */
+	bool bIsActiveTimerRegistered;
+
 	FTransportControlArgs TransportControlArgs;
 };

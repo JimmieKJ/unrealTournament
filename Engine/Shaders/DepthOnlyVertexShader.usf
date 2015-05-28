@@ -11,7 +11,7 @@
 
 struct FDepthOnlyVSToPS
 {
-	#if !MATERIALBLENDING_SOLID
+	#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 		FVertexFactoryInterpolantsVSToPS FactoryInterpolants;
 		float4 PixelPosition : TEXCOORD6;
 	#endif
@@ -51,7 +51,7 @@ struct FDepthOnlyVSToPS
 	{
 		FDepthOnlyVSToPS O;
 		
-		#if !MATERIALBLENDING_SOLID
+		#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 			O.FactoryInterpolants = VertexFactoryAssignInterpolants(Interpolants.FactoryInterpolants);
 		#endif
 
@@ -61,7 +61,7 @@ struct FDepthOnlyVSToPS
 			O.Position = mul(WorldPosition, View.TranslatedWorldToClip);
 		}
 			
-		#if !MATERIALBLENDING_SOLID
+		#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 			O.PixelPosition = WorldPosition;
 		#endif
 		
@@ -104,13 +104,13 @@ void Main(
 	}
 #endif
 
-#if !MATERIALBLENDING_SOLID || USING_TESSELLATION
+#if !MATERIALBLENDING_SOLID || USING_TESSELLATION || OUTPUT_PIXEL_DEPTH_OFFSET
 	// Masked and transparent materials need texture coords to clip, and tessellated
 	// materials need texture coords to displace
 	Output.FactoryInterpolants = VertexFactoryGetInterpolants(Input, VFIntermediates, VertexParameters);
 #endif
 
-#if !MATERIALBLENDING_SOLID
+#if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 	#if !USING_TESSELLATION	
 		Output.PixelPosition = WorldPos;
 	#endif

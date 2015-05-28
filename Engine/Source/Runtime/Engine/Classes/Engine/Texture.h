@@ -12,18 +12,18 @@
 UENUM()
 enum TextureCompressionSettings
 {
-	TC_Default,
-	TC_Normalmap,
-	TC_Masks,
-	TC_Grayscale,
-	TC_Displacementmap,
-	TC_VectorDisplacementmap,
-	TC_HDR,
-	TC_EditorIcon UMETA(DisplayName="TC_UserInterface2D"),
-	TC_Alpha,
-	TC_DistanceFieldFont,
-	TC_HDR_Compressed,
-	TC_BC7,
+	TC_Default					UMETA(DisplayName="Default (DXT1/5, BC1/5 on DX11)"),
+	TC_Normalmap				UMETA(DisplayName="Normalmap (DXT5, BC5 on DX11)"),
+	TC_Masks					UMETA(DisplayName="Masks (no sRGB)"),
+	TC_Grayscale				UMETA(DisplayName="Grayscale (R8, RGB8 sRGB)"),
+	TC_Displacementmap			UMETA(DisplayName="Displacementmap (8/16bit)"),
+	TC_VectorDisplacementmap	UMETA(DisplayName="VectorDisplacementmap (RGBA8)"),
+	TC_HDR						UMETA(DisplayName="HDR (RGB, no sRGB)"),
+	TC_EditorIcon				UMETA(DisplayName="UserInterface2D (RGBA)"),
+	TC_Alpha					UMETA(DisplayName="Alpha (no sRGB, BC4 on DX11)"),
+	TC_DistanceFieldFont		UMETA(DisplayName="DistanceFieldFont (R8)"),
+	TC_HDR_Compressed			UMETA(DisplayName="HDRCompressed (RGB, BC6H, DX11)"),
+	TC_BC7						UMETA(DisplayName="BC7 (DX11, optional A)"),
 	TC_MAX,
 };
 
@@ -60,6 +60,10 @@ enum ECompositeTextureMode
 	// CompositingTexture needs to be a normal map with the same or larger size
 	CTM_NormalRoughnessToAlpha UMETA(DisplayName="Add Normal Roughness To Alpha"),
 	CTM_MAX,
+
+	// Note: These are serialized as as raw values in the texture DDC key, so additional entries
+	// should be added at the bottom; reordering or removing entries will require changing the GUID
+	// in the texture compressor DDC key
 };
 
 UENUM()
@@ -194,6 +198,10 @@ struct FTextureSource
 	FORCEINLINE ETextureSourceFormat GetFormat() const { return Format; }
 	FORCEINLINE bool IsPNGCompressed() const { return bPNGCompressed; }
 	FORCEINLINE int32 GetSizeOnDisk() const { return BulkData.GetBulkDataSize(); }
+	FORCEINLINE bool IsBulkDataLoaded() const { return BulkData.IsBulkDataLoaded(); }
+	
+	/** Sets the GUID to use, and whether that GUID is actually a hash of some data. */
+	void SetId(const FGuid& InId, bool bInGuidIsHash);
 #endif
 
 private:
@@ -208,19 +216,22 @@ private:
 	uint8* LockedMipData;
 	/** Which mips are locked, if any. */
 	uint32 LockedMips;
-
 #if WITH_EDITOR
 	/** Return true if the source art is not png compressed but could be. */
 	bool CanPNGCompress() const;
-
 	/** Removes source data. */
 	void RemoveSourceData();
-
 	/** Retrieve the size and offset for a source mip. The size includes all slices. */
 	int32 CalcMipOffset(int32 MipIndex) const;
 
 	/** Uses a hash as the GUID, useful to prevent creating new GUIDs on load for legacy assets. */
 	void UseHashAsGuid();
+public:
+	void ReleaseSourceMemory(); // release the memory from the mips (does almost the same as remove source data except doesn't rebuild the guid)
+	FORCEINLINE bool HasHadBulkDataCleared() const { return bHasHadBulkDataCleared; }
+private:
+	/** Used while cooking to clear out unneeded memory after compression */
+	bool bHasHadBulkDataCleared;
 #endif
 
 #if WITH_EDITORONLY_DATA
@@ -255,6 +266,8 @@ private:
 	/** Format in which the source data is stored. */
 	UPROPERTY(VisibleAnywhere, Category=TextureSource)
 	TEnumAsByte<enum ETextureSourceFormat> Format;
+
+
 #endif // WITH_EDITORONLY_DATA
 };
 
@@ -303,8 +316,14 @@ struct FTexturePlatformData
 	/** Serialization. */
 	void Serialize(FArchive& Ar, class UTexture* Owner);
 
-	/** Serialization for cooked builds. */
-	void SerializeCooked(FArchive& Ar, class UTexture* Owner);
+	/** 
+	 * Serialization for cooked builds.
+	 *
+	 * @param Ar Archive to serialize with
+	 * @param Owner Owner texture
+	 * @param bStreamable Store some mips inline, only used during cooking
+	 */
+	void SerializeCooked(FArchive& Ar, class UTexture* Owner, bool bStreamable);
 
 #if WITH_EDITOR
 	void Cache(
@@ -408,6 +427,26 @@ public:
 	/** For DXT1 textures, setting this will cause the texture to be twice the size, but better looking, on iPhone */
 	UPROPERTY()
 	uint32 bForcePVRTC4:1;
+
+	/** How to pad the texture to a power of 2 size (if necessary) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Texture)
+	TEnumAsByte<enum ETexturePowerOfTwoSetting::Type> PowerOfTwoMode;
+
+	/** The color used to pad the texture out if it is resized due to PowerOfTwoMode */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Texture)
+	FColor PaddingColor;
+
+	/** Whether to chroma key the image, replacing any pixels that match ChromaKeyColor with transparent black */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Adjustments)
+	bool bChromaKeyTexture;
+
+	/** The threshold that components have to match for the texel to be considered equal to the ChromaKeyColor when chroma keying (<=, set to 0 to require a perfect exact match) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Adjustments, meta=(EditCondition="bChromaKeyTexture", ClampMin="0"))
+	float ChromaKeyThreshold;
+
+	/** The color that will be replaced with transparent black if chroma keying is enabled */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Adjustments, meta=(EditCondition="bChromaKeyTexture"))
+	FColor ChromaKeyColor;
 
 	/** Per asset specific setting to define the mip-map generation properties like sharpening and kernel size. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LevelOfDetail)
@@ -557,7 +596,6 @@ public:
 	virtual TMap<FString, FTexturePlatformData*>* GetCookedPlatformData() { return NULL; }
 
 	void CleanupCachedRunningPlatformData();
-	void CleanupCachedCookedPlatformData();
 
 	/**
 	 * Serializes cooked platform data.
@@ -581,6 +619,22 @@ public:
 	 * @param	TargetPlatform target platform to check for cooked platform data
 	 */
 	ENGINE_API virtual bool IsCachedCookedPlatformDataLoaded( const ITargetPlatform* TargetPlatform ) override;
+
+
+	/**
+	 * Clears cached cooked platform data for specific platform
+	 * 
+	 * @param	TargetPlatform	target platform to cache platform specific data for
+	 */
+	ENGINE_API virtual void ClearCachedCookedPlatformData( const ITargetPlatform* TargetPlatform ) override;
+
+	/**
+	 * Clear all cached cooked platform data
+	 * 
+	 * @param	TargetPlatform	target platform to cache platform specific data for
+	 */
+	ENGINE_API virtual void ClearAllCachedCookedPlatformData() override;
+
 
 	/**
 	 * Begins caching platform data in the background.
@@ -630,8 +684,9 @@ public:
 	ENGINE_API virtual bool IsReadyForFinishDestroy() override;
 	ENGINE_API virtual void FinishDestroy() override;
 #if WITH_EDITORONLY_DATA
-	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
+	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
+	ENGINE_API virtual bool IsPostLoadThreadSafe() const override{ return false; }
 	// End UObject interface.
 
 	/**

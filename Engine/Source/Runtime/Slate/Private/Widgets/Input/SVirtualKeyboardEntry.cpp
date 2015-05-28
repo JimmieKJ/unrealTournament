@@ -117,9 +117,6 @@ bool SVirtualKeyboardEntry::GetIsReadOnly() const
  */
 void SVirtualKeyboardEntry::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	// Call parent implementation.
-	SLeafWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
 	if(bNeedsUpdate)
 	{
 		// Let outsiders know that the text content has been changed
@@ -137,7 +134,7 @@ void SVirtualKeyboardEntry::Tick( const FGeometry& AllottedGeometry, const doubl
  *
  * @return  The widget's desired size
  */
-FVector2D SVirtualKeyboardEntry::ComputeDesiredSize() const
+FVector2D SVirtualKeyboardEntry::ComputeDesiredSize( float ) const
 {
 	const FSlateFontInfo& FontInfo = Font.Get();
 	const TSharedRef< FSlateFontMeasure > FontMeasureService = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
@@ -255,7 +252,7 @@ FReply SVirtualKeyboardEntry::OnFocusReceived( const FGeometry& MyGeometry, cons
 
 	int32 CaretPosition = EditedText.ToString().Len();
 	FSlateApplication& CurrentApp = FSlateApplication::Get();
-	CurrentApp.ShowVirtualKeyboard(true, SharedThis(this));
+	CurrentApp.ShowVirtualKeyboard(true, InFocusEvent.GetUser(), SharedThis(this));
 
 	return FReply::Handled();
 }
@@ -286,7 +283,7 @@ void SVirtualKeyboardEntry::OnFocusLost( const FFocusEvent& InFocusEvent )
 	}
 
 	FSlateApplication& CurrentApp = FSlateApplication::Get();
-	CurrentApp.ShowVirtualKeyboard(false);
+	CurrentApp.ShowVirtualKeyboard(false, InFocusEvent.GetUser());
 
 	OnTextCommitted.ExecuteIfBound( EditedText, TextAction );
 }

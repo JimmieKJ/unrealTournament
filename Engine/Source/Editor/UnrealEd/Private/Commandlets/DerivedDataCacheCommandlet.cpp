@@ -81,9 +81,19 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 			PackageFilter |= NORMALIZE_ExcludeContentPackages;
 		}
 
+		if ( Switches.Contains(TEXT("PROJECTONLY")) )
+		{
+			PackageFilter |= NORMALIZE_ExcludeEnginePackages;
+		}
+
 		if ( !Switches.Contains(TEXT("DEV")) )
 		{
 			PackageFilter |= NORMALIZE_ExcludeDeveloperPackages;
+		}
+
+		if( !Switches.Contains(TEXT("NOREDIST")) )
+		{
+			PackageFilter |= NORMALIZE_ExcludeNoRedistPackages;
 		}
 
 		// assume the first token is the map wildcard/pathname
@@ -157,7 +167,8 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 								GetObjectsWithOuter(Pkg, ObjectsInPackage, true);
 								for( int32 IndexPackage = 0; IndexPackage < ObjectsInPackage.Num(); IndexPackage++ )
 								{
-									ObjectsInPackage[IndexPackage]->CookerWillNeverCookAgain();
+									ObjectsInPackage[IndexPackage]->WillNeverCacheCookedPlatformDataAgain();
+									ObjectsInPackage[IndexPackage]->ClearAllCachedCookedPlatformData();
 								}
 							}
 						}

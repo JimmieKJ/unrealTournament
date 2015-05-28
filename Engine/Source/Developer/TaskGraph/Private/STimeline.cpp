@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateBasics.h"
-#include "EditorStyle.h"
+#include "TaskGraphStyle.h"
 #include "TaskGraphInterfaces.h"
 #include "VisualizerEvents.h"
 #include "STimeline.h"
@@ -12,7 +12,7 @@ void STimeline::Construct( const FArguments& InArgs )
 	MaxValue = InArgs._MaxValue;
 	FixedLabelSpacing = InArgs._FixedLabelSpacing;
 
-	BackgroundImage = FEditorStyle::GetBrush("TaskGraph.Background");
+	BackgroundImage = FTaskGraphStyle::Get()->GetBrush("TaskGraph.Background");
 
 	Zoom = 1.0f;
 	Offset = 0.0f;
@@ -31,7 +31,7 @@ int32 STimeline::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 	const FColor SelectedBarColor( 255, 255, 255, 255 );
 
 	// Paint inside the border only. 
-	const FVector2D BorderPadding = FEditorStyle::GetVector("ProgressBar.BorderPadding");
+	const FVector2D BorderPadding = FTaskGraphStyle::Get()->GetVector("TaskGraph.ProgressBar.BorderPadding");
 	const FSlateRect ForegroundClippingRect = AllottedGeometry.GetClippingRect().InsetBy(FMargin(BorderPadding.X, BorderPadding.Y)).IntersectionWith(MyClippingRect);
 
 	const float OffsetX = DrawingOffsetX; // BorderPadding.X
@@ -165,8 +165,6 @@ int32 STimeline::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 void STimeline::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	DrawingOffsetX = DrawingGeometry.AbsolutePosition.X - AllottedGeometry.AbsolutePosition.X;
-
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 }
 
 FReply STimeline::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
@@ -179,7 +177,7 @@ FReply STimeline::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent&
 	return SCompoundWidget::OnMouseMove( MyGeometry, MouseEvent );
 }
 
-FVector2D STimeline::ComputeDesiredSize() const
+FVector2D STimeline::ComputeDesiredSize( float ) const
 {
-	return FVector2D(500.0f, 50.0f);
+	return FVector2D( 8.0f, 8.0f );
 }

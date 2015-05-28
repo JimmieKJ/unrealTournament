@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	Profiler.h: Profiler module public header file.
-=============================================================================*/
-
 #pragma once
 
 
@@ -14,7 +10,7 @@
 #include "ChunkedArray.h"
 #include "Ticker.h"
 #include "ModuleInterface.h"
-#include "SessionServices.h"
+#include "ISessionServicesModule.h"
 #include "SlateBasics.h"
 #include "EditorStyle.h"
 #include "IFilter.h"

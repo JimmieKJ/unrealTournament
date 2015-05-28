@@ -296,7 +296,7 @@ And Finally Direct Input
 
 
 
-You can also directly input of the values needed in the "Details" panel. In the "Details" panel, you will see a Category called "Transform" and under that a Property called "Location" and you can enter 210 for X, 420 for Y, and 570 for Z.
+You can also directly input the values needed in the "Details" panel. In the "Details" panel, you will see a Category called "Transform" and under that a Property called "Location" and you can enter 210 for X, 420 for Y, and 570 for Z.
 
 ![](Stage1_13.png)
 
@@ -474,7 +474,7 @@ Using the Scale widget
 
 
 
-You can scale on just one axis by clicking and dragging one with of the boxes or scale on all axes by clicking and dragging on the center box. Note that when you mouse over an axis it highlights in yellow.
+You can scale on just one axis by clicking and dragging one of the boxes or scale on all axes by clicking and dragging on the center box. Note that when you mouse over an axis it highlights in yellow.
 1. Scale the ramp on any axis to continue.
 
 ![](Stage1_23.png)

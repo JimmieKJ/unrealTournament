@@ -1,12 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-/*=============================================================================================
-	GenericPlatformAtomics.h: Generic platform Atomics classes
-==============================================================================================*/
-
 #pragma once
+
 #include "HAL/Platform.h"
+
 
 /** Helper struct used to hold 128-bit values, internally represented as two 64-bit integers. */
 struct MS_ALIGN(16) FInt128 
@@ -17,6 +14,7 @@ struct MS_ALIGN(16) FInt128
 	int64 High;
 } 
 GCC_ALIGN(16);
+
 
 /**
 * Generic implementation...you are required to implement at least FPlatformAtomics::InterlockedCompareExchange but they are listed here 
@@ -225,4 +223,3 @@ protected:
 		return !(PTRINT(Ptr) & (Alignment - 1));
 	}
 };
-

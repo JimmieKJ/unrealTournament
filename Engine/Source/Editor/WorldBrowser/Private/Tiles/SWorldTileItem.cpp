@@ -161,7 +161,10 @@ void SWorldTileItem::Construct(const FArguments& InArgs)
 	SetToolTip(CreateToolTipWidget());
 
 	CurveSequence = FCurveSequence(0.0f, 0.5f);
-	CurveSequence.Play();
+	if (TileModel->IsLoading())
+	{
+		CurveSequence.Play( this->AsShared(), true );
+	}
 }
 
 void SWorldTileItem::RequestRefresh()
@@ -345,7 +348,7 @@ TSharedPtr<IToolTip> SWorldTileItem::GetToolTip()
 FVector2D SWorldTileItem::GetDesiredSizeForMarquee() const
 {
 	// we don't want to select items in non visible layers
-	if (!WorldModel->PassesAllFilters(TileModel))
+	if (!WorldModel->PassesAllFilters(*TileModel))
 	{
 		return FVector2D::ZeroVector;
 	}
@@ -353,9 +356,21 @@ FVector2D SWorldTileItem::GetDesiredSizeForMarquee() const
 	return SNodePanel::SNode::GetDesiredSizeForMarquee();
 }
 
-FVector2D SWorldTileItem::ComputeDesiredSize() const
+FVector2D SWorldTileItem::ComputeDesiredSize( float ) const
 {
 	return TileModel->GetLevelSize2D();
+}
+
+void SWorldTileItem::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	if ( TileModel->IsLoading() && !CurveSequence.IsPlaying() )
+	{
+		CurveSequence.Play( this->AsShared() );
+	}
+	else if ( !TileModel->IsLoading() && CurveSequence.IsPlaying() )
+	{
+		CurveSequence.JumpToEnd();
+	}
 }
 
 int32 SWorldTileItem::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& ClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
@@ -374,7 +389,8 @@ int32 SWorldTileItem::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedG
 		LayerId = SNodePanel::SNode::OnPaint(Args, AllottedGeometry, ClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 		
 		const bool bSelected = (IsItemSelected() || bAffectedByMarquee);
-		const bool bHighlighted = (WorldModel->GetPreviewStreamingLevels().Find(TileModel->TileDetails->PackageName) != nullptr);
+		const int32* PreviewLODIndex = WorldModel->GetPreviewStreamingLevels().Find(TileModel->TileDetails->PackageName);
+		const bool bHighlighted = (PreviewLODIndex != nullptr);
 
 		// Draw the node's selection/highlight.
 		if (bSelected || bHighlighted)
@@ -385,7 +401,13 @@ int32 SWorldTileItem::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedG
 			FSlateLayoutTransform LayoutTransform(Scale, AllottedGeometry.GetAccumulatedLayoutTransform().GetTranslation() - InflateAmount);
 			FSlateRenderTransform RenderTransform(Scale, AllottedGeometry.GetAccumulatedRenderTransform().GetTranslation() - InflateAmount);
 			FPaintGeometry SelectionGeometry(LayoutTransform, RenderTransform, (AllottedGeometry.GetLocalSize()*AllottedGeometry.Scale + InflateAmount*2)/Scale);
-										
+			FLinearColor HighlightColor = FLinearColor::White;
+			if (PreviewLODIndex)
+			{
+				// Highlight LOD tiles in different color to normal tiles
+				HighlightColor = (*PreviewLODIndex == INDEX_NONE) ? FLinearColor::Green : FLinearColor(0.3f,1.0f,0.3f);
+			}
+													
 			FSlateDrawElement::MakeBox(
 				OutDrawElements,
 				LayerId + 1,
@@ -393,14 +415,14 @@ int32 SWorldTileItem::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedG
 				GetShadowBrush(bSelected || bHighlighted),
 				ClippingRect,
 				ESlateDrawEffect::None,
-				bHighlighted ? FLinearColor::Green : FLinearColor::White
+				HighlightColor
 				);
 		}
 
 		// Draw progress bar if level is currently loading
 		if (TileModel->IsLoading())
 		{
-			const float ProgressBarAnimOffset = ProgressBarImage->ImageSize.X * CurveSequence.GetLerpLooping();
+			const float ProgressBarAnimOffset = ProgressBarImage->ImageSize.X * CurveSequence.GetLerp();
 			const float ProgressBarImageSize = ProgressBarImage->ImageSize.X;
 			const float ProgressBarImageHeight = ProgressBarImage->ImageSize.Y;
 			const FVector2D ProggresBarOffset = FVector2D(ProgressBarAnimOffset - ProgressBarImageSize, 0);
@@ -459,7 +481,14 @@ FText SWorldTileItem::GetLevelLayerNameText() const
 
 FText SWorldTileItem::GetLevelLayerDistanceText() const
 {
-	return FText::AsNumber(TileModel->TileDetails->Layer.StreamingDistance);
+	if (TileModel->TileDetails->Layer.DistanceStreamingEnabled)
+	{
+		return FText::AsNumber(TileModel->TileDetails->Layer.StreamingDistance);
+	}
+	else
+	{
+		return FText(LOCTEXT("DistanceStreamingDisabled", "Distance Streaming Disabled"));
+	}
 }
 
 bool SWorldTileItem::IsItemEditable() const

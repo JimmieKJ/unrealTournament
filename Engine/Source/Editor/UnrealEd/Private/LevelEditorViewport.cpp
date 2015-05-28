@@ -49,6 +49,7 @@
 #include "NotificationManager.h"
 #include "SNotificationList.h"
 #include "ComponentEditorUtils.h"
+#include "Settings/EditorProjectSettings.h"
 
 DEFINE_LOG_CATEGORY(LogEditorViewport);
 
@@ -139,17 +140,17 @@ static FVector4 AttemptToSnapLocationToOriginPlane( const FViewportCursorLocatio
 			Location = NewLocFloor;
 		}
 	}
-	else if ( ViewportType == LVT_OrthoXY )
+	else if ( ViewportType == LVT_OrthoXY || ViewportType == LVT_OrthoNegativeXY )
 	{
 		// In ortho place the brush at the origin of the hidden axis
 		Location.Z = 0;
 	}
-	else if ( ViewportType == LVT_OrthoXZ )
+	else if ( ViewportType == LVT_OrthoXZ || ViewportType == LVT_OrthoNegativeXZ )
 	{
 		// In ortho place the brush at the origin of the hidden axis
 		Location.Y = 0;
 	}
-	else if ( ViewportType == LVT_OrthoYZ )
+	else if ( ViewportType == LVT_OrthoYZ || ViewportType == LVT_OrthoNegativeYZ )
 	{
 		// In ortho place the brush at the origin of the hidden axis
 		Location.X = 0;
@@ -347,7 +348,7 @@ static bool TryAndCreateMaterialInput( UMaterial* UnrealMaterial, EMaterialKind:
 	bool bSetupAsNormalMap = UnrealTexture->IsNormalMap();
 
 	// Create a new texture sample expression, this is our texture input node into the material output.
-	UMaterialExpressionTextureSample* UnrealTextureExpression = ConstructObject<UMaterialExpressionTextureSample>( UMaterialExpressionTextureSample::StaticClass(), UnrealMaterial );
+	UMaterialExpressionTextureSample* UnrealTextureExpression = NewObject<UMaterialExpressionTextureSample>(UnrealMaterial);
 	UnrealMaterial->Expressions.Add( UnrealTextureExpression );
 	MaterialInput.Expression = UnrealTextureExpression;
 	UnrealTextureExpression->Texture = UnrealTexture;
@@ -416,6 +417,11 @@ static UObject* GetOrCreateMaterialFromTexture( UTexture* UnrealTexture )
 	UMaterial* UnrealMaterial = (UMaterial*)MaterialFactory->FactoryCreateNew(
 		UMaterial::StaticClass(), Package, *MaterialFullName, RF_Standalone | RF_Public, NULL, GWarn );
 
+	if (UnrealMaterial == nullptr)
+	{
+		return nullptr;
+	}
+
 	const int HSpace = -300;
 
 	// If we were able to figure out the material kind, we need to try and build a complex material
@@ -469,14 +475,11 @@ static UObject* GetOrCreateMaterialFromTexture( UTexture* UnrealTexture )
 		TryAndCreateMaterialInput( UnrealMaterial, EMaterialKind::Normal, NormalTexture, UnrealMaterial->Normal, HSpace, VSpace * 2 );
 	}
 
-	if ( UnrealMaterial != NULL )
-	{
-		// Notify the asset registry
-		FAssetRegistryModule::AssetCreated( UnrealMaterial );
+	// Notify the asset registry
+	FAssetRegistryModule::AssetCreated( UnrealMaterial );
 
-		// Set the dirty flag so this package will get saved later
-		Package->SetDirtyFlag( true );
-	}
+	// Set the dirty flag so this package will get saved later
+	Package->SetDirtyFlag( true );
 
 	UnrealMaterial->ForceRecompileForRendering();
 
@@ -518,7 +521,7 @@ static bool AttemptApplyObjToComponent(UObject* ObjToUse, USceneComponent* Compo
 			{
 				if (bTest)
 				{
-					bResult = true;
+					bResult = false;
 				}
 				else
 				{
@@ -533,7 +536,7 @@ static bool AttemptApplyObjToComponent(UObject* ObjToUse, USceneComponent* Compo
 			{
 				if (bTest)
 				{
-					bResult = true;
+					bResult = false;
 				}
 				else
 				{
@@ -983,6 +986,50 @@ bool FLevelEditorViewportClient::HasDropPreviewActors() const
 	return DropPreviewActors.Num() > 0;
 }
 
+/* Helper functions to find a dropped position on a 2D layer */
+
+static bool IsDroppingOn2DLayer()
+{
+	const ULevelEditorViewportSettings* ViewportSettings = GetDefault<ULevelEditorViewportSettings>();
+	const ULevelEditor2DSettings* Settings2D = GetDefault<ULevelEditor2DSettings>();
+	return ViewportSettings->bEnableLayerSnap && Settings2D->SnapLayers.IsValidIndex(ViewportSettings->ActiveSnapLayerIndex);
+}
+
+static FActorPositionTraceResult TraceForPositionOn2DLayer(const FViewportCursorLocation& Cursor)
+{
+	const ULevelEditorViewportSettings* ViewportSettings = GetDefault<ULevelEditorViewportSettings>();
+	const ULevelEditor2DSettings* Settings2D = GetDefault<ULevelEditor2DSettings>();
+	check(Settings2D->SnapLayers.IsValidIndex(ViewportSettings->ActiveSnapLayerIndex));
+
+	const float Offset = Settings2D->SnapLayers[ViewportSettings->ActiveSnapLayerIndex].Depth;
+	FVector PlaneCenter(0, 0, 0);
+	FVector PlaneNormal(0, 0, 0);
+
+	switch (Settings2D->SnapAxis)
+	{
+	case ELevelEditor2DAxis::X: PlaneCenter.X = Offset; PlaneNormal.X = -1; break;
+	case ELevelEditor2DAxis::Y: PlaneCenter.Y = Offset; PlaneNormal.Y = -1; break;
+	case ELevelEditor2DAxis::Z: PlaneCenter.Z = Offset; PlaneNormal.Z = -1; break;
+	}
+
+	FActorPositionTraceResult Result;
+	const float Numerator = FVector::DotProduct(PlaneCenter - Cursor.GetOrigin(), PlaneNormal);
+	const float Denominator = FVector::DotProduct(PlaneNormal, Cursor.GetDirection());
+	if (FMath::Abs(Denominator) < SMALL_NUMBER)
+	{
+		Result.State = FActorPositionTraceResult::Failed;
+	}
+	else
+	{
+		Result.State = FActorPositionTraceResult::HitSuccess;
+		Result.SurfaceNormal = PlaneNormal;
+		float D = Numerator / Denominator;
+		Result.Location = Cursor.GetOrigin() + D * Cursor.GetDirection();
+	}
+
+	return Result;
+}
+
 bool FLevelEditorViewportClient::UpdateDropPreviewActors(int32 MouseX, int32 MouseY, const TArray<UObject*>& DroppedObjects, bool& out_bDroppedObjectsVisible, UActorFactory* FactoryToUse)
 {
 	out_bDroppedObjectsVisible = false;
@@ -1036,8 +1083,9 @@ bool FLevelEditorViewportClient::UpdateDropPreviewActors(int32 MouseX, int32 Mou
 	FSceneView* View = CalcSceneView( &ViewFamily );
 	FViewportCursorLocation Cursor(View, this, MouseX, MouseY);
 
-	const FActorPositionTraceResult TraceResult = FActorPositioning::TraceWorldForPositionWithDefault(Cursor, *View, &DraggingActors);
+	const FActorPositionTraceResult TraceResult = IsDroppingOn2DLayer() ? TraceForPositionOn2DLayer(Cursor) : FActorPositioning::TraceWorldForPositionWithDefault(Cursor, *View, &DraggingActors);
 
+	GEditor->UnsnappedClickLocation = TraceResult.Location;
 	GEditor->ClickLocation = TraceResult.Location;
 	GEditor->ClickPlane = FPlane(TraceResult.Location, TraceResult.SurfaceNormal);
 
@@ -1186,8 +1234,9 @@ bool FLevelEditorViewportClient::DropObjectsAtCoordinates(int32 MouseX, int32 Mo
 
 		HHitProxy* HitProxy = Viewport->GetHitProxy(Cursor.GetCursorPos().X, Cursor.GetCursorPos().Y);
 
-		const FActorPositionTraceResult TraceResult = FActorPositioning::TraceWorldForPositionWithDefault(Cursor, *View);
+		const FActorPositionTraceResult TraceResult = IsDroppingOn2DLayer() ? TraceForPositionOn2DLayer(Cursor) : FActorPositioning::TraceWorldForPositionWithDefault(Cursor, *View);
 		
+		GEditor->UnsnappedClickLocation = TraceResult.Location;
 		GEditor->ClickLocation = TraceResult.Location;
 		GEditor->ClickPlane = FPlane(TraceResult.Location, TraceResult.SurfaceNormal);
 
@@ -1465,8 +1514,8 @@ void FTrackingTransaction::PromotePendingToActive()
 	}
 }
 
-FLevelEditorViewportClient::FLevelEditorViewportClient()
-	: FEditorViewportClient(&GLevelEditorModeTools(), NULL)
+FLevelEditorViewportClient::FLevelEditorViewportClient(const TSharedPtr<SLevelViewport>& InLevelViewport)
+	: FEditorViewportClient(&GLevelEditorModeTools(), nullptr, StaticCastSharedPtr<SEditorViewport>(InLevelViewport))
 	, ViewHiddenLayers()
 	, VolumeActorVisibility()
 	, LastEditorViewLocation( FVector::ZeroVector )
@@ -1484,13 +1533,13 @@ FLevelEditorViewportClient::FLevelEditorViewportClient()
 	, bLockedCameraView(true)
 	, bReceivedFocusRecently(false)
 	, SpriteCategoryVisibility()
-	, World(NULL)
+	, World(nullptr)
 	, TrackingTransaction()
 	, DropPreviewMouseX(0)
 	, DropPreviewMouseY(0)
 	, bWasControlledByOtherViewport(false)
-	, ActorLockedByMatinee(NULL)
-	, ActorLockedToCamera(NULL)
+	, ActorLockedByMatinee(nullptr)
+	, ActorLockedToCamera(nullptr)
 {
 	// By default a level editor viewport is pointed to the editor world
 	SetReferenceToWorldContext(GEditor->GetEditorWorldContext());
@@ -1503,6 +1552,9 @@ FLevelEditorViewportClient::FLevelEditorViewportClient()
 
 	// Register for editor cleanse events so we can release references to hovered actors
 	FEditorSupportDelegates::CleanseEditor.AddRaw(this, &FLevelEditorViewportClient::OnEditorCleanse);
+
+	// Register for editor PIE event that allows you to clean up states that might block PIE
+	FEditorDelegates::PreBeginPIE.AddRaw(this, &FLevelEditorViewportClient::OnPreBeginPIE);
 
 	// Add a delegate so we get informed when an actor has moved.
 	GEngine->OnActorMoved().AddRaw(this, &FLevelEditorViewportClient::OnActorMoved);
@@ -1524,6 +1576,7 @@ FLevelEditorViewportClient::~FLevelEditorViewportClient()
 {
 	// Unregister for all global callbacks to this object
 	FEditorSupportDelegates::CleanseEditor.RemoveAll(this);
+	FEditorDelegates::PreBeginPIE.RemoveAll(this);
 
 	// Remove our move delegate
 	GEngine->OnActorMoved().RemoveAll(this);
@@ -1568,20 +1621,20 @@ FSceneView* FLevelEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFami
 
 	// set all other matching viewports to my location, if the LOD locking is enabled,
 	// unless another viewport already set me this frame (otherwise they fight)
-	if (GEditor->bEnableLODLocking && !bWasControlledByOtherViewport)
+	if (GEditor->bEnableLODLocking)
 	{
 		for (int32 ViewportIndex = 0; ViewportIndex < GEditor->LevelViewportClients.Num(); ViewportIndex++)
 		{
 			FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[ViewportIndex];
 
 			//only change camera for a viewport that is looking at the same scene
-			if (GetScene() != ViewportClient->GetScene())
+			if (ViewportClient == NULL || GetScene() != ViewportClient->GetScene())
 			{
 				continue;
 			}
 
 			// go over all other level viewports
-			if (ViewportClient && ViewportClient->Viewport && ViewportClient != this)
+			if (ViewportClient->Viewport && ViewportClient != this)
 			{
 				// force camera of same-typed viewports
 				if (ViewportClient->GetViewportType() == GetViewportType())
@@ -1631,6 +1684,17 @@ ELevelViewportType FLevelEditorViewportClient::GetViewportType() const
 	{
 		return FEditorViewportClient::GetViewportType();
 	}
+}
+
+void FLevelEditorViewportClient::SetViewportType( ELevelViewportType InViewportType )
+{
+	if (InViewportType != LVT_Perspective)
+	{
+		SetActorLock(nullptr);
+		UpdateViewForLockedActor();
+	}
+
+	FEditorViewportClient::SetViewportType(InViewportType);
 }
 
 void FLevelEditorViewportClient::OverridePostProcessSettings( FSceneView& View )
@@ -1771,6 +1835,46 @@ void FLevelEditorViewportClient::ProcessClick(FSceneView& View, HHitProxy* HitPr
 		{
 			ClickHandlers::ClickBackdrop(this,Click);
 		}
+		else if (HitProxy->IsA(HWidgetAxis::StaticGetType()))
+		{
+			// The user clicked on an axis translation/rotation hit proxy.  However, we want
+			// to find out what's underneath the axis widget.  To do this, we'll need to render
+			// the viewport's hit proxies again, this time *without* the axis widgets!
+
+			// OK, we need to be a bit evil right here.  Basically we want to hijack the ShowFlags
+			// for the scene so we can re-render the hit proxies without any axis widgets.  We'll
+			// store the original ShowFlags and modify them appropriately
+			const bool bOldModeWidgets1 = EngineShowFlags.ModeWidgets;
+			const bool bOldModeWidgets2 = View.Family->EngineShowFlags.ModeWidgets;
+
+			EngineShowFlags.ModeWidgets = 0;
+			FSceneViewFamily* SceneViewFamily = const_cast<FSceneViewFamily*>(View.Family);
+			SceneViewFamily->EngineShowFlags.ModeWidgets = 0;
+			bool bWasWidgetDragging = Widget->IsDragging();
+			Widget->SetDragging(false);
+
+			// Invalidate the hit proxy map so it will be rendered out again when GetHitProxy
+			// is called
+			Viewport->InvalidateHitProxy();
+
+			// This will actually re-render the viewport's hit proxies!
+			HHitProxy* HitProxyWithoutAxisWidgets = Viewport->GetHitProxy(HitX, HitY);
+			if (HitProxyWithoutAxisWidgets != NULL && !HitProxyWithoutAxisWidgets->IsA(HWidgetAxis::StaticGetType()))
+			{
+				// Try this again, but without the widget this time!
+				ProcessClick(View, HitProxyWithoutAxisWidgets, Key, Event, HitX, HitY);
+			}
+
+			// Undo the evil
+			EngineShowFlags.ModeWidgets = bOldModeWidgets1;
+			SceneViewFamily->EngineShowFlags.ModeWidgets = bOldModeWidgets2;
+
+			Widget->SetDragging(bWasWidgetDragging);
+
+			// Invalidate the hit proxy map again so that it'll be refreshed with the original
+			// scene contents if we need it again later.
+			Viewport->InvalidateHitProxy();
+		}
 		else if (GUnrealEd->ComponentVisManager.HandleClick(this, HitProxy, Click))
 		{
 			// Component vis manager handled the click
@@ -1792,7 +1896,7 @@ void FLevelEditorViewportClient::ProcessClick(FSceneView& View, HHitProxy* HitPr
 
 			const bool bSelectComponent = bActorAlreadySelectedExclusively && bActorIsBlueprintable && (bComponentAlreadySelected != bWasDoubleClick);
 
-			if (bSelectComponent && GetDefault<UEditorExperimentalSettings>()->bInWorldBPEditing)
+			if (bSelectComponent)
 			{
 				ClickHandlers::ClickComponent(this, ActorHitProxy, Click);
 			}
@@ -1815,28 +1919,39 @@ void FLevelEditorViewportClient::ProcessClick(FSceneView& View, HHitProxy* HitPr
 		}
 		else if (HitProxy->IsA(HGeomPolyProxy::StaticGetType()))
 		{
-			FHitResult CheckResult(ForceInit);
-			FCollisionQueryParams BoxParams(ProcessClickTrace, false, ((HGeomPolyProxy*)HitProxy)->GeomObject->ActualBrush);
-			bool bHit = GWorld->SweepSingle(CheckResult, Click.GetOrigin(), Click.GetOrigin() + Click.GetDirection() * HALF_WORLD_MAX, FQuat::Identity, FCollisionShape::MakeBox(FVector(1.f)), BoxParams, FCollisionObjectQueryParams(ECC_WorldStatic));
+			HGeomPolyProxy* GeomHitProxy = (HGeomPolyProxy*)HitProxy;
 
-			if( bHit )
-			{	
-				GEditor->ClickLocation = CheckResult.Location;
-				GEditor->ClickPlane = FPlane(CheckResult.Location,CheckResult.Normal);
-			}
-
-			if( !ClickHandlers::ClickActor(this,((HGeomPolyProxy*)HitProxy)->GeomObject->ActualBrush,Click,false) )
+			if( GeomHitProxy->GetGeomObject() )
 			{
-				ClickHandlers::ClickGeomPoly(this,(HGeomPolyProxy*)HitProxy,Click);
-			}
+				FHitResult CheckResult(ForceInit);
+				FCollisionQueryParams BoxParams(ProcessClickTrace, false, GeomHitProxy->GetGeomObject()->ActualBrush);
+				bool bHit = GWorld->SweepSingleByObjectType(CheckResult, Click.GetOrigin(), Click.GetOrigin() + Click.GetDirection() * HALF_WORLD_MAX, FQuat::Identity, FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionShape::MakeBox(FVector(1.f)), BoxParams);
 
-			Invalidate( true, true );
+				if(bHit)
+				{
+					GEditor->UnsnappedClickLocation = CheckResult.Location;
+					GEditor->ClickLocation = CheckResult.Location;
+					GEditor->ClickPlane = FPlane(CheckResult.Location, CheckResult.Normal);
+				}
+
+				if(!ClickHandlers::ClickActor(this, GeomHitProxy->GetGeomObject()->ActualBrush, Click, false))
+				{
+					ClickHandlers::ClickGeomPoly(this, GeomHitProxy, Click);
+				}
+
+				Invalidate(true, true);
+			}
 		}
 		else if (HitProxy->IsA(HGeomEdgeProxy::StaticGetType()))
 		{
-			if( !ClickHandlers::ClickGeomEdge(this,(HGeomEdgeProxy*)HitProxy,Click) )
+			HGeomEdgeProxy* GeomHitProxy = (HGeomEdgeProxy*)HitProxy;
+
+			if( GeomHitProxy->GetGeomObject() !=nullptr )
 			{
-				ClickHandlers::ClickActor(this,((HGeomEdgeProxy*)HitProxy)->GeomObject->ActualBrush,Click,true);
+				if(!ClickHandlers::ClickGeomEdge(this, GeomHitProxy, Click))
+				{
+					ClickHandlers::ClickActor(this, GeomHitProxy->GetGeomObject()->ActualBrush, Click, true);
+				}
 			}
 		}
 		else if (HitProxy->IsA(HGeomVertexProxy::StaticGetType()))
@@ -1860,46 +1975,6 @@ void FLevelEditorViewportClient::ProcessClick(FSceneView& View, HHitProxy* HitPr
 		else if (HitProxy->IsA(HLevelSocketProxy::StaticGetType()))
 		{
 			ClickHandlers::ClickLevelSocket(this, HitProxy, Click);
-		}
-		else if( HitProxy->IsA( HWidgetAxis::StaticGetType() ) )
-		{
-			// The user clicked on an axis translation/rotation hit proxy.  However, we want
-			// to find out what's underneath the axis widget.  To do this, we'll need to render
-			// the viewport's hit proxies again, this time *without* the axis widgets!
-
-			// OK, we need to be a bit evil right here.  Basically we want to hijack the ShowFlags
-			// for the scene so we can re-render the hit proxies without any axis widgets.  We'll
-			// store the original ShowFlags and modify them appropriately
-			const bool bOldModeWidgets1 = EngineShowFlags.ModeWidgets;
-			const bool bOldModeWidgets2 = View.Family->EngineShowFlags.ModeWidgets;
-
-			EngineShowFlags.ModeWidgets = 0;
-			FSceneViewFamily* SceneViewFamily = const_cast< FSceneViewFamily* >( View.Family );
-			SceneViewFamily->EngineShowFlags.ModeWidgets = 0;
-			bool bWasWidgetDragging = Widget->IsDragging();
-			Widget->SetDragging(false);
-
-			// Invalidate the hit proxy map so it will be rendered out again when GetHitProxy
-			// is called
-			Viewport->InvalidateHitProxy();
-
-			// This will actually re-render the viewport's hit proxies!
-			HHitProxy* HitProxyWithoutAxisWidgets = Viewport->GetHitProxy( HitX, HitY );
-			if( HitProxyWithoutAxisWidgets != NULL && !HitProxyWithoutAxisWidgets->IsA( HWidgetAxis::StaticGetType() ))
-			{
-				// Try this again, but without the widget this time!
-				ProcessClick( View, HitProxyWithoutAxisWidgets, Key, Event, HitX, HitY );
-			}
-
-			// Undo the evil
-			EngineShowFlags.ModeWidgets = bOldModeWidgets1;
-			SceneViewFamily->EngineShowFlags.ModeWidgets = bOldModeWidgets2;
-
-			Widget->SetDragging(bWasWidgetDragging);
-
-			// Invalidate the hit proxy map again so that it'll be refreshed with the original
-			// scene contents if we need it again later.
-			Viewport->InvalidateHitProxy();
 		}
 	}
 }
@@ -1973,7 +2048,7 @@ void FLevelEditorViewportClient::UpdateViewForLockedActor()
 		else if( Actor->GetRootComponent() != NULL )
 		{
 			// No attachment, so just use the relative location, so that we don't need to
-			// convert from a quaternion, which looses winding information.
+			// convert from a quaternion, which loses winding information.
 			SetViewLocation( Actor->GetRootComponent()->RelativeLocation );
 			SetViewRotation( Actor->GetRootComponent()->RelativeRotation );
 		}
@@ -2116,9 +2191,6 @@ void FLevelEditorViewportClient::ProjectActorsIntoWorld(const TArray<AActor*>& A
 
 			const auto* Factory = GEditor->FindActorFactoryForActorClass(Actor->GetClass());
 			
-			const auto ActorLocation = Actor->GetActorLocation();
-			const auto ActorRotation = Actor->GetActorRotation().Quaternion();
-
 			const FTransform* PreDragActorTransform = PreDragActorTransforms.Find(Actor);
 			check(PreDragActorTransform);
 
@@ -2145,7 +2217,7 @@ void FLevelEditorViewportClient::ProjectActorsIntoWorld(const TArray<AActor*>& A
 	}
 }
 
-bool FLevelEditorViewportClient::InputWidgetDelta(FViewport* Viewport, EAxisList::Type CurrentAxis, FVector& Drag, FRotator& Rot, FVector& Scale)
+bool FLevelEditorViewportClient::InputWidgetDelta(FViewport* Viewport, EAxisList::Type InCurrentAxis, FVector& Drag, FRotator& Rot, FVector& Scale)
 {
 	if (GUnrealEd->ComponentVisManager.HandleInputDelta(this, Viewport, Drag, Rot, Scale))
 	{
@@ -2155,14 +2227,14 @@ bool FLevelEditorViewportClient::InputWidgetDelta(FViewport* Viewport, EAxisList
 	bool bHandled = false;
 
 	// Give the current editor mode a chance to use the input first.  If it does, don't apply it to anything else.
-	if (FEditorViewportClient::InputWidgetDelta(Viewport, CurrentAxis, Drag, Rot, Scale))
+	if (FEditorViewportClient::InputWidgetDelta(Viewport, InCurrentAxis, Drag, Rot, Scale))
 	{
 		bHandled = true;
 	}
 	else
 	{
 		//@TODO: MODETOOLS: Much of this needs to get pushed to Super, but not all of it can be...
-		if( CurrentAxis != EAxisList::None )
+		if( InCurrentAxis != EAxisList::None )
 		{
 			// Skip actors transformation routine in case if any of the selected actors locked
 			// but still pretend that we have handled the input
@@ -2275,13 +2347,13 @@ TSharedPtr<FDragTool> FLevelEditorViewportClient::MakeDragTool( EDragTool::Type 
 
 static bool CommandAcceptsInput( FLevelEditorViewportClient& ViewportClient, FKey Key, const TSharedPtr<FUICommandInfo> Command )
 {
-	const FInputGesture& Gesture = *Command->GetActiveGesture();
+	const FInputChord& Chord = *Command->GetActiveChord();
 
-	return (!Gesture.NeedsControl()	|| ViewportClient.IsCtrlPressed() ) 
-		&& (!Gesture.NeedsAlt()		|| ViewportClient.IsAltPressed() ) 
-		&& (!Gesture.NeedsShift()	|| ViewportClient.IsShiftPressed() ) 
-		&& (!Gesture.NeedsCommand()		|| ViewportClient.IsCmdPressed() )
-		&& Gesture.Key == Key;
+	return (!Chord.NeedsControl()	|| ViewportClient.IsCtrlPressed() ) 
+		&& (!Chord.NeedsAlt()		|| ViewportClient.IsAltPressed() ) 
+		&& (!Chord.NeedsShift()	|| ViewportClient.IsShiftPressed() ) 
+		&& (!Chord.NeedsCommand()		|| ViewportClient.IsCmdPressed() )
+		&& Chord.Key == Key;
 }
 
 static const FLevelViewportCommands& GetLevelViewportCommands()
@@ -2352,6 +2424,7 @@ bool FLevelEditorViewportClient::InputKey(FViewport* Viewport, int32 ControllerI
 	{
 		const FViewportCursorLocation Cursor(View, this, HitX, HitY);
 		const FActorPositionTraceResult TraceResult = FActorPositioning::TraceWorldForPositionWithDefault(Cursor, *View);
+		GEditor->UnsnappedClickLocation = TraceResult.Location;
 		GEditor->ClickLocation = TraceResult.Location;
 		GEditor->ClickPlane = FPlane(TraceResult.Location, TraceResult.SurfaceNormal);
 
@@ -2503,6 +2576,9 @@ void FLevelEditorViewportClient::TrackingStarted( const FInputEventState& InInpu
 				break;
 			case FWidget::WM_TranslateRotateZ:
 				TrackingDescription = FText::Format(LOCTEXT("TranslateRotateZTransaction", "Translate/RotateZ {0}"), ObjectTypeBeingTracked);
+				break;
+			case FWidget::WM_2D:
+				TrackingDescription = FText::Format(LOCTEXT("TranslateRotate2D", "Translate/Rotate2D {0}"), ObjectTypeBeingTracked);
 				break;
 			default:
 				if( bNudge )
@@ -2732,11 +2808,17 @@ EAxisList::Type FLevelEditorViewportClient::GetHorizAxis() const
 	switch( GetViewportType() )
 	{
 	case LVT_OrthoXY:
+	case LVT_OrthoNegativeXY:
 		return EAxisList::X;
 	case LVT_OrthoXZ:
+	case LVT_OrthoNegativeXZ:
 		return EAxisList::X;
 	case LVT_OrthoYZ:
+	case LVT_OrthoNegativeYZ:
 		return EAxisList::Y;
+	case LVT_OrthoFreelook:
+	case LVT_Perspective:
+		break;
 	}
 
 	return EAxisList::X;
@@ -2751,11 +2833,17 @@ EAxisList::Type FLevelEditorViewportClient::GetVertAxis() const
 	switch( GetViewportType() )
 	{
 	case LVT_OrthoXY:
+	case LVT_OrthoNegativeXY:
 		return EAxisList::Y;
 	case LVT_OrthoXZ:
+	case LVT_OrthoNegativeXZ:
 		return EAxisList::Z;
 	case LVT_OrthoYZ:
+	case LVT_OrthoNegativeYZ:
 		return EAxisList::Z;
+	case LVT_OrthoFreelook:
+	case LVT_Perspective:
+		break;
 	}
 
 	return EAxisList::Y;
@@ -2991,9 +3079,9 @@ void FLevelEditorViewportClient::ApplyDeltaToActors(const FVector& InDrag,
 	TArray<AGroupActor*> ActorGroups;
 
 	// Apply the deltas to any selected actors.
-	for ( FSelectionIterator It( GEditor->GetSelectedActorIterator() ) ; It ; ++It )
+	for ( FSelectionIterator SelectedActorIt( GEditor->GetSelectedActorIterator() ) ; SelectedActorIt ; ++SelectedActorIt )
 	{
-		AActor* Actor = static_cast<AActor*>( *It );
+		AActor* Actor = static_cast<AActor*>( *SelectedActorIt );
 		checkSlow( Actor->IsA(AActor::StaticClass()) );
 
 		// Verify that the actor is in the same world as the viewport before moving it.
@@ -3017,17 +3105,17 @@ void FLevelEditorViewportClient::ApplyDeltaToActors(const FVector& InDrag,
 		{
 			if (GEditor->GetSelectedComponentCount() > 0)
 			{
-				auto ComponentSelection = GEditor->GetSelectedComponents();
+				USelection* ComponentSelection = GEditor->GetSelectedComponents();
 
 				// Only move the parent-most component(s) that are selected 
 				// Otherwise, if both a parent and child are selected and the delta is applied to both, the child will actually move 2x delta
 				TInlineComponentArray<USceneComponent*> ComponentsToMove;
-				for (FSelectedEditableComponentIterator It(GEditor->GetSelectedEditableComponentIterator()); It; ++It)
+				for (FSelectedEditableComponentIterator EditableComponentIt(GEditor->GetSelectedEditableComponentIterator()); EditableComponentIt; ++EditableComponentIt)
 				{
-					USceneComponent* SceneComponent = CastChecked<USceneComponent>(*It);
+					USceneComponent* SceneComponent = CastChecked<USceneComponent>(*EditableComponentIt);
 					if (SceneComponent)
 					{
-						auto SelectedComponent = Cast<USceneComponent>(*It);
+						USceneComponent* SelectedComponent = Cast<USceneComponent>(*EditableComponentIt);
 
 						// Check to see if any parent is selected
 						bool bParentAlsoSelected = false;
@@ -3118,7 +3206,7 @@ void FLevelEditorViewportClient::ApplyDeltaToComponent(USceneComponent* InCompon
 
 	// If necessary, transform the editor pivot location to be relative to the component's parent
 	const bool bIsRootComponent = InComponent->GetOwner()->GetRootComponent() == InComponent;
-	FVector RelativePivotLocation = bIsRootComponent ? EditorWorldPivotLocation : InComponent->GetAttachParent()->GetComponentToWorld().Inverse().TransformPosition(EditorWorldPivotLocation);
+	FVector RelativePivotLocation = bIsRootComponent || !InComponent->GetAttachParent() ? EditorWorldPivotLocation : InComponent->GetAttachParent()->GetComponentToWorld().Inverse().TransformPosition(EditorWorldPivotLocation);
 
 	GEditor->ApplyDeltaToComponent(
 		InComponent,
@@ -3806,25 +3894,19 @@ void FLevelEditorViewportClient::DrawBrushDetails(const FSceneView* View, FPrimi
 	}
 }
 
-/**
- * Updates the audio listener for this viewport 
- *
- * @param View	The scene view to use when calculate the listener position
- */
-void FLevelEditorViewportClient::UpdateAudioListener( const FSceneView& View )
+void FLevelEditorViewportClient::UpdateAudioListener(const FSceneView& View)
 {
-	FAudioDevice* AudioDevice = GEditor->GetAudioDevice();
+	UWorld* ViewportWorld = GetWorld();
 
-	// AudioDevice may not exist. For example if we are in -nosound mode
-	if( AudioDevice )
+	if (ViewportWorld)
 	{
-		if( GetWorld() )
+		if (FAudioDevice* AudioDevice = ViewportWorld->GetAudioDevice())
 		{
 			FReverbSettings ReverbSettings;
 			FInteriorSettings InteriorSettings;
 			const FVector& ViewLocation = GetViewLocation();
 
-			class AAudioVolume* AudioVolume = GetWorld()->GetAudioSettings( ViewLocation, &ReverbSettings, &InteriorSettings );
+			class AAudioVolume* AudioVolume = ViewportWorld->GetAudioSettings(ViewLocation, &ReverbSettings, &InteriorSettings);
 
 			FMatrix CameraToWorld = View.ViewMatrices.ViewMatrix.InverseFast();
 			FVector ProjUp = CameraToWorld.TransformVector(FVector(0, 1000, 0));
@@ -3834,8 +3916,8 @@ void FLevelEditorViewportClient::UpdateAudioListener( const FSceneView& View )
 			ListenerTransform.SetTranslation(ViewLocation);
 			ListenerTransform.NormalizeRotation();
 
-			AudioDevice->SetListener( 0, ListenerTransform, 0.f, AudioVolume, InteriorSettings );
-			AudioDevice->SetReverbSettings( AudioVolume, ReverbSettings );
+			AudioDevice->SetListener(0, ListenerTransform, 0.f, AudioVolume, InteriorSettings);
+			AudioDevice->SetReverbSettings(AudioVolume, ReverbSettings);
 		}
 	}
 }
@@ -3878,10 +3960,9 @@ void FLevelEditorViewportClient::SetupViewForRendering( FSceneViewFamily& ViewFa
 	}
 
 	// Update the listener.
-	FAudioDevice* const AudioDevice = GEditor ? GEditor->GetAudioDevice() : NULL;
-	if( AudioDevice && bHasAudioFocus )
+	if (bHasAudioFocus)
 	{
-		UpdateAudioListener( View );
+		UpdateAudioListener(View);
 	}
 }
 
@@ -4178,6 +4259,12 @@ void FLevelEditorViewportClient::ClearHoverFromObjects()
 void FLevelEditorViewportClient::OnEditorCleanse()
 {
 	ClearHoverFromObjects();
+}
+
+void FLevelEditorViewportClient::OnPreBeginPIE(const bool bIsSimulating)
+{
+	// Called before PIE attempts to start, allowing the viewport to cancel processes, like dragging, that will block PIE from beginning
+	AbortTracking();
 }
 
 bool FLevelEditorViewportClient::GetSpriteCategoryVisibility( const FName& InSpriteCategory ) const

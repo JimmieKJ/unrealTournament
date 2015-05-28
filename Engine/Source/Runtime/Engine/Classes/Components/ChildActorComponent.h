@@ -13,10 +13,19 @@ class UChildActorComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
 
+	UFUNCTION(BlueprintCallable, Category=ChildActorComponent)
+	ENGINE_API void SetChildActorClass(TSubclassOf<AActor> Class);
+
+	TSubclassOf<AActor> GetChildActorClass() const { return ChildActorClass; }
+
+	friend class FChildActorComponentDetails;
+
+private:
 	/** The class of Actor to spawn */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ChildActorComponent, meta=(OnlyPlaceable))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ChildActorComponent, meta=(OnlyPlaceable, AllowPrivateAccess="true"))
 	TSubclassOf<AActor>	ChildActorClass;
 
+public:
 	/** The actor that we spawned and own */
 	UPROPERTY(BlueprintReadOnly, Category=ChildActorComponent, TextExportTransient, NonPIEDuplicateTransient)
 	AActor*	ChildActor;
@@ -49,7 +58,7 @@ class UChildActorComponent : public USceneComponent
 	ENGINE_API void CreateChildActor();
 
 	/** Kill any currently present child actor */
-	void DestroyChildActor();
+	void DestroyChildActor(const bool bRequiresRename = true);
 };
 
 

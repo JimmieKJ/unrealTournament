@@ -36,7 +36,7 @@ TSharedPtr<class SGraphPin> FBlueprintGraphPanelPinFactory::CreatePin(class UEdG
 
 		if (DataTablePin)
 		{
-			if (DataTablePin && DataTablePin->DefaultObject != nullptr && DataTablePin->LinkedTo.Num() == 0)
+			if (DataTablePin->DefaultObject != nullptr && DataTablePin->LinkedTo.Num() == 0)
 			{
 				if (auto DataTable = Cast<UDataTable>(DataTablePin->DefaultObject))
 				{

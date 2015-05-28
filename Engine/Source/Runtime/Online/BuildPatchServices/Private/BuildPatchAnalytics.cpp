@@ -8,8 +8,11 @@
 #define ERROR_EVENT_SEND_LIMIT 20
 
 #include "BuildPatchServicesPrivatePCH.h"
+#include "HttpServiceTracker.h"
 
 TSharedPtr< IAnalyticsProvider > FBuildPatchAnalytics::Analytics;
+
+TSharedPtr< FHttpServiceTracker > FBuildPatchAnalytics::HttpTracker;
 
 FThreadSafeCounter FBuildPatchAnalytics::DownloadErrors;
 
@@ -97,5 +100,18 @@ void FBuildPatchAnalytics::RecordEvent( const FString& EventName, const TArray<F
 	{
 		IAnalyticsProvider& AnalyticsProvider = *Analytics.Get();
 		AnalyticsProvider.RecordEvent( EventName, Attributes );
+	}
+}
+
+void FBuildPatchAnalytics::SetHttpTracker(TSharedPtr< FHttpServiceTracker > InHttpTracker)
+{
+	HttpTracker = InHttpTracker;
+}
+
+void FBuildPatchAnalytics::TrackRequest(const FHttpRequestPtr& Request)
+{
+	if (HttpTracker.IsValid())
+	{
+		HttpTracker->TrackRequest(Request, "CDN.Chunk");
 	}
 }

@@ -2,7 +2,18 @@
 
 #pragma once
 
+#include "PaperSprite.h"
+#include "SpriteDrawCall.h"
+
 #define TEST_BATCHING 0
+
+#if WITH_EDITOR
+typedef TMap<const UTexture*, const UTexture*> FPaperRenderSceneProxyTextureOverrideMap;
+
+#define UE_EXPAND_IF_WITH_EDITOR(...) __VA_ARGS__
+#else
+#define UE_EXPAND_IF_WITH_EDITOR(...)
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperSpriteVertex
@@ -18,7 +29,7 @@ struct PAPER2D_API FPaperSpriteVertex
 
 	FPaperSpriteVertex() {}
 
-	FPaperSpriteVertex(const FVector& InPosition, const FVector2D& InTextureCoordinate, const FLinearColor& InColor)
+	FPaperSpriteVertex(const FVector& InPosition, const FVector2D& InTextureCoordinate, const FColor& InColor)
 		: Position(InPosition)
 		, TangentX(PackedNormalX)
 		, TangentZ(PackedNormalZ)
@@ -33,50 +44,96 @@ struct PAPER2D_API FPaperSpriteVertex
 };
 
 //////////////////////////////////////////////////////////////////////////
+// FPaperSpriteVertexBuffer
+
+class FPaperSpriteVertexBuffer : public FVertexBuffer
+{
+public:
+	TArray<FPaperSpriteVertex> Vertices;
+
+	// FRenderResource interface
+	virtual void InitRHI() override;
+	// End of FRenderResource interface
+};
+
+//////////////////////////////////////////////////////////////////////////
+// FPaperSpriteVertexFactory
+
+class FPaperSpriteVertexFactory : public FLocalVertexFactory
+{
+public:
+	FPaperSpriteVertexFactory();
+	void Init(const FPaperSpriteVertexBuffer* VertexBuffer);
+};
+
+//////////////////////////////////////////////////////////////////////////
 // FSpriteRenderSection
 
 struct PAPER2D_API FSpriteRenderSection
 {
+	UMaterialInterface* Material;
+	UTexture* BaseTexture;
+	FAdditionalSpriteTextureArray AdditionalTextures;
+
 	int32 VertexOffset;
 	int32 NumVertices;
 
-	UMaterialInterface* Material;
-	UTexture2D* Texture;
-
 	FSpriteRenderSection()
-		: VertexOffset(INDEX_NONE)
+		: Material(nullptr)
+		, BaseTexture(nullptr)
+		, VertexOffset(INDEX_NONE)
 		, NumVertices(0)
 	{
 	}
 
-#if 0
+	class FTexture* GetBaseTextureResource() const
+	{
+		return (BaseTexture != nullptr) ? BaseTexture->Resource : nullptr;
+	}
+
+	bool IsValid() const
+	{
+		return (Material != nullptr) && (NumVertices > 0) && (GetBaseTextureResource() != nullptr);
+	}
+
 	template <typename SourceArrayType>
 	void AddTriangles(const FSpriteDrawCallRecord& Record, SourceArrayType& Vertices)
 	{
 		if (NumVertices == 0)
 		{
 			VertexOffset = Vertices.Num();
-			Texture = Record.Texture;
+			BaseTexture = Record.BaseTexture;
+			AdditionalTextures = Record.AdditionalTextures;
 		}
 		else
 		{
 			checkSlow((VertexOffset + NumVertices) == Vertices.Num());
+			checkSlow(BaseTexture == Record.BaseTexture);
+			// Note: Not checking AdditionalTextures for now, since checking BaseTexture should catch most bugs
 		}
 
-		NumVertices += Record.RenderVerts.Num();
-		Vertices.Reserve(NumVertices);
+		const int32 NumNewVerts = Record.RenderVerts.Num();
+		NumVertices += NumNewVerts;
+		Vertices.Reserve(Vertices.Num() + NumNewVerts);
 
-		for (int32 SVI = 0; SVI < Record.RenderVerts.Num(); ++SVI)
+		const FColor VertColor(Record.Color);
+		for (const FVector4& SourceVert : Record.RenderVerts)
 		{
-			const FVector4& SourceVert = Record.RenderVerts[SVI];
-
 			const FVector Pos((PaperAxisX * SourceVert.X) + (PaperAxisY * SourceVert.Y) + Record.Destination);
 			const FVector2D UV(SourceVert.Z, SourceVert.W);
 
-			new (Vertices) FPaperSpriteVertex(Pos, UV, Record.Color);
+			new (Vertices) FPaperSpriteVertex(Pos, UV, VertColor);
 		}
 	}
-#endif
+
+	template <typename SourceArrayType>
+	inline void AddVertex(float X, float Y, float U, float V, const FVector& Origin, const FColor& Color, SourceArrayType& Vertices)
+	{
+		const FVector Pos((PaperAxisX * X) + (PaperAxisY * Y) + Origin);
+
+		new (Vertices) FPaperSpriteVertex(Pos, FVector2D(U, V), Color);
+		++NumVertices;
+	}
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -86,12 +143,11 @@ class PAPER2D_API FPaperRenderSceneProxy : public FPrimitiveSceneProxy
 {
 public:
 	FPaperRenderSceneProxy(const UPrimitiveComponent* InComponent);
-	~FPaperRenderSceneProxy();
+	virtual ~FPaperRenderSceneProxy();
 
 	// FPrimitiveSceneProxy interface.
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override;
-	virtual void OnTransformChanged() override;
 	virtual uint32 GetMemoryFootprint() const override;
 	virtual bool CanBeOccluded() const override;
 	virtual void CreateRenderThreadResources() override;
@@ -100,16 +156,15 @@ public:
 	void SetDrawCall_RenderThread(const FSpriteDrawCallRecord& NewDynamicData);
 	void SetBodySetup_RenderThread(UBodySetup* NewSetup);
 
-	class UMaterialInterface* GetMaterial() const
-	{
-		return Material;
-	}
+#if WITH_EDITOR
+	void SetTransientTextureOverride_RenderThread(const UTexture* InTextureToModifyOverrideFor, UTexture* InOverrideTexture);
+#endif
 
 protected:
-	virtual void GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, bool bUseOverrideColor, const FLinearColor& OverrideColor, FMeshElementCollector& Collector) const;
+	virtual void GetDynamicMeshElementsForView(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector) const;
 
-	void GetBatchMesh(const FSceneView* View, bool bUseOverrideColor, const FLinearColor& OverrideColor, class UMaterialInterface* BatchMaterial, const TArray<FSpriteDrawCallRecord>& Batch, int32 ViewIndex, FMeshElementCollector& Collector) const;
-	void GetNewBatchMeshes(const FSceneView* View, bool bUseOverrideColor, const FLinearColor& OverrideColor, int32 ViewIndex, FMeshElementCollector& Collector) const;
+	void GetBatchMesh(const FSceneView* View, UMaterialInterface* BatchMaterial, const TArray<FSpriteDrawCallRecord>& Batch, int32 ViewIndex, FMeshElementCollector& Collector) const;
+	void GetNewBatchMeshes(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector) const;
 
 	bool IsCollisionView(const FEngineShowFlags& EngineShowFlags, bool& bDrawSimpleCollision, bool& bDrawComplexCollision) const;
 
@@ -117,16 +172,25 @@ protected:
 
 	FVertexFactory* GetPaperSpriteVertexFactory() const;
 
+	void ConvertBatchesToNewStyle(TArray<FSpriteDrawCallRecord>& SourceBatches);
+
+	virtual void DebugDrawCollision(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector, bool bDrawSolid) const;
+	virtual void DebugDrawBodySetup(const FSceneView* View, int32 ViewIndex, FMeshElementCollector& Collector, UBodySetup* BodySetup, const FMatrix& GeomTransform, const FLinearColor& CollisionColor, bool bDrawSolid) const;
 protected:
-	TArray<FPaperSpriteVertex> BatchedVertices;
+	// New style
+	FPaperSpriteVertexBuffer VertexBuffer;
+	FPaperSpriteVertexFactory MyVertexFactory;
 	TArray<FSpriteRenderSection> BatchedSections;
 
+	// Old style
 	TArray<FSpriteDrawCallRecord> BatchedSprites;
 	class UMaterialInterface* Material;
-	FVector Origin;
-	AActor* Owner;
-	UBodySetup* BodySetup;
 
+	//
+	AActor* Owner;
+	UBodySetup* MyBodySetup;
+
+	bool bDrawTwoSided;
 	bool bCastShadow;
 
 	// The view relevance for the associated material
@@ -134,4 +198,7 @@ protected:
 
 	// The Collision Response of the component being proxied
 	FCollisionResponseContainer CollisionResponse;
+
+	// The texture override list
+	UE_EXPAND_IF_WITH_EDITOR(FPaperRenderSceneProxyTextureOverrideMap TextureOverrideList);
 };

@@ -14,7 +14,8 @@ FAvfMediaVideoTrack::FAvfMediaVideoTrack( AVAssetTrack* InVideoTrack )
     LatestSamples = nil;
     
     NSError* nsError = nil;
-    AVReader = [[AVAssetReader alloc] initWithAsset: [InVideoTrack asset] error:&nsError];
+	VideoTrack = InVideoTrack;
+    AVReader = [[AVAssetReader alloc] initWithAsset: [VideoTrack asset] error:&nsError];
     if( nsError != nil )
     {
         FString ErrorStr( [nsError localizedDescription] );
@@ -26,7 +27,7 @@ FAvfMediaVideoTrack::FAvfMediaVideoTrack( AVAssetTrack* InVideoTrack )
         NSMutableDictionary* OutputSettings = [NSMutableDictionary dictionary];
         [OutputSettings setObject: [NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(NSString*)kCVPixelBufferPixelFormatTypeKey];
         
-        AVVideoOutput = [[AVAssetReaderTrackOutput alloc] initWithTrack:InVideoTrack outputSettings:OutputSettings];
+        AVVideoOutput = [[AVAssetReaderTrackOutput alloc] initWithTrack:VideoTrack outputSettings:OutputSettings];
         AVVideoOutput.alwaysCopiesSampleData = NO;
     
         FrameRate = 1.0f / [[AVVideoOutput track] nominalFrameRate];
@@ -60,13 +61,35 @@ FAvfMediaVideoTrack::~FAvfMediaVideoTrack()
 bool FAvfMediaVideoTrack::SeekToTime( const CMTime& SeekTime )
 {
     bool bSeekComplete = false;
-//    if( AVReader != nil )
-//    {
-//        CMTimeRange TimeRange = CMTimeRangeMake(SeekTime, kCMTimePositiveInfinity);
-//        AVReader.timeRange = TimeRange;
-        
-//        bSeekComplete = true;
-//    }
+    if( AVReader != nil )
+    {
+		ResetAssetReader();
+		
+		NSError* nsError = nil;
+		AVReader = [[AVAssetReader alloc] initWithAsset: [VideoTrack asset] error:&nsError];
+		if( nsError != nil )
+		{
+			FString ErrorStr( [nsError localizedDescription] );
+			UE_LOG(LogAvfMedia, Error, TEXT("Failed to create asset reader: %s"), *ErrorStr);
+		}
+		
+        CMTimeRange TimeRange = CMTimeRangeMake(SeekTime, [[AVReader asset] duration]);
+        AVReader.timeRange = TimeRange;
+
+		NSMutableDictionary* OutputSettings = [NSMutableDictionary dictionary];
+		[OutputSettings setObject: [NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(NSString*)kCVPixelBufferPixelFormatTypeKey];
+		
+		AVVideoOutput = [[AVAssetReaderTrackOutput alloc] initWithTrack:VideoTrack outputSettings:OutputSettings];
+		AVVideoOutput.alwaysCopiesSampleData = NO;
+		
+		[AVReader addOutput:AVVideoOutput];
+		bVideoTracksLoaded = [AVReader startReading];
+		
+		ReadFrameAtTime( SeekTime, false );
+		
+		bSeekComplete = AVReader.status == AVAssetReaderStatusReading;
+    }
+	
     return bSeekComplete;
 }
 

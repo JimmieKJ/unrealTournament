@@ -25,10 +25,8 @@ class SGraphPinActorBasedClass : public SGraphPinObject
 	{
 		AssetPickerAnchor->SetIsOpen(false);
 
-		if(InChosenClass && GraphPinObj)
+		if(GraphPinObj)
 		{
-			check(InChosenClass);
-			check(InChosenClass->IsChildOf(AActor::StaticClass()));
 			if(const UEdGraphSchema* Schema = GraphPinObj->GetSchema())
 			{
 				Schema->TrySetDefaultObject(*GraphPinObj, InChosenClass);

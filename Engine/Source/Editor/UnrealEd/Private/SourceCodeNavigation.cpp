@@ -151,12 +151,10 @@ public:
 		return AskedToAbortCount.GetValue() > 0;
 	}
 
-	/** @return Queries the name of this task for for external event viewers */
-	static const TCHAR* Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FAsyncSymbolGatherer");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncSymbolGatherer, STATGROUP_ThreadPoolAsyncTasks);
 	}
-
 
 private:
 
@@ -177,8 +175,6 @@ FSourceFileDatabase::FSourceFileDatabase()
 {
 	// Register to be notified when new .Build.cs files are added to the project
 	FSourceCodeNavigation::AccessOnNewModuleAdded().AddRaw(this, &FSourceFileDatabase::OnNewModuleAdded);
-
-	UpdateIfNeeded();
 }
 
 FSourceFileDatabase::~FSourceFileDatabase()
@@ -344,8 +340,8 @@ public:
 
 protected:
 	/** FTickableEditorObject interface */
-	virtual void Tick( float DeltaTime );
-	virtual bool IsTickable() const
+	virtual void Tick( float DeltaTime ) override;
+	virtual bool IsTickable() const override
 	{
 		return true;
 	}
@@ -525,9 +521,10 @@ void FSourceCodeNavigationImpl::NavigateToFunctionSource( const FString& Functio
 			IndexModule64 = (struct mach_header_64 const*)IndexModule32;
 			LoadCommands = (struct load_command const*)(IndexModule64 + 1);
 			struct load_command const* Command = LoadCommands;
-			struct symtab_command const* SymbolTable = NULL;
-			struct dysymtab_command const* DsymTable = NULL;
-			for(uint32 CommandIndex = 0; CommandIndex < IndexModule32->ncmds; CommandIndex++)
+			struct symtab_command const* SymbolTable = nullptr;
+			struct dysymtab_command const* DsymTable = nullptr;
+			struct uuid_command* UUIDCommand = nullptr;
+			for(uint32 CommandIndex = 0; CommandIndex < IndexModule64->ncmds; CommandIndex++)
 			{
 				if (Command && Command->cmd == LC_SYMTAB)
 				{
@@ -537,10 +534,14 @@ void FSourceCodeNavigationImpl::NavigateToFunctionSource( const FString& Functio
 				{
 					DsymTable = (struct dysymtab_command const*)Command;
 				}
+				else if (Command && Command->cmd == LC_UUID)
+				{
+					UUIDCommand = (struct uuid_command*)Command;
+				}
 				Command = (struct load_command const*)(((char const*)Command) + Command->cmdsize);
 			}
 			
-			check(SymbolTable && DsymTable);
+			check(SymbolTable && DsymTable && UUIDCommand);
 			
 			IPlatformFile& PlatformFile = IPlatformFile::GetPlatformPhysical();
 			IFileHandle* File = PlatformFile.OpenRead(*FullModulePath);
@@ -626,11 +627,39 @@ void FSourceCodeNavigationImpl::NavigateToFunctionSource( const FString& Functio
 							
 							if(FunctionSymbolName == SymbolName)
 							{
-								FString ModuleName = FPaths::GetCleanFilename(FullModulePath);
-								FProgramCounterSymbolInfo Info;
-								if(FApplePlatformSymbolication::SymbolInfoForFunctionFromModule((char const*)(StringTable+SymbolEntry.n_un.n_strx), TCHAR_TO_UTF8(*ModuleName), Info))
+								CFUUIDBytes UUIDBytes;
+								FMemory::Memcpy(&UUIDBytes, UUIDCommand->uuid, sizeof(CFUUIDBytes));
+								CFUUIDRef UUIDRef = CFUUIDCreateFromUUIDBytes(kCFAllocatorDefault, UUIDBytes);
+								CFStringRef UUIDString = CFUUIDCreateString(kCFAllocatorDefault, UUIDRef);
+								FString UUID((NSString*)UUIDString);
+								CFRelease(UUIDString);
+								CFRelease(UUIDRef);
+							
+								uint64 Address = SymbolEntry.n_value;
+								uint64 BaseAddress = (uint64)IndexModule64;
+								FString AtoSCommand = FString::Printf(TEXT("\"%s\" -s %s -l 0x%lx 0x%lx"), *FullModulePath, *UUID, BaseAddress, Address);
+								int32 ReturnCode = 0;
+								FString Results;
+								
+								const FString AtoSPath = FString::Printf(TEXT("%sBinaries/Mac/UnrealAtoS"), *FPaths::EngineDir() );
+								FPlatformProcess::ExecProcess( *AtoSPath, *AtoSCommand, &ReturnCode, &Results, NULL );
+								if(ReturnCode == 0)
 								{
-									SourceCodeAccessor.OpenFileAtLine( Info.Filename, Info.LineNumber, 0 );
+									int32 FirstIndex = -1;
+									int32 LastIndex = -1;
+									if(Results.FindChar(TCHAR('('), FirstIndex) && Results.FindLastChar(TCHAR('('), LastIndex) && FirstIndex != LastIndex)
+									{
+										int32 CloseIndex = -1;
+										int32 ColonIndex = -1;
+										if(Results.FindLastChar(TCHAR(':'), ColonIndex) && Results.FindLastChar(TCHAR(')'), CloseIndex))
+										{
+											int32 FileNamePos = LastIndex+1;
+											int32 FileNameLen = ColonIndex-FileNamePos;
+											FString FileName = Results.Mid(FileNamePos, FileNameLen);
+											FString LineNumber = Results.Mid(ColonIndex + 1, CloseIndex-(ColonIndex + 1));
+											SourceCodeAccessor.OpenFileAtLine( FileName, FCString::Atoi(*LineNumber), 0 );
+										}
+									}
 								}
 								break;
 							}
@@ -647,6 +676,10 @@ void FSourceCodeNavigationImpl::NavigateToFunctionSource( const FString& Functio
 	
 #endif	// PLATFORM_WINDOWS
 }
+
+
+FCriticalSection FSourceCodeNavigation::CriticalSection;
+FSourceFileDatabase FSourceCodeNavigation::Instance;
 
 
 void FSourceCodeNavigation::Initialize()
@@ -666,10 +699,9 @@ void FSourceCodeNavigation::Initialize()
 			return false;
 		}
 
-		/** @return Queries the name of this task for for external event viewers */
-		static const TCHAR* Name()
+		FORCEINLINE TStatId GetStatId() const
 		{
-			return TEXT("FAsyncInitializeSourceFileDatabase");
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncInitializeSourceFileDatabase, STATGROUP_ThreadPoolAsyncTasks);
 		}
 	};
 
@@ -681,11 +713,9 @@ void FSourceCodeNavigation::Initialize()
 const FSourceFileDatabase& FSourceCodeNavigation::GetSourceFileDatabase()
 {
 	// Lock so that nothing may proceed while the AsyncTask is constructing the FSourceFileDatabase for the first time
-	static FCriticalSection CriticalSection;
 	FScopeLock Lock(&CriticalSection);
-
-	static FSourceFileDatabase Instance;
 	Instance.UpdateIfNeeded();
+
 	return Instance;
 }
 
@@ -845,14 +875,14 @@ void FSourceCodeNavigationImpl::GatherFunctions( const FString& ModuleName, cons
 				}
 
 				// Filter class constructor
-				else if( !bShowConstructorAndDestructor && FunctionName == ClassName )
+				else if( !bShowConstructorAndDestructor && FunctionName == ClassName ) //-V560 //Remove this when todo will be implemented
 				{
 					// <class>
 					bPassedFilter = false;
 				}
 
 				// Filter class destructor
-				else if( !bShowConstructorAndDestructor && FunctionName.StartsWith( TEXT( "~" ) ) )
+				else if( !bShowConstructorAndDestructor && FunctionName.StartsWith( TEXT( "~" ) ) ) //-V560 //Remove this when todo will be implemented
 				{
 					// ~<class>
 					bPassedFilter = false;
@@ -1259,7 +1289,7 @@ void FSourceCodeNavigation::GatherFunctionsForActors( TArray< AActor* >& Actors,
 		{
 			// Skip low-level classes if we were asked to do that.  Here, we'll require the class to have
 			// been derived from a low level actor/pawn class.
-			if( !bGatherLowLevelClasses &&		// @todo editcode: A bit hacky here, hard-coding types
+			if( !bGatherLowLevelClasses &&		// @todo editcode: A bit hacky here, hard-coding types //-V560 //remove after implementing todo
 				( !CurClass->IsChildOf( AActor::StaticClass() ) ||
 				  CurClass == AActor::StaticClass() ) ||
 				  CurClass == APawn::StaticClass() )
@@ -1626,6 +1656,73 @@ bool FSourceCodeNavigation::FindClassHeaderPath( const UField *Field, FString &O
 	return false;
 }
 
+bool FSourceCodeNavigation::FindClassSourcePath( const UField *Field, FString &OutClassSourcePath )
+{
+	// Get the class package, and skip past the "/Script/" portion to get the module name
+	UPackage *ModulePackage = Field->GetTypedOuter<UPackage>();
+	FString ModulePackageName = ModulePackage->GetName();
+
+	int32 ModuleNameIdx;
+	if(ModulePackageName.FindLastChar(TEXT('/'), ModuleNameIdx))
+	{
+		// Find the base path for the module
+		FString ModuleBasePath;
+		if(FSourceCodeNavigation::FindModulePath(*ModulePackageName + ModuleNameIdx + 1, ModuleBasePath))
+		{
+			// Get the metadata for the class path relative to the module base
+			// Given this we can try and find the corresponding .cpp file
+			FString ModuleRelativePath = ModulePackage->GetMetaData()->GetValue(Field, TEXT("ModuleRelativePath"));
+			if(ModuleRelativePath.Len() > 0)
+			{
+				const FString PotentialCppLeafname = FPaths::GetBaseFilename(ModuleRelativePath) + TEXT(".cpp");
+				FString PotentialCppFilename = ModuleBasePath / FPaths::GetPath(ModuleRelativePath) / PotentialCppLeafname;
+
+				// Is the .cpp file in the same folder as the header file?
+				if(FPaths::FileExists(PotentialCppFilename))
+				{
+					OutClassSourcePath = PotentialCppFilename;
+					return true;
+				}
+
+				const FString PublicPath = ModuleBasePath / "Public" / "";		// Ensure trailing /
+				const FString PrivatePath = ModuleBasePath / "Private" / "";	// Ensure trailing /
+				const FString ClassesPath = ModuleBasePath / "Classes" / "";	// Ensure trailing /
+
+				// If the path starts with Public or Classes, try swapping those out with Private
+				if(PotentialCppFilename.StartsWith(PublicPath))
+				{
+					PotentialCppFilename.ReplaceInline(*PublicPath, *PrivatePath);
+				}
+				else if(PotentialCppFilename.StartsWith(ClassesPath))
+				{
+					PotentialCppFilename.ReplaceInline(*ClassesPath, *PrivatePath);
+				}
+				else
+				{
+					PotentialCppFilename.Empty();
+				}
+				if(!PotentialCppFilename.IsEmpty() && FPaths::FileExists(PotentialCppFilename))
+				{
+					OutClassSourcePath = PotentialCppFilename;
+					return true;
+				}
+
+				// Still no luck, try and search for the file on the filesystem
+				TArray<FString> Filenames;
+				IFileManager::Get().FindFilesRecursive(Filenames, *ModuleBasePath, *PotentialCppLeafname, true, false, false);
+				
+				if(Filenames.Num() > 0)
+				{
+					// Assume it's the first match (we should really only find a single file with a given name within a project anyway)
+					OutClassSourcePath = Filenames[0];
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 void FSourceCodeNavigationImpl::OnSuggestedIDEInstallerDownloadComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful, FOnIDEInstallerDownloadComplete OnDownloadComplete)
 {
 	if (bWasSuccessful)
@@ -1728,7 +1825,7 @@ FString FSourceCodeNavigationImpl::GetSuggestedIDEInstallerFileName()
 void FSourceCodeNavigationImpl::LaunchIDEInstaller(const FString& Filepath)
 {
 #if PLATFORM_WINDOWS
-	auto Params = TEXT("/PromptRestart");
+	auto Params = TEXT("/PromptRestart /ChainingPackage EpicGames_UE4");
 	FPlatformProcess::CreateProc(*Filepath, Params, true, false, false, nullptr, 0, nullptr, nullptr);
 #endif
 }

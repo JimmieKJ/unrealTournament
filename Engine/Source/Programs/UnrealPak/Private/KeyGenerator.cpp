@@ -256,24 +256,24 @@ void GeneratePrimeNumberTable(int64 MaxValue, const TCHAR* Filename)
 
 	UE_LOG(LogPakFile, Display, TEXT("Generating prime number table <= %lld: %s."), MaxValue, Filename);
 
-	FString PrimeTable(TEXT("// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.\nint256 PrimeTable[] = \n{\n\t2, "));
+	FString PrimeTableString(TEXT("// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.\nint256 PrimeTable[] = \n{\n\t2, "));
 	int64 PrimeCount = 1;
 	const double StartTime = FPlatformTime::Seconds();
 	for (int64 SmallNumber = 3; SmallNumber <= MaxValue; SmallNumber += 2)
 	{
 		if (IsPrime(SmallNumber, false))
 		{
-			PrimeTable += FString::Printf(TEXT("%lld, "), SmallNumber);
+			PrimeTableString += FString::Printf(TEXT("%lld, "), SmallNumber);
 			PrimeCount++;
 			if ((PrimeCount % 10) == 0)
 			{
-				PrimeTable += TEXT("\n\t");
+				PrimeTableString += TEXT("\n\t");
 			}
 		}
 	}
-	PrimeTable += TEXT("\n};\n");
+	PrimeTableString += TEXT("\n};\n");
 	UE_LOG(LogPakFile, Display, TEXT("Generated %lld primes in %.4lfs."), PrimeCount, FPlatformTime::Seconds() - StartTime);
-	FFileHelper::SaveStringToFile(PrimeTable, Filename);
+	FFileHelper::SaveStringToFile(PrimeTableString, Filename);
 }
 
 
@@ -454,7 +454,7 @@ bool ReadKeysFromFile(const TCHAR* KeyFilename, FKeyPair& OutKeys)
 	if (FFileHelper::LoadFileToString(KeyFileContents, KeyFilename))
 	{
 		TArray<FString> KeyValues;
-		KeyFileContents.ParseIntoArrayWS(&KeyValues);
+		KeyFileContents.ParseIntoArrayWS(KeyValues);
 		if (KeyValues.Num() != 3)
 		{
 			UE_LOG(LogPakFile, Error, TEXT("Expecting 3 values in %s, got %d."), KeyFilename, KeyValues.Num());

@@ -55,13 +55,10 @@ public:
 		/** Spawn a new window or reuse current window for this combo*/
 		SLATE_ARGUMENT( TOptional<EPopupMethod>, Method )
 	SLATE_END_ARGS()
-	
-	/**
-	 * Sets the content for this button
-	 *
-	 * @param	InContent	The widget to use as content for this button
-	 */
-	void SetMenuContent( const TSharedRef< SWidget >& InContent );
+
+	// SMenuAnchor interface
+	virtual void SetMenuContent(TSharedRef<SWidget> InContent) override;
+	// End of SMenuAnchor interface
 
 	/** See the OnGetMenuContent event */
 	void SetOnGetMenuContent( FOnGetContent InOnGetMenuContent );
@@ -87,9 +84,6 @@ protected:
 protected:
 	/** Area where the button's content resides */
 	SHorizontalBox::FSlot* ButtonContentSlot;
-
-	/** Delegate to execute to get the menu content of this button */
-	FOnGetContent OnGetMenuContent;
 
 	/** Delegate to execute when the combo list is opened */
 	FOnComboBoxOpened OnComboBoxOpened;

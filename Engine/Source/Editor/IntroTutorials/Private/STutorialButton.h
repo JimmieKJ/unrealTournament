@@ -19,17 +19,22 @@ class STutorialButton : public SCompoundWidget
 
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
-
+	
 private:
+	/** Opens the tutorial post-construct */
+	EActiveTimerReturnType OpenTutorialPostConstruct( double InCurrentTime, float InDeltaTime );
+
 	/** Handle clicking the tutorial button */
 	FReply HandleButtonClicked();
 
-	/** After the initial click is processed, go here, wait for the asset registry to load, and complete the action once we're ready. Returns true if it needs to be ticked again, false when it's done. */
-	bool HandleButtonClicked_AssetRegistryChecker();
+	/** After the initial click is processed, go here, wait for the asset registry to load, and complete the action once we're ready */
+	EActiveTimerReturnType HandleButtonClicked_AssetRegistryChecker(double InCurrentTime, float InDeltaTime);
 
 	/** Dismiss the pulsing alert */
 	void DismissAlert();
+
+	/** Dismiss all pulsing alerts */
+	void DismissAllAlerts();
 
 	/** Launch the tutorials browser */
 	void LaunchBrowser();
@@ -53,9 +58,7 @@ private:
 	void HandleTutorialExited();
 
 private:
-	/** Flag to defer tutorial open until the first Tick() */
-	bool bDeferTutorialOpen;
-
+	
 	/** Whether we have a tutorial for this context */
 	bool bTutorialAvailable;
 

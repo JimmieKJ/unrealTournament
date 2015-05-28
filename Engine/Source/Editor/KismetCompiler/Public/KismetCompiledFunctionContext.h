@@ -7,6 +7,8 @@
 #include "BPTerminal.h"
 #include "BlueprintCompiledStatement.h"
 
+class UBlueprintGeneratedClass;
+
 namespace KismetCompilerDebugOptions
 {
 	//@TODO: K2: Turning this off is probably broken due to state merging not working with the current code generation

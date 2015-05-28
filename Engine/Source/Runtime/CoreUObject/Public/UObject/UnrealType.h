@@ -7,100 +7,13 @@
 #pragma once
 
 #include "ObjectBase.h"
+#include "PropertyPortFlags.h"
 
 COREUOBJECT_API DECLARE_LOG_CATEGORY_EXTERN(LogType, Log, All);
 
 /*-----------------------------------------------------------------------------
 	UProperty.
 -----------------------------------------------------------------------------*/
-
-// Property exporting flags.
-enum EPropertyPortFlags
-{
-	/** No special property exporint flags */
-	PPF_None						= 0x00000000,
-
-	/** Indicates that property data should be treated as text */
-	PPF_Localized					= 0x00000001,
-
-	/** Indicates that property data should be wrapped in quotes (for some types of properties) */
-	PPF_Delimited					= 0x00000002,
-
-	/** Indicates that the object reference should be verified */
-	PPF_CheckReferences				= 0x00000004, 
-	
-	PPF_ExportsNotFullyQualified	= 0x00000008,
-	
-	PPF_AttemptNonQualifiedSearch	= 0x00000010,
-	
-	/** Indicates that importing values for config or localized properties is disallowed */
-	PPF_RestrictImportTypes			= 0x00000020,
-	
-	//								= 0x00000040,
-	
-	/** only include properties that have the CPF_Localized flag for ImportText/ExportText */
-	PPF_LocalizedOnly				= 0x00000080,
-
-	/** only include properties which are marked CPF_InstancedReference */
-	PPF_SubobjectsOnly				= 0x00000100,
-
-	/**
-	 * Only applicable to component properties (for now)
-	 * Indicates that two object should be considered identical
-	 * if the property values for both objects are all identical
-	 */
-	PPF_DeepComparison				= 0x00000200,
-
-	/**
-	 * Similar to PPF_DeepComparison, except that template components are always compared using standard object
-	 * property comparison logic (basically if the pointers are different, then the property isn't identical)
-	 */
-	PPF_DeepCompareInstances		= 0x00000400,
-
-	/**
-	 * Set if this operation is copying in memory (for copy/paste) instead of exporting to a file. There are
-	 * some subtle differences between the two
-	 */
-	PPF_Copy						= 0x00000800,
-
-	/** Set when duplicating objects via serialization */
-	PPF_Duplicate					= 0x00001000,
-
-	/** Indicates that object property values should be exported without the package or class information */
-	PPF_SimpleObjectText			= 0x00002000,
-
-	/** parsing default properties - allow text for transient properties to be imported - also modifies ObjectProperty importing slightly for subobjects */
-	PPF_ParsingDefaultProperties	= 0x00008000,
-
-	/** indicates that non-categorized transient properties should be exported (by default, they would not be) */
-	PPF_IncludeTransient			= 0x00020000,
-
-	/** modifies behavior of UProperty::Identical - indicates that the comparison is between an object and its archetype */
-	PPF_DeltaComparison				= 0x00040000,
-
-	/** indicates that we're exporting properties for display in the property window. - used to hide EditHide items in collapsed structs */
-	PPF_PropertyWindow				= 0x00080000,
-
-	PPF_NoInternalArcheType			= 0x00100000,
-
-	/** Force fully qualified object names (for debug dumping) */
-	PPF_DebugDump					= 0x00200000,
-
-	/** Set when duplicating objects for PIE */
-	PPF_DuplicateForPIE				= 0x00400000,
-
-	/** Set when exporting just an object declaration, to be followed by another call with PPF_SeparateDefine */
-	PPF_SeparateDeclare				= 0x00800000,
-
-	/** Set when exporting just an object definition, preceded by another call with PPF_SeparateDeclare */
-	PPF_SeparateDefine				= 0x01000000,
-
-	/** Used by 'watch value' while blueprint debugging*/
-	PPF_BlueprintDebugView			= 0x02000000,
-
-	/** Exporting properties for console variables. */
-	PPF_ConsoleVariable				= 0x04000000,
-};
 
 enum EPropertyExportCPPFlags
 {
@@ -160,7 +73,9 @@ public:
 
 public:
 	// Constructors.
-	UProperty(const FObjectInitializer& ObjectInitializer);
+	UProperty(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+
+	UProperty(ECppProperty, int32 InOffset, uint64 InFlags);
 	UProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags );
 
 	// UObject interface
@@ -211,6 +126,17 @@ private:
 	*/
 	int32 SetupOffset();
 
+protected:
+	friend class UMapProperty;
+
+	/** Set the alignment offset for this property - added for UMapProperty */
+	void SetOffset_Internal(int32 NewOffset);
+
+	/**
+	 * Initializes internal state.
+	 */
+	void Init();
+
 public:
 	/** Return offset of property from container base. */
 	FORCEINLINE int32 GetOffset_ForDebug() const
@@ -224,6 +150,11 @@ public:
 	}
 	/** Return offset of property from container base. */
 	FORCEINLINE int32 GetOffset_ForGC() const
+	{
+		return Offset_Internal;
+	}
+	/** Return offset of property from container base. */
+	FORCEINLINE int32 GetOffset_ForInternal() const
 	{
 		return Offset_Internal;
 	}
@@ -285,7 +216,7 @@ public:
 			for (int32 Idx = 0; Idx < ArrayDim; Idx++)
 			{
 				Ar.SetSerializedProperty(this);
-				SerializeItem( Ar, ContainerPtrToValuePtr<void>(Data, Idx), 0 );
+				SerializeItem( Ar, ContainerPtrToValuePtr<void>(Data, Idx) );
 			}
 			Ar.SetSerializedProperty(OldSerializedProperty);
 		}
@@ -310,14 +241,14 @@ public:
 				{
 					UProperty* OldSerializedProperty = Ar.GetSerializedProperty();
 					Ar.SetSerializedProperty(this);
-					SerializeItem( Ar, Target, 0, Default );
+					SerializeItem( Ar, Target, Default );
 					Ar.SetSerializedProperty(OldSerializedProperty);
 				}
 			}
 		}
 	}
 
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes=0, void const* Defaults=NULL ) const PURE_VIRTUAL(UProperty::SerializeItem,);
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults=NULL ) const PURE_VIRTUAL(UProperty::SerializeItem,);
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope = NULL ) const PURE_VIRTUAL(UProperty::ExportTextItem,);
 	const TCHAR* ImportText( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText = (FOutputDevice*)GWarn ) const
@@ -340,31 +271,47 @@ public:
 
 private:
 
-	FORCEINLINE void* ContainerPtrToValuePtrInternal(void const* ContainerPtr, int32 ArrayIndex, bool bKnownToBeUObject) const
+	FORCEINLINE void* ContainerVoidPtrToValuePtrInternal(void* ContainerPtr, int32 ArrayIndex) const
 	{
-		if (bKnownToBeUObject)
-		{
-			// in the future, these checks will be tested if the property is supposed be from a UClass
-			// need something for networking, since those are NOT live uobjects, just memory blocks
-			check(((UObject*)ContainerPtr)->IsValidLowLevel()); // Check its a valid UObject that was passed in
-			check(GetOuter()->IsA(UClass::StaticClass())); // Check that the outer of this property is a UClass (not another property)
+		check(ArrayIndex < ArrayDim);
+		check(ContainerPtr);
 
-			// Check that the object we are accessing is of the class that contains this property
-			checkf(((UObject*)ContainerPtr)->IsA((UClass*)GetOuter()), TEXT("'%s' is of class '%s' however property '%s' belongs to class '%s'") 
-																	 , *((UObject*)ContainerPtr)->GetName()
-																	 , *((UObject*)ContainerPtr)->GetClass()->GetName()
-																	 , *GetName()
-																	 , *((UClass*)GetOuter())->GetName());
+		if (0)
+		{
+			// in the future, these checks will be tested if the property is NOT relative to a UClass
+			check(!Cast<UClass>(GetOuter())); // Check we are _not_ calling this on a direct child property of a UClass, you should pass in a UObject* in that case
 		}
+
+		return (uint8*)ContainerPtr + Offset_Internal + ElementSize * ArrayIndex;
+	}
+
+	FORCEINLINE void* ContainerUObjectPtrToValuePtrInternal(UObject* ContainerPtr, int32 ArrayIndex) const
+	{
+		check(ArrayIndex < ArrayDim);
+		check(ContainerPtr);
+
+		// in the future, these checks will be tested if the property is supposed be from a UClass
+		// need something for networking, since those are NOT live uobjects, just memory blocks
+		check(((UObject*)ContainerPtr)->IsValidLowLevel()); // Check its a valid UObject that was passed in
+		check(((UObject*)ContainerPtr)->GetClass() != NULL);
+		check(GetOuter()->IsA(UClass::StaticClass())); // Check that the outer of this property is a UClass (not another property)
+
+		// Check that the object we are accessing is of the class that contains this property
+		checkf(((UObject*)ContainerPtr)->IsA((UClass*)GetOuter()), TEXT("'%s' is of class '%s' however property '%s' belongs to class '%s'")
+			, *((UObject*)ContainerPtr)->GetName()
+			, *((UObject*)ContainerPtr)->GetClass()->GetName()
+			, *GetName()
+			, *((UClass*)GetOuter())->GetName());
+
 		if (0)
 		{
 			// in the future, these checks will be tested if the property is NOT relative to a UClass
 			check(!GetOuter()->IsA(UClass::StaticClass())); // Check we are _not_ calling this on a direct child property of a UClass, you should pass in a UObject* in that case
 		}
-		check(ArrayIndex < ArrayDim);
-		check(ContainerPtr);
-		return (void*)(((uint8*)ContainerPtr) + Offset_Internal + (ElementSize * ArrayIndex));
+
+		return (uint8*)ContainerPtr + Offset_Internal + ElementSize * ArrayIndex;
 	}
+
 public:
 
 	/** 
@@ -377,22 +324,22 @@ public:
 	template<typename ValueType>
 	FORCEINLINE ValueType* ContainerPtrToValuePtr(UObject* ContainerPtr, int32 ArrayIndex = 0) const
 	{
-		return (ValueType*)ContainerPtrToValuePtrInternal(ContainerPtr, ArrayIndex, true);
+		return (ValueType*)ContainerUObjectPtrToValuePtrInternal(ContainerPtr, ArrayIndex);
 	}
 	template<typename ValueType>
 	FORCEINLINE ValueType* ContainerPtrToValuePtr(void* ContainerPtr, int32 ArrayIndex = 0) const
 	{
-		return (ValueType*)ContainerPtrToValuePtrInternal(ContainerPtr, ArrayIndex, false);
+		return (ValueType*)ContainerVoidPtrToValuePtrInternal(ContainerPtr, ArrayIndex);
 	}
 	template<typename ValueType>
 	FORCEINLINE ValueType const* ContainerPtrToValuePtr(UObject const* ContainerPtr, int32 ArrayIndex = 0) const
 	{
-		return (ValueType const*)ContainerPtrToValuePtrInternal(ContainerPtr, ArrayIndex, true);
+		return ContainerPtrToValuePtr<ValueType>((UObject*)ContainerPtr, ArrayIndex);
 	}
 	template<typename ValueType>
 	FORCEINLINE ValueType const* ContainerPtrToValuePtr(void const* ContainerPtr, int32 ArrayIndex = 0) const
 	{
-		return (ValueType const*)ContainerPtrToValuePtrInternal(ContainerPtr, ArrayIndex, false);
+		return ContainerPtrToValuePtr<ValueType>((void*)ContainerPtr, ArrayIndex);
 	}
 
 	// Default variants, these accept and return NULL, and also check the property against the size of the container. 
@@ -402,7 +349,7 @@ public:
 	{
 		if (ContainerPtr && IsInContainer(ContainerClass))
 		{
-			return (ValueType*)ContainerPtrToValuePtrInternal(ContainerPtr, ArrayIndex, true);
+			return ContainerPtrToValuePtr<ValueType>(ContainerPtr, ArrayIndex);
 		}
 		return NULL;
 	}
@@ -411,7 +358,7 @@ public:
 	{
 		if (ContainerPtr && IsInContainer(ContainerClass))
 		{
-			return (ValueType*)ContainerPtrToValuePtrInternal(ContainerPtr, ArrayIndex, false);
+			return ContainerPtrToValuePtr<ValueType>(ContainerPtr, ArrayIndex);
 		}
 		return NULL;
 	}
@@ -420,7 +367,7 @@ public:
 	{
 		if (ContainerPtr && IsInContainer(ContainerClass))
 		{
-			return (ValueType const*)ContainerPtrToValuePtrInternal(ContainerPtr, ArrayIndex, true);
+			return ContainerPtrToValuePtr<ValueType>(ContainerPtr, ArrayIndex);
 		}
 		return NULL;
 	}
@@ -429,19 +376,19 @@ public:
 	{
 		if (ContainerPtr && IsInContainer(ContainerClass))
 		{
-			return (ValueType const*)ContainerPtrToValuePtrInternal(ContainerPtr, ArrayIndex, false);
+			return ContainerPtrToValuePtr<ValueType>(ContainerPtr, ArrayIndex);
 		}
 		return NULL;
 	}
 	/** See if the offset of this property is below the supplied container size */
 	FORCEINLINE bool IsInContainer(int32 ContainerSize) const
 	{
-		return (Offset_Internal + GetSize() <= ContainerSize);
+		return Offset_Internal + GetSize() <= ContainerSize;
 	}
 	/** See if the offset of this property is below the supplied container size */
 	FORCEINLINE bool IsInContainer(UStruct* ContainerClass) const
 	{
-		return (Offset_Internal + GetSize() <= (ContainerClass ? ContainerClass->GetPropertiesSize() : MAX_int32));
+		return Offset_Internal + GetSize() <= (ContainerClass ? ContainerClass->GetPropertiesSize() : MAX_int32);
 	}
 
 	/**
@@ -469,10 +416,22 @@ public:
 			}
 		}
 	}
+
+	/**
+	 * Returns the hash value for an element of this property.
+	 */
+	uint32 GetValueTypeHash(const void* Src) const;
+
 protected:
 	virtual void CopyValuesInternal( void* Dest, void const* Src, int32 Count  ) const
 	{
 		check(0); // if you are not memcpyable, then you need to deal with the virtual call
+	}
+
+	virtual uint32 GetValueTypeHashInternal(const void* Src) const
+	{
+		check(false); // you need to deal with the virtual call
+		return 0;
 	}
 
 public:
@@ -676,7 +635,6 @@ public:
 	bool ValidateImportFlags( uint32 PortFlags, FOutputDevice* ErrorText = NULL ) const;
 	bool ShouldPort( uint32 PortFlags=0 ) const;
 	virtual FName GetID() const;
-	virtual bool IsLocalized() const;
 
 	/**
 	 * Creates new copies of components
@@ -865,18 +823,6 @@ public:
 		return TNameOf<TCppType>::GetName();
 	}
 
-	/** Get the value of the property at an address to a string, so far only numeric types are supported */
-	static FString ToString(void const* A)
-	{
-		return TTypeToString<TCppType>::ToString(GetPropertyValue(A));
-	}
-
-	/** Set the value of the property at an address from a string, so far only numeric types are supported */
-	static void FromString(void* A, const TCHAR* Buffer)
-	{
-		return TTypeFromString<TCppType>::FromString(*GetPropertyValuePtr(A), Buffer);
-	}
-
 	/** Convert the address of a value of the property to the proper type */
 	static FORCEINLINE TCppType const* GetPropertyValuePtr(void const* A)
 	{
@@ -940,8 +886,13 @@ public:
 	typedef TInPropertyBaseClass Super;
 	typedef TPropertyTypeFundamentals<InTCppType> TTypeFundamentals;
 
-	TProperty( const FObjectInitializer& ObjectInitializer )
-		:	Super( ObjectInitializer)
+	TProperty(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
+		: Super(ObjectInitializer)
+	{
+		SetElementSize();
+	}
+	TProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+		: Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags | TTypeFundamentals::GetComputedFlagsPropertyFlags())
 	{
 		SetElementSize();
 	}
@@ -950,6 +901,11 @@ public:
 	{
 		SetElementSize();
 	}
+
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	TProperty(FVTableHelper& Helper) : Super(Helper) {};
+#endif // WITH_HOT_RELOAD_CTORS
 
 	// UHT interface
 	virtual FString GetCPPType( FString* ExtendedTypeText=NULL, uint32 CPPExportFlags=0 ) const override
@@ -1040,8 +996,12 @@ public:
 	typedef InTCppType TCppType;
 	typedef typename Super::TTypeFundamentals TTypeFundamentals;
 
-	TProperty_WithEqualityAndSerializer( const FObjectInitializer& ObjectInitializer )
-		:	Super( ObjectInitializer)
+	TProperty_WithEqualityAndSerializer(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
+		: Super(ObjectInitializer)
+	{
+	}
+	TProperty_WithEqualityAndSerializer(ECppProperty, int32 InOffset, uint64 InFlags)
+		: Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
 	{
 	}
 	TProperty_WithEqualityAndSerializer( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
@@ -1049,12 +1009,17 @@ public:
 	{
 	}
 
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	TProperty_WithEqualityAndSerializer(FVTableHelper& Helper) : Super(Helper) {};
+#endif // WITH_HOT_RELOAD_CTORS
+
 	// UProperty interface.
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags=0 ) const override
 	{
 		return TTypeFundamentals::GetPropertyValue(A) == TTypeFundamentals::GetOptionalPropertyValue(B);
 	}
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override
 	{
 		Ar << *TTypeFundamentals::GetPropertyValuePtr(Value);
 	}
@@ -1065,6 +1030,10 @@ public:
 class COREUOBJECT_API UNumericProperty : public UProperty
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UNumericProperty,UProperty,CLASS_Abstract,CoreUObject,CASTCLASS_UNumericProperty)
+
+	UNumericProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+		: UProperty(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{}
 
 	UNumericProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 		:	UProperty( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
@@ -1198,22 +1167,39 @@ public:
 	typedef TProperty_WithEqualityAndSerializer<InTCppType, UNumericProperty> Super;
 	typedef InTCppType TCppType;
 	typedef typename Super::TTypeFundamentals TTypeFundamentals;
-	TProperty_Numeric( const FObjectInitializer& ObjectInitializer )
-		:	Super( ObjectInitializer)
+	TProperty_Numeric(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
+		: Super(ObjectInitializer)
 	{
 	}
+
+	TProperty_Numeric(ECppProperty, int32 InOffset, uint64 InFlags)
+		: Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
+
 	TProperty_Numeric( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
-		:	Super( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
+		:	Super( ObjectInitializer, EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash)
 	{
 	}
+
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	TProperty_Numeric(FVTableHelper& Helper) : Super(Helper) {};
+#endif // WITH_HOT_RELOAD_CTORS
 
 	FString GetCPPTypeForwardDeclaration() const override
 	{
 		return FString();
 	}
 
-	// UNumericProperty interface.
+	// UProperty interface
+	uint32 GetValueTypeHashInternal(const void* Src) const override
+	{
+		return GetTypeHash(*(const InTCppType*)Src);
+	}
+	// End of UProperty interface
 
+	// UNumericProperty interface.
 	virtual bool IsFloatingPoint() const override
 	{
 		return TIsFloatType<TCppType>::Value;
@@ -1239,11 +1225,11 @@ public:
 	}
 	virtual void SetNumericPropertyValueFromString(void* Data, TCHAR const* Value) const override
 	{
-		TTypeFundamentals::FromString(Data, Value);
+		LexicalConversion::FromString(*TTypeFundamentals::GetPropertyValuePtr(Data), Value);
 	}
 	virtual FString GetNumericPropertyValueToString(void const* Data) const override
 	{
-		return TTypeFundamentals::ToString(Data);
+		return LexicalConversion::ToString(TTypeFundamentals::GetPropertyValue(Data));
 	}
 	virtual int64 GetSignedIntPropertyValue(void const* Data) const override
 	{
@@ -1261,7 +1247,6 @@ public:
 		return TTypeFundamentals::GetPropertyValue(Data);
 	}
 	// End of UNumericProperty interface
-
 };
 
 /*-----------------------------------------------------------------------------
@@ -1278,7 +1263,13 @@ class COREUOBJECT_API UByteProperty : public TProperty_Numeric<uint8>
 	// Variables.
 	UEnum* Enum;
 
-	UByteProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UEnum* InEnum=NULL )
+	UByteProperty(ECppProperty, int32 InOffset, uint64 InFlags, UEnum* InEnum = nullptr)
+		: TProperty_Numeric(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+		, Enum(InEnum)
+	{
+	}
+
+	UByteProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UEnum* InEnum = nullptr)
 	:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 	,	Enum( InEnum )
 	{
@@ -1294,7 +1285,7 @@ class COREUOBJECT_API UByteProperty : public TProperty_Numeric<uint8>
 	// End of UHT interface
 
 	// UProperty interface.
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const override;
@@ -1320,6 +1311,11 @@ class COREUOBJECT_API UInt8Property : public TProperty_Numeric<int8>
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UInt8Property,TProperty_Numeric<int8>,0,CoreUObject,CASTCLASS_UInt8Property)
 
+	UInt8Property(ECppProperty, int32 InOffset, uint64 InFlags)
+		: TProperty_Numeric(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
+
 	UInt8Property( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 		:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 	{
@@ -1336,6 +1332,11 @@ class COREUOBJECT_API UInt8Property : public TProperty_Numeric<int8>
 class COREUOBJECT_API UInt16Property : public TProperty_Numeric<int16>
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UInt16Property,TProperty_Numeric<int16>,0,CoreUObject,CASTCLASS_UInt16Property)
+
+	UInt16Property(ECppProperty, int32 InOffset, uint64 InFlags)
+		: TProperty_Numeric(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
 
 	UInt16Property( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 	:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
@@ -1355,6 +1356,11 @@ class COREUOBJECT_API UIntProperty : public TProperty_Numeric<int32>
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UIntProperty,TProperty_Numeric<int32>,0,CoreUObject,CASTCLASS_UIntProperty)
 
+	UIntProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+		: TProperty_Numeric(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
+
 	UIntProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 	:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 	{
@@ -1372,6 +1378,11 @@ class COREUOBJECT_API UInt64Property : public TProperty_Numeric<int64>
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UInt64Property,TProperty_Numeric<int64>,0,CoreUObject,CASTCLASS_UInt64Property)
 
+	UInt64Property(ECppProperty, int32 InOffset, uint64 InFlags)
+		: TProperty_Numeric(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
+
 	UInt64Property( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 	:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
 	{
@@ -1388,6 +1399,11 @@ class COREUOBJECT_API UInt64Property : public TProperty_Numeric<int64>
 class COREUOBJECT_API UUInt16Property : public TProperty_Numeric<uint16>
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UUInt16Property,TProperty_Numeric<uint16>,0,CoreUObject,CASTCLASS_UUInt16Property)
+
+	UUInt16Property(ECppProperty, int32 InOffset, uint64 InFlags)
+		: TProperty_Numeric(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
 
 	UUInt16Property( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 	:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
@@ -1423,6 +1439,11 @@ class COREUOBJECT_API UUInt64Property : public TProperty_Numeric<uint64>
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UUInt64Property,TProperty_Numeric<uint64>,0,CoreUObject,CASTCLASS_UUInt64Property)
 
+	UUInt64Property(ECppProperty, int32 InOffset, uint64 InFlags)
+		: TProperty_Numeric(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
+
 	UUInt64Property( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 	:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
 	{
@@ -1439,6 +1460,11 @@ class COREUOBJECT_API UUInt64Property : public TProperty_Numeric<uint64>
 class COREUOBJECT_API UFloatProperty : public TProperty_Numeric<float>
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UFloatProperty,TProperty_Numeric<float>,0,CoreUObject,CASTCLASS_UFloatProperty)
+
+	UFloatProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+		: TProperty_Numeric(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
 
 	UFloatProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 		:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
@@ -1457,8 +1483,13 @@ class COREUOBJECT_API UDoubleProperty : public TProperty_Numeric<double>
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UDoubleProperty,TProperty_Numeric<double>,0,CoreUObject,CASTCLASS_UDoubleProperty)
 
-	UDoubleProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
-		:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
+	UDoubleProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+		: TProperty_Numeric(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
+
+	UDoubleProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags)
+		: TProperty_Numeric(ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 	{
 	}
 };
@@ -1490,8 +1521,21 @@ private:
 
 public:
 
-	UBoolProperty( const FObjectInitializer& ObjectInitializer );
+	UBoolProperty(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 	
+	/**
+	 * Constructor.
+	 *
+	 * @param ECppProperty Unused.
+	 * @param InOffset Offset of the property.
+	 * @param InCategory Category of the property.
+	 * @param InFlags Property flags.
+	 * @param InBitMask Bitmask of the bitfield this property represents.
+	 * @param InElementSize Sizeof of the boolean type this property represents.
+	 * @param bIsNativeBool true if this property represents C++ bool type.
+	 */
+	UBoolProperty(ECppProperty, int32 InOffset, uint64 InFlags, uint32 InBitMask, uint32 InElementSize, bool bIsNativeBool);
+
 	/**
 	 * Constructor.
 	 *
@@ -1519,7 +1563,7 @@ public:
 	// UProperty interface.
 	virtual void LinkInternal(FArchive& Ar) override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const override;
@@ -1598,6 +1642,11 @@ class COREUOBJECT_API UObjectPropertyBase : public UProperty
 	// Variables.
 	class UClass* PropertyClass;
 
+	UObjectPropertyBase(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass = NULL)
+		: UProperty(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+		, PropertyClass(InClass)
+	{}
+
 	UObjectPropertyBase( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass=NULL )
 	:	UProperty( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
 	,	PropertyClass( InClass )
@@ -1627,7 +1676,7 @@ class COREUOBJECT_API UObjectPropertyBase : public UProperty
 	 *									SIZE = the ElementSize of this UProperty
 	 * @param	Src					the address of the value to copy from. should be evaluated the same way as Dest
 	 */
-	virtual void CopySingleValueToScriptVM( void* Dest, void const* Src ) const
+	virtual void CopySingleValueToScriptVM( void* Dest, void const* Src ) const override
 	{
 		*(UObject**)Dest = GetObjectPropertyValue(Src);
 	}
@@ -1639,7 +1688,7 @@ class COREUOBJECT_API UObjectPropertyBase : public UProperty
 	 *									OFFSET = the Offset of this UProperty
 	 * @param	Src					the address of the value to copy from. should be evaluated the same way as Dest
 	 */
-	virtual void CopyCompleteValueToScriptVM( void* Dest, void const* Src ) const
+	virtual void CopyCompleteValueToScriptVM( void* Dest, void const* Src ) const override
 	{
 		for (int32 Index = 0; Index < ArrayDim; Index++)
 		{
@@ -1657,7 +1706,7 @@ class COREUOBJECT_API UObjectPropertyBase : public UProperty
 	 *									SIZE = the ElementSize of this UProperty
 	 * @param	Src					the address of the value to copy from. should be evaluated the same way as Dest
 	 */
-	virtual void CopySingleValueFromScriptVM( void* Dest, void const* Src ) const
+	virtual void CopySingleValueFromScriptVM( void* Dest, void const* Src ) const override
 	{
 		SetObjectPropertyValue(Dest, *(UObject**)Src);
 	}
@@ -1669,7 +1718,7 @@ class COREUOBJECT_API UObjectPropertyBase : public UProperty
 	 *									OFFSET = the Offset of this UProperty
 	 * @param	Src					the address of the value to copy from. should be evaluated the same way as Dest
 	 */
-	virtual void CopyCompleteValueFromScriptVM( void* Dest, void const* Src ) const
+	virtual void CopyCompleteValueFromScriptVM( void* Dest, void const* Src ) const override
 	{
 		checkSlow(ElementSize == sizeof(UObject*)); // the idea that script pointers are the same size as weak pointers is maybe required, maybe not
 		for (int32 Index = 0; Index < ArrayDim; Index++)
@@ -1677,7 +1726,6 @@ class COREUOBJECT_API UObjectPropertyBase : public UProperty
 			SetObjectPropertyValue(((uint8*)Dest) + Index * ElementSize, ((UObject**)Src)[Index]);
 		}
 	}
-
 	// End of UProperty interface
 
 	// UObjectPropertyBase interface
@@ -1699,6 +1747,9 @@ public:
 	 */
 	static bool ParseObjectPropertyValue( const UProperty* Property, UObject* OwnerObject, UClass* RequiredMetaClass, uint32 PortFlags, const TCHAR*& Buffer, UObject*& out_ResolvedValue );
 	static UObject* FindImportedObject( const UProperty* Property, UObject* OwnerObject, UClass* ObjectClass, UClass* RequiredMetaClass, const TCHAR* Text, uint32 PortFlags = 0);
+	
+	// Returns the qualified export path for a given object, parent, and export root scope
+	static FString GetExportPath(const UObject* Object, const UObject* Parent, const UObject* ExportRootScope, const uint32 PortFlags);
 
 	virtual UObject* GetObjectPropertyValue(const void* PropertyValueAddress) const
 	{
@@ -1752,15 +1803,27 @@ public:
 	typedef InTCppType TCppType;
 	typedef typename Super::TTypeFundamentals TTypeFundamentals;
 
-	TUObjectPropertyBase( const FObjectInitializer& ObjectInitializer )
-		:	Super( ObjectInitializer)
+	TUObjectPropertyBase(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
+		: Super(ObjectInitializer)
 	{
 	}
+
+	TUObjectPropertyBase(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass)
+		: Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+		this->PropertyClass = InClass;
+	}
+
 	TUObjectPropertyBase( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass )
 		:	Super( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 	{
 		this->PropertyClass = InClass;
 	}
+
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	TUObjectPropertyBase(FVTableHelper& Helper) : Super(Helper) {};
+#endif // WITH_HOT_RELOAD_CTORS
 
 	// UProperty interface.
 	virtual bool ContainsObjectReference() const override
@@ -1782,6 +1845,11 @@ class COREUOBJECT_API UObjectProperty : public TUObjectPropertyBase<UObject*>
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UObjectProperty,TUObjectPropertyBase<UObject*>,0,CoreUObject,CASTCLASS_UObjectProperty)
 
+	UObjectProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass)
+		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags, InClass)
+	{
+	}
+
 	UObjectProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass )
 	:	TUObjectPropertyBase( ObjectInitializer, EC_CppProperty, InOffset, InFlags, InClass )
 	{
@@ -1794,7 +1862,7 @@ class COREUOBJECT_API UObjectProperty : public TUObjectPropertyBase<UObject*>
 	// End of UHT interface
 
 	// UProperty interface
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset) override;
 	// End of UProperty interface
 	// UObjectPropertyBase interface
@@ -1813,6 +1881,11 @@ class COREUOBJECT_API UWeakObjectProperty : public TUObjectPropertyBase<FWeakObj
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UWeakObjectProperty,TUObjectPropertyBase<FWeakObjectPtr>,0,CoreUObject,CASTCLASS_UWeakObjectProperty)
 
+	UWeakObjectProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass)
+		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags, InClass)
+	{
+	}
+
 	UWeakObjectProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass )
 	:	TUObjectPropertyBase( ObjectInitializer, EC_CppProperty, InOffset, InFlags, InClass )
 	{
@@ -1825,7 +1898,7 @@ class COREUOBJECT_API UWeakObjectProperty : public TUObjectPropertyBase<FWeakObj
 	// End of UHT interface
 
 	// UProperty interface
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	// End of UProperty interface
 
 	// UObjectProperty interface
@@ -1847,6 +1920,11 @@ class COREUOBJECT_API ULazyObjectProperty : public TUObjectPropertyBase<FLazyObj
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(ULazyObjectProperty,TUObjectPropertyBase<FLazyObjectPtr>,0,CoreUObject,CASTCLASS_ULazyObjectProperty)
 
+	ULazyObjectProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass)
+		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags, InClass)
+	{
+	}
+
 	ULazyObjectProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass )
 		:	TUObjectPropertyBase( ObjectInitializer, EC_CppProperty, InOffset, InFlags, InClass )
 	{
@@ -1860,7 +1938,7 @@ class COREUOBJECT_API ULazyObjectProperty : public TUObjectPropertyBase<FLazyObj
 	// UProperty interface
 	virtual FName GetID() const override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	// End of UProperty interface
 
 	// UObjectProperty interface
@@ -1886,6 +1964,10 @@ class COREUOBJECT_API UAssetObjectProperty : public TUObjectPropertyBase<FAssetP
 {
 	DECLARE_CASTED_CLASS_INTRINSIC(UAssetObjectProperty,TUObjectPropertyBase<FAssetPtr>,0,CoreUObject,CASTCLASS_UAssetObjectProperty)
 
+	UAssetObjectProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass)
+		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags, InClass)
+	{}
+
 	UAssetObjectProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass )
 		:	TUObjectPropertyBase( ObjectInitializer, EC_CppProperty, InOffset, InFlags, InClass )
 	{}
@@ -1898,7 +1980,7 @@ class COREUOBJECT_API UAssetObjectProperty : public TUObjectPropertyBase<FAssetP
 	// UProperty interface
 	virtual FName GetID() const override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
 	// End of UProperty interface
@@ -1933,6 +2015,12 @@ class COREUOBJECT_API UClassProperty : public UObjectProperty
 	// Variables.
 	class UClass* MetaClass;
 public:
+	UClassProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InMetaClass)
+		: UObjectProperty(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags, UClass::StaticClass())
+		, MetaClass(InMetaClass)
+	{
+	}
+
 	UClassProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InMetaClass )
 	:	UObjectProperty( ObjectInitializer, EC_CppProperty, InOffset, InFlags, UClass::StaticClass() )
 	,	MetaClass( InMetaClass )
@@ -1989,6 +2077,11 @@ class COREUOBJECT_API UAssetClassProperty : public UAssetObjectProperty
 	// Variables.
 	class UClass* MetaClass;
 public:
+	UAssetClassProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InMetaClass)
+		: Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags, UClass::StaticClass())
+		, MetaClass(InMetaClass)
+	{}
+
 	UAssetClassProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InMetaClass )
 		:	Super(ObjectInitializer, EC_CppProperty, InOffset, InFlags, UClass::StaticClass() )
 		,	MetaClass( InMetaClass )
@@ -2031,6 +2124,12 @@ public:
 	typedef UInterfaceProperty_Super::TTypeFundamentals TTypeFundamentals;
 	typedef TTypeFundamentals::TCppType TCppType;
 
+	UInterfaceProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InInterfaceClass)
+		: UInterfaceProperty_Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, (InFlags & ~CPF_InterfaceClearMask))
+		, InterfaceClass(InInterfaceClass)
+	{
+	}
+
 	UInterfaceProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InInterfaceClass )
 		:	UInterfaceProperty_Super( ObjectInitializer, EC_CppProperty, InOffset, (InFlags & ~CPF_InterfaceClearMask) )
 		,	InterfaceClass( InInterfaceClass )
@@ -2046,7 +2145,7 @@ public:
 	// UProperty interface
 	virtual void LinkInternal(FArchive& Ar) override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
@@ -2094,8 +2193,13 @@ public:
 	typedef UNameProperty_Super::TTypeFundamentals TTypeFundamentals;
 	typedef TTypeFundamentals::TCppType TCppType;
 
+	UNameProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+		: UNameProperty_Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
+
 	UNameProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
-	:	UNameProperty_Super( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
+	:	UNameProperty_Super( ObjectInitializer, EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash )
 	{
 	}
 
@@ -2105,6 +2209,11 @@ public:
 	virtual FString GetCPPTypeForwardDeclaration() const override
 	{
 		return FString();
+	}
+
+	uint32 GetValueTypeHashInternal(const void* Src) const override
+	{
+		return GetTypeHash(*(const FName*)Src);
 	}
 	// End of UProperty interface
 };
@@ -2127,17 +2236,27 @@ public:
 	typedef UStrProperty_Super::TTypeFundamentals TTypeFundamentals;
 	typedef TTypeFundamentals::TCppType TCppType;
 
+	UStrProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+		: UStrProperty_Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
+
 	UStrProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
-	:	UStrProperty_Super( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
+	:	UStrProperty_Super( ObjectInitializer, EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash)
 	{
 	}
 
 	// UProperty interface
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
-	virtual FString GetCPPTypeForwardDeclaration() const
+	virtual FString GetCPPTypeForwardDeclaration() const override
 	{
 		return FString();
+	}
+
+	uint32 GetValueTypeHashInternal(const void* Src) const override
+	{
+		return GetTypeHash(*(const FString*)Src);
 	}
 	// End of UProperty interface
 };
@@ -2164,6 +2283,11 @@ public:
 	typedef UArrayProperty_Super::TTypeFundamentals TTypeFundamentals;
 	typedef TTypeFundamentals::TCppType TCppType;
 
+	UArrayProperty(ECppProperty, int32 InOffset, uint64 InFlags)
+		: UArrayProperty_Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	{
+	}
+
 	UArrayProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags )
 	:	UArrayProperty_Super( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 	{
@@ -2184,16 +2308,63 @@ public:
 	virtual FString GetCPPTypeForwardDeclaration() const override;
 	virtual void LinkInternal(FArchive& Ar) override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
 	virtual void CopyValuesInternal( void* Dest, void const* Src, int32 Count  ) const override;
 	virtual void ClearValueInternal( void* Data ) const override;
 	virtual void DestroyValueInternal( void* Dest ) const override;
-	virtual bool IsLocalized() const override;
 	virtual bool PassCPPArgsByRef() const override;
 	virtual void InstanceSubobjects( void* Data, void const* DefaultData, UObject* Owner, struct FObjectInstancingGraph* InstanceGraph ) override;
+	virtual bool ContainsObjectReference() const override;
+	virtual bool ContainsWeakObjectReference() const override;
+	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset) override;
+	virtual bool SameType(const UProperty* Other) const override;
+	// End of UProperty interface
+};
+
+// need to break this out a different type so that the DECLARE_CASTED_CLASS_INTRINSIC macro can digest the comma
+typedef TProperty<FScriptMap, UProperty> UMapProperty_Super;
+
+class COREUOBJECT_API UMapProperty : public UMapProperty_Super
+{
+	DECLARE_CASTED_CLASS_INTRINSIC(UMapProperty, UMapProperty_Super, 0, CoreUObject, CASTCLASS_UMapProperty)
+
+	// Properties representing the key type and value type of the contained pairs
+	UProperty*       KeyProp;
+	UProperty*       ValueProp;
+	FScriptMapLayout MapLayout;
+
+public:
+	typedef UMapProperty_Super::TTypeFundamentals TTypeFundamentals;
+	typedef TTypeFundamentals::TCppType TCppType;
+
+	UMapProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags);
+
+	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+	// End of UObject interface
+
+	// UField interface
+	virtual void AddCppProperty(UProperty* Property) override;
+	// End of UField interface
+
+	// UProperty interface
+	virtual FString GetCPPMacroType(FString& ExtendedTypeText) const  override;
+	virtual FString GetCPPType(FString* ExtendedTypeText, uint32 CPPExportFlags) const override;
+	virtual void LinkInternal(FArchive& Ar) override;
+	virtual bool Identical(const void* A, const void* B, uint32 PortFlags) const override;
+	virtual void SerializeItem(FArchive& Ar, void* Value, void const* Defaults) const override;
+	virtual bool NetSerializeItem(FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL) const override;
+	virtual void ExportTextItem(FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const override;
+	virtual const TCHAR* ImportText_Internal(const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText) const override;
+	virtual void CopyValuesInternal(void* Dest, void const* Src, int32 Count) const override;
+	virtual void ClearValueInternal(void* Data) const override;
+	virtual void DestroyValueInternal(void* Dest) const override;
+	virtual bool PassCPPArgsByRef() const override;
+	virtual void InstanceSubobjects(void* Data, void const* DefaultData, UObject* Owner, struct FObjectInstancingGraph* InstanceGraph) override;
 	virtual bool ContainsObjectReference() const override;
 	virtual bool ContainsWeakObjectReference() const override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset) override;
@@ -2435,8 +2606,25 @@ public:
 	void CountBytes( FArchive& Ar  )
 	{
 		Array->CountBytes(Ar, ElementSize);
-	}		
+	}	
+
+	static FScriptArrayHelper CreateHelperFormInnerProperty(const UProperty* InInnerProperty, const void *InArray)
+	{
+		check(InInnerProperty);
+		FScriptArrayHelper ScriptArrayHelper;
+		ScriptArrayHelper.InnerProperty = InInnerProperty;
+		ScriptArrayHelper.Array = (FScriptArray*)InArray;
+		ScriptArrayHelper.ElementSize = InInnerProperty->ElementSize;
+		return ScriptArrayHelper;
+	}
+
 private:
+
+	FScriptArrayHelper()
+		: InnerProperty(nullptr)
+		, Array(nullptr)
+		, ElementSize(0)
+	{}
 
 	/**
 	 *	Internal function to call into the property system to construct / initialize elements.
@@ -2456,11 +2644,11 @@ private:
 		}
 		else
 		{
-		for (int32 LoopIndex = 0 ; LoopIndex < Count; LoopIndex++, Dest += ElementSize)
-		{
-			InnerProperty->InitializeValue(Dest);
+			for (int32 LoopIndex = 0 ; LoopIndex < Count; LoopIndex++, Dest += ElementSize)
+			{
+				InnerProperty->InitializeValue(Dest);
+			}
 		}
-	}
 	}
 	/**
 	 *	Internal function to call into the property system to destruct elements.
@@ -2471,16 +2659,16 @@ private:
 	{
 		if (!(InnerProperty->PropertyFlags & (CPF_IsPlainOldData | CPF_NoDestructor)))
 		{
-		checkSlow(Count > 0);
-		checkSlow(Index >= 0); 
-		checkSlow(Index < Num());
-		checkSlow(Index + Count <= Num());
-		uint8 *Dest = GetRawPtr(Index);
-		for (int32 LoopIndex = 0 ; LoopIndex < Count; LoopIndex++, Dest += ElementSize)
-		{
-			InnerProperty->DestroyValue(Dest);
+			checkSlow(Count > 0);
+			checkSlow(Index >= 0); 
+			checkSlow(Index < Num());
+			checkSlow(Index + Count <= Num());
+			uint8 *Dest = GetRawPtr(Index);
+			for (int32 LoopIndex = 0 ; LoopIndex < Count; LoopIndex++, Dest += ElementSize)
+			{
+				InnerProperty->DestroyValue(Dest);
+			}
 		}
-	}
 	}
 	/**
 	 *	Internal function to call into the property system to clear elements.
@@ -2500,11 +2688,11 @@ private:
 		}
 		else
 		{
-		for (int32 LoopIndex = 0 ; LoopIndex < Count; LoopIndex++, Dest += ElementSize)
-		{
-			InnerProperty->ClearValue(Dest);
+			for (int32 LoopIndex = 0; LoopIndex < Count; LoopIndex++, Dest += ElementSize)
+			{
+				InnerProperty->ClearValue(Dest);
+			}
 		}
-	}
 	}
 
 	const UProperty* InnerProperty;
@@ -2517,6 +2705,401 @@ class FScriptArrayHelper_InContainer : public FScriptArrayHelper
 public:
 	FORCEINLINE FScriptArrayHelper_InContainer(const UArrayProperty* InProperty, const void* InArray, int32 FixedArrayIndex=0)
 		:FScriptArrayHelper(InProperty, InProperty->ContainerPtrToValuePtr<void>(InArray, FixedArrayIndex))
+	{
+	}
+};
+
+
+/**
+ * FScriptMapHelper: Pseudo dynamic map. Used to work with map properties in a sensible way.
+ */
+class FScriptMapHelper
+{
+	friend class UMapProperty;
+
+public:
+	/**
+	 * Constructor, brings together a property and an instance of the property located in memory
+	 *
+	 * @param  InProperty  The property associated with this memory
+	 * @param  InMap       Pointer to raw memory that corresponds to this map. This can be NULL, and sometimes is, but in that case almost all operations will crash.
+	 */
+	FORCEINLINE FScriptMapHelper(const UMapProperty* InProperty, const void* InMap)
+		: KeyProp         (InProperty->KeyProp)
+		, ValueProp       (InProperty->ValueProp)
+		, Map             ((FScriptMap*)InMap)  //@todo, we are casting away the const here
+		, MapLayout(InProperty->MapLayout)
+	{
+		check(KeyProp && ValueProp);
+	}
+
+	/**
+	 * Index range check
+	 *
+	 * @param  Index  Index to check
+	 *
+	 * @return true if accessing this element is legal.
+	 */
+	FORCEINLINE bool IsValidIndex(int32 Index) const
+	{
+		return Map->IsValidIndex(Index);
+	}
+
+	/**
+	 * Returns the number of elements in the map.
+	 *
+	 * @return The number of elements in the map.
+	 */
+	FORCEINLINE int32 Num() const
+	{
+		int32 Result = Map->Num();
+		checkSlow(Result >= 0); 
+		return Result;
+	}
+
+	/**
+	 * Returns the (non-inclusive) maximum index of elements in the map.
+	 *
+	 * @return The (non-inclusive) maximum index of elements in the map.
+	 */
+	FORCEINLINE int32 GetMaxIndex() const
+	{
+		int32 Result = Map->GetMaxIndex();
+		checkSlow(Result >= Num());
+		return Result;
+	}
+
+	/**
+	 * Static version of Num() used when you don't need to bother to construct a FScriptArrayHelper. Returns the number of elements in the array.
+	 *
+	 * @param  Target  Pointer to the raw memory associated with a FScriptArray
+	 *
+	 * @return The number of elements in the array.
+	 */
+	static FORCEINLINE int32 Num(const void* Target)
+	{
+		int32 Result = ((const FScriptMap*)Target)->Num();
+		checkSlow(Result >= 0); 
+		return Result;
+	}
+
+	/**
+	 * Returns a uint8 pointer to the pair in the array
+	 *
+	 * @param  Index  index of the item to return a pointer to.
+	 *
+	 * @return Pointer to the pair, or nullptr if the array is empty.
+	 */
+	FORCEINLINE uint8* GetPairPtr(int32 Index)
+	{
+		if (Num() == 0)
+		{
+			checkSlow(!Index);
+			return nullptr;
+		}
+
+		checkSlow(IsValidIndex(Index));
+		return (uint8*)Map->GetData(Index, MapLayout);
+	}
+
+	/**
+	 * Returns a uint8 pointer to the pair in the map.
+	 *
+	 * @param  Index  index of the item to return a pointer to.
+	 *
+	 * @return Pointer to the pair, or nullptr if the array is empty.
+	 */
+	FORCEINLINE const uint8* GetPairPtr(int32 Index) const
+	{
+		return const_cast<FScriptMapHelper*>(this)->GetPairPtr(Index);
+	}
+
+	/**
+	 * Add an uninitialized value to the end of the map.
+	 *
+	 * @return  The index of the added element.
+	 */
+	FORCEINLINE int32 AddUninitializedValue()
+	{
+		checkSlow(Num() >= 0);
+
+		return Map->AddUninitialized(MapLayout);
+	}
+
+	/**
+	 *	Remove all values from the map, calling destructors, etc as appropriate.
+	 *	@param Slack: used to presize the array for a subsequent add, to avoid reallocation.
+	**/
+	void EmptyValues(int32 Slack = 0)
+	{
+		checkSlow(Slack >= 0);
+
+		int32 OldNum = Num();
+		if (OldNum)
+		{
+			DestructItems(0, OldNum);
+		}
+		if (OldNum || Slack)
+		{
+			Map->Empty(Slack, MapLayout);
+		}
+	}
+
+	/**
+	 * Adds a blank, constructed value to a given size.
+	 * Note that this will create an invalid map because all the keys will be default constructed, and the map needs rehashing.
+	 *
+	 * @return  The index of the first element added.
+	 **/
+	int32 AddDefaultValue_Invalid_NeedsRehash()
+	{
+		checkSlow(Num() >= 0);
+
+		int32 Result = AddUninitializedValue();
+		ConstructItem(Result);
+
+		return Result;
+	}
+
+	/**
+	 * Returns the property representing the key of the map pair.
+	 *
+	 * @return The property representing the key of the map pair.
+	 */
+	UProperty* GetKeyProperty() const
+	{
+		return KeyProp;
+	}
+
+	/**
+	 * Returns the property representing the value of the map pair.
+	 *
+	 * @return The property representing the value of the map pair.
+	 */
+	UProperty* GetValueProperty() const
+	{
+		return ValueProp;
+	}
+
+	/**
+	 * Removes an element at the specified index, destroying it.
+	 * The map will be invalid until the next Rehash() call.
+	 *
+	 * @param  Index  The index of the element to remove.
+	 */
+	void RemoveAt_NeedsRehash(int32 Index, int32 Count = 1)
+	{
+		check(IsValidIndex(Index));
+
+		DestructItems(Index, Count);
+		for (; Count; ++Index)
+		{
+			if (IsValidIndex(Index))
+			{
+				Map->RemoveAt(Index, MapLayout);
+				--Count;
+			}
+		}
+	}
+
+	/**
+	 * Rehashes the keys in the map.
+	 * This function must be called to create a valid map.
+	 */
+	COREUOBJECT_API void Rehash();
+
+	/**
+	 * Finds the index of an element in a map which matches the key in another pair.
+	 *
+	 * @param  PairWithKeyToFind  The address of a map pair which contains the key to search for.
+	 * @param  IndexHint          The index to start searching from.
+	 *
+	 * @return The index of an element found in MapHelper, or -1 if none was found.
+	 */
+	int32 FindMapIndexWithKey(const void* PairWithKeyToFind, int32 IndexHint = 0) const
+	{
+		int32 MapMax = GetMaxIndex();
+		if (MapMax == 0)
+		{
+			return INDEX_NONE;
+		}
+
+		check(IndexHint >= 0 && IndexHint < MapMax);
+
+		UProperty* LocalKeyProp = this->KeyProp; // prevent aliasing in loop below
+
+		int32 Index = IndexHint;
+		for (;;)
+		{
+			if (IsValidIndex(Index))
+			{
+				const void* PairToSearch = GetPairPtrWithoutCheck(Index);
+				if (LocalKeyProp->Identical(PairWithKeyToFind, PairToSearch))
+				{
+					return Index;
+				}
+			}
+
+			++Index;
+			if (Index == MapMax)
+			{
+				Index = 0;
+			}
+
+			if (Index == IndexHint)
+			{
+				return INDEX_NONE;
+			}
+		}
+	}
+
+	/**
+	 * Finds the pair in a map which matches the key in another pair.
+	 *
+	 * @param  PairWithKeyToFind  The address of a map pair which contains the key to search for.
+	 * @param  IndexHint          The index to start searching from.
+	 *
+	 * @return A pointer to the found pair, or nullptr if none was found.
+	 */
+	FORCEINLINE uint8* FindMapPairPtrWithKey(const void* PairWithKeyToFind, int32 IndexHint = 0)
+	{
+		int32 Index = FindMapIndexWithKey(PairWithKeyToFind, IndexHint);
+		uint8* Result = (Index >= 0) ? GetPairPtr(Index) : nullptr;
+		return Result;
+	}
+
+private:
+	/**
+	 * Internal function to call into the property system to construct / initialize elements.
+	 *
+	 * @param  Index  First item to construct.
+	 * @param  Count  Number of items to construct.
+	 */
+	void ConstructItem(int32 Index)
+	{
+		check(IsValidIndex(Index));
+
+		bool bZeroKey   = !!(KeyProp  ->PropertyFlags & CPF_ZeroConstructor);
+		bool bZeroValue = !!(ValueProp->PropertyFlags & CPF_ZeroConstructor);
+
+		uint8* Dest = GetPairPtrWithoutCheck(Index);
+
+		if (bZeroKey || bZeroValue)
+		{
+			// If any nested property needs zeroing, just pre-zero the whole space
+			FMemory::Memzero(Dest, MapLayout.SetLayout.Size);
+		}
+
+		if (!bZeroKey)
+		{
+			KeyProp->InitializeValue_InContainer(Dest);
+		}
+
+		if (!bZeroValue)
+		{
+			ValueProp->InitializeValue_InContainer(Dest);
+		}
+	}
+
+	/**
+	 * Internal function to call into the property system to destruct elements.
+	 */
+	void DestructItems(int32 Index, int32 Count)
+	{
+		check(Index >= 0);
+		check(Count >= 0);
+
+		if (Count == 0)
+		{
+			return;
+		}
+
+		bool bDestroyKeys   = !(KeyProp  ->PropertyFlags & (CPF_IsPlainOldData | CPF_NoDestructor));
+		bool bDestroyValues = !(ValueProp->PropertyFlags & (CPF_IsPlainOldData | CPF_NoDestructor));
+
+		if (bDestroyKeys || bDestroyValues)
+		{
+			uint32 Stride  = MapLayout.SetLayout.Size;
+			uint8* PairPtr = GetPairPtr(Index);
+			if (bDestroyKeys)
+			{
+				if (bDestroyValues)
+				{
+					for (; Count; ++Index)
+					{
+						if (IsValidIndex(Index))
+						{
+							KeyProp  ->DestroyValue_InContainer(PairPtr);
+							ValueProp->DestroyValue_InContainer(PairPtr);
+							--Count;
+						}
+						PairPtr += Stride;
+					}
+				}
+				else
+				{
+					for (; Count; ++Index)
+					{
+						if (IsValidIndex(Index))
+						{
+							KeyProp->DestroyValue_InContainer(PairPtr);
+							--Count;
+						}
+						PairPtr += Stride;
+					}
+				}
+			}
+			else
+			{
+				for (; Count; ++Index)
+				{
+					if (IsValidIndex(Index))
+					{
+						ValueProp->DestroyValue_InContainer(PairPtr);
+						--Count;
+					}
+					PairPtr += Stride;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Returns a uint8 pointer to the pair in the array without checking the index.
+	 *
+	 * @param  Index  index of the item to return a pointer to.
+	 *
+	 * @return Pointer to the pair, or nullptr if the array is empty.
+	 */
+	FORCEINLINE uint8* GetPairPtrWithoutCheck(int32 Index)
+	{
+		return (uint8*)Map->GetData(Index, MapLayout);
+	}
+
+	/**
+	 * Returns a uint8 pointer to the pair in the array without checking the index.
+	 *
+	 * @param  Index  index of the item to return a pointer to.
+	 *
+	 * @return Pointer to the pair, or nullptr if the array is empty.
+	 */
+	FORCEINLINE const uint8* GetPairPtrWithoutCheck(int32 Index) const
+	{
+		return const_cast<FScriptMapHelper*>(this)->GetPairPtrWithoutCheck(Index);
+	}
+
+public:
+	UProperty*       KeyProp;
+	UProperty*       ValueProp;
+	FScriptMap*      Map;
+	FScriptMapLayout MapLayout;
+};
+
+class FScriptMapHelper_InContainer : public FScriptMapHelper
+{
+public:
+	FORCEINLINE FScriptMapHelper_InContainer(const UMapProperty* InProperty, const void* InArray, int32 FixedArrayIndex=0)
+		:FScriptMapHelper(InProperty, InProperty->ContainerPtrToValuePtr<void>(InArray, FixedArrayIndex))
 	{
 	}
 };
@@ -2537,6 +3120,7 @@ class COREUOBJECT_API UStructProperty : public UProperty
 	// Variables.
 	class UScriptStruct* Struct;
 public:
+	UStructProperty(ECppProperty, int32 InOffset, uint64 InFlags, UScriptStruct* InStruct);
 	UStructProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UScriptStruct* InStruct );
 
 	// UObject interface
@@ -2550,7 +3134,7 @@ public:
 	virtual FString GetCPPTypeForwardDeclaration() const override;
 	virtual void LinkInternal(FArchive& Ar) override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
@@ -2558,7 +3142,6 @@ public:
 	virtual void ClearValueInternal( void* Data ) const override;
 	virtual void DestroyValueInternal( void* Dest ) const override;
 	virtual void InitializeValueInternal( void* Dest ) const override;
-	virtual bool IsLocalized() const override;
 	virtual void InstanceSubobjects( void* Data, void const* DefaultData, UObject* Owner, struct FObjectInstancingGraph* InstanceGraph ) override;
 	virtual int32 GetMinAlignment() const override;
 	virtual bool ContainsObjectReference() const override;
@@ -2570,6 +3153,8 @@ public:
 	bool UseNativeSerialization() const;
 	bool UseBinarySerialization(const FArchive& Ar) const;
 	bool UseBinaryOrNativeSerialization(const FArchive& Ar) const;
+
+	static void StaticSerializeItem(FArchive& Ar, void* Value, void const* Defaults, UScriptStruct* Struct, const bool bUseBinarySerialization, const bool bUseNativeSerialization);
 
 public:
 
@@ -2608,6 +3193,12 @@ public:
 	typedef UDelegateProperty_Super::TTypeFundamentals TTypeFundamentals;
 	typedef TTypeFundamentals::TCppType TCppType;
 
+	UDelegateProperty(ECppProperty, int32 InOffset, uint64 InFlags, UFunction* InSignatureFunction = NULL)
+		: UDelegateProperty_Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+		, SignatureFunction(InSignatureFunction)
+	{
+	}
+
 	UDelegateProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UFunction* InSignatureFunction = NULL )
 		: UDelegateProperty_Super( ObjectInitializer, EC_CppProperty, InOffset, InFlags)
 		, SignatureFunction(InSignatureFunction)
@@ -2616,13 +3207,14 @@ public:
 
 	// UObject interface
 	virtual void Serialize( FArchive& Ar ) override;
+	virtual void BeginDestroy() override;
 	// End of UObject interface
 
 	// UProperty interface
 	virtual FString GetCPPType( FString* ExtendedTypeText, uint32 CPPExportFlags ) const override;
 	virtual FString GetCPPTypeForwardDeclaration() const override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
@@ -2654,6 +3246,12 @@ public:
 	typedef UMulticastDelegateProperty_Super::TTypeFundamentals TTypeFundamentals;
 	typedef TTypeFundamentals::TCppType TCppType;
 
+	UMulticastDelegateProperty(ECppProperty, int32 InOffset, uint64 InFlags, UFunction* InSignatureFunction = NULL)
+		: TProperty(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+		, SignatureFunction(InSignatureFunction)
+	{
+	}
+
 	UMulticastDelegateProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UFunction* InSignatureFunction = NULL )
 		: TProperty( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
 		, SignatureFunction(InSignatureFunction)
@@ -2662,12 +3260,13 @@ public:
 
 	// UObject interface
 	virtual void Serialize( FArchive& Ar ) override;
+	virtual void BeginDestroy() override;
 	// End of UObject interface
 
 	// UProperty interface
 	virtual FString GetCPPType( FString* ExtendedTypeText, uint32 CPPExportFlags ) const override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
-	virtual void SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const override;
+	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual bool NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* Data, TArray<uint8> * MetaData = NULL ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;

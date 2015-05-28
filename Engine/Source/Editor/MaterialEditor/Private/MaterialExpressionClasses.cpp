@@ -69,7 +69,7 @@ void MaterialExpressionClasses::InitMaterialExpressionClasses()
 {
 	if( !bInitialized )
 	{
-		UMaterialEditorOptions* TempEditorOptions = ConstructObject<UMaterialEditorOptions>( UMaterialEditorOptions::StaticClass() );
+		UMaterialEditorOptions* TempEditorOptions = NewObject<UMaterialEditorOptions>();
 		UClass* BaseType = UMaterialExpression::StaticClass();
 		if( BaseType )
 		{
@@ -91,7 +91,13 @@ void MaterialExpressionClasses::InitMaterialExpressionClasses()
 						{
 							FMaterialExpression MaterialExpression;
 							// Trim the material expression name and add it to the list used for filtering.
-							MaterialExpression.Name = FString(*Class->GetName()).Mid(FCString::Strlen(TEXT("MaterialExpression")));
+							static const FString ExpressionPrefix = TEXT("MaterialExpression");
+							FString ClassName = *Class->GetName();
+							if (ClassName.StartsWith(ExpressionPrefix, ESearchCase::CaseSensitive))
+							{
+								ClassName = ClassName.Mid(ExpressionPrefix.Len());
+							}
+							MaterialExpression.Name = ClassName;
 							MaterialExpression.MaterialClass = Class;
 
 							AllExpressionClasses.Add(MaterialExpression);

@@ -5,7 +5,7 @@
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTreeGraphNode_CompositeDecorator.h"
 
-#define LOCTEXT_NAMESPACE "BehaviorTreeGraphNode"
+#define LOCTEXT_NAMESPACE "BehaviorTreeEditor"
 
 UBehaviorTreeGraphNode_CompositeDecorator::UBehaviorTreeGraphNode_CompositeDecorator(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -37,21 +37,26 @@ FText UBehaviorTreeGraphNode_CompositeDecorator::GetNodeTitle(ENodeTitleType::Ty
 	return FText::FromString(CompositeName.Len() ? CompositeName : GetNodeTypeDescription());
 }
 
-FString UBehaviorTreeGraphNode_CompositeDecorator::GetDescription() const
+FText UBehaviorTreeGraphNode_CompositeDecorator::GetDescription() const
 {
-	return CachedDescription;
+	return FText::FromString(CachedDescription);
 }
 
 void UBehaviorTreeGraphNode_CompositeDecorator::PostPlacedNewNode()
 {
-	CreateBoundGraph();
+	if (BoundGraph == nullptr)
+	{
+		CreateBoundGraph();
+	}
+
 	Super::PostPlacedNewNode();
 }
 
 void UBehaviorTreeGraphNode_CompositeDecorator::PostLoad()
 {
 	Super::PostLoad();
-	if (!BoundGraph)
+
+	if (BoundGraph == nullptr)
 	{
 		CreateBoundGraph();
 	}
@@ -108,6 +113,21 @@ bool UBehaviorTreeGraphNode_CompositeDecorator::RefreshNodeClass()
 	return bUpdated;
 }
 
+void UBehaviorTreeGraphNode_CompositeDecorator::UpdateNodeClassData()
+{
+	if (BoundGraph)
+	{
+		for (int32 i = 0; i < BoundGraph->Nodes.Num(); i++)
+		{
+			UBehaviorTreeDecoratorGraphNode_Decorator* Node = Cast<UBehaviorTreeDecoratorGraphNode_Decorator>(BoundGraph->Nodes[i]);
+			if (Node)
+			{
+				Node->UpdateNodeClassData();
+			}
+		}
+	}
+}
+
 bool UBehaviorTreeGraphNode_CompositeDecorator::HasErrors() const
 {
 	return bHasObserverError;
@@ -118,7 +138,8 @@ void UBehaviorTreeGraphNode_CompositeDecorator::CreateBoundGraph()
 	// Create a new animation graph
 	check(BoundGraph == NULL);
 
-	BoundGraph = FBlueprintEditorUtils::CreateNewGraph(this, TEXT("Composite Decorator"), UBehaviorTreeDecoratorGraph::StaticClass(), UEdGraphSchema_BehaviorTreeDecorator::StaticClass());
+	// don't use white space in name here, it prevents links from being copied correctly
+	BoundGraph = FBlueprintEditorUtils::CreateNewGraph(this, TEXT("CompositeDecorator"), UBehaviorTreeDecoratorGraph::StaticClass(), UEdGraphSchema_BehaviorTreeDecorator::StaticClass());
 	check(BoundGraph);
 
 	// Initialize the anim graph

@@ -16,6 +16,7 @@ FDetailPropertyRow::FDetailPropertyRow(TSharedPtr<FPropertyNode> InPropertyNode,
 	, ExternalRootNode( InExternalRootNode )
 	, bShowPropertyButtons( true )
 	, bShowCustomPropertyChildren( true )
+	, bForceAutoExpansion( false )
 {
 	if( InPropertyNode.IsValid() )
 	{
@@ -88,6 +89,12 @@ IDetailPropertyRow& FDetailPropertyRow::EditCondition( TAttribute<bool> EditCond
 IDetailPropertyRow& FDetailPropertyRow::IsEnabled( TAttribute<bool> InIsEnabled )
 {
 	CustomIsEnabledAttrib = InIsEnabled;
+	return *this;
+}
+
+IDetailPropertyRow& FDetailPropertyRow::ShouldAutoExpand(bool bInForceExpansion)
+{
+	bForceAutoExpansion = bInForceExpansion;
 	return *this;
 }
 
@@ -311,6 +318,11 @@ bool FDetailPropertyRow::GetEnabledState() const
 	Result = Result && CustomIsEnabledAttrib.Get();
 
 	return Result;
+}
+
+bool FDetailPropertyRow::GetForceAutoExpansion() const
+{
+	return bForceAutoExpansion;
 }
 
 void FDetailPropertyRow::MakeNameWidget( FDetailWidgetRow& Row, const TSharedPtr<FDetailWidgetRow> InCustomRow ) const

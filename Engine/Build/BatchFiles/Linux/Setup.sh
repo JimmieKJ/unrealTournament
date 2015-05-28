@@ -29,44 +29,84 @@ if [ -e Build/PerforceBuild.txt ]; then
   IS_GITHUB_BUILD=false
 fi
 
-# Ubuntu/Debian/Mint
-if [ "$(lsb_release --id)" = "Distributor ID:	Ubuntu" -o "$(lsb_release --id)" = "Distributor ID:	Debian" -o "$(lsb_release --id)" = "Distributor ID:	LinuxMint" ]; then
-  # Install all necessary dependencies
-  DEPS="mono-xbuild \
-    mono-dmcs \
-    libmono-microsoft-build-tasks-v4.0-4.0-cil \
-    libmono-system-data-datasetextensions4.0-cil
-    libmono-system-web-extensions4.0-cil
-    libmono-system-management4.0-cil
-    libmono-system-xml-linq4.0-cil
-    libmono-corlib4.0-cil
-    libqt4-dev
-    dos2unix
-    cmake
-    "
+if [ -e /etc/os-release ]; then
+  source /etc/os-release
+  # Ubuntu/Debian/Mint
+  if [[ "$ID" == "ubuntu" ]] || [[ "$ID_LIKE" == "ubuntu" ]] || [[ "$ID" == "debian" ]] || [[ "$ID_LIKE" == "debian" ]]; then
+    # Install the necessary dependencies (require clang-3.5, although 3.3 and 3.6 should work too for this release)
+    DEPS="mono-xbuild \
+      mono-dmcs \
+      libmono-microsoft-build-tasks-v4.0-4.0-cil \
+      libmono-system-data-datasetextensions4.0-cil
+      libmono-system-web-extensions4.0-cil
+      libmono-system-management4.0-cil
+      libmono-system-xml-linq4.0-cil
+      libmono-corlib4.0-cil
+      libmono-windowsbase4.0-cil
+      clang-3.5
+      "
 
-  for DEP in $DEPS; do
-    if ! dpkg -s $DEP > /dev/null 2>&1; then
-      echo "Attempting installation of missing package: $DEP"
+    # these tools are only needed to build third-party software which is prebuilt for Ubuntu.
+    if [[ "$ID" != "ubuntu" ]]; then
+      DEPS+="libqt4-dev \
+             cmake
+            "
+    fi
+
+    for DEP in $DEPS; do
+      if ! dpkg -s $DEP > /dev/null 2>&1; then
+        echo "Attempting installation of missing package: $DEP"
+        set -x
+        sudo apt-get install -y $DEP
+        set +x
+      fi
+    done
+  fi
+  
+  # openSUSE/SLED/SLES
+  if [[ "$ID" == "opensuse" ]] || [[ "$ID_LIKE" == "suse" ]]; then
+    # Install all necessary dependencies
+    DEPS="mono-core
+      mono-devel
+      libqt4-devel
+      dos2unix
+      cmake
+      "
+
+    for DEP in $DEPS; do
+      if ! rpm -q $DEP > /dev/null 2>&1; then
+        echo "Attempting installation of missing package: $DEP"
+        set -x
+        sudo zypper -n install $DEP
+        set +x
+      fi
+    done
+  fi
+
+  # Arch Linux
+  if [[ "$ID" == "arch" ]] || [[ "$ID_LIKE" == "arch" ]]; then
+    DEPS="clang mono python sdl2 qt4 dos2unix cmake"
+    MISSING=false
+    for DEP in $DEPS; do
+      if ! pacman -Qs $DEP > /dev/null 2>&1; then
+        MISSING=true
+        break
+      fi
+    done
+    if [ "$MISSING" = true ]; then
+      echo "Attempting to install missing packages: $DEPS"
       set -x
-      sudo apt-get install -y $DEP
+      sudo pacman -Sy --needed --noconfirm $DEPS
       set +x
     fi
-  done
+  fi
 fi
 
 echo 
 if [ "$IS_GITHUB_BUILD" = true ]; then
 	echo Github build
 	echo Checking / downloading the latest archives
-	set +e
 	Build/BatchFiles/Linux/GitDependencies.sh --prompt "$@"
-	set -e
-
-	#echo Unpacking and massaging the files
-	#pushd Build/BatchFiles/Linux > /dev/null
-	#./UpdateDeps.sh 
-	#popd > /dev/null
 else
 	echo Perforce build
 	echo Assuming availability of up to date third-party libraries
@@ -88,6 +128,9 @@ done
 
 CreateLinkIfNoneExists ../../engine/shaders/Fxaa3_11.usf  ../Engine/Shaders/Fxaa3_11.usf
 CreateLinkIfNoneExists ../../Engine/shaders/Fxaa3_11.usf  ../Engine/Shaders/Fxaa3_11.usf
+
+echo Removing a stable libLND.so binary that was relocated in 4.8
+rm -f ../Engine/Binaries/Linux/libLND.so
 
 echo
 pushd Build/BatchFiles/Linux > /dev/null

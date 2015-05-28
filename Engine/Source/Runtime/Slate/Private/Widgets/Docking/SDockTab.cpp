@@ -3,7 +3,7 @@
 #include "SlatePrivatePCH.h"
 #include "SDockTab.h"
 #include "DockingPrivate.h"
-
+#include "TabCommands.h"
 
 namespace SDockTabDefs
 {
@@ -95,24 +95,33 @@ FReply SDockTab::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEve
 
 void SDockTab::OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
 {
-	// Start the drag timer
-	DragTimer = SDockTabDefs::DragTimerActivate;
+	// Register to activate the tab after a delay
+	if ( !ActiveTimerHandle.IsValid() )
+	{
+		ActiveTimerHandle = RegisterActiveTimer( SDockTabDefs::DragTimerActivate, FWidgetActiveTimerDelegate::CreateSP( this, &SDockTab::TriggerActivateTab ) );
+	}
 
 	SBorder::OnDragEnter( MyGeometry, DragDropEvent );
 }
 
 void SDockTab::OnDragLeave( const FDragDropEvent& DragDropEvent )
 {
-	// Stop the drag timer
-	DragTimer = 0.0f;
+	// Unregister the activation timer if it hasn't fired yet
+	if ( ActiveTimerHandle.IsValid() )
+	{
+		UnRegisterActiveTimer( ActiveTimerHandle.Pin().ToSharedRef() );
+	}
 
 	SBorder::OnDragLeave( DragDropEvent );
 }
 
 FReply SDockTab::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
 {
-	// Stop the drag timer
-	DragTimer = 0.0f;
+	// Unregister the activation timer if it hasn't fired yet
+	if ( ActiveTimerHandle.IsValid() )
+	{
+		UnRegisterActiveTimer( ActiveTimerHandle.Pin().ToSharedRef() );
+	}
 
 	return SBorder::OnDrop( MyGeometry, DragDropEvent );
 }
@@ -184,26 +193,34 @@ ETabRole SDockTab::GetTabRole() const
 	return TabRole;
 }
 
-bool SDockTab::IsNomadTabWithMajorTabStyle() const
+ETabRole SDockTab::GetVisualTabRole() const
 {
-	if ( this->TabRole == ETabRole::NomadTab )
+	// If the tab role is NomadTab but is being visualized as a major tab
+	if (this->TabRole == ETabRole::NomadTab)
 	{
-		if ( DraggedOverDockingArea.IsValid() )
+		bool bNomadMajorStyle = false;
+
+		if (DraggedOverDockingArea.IsValid())
 		{
-			return DraggedOverDockingArea->GetTabManager() == FGlobalTabmanager::Get();
+			bNomadMajorStyle = DraggedOverDockingArea->GetTabManager() == FGlobalTabmanager::Get();
 		}
-		else if ( GetParent().IsValid() && GetParent()->GetDockArea().IsValid() )
+		else if (GetParent().IsValid() && GetParent()->GetDockArea().IsValid())
 		{
-			return GetParent()->GetDockArea()->GetTabManager() == FGlobalTabmanager::Get();
+			bNomadMajorStyle = GetParent()->GetDockArea()->GetTabManager() == FGlobalTabmanager::Get();
 		}
 		else
 		{
 			// We are dragging or have no parent, but we are not dragging over anything, assume major
-			return true;
+			bNomadMajorStyle = true;
+		}
+
+		if (bNomadMajorStyle)
+		{
+			return ETabRole::MajorTab;
 		}
 	}
 
-	return false;
+	return GetTabRole();
 }
 
 const FSlateBrush* SDockTab::GetContentAreaBrush() const
@@ -300,9 +317,8 @@ SDockTab::SDockTab()
 	, ContentAreaPadding( 2 )
 	, bShouldAutosize(false)
 	, TabColorScale(FLinearColor(0,0,0,0))
-	, DragTimer( 0.0f )
+	, LastActivationTime(0.0)
 {
-
 }
 
 void SDockTab::ActivateInParent(ETabActivationCause InActivationCause)
@@ -366,13 +382,13 @@ void SDockTab::ProvideDefaultIcon( const FSlateBrush* InDefaultIcon )
 
 void SDockTab::PlaySpawnAnim()
 {
-	SpawnAnimCurve.Play();
+	SpawnAnimCurve.Play( this->AsShared() );
 }
 
 void SDockTab::FlashTab()
 {
 	FlashTabCurve = FCurveSequence(0, SDockTabDefs::TabFlashDuration, ECurveEaseFunction::Linear);
-	FlashTabCurve.Play();
+	FlashTabCurve.Play( this->AsShared() );
 }
 
 float SDockTab::GetFlashValue() const
@@ -514,6 +530,7 @@ void SDockTab::Construct( const FArguments& InArgs )
 					.ButtonStyle( CloseButtonStyle )
 					.OnClicked( this, &SDockTab::OnCloseButtonClicked )
 					.ContentPadding( 0 )
+					.ToolTipText(this, &SDockTab::GetCloseButtonToolTipText)
 					.Visibility(this, &SDockTab::HandleIsCloseButtonVisible)
 					[
 						SNew(SSpacer)
@@ -525,28 +542,15 @@ void SDockTab::Construct( const FArguments& InArgs )
 	);
 }
 
-void SDockTab::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SDockTab::TriggerActivateTab( double InCurrentTime, float InDeltaTime )
 {
-	SBorder::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
-	// Check to see if the window needs to activate because the user has dragged something to it
-	if ( DragTimer > 0.0f )
-	{
-		DragTimer -= InDeltaTime;
-		if ( DragTimer <= 0.0f )
-		{
-			ActivateInParent(ETabActivationCause::UserClickedOnTab);
-		}
-	}
+	ActivateInParent( ETabActivationCause::UserClickedOnTab );
+	return EActiveTimerReturnType::Stop;
 }
 
 const FDockTabStyle& SDockTab::GetCurrentStyle() const
 {
-	if ( this->TabRole == ETabRole::MajorTab )
-	{
-		return *MajorTabStyle;
-	}
-	else if ( IsNomadTabWithMajorTabStyle() )
+	if ( GetVisualTabRole() == ETabRole::MajorTab )
 	{
 		return *MajorTabStyle;
 	}
@@ -670,6 +674,27 @@ FReply SDockTab::OnCloseButtonClicked()
 	RequestCloseTab();
 
 	return FReply::Handled();
+}
+
+FText SDockTab::GetCloseButtonToolTipText() const
+{
+	TSharedPtr<FUICommandInfo> CloseCommand =
+		GetVisualTabRole() == ETabRole::MajorTab ? FTabCommands::Get().CloseMajorTab : FTabCommands::Get().CloseMinorTab;
+
+	FFormatNamedArguments Arguments;
+	Arguments.Add(TEXT("Label"), CloseCommand->GetLabel());
+
+	FText InputText = CloseCommand->GetInputText();
+	if (InputText.IsEmptyOrWhitespace())
+	{
+		Arguments.Add(TEXT("InputText"), InputText);
+	}
+	else
+	{
+		Arguments.Add(TEXT("InputText"), FText::Format(NSLOCTEXT("DockTab", "CloseButtonInputText", " ({0})"), InputText));
+	}
+
+	return FText::Format(NSLOCTEXT("DockTab", "CloseButtonToolTip", "{Label}{InputText}"), Arguments);
 }
 
 EVisibility SDockTab::HandleIsCloseButtonVisible() const

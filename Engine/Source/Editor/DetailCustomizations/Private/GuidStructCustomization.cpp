@@ -134,6 +134,11 @@ FText FGuidStructCustomization::HandleTextBoxText( ) const
 		return LOCTEXT("MultipleValues", "Multiple Values");
 	}
 
+	if (RawData[0] == nullptr)
+	{
+		return FText::GetEmpty();
+	}
+
 	return FText::FromString(((FGuid*)RawData[0])->ToString(EGuidFormats::DigitsWithHyphensInBraces));
 }
 

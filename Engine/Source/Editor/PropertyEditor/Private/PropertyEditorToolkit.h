@@ -22,7 +22,7 @@ public:
 
 	virtual FString GetWorldCentricTabPrefix() const override;
 
-	virtual FLinearColor GetWorldCentricTabColorScale() const;
+	virtual FLinearColor GetWorldCentricTabColorScale() const override;
 
 	bool IsExposedAsColumn( const TWeakPtr< IPropertyTreeRow >& Row ) const;
 

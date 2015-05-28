@@ -23,6 +23,8 @@ public:
 #endif
 	// End UMaterialExpression Interface
 
+	/** Return whether this is the named parameter, and fill in its value */
+	bool IsNamedParameter(FName InParameterName, bool& OutValue, FGuid& OutExpressionGuid) const;
 };
 
 

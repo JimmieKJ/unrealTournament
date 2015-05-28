@@ -31,6 +31,7 @@ public:
 
 	FName GetMemberName() const;
 	FText GetMemberDisplayText() const;
+	FGuid GetMemberGuid() const;
 
 private:
 
@@ -194,6 +195,14 @@ public:
 	UPROPERTY()
 	TArray<UWidgetAnimation*> Animations;
 
+	/**
+	 * Don't directly modify this property to change the palette category.  The actual value is stored 
+	 * in the CDO of the UUserWidget, but a copy is stored here so that it's available in the serialized 
+	 * Tag data in the asset header for access in the FAssetData.
+	 */
+	UPROPERTY(AssetRegistrySearchable)
+	FString PaletteCategory;
+
 public:
 
 	/** UObject interface */
@@ -210,7 +219,10 @@ public:
 		return false;
 	}
 
-	virtual void GetReparentingRules(TSet< const UClass* >& AllowedChildrenOfClasses, TSet< const UClass* >& DisallowedChildrenOfClasses) const;
+	virtual void GetReparentingRules(TSet< const UClass* >& AllowedChildrenOfClasses, TSet< const UClass* >& DisallowedChildrenOfClasses) const override;
+
+	/** UWidget blueprints are never data only, should always compile on load (data only blueprints cannot declare new variables) */
+	virtual bool AlwaysCompileOnLoad() const override { return true; }
 	// End of UBlueprint interface
 
 	static bool ValidateGeneratedClass(const UClass* InClass);

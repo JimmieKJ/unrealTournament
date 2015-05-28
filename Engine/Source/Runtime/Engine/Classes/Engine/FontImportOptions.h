@@ -1,8 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
+
 #include "FontImportOptions.generated.h"
+
 
 /** Font character set type for importing TrueType fonts */
 UENUM()
@@ -13,6 +14,7 @@ enum EFontImportCharacterSet
 	FontICS_Symbol,
 	FontICS_MAX,
 };
+
 
 /** Font import options */
 USTRUCT()
@@ -139,9 +141,8 @@ struct FFontImportOptionsData
 	UPROPERTY(EditAnywhere, Category=FontImportOptionsData, meta=(ClampMin = "0.0", ClampMax = "4.0"))
 	float DistanceFieldScanRadiusScale;
 
-
-
-		FFontImportOptionsData()
+	/** Default constructor. */
+	FFontImportOptionsData()
 		: FontName("Arial")
 		, Height(16.0f)
 		, bEnableAntialiasing(true)
@@ -167,13 +168,16 @@ struct FFontImportOptionsData
 		, bUseDistanceFieldAlpha(false)
 		, DistanceFieldScaleFactor(16)
 		, DistanceFieldScanRadiusScale(1.0f)
-		{
-		}
-	
+	{ }	
 };
 
+
+/**
+ * Holds options for importing fonts.
+ */
 UCLASS(hidecategories=Object, transient, MinimalAPI)
-class UFontImportOptions : public UObject
+class UFontImportOptions
+	: public UObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -182,4 +186,3 @@ class UFontImportOptions : public UObject
 	struct FFontImportOptionsData Data;
 
 };
-

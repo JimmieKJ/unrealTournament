@@ -149,14 +149,13 @@ MIR_DestroyWindow(_THIS, SDL_Window* window)
     MIR_Data* mir_data = _this->driverdata;
     MIR_Window* mir_window = window->driverdata;
 
-    window->driverdata = NULL;
-
     if (mir_data) {
         SDL_EGL_DestroySurface(_this, mir_window->egl_surface);
         MIR_mir_surface_release_sync(mir_window->surface);
 
         SDL_free(mir_window);
     }
+    window->driverdata = NULL;
 }
 
 SDL_bool
@@ -187,9 +186,9 @@ MIR_SetWindowFullscreen(_THIS, SDL_Window* window,
         return;
 
     if (fullscreen) {
-        MIR_mir_surface_set_type(mir_window->surface, mir_surface_state_fullscreen);
+        MIR_mir_surface_set_state(mir_window->surface, mir_surface_state_fullscreen);
     } else {
-        MIR_mir_surface_set_type(mir_window->surface, mir_surface_state_restored);
+        MIR_mir_surface_set_state(mir_window->surface, mir_surface_state_restored);
     }
 }
 
@@ -201,7 +200,7 @@ MIR_MaximizeWindow(_THIS, SDL_Window* window)
     if (IsSurfaceValid(mir_window) < 0)
         return;
 
-    MIR_mir_surface_set_type(mir_window->surface, mir_surface_state_maximized);
+    MIR_mir_surface_set_state(mir_window->surface, mir_surface_state_maximized);
 }
 
 void
@@ -212,7 +211,7 @@ MIR_MinimizeWindow(_THIS, SDL_Window* window)
     if (IsSurfaceValid(mir_window) < 0)
         return;
 
-    MIR_mir_surface_set_type(mir_window->surface, mir_surface_state_minimized);
+    MIR_mir_surface_set_state(mir_window->surface, mir_surface_state_minimized);
 }
 
 void
@@ -223,7 +222,7 @@ MIR_RestoreWindow(_THIS, SDL_Window * window)
     if (IsSurfaceValid(mir_window) < 0)
         return;
 
-    MIR_mir_surface_set_type(mir_window->surface, mir_surface_state_restored);
+    MIR_mir_surface_set_state(mir_window->surface, mir_surface_state_restored);
 }
 
 #endif /* SDL_VIDEO_DRIVER_MIR */

@@ -153,7 +153,7 @@ void SFilterableObjectList::RefilterObjectList()
 	TArray<FString> FilterTerms;
 	if (FilterTextBoxWidget.IsValid())
 	{
-		FilterTextBoxWidget->GetText().ToString().ParseIntoArray(/*out*/ &FilterTerms, TEXT(" "), true);
+		FilterTextBoxWidget->GetText().ToString().ParseIntoArray(FilterTerms, TEXT(" "), true);
 	}
 
 	if (FilterTerms.Num())

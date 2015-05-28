@@ -76,8 +76,10 @@ void STimeline::UpdateVisibility()
 {
 	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
 	const bool bJustIgnore = Settings->bIgnoreTrivialLogs && Entries.Num() <= Settings->TrivialLogsThreshold;
+	const bool bVisibleByOwnerClasses = FCategoryFiltersManager::Get().MatchObjectName(OwnerClassName.ToString());
 	const bool bIsCollapsed = bJustIgnore || HiddenEntries.Num() == Entries.Num() || (SearchFilter.Len() > 0 && Name.ToString().Find(SearchFilter) == INDEX_NONE);
-	SetVisibility(bIsCollapsed ? EVisibility::Collapsed : EVisibility::Visible);
+
+	SetVisibility(bIsCollapsed || !bVisibleByOwnerClasses ? EVisibility::Collapsed : EVisibility::Visible);
 	if (bIsCollapsed)
 	{
 		Owner->SetSelectionState(SharedThis(this), false, false);
@@ -87,54 +89,17 @@ void STimeline::UpdateVisibility()
 void STimeline::UpdateVisibilityForItems()
 {
 	HiddenEntries.Reset();
+	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
+	const FString QuickSearchStrng = FCategoryFiltersManager::Get().GetSearchString(); 
+
 	for (auto& CurrentEntry : Entries)
 	{
-		TArray<FVisualLoggerCategoryVerbosityPair> OutCategories;
-		FVisualLoggerHelpers::GetCategories(CurrentEntry.Entry, OutCategories);
-		bool bHasValidCategories = VisualLoggerInterface->HasValidCategories(OutCategories);
-
-		const ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-		if (Settings->bSearchInsideLogs && bHasValidCategories && QuickSearchStrng.Len() > 0)
-		{
-			bool bMatchSearchString = false;
-			for (const FVisualLogLine& CurrentLine : CurrentEntry.Entry.LogLines)
-			{
-				if (CurrentLine.Line.Find(QuickSearchStrng) != INDEX_NONE || CurrentLine.Category.ToString().Find(QuickSearchStrng) != INDEX_NONE)
-				{
-					bMatchSearchString = true;
-					break;
-				}
-			}
-			if (!bMatchSearchString)
-			{
-				for (const FVisualLogEvent& CurrentEvent : CurrentEntry.Entry.Events)
-				{
-					if (CurrentEvent.Name.Find(QuickSearchStrng) != INDEX_NONE)
-					{
-						bMatchSearchString = true;
-						break;
-					}
-				}
-			}
-
-			if (!bMatchSearchString)
-			{
-				HiddenEntries.AddUnique(&CurrentEntry);
-			}
-		}
-		else
-		{
-			if (bHasValidCategories == false)
-			{
-				HiddenEntries.AddUnique(&CurrentEntry);
-			}
-		}
+		UpdateVisibilityForEntry(CurrentEntry, QuickSearchStrng, Settings->bSearchInsideLogs);
 	}
 }
 
 void STimeline::OnFiltersSearchChanged(const FText& Filter)
 {
-	QuickSearchStrng = Filter.ToString();
 	OnFiltersChanged();
 }
 
@@ -155,21 +120,80 @@ bool STimeline::IsEntryHidden(const FVisualLogDevice::FVisualLogEntryItem& Entry
 	return HiddenEntries.Contains(&EntryItem);
 }
 
-void STimeline::HandleLogVisualizerSettingChanged(FName Name)
+void STimeline::HandleLogVisualizerSettingChanged(FName InName)
 {
 	UpdateVisibility();
 }
 
+void STimeline::UpdateVisibilityForEntry(FVisualLogDevice::FVisualLogEntryItem& CurrentEntry, const FString& SearchString, bool bSearchInsideLogs)
+{
+	TArray<FVisualLoggerCategoryVerbosityPair> OutCategories;
+	FVisualLoggerHelpers::GetCategories(CurrentEntry.Entry, OutCategories);
+	bool bHasValidCategories = false;
+	for (FVisualLoggerCategoryVerbosityPair& Categoryair : OutCategories)
+	{
+		bHasValidCategories = bHasValidCategories || FCategoryFiltersManager::Get().MatchCategoryFilters(Categoryair.CategoryName.ToString(), Categoryair.Verbosity);
+	}
+
+	if (bSearchInsideLogs && bHasValidCategories && SearchString.Len() > 0)
+	{
+		bool bMatchSearchString = false;
+		for (const FVisualLogLine& CurrentLine : CurrentEntry.Entry.LogLines)
+		{
+			if (CurrentLine.Line.Find(SearchString) != INDEX_NONE || CurrentLine.Category.ToString().Find(SearchString) != INDEX_NONE)
+			{
+				bMatchSearchString = true;
+				break;
+			}
+		}
+		if (!bMatchSearchString)
+		{
+			for (const FVisualLogEvent& CurrentEvent : CurrentEntry.Entry.Events)
+			{
+				if (CurrentEvent.Name.Find(SearchString) != INDEX_NONE)
+				{
+					bMatchSearchString = true;
+					break;
+				}
+			}
+		}
+
+		if (!bMatchSearchString)
+		{
+			HiddenEntries.AddUnique(&CurrentEntry);
+		}
+	}
+	else
+	{
+		if (bHasValidCategories == false)
+		{
+			HiddenEntries.AddUnique(&CurrentEntry);
+		}
+	}
+}
+
+void STimeline::AddEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry) 
+{ 
+	Entries.Add(Entry); 
+
+	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
+	
+	UpdateVisibilityForEntry(Entries[Entries.Num() - 1], FCategoryFiltersManager::Get().GetSearchString(), Settings->bSearchInsideLogs);
+	UpdateVisibility();
+
+	if (Settings->bStickToRecentData && IsSelected())
+	{
+		TimelineBar->SnapScrubPosition(Entry.Entry.TimeStamp);
+	}
+}
+
 void STimeline::Construct(const FArguments& InArgs, TSharedPtr<SVisualLoggerView> VisualLoggerView, TSharedPtr<FVisualLoggerTimeSliderController> TimeSliderController, TSharedPtr<STimelinesContainer> InContainer, const FVisualLogDevice::FVisualLogEntryItem& Entry)
 {
-	VisualLoggerInterface = InArgs._VisualLoggerInterface.Get();
 	OnGetMenuContent = InArgs._OnGetMenuContent;
 
 	Owner = InContainer;
 	Name = Entry.OwnerName;
-
-	Entries.Add(Entry);
-	OnFiltersChanged();
+	OwnerClassName = Entry.OwnerClassName;
 	
 	ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->OnSettingChanged().AddRaw(this, &STimeline::HandleLogVisualizerSettingChanged);
 
@@ -197,9 +221,25 @@ void STimeline::Construct(const FArguments& InArgs, TSharedPtr<SVisualLoggerView
 						.Padding(FMargin(4, 0, 2, 0))
 						[
 							// Search box for searching through the outliner
-							SNew(STextBlock)
-							.Text(FString(Name.ToString()))
-							.ShadowOffset(FVector2D(1.f, 1.f))
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.Padding(FMargin(0, 0, 0, 0))
+							.HAlign(HAlign_Fill)
+							.VAlign(VAlign_Fill)
+							[
+								SNew(STextBlock)
+								.Text( FText::FromName(Name) )
+								.ShadowOffset(FVector2D(1.f, 1.f))
+							]
+							+ SVerticalBox::Slot()
+							.Padding(FMargin(0, 0, 0, 0))
+							.HAlign(HAlign_Fill)
+							.VAlign(VAlign_Fill)
+							[
+								SNew(STextBlock)
+								.Text(FText::FromName(OwnerClassName))
+								.TextStyle(FLogVisualizerStyle::Get(), TEXT("Sequencer.ClassNAme"))
+							]
 						]
 					]
 				]
@@ -214,10 +254,11 @@ void STimeline::Construct(const FArguments& InArgs, TSharedPtr<SVisualLoggerView
 				[
 					// Search box for searching through the outliner
 					SAssignNew(TimelineBar, STimelineBar, TimeSliderController, SharedThis(this))
-					.VisualLoggerInterface(InArgs._VisualLoggerInterface)
 				]
 			]
 		];
+
+	AddEntry(Entry);
 }
 
 const FSlateBrush* STimeline::GetBorder() const
@@ -230,4 +271,19 @@ const FSlateBrush* STimeline::GetBorder() const
 	{
 		return FLogVisualizerStyle::Get().GetBrush("ToolBar.Button.Normal");
 	}
+}
+
+void STimeline::Goto(float ScrubPosition) 
+{ 
+	TimelineBar->SnapScrubPosition(ScrubPosition); 
+}
+
+void STimeline::GotoNextItem() 
+{ 
+	TimelineBar->GotoNextItem(); 
+}
+
+void STimeline::GotoPreviousItem() 
+{ 
+	TimelineBar->GotoPreviousItem(); 
 }

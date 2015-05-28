@@ -49,8 +49,13 @@ static CFBundleRef LoadRadioEffectComponent()
 							theDescription.componentSubType = 'Rdio';
 							theDescription.componentManufacturer = 'Epic';
 							theDescription.componentFlagsMask = 0;
-							AudioComponent RadioComponent = AudioComponentRegister(&theDescription, CFSTR("Epic Games: RadioEffectUnit"), Version, Factory);
-							check(RadioComponent);
+							
+							AudioComponent RadioComponent = AudioComponentFindNext(nullptr, &theDescription);
+							if ( !RadioComponent )
+							{
+								RadioComponent = AudioComponentRegister(&theDescription, CFSTR("Epic Games: RadioEffectUnit"), Version, Factory);
+								check(RadioComponent);
+							}
 							bLoaded = (RadioComponent != NULL);
 						}
 					}

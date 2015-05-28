@@ -38,21 +38,21 @@ void UParticleModuleSpawn::InitializeDefaults()
 {
 	if(!Rate.Distribution)
 	{
-		UDistributionFloatConstant* RequiredDistributionSpawnRate = NewNamedObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnRate"));
+		UDistributionFloatConstant* RequiredDistributionSpawnRate = NewObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnRate"));
 		RequiredDistributionSpawnRate->Constant = 20.0f;
 		Rate.Distribution = RequiredDistributionSpawnRate;
 	}
 
 	if(!RateScale.Distribution)
 	{
-		UDistributionFloatConstant* RequiredDistributionSpawnRateScale = NewNamedObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnRateScale"));
+		UDistributionFloatConstant* RequiredDistributionSpawnRateScale = NewObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnRateScale"));
 		RequiredDistributionSpawnRateScale->Constant = 1.0f;
 		RateScale.Distribution = RequiredDistributionSpawnRateScale;
 	}
 
 	if(!BurstScale.Distribution)
 	{
-		UDistributionFloatConstant* BurstScaleDistribution = NewNamedObject<UDistributionFloatConstant>(this, TEXT("BurstScaleDistribution"));
+		UDistributionFloatConstant* BurstScaleDistribution = NewObject<UDistributionFloatConstant>(this, TEXT("BurstScaleDistribution"));
 		BurstScaleDistribution->Constant = 1.0f;
 		BurstScale.Distribution = BurstScaleDistribution;
 	}
@@ -266,7 +266,7 @@ void UParticleModuleSpawnPerUnit::InitializeDefaults()
 {
 	if (!SpawnPerUnit.Distribution)
 	{
-		UDistributionFloatConstant* RequiredDistributionSpawnPerUnit = NewNamedObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnPerUnit"));
+		UDistributionFloatConstant* RequiredDistributionSpawnPerUnit = NewObject<UDistributionFloatConstant>(this, TEXT("RequiredDistributionSpawnPerUnit"));
 		RequiredDistributionSpawnPerUnit->Constant = 0.0f;
 		SpawnPerUnit.Distribution = RequiredDistributionSpawnPerUnit;
 	}

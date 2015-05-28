@@ -3,7 +3,6 @@
 #pragma once
 
 
-// forward declarations
 class IMediaSink;
 class IMediaTrackAudioDetails;
 class IMediaTrackCaptionDetails;

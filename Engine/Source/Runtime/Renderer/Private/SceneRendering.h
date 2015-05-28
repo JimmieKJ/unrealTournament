@@ -9,6 +9,7 @@
 #include "TextureLayout.h"
 #include "DistortionRendering.h"
 #include "CustomDepthRendering.h"
+#include "HeightfieldLighting.h"
 
 // Forward declarations.
 class FPostprocessContext;
@@ -319,13 +320,16 @@ public:
 	TArray<FRHICommandList*,SceneRenderingAllocator> CommandLists;
 	TArray<FGraphEventRef,SceneRenderingAllocator> Events;
 protected:
+	//this must be called by deriving classes virtual destructor because it calls the virtual SetStateOnCommandList.
+	//C++ will not do dynamic dispatch of virtual calls from destructors so we can't call it in the base class.
+	void Dispatch();
 	FRHICommandList* AllocCommandList();
 	bool bParallelExecute;
 public:
 	FParallelCommandListSet(const FViewInfo& InView, FRHICommandList& InParentCmdList, bool* InOutDirty, bool bInParallelExecute);
-	~FParallelCommandListSet();
+	virtual ~FParallelCommandListSet();
 	FRHICommandList* NewParallelCommandList();
-	void AddParallelCommandList(FRHICommandList* CmdList, FGraphEventRef& CompletionEvent);
+	void AddParallelCommandList(FRHICommandList* CmdList, FGraphEventRef& CompletionEvent);	
 
 	virtual void SetStateOnCommandList(FRHICommandList& CmdList)
 	{
@@ -438,8 +442,8 @@ public:
 	uint32 bDisableQuerySubmissions : 1;
 	/** Whether we should disable distance-based fade transitions for this frame (usually after a large camera movement.) */
 	uint32 bDisableDistanceBasedFadeTransitions : 1;
-	/** Whether we render any objects with a material using SubsurfaceProfile as shading model. */
-	uint32 bScreenSpaceSubsurfacePassNeeded : 1;
+	/** Bitmask of all shading models used by primitives in this view */
+	uint16 ShadingModelMaskInView;
 
 	FViewMatrices PrevViewMatrices;
 
@@ -458,6 +462,9 @@ public:
 	FOcclusionQueryBatcher IndividualOcclusionQueries;
 	FOcclusionQueryBatcher GroupedOcclusionQueries;
 
+	// Hierarchical Z Buffer
+	TRefCountPtr<IPooledRenderTarget> HZB;
+
 	/** Used by occlusion for percent unoccluded calculations. */
 	float OneOverNumPossiblePixels;
 
@@ -466,6 +473,8 @@ public:
 	FLinearColor LightShaftColorMask;
 	FLinearColor LightShaftColorApply;
 	bool bLightShaftUse;
+
+	FHeightfieldLightingViewInfo HeightfieldLightingViewInfo;
 
 	TShaderMap<FGlobalShaderType>* ShaderMap;
 
@@ -492,6 +501,7 @@ public:
 	TUniformBufferRef<FViewUniformShaderParameters> CreateUniformBuffer(
 		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>* DirectionalLightShadowInfo,
 		const FMatrix& EffectiveTranslatedViewMatrix, 
+		const FMatrix& EffectiveViewToTranslatedWorld, 
 		FBox* OutTranslucentCascadeBoundsArray, 
 		int32 NumTranslucentCascades) const;
 
@@ -504,6 +514,9 @@ public:
 	/** Gets the eye adaptation render target for this view. */
 	IPooledRenderTarget* GetEyeAdaptation() const;
 
+	/** Create acceleration data structure and information to do forward lighting with dynamic branching. */
+	void CreateLightGrid();
+
 private:
 
 	/** Initialization that is common to the constructors. */
@@ -514,6 +527,9 @@ private:
 
 	/** Sets the sky SH irradiance map coefficients. */
 	void SetupSkyIrradianceEnvironmentMapConstants(FVector4* OutSkyIrradianceEnvironmentMap) const;
+
+	/** All light sources available for forward shading. Can be indexed in the shader.*/
+	void CreateForwardLightDataUniformBuffer(FForwardLightData& Out) const;
 };
 
 

@@ -1,5 +1,3 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
 //{{NO_DEPENDENCIES}}
 // Microsoft Visual C++ generated include file.
 // Used by PCLaunch.rc
@@ -13,9 +11,7 @@
 #define IDC_NO_B                        1003
 #define IDC_MESSAGE                     1004
 #define IDC_CANCEL                      1009
-/** ID for SHA hash file */
 #define ID_HASHFILE                     1010
-
 
 // Next default values for new objects
 // 
@@ -27,4 +23,3 @@
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
-

@@ -39,7 +39,7 @@ class ENGINE_API UTextRenderComponent : public UPrimitiveComponent
 
 	/** Text content, can be multi line using <br> as line separator */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Text, meta=(MultiLine=true))
-	FString Text;
+	FText Text;
 
 	/** Text material */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Text)
@@ -78,18 +78,29 @@ class ENGINE_API UTextRenderComponent : public UPrimitiveComponent
 	float InvDefaultSize;
 
 	/** Horizontal adjustment per character, default is 0.0 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Text)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, AdvancedDisplay, Category=Text)
 	float HorizSpacingAdjust;
 
 	/** Allows text to draw unmodified when using debug visualization modes. **/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Rendering)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, AdvancedDisplay, Category=Rendering)
 	uint32 bAlwaysRenderAsText:1;
 
 	// -----------------------------
 	
-	/** Change the text value and signal the primitives to be rebuilt */
-	UFUNCTION(BlueprintCallable, Category="Rendering|Components|TextRender")
+	/**
+	 * Change the text value and signal the primitives to be rebuilt 
+	 * The FString variant is deprecated in favor of the FText variant
+	 */
+	DEPRECATED(4.8, "Passing text as FString is deprecated, please use FText instead (likely via a LOCTEXT).")
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|TextRender", meta=(DisplayName="Set Text (String)", DeprecatedFunction, DeprecationMessage="Use the SetText function taking an FText instead."))
 	void SetText(const FString& Value);
+
+	/** Change the text value and signal the primitives to be rebuilt */
+	void SetText(const FText& Value);
+
+	/** Change the text value and signal the primitives to be rebuilt */
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|TextRender", meta=(DisplayName="Set Text"))
+	void K2_SetText(const FText& Value);
 
 	/** Change the text material and signal the primitives to be rebuilt */
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|TextRender")
@@ -135,21 +146,29 @@ class ENGINE_API UTextRenderComponent : public UPrimitiveComponent
 
 	// Begin UPrimitiveComponent interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
-	virtual void GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const;
-	virtual int32 GetNumMaterials() const;
-	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const;
+	virtual void GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const override;
+	virtual int32 GetNumMaterials() const override;
+	virtual UMaterialInterface* GetMaterial(int32 ElementIndex) const override;
 	virtual bool ShouldRecreateProxyOnUpdateTransform() const override;
-	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* InMaterial);
-	virtual FMatrix GetRenderMatrix() const;
+	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* InMaterial) override;
+	virtual FMatrix GetRenderMatrix() const override;
 	// End UPrimitiveComponent interface.
 
 	// Begin USceneComponent interface.
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	// Begin USceneComponent interface.
+	// End USceneComponent interface.
+
+	// Begin UActorComponent interface.
+	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	// End UActorComponent interface.
 
 	// Begin UObject interface.
 	virtual void PostLoad() override;
 	// End UObject interface.
+
+private:
+	/** The state of the text the last time it was updated (used to allow updates when the text is changed due to a culture update) */
+	FTextSnapshot TextLastUpdate;
 };
 
 

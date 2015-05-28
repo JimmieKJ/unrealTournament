@@ -21,7 +21,7 @@ public:
 	{
 	}
 
-	virtual void UpdateOperation(FLatentResponse& Response)
+	virtual void UpdateOperation(FLatentResponse& Response) override
 	{
 		TimeRemaining -= Response.ElapsedTime();
 		Response.FinishAndTriggerIf(TimeRemaining <= 0.0f, ExecutionFunction, OutputLink, CallbackTarget);

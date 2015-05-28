@@ -27,19 +27,24 @@ struct FD3D11VertexDeclarationKey
 			D3DElement.AlignedByteOffset = Element.Offset;
 			switch(Element.Type)
 			{
-			case VET_Float1:		D3DElement.Format = DXGI_FORMAT_R32_FLOAT; break;
-			case VET_Float2:		D3DElement.Format = DXGI_FORMAT_R32G32_FLOAT; break;
-			case VET_Float3:		D3DElement.Format = DXGI_FORMAT_R32G32B32_FLOAT; break;
-			case VET_Float4:		D3DElement.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; break;
+			case VET_Float1:			D3DElement.Format = DXGI_FORMAT_R32_FLOAT; break;
+			case VET_Float2:			D3DElement.Format = DXGI_FORMAT_R32G32_FLOAT; break;
+			case VET_Float3:			D3DElement.Format = DXGI_FORMAT_R32G32B32_FLOAT; break;
+			case VET_Float4:			D3DElement.Format = DXGI_FORMAT_R32G32B32A32_FLOAT; break;
 			case VET_PackedNormal:	D3DElement.Format = DXGI_FORMAT_R8G8B8A8_UNORM; break; //TODO: uint32 doesn't work because D3D11 squishes it to 0 in the IA-VS conversion
-			case VET_UByte4:		D3DElement.Format = DXGI_FORMAT_R8G8B8A8_UINT; break; //TODO: SINT, blendindices
+			case VET_UByte4:			D3DElement.Format = DXGI_FORMAT_R8G8B8A8_UINT; break; //TODO: SINT, blendindices
 			case VET_UByte4N:		D3DElement.Format = DXGI_FORMAT_R8G8B8A8_UNORM; break;
 			case VET_Color:			D3DElement.Format = DXGI_FORMAT_B8G8R8A8_UNORM; break;
-			case VET_Short2:		D3DElement.Format = DXGI_FORMAT_R16G16_SINT; break;
-			case VET_Short4:		D3DElement.Format = DXGI_FORMAT_R16G16B16A16_SINT; break;
+			case VET_Short2:			D3DElement.Format = DXGI_FORMAT_R16G16_SINT; break;
+			case VET_Short4:			D3DElement.Format = DXGI_FORMAT_R16G16B16A16_SINT; break;
 			case VET_Short2N:		D3DElement.Format = DXGI_FORMAT_R16G16_SNORM; break;
 			case VET_Half2:			D3DElement.Format = DXGI_FORMAT_R16G16_FLOAT; break;
 			case VET_Half4:			D3DElement.Format = DXGI_FORMAT_R16G16B16A16_FLOAT; break;
+			case VET_Short4N:		D3DElement.Format = DXGI_FORMAT_R16G16B16A16_SNORM; break;
+			case VET_UShort2:		D3DElement.Format = DXGI_FORMAT_R16G16_UINT; break;
+			case VET_UShort4:		D3DElement.Format = DXGI_FORMAT_R16G16B16A16_UINT; break;
+			case VET_UShort2N:		D3DElement.Format = DXGI_FORMAT_R16G16_UNORM; break;
+			case VET_UShort4N:		D3DElement.Format = DXGI_FORMAT_R16G16B16A16_UNORM; break;
 			default: UE_LOG(LogD3D11RHI, Fatal,TEXT("Unknown RHI vertex element type %u"),(uint8)InElements[ElementIndex].Type);
 			};
 			D3DElement.SemanticName = "ATTRIBUTE";

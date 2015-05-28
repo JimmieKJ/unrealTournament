@@ -66,7 +66,7 @@ public:
 	virtual void Close() override;
 	virtual uint64 GetTotalBytesReceived() const override;
 	virtual uint64 GetTotalBytesSent() const override;
-	virtual FText GetName() const;
+	virtual FText GetName() const override;
 	virtual FTimespan GetUptime() const override;
 	virtual bool IsOpen() const override;
 

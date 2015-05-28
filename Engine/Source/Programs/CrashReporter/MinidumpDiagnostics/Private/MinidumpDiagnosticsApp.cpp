@@ -23,7 +23,7 @@ int32 RunMinidumpDiagnostics(int32 ArgC, TCHAR* Argv[])
 	ICrashDebugHelper* CrashDebugHelper = CrashHelperModule.Get();
 	if( CrashDebugHelper == NULL )
 	{
-		UE_LOG( LogInit, Error, TEXT( " ... failed to load CrashDebugHelper module; unsupported platform?" ) );
+		UE_LOG( LogInit, Error, TEXT( "Failed to load CrashDebugHelper module; unsupported platform?" ) );
 		return 1;
 	}
 
@@ -33,11 +33,18 @@ int32 RunMinidumpDiagnostics(int32 ArgC, TCHAR* Argv[])
 
 	// Create a report for the minidump passed in on the command line
 	FString MinidumpName = Argv[1];
-	CrashDebugHelper->CreateMinidumpDiagnosticReport( MinidumpName );
+	const bool bValidCallstack = CrashDebugHelper->CreateMinidumpDiagnosticReport( MinidumpName );
+	FString DiagnosticsPath = FPaths::GetPath( MinidumpName );
+	if( bValidCallstack )
+	{	
+		DiagnosticsPath /= FString( TEXT( "Diagnostics.txt" ) );
+	}
+	else
+	{
+		DiagnosticsPath /= FString( TEXT( "DiagnosticsFailed.txt" ) );
+	}
 
-	// Write a report next to the original minidump
-	FString DiagnosticsPath = FPaths::GetPath(MinidumpName);
-	DiagnosticsPath /= FString( TEXT( "Diagnostics.txt" ) );
+	// Write a report next to the original minidump	
 	CrashDebugHelper->CrashInfo.GenerateReport( DiagnosticsPath );
 
 	// Cleanup

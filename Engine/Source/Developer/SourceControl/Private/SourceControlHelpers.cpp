@@ -27,7 +27,7 @@ const FString& GetSettingsIni()
 		if(SourceControlSettingsIni.Len() == 0)
 		{
 			const FString SourceControlSettingsDir = FPaths::GeneratedConfigDir();
-			FConfigCacheIni::LoadGlobalIniFile(SourceControlSettingsIni, TEXT("SourceControlSettings"), NULL, NULL, false, false, true, *SourceControlSettingsDir);
+			FConfigCacheIni::LoadGlobalIniFile(SourceControlSettingsIni, TEXT("SourceControlSettings"), NULL, false, false, true, *SourceControlSettingsDir);
 		}
 		return SourceControlSettingsIni;
 	}
@@ -39,7 +39,7 @@ const FString& GetGlobalSettingsIni()
 	if(SourceControlGlobalSettingsIni.Len() == 0)
 	{
 		const FString SourceControlSettingsDir = FPaths::EngineSavedDir() + TEXT("Config/");
-		FConfigCacheIni::LoadGlobalIniFile(SourceControlGlobalSettingsIni, TEXT("SourceControlSettings"), NULL, NULL, false, false, true, *SourceControlSettingsDir);
+		FConfigCacheIni::LoadGlobalIniFile(SourceControlGlobalSettingsIni, TEXT("SourceControlSettings"), NULL, false, false, true, *SourceControlSettingsDir);
 	}
 	return SourceControlGlobalSettingsIni;
 }
@@ -171,6 +171,33 @@ bool AnnotateFile( ISourceControlProvider& InProvider, const FString& InLabel, c
 	return false;
 }
 
+bool AnnotateFile( ISourceControlProvider& InProvider, int32 InCheckInIdentifier, const FString& InFile, TArray<FAnnotationLine>& OutLines )
+{
+	TSharedRef<FUpdateStatus, ESPMode::ThreadSafe> UpdateStatusOperation = ISourceControlOperation::Create<FUpdateStatus>();
+	UpdateStatusOperation->SetUpdateHistory(true);
+	if(InProvider.Execute(UpdateStatusOperation, InFile) == ECommandResult::Succeeded)
+	{
+		FSourceControlStatePtr State = InProvider.GetState(InFile, EStateCacheUsage::Use);
+		if(State.IsValid())
+		{
+			for(int32 HistoryIndex = State->GetHistorySize() - 1; HistoryIndex >= 0; HistoryIndex--)
+			{
+				// check that the changelist corresponds to this revision - we assume history is in latest-first order
+				TSharedPtr<ISourceControlRevision, ESPMode::ThreadSafe> Revision = State->GetHistoryItem(HistoryIndex);
+				if(Revision.IsValid() && Revision->GetCheckInIdentifier() >= InCheckInIdentifier)
+				{
+					if(Revision->GetAnnotated(OutLines))
+					{
+						return true;
+					}
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 bool CheckOutFile( const FString& InFilePath )
 {
 	if ( InFilePath.IsEmpty() )
@@ -274,14 +301,14 @@ bool CheckoutOrMarkForAdd( const FString& InDestFile, const FText& InFileDescrip
 		if (SourceControlState.IsValid())
 		{
 			if (SourceControlState->IsSourceControlled() && SourceControlState->CanCheckout())
-			{
-				ECommandResult::Type Result = Provider.Execute(ISourceControlOperation::Create<FCheckOut>(), InDestFile);
-				bSucceeded = (Result == ECommandResult::Succeeded);
-				if (!bSucceeded)
 				{
-					OutFailReason = FText::Format(LOCTEXT("SourceControlCheckoutError", "Could not check out {0} file."), InFileDescription);
+					ECommandResult::Type Result = Provider.Execute(ISourceControlOperation::Create<FCheckOut>(), InDestFile);
+					bSucceeded = (Result == ECommandResult::Succeeded);
+					if (!bSucceeded)
+					{
+						OutFailReason = FText::Format(LOCTEXT("SourceControlCheckoutError", "Could not check out {0} file."), InFileDescription);
+					}
 				}
-			}
 		}
 	}
 
@@ -318,14 +345,14 @@ bool CopyFileUnderSourceControl( const FString& InDestFile, const FString& InSou
 {
 	struct Local
 	{
-		static bool CopyFile(const FString& InDestFile, const FText& InFileDescription, FText& OutFailReason, FString InSourceFile)
+		static bool CopyFile(const FString& InDestinationFile, const FText& InFileDesc, FText& OutFailureReason, FString InFileToCopy)
 		{
 			const bool bReplace = true;
 			const bool bEvenIfReadOnly = true;
-			bool bSucceeded = (IFileManager::Get().Copy(*InDestFile, *InSourceFile, bReplace, bEvenIfReadOnly) == COPY_OK);
+			bool bSucceeded = (IFileManager::Get().Copy(*InDestinationFile, *InFileToCopy, bReplace, bEvenIfReadOnly) == COPY_OK);
 			if (!bSucceeded)
 			{
-				OutFailReason = FText::Format(LOCTEXT("ExternalImageCopyError", "Could not overwrite {0} file."), InFileDescription);
+				OutFailureReason = FText::Format(LOCTEXT("ExternalImageCopyError", "Could not overwrite {0} file."), InFileDesc);
 			}
 
 			return bSucceeded;

@@ -41,7 +41,7 @@ FArchive& operator<<( FArchive& Ar, FWorldTileInfo& D )
 	
 	if (Ar.UE4Ver() >= VER_UE4_WORLD_LEVEL_INFO_UPDATED)
 	{
-		Ar << D.Reserved0 << D.ParentTilePackageName;
+		Ar << D.bHideInTileView << D.ParentTilePackageName;
 	}
 
 	if (Ar.UE4Ver() >= VER_UE4_WORLD_LEVEL_INFO_LOD_LIST)
@@ -105,6 +105,7 @@ bool FWorldTileInfo::Read(const FString& InPackageFileName, FWorldTileInfo& OutI
 
 		//make sure the filereader gets the correct version number (it defaults to latest version)
 		FileReader->SetUE4Ver(FileSummary.GetFileVersionUE4());
+		FileReader->SetEngineVer(FileSummary.SavedByEngineVersion);
 
 		// Load the structure
 		*FileReader << OutInfo;

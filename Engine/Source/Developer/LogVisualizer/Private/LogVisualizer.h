@@ -12,12 +12,16 @@
 
 /* Private includes
 *****************************************************************************/
+#include "ILogVisualizer.h"
 #include "VisualLogger/VisualLogger.h"
+#include "LogVisualizerSettings.h"
+#include "LogVisualizerSessionSettings.h"
 
 DECLARE_DELEGATE_OneParam(FOnItemSelectionChanged, const FVisualLogDevice::FVisualLogEntryItem&);
 DECLARE_DELEGATE_OneParam(FOnObjectSelectionChanged, TSharedPtr<class STimeline>);
 DECLARE_DELEGATE_OneParam(FOnFiltersSearchChanged, const FText&);
 DECLARE_DELEGATE(FOnFiltersChanged);
+DECLARE_DELEGATE_ThreeParams(FOnLogLineSelectionChanged, TSharedPtr<FLogEntryItem> /*SelectedItem*/, int64 /*UserData*/, FName /*TagName*/);
 
 struct FVisualLoggerEvents
 {
@@ -29,27 +33,40 @@ struct FVisualLoggerEvents
 	FOnItemSelectionChanged OnItemSelectionChanged;
 	FOnFiltersChanged OnFiltersChanged;
 	FOnObjectSelectionChanged OnObjectSelectionChanged;
+	FOnLogLineSelectionChanged OnLogLineSelectionChanged;
 };
 
-struct IVisualLoggerInterface
+class FVisualLoggerTimeSliderController;
+struct LOGVISUALIZER_API FLogVisualizer
 {
-	virtual ~IVisualLoggerInterface() {}
-	virtual bool HasValidCategories(TArray<FVisualLoggerCategoryVerbosityPair> Categories) = 0;
-	virtual bool IsValidCategory(const FString& InCategoryName, TEnumAsByte<ELogVerbosity::Type> Verbosity = ELogVerbosity::All) = 0;
-	virtual bool IsValidCategory(const FString& InGraphName, const FString& InDataName, TEnumAsByte<ELogVerbosity::Type> Verbosity = ELogVerbosity::All) = 0;
-	virtual FLinearColor GetCategoryColor(FName Category) = 0;
-	virtual UWorld* GetWorld() const = 0;
-	virtual class AActor* GetVisualLoggerHelperActor() = 0;
+	/** LogVisualizer interface*/
+	void Goto(float Timestamp, FName LogOwner = NAME_None);
+	void GotoNextItem();
+	void GotoPreviousItem();
 
-	const FVisualLoggerEvents& GetVisualLoggerEvents() { return VisualLoggerEvents; }
-	class FVisualLoggerTimeSliderController* GetTimeSliderController() { return TimeSliderController.Get(); }
-	void SetTimeSliderController(TSharedPtr<class FVisualLoggerTimeSliderController> InTimeSliderController) { TimeSliderController = InTimeSliderController; }
+	FLinearColor GetColorForCategory(int32 Index) const;
+	FLinearColor GetColorForCategory(const FString& InFilterName) const;
+	TSharedPtr<FVisualLoggerTimeSliderController> GetTimeSliderController() { return TimeSliderController; }
+	UWorld* GetWorld(UObject* OptionalObject = nullptr);
+	class AActor* GetVisualLoggerHelperActor();
+	FVisualLoggerEvents& GetVisualLoggerEvents() { return VisualLoggerEvents; }
 
+	void SetCurrentVisualizer(TSharedPtr<class SVisualLogger> Visualizer) { CurrentVisualizer = Visualizer; }
+
+	void OnObjectSelectionChanged(TSharedPtr<class STimeline> TimeLine) { CurrentTimeLine = TimeLine; }
+
+	/** Static access */
+	static void Initialize();
+	static void Shutdown();
+	static FLogVisualizer& Get();
 protected:
+	static TSharedPtr< struct FLogVisualizer > StaticInstance;
+	
+	TSharedPtr<FVisualLoggerTimeSliderController> TimeSliderController;
 	FVisualLoggerEvents VisualLoggerEvents;
-	TSharedPtr<class FVisualLoggerTimeSliderController> TimeSliderController;
+	TWeakPtr<class STimeline> CurrentTimeLine;
+	TWeakPtr<class SVisualLogger> CurrentVisualizer;
 };
-
 
 #include "LogVisualizerStyle.h"
 #include "SVisualLogger.h"
@@ -60,5 +77,3 @@ protected:
 #include "SVisualLoggerLogsList.h"
 #include "SVisualLoggerStatusView.h"
 #include "STimeline.h"
-#include "LogVisualizerSettings.h"
-#include "LogVisualizerSessionSettings.h"

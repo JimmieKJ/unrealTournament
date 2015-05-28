@@ -3,26 +3,27 @@
 #pragma once
 
 
+#if STATS
+
 /**
  * struct that holds the client information
  */
 struct FClientData
 {
-	/** Connection is active */
+	/** Connection is active. */
 	bool Active;
-	/** Connection is previewing */
+
+	/** Connection is previewing. */
 	bool Preview;
 
-#if STATS
-	FStatsWriteFile StatsWriteFile;
-
-	/** Current frame of data sent */
-	int64 CurrentFrame;
-
-	/** Stats metadata size. */
-	int32 MetadataSize;
-#endif
+	/** Default constructor. */
+	FClientData()
+		: Active( false )
+		, Preview( false )
+	{}
 };
+
+#endif //STATS
 
 
 /**
@@ -39,48 +40,11 @@ public:
 	 */
 	FProfilerServiceManager();
 
-	/**
-	 * Default destructor
-	 */
-	~FProfilerServiceManager();
-
 public:
 
 	// Begin IProfilerServiceManager interface
-	virtual void SendData(FProfilerCycleCounter& Data) override;
-
-	virtual void SendData(FProfilerFloatAccumulator& Data) override;
-
-	virtual void SendData(FProfilerCountAccumulator& Data) override;
-
-	virtual void SendData(FProfilerCycleGraph& Data) override;
-
-	virtual bool IsCapturing() const override
-	{ 
-#if STATS
-		return (PreviewClients.Num() > 0 || Archive.IsValid());
-#else
-		return false;
-#endif
-	}
-
-	virtual void StartCapture();
-	
-	virtual void StopCapture();
-
-	virtual void UpdateMetaData() override;
-
-	virtual void StartFrame(uint32 FrameNumber, double FrameStart) override;
-
-	virtual FStatMetaData& GetStatMetaData() override
-	{
-		return MetaData;
-	}
-
-	virtual FProfilerDataDelegate& OnProfilerData() override
-	{
-		return ProfilerDataDelegate;
-	}
+	virtual void StartCapture() override;
+	virtual void StopCapture() override;
 	// End IProfilerServiceManager interface
 
 	/**
@@ -108,9 +72,6 @@ private:
 	/** Callback for a tick, used to ping the clients */
 	bool HandlePing( float DeltaTime );
 
-	void SendMetaData(const FMessageAddress& client);
-
-private:
 
 	// Handles FProfilerServiceCapture messages.
 	void HandleServiceCaptureMessage( const FProfilerServiceCapture& Message, const IMessageContextRef& Context );
@@ -133,10 +94,20 @@ private:
 	// Handles FProfilerServiceUnsubscribe messages.
 	void HandleServiceUnsubscribeMessage( const FProfilerServiceUnsubscribe& Message, const IMessageContextRef& Context );
 
-	// Handle a new frame from the stats system
+	/** Handles a new frame from the stats system. Called from the stats thread. */
 	void HandleNewFrame(int64 Frame);
 
-private:
+#if STATS
+	/** Compresses all stats data and send to the game thread. */
+	void CompressDataAndSendToGame( TArray<uint8>* DataToTask, int64 Frame );
+
+	/** Handles a new frame from the stats system. Called from the game thread. */
+	void HandleNewFrameGT( FProfilerServiceData2* ToGameThread );
+#endif // STATS
+
+	void AddNewFrameHandleStatsThread();
+
+	void RemoveNewFrameHandleStatsThread();
 
 	/** Holds the messaging endpoint. */
 	FMessageEndpointPtr MessageEndpoint;
@@ -148,13 +119,10 @@ private:
 	/** Holds the message addresses for registered clients */
 	TArray<FMessageAddress> PreviewClients;
 
+#if	STATS
 	/** Holds the client data for registered clients */
 	TMap<FMessageAddress, FClientData> ClientData;
-
-	/** Data writer for recording the data to disk */
-#if STATS
-	TSharedPtr<FStatsWriteFile, ESPMode::ThreadSafe> Archive;
-#endif
+#endif // STATS
 
 	/** Thread used to read, prepare and send file chunks through the message bus. */
 	class FFileTransferRunnable* FileTransferRunnable;
@@ -162,15 +130,8 @@ private:
 	/** Filename of last capture file. */
 	FString LastStatsFilename;
 
-	/** Stat meta data */
-	FStatMetaData MetaData;
-	FStatMetaData NewMetaData;
-
-	/** Delegate for notifying clients of received data */
-	FProfilerDataDelegate ProfilerDataDelegate;
-
-	/** Frame of data */
-	FProfilerDataFrame DataFrame;
+	/** Size of the stats metadata. */
+	int32 MetadataSize;
 
 	/** Holds a delegate to be invoked for client pings */
 	FTickerDelegate PingDelegate;
@@ -179,5 +140,5 @@ private:
 	FDelegateHandle PingDelegateHandle;
 
 	/** Handle to the registered HandleNewFrame delegate */
-	FDelegateHandle HandleNewFrameDelegateHandle;
+	FDelegateHandle NewFrameDelegateHandle;
 };

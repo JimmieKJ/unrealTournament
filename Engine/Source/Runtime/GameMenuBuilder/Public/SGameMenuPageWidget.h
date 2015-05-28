@@ -31,10 +31,10 @@ public:
 	void Tick(float Delta);
 
 	/* Close the panel */
-	void ClosePanel();
+	void ClosePanel(TSharedRef<SWidget> OwnerWidget);
 	
 	/* Open the panel */
-	void OpenPanel();
+	void OpenPanel(TSharedRef<SWidget> OwnerWidget);
 
 	/* Force the panel to be fully open. */
 	void ForcePanelOpen();
@@ -58,6 +58,7 @@ private:
 	FCurveSequence AnimationSequence;
 };
 
+class FGameMenuPage;
 
 // Simple Menu page widget class
 class GAMEMENUBUILDER_API SGameMenuPageWidget : public SCompoundWidget
@@ -90,7 +91,7 @@ public:
 
 	// Begin SWidget interface
 	/** Update function. */
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 	/** Mouse button down handler. */
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -127,7 +128,7 @@ public:
 	void SetupAnimations();
 
 	/** Make the currently selected menu sub menu new main menu if valid. */
-	void EnterSubMenu(TSharedPtr<class FGameMenuPage> InSubMenu);
+	void EnterSubMenu(TSharedPtr<FGameMenuPage> InSubMenu);
 
 	/**
 	 * Go back the the previous menu.
@@ -146,7 +147,7 @@ public:
 	 * @param InMenu	The menu to show and set as the current menu. If this is NULL Current menu will be used if valid.
 	 *
 	 */
-	void BuildAndShowMenu(TSharedPtr< class FGameMenuPage > InMenu);
+	void BuildAndShowMenu(TSharedPtr< FGameMenuPage > InMenu);
 
 	/** Hide the menu. */
 	void HideMenu();
@@ -176,7 +177,7 @@ public:
 	 * @param InMenu	The menu to open and set as current.
 	 *
 	 */
-	void OpenMainPanel(TSharedPtr< class FGameMenuPage > InMenu);
+	void OpenMainPanel(TSharedPtr< FGameMenuPage > InMenu);
 		
 	/**
 	* Select a given item from an index
@@ -191,10 +192,11 @@ public:
 	/* The viewport I am attached to. */
 	TWeakObjectPtr<UGameViewportClient> MyGameViewport;
 
+	TSharedPtr< FGameMenuPage > GetCurrentMenu();
 protected:
 
 	/* Set the current menu. Also sets the owner widget of that menu to this and resets the previous menu owner. */
-	void SetCurrentMenu(TSharedPtr< class FGameMenuPage > InMenu);
+	void SetCurrentMenu(TSharedPtr< FGameMenuPage > InMenu);
 
 	/** Sets hit test invisibility when console is up. */
 	EVisibility GetSlateVisibility() const;
@@ -214,7 +216,7 @@ protected:
 	 * @param		PreviousIndex	The previous menu index. (Can be INDEX_NONE)
 	 *
 	 */
-	void BuildPanelButtons(TSharedPtr< class FGameMenuPage > InPanel, TSharedPtr<SVerticalBox> InBox, int32 InPreviousIndex);
+	void BuildPanelButtons(TSharedPtr< FGameMenuPage > InPanel, TSharedPtr<SVerticalBox> InBox, int32 InPreviousIndex);
 
 	/** Misc Getters used for animating/fading various menu facets. */
 	FLinearColor GetPanelsColor() const;	
@@ -250,7 +252,7 @@ protected:
 	 * @param	SelectionIndex	The index selection.
 	 * @returns	Will return UNHANDLED if the current menu is invalid, HANDLED in all other cases including if the controls are locked.
 	 */
-	FString GetOptionText(TSharedPtr<class FGameMenuItem> MenuItem) const;
+	FText GetOptionText(TSharedPtr<class FGameMenuItem> MenuItem) const;
 
 	/** Gets current menu title string. */
 	FText GetMenuTitle() const; 
@@ -287,10 +289,10 @@ protected:
 	FMenuPanel	SubMenuPanel;
 	
 	/** Next menu (for transition and displaying as the right menu). */
-	TSharedPtr< class FGameMenuPage > NextMenu;
+	TSharedPtr< FGameMenuPage > NextMenu;
 
 	/** Currently active menu. */
-	TSharedPtr< class FGameMenuPage > CurrentMenu;
+	TSharedPtr< FGameMenuPage > CurrentMenu;
 
 	/** Current UI scale attribute. */
 	TAttribute<float> UIScale;
@@ -338,10 +340,10 @@ protected:
 	uint8 bControlsLocked : 1;
 	
 	/** Menu that will override current one after transition animation. */
-	TSharedPtr< class FGameMenuPage > PendingMainMenu;
+	TSharedPtr< FGameMenuPage > PendingMainMenu;
 	
 	/** Menu that will become the submenu after transition animation. */
-	TSharedPtr< class FGameMenuPage > PendingSubMenu;
+	TSharedPtr< FGameMenuPage > PendingSubMenu;
 	
 	/** Current menu layout box. */
 	TSharedPtr<SVerticalBox> MainPanel;
@@ -353,7 +355,7 @@ protected:
 	const FGameMenuStyle* MenuStyle;
 		
 	/** Stack of previous menus. */
-	TArray< TSharedPtr< class FGameMenuPage>> MenuHistory;
+	TArray< TSharedPtr< FGameMenuPage>> MenuHistory;
 
 	/** Bind if menu should be hidden from outside by controller button. */
 	FOnToggleMenu OnToggleMenu;

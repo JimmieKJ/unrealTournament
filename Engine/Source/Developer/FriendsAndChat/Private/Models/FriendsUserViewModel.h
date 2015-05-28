@@ -2,14 +2,14 @@
 
 #pragma once
 
+#include "IUserInfo.h"
+
 class FFriendsUserViewModel
 	: public TSharedFromThis<FFriendsUserViewModel>
+	, public IUserInfo
 {
 public:
 	virtual ~FFriendsUserViewModel() {}
-	virtual EOnlinePresenceState::Type GetOnlineStatus() const = 0;
-	virtual FString GetClientId() const = 0;
-	virtual FString GetUserNickname() const = 0;
 };
 
 /**

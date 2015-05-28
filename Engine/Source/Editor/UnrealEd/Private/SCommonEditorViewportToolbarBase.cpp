@@ -119,11 +119,23 @@ FText SCommonEditorViewportToolbarBase::GetCameraMenuLabel() const
 			break;
 
 		case LVT_OrthoYZ:
-			Label = LOCTEXT("CameraMenuTitle_Side", "Side");
+			Label = LOCTEXT("CameraMenuTitle_Left", "Left");
 			break;
 
 		case LVT_OrthoXZ:
 			Label = LOCTEXT("CameraMenuTitle_Front", "Front");
+			break;
+
+		case LVT_OrthoNegativeXY:
+			Label = LOCTEXT("CameraMenuTitle_Bottom", "Bottom");
+			break;
+
+		case LVT_OrthoNegativeYZ:
+			Label = LOCTEXT("CameraMenuTitle_Right", "Right");
+			break;
+
+		case LVT_OrthoNegativeXZ:
+			Label = LOCTEXT("CameraMenuTitle_Back", "Back");
 			break;
 
 		case LVT_OrthoFreelook:
@@ -149,11 +161,26 @@ const FSlateBrush* SCommonEditorViewportToolbarBase::GetCameraMenuLabelIcon() co
 			break;
 
 		case LVT_OrthoYZ:
-			Icon = FName( "EditorViewport.Side" );
+			Icon = FName( "EditorViewport.Left" );
 			break;
 
 		case LVT_OrthoXZ:
 			Icon = FName( "EditorViewport.Front" );
+			break;
+
+		case LVT_OrthoNegativeXY:
+			Icon = FName("EditorViewport.Bottom");
+			break;
+
+		case LVT_OrthoNegativeYZ:
+			Icon = FName("EditorViewport.Right");
+			break;
+
+		case LVT_OrthoNegativeXZ:
+			Icon = FName("EditorViewport.Back");
+			break;
+
+		case LVT_OrthoFreelook:
 			break;
 	}
 
@@ -201,9 +228,12 @@ TSharedRef<SWidget> SCommonEditorViewportToolbarBase::GenerateCameraMenu() const
 
 	CameraMenuBuilder.BeginSection("LevelViewportCameraType_Ortho", LOCTEXT("CameraTypeHeader_Ortho", "Othographic") );
 		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Top);
-		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Side);
+		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Bottom);
+		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Left);
+		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Right);
 		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Front);
-	CameraMenuBuilder.EndSection();
+		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Back);
+		CameraMenuBuilder.EndSection();
 
 	return CameraMenuBuilder.MakeWidget();
 }

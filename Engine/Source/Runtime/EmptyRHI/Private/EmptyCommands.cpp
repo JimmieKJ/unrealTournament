@@ -20,7 +20,7 @@ void FEmptyDynamicRHI::RHIGpuTimeEnd(uint32 Hash, bool bCompute)
 
 void FEmptyDynamicRHI::RHISetStreamSource(uint32 StreamIndex,FVertexBufferRHIParamRef VertexBufferRHI,uint32 Stride,uint32 Offset)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexBuffer,VertexBuffer);
+	FEmptyVertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 }
 
@@ -31,13 +31,13 @@ void FEmptyDynamicRHI::RHISetStreamOutTargets(uint32 NumTargets, const FVertexBu
 
 void FEmptyDynamicRHI::RHISetRasterizerState(FRasterizerStateRHIParamRef NewStateRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(RasterizerState,NewState);
+	FEmptyRasterizerState* NewState = ResourceCast(NewStateRHI);
 
 }
 
 void FEmptyDynamicRHI::RHISetComputeShader(FComputeShaderRHIParamRef ComputeShaderRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(ComputeShader,ComputeShader);
+	FEmptyComputeShader* ComputeShader = ResourceCast(ComputeShaderRHI);
 
 }
 
@@ -48,7 +48,7 @@ void FEmptyDynamicRHI::RHIDispatchComputeShader(uint32 ThreadGroupCountX, uint32
 
 void FEmptyDynamicRHI::RHIDispatchIndirectComputeShader(FVertexBufferRHIParamRef ArgumentBufferRHI, uint32 ArgumentOffset) 
 { 
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexBuffer,ArgumentBuffer);
+	FEmptyVertexBuffer* ArgumentBuffer = ResourceCast(ArgumentBufferRHI);
 
 }
 
@@ -69,20 +69,20 @@ void FEmptyDynamicRHI::RHISetScissorRect(bool bEnable,uint32 MinX,uint32 MinY,ui
 
 void FEmptyDynamicRHI::RHISetBoundShaderState( FBoundShaderStateRHIParamRef BoundShaderStateRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(BoundShaderState,BoundShaderState);
+	FEmptyBoundShaderState* BoundShaderState = ResourceCast(BoundShaderStateRHI);
 
 }
 
 
 void FEmptyDynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShaderRHI, uint32 UAVIndex, FUnorderedAccessViewRHIParamRef UAVRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(UnorderedAccessView, UAV);
+	FEmptyUnorderedAccessView* UAV = ResourceCast(UAVRHI);
 
 }
 
 void FEmptyDynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShaderRHI,uint32 UAVIndex,FUnorderedAccessViewRHIParamRef UAVRHI, uint32 InitialCount)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(UnorderedAccessView, UAV);
+	FEmptyUnorderedAccessView* UAV = ResourceCast(UAVRHI);
 
 }
 
@@ -151,38 +151,38 @@ void FEmptyDynamicRHI::RHISetShaderResourceViewParameter(FComputeShaderRHIParamR
 
 void FEmptyDynamicRHI::RHISetShaderSampler(FVertexShaderRHIParamRef VertexShaderRHI, uint32 SamplerIndex, FSamplerStateRHIParamRef NewStateRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(SamplerState,NewState);
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexShader,VertexShader);
+	FEmptySamplerState* NewState = ResourceCast(NewStateRHI);
+	FEmptyVertexShader* VertexShader = ResourceCast(VertexShaderRHI);
 
 }
 
 void FEmptyDynamicRHI::RHISetShaderSampler(FHullShaderRHIParamRef HullShader, uint32 SamplerIndex, FSamplerStateRHIParamRef NewStateRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(SamplerState,NewState);
+	FEmptySamplerState* NewState = ResourceCast(NewStateRHI);
 
 }
 
 void FEmptyDynamicRHI::RHISetShaderSampler(FDomainShaderRHIParamRef DomainShader, uint32 SamplerIndex, FSamplerStateRHIParamRef NewStateRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(SamplerState,NewState);
+	FEmptySamplerState* NewState = ResourceCast(NewStateRHI);
 
 }
 
 void FEmptyDynamicRHI::RHISetShaderSampler(FGeometryShaderRHIParamRef GeometryShader, uint32 SamplerIndex, FSamplerStateRHIParamRef NewStateRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(SamplerState,NewState);
+	FEmptySamplerState* NewState = ResourceCast(NewStateRHI);
 
 }
 
 void FEmptyDynamicRHI::RHISetShaderSampler(FPixelShaderRHIParamRef PixelShader, uint32 SamplerIndex, FSamplerStateRHIParamRef NewStateRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(SamplerState,NewState);
+	FEmptySamplerState* NewState = ResourceCast(NewStateRHI);
 
 }
 
 void FEmptyDynamicRHI::RHISetShaderSampler(FComputeShaderRHIParamRef ComputeShader, uint32 SamplerIndex, FSamplerStateRHIParamRef NewStateRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(SamplerState,NewState);
+	FEmptySamplerState* NewState = ResourceCast(NewStateRHI);
 
 }
 
@@ -219,46 +219,46 @@ void FEmptyDynamicRHI::RHISetShaderParameter(FComputeShaderRHIParamRef ComputeSh
 
 void FEmptyDynamicRHI::RHISetShaderUniformBuffer(FVertexShaderRHIParamRef VertexShaderRHI, uint32 BufferIndex, FUniformBufferRHIParamRef BufferRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(UniformBuffer,Buffer);
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexShader,VertexShader);
+	FEmptyUniformBuffer* Buffer = ResourceCast(BufferRHI);
+	FEmptyVertexShader* VertexShader = ResourceCast(VertexShaderRHI);
 
 }
 
 void FEmptyDynamicRHI::RHISetShaderUniformBuffer(FHullShaderRHIParamRef HullShader, uint32 BufferIndex, FUniformBufferRHIParamRef BufferRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(UniformBuffer,Buffer);
+	FEmptyUniformBuffer* Buffer = ResourceCast(BufferRHI);
 }
 
 void FEmptyDynamicRHI::RHISetShaderUniformBuffer(FDomainShaderRHIParamRef DomainShader, uint32 BufferIndex, FUniformBufferRHIParamRef BufferRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(UniformBuffer,Buffer);
+	FEmptyUniformBuffer* Buffer = ResourceCast(BufferRHI);
 }
 
 void FEmptyDynamicRHI::RHISetShaderUniformBuffer(FGeometryShaderRHIParamRef GeometryShader, uint32 BufferIndex, FUniformBufferRHIParamRef BufferRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(UniformBuffer,Buffer);
+	FEmptyUniformBuffer* Buffer = ResourceCast(BufferRHI);
 }
 
 void FEmptyDynamicRHI::RHISetShaderUniformBuffer(FPixelShaderRHIParamRef PixelShader, uint32 BufferIndex, FUniformBufferRHIParamRef BufferRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(UniformBuffer,Buffer);
+	FEmptyUniformBuffer* Buffer = ResourceCast(BufferRHI);
 }
 
 void FEmptyDynamicRHI::RHISetShaderUniformBuffer(FComputeShaderRHIParamRef ComputeShader, uint32 BufferIndex, FUniformBufferRHIParamRef BufferRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(UniformBuffer,Buffer);
+	FEmptyUniformBuffer* Buffer = ResourceCast(BufferRHI);
 }
 
 
 void FEmptyDynamicRHI::RHISetDepthStencilState(FDepthStencilStateRHIParamRef NewStateRHI, uint32 StencilRef)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(DepthStencilState,NewState);
+	FEmptyDepthStencilState* NewState = ResourceCast(NewStateRHI);
 
 }
 
 void FEmptyDynamicRHI::RHISetBlendState(FBlendStateRHIParamRef NewStateRHI, const FLinearColor& BlendFactor)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(BlendState,NewState);
+	FEmptyBlendState* NewState = ResourceCast(NewStateRHI);
 
 }
 
@@ -280,14 +280,14 @@ void FEmptyDynamicRHI::RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInf
 // Occlusion/Timer queries.
 void FEmptyDynamicRHI::RHIBeginRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(RenderQuery,Query);
+	FEmptyRenderQuery* Query = ResourceCast(QueryRHI);
 
 	Query->Begin();
 }
 
 void FEmptyDynamicRHI::RHIEndRenderQuery(FRenderQueryRHIParamRef QueryRHI)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(RenderQuery,Query);
+	FEmptyRenderQuery* Query = ResourceCast(QueryRHI);
 
 	Query->End();
 }
@@ -299,7 +299,7 @@ void FEmptyDynamicRHI::RHIDrawPrimitive(uint32 PrimitiveType, uint32 BaseVertexI
 
 void FEmptyDynamicRHI::RHIDrawPrimitiveIndirect(uint32 PrimitiveType, FVertexBufferRHIParamRef ArgumentBufferRHI, uint32 ArgumentOffset)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexBuffer,ArgumentBuffer);
+	FEmptyVertexBuffer* ArgumentBuffer = ResourceCast(ArgumentBufferRHI);
 
 }
 
@@ -307,21 +307,21 @@ void FEmptyDynamicRHI::RHIDrawPrimitiveIndirect(uint32 PrimitiveType, FVertexBuf
 void FEmptyDynamicRHI::RHIDrawIndexedPrimitive(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType, int32 BaseVertexIndex, uint32 FirstInstance,
 	uint32 NumVertices, uint32 StartIndex, uint32 NumPrimitives, uint32 NumInstances)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(IndexBuffer,IndexBuffer);
+	FEmptyIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
 
 }
 
 void FEmptyDynamicRHI::RHIDrawIndexedIndirect(FIndexBufferRHIParamRef IndexBufferRHI, uint32 PrimitiveType, FStructuredBufferRHIParamRef ArgumentsBufferRHI, int32 DrawArgumentsIndex, uint32 NumInstances)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(IndexBuffer,IndexBuffer);
-	DYNAMIC_CAST_EMPTYRESOURCE(StructuredBuffer,ArgumentsBuffer);
+	FEmptyIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
+	FEmptyStructuredBuffer* ArgumentsBuffer = ResourceCast(ArgumentsBufferRHI);
 
 }
 
 void FEmptyDynamicRHI::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,FIndexBufferRHIParamRef IndexBufferRHI,FVertexBufferRHIParamRef ArgumentBufferRHI,uint32 ArgumentOffset)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(IndexBuffer,IndexBuffer);
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexBuffer,ArgumentBuffer);
+	FEmptyIndexBuffer* IndexBuffer = ResourceCast(IndexBufferRHI);
+	FEmptyVertexBuffer* ArgumentBuffer = ResourceCast(ArgumentBufferRHI);
 
 }
 

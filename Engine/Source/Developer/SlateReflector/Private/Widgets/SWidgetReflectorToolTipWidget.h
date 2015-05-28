@@ -95,36 +95,39 @@ public:
 
 private:
 
-	FString GetWidgetsDesiredSize() const
+	FText GetWidgetsDesiredSize() const
 	{
 		TSharedPtr<SWidget> TheWidget = WidgetInfo.Get()->Widget.Pin();
 
 		return TheWidget.IsValid()
-			? TheWidget->GetDesiredSize().ToString()
-			: FString();
+			? FText::FromString(TheWidget->GetDesiredSize().ToString())
+			: FText::GetEmpty();
 	}
 
-	FString GetWidgetActualSize() const
+	FText GetWidgetActualSize() const
 	{
-		return WidgetInfo.Get()->Geometry.Size.ToString();
+		return FText::FromString(WidgetInfo.Get()->Geometry.Size.ToString());
 	}
 
-	FString GetSizeInfo() const
-	{
-		TSharedPtr<SWidget> TheWidget = WidgetInfo.Get()->Widget.Pin();
-
-		return TheWidget.IsValid()
-			? WidgetInfo.Get()->Geometry.ToString()
-			: FString();
-	}
-
-	FString GetEnabled() const
+	FText GetSizeInfo() const
 	{
 		TSharedPtr<SWidget> TheWidget = WidgetInfo.Get()->Widget.Pin();
 
 		return TheWidget.IsValid()
-			? (TheWidget->IsEnabled() ? "True" : "False")
-			: FString();
+			? FText::FromString(WidgetInfo.Get()->Geometry.ToString())
+			: FText::GetEmpty();
+	}
+
+	FText GetEnabled() const
+	{
+		static const FText TrueText = LOCTEXT("True", "True");
+		static const FText FalseText = LOCTEXT("False", "False");
+
+		TSharedPtr<SWidget> TheWidget = WidgetInfo.Get()->Widget.Pin();
+
+		return TheWidget.IsValid()
+			? (TheWidget->IsEnabled() ? TrueText : FalseText)
+			: FText::GetEmpty();
 	}
 
 private:

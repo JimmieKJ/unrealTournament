@@ -25,6 +25,9 @@ FString FAndroidMisc::OSLanguage; // language code the device is set to eg "deu"
 // Build/API level we are running.
 int32 FAndroidMisc::AndroidBuildVersion = 0;
 
+// Whether or not the system handles the volume buttons (event will still be generated either way)
+bool FAndroidMisc::VolumeButtonsHandledBySystem = true;
+
 GenericApplication* FAndroidMisc::CreateApplication()
 {
 	return FAndroidApplication::CreateAndroidApplication();
@@ -258,7 +261,7 @@ bool FAndroidMisc::AllowRenderThread()
 	// tested with lg optimus 2x and motorola xoom 
 	// come back and revisit this later 
 	// https://code.google.com/p/android/issues/detail?id=32636
-	if (FAndroidMisc::GetGPUFamily() == FString(TEXT("NVIDIA Tegra")) && FPlatformMisc::NumberOfCores() <= 2)
+	if (FAndroidMisc::GetGPUFamily() == FString(TEXT("NVIDIA Tegra")) && FPlatformMisc::NumberOfCores() <= 2 && FAndroidMisc::GetGLVersion().StartsWith(TEXT("OpenGL ES 2.")))
 	{
 		return false;
 	}
@@ -706,6 +709,9 @@ uint32 FAndroidMisc::GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxM
 		//ADDKEYMAP( VK_RWIN, TEXT("RightCommand") );
 
 		ADDKEYMAP(AKEYCODE_BACK, TEXT("Android_Back"));
+		ADDKEYMAP(AKEYCODE_VOLUME_UP, TEXT("Android_Volume_Up"));
+		ADDKEYMAP(AKEYCODE_VOLUME_DOWN, TEXT("Android_Volume_Down"));
+		ADDKEYMAP(AKEYCODE_MENU, TEXT("Android_Menu"));
 
 	}
 
@@ -713,6 +719,17 @@ uint32 FAndroidMisc::GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxM
 	return NumMappings;
 #undef ADDKEYMAP
 }
+
+bool FAndroidMisc::GetVolumeButtonsHandledBySystem()
+{
+	return VolumeButtonsHandledBySystem;
+}
+
+void FAndroidMisc::SetVolumeButtonsHandledBySystem(bool enabled)
+{
+	VolumeButtonsHandledBySystem = enabled;
+}
+
 
 int32 FAndroidMisc::GetAndroidBuildVersion()
 {

@@ -6,6 +6,7 @@
 
 #include "SlateBasics.h"
 #include "PreviewScene.h"
+#include "SEditorViewport.h"
 
 class UAnimSet;
 
@@ -251,30 +252,27 @@ private:
 
 
 //////////////////////////
-class SBasePoseViewport: public SCompoundWidget
+class SBasePoseViewport: public /*SCompoundWidget*/SEditorViewport
 {
 public:
 	SLATE_BEGIN_ARGS(SBasePoseViewport)
 	{}
 
-	SLATE_ARGUMENT(FString, Title)
 	SLATE_ARGUMENT(USkeleton*, Skeleton)
 SLATE_END_ARGS()
 
 public:
 	SBasePoseViewport();
-	virtual ~SBasePoseViewport();
 
 	void Construct(const FArguments& InArgs);
 	void SetSkeleton(USkeleton* Skeleton);
+
+protected:
+	/** SEditorViewport interface */
+	virtual TSharedRef<FEditorViewportClient> MakeEditorViewportClient() override;
+	virtual TSharedPtr<SWidget> MakeViewportToolbar() override;
+
 private:
-	TSharedPtr<FEditorViewportClient> LevelViewportClient;
-
-	/** Slate viewport for rendering and I/O */
-	TSharedPtr<SViewport> ViewportWidget;
-
-	TSharedPtr<class FSceneViewport> SceneViewport;
-
 	/** Skeleton */
 	USkeleton* TargetSkeleton;
 
@@ -282,9 +280,7 @@ private:
 
 	class UDebugSkelMeshComponent* PreviewComponent;
 
-	bool IsVisible() const;
-
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	bool IsVisible() const override;
 };
 
 /////////////////////////////////////////////

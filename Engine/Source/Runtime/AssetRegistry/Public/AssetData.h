@@ -147,7 +147,7 @@ public:
 		if (!FoundClass)
 		{
 			// Look for class redirectors
-			FName NewPath = ULinkerLoad::FindNewNameForClass(AssetClass, false);
+			FName NewPath = FLinkerLoad::FindNewNameForClass(AssetClass, false);
 
 			if (NewPath != NAME_None)
 			{
@@ -270,7 +270,31 @@ public:
 		Ar << AssetData.PackageName;
 		Ar << AssetData.AssetName;
 
-		Ar << AssetData.TagsAndValues;
+		static FName BlueprintClassName = TEXT("Blueprint");
+		if (Ar.IsFilterEditorOnly() && AssetData.AssetClass == BlueprintClassName)
+		{
+			// Exclude FiB data from serialization
+			static FName FiBName = TEXT("FiB");
+			if (Ar.IsSaving())
+			{
+				TMap<FName, FString> LocalTagsAndValues = AssetData.TagsAndValues;
+				LocalTagsAndValues.Remove(FiBName);
+				Ar << LocalTagsAndValues;
+			}
+			else if (Ar.IsLoading())
+			{
+				Ar << AssetData.TagsAndValues;
+				AssetData.TagsAndValues.Remove(FiBName);
+			}
+			else
+			{
+				Ar << AssetData.TagsAndValues;
+			}
+		}
+		else
+		{
+			Ar << AssetData.TagsAndValues;
+		}
 
 		if (Ar.UE4Ver() >= VER_UE4_CHANGED_CHUNKID_TO_BE_AN_ARRAY_OF_CHUNKIDS)
 		{

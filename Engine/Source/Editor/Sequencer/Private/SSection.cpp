@@ -179,7 +179,7 @@ void SSection::CreateDragOperation( const FGeometry& MyGeometry, const FPointerE
 
 	if( bKeysUnderMouse )
 	{
-		DragOperation = MakeShareable( new FMoveKeys( GetSequencer().GetSelectedKeys(), PressedKey ) );
+		DragOperation = MakeShareable( new FMoveKeys( GetSequencer(), GetSequencer().GetSelection()->GetSelectedKeys(), PressedKey ) );
 	}
 	else
 	{
@@ -188,17 +188,17 @@ void SSection::CreateDragOperation( const FGeometry& MyGeometry, const FPointerE
 		if( bLeftEdgePressed || bLeftEdgeHovered )
 		{
 			// Selected the start of a section
-			DragOperation = MakeShareable( new FResizeSection( *SectionObject, false ) );
+			DragOperation = MakeShareable( new FResizeSection( GetSequencer(), *SectionObject, false ) );
 		}
 		else if( bRightEdgePressed || bRightEdgeHovered )
 		{
 			// Selected the end of a section
-			DragOperation = MakeShareable( new FResizeSection( *SectionObject, true ) );
+			DragOperation = MakeShareable( new FResizeSection( GetSequencer(), *SectionObject, true ) );
 		}
 		else
 		{
 			// Entire selection moved
-			DragOperation = MakeShareable( new FMoveSection( *SectionObject ) );
+			DragOperation = MakeShareable( new FMoveSection( GetSequencer(), *SectionObject ) );
 		}
 	}
 	
@@ -258,7 +258,7 @@ void SSection::PaintKeys( const FGeometry& AllottedGeometry, const FSlateRect& M
 {
 	UMovieSceneSection& SectionObject = *SectionInterface->GetSectionObject();
 
-	const FSequencer& Sequencer = ParentSectionArea->GetSequencer();
+	FSequencer& Sequencer = ParentSectionArea->GetSequencer();
 
 	static const FName BackgroundBrushName("Sequencer.SectionArea.Background");
 	static const FName KeyBrushName("Sequencer.Key");
@@ -268,10 +268,13 @@ void SSection::PaintKeys( const FGeometry& AllottedGeometry, const FSlateRect& M
 	const FSlateBrush* KeyBrush = FEditorStyle::GetBrush(KeyBrushName);
 
 	static const FName SelectionColorName("SelectionColor");
+	static const FName SelectionInactiveColorName("SelectionColorInactive");
 	static const FName SelectionColorPressedName("SelectionColor_Pressed");
 
 	const FLinearColor PressedKeyColor = FEditorStyle::GetSlateColor(SelectionColorPressedName).GetColor( InWidgetStyle );
 	const FLinearColor SelectedKeyColor = FEditorStyle::GetSlateColor(SelectionColorName).GetColor( InWidgetStyle );
+	const FLinearColor SelectedInactiveColor = FEditorStyle::GetSlateColor(SelectionInactiveColorName).GetColor( InWidgetStyle )
+		* FLinearColor(.25, .25, .25, 1);  // Make the color a little darker since it's not very visible next to white keyframes.
 
 	// @todo Sequencer temp color, make hovered brighter than selected.
 	FLinearColor HoveredKeyColor = SelectedKeyColor * FLinearColor(1.5,1.5,1.5,1.0f);
@@ -318,7 +321,8 @@ void SSection::PaintKeys( const FGeometry& AllottedGeometry, const FSlateRect& M
 
 				FSelectedKey TestKey( SectionObject, KeyArea, KeyHandle );
 
-				bool bSelected = Sequencer.IsKeySelected( TestKey );
+				bool bSelected = Sequencer.GetSelection()->IsSelected( TestKey );
+				bool bActive = Sequencer.GetSelection()->GetActiveSelection() == FSequencerSelection::EActiveSelection::KeyAndSection;
 
 				if( TestKey == PressedKey )
 				{
@@ -330,7 +334,14 @@ void SSection::PaintKeys( const FGeometry& AllottedGeometry, const FSlateRect& M
 				}
 				else if( bSelected )
 				{
-					KeyColor = SelectedKeyColor;
+					if (bActive)
+					{
+						KeyColor = SelectedKeyColor;
+					}
+					else
+					{
+						KeyColor = SelectedInactiveColor;
+					}
 				}
 
 				// Draw the key
@@ -339,7 +350,7 @@ void SSection::PaintKeys( const FGeometry& AllottedGeometry, const FSlateRect& M
 					// always draw selected keys on top of other keys
 					bSelected ? KeyLayer+1 : KeyLayer,
 					// Center the key along Y.  Ensure the middle of the key is at the actual key time
-					KeyAreaGeometry.ToPaintGeometry( FVector2D( KeyPosition - FMath::TruncToFloat(SequencerSectionConstants::KeySize.X/2.0f), ((KeyAreaGeometry.Size.Y*.5f)-(SequencerSectionConstants::KeySize.Y*.5f)) ), SequencerSectionConstants::KeySize ),
+					KeyAreaGeometry.ToPaintGeometry( FVector2D( KeyPosition - FMath::CeilToFloat(SequencerSectionConstants::KeySize.X/2.0f), ((KeyAreaGeometry.Size.Y*.5f)-(SequencerSectionConstants::KeySize.Y*.5f)) ), SequencerSectionConstants::KeySize ),
 					KeyBrush,
 					MyClippingRect,
 					ESlateDrawEffect::None,
@@ -354,11 +365,15 @@ void SSection::DrawSectionBorders( const FGeometry& AllottedGeometry, const FSla
 {
 	UMovieSceneSection* SectionObject = SectionInterface->GetSectionObject();
 
-	const bool bSelected = ParentSectionArea->GetSequencer().IsSectionSelected(SectionObject);
+	FSequencerSelection* Selection = ParentSectionArea->GetSequencer().GetSelection();
+	const bool bSelected = Selection->IsSelected(SectionObject);
+	const bool bActive = Selection->GetActiveSelection() == FSequencerSelection::EActiveSelection::KeyAndSection;
 
 	static const FName SelectionColorName("SelectionColor");
+	static const FName SelectionInactiveColorName("SelectionColorInactive");
 
 	FLinearColor SelectionColor = FEditorStyle::GetSlateColor(SelectionColorName).GetColor(FWidgetStyle());
+	FLinearColor SelectionInactiveColor = FEditorStyle::GetSlateColor(SelectionInactiveColorName).GetColor(FWidgetStyle());
 	FLinearColor TransparentSelectionColor = SelectionColor;
 
 	static const FName SectionGripLeftName("Sequencer.SectionGripLeft");
@@ -401,7 +416,7 @@ void SSection::DrawSectionBorders( const FGeometry& AllottedGeometry, const FSla
 			FEditorStyle::GetBrush(PlainBorder),
 			MyClippingRect,
 			ESlateDrawEffect::None,
-			SelectionColor
+			bActive ? SelectionColor : SelectionInactiveColor
 			);
 	}
 
@@ -601,7 +616,7 @@ FReply SSection::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& 
 					if( PressedKey.IsValid() )
 					{
 						// Clear selected sections when beginning to drag keys
-						GetSequencer().ClearSectionSelection();
+						GetSequencer().GetSelection()->EmptySelectedSections();
 
 						bool bSelectDueToDrag = true;
 						HandleKeySelection( PressedKey, MouseEvent, bSelectDueToDrag );
@@ -612,7 +627,7 @@ FReply SSection::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& 
 					else
 					{
 						// Clear selected keys when beginning to drag a section
-						GetSequencer().ClearKeySelection();
+						GetSequencer().GetSelection()->EmptySelectedKeys();
 
 						HandleSectionSelection( MouseEvent );
 
@@ -706,13 +721,13 @@ void SSection::HandleKeySelection( const FSelectedKey& Key, const FPointerEvent&
 	{
 		// Clear previous key selection if:
 		// we are selecting due to drag and the key being dragged is not selected or control is not down
-		bool bShouldClearSelectionDueToDrag =  bSelectDueToDrag ? !GetSequencer().IsKeySelected( Key ) : true;
+		bool bShouldClearSelectionDueToDrag =  bSelectDueToDrag ? !GetSequencer().GetSelection()->IsSelected( Key ) : true;
 		
 		if( !MouseEvent.IsControlDown() && bShouldClearSelectionDueToDrag )
 		{
-			GetSequencer().ClearKeySelection();
+			GetSequencer().GetSelection()->EmptySelectedKeys();
 		}
-		GetSequencer().SelectKey( Key );
+		GetSequencer().GetSelection()->AddToSelection( Key );
 	}
 }
 
@@ -720,11 +735,11 @@ void SSection::HandleSectionSelection( const FPointerEvent& MouseEvent )
 {
 	if( !MouseEvent.IsControlDown() )
 	{
-		GetSequencer().ClearSectionSelection();
+		GetSequencer().GetSelection()->EmptySelectedSections();
 	}
 
 	// handle selecting sections 
 	UMovieSceneSection* Section = SectionInterface->GetSectionObject();
-	GetSequencer().SelectSection(Section);
+	GetSequencer().GetSelection()->AddToSelection(Section);
 }
 

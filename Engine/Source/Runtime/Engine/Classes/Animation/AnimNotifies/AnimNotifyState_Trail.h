@@ -16,7 +16,7 @@ class UAnimNotifyState_Trail : public UAnimNotifyState
 	UParticleSystem* PSTemplate;
 
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual UParticleSystem* OverridePSTemplate(class USkeletalMeshComponent * MeshComp, class UAnimSequenceBase * Animation) const;
+	UParticleSystem* OverridePSTemplate(class USkeletalMeshComponent * MeshComp, class UAnimSequenceBase * Animation) const;
 
 	/** Name of the first socket defining this trail. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Trail)
@@ -62,14 +62,6 @@ class UAnimNotifyState_Trail : public UAnimNotifyState
 	virtual void NotifyEnd(class USkeletalMeshComponent * MeshComp, class UAnimSequenceBase * Animation) override;
 
 	bool ValidateInput(class USkeletalMeshComponent * MeshComp, bool bReportErrors = false);
-
-	/**
-	 *	Called by the AnimSet viewer when the 'parent' FAnimNotifyEvent is edited.
-	 *
-	 *	@param	AnimSeq			The animation sequence this notify is associated with.
-	 *	@param	OwnerEvent		The event that 'owns' this AnimNotify.
-	 */
-	virtual void AnimNotifyEventChanged(class USkeletalMeshComponent* MeshComp, class UAnimSequenceBase* Animation, FAnimNotifyEvent * OwnerEvent) override;
 };
 
 

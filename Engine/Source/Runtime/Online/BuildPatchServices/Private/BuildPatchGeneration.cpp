@@ -888,8 +888,8 @@ const uint32 FBuildGenerationChunkCache::FChunkReader::BytesLeft()
 
 /* FBuildGenerationChunkCache implementation
 *****************************************************************************/
-FBuildGenerationChunkCache::FBuildGenerationChunkCache(const FDateTime& DataAgeThreshold)
-	: DataAgeThreshold(DataAgeThreshold)
+FBuildGenerationChunkCache::FBuildGenerationChunkCache(const FDateTime& InDataAgeThreshold)
+	: DataAgeThreshold(InDataAgeThreshold)
 {
 }
 
@@ -904,12 +904,12 @@ TSharedRef< FBuildGenerationChunkCache::FChunkReader > FBuildGenerationChunkCach
 			double OldestAccessTime = FPlatformTime::Seconds();
 			for( auto ChunkCacheIt = ChunkCache.CreateConstIterator(); ChunkCacheIt; ++ChunkCacheIt )
 			{
-				const FString& ChunkFilePath = ChunkCacheIt.Key();
+				const FString& ChunkCacheFilePath = ChunkCacheIt.Key();
 				const FChunkFile& ChunkFile = ChunkCacheIt.Value().Get();
 				if( ChunkFile.GetLastAccessTime() < OldestAccessTime )
 				{
 					OldestAccessTime = ChunkFile.GetLastAccessTime();
-					OldestAccessChunk = ChunkFilePath;
+					OldestAccessChunk = ChunkCacheFilePath;
 				}
 			}
 			ChunkCache.Remove( OldestAccessChunk );
@@ -989,7 +989,7 @@ static void AddCustomFieldsToBuildManifest(const TMap<FString, FVariant>& Custom
 	}
 }
 
-static void AddFileAttributesToBuildManifest(const FString& AttributesList, FBuildPatchAppManifestRef BuildManifest, TMap<FString, FFileAttributes>& FileAttributesMap)
+static void FileAttributesMetaToMap(const FString& AttributesList, TMap<FString, FFileAttributes>& FileAttributesMap)
 {
 	GLog->Logf(TEXT("Parsing file attributes list:-"));
 	checkf(AttributesList.Len() > 0, TEXT("Attributes File List was empty file"));
@@ -1064,7 +1064,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory( const FBuildPatch
 	// Setup custom fields
 	AddCustomFieldsToBuildManifest(Settings.CustomFields, BuildManifest);
 
-	// Setup File Attributes
+	// Get the file attributes
 	FString AttributesList;
 	TMap<FString, FFileAttributes> FileAttributesMap;
 	if (Settings.AttributeListFile.Len() > 0)
@@ -1072,7 +1072,7 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory( const FBuildPatch
 		FFileHelper::LoadFileToString(AttributesList, *Settings.AttributeListFile);
 		if (!AttributesList.IsEmpty())
 		{
-			AddFileAttributesToBuildManifest(AttributesList, BuildManifest, FileAttributesMap);
+			FileAttributesMetaToMap(AttributesList, FileAttributesMap);
 		}
 		else
 		{
@@ -1268,17 +1268,12 @@ bool FBuildDataGenerator::GenerateChunksManifestFromDirectory( const FBuildPatch
 	}
 
 	// Save manifest into the cloud directory
-	FString BaseFilename = FBuildPatchServicesModule::GetCloudDirectory() / FDefaultValueHelper::RemoveWhitespaces(BuildManifest->Data->AppName + BuildManifest->Data->BuildVersion);
-	FString JsonFilename = BaseFilename + TEXT(".manifest");
-	FString BinaryFilename = BaseFilename + TEXT(".binary.manifest");
+	FString JsonFilename = FBuildPatchServicesModule::GetCloudDirectory() / FDefaultValueHelper::RemoveWhitespaces(BuildManifest->Data->AppName + BuildManifest->Data->BuildVersion) + TEXT(".manifest");
 	BuildManifest->Data->ManifestFileVersion = EBuildPatchAppManifestVersion::GetLatestJsonVersion();
 	BuildManifest->SaveToFile(JsonFilename, false);
-	BuildManifest->Data->ManifestFileVersion = EBuildPatchAppManifestVersion::GetLatestVersion();
-	BuildManifest->SaveToFile(BinaryFilename, true);
 
 	// Output to log for builder info
 	GLog->Logf(TEXT("Saved manifest to %s"), *JsonFilename);
-	GLog->Logf(TEXT("Saved manifest to %s"), *BinaryFilename);
 
 	// Clean up memory
 	delete[] DataBuffer;
@@ -1303,6 +1298,22 @@ bool FBuildDataGenerator::GenerateFilesManifestFromDirectory( const FBuildPatchS
 
 	// Setup custom fields
 	AddCustomFieldsToBuildManifest(Settings.CustomFields, BuildManifest);
+
+	// Get the file attributes
+	FString AttributesList;
+	TMap<FString, FFileAttributes> FileAttributesMap;
+	if (Settings.AttributeListFile.Len() > 0)
+	{
+		FFileHelper::LoadFileToString(AttributesList, *Settings.AttributeListFile);
+		if (!AttributesList.IsEmpty())
+		{
+			FileAttributesMetaToMap(AttributesList, FileAttributesMap);
+		}
+		else
+		{
+			GLog->Logf(TEXT("WARNING: Attributes list file empty"));
+		}
+	}
 
 	// Reset file inventory
 	ExistingFilesEnumerated = false;
@@ -1377,18 +1388,35 @@ bool FBuildDataGenerator::GenerateFilesManifestFromDirectory( const FBuildPatchS
 	// Fill out lookups
 	BuildManifest->InitLookups();
 
+	// Fill out the file attributes
+	for (const auto& Entry : FileAttributesMap)
+	{
+		const FString& Filename = Entry.Key;
+		const FFileAttributes& Attributes = Entry.Value;
+		if (BuildManifest->FileManifestLookup.Contains(Filename))
+		{
+			FFileManifestData& FileManifest = *BuildManifest->FileManifestLookup[Filename];
+			FileManifest.bIsReadOnly = Attributes.bReadOnly;
+			FileManifest.bIsCompressed = Attributes.bCompressed;
+			// Only overwrite unix exe if true
+			if (Attributes.bUnixExecutable)
+			{
+				FileManifest.bIsUnixExecutable = Attributes.bUnixExecutable;
+			}
+		}
+		else
+		{
+			GLog->Logf(TEXT("File Attributes: File not in build %s"), *Filename);
+		}
+	}
+
 	// Save manifest into the cloud directory
-	FString BaseFilename = FBuildPatchServicesModule::GetCloudDirectory() / FDefaultValueHelper::RemoveWhitespaces(BuildManifest->Data->AppName + BuildManifest->Data->BuildVersion);
-	FString JsonFilename = BaseFilename + TEXT(".manifest");
-	FString BinaryFilename = BaseFilename + TEXT(".binary.manifest");
+	FString JsonFilename = FBuildPatchServicesModule::GetCloudDirectory() / FDefaultValueHelper::RemoveWhitespaces(BuildManifest->Data->AppName + BuildManifest->Data->BuildVersion) + TEXT(".manifest");
 	BuildManifest->Data->ManifestFileVersion = EBuildPatchAppManifestVersion::GetLatestJsonVersion();
 	BuildManifest->SaveToFile(JsonFilename, false);
-	BuildManifest->Data->ManifestFileVersion = EBuildPatchAppManifestVersion::GetLatestVersion();
-	BuildManifest->SaveToFile(BinaryFilename, true);
 
 	// Output to log for builder info
 	GLog->Logf(TEXT("Saved manifest to %s"), *JsonFilename);
-	GLog->Logf(TEXT("Saved manifest to %s"), *BinaryFilename);
 
 	// Clean up memory
 	delete[] FileReadBuffer;
@@ -1446,28 +1474,28 @@ bool FBuildDataGenerator::FindExistingChunkData( const uint64& ChunkHash, const 
 					{
 						TArray<FGuid> ChunksReferenced;
 						BuildManifest->GetDataList(ChunksReferenced);
-						for (const auto& ChunkGuid : ChunksReferenced)
+						for (const auto& ReferencedChunkGuid : ChunksReferenced)
 						{
-							uint64 ChunkHash;
-							if (BuildManifest->GetChunkHash(ChunkGuid, ChunkHash))
+							uint64 ReferencedChunkHash;
+							if (BuildManifest->GetChunkHash(ReferencedChunkGuid, ReferencedChunkHash))
 							{
-								if (ChunkHash != 0)
+								if (ReferencedChunkHash != 0)
 								{
-									TArray< FGuid >& HashChunkList = ExistingChunkHashInventory.FindOrAdd(ChunkHash);
-									if (!HashChunkList.Contains(ChunkGuid))
+									TArray< FGuid >& HashChunkList = ExistingChunkHashInventory.FindOrAdd(ReferencedChunkHash);
+									if (!HashChunkList.Contains(ReferencedChunkGuid))
 									{
 										++NumChunksFound;
-										HashChunkList.Add(ChunkGuid);
+										HashChunkList.Add(ReferencedChunkGuid);
 									}
 								}
 								else
 								{
-									GLog->Logf(TEXT("BuildDataGenerator: WARNING: Ignored an existing chunk %s with a failed hash value of zero to avoid performance problems while chunking"), *ChunkGuid.ToString());
+									GLog->Logf(TEXT("BuildDataGenerator: INFO: Ignored an existing chunk %s with a failed hash value of zero to avoid performance problems while chunking"), *ReferencedChunkGuid.ToString());
 								}
 							}
 							else
 							{
-								GLog->Logf(TEXT("BuildDataGenerator: WARNING: Missing chunk hash for %s in manifest %s"), *ChunkGuid.ToString(), *ManifestFile);
+								GLog->Logf(TEXT("BuildDataGenerator: WARNING: Missing chunk hash for %s in manifest %s"), *ReferencedChunkGuid.ToString(), *ManifestFile);
 							}
 						}
 					}
@@ -1891,8 +1919,8 @@ void FBuildDataGenerator::StripIgnoredFiles( TArray< FString >& AllFiles, const 
 	struct FRemoveMatchingStrings
 	{ 
 		const TSet<FString>& IgnoreList;
-		FRemoveMatchingStrings( const TSet<FString>& IgnoreList )
-			: IgnoreList(IgnoreList) {}
+		FRemoveMatchingStrings( const TSet<FString>& InIgnoreList )
+			: IgnoreList(InIgnoreList) {}
 
 		bool operator()(const FString& RemovalCandidate) const
 		{
@@ -1910,7 +1938,7 @@ void FBuildDataGenerator::StripIgnoredFiles( TArray< FString >& AllFiles, const 
 	FString IgnoreFileList = TEXT( "" );
 	FFileHelper::LoadFileToString( IgnoreFileList, *IgnoreListFile );
 	TArray< FString > IgnoreFiles;
-	IgnoreFileList.ParseIntoArray( &IgnoreFiles, TEXT( "\r\n" ), true );
+	IgnoreFileList.ParseIntoArray( IgnoreFiles, TEXT( "\r\n" ), true );
 
 	// Normalize all paths first
 	for (FString& Filename : AllFiles)
@@ -1925,11 +1953,9 @@ void FBuildDataGenerator::StripIgnoredFiles( TArray< FString >& AllFiles, const 
 			// Strip tab deliminated timestamp if it exists
 			Filename = Filename.Left(TabLocation);
 		}
-
 		Filename = DepotDirectory / Filename;
 		FPaths::NormalizeFilename(Filename);
 	}
-
 
 	// Convert ignore list to set
 	TSet<FString> IgnoreSet(MoveTemp(IgnoreFiles));

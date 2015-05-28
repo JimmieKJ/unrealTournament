@@ -18,7 +18,7 @@ public:
 	float OcclusionMaxDistance;
 	float Contrast;
 
-	FDistanceFieldAOParameters(float InOcclusionMaxDistance = 600.0f, float InContrast = 0)
+	FDistanceFieldAOParameters(float InOcclusionMaxDistance, float InContrast = 0)
 	{
 		Contrast = FMath::Clamp(InContrast, .01f, 2.0f);
 		OcclusionMaxDistance = FMath::Clamp(InOcclusionMaxDistance, 200.0f, 3000.0f);
@@ -47,7 +47,7 @@ public:
 			Irradiance.Initialize(sizeof(FFloat16Color), MaxIrradianceCacheSamples, PF_FloatRGBA, BUF_Static);
 			ScatterDrawParameters.Initialize(sizeof(uint32), 4, PF_R32_UINT, BUF_Static | BUF_DrawIndirect);
 			SavedStartIndex.Initialize(sizeof(uint32), 1, PF_R32_UINT, BUF_Static);
-			TileCoordinate.Initialize(sizeof(uint16)* 2, MaxIrradianceCacheSamples, PF_R16G16_UINT, BUF_Static);
+			TileCoordinate.Initialize(sizeof(uint16) * 2, MaxIrradianceCacheSamples, PF_R16G16_UINT, BUF_Static);
 		}
 	}
 
@@ -61,6 +61,12 @@ public:
 		ScatterDrawParameters.Release();
 		SavedStartIndex.Release();
 		TileCoordinate.Release();
+	}
+
+	size_t GetSizeBytes() const
+	{
+		return PositionAndRadius.NumBytes + OccluderRadius.NumBytes + Normal.NumBytes + BentNormal.NumBytes
+			+ Irradiance.NumBytes + ScatterDrawParameters.NumBytes + SavedStartIndex.NumBytes + TileCoordinate.NumBytes;
 	}
 
 	int32 MaxIrradianceCacheSamples;
@@ -91,6 +97,7 @@ public:
 
 		MinLevel = 100;
 		MaxLevel = 0;
+		bHasIrradiance = false;
 	}
 
 	~FSurfaceCacheResources()
@@ -173,6 +180,20 @@ public:
 		TempResources->ReleaseDynamicRHI();
 	}
 
+	size_t GetSizeBytes() const
+	{
+		size_t TotalSize = 0;
+
+		for (int32 i = MinLevel; i <= MaxLevel; i++)
+		{
+			TotalSize += Level[i]->GetSizeBytes();
+		}
+
+		TotalSize += TempResources->GetSizeBytes();
+
+		return TotalSize;
+	}
+
 	FRWBuffer DispatchParameters;
 
 	FRefinementLevelResources* Level[GAOMaxSupportedLevel + 1];
@@ -181,12 +202,86 @@ public:
 	FRefinementLevelResources* TempResources;
 
 	bool bClearedResources;
+	bool bHasIrradiance;
 
 private:
 
 	int32 MinLevel;
 	int32 MaxLevel;
 };
+
+inline bool DoesPlatformSupportDistanceFieldAO(EShaderPlatform Platform)
+{
+	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4;
+}
+
+template<bool bOneGroupPerRecord>
+class TSetupFinalGatherIndirectArgumentsCS : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(TSetupFinalGatherIndirectArgumentsCS,Global)
+public:
+
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && DoesPlatformSupportDistanceFieldAO(Platform);
+	}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
+		OutEnvironment.SetDefine(TEXT("ONE_GROUP_PER_RECORD"), bOneGroupPerRecord ? TEXT("1") : TEXT("0"));
+
+		// To reduce shader compile time of compute shaders with shared memory, doesn't have an impact on generated code with current compiler (June 2010 DX SDK)
+		OutEnvironment.CompilerFlags.Add(CFLAG_StandardOptimization);
+	}
+
+	TSetupFinalGatherIndirectArgumentsCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{
+		DrawParameters.Bind(Initializer.ParameterMap, TEXT("DrawParameters"));
+		DispatchParameters.Bind(Initializer.ParameterMap, TEXT("DispatchParameters"));
+		SavedStartIndex.Bind(Initializer.ParameterMap, TEXT("SavedStartIndex"));
+	}
+
+	TSetupFinalGatherIndirectArgumentsCS()
+	{
+	}
+
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, int32 DepthLevel)
+	{
+		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
+		FGlobalShader::SetParameters(RHICmdList, ShaderRHI, View);
+
+		const FScene* Scene = (const FScene*)View.Family->Scene;
+		FSurfaceCacheResources& SurfaceCacheResources = *Scene->SurfaceCacheResources;
+
+		SetSRVParameter(RHICmdList, ShaderRHI, DrawParameters, SurfaceCacheResources.Level[DepthLevel]->ScatterDrawParameters.SRV);
+		SetSRVParameter(RHICmdList, ShaderRHI, SavedStartIndex, SurfaceCacheResources.Level[DepthLevel]->SavedStartIndex.SRV);
+
+		DispatchParameters.SetBuffer(RHICmdList, ShaderRHI, SurfaceCacheResources.DispatchParameters);
+	}
+
+	void UnsetParameters(FRHICommandList& RHICmdList)
+	{
+		DispatchParameters.UnsetUAV(RHICmdList, GetComputeShader());
+	}
+
+	virtual bool Serialize(FArchive& Ar) override
+	{		
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << DrawParameters;
+		Ar << SavedStartIndex;
+		Ar << DispatchParameters;
+		return bShaderHasOutdatedParameters;
+	}
+
+private:
+
+	FShaderResourceParameter DrawParameters;
+	FShaderResourceParameter SavedStartIndex;
+	FRWShaderParameter DispatchParameters;
+};
+
 
 /**  */
 class FTileIntersectionResources : public FRenderResource
@@ -212,13 +307,14 @@ public:
 	FRWBuffer TileHeadData;
 	FRWBuffer TileArrayData;
 	FRWBuffer TileArrayNextAllocation;
+
+	size_t GetSizeBytes() const
+	{
+		return TileConeAxisAndCos.NumBytes + TileConeDepthRanges.NumBytes + TileHeadDataUnpacked.NumBytes + TileHeadData.NumBytes + TileArrayData.NumBytes + TileArrayNextAllocation.NumBytes;
+	}
 };
 
-
-/** Generates unit length, stratified and uniformly distributed direction samples in a hemisphere. */
-extern void GenerateStratifiedUniformHemisphereSamples2(int32 NumThetaSteps, int32 NumPhiSteps, FRandomStream& RandomStream, TArray<FVector4>& Samples);
-
-extern void GetSpacedVectors(TArray<TInlineAllocator<9> >& OutVectors);
+extern void GetSpacedVectors(TArray<FVector, TInlineAllocator<9> >& OutVectors);
 
 BEGIN_UNIFORM_BUFFER_STRUCT(FAOSampleData2,)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4,SampleDirections,[NumConeSampleDirections])
@@ -270,3 +366,151 @@ private:
 	FShaderParameter AOMaxViewDistance;
 };
 
+inline float GetMaxAOViewDistance()
+{
+	extern float GAOMaxViewDistance;
+	// Scene depth stored in fp16 alpha, must fade out before it runs out of range
+	// The fade extends past GAOMaxViewDistance a bit
+	return FMath::Min(GAOMaxViewDistance, 65000.0f);
+}
+
+class FMaxSizedRWBuffers : public FRenderResource
+{
+public:
+	FMaxSizedRWBuffers()
+	{
+		MaxSize = 0;
+	}
+
+	virtual void InitDynamicRHI()
+	{
+		check(0);
+	}
+
+	virtual void ReleaseDynamicRHI()
+	{
+		check(0);
+	}
+
+	void AllocateFor(int32 InMaxSize)
+	{
+		bool bReallocate = false;
+
+		if (InMaxSize > MaxSize)
+		{
+			MaxSize = InMaxSize;
+			bReallocate = true;
+		}
+
+		if (!IsInitialized())
+		{
+			InitResource();
+		}
+		else if (bReallocate)
+		{
+			UpdateRHI();
+		}
+	}
+
+	int32 GetMaxSize() const { return MaxSize; }
+
+protected:
+	int32 MaxSize;
+};
+
+// Must match usf
+const int32 RecordConeDataStride = 10;
+// In float4s, must match usf
+const int32 NumVisibilitySteps = 10;
+
+/**  */
+class FTemporaryIrradianceCacheResources : public FMaxSizedRWBuffers
+{
+public:
+
+	virtual void InitDynamicRHI()
+	{
+		if (MaxSize > 0)
+		{
+			ConeVisibility.Initialize(sizeof(float), MaxSize * NumConeSampleDirections, PF_R32_FLOAT, BUF_Static);
+			ConeData.Initialize(sizeof(float), MaxSize * NumConeSampleDirections * RecordConeDataStride, PF_R32_FLOAT, BUF_Static);
+			StepBentNormal.Initialize(sizeof(float) * 4, MaxSize * NumVisibilitySteps, PF_A32B32G32R32F, BUF_Static);
+			SurfelIrradiance.Initialize(sizeof(FFloat16Color), MaxSize, PF_FloatRGBA, BUF_Static);
+			HeightfieldIrradiance.Initialize(sizeof(FFloat16Color), MaxSize, PF_FloatRGBA, BUF_Static);
+		}
+	}
+
+	virtual void ReleaseDynamicRHI()
+	{
+		ConeVisibility.Release();
+		ConeData.Release();
+		StepBentNormal.Release();
+		SurfelIrradiance.Release();
+		HeightfieldIrradiance.Release();
+	}
+
+	size_t GetSizeBytes() const
+	{
+		return ConeVisibility.NumBytes + ConeData.NumBytes + StepBentNormal.NumBytes;
+	}
+
+	FRWBuffer ConeVisibility;
+	FRWBuffer ConeData;
+	FRWBuffer StepBentNormal;
+	FRWBuffer SurfelIrradiance;
+	FRWBuffer HeightfieldIrradiance;
+};
+
+extern FRWBuffer* GDebugBuffer2;
+
+class FTrackGPUProgressCS : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(FTrackGPUProgressCS,Global)
+public:
+
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5) && DoesPlatformSupportDistanceFieldAO(Platform);
+	}
+
+	FTrackGPUProgressCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{
+		DebugBuffer.Bind(Initializer.ParameterMap, TEXT("DebugBuffer"));
+		DebugId.Bind(Initializer.ParameterMap, TEXT("DebugId"));
+	}
+
+	FTrackGPUProgressCS()
+	{
+	}
+
+	void SetParameters(FRHICommandList& RHICmdList, uint32 DebugIdValue)
+	{
+		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
+
+		DebugBuffer.SetBuffer(RHICmdList, ShaderRHI, *GDebugBuffer2);
+		SetShaderValue(RHICmdList, ShaderRHI, DebugId, DebugIdValue);
+	}
+
+	void UnsetParameters(FRHICommandListImmediate& RHICmdList)
+	{
+		DebugBuffer.UnsetUAV(RHICmdList, GetComputeShader());
+	}
+
+	virtual bool Serialize(FArchive& Ar) override
+	{		
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << DebugBuffer;
+		Ar << DebugId;
+		return bShaderHasOutdatedParameters;
+	}
+
+private:
+
+	FRWShaderParameter DebugBuffer;
+	FShaderParameter DebugId;
+};
+
+extern void TrackGPUProgress(FRHICommandListImmediate& RHICmdList, uint32 DebugId);
+
+extern bool ShouldRenderDynamicSkyLight(const FScene* Scene, const FSceneViewFamily& ViewFamily);

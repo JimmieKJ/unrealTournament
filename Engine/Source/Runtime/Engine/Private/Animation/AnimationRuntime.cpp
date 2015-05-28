@@ -17,6 +17,38 @@
 DEFINE_LOG_CATEGORY(LogAnimation);
 DEFINE_LOG_CATEGORY(LogRootMotion);
 
+/////////////////////////////////////////////////////////
+// Templated Transform Blend Functionality
+
+namespace ETransformBlendMode
+{
+	enum Type
+	{
+		Overwrite,
+		Accumulate
+	};
+}
+
+template<int32>
+void BlendTransform(const FTransform& Source, FTransform& Dest, const float BlendWeight)
+{
+	check(false); /// should never call this
+}
+
+template<>
+void BlendTransform<ETransformBlendMode::Overwrite>(const FTransform& Source, FTransform& Dest, const float BlendWeight)
+{
+	const ScalarRegister VBlendWeight(BlendWeight);
+	Dest = Source * VBlendWeight;
+}
+
+template<>
+void BlendTransform<ETransformBlendMode::Accumulate>(const FTransform& Source, FTransform& Dest, const float BlendWeight)
+{
+	const ScalarRegister VBlendWeight(BlendWeight);
+	Dest.AccumulateWithShortestRotation(Source, VBlendWeight);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 void FAnimationRuntime::NormalizeRotations(const FBoneContainer& RequiredBones, /*inout*/ FTransformArrayA2 & Atoms)
@@ -49,6 +81,16 @@ void FAnimationRuntime::InitializeTransform(const FBoneContainer& RequiredBones,
 	}
 }
 
+template <int32 TRANSFORM_BLEND_MODE>
+FORCEINLINE void BlendPose(const FTransformArrayA2& SourcePoses, FTransformArrayA2& ResultAtoms, const TArray<FBoneIndexType> & RequiredBoneIndices, const float BlendWeight)
+{
+	for (int32 i = 0; i < RequiredBoneIndices.Num(); ++i)
+	{
+		const int32 BoneIndex = RequiredBoneIndices[i];
+		BlendTransform<TRANSFORM_BLEND_MODE>(SourcePoses[BoneIndex], ResultAtoms[BoneIndex], BlendWeight);
+	}
+}
+
 /**
  * Blends together a set of poses, each with a given weight.
  * This function is lightweight, it does not cull out nearly zero weights or check to make sure weights sum to 1.0, the caller should take care of that if needed.
@@ -68,32 +110,14 @@ void FAnimationRuntime::BlendPosesTogether(int32 NumPoses, const FTransformArray
 	if (ensure(SourcePoses && ResultAtoms.Num() >= RequiredBoneIndices.Num()))
 	{
 		// debug purpose for now, but this can cause 0 bone transform, so we'd like to catch it 
-		float WeightSum=0.f;
-		for (int32 i = 0; i < NumPoses; ++i)
-		{
-			const ScalarRegister VBlendWeight(SourceWeights[i]);
-			const FTransformArrayA2& SourceAtoms = *SourcePoses[i];
+		float WeightSum = SourceWeights[0];
+		BlendPose<ETransformBlendMode::Overwrite>(*SourcePoses[0], ResultAtoms, RequiredBoneIndices, SourceWeights[0]);
 
+		for (int32 i = 1; i < NumPoses; ++i)
+		{
 			WeightSum += SourceWeights[i];
 
-			if (i == 0)
-			{
-				// First pose will just overwrite the destination
-				for (int32 j = 0; j < RequiredBoneIndices.Num(); ++j)
-				{
-					const int32 BoneIndex = RequiredBoneIndices[j];
-					ResultAtoms[BoneIndex] = SourceAtoms[BoneIndex] * VBlendWeight;
-				}
-			}
-			else
-			{
-				// Subsequent poses need to be blended in
-				for (int32 j = 0; j < RequiredBoneIndices.Num(); ++j)
-				{
-					const int32 BoneIndex = RequiredBoneIndices[j];
-					ResultAtoms[BoneIndex].AccumulateWithShortestRotation(SourceAtoms[BoneIndex], VBlendWeight);
-				}
-			}
+			BlendPose<ETransformBlendMode::Accumulate>(*SourcePoses[i], ResultAtoms, RequiredBoneIndices, SourceWeights[i]);
 		}
 
 		ensure (WeightSum != 0.f);
@@ -121,37 +145,44 @@ void FAnimationRuntime::BlendPosesTogether(int32 NumPoses, const TArray<FTransfo
 {
 	check(NumPoses > 0);
 
-
 	const TArray<FBoneIndexType> & RequiredBoneIndices = RequiredBones.GetBoneIndicesArray();
-	for (int32 i = 0; i < NumPoses; ++i)
-	{
-		const ScalarRegister VBlendWeight(SourceWeights[i]);
-		const FTransformArrayA2& SourceAtoms = SourcePoses[i];
 
-		if (i == 0)
-		{
-			// First pose will just overwrite the destination
-			for (int32 j = 0; j < RequiredBoneIndices.Num(); ++j)
-			{
-				const int32 BoneIndex = RequiredBoneIndices[j];
-				ResultAtoms[BoneIndex] = SourceAtoms[BoneIndex] * VBlendWeight;
-			}
-		}
-		else
-		{
-			// Subsequent poses need to be blended in
-			for (int32 j = 0; j < RequiredBoneIndices.Num(); ++j)
-			{
-				const int32 BoneIndex = RequiredBoneIndices[j];
-				ResultAtoms[BoneIndex].AccumulateWithShortestRotation(SourceAtoms[BoneIndex], VBlendWeight);
-			}
-		}
+	BlendPose<ETransformBlendMode::Overwrite>(SourcePoses[0], ResultAtoms, RequiredBoneIndices, SourceWeights[0]);
+
+	for (int32 i = 1; i < NumPoses; ++i)
+	{
+		BlendPose<ETransformBlendMode::Accumulate>(SourcePoses[i], ResultAtoms, RequiredBoneIndices, SourceWeights[i]);
 	}
 
 	// Ensure that all of the resulting rotations are normalized
 	if( NumPoses > 1 )
 	{
 		FAnimationRuntime::NormalizeRotations(RequiredBones, ResultAtoms);
+	}
+}
+
+template <int32 TRANSFORM_BLEND_MODE>
+void BlendPosePerBone(const TArray<FBoneIndexType> &RequiredBoneIndices, const TArray<int32>& PerBoneIndices, const FBlendSampleData& BlendSampleDataCache, FTransformArrayA2 &ResultAtoms, const FTransformArrayA2& SourceAtoms)
+{
+	const float BlendWeight = BlendSampleDataCache.GetWeight();
+	TArray<float> PerBoneBlends;
+	for (int32 i = 0; i < BlendSampleDataCache.PerBoneBlendData.Num(); ++i)
+	{
+		PerBoneBlends.Add(FMath::Clamp<float>(BlendSampleDataCache.PerBoneBlendData[i], 0.f, 1.f));
+	}
+
+	for (int32 i = 0; i < RequiredBoneIndices.Num(); ++i)
+	{
+		const int32 BoneIndex = RequiredBoneIndices[i];
+		int32 PerBoneIndex = PerBoneIndices[i];
+		if (PerBoneIndex == INDEX_NONE || !BlendSampleDataCache.PerBoneBlendData.IsValidIndex(PerBoneIndex))
+		{
+			BlendTransform<TRANSFORM_BLEND_MODE>(SourceAtoms[BoneIndex], ResultAtoms[BoneIndex], BlendWeight);
+		}
+		else
+		{
+			BlendTransform<TRANSFORM_BLEND_MODE>(SourceAtoms[BoneIndex], ResultAtoms[BoneIndex], PerBoneBlends[PerBoneIndex]);
+		}
 	}
 }
 
@@ -171,59 +202,19 @@ void FAnimationRuntime::BlendPosesTogetherPerBone(int32 NumPoses, const TArray<F
 	check(NumPoses > 0);
 
 	const TArray<FBoneIndexType> & RequiredBoneIndices = RequiredBones.GetBoneIndicesArray();
-	for (int32 i = 0; i < NumPoses; ++i)
+
+	TArray<int32> PerBoneIndices;
+	PerBoneIndices.AddUninitialized(ResultAtoms.Num());
+	for (int BoneIndex = 0; BoneIndex < PerBoneIndices.Num(); ++BoneIndex)
 	{
-		const ScalarRegister VBlendWeight(BlendSampleDataCache[i].GetWeight());
-		TArray<ScalarRegister> PerBoneBlends;
-		for (int32 j=0; j<BlendSampleDataCache[i].PerBoneBlendData.Num(); ++j)
-		{
-			PerBoneBlends.Add(ScalarRegister(FMath::Clamp<float>(BlendSampleDataCache[i].PerBoneBlendData[j], 0.f, 1.f)));
-		}
+		PerBoneIndices[BoneIndex] = BlendSpace->GetPerBoneInterpolationIndex(RequiredBoneIndices[BoneIndex], RequiredBones);
+	}
 
-		const FTransformArrayA2& SourceAtoms = SourcePoses[i];
+	BlendPosePerBone<ETransformBlendMode::Overwrite>(RequiredBoneIndices, PerBoneIndices, BlendSampleDataCache[0], ResultAtoms, SourcePoses[0]);
 
-		if (i == 0)
-		{
-			// First pose will just overwrite the destination
-			for (int32 j = 0; j < RequiredBoneIndices.Num(); ++j)
-			{
-				const int32 BoneIndex = RequiredBoneIndices[j];
-				int32 PerBoneIndex = BlendSpace->GetPerBoneInterpolationIndex(BoneIndex, RequiredBones);
-				if ( PerBoneIndex == INDEX_NONE )
-				{
-					ResultAtoms[BoneIndex] = SourceAtoms[BoneIndex] * VBlendWeight;
-				}
-				else if (!BlendSampleDataCache[i].PerBoneBlendData.IsValidIndex(PerBoneIndex))
-				{
-					ResultAtoms[BoneIndex] = SourceAtoms[BoneIndex] * VBlendWeight;
-				}
-				else
-				{
-					ResultAtoms[BoneIndex] = SourceAtoms[BoneIndex] * PerBoneBlends[PerBoneIndex];
-				}
-			}
-		}
-		else
-		{
-			// Subsequent poses need to be blended in
-			for (int32 j = 0; j < RequiredBoneIndices.Num(); ++j)
-			{
-				const int32 BoneIndex = RequiredBoneIndices[j];
-				int32 PerBoneIndex = BlendSpace->GetPerBoneInterpolationIndex(BoneIndex, RequiredBones);
-				if ( PerBoneIndex == INDEX_NONE )
-				{
-					ResultAtoms[BoneIndex].AccumulateWithShortestRotation(SourceAtoms[BoneIndex], VBlendWeight);
-				}
-				else if (!BlendSampleDataCache[i].PerBoneBlendData.IsValidIndex(PerBoneIndex))
-				{
-					ResultAtoms[BoneIndex].AccumulateWithShortestRotation(SourceAtoms[BoneIndex], VBlendWeight);
-				}
-				else
-				{
-					ResultAtoms[BoneIndex].AccumulateWithShortestRotation(SourceAtoms[BoneIndex], PerBoneBlends[PerBoneIndex]);
-				}
-			}
-		}
+	for (int32 i = 1; i < NumPoses; ++i)
+	{
+		BlendPosePerBone<ETransformBlendMode::Accumulate>(RequiredBoneIndices, PerBoneIndices, BlendSampleDataCache[i], ResultAtoms, SourcePoses[i]);
 	}
 
 	// Ensure that all of the resulting rotations are normalized
@@ -286,14 +277,7 @@ void FAnimationRuntime::BlendPosesTogetherPerBoneInMeshSpace(int32 NumPoses, TAr
  */
 void FAnimationRuntime::BlendPosesAccumulate(const FTransformArrayA2& BlendPoses, const float BlendWeight, const FBoneContainer& RequiredBones, /*inout*/ FTransformArrayA2& ResultAtoms)
 {
-	const ScalarRegister VBlendWeight(BlendWeight);
-	const TArray<FBoneIndexType> & RequiredBoneIndices = RequiredBones.GetBoneIndicesArray();
-	// Subsequent poses need to be blended in
-	for (int32 j = 0; j < RequiredBoneIndices.Num(); ++j)
-	{
-		const int32 BoneIndex = RequiredBoneIndices[j];
-		ResultAtoms[BoneIndex].AccumulateWithShortestRotation(BlendPoses[BoneIndex], VBlendWeight);
-	}
+	BlendPose<ETransformBlendMode::Accumulate>(BlendPoses, ResultAtoms, RequiredBones.GetBoneIndicesArray(), BlendWeight);
 }
 
 void FAnimationRuntime::LerpBoneTransforms(TArray<FTransform> & A, const TArray<FTransform> & B, float Alpha, const TArray<FBoneIndexType> & RequiredBonesArray)
@@ -401,6 +385,8 @@ void FAnimationRuntime::GetPoseFromAnimTrack(
 	TArray<float> SourceWeights;
 	float TotalWeight = 0.f;
 
+	float CurrentTime = FMath::Clamp(ExtractionContext.CurrentTime, 0.f, Track.GetLength());
+
 	// first get all the montage instance weight this slot node has
 	for (int32 I=0; I<Track.AnimSegments.Num(); ++I)
 	{
@@ -408,7 +394,7 @@ void FAnimationRuntime::GetPoseFromAnimTrack(
 
 		float PositionInAnim = 0.f;
 		float Weight = 0.f;
-		UAnimSequenceBase* AnimRef = AnimSegment.GetAnimationData(ExtractionContext.CurrentTime, PositionInAnim, Weight);
+		UAnimSequenceBase* AnimRef = AnimSegment.GetAnimationData(CurrentTime, PositionInAnim, Weight);
 		// make this to be 1 function
 		if( AnimRef && (Weight > ZERO_ANIMWEIGHT_THRESH) )
 		{
@@ -1561,7 +1547,7 @@ void FA2CSPose::LocalBlendCSBoneTransforms
 		BoneMask.AddZeroed( Bones.Num() );
 
 		TArray<struct FBoneTransform> LocalBoneTransforms;
-		LocalBoneTransforms.Init( BoneTransforms.Num() );
+		LocalBoneTransforms.SetNumUninitialized( BoneTransforms.Num() );
 
 		const TArray<FBoneIndexType> & RequiredBoneIndices = BoneContainer->GetBoneIndicesArray();
 		// First, convert BoneTransforms to local space for blending.

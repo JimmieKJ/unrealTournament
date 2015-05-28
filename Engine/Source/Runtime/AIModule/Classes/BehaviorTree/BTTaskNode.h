@@ -54,6 +54,9 @@ class AIMODULE_API UBTTaskNode : public UBTNode
 	/** wrapper for node instancing: TickTask */
 	void WrappedTickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds) const;
 
+	/** wrapper for node instancing: OnTaskFinished */
+	void WrappedOnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) const;
+
 	/** helper function: finish latent executing */
 	void FinishLatentTask(UBehaviorTreeComponent& OwnerComp, EBTNodeResult::Type TaskResult) const;
 
@@ -65,6 +68,9 @@ protected:
 	/** if set, TickTask will be called */
 	uint8 bNotifyTick : 1;
 
+	/** if set, OnTaskFinished will be called */
+	uint8 bNotifyTaskFinished : 1;
+
 	/** ticks this task 
 	 * this function should be considered as const (don't modify state of object) if node is not instanced! */
 	virtual void TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds);
@@ -72,6 +78,10 @@ protected:
 	/** message handler, default implementation will finish latent execution/abortion
 	 * this function should be considered as const (don't modify state of object) if node is not instanced! */
 	virtual void OnMessage(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, FName Message, int32 RequestID, bool bSuccess);
+
+	/** called when task execution is finished
+	 * this function should be considered as const (don't modify state of object) if node is not instanced! */
+	virtual void OnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult);
 
 	/** register message observer */
 	void WaitForMessage(UBehaviorTreeComponent& OwnerComp, FName MessageType) const;
@@ -90,6 +100,8 @@ protected:
 	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")
 	void WrappedTickTask(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, float DeltaSeconds) const;
 	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")
+	void WrappedOnTaskFinished(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) const;
+	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")
 	void FinishLatentTask(UBehaviorTreeComponent* OwnerComp, EBTNodeResult::Type TaskResult) const;
 	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")
 	void FinishLatentAbort(UBehaviorTreeComponent* OwnerComp) const;
@@ -101,6 +113,8 @@ protected:
 	virtual void TickTask(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, float DeltaSeconds);
 	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")
 	virtual void OnMessage(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, FName Message, int32 RequestID, bool bSuccess);
+	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")
+	virtual void OnTaskFinished(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult);
 	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")
 	void WaitForMessage(UBehaviorTreeComponent* OwnerComp, FName MessageType) const;
 	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")

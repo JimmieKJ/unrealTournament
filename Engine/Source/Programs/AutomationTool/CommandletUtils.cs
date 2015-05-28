@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.IO;
-using UnrealBuildTool;
 
 
 namespace AutomationTool
@@ -27,7 +26,7 @@ namespace AutomationTool
 			string MapsToCook = "";
 			if (IsNullOrEmpty(Maps))
 			{
-				MapsToCook = "-MapIniSection=AllMaps";
+				// MapsToCook = "-MapIniSection=AllMaps";
 			}
 			else
 			{
@@ -164,20 +163,59 @@ namespace AutomationTool
 			
 			PushDir(CWD);
 
-			string LogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.LogFolder, Commandlet));
-			Log("Commandlet log file is {0}", LogFile);
-			var RunResult = Run(EditorExe, String.Format("{0} -run={1} {2} -abslog={3} -stdout -FORCELOGFLUSH -CrashForUAT -unattended -AllowStdOutLogVerbosity {4}", 
-                CommandUtils.MakePathSafeToUseWithCommandLine(ProjectName), 
-                Commandlet, 
-				String.IsNullOrEmpty(Parameters) ? "" : Parameters, 
-				CommandUtils.MakePathSafeToUseWithCommandLine(LogFile),
-                IsBuildMachine ? "-buildmachine" : ""
-                ));
+			string LocalLogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.EngineSavedFolder, Commandlet));
+			Log("Commandlet log file is {0}", LocalLogFile);
+			string Args = String.Format(
+				"{0} -run={1} {2} -abslog={3} -stdout -FORCELOGFLUSH -CrashForUAT -unattended -AllowStdOutLogVerbosity {4}",
+				(ProjectName == null) ? "" : CommandUtils.MakePathSafeToUseWithCommandLine(ProjectName),
+				Commandlet,
+				String.IsNullOrEmpty(Parameters) ? "" : Parameters,
+				CommandUtils.MakePathSafeToUseWithCommandLine(LocalLogFile),
+				IsBuildMachine ? "-buildmachine" : ""
+			);
+			ERunOptions Opts = ERunOptions.Default;
+			if (GlobalCommandLine.UTF8Output)
+			{
+				Args += " -UTF8Output";
+				Opts |= ERunOptions.UTF8Output;
+			}
+			var RunResult = Run(EditorExe, Args, Options: Opts);
 			PopDir();
+
+			// Copy the local commandlet log to the destination folder.
+			string DestLogFile = LogUtils.GetUniqueLogName(CombinePaths(CmdEnv.LogFolder, Commandlet));
+			if (!CommandUtils.CopyFile_NoExceptions(LocalLogFile, DestLogFile))
+			{
+				CommandUtils.LogWarning("Commandlet {0} failed to copy the local log file from {1} to {2}. The log file will be lost.", Commandlet, LocalLogFile, DestLogFile);
+			}
+
+			// Whether it was copied correctly or not, delete the local log as it was only a temporary file. 
+			CommandUtils.DeleteFile_NoExceptions(LocalLogFile);
 
 			if (RunResult.ExitCode != 0)
 			{
-				throw new AutomationException("BUILD FAILED: Failed while running {0} for {1}; see log {2}", Commandlet, ProjectName, LogFile);
+				throw new AutomationException("BUILD FAILED: Failed while running {0} for {1}; see log {2}", Commandlet, ProjectName, DestLogFile);
+			}
+		}
+
+		/// <summary>
+		/// Returns the default path of the editor executable to use for running commandlets.
+		/// </summary>
+		/// <param name="BuildRoot">Root directory for the build</param>
+		/// <param name="HostPlatform">Platform to get the executable for</param>
+		/// <returns>Path to the editor executable</returns>
+		public static string GetEditorCommandletExe(string BuildRoot, UnrealBuildTool.UnrealTargetPlatform HostPlatform)
+		{
+			switch(HostPlatform)
+			{
+				case UnrealBuildTool.UnrealTargetPlatform.Mac:
+					return CommandUtils.CombinePaths(BuildRoot, "Engine/Binaries/Mac/UE4Editor.app/Contents/MacOS/UE4Editor");
+				case UnrealBuildTool.UnrealTargetPlatform.Win64:
+					return CommandUtils.CombinePaths(BuildRoot, "Engine/Binaries/Win64/UE4Editor-Cmd.exe");
+				case UnrealBuildTool.UnrealTargetPlatform.Linux:
+					return CommandUtils.CombinePaths(BuildRoot, "Engine/Binaries/Linux/UE4Editor");
+				default:
+					throw new NotImplementedException();
 			}
 		}
 
@@ -201,19 +239,6 @@ namespace AutomationTool
 			else
 			{
 				return String.Empty;
-			}
-		}
-
-		public static string GetEditorExeForCommandlets(string BuildRoot, UnrealTargetPlatform HostPlatform)
-		{
-			switch(HostPlatform)
-			{
-				case UnrealTargetPlatform.Mac:
-					return CommandUtils.CombinePaths(BuildRoot, "Engine/Binaries/Mac/UE4Editor.app/Contents/MacOS/UE4Editor");
-				case UnrealTargetPlatform.Win64:
-					return CommandUtils.CombinePaths(BuildRoot, "Engine/Binaries/Win64/UE4Editor-Cmd.exe");
-				default:
-					throw new NotImplementedException();
 			}
 		}
 

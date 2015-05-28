@@ -28,7 +28,7 @@ struct FAITest_BTBasicSelector : public FAITest_SimpleBT
 		ExpectedResult.Add(2);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTBasicSelector, "Engine.AI.Behavior Trees.Composite node: selector")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTBasicSelector, "System.Engine.AI.Behavior Trees.Composite node: selector")
 
 struct FAITest_BTBasicSequence : public FAITest_SimpleBT
 {
@@ -53,7 +53,7 @@ struct FAITest_BTBasicSequence : public FAITest_SimpleBT
 		ExpectedResult.Add(2);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTBasicSequence, "Engine.AI.Behavior Trees.Composite node: sequence")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTBasicSequence, "System.Engine.AI.Behavior Trees.Composite node: sequence")
 
 struct FAITest_BTBasicParallelWait : public FAITest_SimpleBT
 {
@@ -87,7 +87,7 @@ struct FAITest_BTBasicParallelWait : public FAITest_SimpleBT
 		ExpectedResult.Add(4);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTBasicParallelWait, "Engine.AI.Behavior Trees.Composite node: parallel (wait)")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTBasicParallelWait, "System.Engine.AI.Behavior Trees.Composite node: parallel (wait)")
 
 struct FAITest_BTBasicParallelAbort : public FAITest_SimpleBT
 {
@@ -118,7 +118,7 @@ struct FAITest_BTBasicParallelAbort : public FAITest_SimpleBT
 		ExpectedResult.Add(4);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTBasicParallelAbort, "Engine.AI.Behavior Trees.Composite node: parallel (abort)")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTBasicParallelAbort, "System.Engine.AI.Behavior Trees.Composite node: parallel (abort)")
 
 struct FAITest_BTCompositeDecorator : public FAITest_SimpleBT
 {
@@ -153,7 +153,7 @@ struct FAITest_BTCompositeDecorator : public FAITest_SimpleBT
 		ExpectedResult.Add(2);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTCompositeDecorator, "Engine.AI.Behavior Trees.Composite decorator")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTCompositeDecorator, "System.Engine.AI.Behavior Trees.Composite decorator")
 
 struct FAITest_BTAbortSelfFail : public FAITest_SimpleBT
 {
@@ -179,7 +179,7 @@ struct FAITest_BTAbortSelfFail : public FAITest_SimpleBT
 		ExpectedResult.Add(1);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortSelfFail, "Engine.AI.Behavior Trees.Abort: self failure")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortSelfFail, "System.Engine.AI.Behavior Trees.Abort: self failure")
 
 struct FAITest_BTAbortSelfSuccess : public FAITest_SimpleBT
 {
@@ -207,7 +207,7 @@ struct FAITest_BTAbortSelfSuccess : public FAITest_SimpleBT
 		ExpectedResult.Add(3);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortSelfSuccess, "Engine.AI.Behavior Trees.Abort: self success")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortSelfSuccess, "System.Engine.AI.Behavior Trees.Abort: self success")
 
 struct FAITest_BTAbortLowerPri : public FAITest_SimpleBT
 {
@@ -234,7 +234,7 @@ struct FAITest_BTAbortLowerPri : public FAITest_SimpleBT
 		ExpectedResult.Add(0);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortLowerPri, "Engine.AI.Behavior Trees.Abort: lower priority")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortLowerPri, "System.Engine.AI.Behavior Trees.Abort: lower priority")
 
 struct FAITest_BTAbortMerge1 : public FAITest_SimpleBT
 {
@@ -263,7 +263,7 @@ struct FAITest_BTAbortMerge1 : public FAITest_SimpleBT
 		ExpectedResult.Add(2);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortMerge1, "Engine.AI.Behavior Trees.Abort: merge ranges 1")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortMerge1, "System.Engine.AI.Behavior Trees.Abort: merge ranges 1")
 
 struct FAITest_BTAbortMerge2 : public FAITest_SimpleBT
 {
@@ -293,7 +293,7 @@ struct FAITest_BTAbortMerge2 : public FAITest_SimpleBT
 		ExpectedResult.Add(2);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortMerge2, "Engine.AI.Behavior Trees.Abort: merge ranges 2")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortMerge2, "System.Engine.AI.Behavior Trees.Abort: merge ranges 2")
 
 struct FAITest_BTAbortMerge3 : public FAITest_SimpleBT
 {
@@ -331,7 +331,7 @@ struct FAITest_BTAbortMerge3 : public FAITest_SimpleBT
 		ExpectedResult.Add(2);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortMerge3, "Engine.AI.Behavior Trees.Abort: merge ranges 3")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortMerge3, "System.Engine.AI.Behavior Trees.Abort: merge ranges 3")
 
 struct FAITest_BTAbortParallelInternal : public FAITest_SimpleBT
 {
@@ -371,7 +371,7 @@ struct FAITest_BTAbortParallelInternal : public FAITest_SimpleBT
 		ExpectedResult.Add(4);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortParallelInternal, "Engine.AI.Behavior Trees.Abort: parallel internal")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortParallelInternal, "System.Engine.AI.Behavior Trees.Abort: parallel internal")
 
 struct FAITest_BTAbortParallelOut : public FAITest_SimpleBT
 {
@@ -404,7 +404,7 @@ struct FAITest_BTAbortParallelOut : public FAITest_SimpleBT
 		ExpectedResult.Add(0);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortParallelOut, "Engine.AI.Behavior Trees.Abort: parallel out")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortParallelOut, "System.Engine.AI.Behavior Trees.Abort: parallel out")
 
 struct FAITest_BTAbortParallelOutAndBack : public FAITest_SimpleBT
 {
@@ -439,7 +439,7 @@ struct FAITest_BTAbortParallelOutAndBack : public FAITest_SimpleBT
 		ExpectedResult.Add(4);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortParallelOutAndBack, "Engine.AI.Behavior Trees.Abort: parallel out & back")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortParallelOutAndBack, "System.Engine.AI.Behavior Trees.Abort: parallel out & back")
 
 struct FAITest_BTAbortMultipleDelayed : public FAITest_SimpleBT
 {
@@ -465,7 +465,7 @@ struct FAITest_BTAbortMultipleDelayed : public FAITest_SimpleBT
 		ExpectedResult.Add(4);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortMultipleDelayed, "Engine.AI.Behavior Trees.Abort: multiple delayed requests")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortMultipleDelayed, "System.Engine.AI.Behavior Trees.Abort: multiple delayed requests")
 
 struct FAITest_BTAbortToInactiveParallel : public FAITest_SimpleBT
 {
@@ -504,7 +504,36 @@ struct FAITest_BTAbortToInactiveParallel : public FAITest_SimpleBT
 		ExpectedResult.Add(5);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortToInactiveParallel, "Engine.AI.Behavior Trees.Abort: observer in inactive parallel")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortToInactiveParallel, "System.Engine.AI.Behavior Trees.Abort: observer in inactive parallel")
+
+struct FAITest_BTAbortDuringLatentAbort : public FAITest_SimpleBT
+{
+	FAITest_BTAbortDuringLatentAbort()
+	{
+		UBTCompositeNode& CompNode = FBTBuilder::AddSelector(*BTAsset);
+		{
+			FBTBuilder::AddTaskLatentFlags(CompNode, EBTNodeResult::Succeeded,
+				1, TEXT("Bool1"), 1, 2,
+				1, TEXT("Bool2"), 3, 4);
+			{
+				FBTBuilder::WithDecoratorBlackboard(CompNode, EBasicKeyOperation::NotSet, EBTFlowAbortMode::Self, TEXT("Bool1"));
+			}
+
+			FBTBuilder::AddTask(CompNode, 5, EBTNodeResult::Succeeded);
+			{
+				FBTBuilder::WithDecoratorBlackboard(CompNode, EBasicKeyOperation::Set, EBTFlowAbortMode::LowerPriority, TEXT("Bool2"));
+			}
+
+			FBTBuilder::AddTask(CompNode, 6, EBTNodeResult::Succeeded);
+		}
+
+		ExpectedResult.Add(1);
+		ExpectedResult.Add(3);
+		ExpectedResult.Add(4);
+		ExpectedResult.Add(5);
+	}
+};
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTAbortDuringLatentAbort, "System.Engine.AI.Behavior Trees.Abort: during latent task abort")
 
 struct FAITest_BTSubtreeSimple : public FAITest_SimpleBT
 {
@@ -554,7 +583,7 @@ struct FAITest_BTSubtreeSimple : public FAITest_SimpleBT
 		ExpectedResult.Add(3);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTSubtreeSimple, "Engine.AI.Behavior Trees.Subtree: simple")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTSubtreeSimple, "System.Engine.AI.Behavior Trees.Subtree: simple")
 
 struct FAITest_BTSubtreeAbortOut : public FAITest_SimpleBT
 {
@@ -584,6 +613,6 @@ struct FAITest_BTSubtreeAbortOut : public FAITest_SimpleBT
 		ExpectedResult.Add(0);
 	}
 };
-IMPLEMENT_AI_LATENT_TEST(FAITest_BTSubtreeAbortOut, "Engine.AI.Behavior Trees.Subtree: abort out")
+IMPLEMENT_AI_LATENT_TEST(FAITest_BTSubtreeAbortOut, "System.Engine.AI.Behavior Trees.Subtree: abort out")
 
 #undef LOCTEXT_NAMESPACE

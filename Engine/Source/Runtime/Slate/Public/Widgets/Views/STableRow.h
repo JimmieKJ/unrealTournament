@@ -223,7 +223,7 @@ public:
 				DropIndicatorBrush,
 				MyClippingRect,
 				ESlateDrawEffect::None,
-				Style->SelectorFocusedBrush.GetTint(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint()
+				DropIndicatorBrush->GetTint(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint()
 			);
 		}
 
@@ -237,7 +237,7 @@ public:
 	 * @param  InMouseEvent  Mouse button event.
 	 * @return  Returns whether the event was handled, along with other possible actions.
 	 */
-	virtual FReply OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent )
+	virtual FReply OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent ) override
 	{
 		if( InMouseEvent.GetEffectingButton() == EKeys::LeftMouseButton )
 		{
@@ -267,7 +267,7 @@ public:
 	 * @param MouseEvent Information about the input event.
 	 * @return Whether the event was handled along with possible requests for the system to take action.
 	 */	
-	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
 		TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
 		ChangedSelectionOnMouseDown = false;
@@ -360,7 +360,7 @@ public:
 	 * @param MouseEvent Information about the input event.
 	 * @return Whether the event was handled along with possible requests for the system to take action.
 	 */
-	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
 		TSharedPtr< ITypedTableView<ItemType> > OwnerWidget = OwnerTablePtr.Pin();
 		check(OwnerWidget.IsValid());
@@ -647,6 +647,8 @@ public:
 						// Expand the drop target just in case, so that what we dropped is visible.
 						OwnerWidget->Private_SetItemExpansion(*MyItem, true);
 					}
+
+					return DropReply;
 				}
 			}
 
@@ -702,6 +704,12 @@ public:
 	virtual TSharedRef<SWidget> AsWidget() override
 	{
 		return SharedThis(this);
+	}
+
+	virtual void SetContent(TSharedRef< SWidget > InContent) override
+	{
+		this->Content = InContent;
+		SBorder::SetContent(InContent);
 	}
 
 	virtual TSharedPtr<SWidget> GetContent() override
@@ -1020,33 +1028,68 @@ protected:
 				CellContents = GenerateWidgetForColumn( Column.ColumnId );
 			}
 
-			if ( Column.SizeRule == EColumnSizeMode::Fixed )
+			switch(Column.SizeRule)
 			{
-				Box->AddSlot()
-				.AutoWidth()
-				[
-					SNew( SBox )
-					.WidthOverride( Column.Width.Get() )
+			case EColumnSizeMode::Fill:
+				{
+					TAttribute<float> WidthBinding;
+					WidthBinding.BindRaw( &Column, &SHeaderRow::FColumn::GetWidth );
+
+					SHorizontalBox::FSlot& NewSlot = Box->AddSlot()
 					.HAlign(Column.CellHAlignment)
 					.VAlign(Column.CellVAlignment)
-					.Content()
+					.FillWidth( WidthBinding )
 					[
 						CellContents
-					]
-				];
-			}
-			else
-			{
-				TAttribute<float> WidthBinding;
-				WidthBinding.BindRaw( &Column, &SHeaderRow::FColumn::GetWidth );
+					];
+				}
+				break;
 
-				SHorizontalBox::FSlot& NewSlot = Box->AddSlot()
-				.HAlign(Column.CellHAlignment)
-				.VAlign(Column.CellVAlignment)
-				.FillWidth( WidthBinding )
-				[
-					CellContents
-				];
+			case EColumnSizeMode::Fixed:
+				{
+					Box->AddSlot()
+					.AutoWidth()
+					[
+						SNew( SBox )
+						.WidthOverride( Column.Width.Get() )
+						.HAlign(Column.CellHAlignment)
+						.VAlign(Column.CellVAlignment)
+						.Content()
+						[
+							CellContents
+						]
+					];
+				}
+				break;
+
+			case EColumnSizeMode::Manual:
+				{
+					auto GetColumnWidthAsOptionalSize = [&Column]() -> FOptionalSize
+					{
+						const float DesiredWidth = Column.GetWidth();
+						return FOptionalSize(DesiredWidth);
+					};
+
+					TAttribute<FOptionalSize> WidthBinding;
+					WidthBinding.Bind(TAttribute<FOptionalSize>::FGetter::CreateLambda(GetColumnWidthAsOptionalSize));
+
+					Box->AddSlot()
+					.AutoWidth()
+					[
+						SNew( SBox )
+						.WidthOverride(WidthBinding)
+						.HAlign(Column.CellHAlignment)
+						.VAlign(Column.CellVAlignment)
+						.Content()
+						[
+							CellContents
+						]
+					];
+				}
+				break;
+
+			default:
+				break;
 			}
 
 			NewColumnIdToSlotContents.Add( Column.ColumnId, CellContents );

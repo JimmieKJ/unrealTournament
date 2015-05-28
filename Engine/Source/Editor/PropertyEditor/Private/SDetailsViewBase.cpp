@@ -298,6 +298,11 @@ void SDetailsViewBase::SetIsPropertyVisibleDelegate(FIsPropertyVisible InIsPrope
 	IsPropertyVisibleDelegate = InIsPropertyVisible;
 }
 
+void SDetailsViewBase::SetIsPropertyReadOnlyDelegate(FIsPropertyReadOnly InIsPropertyReadOnly)
+{
+	IsPropertyReadOnlyDelegate = InIsPropertyReadOnly;
+}
+
 void SDetailsViewBase::SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled IsPropertyEditingEnabled)
 {
 	IsPropertyEditingEnabledDelegate = IsPropertyEditingEnabled;
@@ -391,6 +396,11 @@ bool SDetailsViewBase::IsPropertyVisible( const FPropertyAndParent& PropertyAndP
 	return IsPropertyVisibleDelegate.IsBound() ? IsPropertyVisibleDelegate.Execute(PropertyAndParent) : true;
 }
 
+bool SDetailsViewBase::IsPropertyReadOnly( const FPropertyAndParent& PropertyAndParent ) const
+{
+	return IsPropertyReadOnlyDelegate.IsBound() ? IsPropertyReadOnlyDelegate.Execute(PropertyAndParent) : false;
+}
+
 TSharedPtr<IPropertyUtilities> SDetailsViewBase::GetPropertyUtilities()
 {
 	return PropertyUtilities;
@@ -447,6 +457,11 @@ TSharedPtr<SWidget> SDetailsViewBase::GetFilterAreaWidget()
 	return DetailsViewArgs.bCustomFilterAreaLocation ? FilterRow : nullptr;
 }
 
+TSharedPtr<class FUICommandList> SDetailsViewBase::GetHostCommandList() const
+{
+	return DetailsViewArgs.HostCommandList;
+}
+
 /** 
  * Hides or shows properties based on the passed in filter text
  * 
@@ -460,7 +475,7 @@ void SDetailsViewBase::FilterView(const FString& InFilterText)
 	// Remove whitespace from the front and back of the string
 	ParseString.Trim();
 	ParseString.TrimTrailing();
-	ParseString.ParseIntoArray(&CurrentFilterStrings, TEXT(" "), true);
+	ParseString.ParseIntoArray(CurrentFilterStrings, TEXT(" "), true);
 
 	bHasActiveFilter = CurrentFilterStrings.Num() > 0;
 
@@ -652,7 +667,7 @@ FReply SDetailsViewBase::OnFocusReceived(const FGeometry& MyGeometry, const FFoc
 }
 
 /** Ticks the property view.  This function performs a data consistency check */
-void SDetailsViewBase::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SDetailsViewBase::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	for (int32 i = 0; i < CustomizationClassInstancesPendingDelete.Num(); ++i)
 	{
@@ -750,11 +765,6 @@ void SDetailsViewBase::Tick(const FGeometry& AllottedGeometry, const double InCu
 				--NodeIndex;
 			}
 		}
-	}
-
-	if (ThumbnailPool.IsValid())
-	{
-		ThumbnailPool->Tick(InDeltaTime);
 	}
 
 	if (DetailLayout.IsValid())
@@ -874,13 +884,13 @@ void SDetailsViewBase::SaveExpandedItems()
 			if (!bShouldSave)
 			{
 				TArray<FString> DummyExpandedPropertyItems;
-				GConfig->GetSingleLineArray(TEXT("DetailPropertyExpansion"), *Struct->GetName(), DummyExpandedPropertyItems, GEditorUserSettingsIni);
+				GConfig->GetSingleLineArray(TEXT("DetailPropertyExpansion"), *Struct->GetName(), DummyExpandedPropertyItems, GEditorPerProjectIni);
 				bShouldSave = DummyExpandedPropertyItems.Num() > 0;
 			}
 
 			if (bShouldSave)
 			{
-				GConfig->SetSingleLineArray(TEXT("DetailPropertyExpansion"), *Struct->GetName(), ExpandedPropertyItems, GEditorUserSettingsIni);
+				GConfig->SetSingleLineArray(TEXT("DetailPropertyExpansion"), *Struct->GetName(), ExpandedPropertyItems, GEditorPerProjectIni);
 			}
 		}
 	}
@@ -891,12 +901,12 @@ void SDetailsViewBase::SaveExpandedItems()
 		if (!bShouldSave)
 		{
 			FString DummyExpandedCustomItemsString;
-			GConfig->GetString(TEXT("DetailCustomWidgetExpansion"), *BestBaseStruct->GetName(), DummyExpandedCustomItemsString, GEditorUserSettingsIni);
+			GConfig->GetString(TEXT("DetailCustomWidgetExpansion"), *BestBaseStruct->GetName(), DummyExpandedCustomItemsString, GEditorPerProjectIni);
 			bShouldSave = !DummyExpandedCustomItemsString.IsEmpty();
 		}
 		if (bShouldSave)
 		{
-			GConfig->SetString(TEXT("DetailCustomWidgetExpansion"), *BestBaseStruct->GetName(), *ExpandedCustomItemsString, GEditorUserSettingsIni);
+			GConfig->SetString(TEXT("DetailCustomWidgetExpansion"), *BestBaseStruct->GetName(), *ExpandedCustomItemsString, GEditorPerProjectIni);
 		}
 	}
 }
@@ -919,15 +929,15 @@ void SDetailsViewBase::RestoreExpandedItems(TSharedPtr<FPropertyNode> InitialSta
 	//while a valid class, and we're either the same as the base class (for multiple actors being selected and base class is AActor) OR we're not down to AActor yet)
 	for (UStruct* Struct = BestBaseStruct; Struct && ((BestBaseStruct == Struct) || (Struct != AActor::StaticClass())); Struct = Struct->GetSuperStruct())
 	{
-		GConfig->GetSingleLineArray(TEXT("DetailPropertyExpansion"), *Struct->GetName(), ExpandedPropertyItems, GEditorUserSettingsIni);
+		GConfig->GetSingleLineArray(TEXT("DetailPropertyExpansion"), *Struct->GetName(), ExpandedPropertyItems, GEditorPerProjectIni);
 		SetExpandedItems(StartNode, ExpandedPropertyItems);
 	}
 
 	if (BestBaseStruct)
 	{
-		GConfig->GetString(TEXT("DetailCustomWidgetExpansion"), *BestBaseStruct->GetName(), ExpandedCustomItems, GEditorUserSettingsIni);
+		GConfig->GetString(TEXT("DetailCustomWidgetExpansion"), *BestBaseStruct->GetName(), ExpandedCustomItems, GEditorPerProjectIni);
 		TArray<FString> ExpandedCustomItemsArray;
-		ExpandedCustomItems.ParseIntoArray(&ExpandedCustomItemsArray, TEXT(","), true);
+		ExpandedCustomItems.ParseIntoArray(ExpandedCustomItemsArray, TEXT(","), true);
 
 		ExpandedDetailNodes.Append(ExpandedCustomItemsArray);
 	}
@@ -1121,6 +1131,11 @@ void SDetailsViewBase::UpdatePropertyMapRecursive(FPropertyNode& InNode, FDetail
 					if (!ParentStructProp || (PropertyCatagoryName != ParentStructProp->Struct->GetFName()))
 					{
 						CategoryName = PropertyCatagoryName;
+					}
+
+					if (IsPropertyReadOnly(PropertyAndParent))
+					{
+						ChildNode.SetNodeFlags(EPropertyNodeFlags::IsReadOnly, true);
 					}
 
 					// Add a property to the default category

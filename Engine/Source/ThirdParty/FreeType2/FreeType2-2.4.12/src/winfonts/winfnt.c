@@ -591,11 +591,13 @@
 
 
   static FT_Error
-  fnt_cmap_init( FNT_CMap  cmap )
+  fnt_cmap_init( FNT_CMap  cmap,
+                 FT_Pointer init_data )
   {
     FNT_Face  face = (FNT_Face)FT_CMAP_FACE( cmap );
     FNT_Font  font = face->font;
-
+     
+    FT_UNUSED( init_data );
 
     cmap->first = (FT_UInt32)  font->header.first_char;
     cmap->count = (FT_UInt32)( font->header.last_char - cmap->first + 1 );

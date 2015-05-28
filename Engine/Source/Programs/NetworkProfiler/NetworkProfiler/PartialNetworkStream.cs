@@ -51,11 +51,17 @@ namespace NetworkProfiler
 		/** Number of times SendBunch was called. */
 		public int SendBunchCount = 0;
 		/** Total size of bytes sent. */
-		public int SendBunchSizeBits = 0;		
+		public int SendBunchSizeBits = 0;
+		/** Total size of bunch headers sent. */
+		public int SendBunchHeaderSizeBits = 0;
 		/** Call count per channel type. */
 		public int[] SendBunchCountPerChannel = Enumerable.Repeat(0, (int)EChannelTypes.Max).ToArray();
 		/** Size per channel type */
 		public int[] SendBunchSizeBitsPerChannel = Enumerable.Repeat(0, (int)EChannelTypes.Max).ToArray();
+		/** Size of bunch headers per channel type */
+		public int[] SendBunchHeaderSizeBitsPerChannel = Enumerable.Repeat(0, (int)EChannelTypes.Max).ToArray();
+		/** Size of bunch payloads per channel type */
+		public int[] SendBunchPayloadSizeBitsPerChannel = Enumerable.Repeat(0, (int)EChannelTypes.Max).ToArray();
 
 		// Low level socket
 
@@ -67,6 +73,45 @@ namespace NetworkProfiler
 		public int OtherSocketCount = 0;
 		/** Total size of bytes sent on non-"Unreal" socket type. */
 		public int OtherSocketSize = 0;
+
+		// Acks
+		
+		/** Number of acks sent. */
+		public int SendAckCount = 0;
+		/** Total size of acks sent. */
+		public int SendAckSizeBits = 0;
+
+		// Exported GUIDs
+
+		/** Number of GUID export bunches sent. */
+		public int ExportBunchCount = 0;
+		/** Total size of exported GUIDs sent. */
+		public int ExportBunchSizeBits = 0;
+
+		// Must be mapped GUIDs
+
+		/** Number of must be mapped GUIDs. */
+		public int MustBeMappedGuidCount = 0;
+		/** Total size of exported GUIDs sent. */
+		public int MustBeMappedGuidSizeBits = 0;
+
+		// Content blocks
+
+		/** Number of content block headers. */
+		public int ContentBlockHeaderCount = 0;
+		/** Total size of content block headers. */
+		public int ContentBlockHeaderSizeBits = 0;
+		/** Number of content block footers. */
+		public int ContentBlockFooterCount = 0;
+		/** Total size of content block footers. */
+		public int ContentBlockFooterSizeBits = 0;
+
+		// Property handles
+
+		/** Number of property handles. */
+		public int PropertyHandleCount = 0;
+		/** Total size of property handles. */
+		public int PropertyHandleSizeBits = 0;
 
 		// Detailed information.
 
@@ -203,14 +248,17 @@ namespace NetworkProfiler
 					case ETokenTypes.SendBunch:
 						var TokenSendBunch = (TokenSendBunch) Token;
 						SendBunchCount++;
-						SendBunchSizeBits += TokenSendBunch.NumBits;
+						SendBunchSizeBits += TokenSendBunch.GetNumTotalBits();
+						SendBunchHeaderSizeBits += TokenSendBunch.NumHeaderBits;
 						SendBunchCountPerChannel[TokenSendBunch.ChannelType]++;
-						SendBunchSizeBitsPerChannel[TokenSendBunch.ChannelType] += TokenSendBunch.NumBits;
+						SendBunchSizeBitsPerChannel[TokenSendBunch.ChannelType] += TokenSendBunch.GetNumTotalBits();
+						SendBunchHeaderSizeBitsPerChannel[TokenSendBunch.ChannelType] += TokenSendBunch.NumHeaderBits;
+						SendBunchPayloadSizeBitsPerChannel[TokenSendBunch.ChannelType] += TokenSendBunch.NumPayloadBits;
 						break;
 					case ETokenTypes.SendRPC:
 						var TokenSendRPC = (TokenSendRPC) Token;
 						RPCCount++;
-						RPCSizeBits += TokenSendRPC.NumBits;
+						RPCSizeBits += TokenSendRPC.GetNumTotalBits();
 						break;
 					case ETokenTypes.ReplicateActor:
 						var TokenReplicateActor = (TokenReplicateActor) Token;
@@ -225,11 +273,49 @@ namespace NetworkProfiler
 								ReplicatedSizeBits += Property.NumBits;
 							}
 						}
+
+						foreach( var PropertyHeader in TokenReplicateActor.PropertyHeaders )
+						{
+							if( PropertyHeader.MatchesFilters( ActorFilter, PropertyFilter, RPCFilter ) )
+							{
+								ReplicatedSizeBits += PropertyHeader.NumBits;
+							}
+						}
 						break;
 					case ETokenTypes.Event:
 						NumEvents++;
 						break;
 					case ETokenTypes.RawSocketData:
+						break;
+					case ETokenTypes.SendAck:
+						var TokenSendAck = (TokenSendAck) Token;
+						SendAckCount++;
+						SendAckSizeBits += TokenSendAck.NumBits;
+						break;
+					case ETokenTypes.ExportBunch:
+						var TokenExportBunch = (TokenExportBunch) Token;
+						ExportBunchCount++;
+						ExportBunchSizeBits += TokenExportBunch.NumBits;
+						break;
+					case ETokenTypes.MustBeMappedGuids:
+						var TokenMustBeMappedGuids = (TokenMustBeMappedGuids) Token;
+						MustBeMappedGuidCount += TokenMustBeMappedGuids.NumGuids;
+						MustBeMappedGuidSizeBits += TokenMustBeMappedGuids.NumBits;
+						break;
+					case ETokenTypes.BeginContentBlock:
+						var TokenBeginContentBlock = (TokenBeginContentBlock) Token;
+						ContentBlockHeaderCount++;
+						ContentBlockHeaderSizeBits += TokenBeginContentBlock.NumBits;
+						break;
+					case ETokenTypes.EndContentBlock:
+						var TokenEndContentBlock = (TokenEndContentBlock) Token;
+						ContentBlockFooterCount++;
+						ContentBlockFooterSizeBits += TokenEndContentBlock.NumBits;
+						break;
+					case ETokenTypes.WritePropertyHandle:
+						var TokenWritePropertyHandle = (TokenWritePropertyHandle) Token;
+						PropertyHandleCount++;
+						PropertyHandleSizeBits += TokenWritePropertyHandle.NumBits;
 						break;
 					default:
 						throw new System.IO.InvalidDataException();
@@ -393,69 +479,46 @@ namespace NetworkProfiler
 		{
 			return Count.ToString("0.0").PadLeft(8);
 		}
+		
+		/**
+		 * Returns the total number of bits used for bunch format protocol information.
+		 * This includes bunch headers, content block headers and footers, property handles,
+		 * exported GUIDs, and "must be mapped" GUIDs.
+		 */
+		public int GetTotalBunchOverheadSizeBits()
+		{
+			return	SendBunchHeaderSizeBits +
+					ContentBlockHeaderSizeBits +
+					ContentBlockFooterSizeBits +
+					PropertyHandleSizeBits +
+					ExportBunchSizeBits +
+					MustBeMappedGuidSizeBits;
+		}
 
 		/**
 		 * Converts the summary to a human readable array of strings.
 		 */		
 		public string[] ToStringArray()
 		{
-			string FormatString =	"Data Summary^"						+
-									"^"									+
-									"Frame Count            : {0}^"		+
-									"Duration (ms)          : {1}^"		+
-									"Duration (sec)         : {2}^"		+
-									"^"									+
-									"^"									+
-									"Network Summary^"					+
-									"^"									+
-									"Actor Count            : {3}^"		+
-									"Property Count         : {4}^"		+
-									"Replicated Size        : {5}^"		+
-									"RPC Count              : {6}^"		+
-									"RPC Size               : {7}^"		+
-									"SendBunch Count        : {8}^"		+
-									"   Control             : {9}^"		+
-									"   Actor               : {10}^"	+
-									"   File                : {11}^"	+
-									"   Voice               : {12}^"	+
-									"SendBunch Size         : {13}^"	+
-									"   Control             : {14}^"	+
-									"   Actor               : {15}^"	+
-									"   File                : {16}^"	+
-									"   Voice               : {17}^"	+
-									"Game Socket Send Count : {18}^"	+
-									"Game Socket Send Size  : {19}^"	+
-									"Misc Socket Send Count : {20}^"	+
-									"Misc Socket Send Size  : {21}^"	+
-									"Outgoing bandwidth     : {22}^"	+
-									"^"									+
-									"^"									+
-									"Network Summary per second^"		+
-									"^"									+
-									"Actor Count            : {23}^"	+
-									"Property Count         : {24}^"	+
-									"Replicated Size        : {25}^"	+
-									"RPC Count              : {26}^"	+
-									"RPC Size               : {27}^"	+
-									"SendBunch Count        : {28}^"	+
-									"   Control             : {29}^"	+
-									"   Actor               : {30}^"	+
-									"   File                : {31}^"	+
-									"   Voice               : {32}^"	+
-									"SendBunch Size         : {33}^"	+
-									"   Control             : {34}^"	+
-									"   Actor               : {35}^"	+
-									"   File                : {36}^"	+
-									"   Voice               : {37}^"	+
-									"Game Socket Send Count : {38}^"	+
-									"Game Socket Send Size  : {39}^"	+
-									"Misc Socket Send Count : {40}^"	+
-									"Misc Socket Send Size  : {41}^"	+
-									"Outgoing bandwidth     : {42}^";
+			string FormatStringPrefix =	"Data Summary^"					+
+										"^"								+
+										"Frame Count            : {0}^"	+
+										"Duration (ms)          : {1}^"	+
+										"Duration (sec)         : {2}^"	+
+										"^"								+
+										"^"								+
+										"Network Summary^"				+
+										"^"								+
+										"Actor Count            : {3}^"	+
+										"Property Count         : {4}^"	+
+										"Replicated Size        : {5}^"	+
+										"RPC Count              : {6}^"	+
+										"RPC Size               : {7}^"	+
+										"Sent ack count         : {8}^"	+
+										"Sent ack size          : {9}^"	+
+										"Bunch format overhead  : {10}^";
 
-			float OneOverDeltaTime = 1 / (EndTime - StartTime);
-
-			string Summary = String.Format( FormatString, 
+			string Summary = String.Format( FormatStringPrefix, 
 									ConvertToCountString(NumFrames),
 									ConvertToCountString((EndTime - StartTime) * 1000),
 									ConvertToCountString((EndTime - StartTime)),
@@ -464,6 +527,71 @@ namespace NetworkProfiler
 									ConvertToSizeString(ReplicatedSizeBits / 8.0f),
 									ConvertToCountString(RPCCount),
 									ConvertToSizeString(RPCSizeBits / 8.0f),
+									ConvertToCountString(SendAckCount),
+									ConvertToSizeString(SendAckSizeBits / 8.0f),
+									ConvertToSizeString(GetTotalBunchOverheadSizeBits() / 8.0f));
+
+			if ( SendBunchHeaderSizeBits > 0 )
+			{
+				Summary += String.Format("   Bunch headers       : {0}^", ConvertToSizeString(SendBunchHeaderSizeBits / 8.0f));
+			}
+
+			if ( ContentBlockHeaderSizeBits > 0 )
+			{
+				Summary += String.Format("   ContentBlock headers: {0}^", ConvertToSizeString(ContentBlockHeaderSizeBits / 8.0f));
+			}
+
+			if ( ContentBlockFooterSizeBits > 0 )
+			{
+				Summary += String.Format("   ContentBlock footers: {0}^", ConvertToSizeString(ContentBlockFooterSizeBits / 8.0f));
+			}
+
+			if ( PropertyHandleSizeBits > 0 )
+			{
+				Summary += String.Format("   Property handles    : {0}^", ConvertToSizeString(PropertyHandleSizeBits / 8.0f));
+			}
+
+			if ( ExportBunchSizeBits > 0 )
+			{
+				Summary += String.Format("   Exported GUIDs      : {0}^", ConvertToSizeString(ExportBunchSizeBits / 8.0f));
+			}
+
+			if ( MustBeMappedGuidSizeBits > 0 )
+			{
+				Summary += String.Format("   MustBeMapped GUIDs  : {0}^", ConvertToSizeString(MustBeMappedGuidSizeBits / 8.0f));
+			}
+
+			string FormatString =	"SendBunch Count        : {0}^"		+
+									"   Control             : {1}^"		+
+									"   Actor               : {2}^"		+
+									"   File                : {3}^"		+
+									"   Voice               : {4}^"		+
+									"SendBunch Size         : {5}^"		+
+									"   Control             : {6}^"		+
+									"   Actor               : {7}^"		+
+									"   File                : {8}^"		+
+									"   Voice               : {9}^"		+
+									"Game Socket Send Count : {10}^"	+
+									"Game Socket Send Size  : {11}^"	+
+									"Misc Socket Send Count : {12}^"	+
+									"Misc Socket Send Size  : {13}^"	+
+									"Outgoing bandwidth     : {14}^"	+
+									"^"									+
+									"^"									+
+									"Network Summary per second^"		+
+									"^"									+
+									"Actor Count            : {15}^"	+
+									"Property Count         : {16}^"	+
+									"Replicated Size        : {17}^"	+
+									"RPC Count              : {18}^"	+
+									"RPC Size               : {19}^"	+										
+									"Sent ack count         : {20}^"	+
+									"Sent ack size          : {21}^"	+
+									"Bunch format overhead  : {22}^";
+			
+			float OneOverDeltaTime = 1 / (EndTime - StartTime);
+
+			Summary += String.Format( FormatString, 
 									ConvertToCountString(SendBunchCount),
 									ConvertToCountString(SendBunchCountPerChannel[(int)EChannelTypes.Control]),
 									ConvertToCountString(SendBunchCountPerChannel[(int)EChannelTypes.Actor]),
@@ -484,6 +612,58 @@ namespace NetworkProfiler
 									ConvertToSizeString(ReplicatedSizeBits / 8.0f * OneOverDeltaTime),
 									ConvertToCountString(RPCCount * OneOverDeltaTime),
 									ConvertToSizeString(RPCSizeBits / 8.0f * OneOverDeltaTime),
+									ConvertToCountString(SendAckCount * OneOverDeltaTime),
+									ConvertToSizeString(SendAckSizeBits / 8.0f * OneOverDeltaTime),
+									ConvertToSizeString(GetTotalBunchOverheadSizeBits() / 8.0f * OneOverDeltaTime)
+									);
+
+			if ( SendBunchHeaderSizeBits > 0 )
+			{
+				Summary += String.Format("   Bunch headers       : {0}^", ConvertToSizeString(SendBunchHeaderSizeBits / 8.0f * OneOverDeltaTime));
+			}
+
+			if ( ContentBlockHeaderSizeBits > 0 )
+			{
+				Summary += String.Format("   ContentBlock headers: {0}^", ConvertToSizeString(ContentBlockHeaderSizeBits / 8.0f * OneOverDeltaTime));
+			}
+
+			if ( ContentBlockFooterSizeBits > 0 )
+			{
+				Summary += String.Format("   ContentBlock footers: {0}^", ConvertToSizeString(ContentBlockFooterSizeBits / 8.0f * OneOverDeltaTime));
+			}
+
+			if ( PropertyHandleSizeBits > 0 )
+			{
+				Summary += String.Format("   Property handles    : {0}^", ConvertToSizeString(PropertyHandleSizeBits / 8.0f * OneOverDeltaTime));
+			}
+
+			if ( ExportBunchSizeBits > 0 )
+			{
+				Summary += String.Format("   Exported GUIDs      : {0}^", ConvertToSizeString(ExportBunchSizeBits / 8.0f * OneOverDeltaTime));
+			}
+
+			if ( MustBeMappedGuidSizeBits > 0 )
+			{
+				Summary += String.Format("   MustBeMapped GUIDs  : {0}^", ConvertToSizeString(MustBeMappedGuidSizeBits / 8.0f * OneOverDeltaTime));
+			}
+
+			string FormatStringSuffix =	"SendBunch Count        : {0}^"		+
+										"   Control             : {1}^"		+
+										"   Actor               : {2}^"		+
+										"   File                : {3}^"		+
+										"   Voice               : {4}^"		+
+										"SendBunch Size         : {5}^"		+
+										"   Control             : {6}^"		+
+										"   Actor               : {7}^"		+
+										"   File                : {8}^"		+
+										"   Voice               : {9}^"		+
+										"Game Socket Send Count : {10}^"	+
+										"Game Socket Send Size  : {11}^"	+
+										"Misc Socket Send Count : {12}^"	+
+										"Misc Socket Send Size  : {13}^"	+
+										"Outgoing bandwidth     : {14}^";
+
+			Summary += String.Format( FormatStringSuffix,
 									ConvertToCountString(SendBunchCount * OneOverDeltaTime),
 									ConvertToCountString(SendBunchCountPerChannel[(int)EChannelTypes.Control] * OneOverDeltaTime),
 									ConvertToCountString(SendBunchCountPerChannel[(int)EChannelTypes.Actor] * OneOverDeltaTime),
@@ -563,6 +743,21 @@ namespace NetworkProfiler
 	}
 
 	/**
+	 * UniquePropertyHeader
+	 * Tracks all the unique property headers of the same type
+	*/
+	class UniquePropertyHeader : UniqueItem<TokenWritePropertyHeader>
+	{
+		public long		SizeBits = 0;
+
+		override public void OnItemAdded(TokenWritePropertyHeader Item)
+		{
+			base.OnItemAdded(Item);
+			SizeBits += Item.NumBits;
+		}
+	}
+
+	/**
 	 * UniqueActor
 	 * Tracks all the unique actors of the same type
 	*/
@@ -582,6 +777,11 @@ namespace NetworkProfiler
 			{
 				SizeBits += Property.NumBits;
 				Properties.AddItem(Property, Property.PropertyNameIndex);
+			}
+
+			foreach (var PropertyHeader in Item.PropertyHeaders)
+			{
+				SizeBits += PropertyHeader.NumBits;
 			}
 		}
 	}

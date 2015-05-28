@@ -16,35 +16,94 @@
 	self.ConsoleHistoryValuesIndex = [self.ConsoleHistoryValues count];
 
 	// Set up a containing alert message and buttons
-	self.ConsoleAlert = [[UIAlertView alloc] initWithTitle:@"Type a console command"
-													message:@""
-													delegate:self
-													cancelButtonTitle:NSLocalizedString(@"Cancel", nil)
-													otherButtonTitles:NSLocalizedString(@"OK", nil), nil];
+#ifdef __IPHONE_8_0
+	if ([UIAlertController class])
+	{
+		self.ConsoleAlertController = [UIAlertController alertControllerWithTitle : @""
+												message:@"Type a console command"
+												preferredStyle:UIAlertControllerStyleAlert];
 
-	self.ConsoleAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
+		UIAlertAction* okAction = [UIAlertAction 
+									actionWithTitle:NSLocalizedString(@"OK", nil)
+									style:UIAlertActionStyleDefault
+									handler:^(UIAlertAction* action)
+									{
+										[self.ConsoleAlertController dismissViewControllerAnimated : YES completion : nil];
 
-	// The property is now the owner
-	[self.ConsoleAlert release];
+										// we clicked Ok (not Cancel at index 0), submit the console command
+                                        UITextField* AlertTextField = self.ConsoleAlertController.textFields.firstObject;
+										[self HandleConsoleCommand:AlertTextField.text];
+									}
+		];
+		UIAlertAction* cancelAction = [UIAlertAction
+										actionWithTitle : NSLocalizedString(@"Cancel", nil)
+										style : UIAlertActionStyleDefault
+										handler : ^ (UIAlertAction* action)
+										{
+											[self.ConsoleAlertController dismissViewControllerAnimated : YES completion : nil];
+										}
+		];
 
-	UITextField* TextField = [self.ConsoleAlert textFieldAtIndex:0];
-	TextField.clearsOnBeginEditing = NO;
-	TextField.autocorrectionType = UITextAutocorrectionTypeNo;
-	TextField.autocapitalizationType = UITextAutocapitalizationTypeNone;
-	TextField.placeholder = @"or swipe for history";
-	TextField.clearButtonMode = UITextFieldViewModeWhileEditing;
-	TextField.delegate = self;
+		[self.ConsoleAlertController addAction : okAction];
+		[self.ConsoleAlertController addAction : cancelAction];
+		[self.ConsoleAlertController
+			addTextFieldWithConfigurationHandler : ^ (UITextField* AlertTextField)
+			{
+				AlertTextField.clearsOnBeginEditing = NO;
+				AlertTextField.autocorrectionType = UITextAutocorrectionTypeNo;
+				AlertTextField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+				AlertTextField.placeholder = @"or swipe for history";
+				AlertTextField.clearButtonMode = UITextFieldViewModeWhileEditing;
+				AlertTextField.delegate = self;
+				AlertTextField.clearsOnInsertion = NO;
+				AlertTextField.keyboardType = UIKeyboardTypeDefault;
 
-	// Add gesture recognizers
-	UISwipeGestureRecognizer* SwipeLeftGesture = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(SwipeLeftAction:)];
-	SwipeLeftGesture.direction = UISwipeGestureRecognizerDirectionLeft;
-	[TextField addGestureRecognizer:SwipeLeftGesture];
+				// Add gesture recognizers
+				UISwipeGestureRecognizer* SwipeLeftGesture = [[UISwipeGestureRecognizer alloc] initWithTarget:self action : @selector(SwipeLeftAction:)];
+				SwipeLeftGesture.direction = UISwipeGestureRecognizerDirectionLeft;
+				[AlertTextField addGestureRecognizer : SwipeLeftGesture];
 
-	UISwipeGestureRecognizer* SwipeRightGesture = [[UISwipeGestureRecognizer alloc] initWithTarget:self action:@selector(SwipeRightAction:)];
-	SwipeRightGesture.direction = UISwipeGestureRecognizerDirectionRight;
-	[TextField addGestureRecognizer:SwipeRightGesture];
+				UISwipeGestureRecognizer* SwipeRightGesture = [[UISwipeGestureRecognizer alloc] initWithTarget:self action : @selector(SwipeRightAction:)];
+				SwipeRightGesture.direction = UISwipeGestureRecognizerDirectionRight;
+				[AlertTextField addGestureRecognizer : SwipeRightGesture];
+			}
+		];
+//		[self.ConsoleAlertController release];
+		[[IOSAppDelegate GetDelegate].IOSController presentViewController : self.ConsoleAlertController animated : YES completion : nil];
+	}
+	else
+#endif
+	{
+		self.ConsoleAlert = [[UIAlertView alloc] initWithTitle:@"Type a console command"
+								message:@""
+								delegate:self
+								cancelButtonTitle:NSLocalizedString(@"Cancel", nil)
+								otherButtonTitles:NSLocalizedString(@"OK", nil), nil];
 
-	[self.ConsoleAlert show];
+		self.ConsoleAlert.alertViewStyle = UIAlertViewStylePlainTextInput;
+
+		// The property is now the owner
+		[self.ConsoleAlert release];
+
+		UITextField* TextField = [self.ConsoleAlert textFieldAtIndex : 0];
+		TextField.clearsOnBeginEditing = NO;
+		TextField.autocorrectionType = UITextAutocorrectionTypeNo;
+		TextField.autocapitalizationType = UITextAutocapitalizationTypeNone;
+		TextField.placeholder = @"or swipe for history";
+		TextField.clearButtonMode = UITextFieldViewModeWhileEditing;
+		TextField.delegate = self;
+
+		// Add gesture recognizers
+		UISwipeGestureRecognizer* SwipeLeftGesture = [[UISwipeGestureRecognizer alloc] initWithTarget:self action : @selector(SwipeLeftAction:)];
+		SwipeLeftGesture.direction = UISwipeGestureRecognizerDirectionLeft;
+		[TextField addGestureRecognizer : SwipeLeftGesture];
+
+		UISwipeGestureRecognizer* SwipeRightGesture = [[UISwipeGestureRecognizer alloc] initWithTarget:self action : @selector(SwipeRightAction:)];
+		SwipeRightGesture.direction = UISwipeGestureRecognizerDirectionRight;
+		[TextField addGestureRecognizer : SwipeRightGesture];
+
+		[self.ConsoleAlert show];
+	}
 }
 
 /**
@@ -89,23 +148,50 @@
  */
 - (void)ShowAlert:(NSMutableArray*)StringArray
 {
-	// set up the alert message and buttons
-	UIAlertView* Alert = [[[UIAlertView alloc] initWithTitle:[StringArray objectAtIndex:0]
-													 message:[StringArray objectAtIndex:1]
-													delegate:self // use ourself to handle the button clicks 
-										   cancelButtonTitle:[StringArray objectAtIndex:2]
-										   otherButtonTitles:nil] autorelease];
-
-	Alert.alertViewStyle = UIAlertViewStyleDefault;
-
-	// add any extra buttons
-	for (int OptionalButtonIndex = 3; OptionalButtonIndex < [StringArray count]; OptionalButtonIndex++)
+#ifdef __IPHONE_8_0
+	if ([UIAlertController class])
 	{
-		[Alert addButtonWithTitle:[StringArray objectAtIndex:OptionalButtonIndex]];
-	}
+		UIAlertController* AlertController = [UIAlertController alertControllerWithTitle:[StringArray objectAtIndex : 0]
+											message : [StringArray objectAtIndex : 1]
+											preferredStyle:UIAlertControllerStyleAlert];
 
-	// show it!
-	[Alert show];
+		// add any extra buttons
+		for (int OptionalButtonIndex = 2; OptionalButtonIndex < [StringArray count]; OptionalButtonIndex++)
+		{
+			UIAlertAction* alertAction = [UIAlertAction
+											actionWithTitle : [StringArray objectAtIndex : OptionalButtonIndex]
+											style : UIAlertActionStyleDefault
+											handler : ^ (UIAlertAction* action)
+											{
+												[AlertController dismissViewControllerAnimated : YES completion : nil];
+											}
+			];
+			[AlertController addAction : alertAction];
+		}
+
+		[[IOSAppDelegate GetDelegate].IOSController presentViewController : AlertController animated : YES completion : nil];
+	}
+	else
+#endif
+	{
+		// set up the alert message and buttons
+		UIAlertView* Alert = [[[UIAlertView alloc] initWithTitle:[StringArray objectAtIndex : 0]
+									message : [StringArray objectAtIndex : 1]
+									delegate : self // use ourself to handle the button clicks 
+									cancelButtonTitle : [StringArray objectAtIndex : 2]
+									otherButtonTitles : nil] autorelease];
+
+		Alert.alertViewStyle = UIAlertViewStyleDefault;
+
+		// add any extra buttons
+		for (int OptionalButtonIndex = 3; OptionalButtonIndex < [StringArray count]; OptionalButtonIndex++)
+		{
+			[Alert addButtonWithTitle : [StringArray objectAtIndex : OptionalButtonIndex]];
+		}
+
+		// show it!
+		[Alert show];
+	}
 }
 
 - (BOOL)textFieldShouldReturn:(UITextField *)alertTextField 
@@ -141,7 +227,17 @@
 		self.ConsoleHistoryValuesIndex + 1 < self.ConsoleHistoryValues.count )
 	{
 		self.ConsoleHistoryValuesIndex++;
-		UITextField* TextField = [self.ConsoleAlert textFieldAtIndex:0];
+        UITextField* TextField = nil;
+#ifdef __IPHONE_8_0
+        if ([UIAlertController class])
+        {
+            TextField = self.ConsoleAlertController.textFields.firstObject;
+        }
+        else
+#endif
+        {
+            TextField = [self.ConsoleAlert textFieldAtIndex:0];
+        }
 		TextField.text = [self.ConsoleHistoryValues objectAtIndex:self.ConsoleHistoryValuesIndex];
 	}
 }
@@ -153,7 +249,17 @@
 		self.ConsoleHistoryValuesIndex > 0 )
 	{
 		self.ConsoleHistoryValuesIndex--;
-		UITextField* TextField = [self.ConsoleAlert textFieldAtIndex:0];
+        UITextField* TextField = nil;
+#ifdef __IPHONE_8_0
+        if ([UIAlertController class])
+        {
+            TextField = self.ConsoleAlertController.textFields.firstObject;
+        }
+        else
+#endif
+        {
+            TextField = [self.ConsoleAlert textFieldAtIndex:0];
+        }
 		TextField.text = [self.ConsoleHistoryValues objectAtIndex:self.ConsoleHistoryValuesIndex];
 	}
 }

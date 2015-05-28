@@ -38,6 +38,11 @@ bool UKismetSystemLibrary::IsValidClass(UClass* Class)
 	return ::IsValid(Class);
 }
 
+FString UKismetSystemLibrary::GetObjectName(const UObject* Object)
+{
+	return GetNameSafe(Object);
+}
+
 FString UKismetSystemLibrary::GetDisplayName(const UObject* Object)
 {
 #if WITH_EDITOR
@@ -178,6 +183,8 @@ void UKismetSystemLibrary::PrintString(UObject* WorldContextObject, const FStrin
 				case NM_ListenServer:
 					Prefix = FString::Printf(TEXT("Server: "));
 					break;
+				case NM_Standalone:
+					break;
 			}
 		}
 	}
@@ -220,7 +227,7 @@ void UKismetSystemLibrary::PrintString(UObject* WorldContextObject, const FStrin
 #endif
 }
 
-void UKismetSystemLibrary::PrintText(UObject* WorldContextObject, const FText& InText, bool bPrintToScreen, bool bPrintToLog, FLinearColor TextColor)
+void UKismetSystemLibrary::PrintText(UObject* WorldContextObject, const FText InText, bool bPrintToScreen, bool bPrintToLog, FLinearColor TextColor)
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) // Do not Print in Shipping or Test
 	PrintString(WorldContextObject, InText.ToString(), bPrintToScreen, bPrintToLog, TextColor);
@@ -308,7 +315,9 @@ void UKismetSystemLibrary::K2_SetTimerDelegate(FTimerDynamicDelegate Delegate, f
 	}
 	else
 	{
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("SetTimer passed a bad function (%s) or object (%s)"), *Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
+		UE_LOG(LogBlueprintUserMessages, Warning, 
+			TEXT("SetTimer passed a bad function (%s) or object (%s)"),
+			*Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
 	}
 }
 
@@ -317,9 +326,14 @@ void UKismetSystemLibrary::K2_ClearTimer(UObject* Object, FString FunctionName)
 	FTimerDynamicDelegate Delegate;
 	Delegate.BindUFunction(Object, *FunctionName);
 
+	K2_ClearTimerDelegate(Delegate);
+}
+
+void UKismetSystemLibrary::K2_ClearTimerDelegate(FTimerDynamicDelegate Delegate)
+{
 	if (Delegate.IsBound())
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(Object);
+		UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
 		if (World)
 		{
 			auto& TimerManager = World->GetTimerManager();
@@ -329,8 +343,9 @@ void UKismetSystemLibrary::K2_ClearTimer(UObject* Object, FString FunctionName)
 	}
 	else
 	{
-		const FString ObjectNameStr = Object != NULL ? Object->GetName() : TEXT("None");
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("ClearTimer passed a bad function (%s) or object (%s)"), *FunctionName, *ObjectNameStr);
+		UE_LOG(LogBlueprintUserMessages, Warning, 
+			TEXT("ClearTimer passed a bad function (%s) or object (%s)"),
+			*Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
 	}
 }
 
@@ -339,21 +354,26 @@ void UKismetSystemLibrary::K2_PauseTimer(UObject* Object, FString FunctionName)
 	FTimerDynamicDelegate Delegate;
 	Delegate.BindUFunction(Object, *FunctionName);
 
+	K2_PauseTimerDelegate(Delegate);
+}
+
+void UKismetSystemLibrary::K2_PauseTimerDelegate(FTimerDynamicDelegate Delegate)
+{
 	if (Delegate.IsBound())
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(Object);
+		UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
 		if(World)
 		{
-		    UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
-		    auto& TimerManager = World->GetTimerManager();
-		    auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
-		    World->GetTimerManager().PauseTimer(Handle);
+			auto& TimerManager = World->GetTimerManager();
+			auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
+			World->GetTimerManager().PauseTimer(Handle);
 		}
 	}
 	else
 	{
-		const FString ObjectNameStr = Object != NULL ? Object->GetName() : TEXT("None");
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("PauseTimer passed a bad function (%s) or object (%s)"), *FunctionName, *ObjectNameStr);
+		UE_LOG(LogBlueprintUserMessages, Warning, 
+			TEXT("PauseTimer passed a bad function (%s) or object (%s)"),
+			*Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
 	}
 }
 
@@ -362,21 +382,26 @@ void UKismetSystemLibrary::K2_UnPauseTimer(UObject* Object, FString FunctionName
 	FTimerDynamicDelegate Delegate;
 	Delegate.BindUFunction(Object, *FunctionName);
 
+	K2_UnPauseTimerDelegate(Delegate);
+}
+
+void UKismetSystemLibrary::K2_UnPauseTimerDelegate(FTimerDynamicDelegate Delegate)
+{
 	if (Delegate.IsBound())
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(Object);
+		UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
 		if(World)
 		{
-		    UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
-		    auto& TimerManager = World->GetTimerManager();
-		    auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
-		    World->GetTimerManager().UnPauseTimer(Handle);
+			auto& TimerManager = World->GetTimerManager();
+			auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
+			World->GetTimerManager().UnPauseTimer(Handle);
 		}
 	}
 	else
 	{
-		const FString ObjectNameStr = Object != NULL ? Object->GetName() : TEXT("None");
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("UnPauseTimer passed a bad function (%s) or object (%s)"), *FunctionName, *ObjectNameStr);
+		UE_LOG(LogBlueprintUserMessages, Warning,
+			TEXT("UnPauseTimer passed a bad function (%s) or object (%s)"),
+			*Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
 	}
 }
 
@@ -385,15 +410,19 @@ bool UKismetSystemLibrary::K2_IsTimerActive(UObject* Object, FString FunctionNam
 	FTimerDynamicDelegate Delegate;
 	Delegate.BindUFunction(Object, *FunctionName);
 
+	return K2_IsTimerActiveDelegate(Delegate);
+}
+
+bool UKismetSystemLibrary::K2_IsTimerActiveDelegate(FTimerDynamicDelegate Delegate)
+{
 	if (Delegate.IsBound())
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(Object);
+		UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
 		if(World)
 		{
-		    UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
-		    auto& TimerManager = World->GetTimerManager();
-		    auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
-		    return World->GetTimerManager().IsTimerActive(Handle);
+			auto& TimerManager = World->GetTimerManager();
+			auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
+			return World->GetTimerManager().IsTimerActive(Handle);
 		}
 		else
 		{
@@ -402,8 +431,9 @@ bool UKismetSystemLibrary::K2_IsTimerActive(UObject* Object, FString FunctionNam
 	}
 	else
 	{
-		const FString ObjectNameStr = Object != NULL ? Object->GetName() : TEXT("None");
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("IsTimerActive passed a bad function (%s) or object (%s)"), *FunctionName, *ObjectNameStr);
+		UE_LOG(LogBlueprintUserMessages, Warning, 
+			TEXT("IsTimerActive passed a bad function (%s) or object (%s)"),
+			*Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
 		return false;
 	}
 }
@@ -413,15 +443,19 @@ bool UKismetSystemLibrary::K2_IsTimerPaused(UObject* Object, FString FunctionNam
 	FTimerDynamicDelegate Delegate;
 	Delegate.BindUFunction(Object, *FunctionName);
 
+	return K2_IsTimerPausedDelegate(Delegate);
+}
+
+bool UKismetSystemLibrary::K2_IsTimerPausedDelegate(FTimerDynamicDelegate Delegate)
+{
 	if (Delegate.IsBound())
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(Object);
+		UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
 		if(World)
 		{
-		    UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
-		    auto& TimerManager = World->GetTimerManager();
-		    auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
-		    return World->GetTimerManager().IsTimerPaused(Handle);
+			auto& TimerManager = World->GetTimerManager();
+			auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
+			return World->GetTimerManager().IsTimerPaused(Handle);
 		}
 		else
 		{
@@ -430,8 +464,9 @@ bool UKismetSystemLibrary::K2_IsTimerPaused(UObject* Object, FString FunctionNam
 	}
 	else
 	{
-		const FString ObjectNameStr = Object != NULL ? Object->GetName() : TEXT("None");
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("IsTimerPaused passed a bad function (%s) or object (%s)"), *FunctionName, *ObjectNameStr);
+		UE_LOG(LogBlueprintUserMessages, Warning, 
+			TEXT("IsTimerPaused passed a bad function (%s) or object (%s)"),
+			*Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
 		return false;
 	}
 }
@@ -441,15 +476,19 @@ bool UKismetSystemLibrary::K2_TimerExists(UObject* Object, FString FunctionName)
 	FTimerDynamicDelegate Delegate;
 	Delegate.BindUFunction(Object, *FunctionName);
 
+	return K2_TimerExistsDelegate(Delegate);
+}
+
+bool UKismetSystemLibrary::K2_TimerExistsDelegate(FTimerDynamicDelegate Delegate)
+{
 	if (Delegate.IsBound())
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(Object);
+		UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
 		if(World)
 		{
-		    UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
-		    auto& TimerManager = World->GetTimerManager();
-		    auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
-		    return World->GetTimerManager().TimerExists(Handle);
+			auto& TimerManager = World->GetTimerManager();
+			auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
+			return World->GetTimerManager().TimerExists(Handle);
 		}
 		else
 		{
@@ -458,8 +497,9 @@ bool UKismetSystemLibrary::K2_TimerExists(UObject* Object, FString FunctionName)
 	}
 	else
 	{
-		const FString ObjectNameStr = Object != NULL ? Object->GetName() : TEXT("None");
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("TimerExists passed a bad function (%s) or object (%s)"), *FunctionName, *ObjectNameStr);
+		UE_LOG(LogBlueprintUserMessages, Warning,
+			TEXT("TimerExists passed a bad function (%s) or object (%s)"),
+			*Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
 		return false;
 	}
 }
@@ -469,15 +509,19 @@ float UKismetSystemLibrary::K2_GetTimerElapsedTime(UObject* Object, FString Func
 	FTimerDynamicDelegate Delegate;
 	Delegate.BindUFunction(Object, *FunctionName);
 
+	return K2_GetTimerElapsedTimeDelegate(Delegate);
+}
+
+float UKismetSystemLibrary::K2_GetTimerElapsedTimeDelegate(FTimerDynamicDelegate Delegate)
+{
 	if (Delegate.IsBound())
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(Object);	
+		UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
 		if(World)
 		{
-		    UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
-		    auto& TimerManager = World->GetTimerManager();
-		    auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
-		    return World->GetTimerManager().GetTimerElapsed(Handle);
+			auto& TimerManager = World->GetTimerManager();
+			auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
+			return World->GetTimerManager().GetTimerElapsed(Handle);
 		}
 		else
 		{
@@ -486,8 +530,9 @@ float UKismetSystemLibrary::K2_GetTimerElapsedTime(UObject* Object, FString Func
 	}
 	else
 	{
-		const FString ObjectNameStr = Object != NULL ? Object->GetName() : TEXT("None");
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("GetTimerElapsedTime passed a bad function (%s) or object (%s)"), *FunctionName, *ObjectNameStr);
+		UE_LOG(LogBlueprintUserMessages, Warning, 
+			TEXT("GetTimerElapsedTime passed a bad function (%s) or object (%s)"), 
+			*Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
 		return 0.0f;
 	}
 }
@@ -497,15 +542,19 @@ float UKismetSystemLibrary::K2_GetTimerRemainingTime(UObject* Object, FString Fu
 	FTimerDynamicDelegate Delegate;
 	Delegate.BindUFunction(Object, *FunctionName);
 
+	return K2_GetTimerRemainingTimeDelegate(Delegate);
+}
+
+float UKismetSystemLibrary::K2_GetTimerRemainingTimeDelegate(FTimerDynamicDelegate Delegate)
+{
 	if (Delegate.IsBound())
 	{
-		UWorld* World = GEngine->GetWorldFromContextObject(Object);
+		UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
 		if(World)
 		{
-		    UWorld* World = GEngine->GetWorldFromContextObject(Delegate.GetUObject());
-		    auto& TimerManager = World->GetTimerManager();
-		    auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
-		    return World->GetTimerManager().GetTimerRemaining(Handle);
+			auto& TimerManager = World->GetTimerManager();
+			auto Handle = TimerManager.K2_FindDynamicTimerHandle(Delegate);
+			return World->GetTimerManager().GetTimerRemaining(Handle);
 		}
 		else
 		{
@@ -514,8 +563,9 @@ float UKismetSystemLibrary::K2_GetTimerRemainingTime(UObject* Object, FString Fu
 	}
 	else
 	{
-		const FString ObjectNameStr = Object != NULL ? Object->GetName() : TEXT("None");
-		UE_LOG(LogBlueprintUserMessages, Warning, TEXT("GetTimerRemainingTime passed a bad function (%s) or object (%s)"), *FunctionName, *ObjectNameStr);
+		UE_LOG(LogBlueprintUserMessages, Warning, 
+			TEXT("GetTimerRemainingTime passed a bad function (%s) or object (%s)"), 
+			*Delegate.GetFunctionName().ToString(), *GetNameSafe(Delegate.GetUObject()));
 		return 0.0f;
 	}
 }
@@ -632,7 +682,7 @@ void UKismetSystemLibrary::SetVectorPropertyByName(UObject* Object, FName Proper
 {
 	if(Object != NULL)
 	{
-		UScriptStruct* VectorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Vector"));
+		UScriptStruct* VectorStruct = GetBaseStructure(TEXT("Vector"));
 		UStructProperty* VectorProp = FindField<UStructProperty>(Object->GetClass(), PropertyName);
 		if(VectorProp != NULL && VectorProp->Struct == VectorStruct)
 		{
@@ -645,7 +695,7 @@ void UKismetSystemLibrary::SetRotatorPropertyByName(UObject* Object, FName Prope
 {
 	if(Object != NULL)
 	{
-		UScriptStruct* RotatorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Rotator"));
+		UScriptStruct* RotatorStruct = GetBaseStructure(TEXT("Rotator"));
 		UStructProperty* RotatorProp = FindField<UStructProperty>(Object->GetClass(), PropertyName);
 		if(RotatorProp != NULL && RotatorProp->Struct == RotatorStruct)
 		{
@@ -658,7 +708,7 @@ void UKismetSystemLibrary::SetLinearColorPropertyByName(UObject* Object, FName P
 {
 	if(Object != NULL)
 	{
-		UScriptStruct* ColorStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("LinearColor"));
+		UScriptStruct* ColorStruct = GetBaseStructure(TEXT("LinearColor"));
 		UStructProperty* ColorProp = FindField<UStructProperty>(Object->GetClass(), PropertyName);
 		if(ColorProp != NULL && ColorProp->Struct == ColorStruct)
 		{
@@ -671,7 +721,7 @@ void UKismetSystemLibrary::SetTransformPropertyByName(UObject* Object, FName Pro
 {
 	if(Object != NULL)
 	{
-		UScriptStruct* TransformStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("Transform"));
+		UScriptStruct* TransformStruct = GetBaseStructure(TEXT("Transform"));
 		UStructProperty* TransformProp = FindField<UStructProperty>(Object->GetClass(), PropertyName);
 		if(TransformProp != NULL && TransformProp->Struct == TransformStruct)
 		{
@@ -747,7 +797,7 @@ bool UKismetSystemLibrary::SphereOverlapComponents_DEPRECATED(UObject* WorldCont
 	FCollisionObjectQueryParams::InitType InitType = FCollisionObjectQueryParams::GetCollisionChannelFromOverlapFilter(Filter);
 	
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	World->OverlapMulti(Overlaps, SpherePos, FQuat::Identity, FCollisionShape::MakeSphere(SphereRadius), Params, FCollisionObjectQueryParams(InitType));
+	World->OverlapMultiByObjectType(Overlaps, SpherePos, FQuat::Identity, FCollisionObjectQueryParams(InitType), FCollisionShape::MakeSphere(SphereRadius), Params);
 	
 	for (int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); ++OverlapIdx)
 	{
@@ -794,7 +844,7 @@ bool UKismetSystemLibrary::BoxOverlapComponents_DEPRECATED(UObject* WorldContext
 	FCollisionObjectQueryParams::InitType InitType = FCollisionObjectQueryParams::GetCollisionChannelFromOverlapFilter(Filter);
 	
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	World->OverlapMulti(Overlaps, BoxPos, FQuat::Identity, FCollisionShape::MakeBox(BoxExtent), Params, FCollisionObjectQueryParams(InitType));
+	World->OverlapMultiByObjectType(Overlaps, BoxPos, FQuat::Identity, FCollisionObjectQueryParams(InitType), FCollisionShape::MakeBox(BoxExtent), Params);
 
 	for (int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); ++OverlapIdx)
 	{
@@ -840,7 +890,7 @@ bool UKismetSystemLibrary::CapsuleOverlapComponents_DEPRECATED(UObject* WorldCon
 	FCollisionObjectQueryParams::InitType InitType = FCollisionObjectQueryParams::GetCollisionChannelFromOverlapFilter(Filter);
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );	
-	World->OverlapMulti(Overlaps, CapsulePos, FQuat::Identity, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params, FCollisionObjectQueryParams(InitType));
+	World->OverlapMultiByObjectType(Overlaps, CapsulePos, FQuat::Identity, FCollisionObjectQueryParams(InitType), FCollisionShape::MakeCapsule(Radius, HalfHeight), Params);
 
 	for (int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); ++OverlapIdx)
 	{
@@ -884,7 +934,7 @@ bool UKismetSystemLibrary::ComponentOverlapComponents_DEPRECATED(UPrimitiveCompo
 
 	FCollisionObjectQueryParams::InitType InitType = FCollisionObjectQueryParams::GetCollisionChannelFromOverlapFilter(Filter);
 	check( Component->GetWorld());
-	Component->GetWorld()->ComponentOverlapMulti(Overlaps, Component, ComponentTransform.GetTranslation(), ComponentTransform.GetRotation().Rotator(), Params, FCollisionObjectQueryParams(InitType));
+	Component->GetWorld()->ComponentOverlapMulti(Overlaps, Component, ComponentTransform.GetTranslation(), ComponentTransform.GetRotation(), Params, FCollisionObjectQueryParams(InitType));
 
 	for (int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); ++OverlapIdx)
 	{
@@ -937,7 +987,7 @@ bool UKismetSystemLibrary::SphereOverlapComponents_NEW(UObject* WorldContextObje
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
 	if(World != nullptr)
 	{
-		World->OverlapMulti(Overlaps, SpherePos, FQuat::Identity, FCollisionShape::MakeSphere(SphereRadius), Params, ObjectParams);
+		World->OverlapMultiByObjectType(Overlaps, SpherePos, FQuat::Identity, ObjectParams, FCollisionShape::MakeSphere(SphereRadius), Params);
 	}
 
 	for (int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); ++OverlapIdx)
@@ -992,7 +1042,7 @@ bool UKismetSystemLibrary::BoxOverlapComponents_NEW(UObject* WorldContextObject,
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
 	if (World != nullptr)
 	{
-		World->OverlapMulti(Overlaps, BoxPos, FQuat::Identity, FCollisionShape::MakeBox(BoxExtent), Params, ObjectParams);
+		World->OverlapMultiByObjectType(Overlaps, BoxPos, FQuat::Identity, ObjectParams, FCollisionShape::MakeBox(BoxExtent), Params);
 	}
 
 	for (int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); ++OverlapIdx)
@@ -1046,7 +1096,7 @@ bool UKismetSystemLibrary::CapsuleOverlapComponents_NEW(UObject* WorldContextObj
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );	
 	if (World != nullptr)
 	{
-		World->OverlapMulti(Overlaps, CapsulePos, FQuat::Identity, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params, ObjectParams);
+		World->OverlapMultiByObjectType(Overlaps, CapsulePos, FQuat::Identity, ObjectParams, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params);
 	}
 
 	for (int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); ++OverlapIdx)
@@ -1097,7 +1147,7 @@ bool UKismetSystemLibrary::ComponentOverlapComponents_NEW(UPrimitiveComponent* C
 	}
 
 	check( Component->GetWorld());
-	Component->GetWorld()->ComponentOverlapMulti(Overlaps, Component, ComponentTransform.GetTranslation(), ComponentTransform.GetRotation().Rotator(), Params, ObjectParams);
+	Component->GetWorld()->ComponentOverlapMulti(Overlaps, Component, ComponentTransform.GetTranslation(), ComponentTransform.GetRotation(), Params, ObjectParams);
 
 	for (int32 OverlapIdx=0; OverlapIdx<Overlaps.Num(); ++OverlapIdx)
 	{
@@ -1143,7 +1193,7 @@ bool UKismetSystemLibrary::LineTraceSingle_DEPRECATED(UObject* WorldContextObjec
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -1154,7 +1204,7 @@ bool UKismetSystemLibrary::LineTraceSingle_DEPRECATED(UObject* WorldContextObjec
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->LineTraceSingle(OutHit, Start, End, TraceChannel, Params);
+	bool const bHit = World->LineTraceSingleByChannel(OutHit, Start, End, TraceChannel, Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -1206,7 +1256,7 @@ bool UKismetSystemLibrary::LineTraceMulti_DEPRECATED(UObject* WorldContextObject
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -1217,7 +1267,7 @@ bool UKismetSystemLibrary::LineTraceMulti_DEPRECATED(UObject* WorldContextObject
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );	
-	bool const bHit = World->LineTraceMulti(OutHits, Start, End, TraceChannel, Params);
+	bool const bHit = World->LineTraceMultiByChannel(OutHits, Start, End, TraceChannel, Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -1300,7 +1350,8 @@ bool UKismetSystemLibrary::BoxTraceSingle(UObject* WorldContextObject, const FVe
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
 	{
-		if (AActor* IgnoreActor = Cast<AActor>(WorldContextObject))
+		AActor* IgnoreActor = Cast<AActor>(WorldContextObject);
+		if (IgnoreActor)
 		{
 			Params.AddIgnoredActor(IgnoreActor);
 		}
@@ -1311,7 +1362,8 @@ bool UKismetSystemLibrary::BoxTraceSingle(UObject* WorldContextObject, const FVe
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				if (AActor* IgnoreActor = Cast<AActor>(CurrentObject))
+				IgnoreActor = Cast<AActor>(CurrentObject);
+				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
 					break;
@@ -1321,7 +1373,7 @@ bool UKismetSystemLibrary::BoxTraceSingle(UObject* WorldContextObject, const FVe
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-	bool const bHit = World ? World->SweepSingle(OutHit, Start, End, Orientation.Quaternion(), UEngineTypes::ConvertToCollisionChannel(TraceChannel), FCollisionShape::MakeBox(HalfSize), Params) : false;
+	bool const bHit = World ? World->SweepSingleByChannel(OutHit, Start, End, Orientation.Quaternion(), UEngineTypes::ConvertToCollisionChannel(TraceChannel), FCollisionShape::MakeBox(HalfSize), Params) : false;
 
 	if (DrawDebugType != EDrawDebugTrace::None && (World != nullptr))
 	{
@@ -1355,7 +1407,8 @@ bool UKismetSystemLibrary::BoxTraceMulti(UObject* WorldContextObject, const FVec
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
 	{
-		if (AActor* IgnoreActor = Cast<AActor>(WorldContextObject))
+		AActor* IgnoreActor = Cast<AActor>(WorldContextObject);
+		if (IgnoreActor)
 		{
 			Params.AddIgnoredActor(IgnoreActor);
 		}
@@ -1366,7 +1419,8 @@ bool UKismetSystemLibrary::BoxTraceMulti(UObject* WorldContextObject, const FVec
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				if (AActor* IgnoreActor = Cast<AActor>(CurrentObject))
+				IgnoreActor = Cast<AActor>(CurrentObject);
+				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
 					break;
@@ -1376,7 +1430,7 @@ bool UKismetSystemLibrary::BoxTraceMulti(UObject* WorldContextObject, const FVec
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-	bool const bHit = World ? World->SweepMulti(OutHits, Start, End, Orientation.Quaternion(), UEngineTypes::ConvertToCollisionChannel(TraceChannel), FCollisionShape::MakeBox(HalfSize), Params) : false;
+	bool const bHit = World ? World->SweepMultiByChannel(OutHits, Start, End, Orientation.Quaternion(), UEngineTypes::ConvertToCollisionChannel(TraceChannel), FCollisionShape::MakeBox(HalfSize), Params) : false;
 
 	if (DrawDebugType != EDrawDebugTrace::None && (World != nullptr))
 	{
@@ -1434,7 +1488,7 @@ bool UKismetSystemLibrary::SphereTraceSingle_DEPRECATED(UObject* WorldContextObj
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -1445,7 +1499,7 @@ bool UKismetSystemLibrary::SphereTraceSingle_DEPRECATED(UObject* WorldContextObj
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->SweepSingle(OutHit, Start, End, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(Radius), Params);
+	bool const bHit = World->SweepSingleByChannel(OutHit, Start, End, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(Radius), Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -1496,7 +1550,7 @@ bool UKismetSystemLibrary::SphereTraceMulti_DEPRECATED(UObject* WorldContextObje
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -1507,7 +1561,7 @@ bool UKismetSystemLibrary::SphereTraceMulti_DEPRECATED(UObject* WorldContextObje
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->SweepMulti(OutHits, Start, End, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(Radius), Params);
+	bool const bHit = World->SweepMultiByChannel(OutHits, Start, End, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(Radius), Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -1565,7 +1619,7 @@ bool UKismetSystemLibrary::CapsuleTraceSingle_DEPRECATED(UObject* WorldContextOb
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -1576,7 +1630,7 @@ bool UKismetSystemLibrary::CapsuleTraceSingle_DEPRECATED(UObject* WorldContextOb
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->SweepSingle(OutHit, Start, End, FQuat::Identity, TraceChannel, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params);
+	bool const bHit = World->SweepSingleByChannel(OutHit, Start, End, FQuat::Identity, TraceChannel, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -1633,7 +1687,7 @@ bool UKismetSystemLibrary::CapsuleTraceMulti_DEPRECATED(UObject* WorldContextObj
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -1644,7 +1698,7 @@ bool UKismetSystemLibrary::CapsuleTraceMulti_DEPRECATED(UObject* WorldContextObj
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->SweepMulti(OutHits, Start, End, FQuat::Identity, TraceChannel, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params);
+	bool const bHit = World->SweepMultiByChannel(OutHits, Start, End, FQuat::Identity, TraceChannel, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -1718,7 +1772,7 @@ bool UKismetSystemLibrary::LineTraceSingleByObject_DEPRECATED(UObject* WorldCont
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -1749,7 +1803,7 @@ bool UKismetSystemLibrary::LineTraceSingleByObject_DEPRECATED(UObject* WorldCont
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->LineTraceSingle(OutHit, Start, End, Params, ObjectParams);
+	bool const bHit = World->LineTraceSingleByObjectType(OutHit, Start, End, ObjectParams, Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -1809,7 +1863,7 @@ bool UKismetSystemLibrary::LineTraceMultiByObject_DEPRECATED(UObject* WorldConte
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -1840,7 +1894,7 @@ bool UKismetSystemLibrary::LineTraceMultiByObject_DEPRECATED(UObject* WorldConte
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );	
-	bool const bHit = World->LineTraceMulti(OutHits, Start, End, Params, ObjectParams);
+	bool const bHit = World->LineTraceMultiByObjectType(OutHits, Start, End, ObjectParams, Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -1911,7 +1965,7 @@ bool UKismetSystemLibrary::SphereTraceSingleByObject_DEPRECATED(UObject* WorldCo
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -1942,7 +1996,7 @@ bool UKismetSystemLibrary::SphereTraceSingleByObject_DEPRECATED(UObject* WorldCo
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->SweepSingle(OutHit, Start, End, FQuat::Identity, FCollisionShape::MakeSphere(Radius), Params, ObjectParams);
+	bool const bHit = World->SweepSingleByObjectType(OutHit, Start, End, FQuat::Identity, ObjectParams, FCollisionShape::MakeSphere(Radius), Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -2001,7 +2055,7 @@ bool UKismetSystemLibrary::SphereTraceMultiByObject_DEPRECATED(UObject* WorldCon
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -2032,7 +2086,7 @@ bool UKismetSystemLibrary::SphereTraceMultiByObject_DEPRECATED(UObject* WorldCon
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->SweepMulti(OutHits, Start, End, FQuat::Identity, FCollisionShape::MakeSphere(Radius), Params, ObjectParams);
+	bool const bHit = World->SweepMultiByObjectType(OutHits, Start, End, FQuat::Identity, ObjectParams, FCollisionShape::MakeSphere(Radius), Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -2081,7 +2135,8 @@ bool UKismetSystemLibrary::BoxTraceSingleForObjects(UObject* WorldContextObject,
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
 	{
-		if (AActor* IgnoreActor = Cast<AActor>(WorldContextObject))
+		AActor* IgnoreActor = Cast<AActor>(WorldContextObject);
+		if (IgnoreActor)
 		{
 			Params.AddIgnoredActor(IgnoreActor);
 		}
@@ -2092,7 +2147,8 @@ bool UKismetSystemLibrary::BoxTraceSingleForObjects(UObject* WorldContextObject,
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				if (AActor* IgnoreActor = Cast<AActor>(CurrentObject))
+				IgnoreActor = Cast<AActor>(CurrentObject);
+				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
 					break;
@@ -2122,7 +2178,7 @@ bool UKismetSystemLibrary::BoxTraceSingleForObjects(UObject* WorldContextObject,
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-	bool const bHit = World ? World->SweepSingle(OutHit, Start, End, Orientation.Quaternion(), FCollisionShape::MakeBox(HalfSize), Params, ObjectParams) : false;
+	bool const bHit = World ? World->SweepSingleByObjectType(OutHit, Start, End, Orientation.Quaternion(), ObjectParams, FCollisionShape::MakeBox(HalfSize), Params) : false;
 
 	if (DrawDebugType != EDrawDebugTrace::None && (World != nullptr))
 	{
@@ -2164,7 +2220,8 @@ bool UKismetSystemLibrary::BoxTraceMultiForObjects(UObject* WorldContextObject, 
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
 	{
-		if (AActor* IgnoreActor = Cast<AActor>(WorldContextObject))
+		AActor* IgnoreActor = Cast<AActor>(WorldContextObject);
+		if (IgnoreActor)
 		{
 			Params.AddIgnoredActor(IgnoreActor);
 		}
@@ -2175,7 +2232,8 @@ bool UKismetSystemLibrary::BoxTraceMultiForObjects(UObject* WorldContextObject, 
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				if (AActor* IgnoreActor = Cast<AActor>(CurrentObject))
+				IgnoreActor = Cast<AActor>(CurrentObject);
+				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
 					break;
@@ -2205,7 +2263,7 @@ bool UKismetSystemLibrary::BoxTraceMultiForObjects(UObject* WorldContextObject, 
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-	bool const bHit = World ? World->SweepMulti(OutHits, Start, End, Orientation.Quaternion(), FCollisionShape::MakeBox(HalfSize), Params, ObjectParams) : false;
+	bool const bHit = World ? World->SweepMultiByObjectType(OutHits, Start, End, Orientation.Quaternion(), ObjectParams, FCollisionShape::MakeBox(HalfSize), Params) : false;
 
 	if (DrawDebugType != EDrawDebugTrace::None && (World != nullptr))
 	{
@@ -2271,7 +2329,7 @@ bool UKismetSystemLibrary::CapsuleTraceSingleByObject_DEPRECATED(UObject* WorldC
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -2302,7 +2360,7 @@ bool UKismetSystemLibrary::CapsuleTraceSingleByObject_DEPRECATED(UObject* WorldC
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->SweepSingle(OutHit, Start, End, FQuat::Identity, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params, ObjectParams);
+	bool const bHit = World->SweepSingleByObjectType(OutHit, Start, End, FQuat::Identity, ObjectParams, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -2366,7 +2424,7 @@ bool UKismetSystemLibrary::CapsuleTraceMultiByObject_DEPRECATED(UObject* WorldCo
 			while (CurrentObject)
 			{
 				CurrentObject = CurrentObject->GetOuter();
-				AActor* IgnoreActor = Cast<AActor>(CurrentObject);
+				IgnoreActor = Cast<AActor>(CurrentObject);
 				if (IgnoreActor)
 				{
 					Params.AddIgnoredActor(IgnoreActor);
@@ -2397,7 +2455,7 @@ bool UKismetSystemLibrary::CapsuleTraceMultiByObject_DEPRECATED(UObject* WorldCo
 	}
 
 	UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
-	bool const bHit = World->SweepMulti(OutHits, Start, End, FQuat::Identity, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params, ObjectParams);
+	bool const bHit = World->SweepMultiByObjectType(OutHits, Start, End, FQuat::Identity, ObjectParams, FCollisionShape::MakeCapsule(Radius, HalfHeight), Params);
 
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
@@ -2859,6 +2917,16 @@ void UKismetSystemLibrary::SetStructurePropertyByName(UObject* Object, FName Pro
 void UKismetSystemLibrary::ControlScreensaver(bool bAllowScreenSaver)
 {
 	FPlatformMisc::ControlScreensaver(bAllowScreenSaver ? FPlatformMisc::EScreenSaverAction::Enable : FPlatformMisc::EScreenSaverAction::Disable);
+}
+
+void UKismetSystemLibrary::SetVolumeButtonsHandledBySystem(bool bEnabled)
+{
+	FPlatformMisc::SetVolumeButtonsHandledBySystem(bEnabled);
+}
+
+bool UKismetSystemLibrary::GetVolumeButtonsHandledBySystem()
+{
+	return FPlatformMisc::GetVolumeButtonsHandledBySystem();
 }
 
 void UKismetSystemLibrary::SetSupressViewportTransitionMessage(UObject* WorldContextObject, bool bState)

@@ -18,26 +18,28 @@ class UDialogueSoundWaveProxy : public USoundBase
 
 public:
 	/** Returns whether the sound base is set up in a playable manner */
-	virtual bool IsPlayable() const;
+	virtual bool IsPlayable() const override;
 
 	/** Returns a pointer to the attenuation settings that are to be applied for this node */
-	virtual const FAttenuationSettings* GetAttenuationSettingsToApply() const;
+	virtual const FAttenuationSettings* GetAttenuationSettingsToApply() const override;
 
 	/** 
 	 * Returns the farthest distance at which the sound could be heard
 	 */
-	virtual float GetMaxAudibleDistance();
+	virtual float GetMaxAudibleDistance() override;
 
 	/** 
 	 * Returns the length of the sound
 	 */
-	virtual float GetDuration();
+	virtual float GetDuration() override;
 
-	virtual float GetVolumeMultiplier();
-	virtual float GetPitchMultiplier();
+	virtual float GetVolumeMultiplier() override;
+	virtual float GetPitchMultiplier() override;
 
 	/** 
 	 * Parses the Sound to generate the WaveInstances to play
 	 */
-	virtual void Parse( class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& AudioComponent, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances );
+	virtual void Parse( class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& AudioComponent, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
+
+	virtual USoundClass* GetSoundClass() const override;
 };

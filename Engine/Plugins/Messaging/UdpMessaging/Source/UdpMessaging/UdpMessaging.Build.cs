@@ -6,6 +6,13 @@ namespace UnrealBuildTool.Rules
 	{
 		public UdpMessaging(TargetInfo Target)
 		{
+            DynamicallyLoadedModuleNames.AddRange(
+                new string[] {
+                    "Messaging",
+					"Settings",
+				}
+            );
+
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{

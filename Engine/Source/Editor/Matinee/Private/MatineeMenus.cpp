@@ -127,9 +127,7 @@ void FMatinee::GenericTextEntryModeless(const FText& DialogText, const FText& De
 		TextEntryPopup,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
-		);	
-
-	TextEntryPopup->FocusDefaultWidget();
+		);
 }
 
 void FMatinee::CloseEntryPopupWindow()
@@ -393,7 +391,7 @@ void FMatinee::NewGroupPopupTextCommitted(
 	GroupAttribs.Add(FAnalyticsEventAttribute(TEXT("ActionId"), FString::Printf(TEXT("%d"), static_cast<int32>(InActionId))));
 	if(bDirGroup)
 	{
-		UInterpGroup* NewDirector = ConstructObject<UInterpGroupDirector>( UInterpGroupDirector::StaticClass(), IData, NAME_None, RF_Transactional );
+		UInterpGroup* NewDirector = NewObject<UInterpGroupDirector>(IData, NAME_None, RF_Transactional);
 		NewGroups.Add(NewDirector);
 		GroupAttribs.Add(FAnalyticsEventAttribute(TEXT("Name"), NewDirector->GroupName.ToString()));
 	}
@@ -416,7 +414,7 @@ void FMatinee::NewGroupPopupTextCommitted(
 	}
 	else
 	{
-		UInterpGroup* NewGroup = ConstructObject<UInterpGroup>( UInterpGroup::StaticClass(), IData, NAME_None, RF_Transactional );
+		UInterpGroup* NewGroup = NewObject<UInterpGroup>(IData, NAME_None, RF_Transactional);
 		NewGroup->GroupName = NewGroupName;
 		NewGroups.Add(NewGroup);
 		GroupAttribs.Add(FAnalyticsEventAttribute(TEXT("Name"), NewGroup->GroupName.ToString()));
@@ -483,12 +481,12 @@ void FMatinee::NewGroupPopupTextCommitted(
 			// Create new InterpGroupInst
 			if(bDirGroup)
 			{
-				NewGroupInst = ConstructObject<UInterpGroupInstDirector>( UInterpGroupInstDirector::StaticClass(), MatineeActor, NAME_None, RF_Transactional );
+				NewGroupInst = NewObject<UInterpGroupInstDirector>(MatineeActor, NAME_None, RF_Transactional);
 				NewGroupInst->InitGroupInst(NewGroup, NULL);
 			}
 			else
 			{
-				NewGroupInst = ConstructObject<UInterpGroupInst>( UInterpGroupInst::StaticClass(), MatineeActor, NAME_None, RF_Transactional );
+				NewGroupInst = NewObject<UInterpGroupInst>(MatineeActor, NAME_None, RF_Transactional);
 				// Initialize group instance, saving ref to actor it works on.
 				NewGroupInst->InitGroupInst(NewGroup, GroupActor);
 			}
@@ -504,10 +502,10 @@ void FMatinee::NewGroupPopupTextCommitted(
 		// If a director group, create a director track for it now.
 		if(bDirGroup)
 		{
-			UInterpTrack* NewDirTrack = ConstructObject<UInterpTrackDirector>( UInterpTrackDirector::StaticClass(), NewGroup, NAME_None, RF_Transactional );
+			UInterpTrack* NewDirTrack = NewObject<UInterpTrackDirector>(NewGroup, NAME_None, RF_Transactional);
 			const int32 TrackIndex = NewGroup->InterpTracks.Add(NewDirTrack);
 
-			UInterpTrackInst* NewDirTrackInst = ConstructObject<UInterpTrackInstDirector>( UInterpTrackInstDirector::StaticClass(), NewGroupInst, NAME_None, RF_Transactional );
+			UInterpTrackInst* NewDirTrackInst = NewObject<UInterpTrackInstDirector>(NewGroupInst, NAME_None, RF_Transactional);
 			NewGroupInst->TrackInst.Add(NewDirTrackInst);
 
 			NewDirTrackInst->InitTrackInst(NewDirTrack);
@@ -551,10 +549,10 @@ void FMatinee::NewGroupPopupTextCommitted(
 			// For Lighting groups, add a Movement, Brightness, Light Color, and Radius Property track
 			if ( InActionId == FMatineeCommands::EGroupAction::NewLightingGroup )
 			{
-				UInterpTrack* NewMovTrack = ConstructObject<UInterpTrackMove>( UInterpTrackMove::StaticClass(), NewGroup, NAME_None, RF_Transactional );
+				UInterpTrack* NewMovTrack = NewObject<UInterpTrackMove>(NewGroup, NAME_None, RF_Transactional);
 				const int32 TrackIndex = NewGroup->InterpTracks.Add(NewMovTrack);
 
-				UInterpTrackInst* NewMovTrackInst = ConstructObject<UInterpTrackInstMove>( UInterpTrackInstMove::StaticClass(), NewGroupInst, NAME_None, RF_Transactional );
+				UInterpTrackInst* NewMovTrackInst = NewObject<UInterpTrackInstMove>(NewGroupInst, NAME_None, RF_Transactional);
 				NewGroupInst->TrackInst.Add(NewMovTrackInst);
 
 				NewMovTrackInst->InitTrackInst(NewMovTrack);
@@ -1051,7 +1049,7 @@ void FMatinee::OnViewHide3DTracks()
 {
 	bHide3DTrackView = !bHide3DTrackView;
 	// Save to ini when it changes.
-	GConfig->SetBool( TEXT("Matinee"), TEXT("Hide3DTracks"), bHide3DTrackView, GEditorUserSettingsIni );
+	GConfig->SetBool( TEXT("Matinee"), TEXT("Hide3DTracks"), bHide3DTrackView, GEditorPerProjectIni );
 }
 
 bool FMatinee::IsViewHide3DTracksToggled()
@@ -1065,7 +1063,7 @@ void FMatinee::OnViewZoomToScrubPos()
 	bZoomToScrubPos = !bZoomToScrubPos;
 	
 	// Save to ini when it changes.
-	GConfig->SetBool( TEXT("Matinee"), TEXT("ZoomToScrubPos"), bZoomToScrubPos, GEditorUserSettingsIni );
+	GConfig->SetBool( TEXT("Matinee"), TEXT("ZoomToScrubPos"), bZoomToScrubPos, GEditorPerProjectIni );
 }
 
 bool FMatinee::IsViewZoomToScrubPosToggled()
@@ -1076,7 +1074,7 @@ bool FMatinee::IsViewZoomToScrubPosToggled()
 void FMatinee::OnEnableEditingGrid()
 {
 	bEditingGridEnabled = !bEditingGridEnabled;
-	GConfig->SetBool( TEXT("Matinee"), TEXT("EnableEditingGrid"), bEditingGridEnabled, GEditorUserSettingsIni );
+	GConfig->SetBool( TEXT("Matinee"), TEXT("EnableEditingGrid"), bEditingGridEnabled, GEditorPerProjectIni );
 }
 
 bool FMatinee::IsEnableEditingGridToggled()
@@ -1088,7 +1086,7 @@ void FMatinee::OnSetEditingGrid( uint32 InGridSize )
 {
 	EditingGridSize = InGridSize;
 
-	GConfig->SetInt( TEXT("Matinee"), TEXT("EditingGridSize"), EditingGridSize, GEditorUserSettingsIni );
+	GConfig->SetInt( TEXT("Matinee"), TEXT("EditingGridSize"), EditingGridSize, GEditorPerProjectIni );
 }
 
 bool FMatinee::IsEditingGridChecked(uint32 InGridSize)
@@ -1099,7 +1097,7 @@ bool FMatinee::IsEditingGridChecked(uint32 InGridSize)
 void FMatinee::OnToggleEditingCrosshair()
 {
 	bEditingCrosshairEnabled = !bEditingCrosshairEnabled;
-	GConfig->SetBool( TEXT("Matinee"), TEXT("EditingCrosshair"), bEditingCrosshairEnabled, GEditorUserSettingsIni );
+	GConfig->SetBool( TEXT("Matinee"), TEXT("EditingCrosshair"), bEditingCrosshairEnabled, GEditorPerProjectIni );
 }
 
 bool FMatinee::IsEditingCrosshairToggled()
@@ -1112,7 +1110,7 @@ void FMatinee::OnToggleViewportFrameStats()
 	bViewportFrameStatsEnabled = !bViewportFrameStatsEnabled;
 
 	// Save to ini when it changes.
-	GConfig->SetBool( TEXT("Matinee"), TEXT("ViewportFrameStats"), bViewportFrameStatsEnabled, GEditorUserSettingsIni );
+	GConfig->SetBool( TEXT("Matinee"), TEXT("ViewportFrameStats"), bViewportFrameStatsEnabled, GEditorPerProjectIni );
 }
 
 bool FMatinee::IsViewportFrameStatsToggled()
@@ -1434,7 +1432,7 @@ void FMatinee::AddActorToGroup(UInterpGroup* GroupToAdd, AActor* ActorToAdd)
 	}
 	else
 	{
-		NewGroupInst = ConstructObject<UInterpGroupInst>( UInterpGroupInst::StaticClass(), MatineeActor, NAME_None, RF_Transactional );
+		NewGroupInst = NewObject<UInterpGroupInst>(MatineeActor, NAME_None, RF_Transactional);
 		// Instantiate the Matinee group data structure.
 		MatineeActor->GroupInst.Add(NewGroupInst);
 		NewGroupInst->InitGroupInst(GroupToAdd, ActorToAdd);
@@ -1537,11 +1535,16 @@ void FMatinee::OnContextTrackExportAnimFBX()
 		// Get the owning group of the track
 		UInterpGroup* Group = CastChecked<UInterpGroup>( SelectedTrack->GetOuter() ) ;
 
-		// Get the first group instance for this track.  In the case of animations there is only one instance usually
-		UInterpGroupInst* GroupInst = MatineeActor->FindFirstGroupInst( Group );
+		ASkeletalMeshActor* SkelMeshActor = NULL;
 
-		// Get the actor for this group.
-		ASkeletalMeshActor* SkelMeshActor = Cast<ASkeletalMeshActor>( GroupInst->GroupActor );
+		if ( MatineeActor != NULL )
+		{
+			// Get the first group instance for this track.  In the case of animations there is only one instance usually
+			UInterpGroupInst* GroupInst = MatineeActor->FindFirstGroupInst(Group);
+
+			// Get the actor for this group.
+			SkelMeshActor = Cast<ASkeletalMeshActor>(GroupInst->GroupActor);
+		}
 
 		// Someone could have hooked up an invalid actor.  In that case do nothing
 		if( SkelMeshActor )
@@ -1580,6 +1583,8 @@ void FMatinee::OnContextTrackExportAnimFBX()
 					// Export the Matinee information to a COLLADA document.
 					Exporter->CreateDocument();
 					Exporter->SetTrasformBaking(bBakeTransforms);
+					const bool bKeepHierarchy = GetDefault<UEditorPerProjectUserSettings>()->bKeepAttachHierarchy;
+					Exporter->SetKeepHierarchy(bKeepHierarchy);
 
 					// Export the anim sequences
 					TArray<UAnimSequence*> AnimSequences;
@@ -1822,7 +1827,7 @@ void FMatinee::OnContextGroupCreateTabTextCommitted(const FText& InText, ETextCo
 		// Create a new tab.
 		if( HasAGroupSelected() )
 		{
-			UInterpFilter_Custom* Filter = ConstructObject<UInterpFilter_Custom>(UInterpFilter_Custom::StaticClass(), IData, NAME_None, RF_Transactional);
+			UInterpFilter_Custom* Filter = NewObject<UInterpFilter_Custom>(IData, NAME_None, RF_Transactional);
 
 			if(!InText.IsEmpty())
 			{
@@ -1919,6 +1924,8 @@ void FMatinee::OnContextGroupExportAnimFBX()
 			{
 				// Find the skeletal mesh for this group
 				USkeletalMeshComponent* SkelMeshComponent = NULL;
+
+				if (MatineeActor != NULL)
 				{
 					// Get the first group instance for this group.  In the case of animations there is usually only one instance
 					UInterpGroupInst* GroupInst = MatineeActor->FindFirstGroupInst( SelectedGroup );
@@ -1970,6 +1977,8 @@ void FMatinee::OnContextGroupExportAnimFBX()
 							// Export the Matinee information to an FBX document.
 							Exporter->CreateDocument();
 							Exporter->SetTrasformBaking(bBakeTransforms);
+							const bool bKeepHierarchy = GetDefault<UEditorPerProjectUserSettings>()->bKeepAttachHierarchy;
+							Exporter->SetKeepHierarchy(bKeepHierarchy);
 
 							// Export the animation sequences in the group by sampling the skeletal mesh over the
 							// duration of the matinee sequence
@@ -2834,7 +2843,7 @@ void FMatinee::ExportCameraAnimationNameCommitted(const FText& InAnimationPackag
 					else
 					{
 						// create it, then copy params into it
-						ExistingObject = StaticConstructObject(UCameraAnim::StaticClass(), ExistingPackage, *ObjectName, RF_Public|RF_Standalone);
+						ExistingObject = NewObject<UCameraAnim>(ExistingPackage, *ObjectName, RF_Public | RF_Standalone);
 						bNewObject = true;
 					}
 				}
@@ -2890,8 +2899,6 @@ void FMatinee::OnContextSaveAsCameraAnimation()
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect( FPopupTransitionEffect::TypeInPopup )
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 /**
@@ -3001,7 +3008,7 @@ void FMatinee::OnContextMoveMarkerToEndOfSelectedTrack()
 void FMatinee::OnToggleKeyframeBarSelection()
 {
 	bAllowKeyframeBarSelection = !bAllowKeyframeBarSelection;
-	GConfig->SetBool( TEXT("Matinee"), TEXT("AllowKeyframeBarSelection"), bAllowKeyframeBarSelection, GEditorUserSettingsIni );
+	GConfig->SetBool( TEXT("Matinee"), TEXT("AllowKeyframeBarSelection"), bAllowKeyframeBarSelection, GEditorPerProjectIni );
 }
 
 /**
@@ -3018,7 +3025,7 @@ bool FMatinee::IsKeyframeBarSelectionToggled()
 void FMatinee::OnToggleKeyframeTextSelection()
 {
 	bAllowKeyframeTextSelection = !bAllowKeyframeTextSelection;
-	GConfig->SetBool( TEXT("Matinee"), TEXT("AllowKeyframeTextSelection"), bAllowKeyframeTextSelection, GEditorUserSettingsIni );
+	GConfig->SetBool( TEXT("Matinee"), TEXT("AllowKeyframeTextSelection"), bAllowKeyframeTextSelection, GEditorPerProjectIni );
 }
 
 bool FMatinee::IsKeyframeTextSelectionToggled()
@@ -3840,6 +3847,8 @@ void FMatinee::OnMenuExport()
 				// Export the Matinee information to an FBX file
 				Exporter->CreateDocument();
 				Exporter->SetTrasformBaking(bBakeTransforms);
+				const bool bKeepHierarchy = GetDefault<UEditorPerProjectUserSettings>()->bKeepAttachHierarchy;
+				Exporter->SetKeepHierarchy(bKeepHierarchy);
 
 				const bool bSelectedOnly = false;
 				// Export the persistent level and all of it's actors
@@ -4218,6 +4227,24 @@ bool FMatinee::IsBakeTransformsToggled()
 	return bBakeTransforms;
 }
 
+/**
+ * Called when the user toggles the ability to export a key every frame. 
+ */
+void FMatinee::OnToggleKeepHierarchy()
+{
+	auto* Settings = GetMutableDefault<UEditorPerProjectUserSettings>();
+	Settings->bKeepAttachHierarchy = !Settings->bKeepAttachHierarchy;
+}
+
+/**
+ * Updates the checked-menu item for baking transforms
+ */
+bool FMatinee::IsKeepHierarchyToggled()
+{
+	return GetDefault<UEditorPerProjectUserSettings>()->bKeepAttachHierarchy;
+}
+
+
 void FMatinee::OnMenuReduceKeys()
 {
 	ReduceKeys();
@@ -4226,16 +4253,14 @@ void FMatinee::OnMenuReduceKeys()
 /** Toggles interting of the panning the interp editor left and right */
 void FMatinee::OnToggleInvertPan()
 {
-	bool bInvertPan = GLevelEditorModeTools().GetInterpPanInvert();
-
 	bInvertPan = !bInvertPan;
 
-	GLevelEditorModeTools().SetInterpPanInvert(bInvertPan);
+	GConfig->SetBool(TEXT("Matinee"), TEXT("InterpEdPanInvert"), bInvertPan, GEditorPerProjectIni);
 }
 
 bool FMatinee::IsInvertPanToggled()
 {
-	return GLevelEditorModeTools().GetInterpPanInvert();	
+	return bInvertPan;
 }
 
 /** Called when split translation and rotation is selected from a movement track context menu */
@@ -4904,7 +4929,7 @@ void FMatinee::OnChangeSnapSize( TSharedPtr< FString > SelectedString, ESelectIn
 	SnapSelectionIndex = NewSelection;
 
 	// Save selected snap mode to INI.
-	GConfig->SetInt(TEXT("Matinee"), TEXT("SelectedSnapMode"), NewSelection, GEditorUserSettingsIni );
+	GConfig->SetInt(TEXT("Matinee"), TEXT("SelectedSnapMode"), NewSelection, GEditorPerProjectIni );
 
 	// Snap time to frames right now if we need to
 	SetSnapTimeToFrames( bSnapTimeToFrames );
@@ -4937,7 +4962,7 @@ void FMatinee::OnChangeInitialInterpMode( TSharedPtr<FString> ItemSelected, ESel
 	InitialInterpMode = ( EInterpCurveMode )NewSelection;
 
 	// Save selected mode to user's preference file
-	GConfig->SetInt( TEXT( "Matinee" ), TEXT( "InitialInterpMode2" ), NewSelection, GEditorUserSettingsIni );
+	GConfig->SetInt( TEXT( "Matinee" ), TEXT( "InitialInterpMode2" ), NewSelection, GEditorPerProjectIni );
 }
 
 
@@ -4992,9 +5017,10 @@ void FMatinee::ExtendDefaultToolbarMenu()
 			}
 			InMenuBarBuilder.EndSection();
 
-			InMenuBarBuilder.BeginSection("FileBake");
+			InMenuBarBuilder.BeginSection("Export");
 			{
 				InMenuBarBuilder.AddMenuEntry(FMatineeCommands::Get().FileExportBakeTransforms);
+				InMenuBarBuilder.AddMenuEntry(FMatineeCommands::Get().FileExportKeepHierarchy);
 			}
 			InMenuBarBuilder.EndSection();
 		}

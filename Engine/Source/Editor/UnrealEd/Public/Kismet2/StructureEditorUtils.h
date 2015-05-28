@@ -132,6 +132,8 @@ public:
 
 	static bool Fill_MakeStructureDefaultValue(const UProperty* Property, uint8* PropertyData);
 
+	static void RecreateDefaultInstanceInEditorData(UUserDefinedStruct* Struct);
+
 	//VALIDATION
 	static bool CanHaveAMemberVariableOfType(const UUserDefinedStruct* Struct, const FEdGraphPinType& VarType, FString* OutMsg = NULL);
 

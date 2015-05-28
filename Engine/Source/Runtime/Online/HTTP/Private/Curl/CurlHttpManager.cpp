@@ -182,18 +182,20 @@ FCurlHttpManager::FCurlHttpManager()
 }
 
 // note that we cannot call parent implementation because lock might be possible non-multiple
-void FCurlHttpManager::AddRequest(TSharedRef<class IHttpRequest> Request)
+void FCurlHttpManager::AddRequest(const TSharedRef<class IHttpRequest>& Request)
 {
 	FScopeLock ScopeLock(&RequestLock);
 
-	Requests.AddUnique(Request);
+	Requests.Add(Request);
 
 	FCurlHttpRequest* CurlRequest = static_cast< FCurlHttpRequest* >( &Request.Get() );
 	HandlesToRequests.Add(CurlRequest->GetEasyHandle(), Request);
+
+	
 }
 
 // note that we cannot call parent implementation because lock might be possible non-multiple
-void FCurlHttpManager::RemoveRequest(TSharedRef<class IHttpRequest> Request)
+void FCurlHttpManager::RemoveRequest(const TSharedRef<class IHttpRequest>& Request)
 {
 	FScopeLock ScopeLock(&RequestLock);
 
@@ -202,12 +204,12 @@ void FCurlHttpManager::RemoveRequest(TSharedRef<class IHttpRequest> Request)
 
 	FCurlHttpRequest* CurlRequest = static_cast< FCurlHttpRequest* >( &Request.Get() );
 	HandlesToRequests.Remove(CurlRequest->GetEasyHandle());
-
-	Requests.RemoveSingle(Request);
+	Requests.Remove(Request);
 }
 
 bool FCurlHttpManager::Tick(float DeltaSeconds)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FCurlHttpManager_Tick);
 	check(MultiHandle);
 	if (Requests.Num() > 0)
 	{

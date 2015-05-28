@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : 1579795,
 	"Description" : "Android media player using the Android Media library.",
-	"Category" : "Media.Players",
+	"Category" : "Media Players",
 	"EnabledByDefault" : true,
 	
     "Modules" :

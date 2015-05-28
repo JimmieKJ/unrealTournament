@@ -35,7 +35,7 @@ void FSlateD3DIndexBuffer::CreateBuffer()
 	BufferDesc.MiscFlags = 0;
 
 	HRESULT Hr = GD3DDevice->CreateBuffer( &BufferDesc, NULL, Buffer.GetInitReference() ) ;
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 }
 
 /** Resizes the buffer to the passed in size.  Preserves internal data */
@@ -63,7 +63,7 @@ void FSlateD3DIndexBuffer::ResizeBuffer( uint32 NumIndices )
 		BufferDesc.MiscFlags = 0;
 
 		HRESULT Hr = GD3DDevice->CreateBuffer( &BufferDesc, NULL, Buffer.GetInitReference() ) ;
-		check( SUCCEEDED(Hr) );
+		checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 		if( SavedIndices )
 		{

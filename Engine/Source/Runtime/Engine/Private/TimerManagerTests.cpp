@@ -3,7 +3,7 @@
 #include "EnginePrivate.h"
 #include "TimerManager.h"
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTimerManagerTest, "Engine.TimerManager", EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FTimerManagerTest, "System.Engine.TimerManager", EAutomationTestFlags::ATF_Editor)
 
 #define TIMER_TEST_TEXT( Format, ... ) FString::Printf(TEXT("%s - %d: %s"), TEXT(__FILE__) , __LINE__ , *FString::Printf(TEXT(Format), ##__VA_ARGS__) )
 
@@ -228,7 +228,7 @@ bool TimerManagerTest_LoopingTimers_DifferentHandles(UWorld* World, FAutomationT
 	FTimerHandle HandleOne, HandleTwo;
 
 	int32 CallCount = 0;
-	auto Func = [](int* CallCount){ (*CallCount)++; };
+	auto Func = [](int* InCallCount){ (*InCallCount)++; };
 
 	FTimerDelegate Delegate = FTimerDelegate::CreateStatic(Func, &CallCount);
 

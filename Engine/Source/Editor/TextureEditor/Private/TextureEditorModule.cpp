@@ -30,12 +30,12 @@ public:
 		return NewTextureEditor;
 	}
 
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager( )
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager( ) override
 	{
 		return MenuExtensibilityManager;
 	}
 
-	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager( )
+	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager( ) override
 	{
 		return ToolBarExtensibilityManager;
 	}

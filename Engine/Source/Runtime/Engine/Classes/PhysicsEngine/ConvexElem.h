@@ -42,9 +42,12 @@ struct FKConvexElem
 		, ConvexMeshNegX(NULL)
 	{}
 
+	DEPRECATED(4.8, "Please call DrawElemWire which takes in a Scale parameter")
 	ENGINE_API void	DrawElemWire(class FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const FColor Color) const;
+	
+	ENGINE_API void	DrawElemWire(class FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const float Scale, const FColor Color) const;
 
-	void AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBuffer, TArray<int32>& IndexBuffer, const FColor VertexColor) const;
+	void AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBuffer, TArray<int32>& IndexBuffer, const float Scale, const FColor VertexColor) const;
 
 	/** Reset the hull to empty all arrays */
 	ENGINE_API void	Reset();

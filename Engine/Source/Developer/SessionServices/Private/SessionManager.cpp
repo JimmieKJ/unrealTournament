@@ -34,8 +34,7 @@ FSessionManager::FSessionManager( const IMessageBusRef& InMessageBus )
 		.Handling<FSessionServicePong>(this, &FSessionManager::HandleSessionPongMessage);
 
 	// initialize ticker
-	TickDelegate = FTickerDelegate::CreateRaw(this, &FSessionManager::HandleTicker);
-	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, 1.f);
+	TickDelegateHandle = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FSessionManager::HandleTicker), 1.f);
 
 	SendPing();
 }
@@ -73,6 +72,12 @@ void FSessionManager::GetSelectedInstances( TArray<ISessionInstanceInfoPtr>& Out
 }
 
 
+const ISessionInfoPtr& FSessionManager::GetSelectedSession() const
+{
+	return SelectedSession;
+}
+
+
 void FSessionManager::GetSessions( TArray<ISessionInfoPtr>& OutSessions ) const
 {
 	OutSessions.Empty(Sessions.Num());
@@ -81,6 +86,24 @@ void FSessionManager::GetSessions( TArray<ISessionInfoPtr>& OutSessions ) const
 	{
 		OutSessions.Add(It.Value());
 	}
+}
+
+
+bool FSessionManager::IsInstanceSelected( const TSharedRef<ISessionInstanceInfo>& Instance ) const
+{
+	return ((Instance->GetOwnerSession() == SelectedSession) && !DeselectedInstances.Contains(Instance));
+}
+
+
+FSimpleMulticastDelegate& FSessionManager::OnSessionsUpdated()
+{
+	return SessionsUpdatedDelegate;
+}
+
+
+FSimpleMulticastDelegate& FSessionManager::OnSessionInstanceUpdated()
+{
+	return SessionInstanceUpdatedDelegate;
 }
 
 
@@ -105,7 +128,7 @@ bool FSessionManager::SelectSession( const ISessionInfoPtr& Session )
 			{
 				SelectedSession = Session;
 
-				SelectedSessionChangedDelegate.Broadcast(Session);
+				SelectedSessionChangedEvent.Broadcast(Session);
 			}
 			else
 			{
@@ -222,7 +245,7 @@ void FSessionManager::SendPing()
 }
 
 
-/* FSessionManager event handlers
+/* FSessionManager callbacks
  *****************************************************************************/
 
 void FSessionManager::HandleEnginePongMessage( const FEngineServicePong& Message, const IMessageContextRef& Context )
@@ -256,7 +279,7 @@ void FSessionManager::HandleLogReceived( const ISessionInfoRef& Session, const I
 {
 	if (Session == SelectedSession)
 	{
-		LogReceivedDelegate.Broadcast(Session, Instance, Message);
+		LogReceivedEvent.Broadcast(Session, Instance, Message);
 	}
 }
 

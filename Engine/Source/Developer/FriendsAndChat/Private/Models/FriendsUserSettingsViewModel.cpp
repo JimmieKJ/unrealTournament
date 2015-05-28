@@ -12,9 +12,9 @@ public:
 
 private:
 	FFriendsUserSettingsViewModelImpl(
-		const TSharedRef<FFriendsAndChatManager>& FriendsAndChatManager
+		const TSharedRef<FFriendsAndChatManager>& InFriendsAndChatManager
 		)
-		: FriendsAndChatManager(FriendsAndChatManager)
+		: FriendsAndChatManager(InFriendsAndChatManager)
 		, bShowNotifications(true)
 	{
 	}

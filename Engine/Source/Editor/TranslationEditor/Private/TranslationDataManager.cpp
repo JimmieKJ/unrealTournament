@@ -239,25 +239,29 @@ bool FTranslationDataManager::WriteJSONToTextFile(TSharedRef<FJsonObject>& Outpu
 	// If the user specified a reference file - write the entries read from code to a ref file
 	if ( !Filename.IsEmpty() )
 	{
-		// Already checked out?
-		if(CheckedOutFiles.Contains(Filename))
+		// If source control is enabled, try to check out the file. Otherwise just try to write it
+		if (ISourceControlModule::Get().IsEnabled())
 		{
-			bPreviouslyCheckedOut = true;
-		}
-		else if( !SourceControlHelpers::CheckOutFile(Filename) )
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add( TEXT("Filename"), FText::FromString(Filename) );
-			// Use Source Control Message Log here because there might be other useful information in that log for the user.
-			FMessageLog SourceControlMessageLog("SourceControl");
-			SourceControlMessageLog.Error(FText::Format(LOCTEXT("CheckoutFailed", "Check out of file '{Filename}' failed."), Arguments));
-			SourceControlMessageLog.Notify(LOCTEXT("TranslationArchiveCheckoutFailed", "Failed to Check Out Translation Archive!"));
-			SourceControlMessageLog.Open(EMessageSeverity::Error);
-			CheckoutAndSaveWasSuccessful = false;
-		}
-		else
-		{
-			CheckedOutFiles.Add(Filename);
+			// Already checked out?
+			if (CheckedOutFiles.Contains(Filename))
+			{
+				bPreviouslyCheckedOut = true;
+			}
+			else if (!SourceControlHelpers::CheckOutFile(Filename))
+			{
+				FFormatNamedArguments Arguments;
+				Arguments.Add(TEXT("Filename"), FText::FromString(Filename));
+				// Use Source Control Message Log here because there might be other useful information in that log for the user.
+				FMessageLog SourceControlMessageLog("SourceControl");
+				SourceControlMessageLog.Error(FText::Format(LOCTEXT("CheckoutFailed", "Check out of file '{Filename}' failed."), Arguments));
+				SourceControlMessageLog.Notify(LOCTEXT("TranslationArchiveCheckoutFailed", "Failed to Check Out Translation Archive!"));
+				SourceControlMessageLog.Open(EMessageSeverity::Error);
+				CheckoutAndSaveWasSuccessful = false;
+			}
+			else
+			{
+				CheckedOutFiles.Add(Filename);
+			}
 		}
 
 		if( CheckoutAndSaveWasSuccessful )
@@ -564,10 +568,10 @@ void FTranslationDataManager::PreviewAllTranslationsInEditor()
 
 	FString ConfigFilePath = ConfigDirectory / "Localization" / "Regenerate" + FPaths::GetBaseFilename(ManifestFilePath) + ".ini";
 
-	FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-	FJsonInternationalizationManifestSerializer ManifestSerializer;
+	FJsonInternationalizationArchiveSerializer LocalizationArchiveSerializer;
+	FJsonInternationalizationManifestSerializer LocalizationManifestSerializer;
 
-	FTextLocalizationManager::Get().RegenerateResources(ConfigFilePath, ArchiveSerializer, ManifestSerializer);
+	FTextLocalizationManager::Get().LoadFromManifestAndArchives(ConfigFilePath, LocalizationArchiveSerializer, LocalizationManifestSerializer);
 }
 
 void FTranslationDataManager::PopulateSearchResultsUsingFilter(const FString& SearchFilter)

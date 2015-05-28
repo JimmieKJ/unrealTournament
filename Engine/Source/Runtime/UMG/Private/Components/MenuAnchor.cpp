@@ -24,7 +24,8 @@ TSharedRef<SWidget> UMenuAnchor::RebuildWidget()
 {
 	MyMenuAnchor = SNew(SMenuAnchor)
 		.Placement(Placement)
-		.OnGetMenuContent(BIND_UOBJECT_DELEGATE(FOnGetContent, HandleGetMenuContent));
+		.OnGetMenuContent(BIND_UOBJECT_DELEGATE(FOnGetContent, HandleGetMenuContent))
+		.OnMenuOpenChanged(BIND_UOBJECT_DELEGATE(FOnIsOpenChanged, HandleMenuOpenChanged));
 
 	if ( GetChildrenCount() > 0 )
 	{
@@ -50,6 +51,11 @@ void UMenuAnchor::OnSlotRemoved(UPanelSlot* Slot)
 	{
 		MyMenuAnchor->SetContent(SNullWidget::NullWidget);
 	}
+}
+
+void UMenuAnchor::HandleMenuOpenChanged(bool bIsOpen)
+{
+	OnMenuOpenChanged.Broadcast(bIsOpen);
 }
 
 TSharedRef<SWidget> UMenuAnchor::HandleGetMenuContent()
@@ -110,6 +116,36 @@ bool UMenuAnchor::IsOpen() const
 	if ( MyMenuAnchor.IsValid() )
 	{
 		return MyMenuAnchor->IsOpen();
+	}
+
+	return false;
+}
+
+bool UMenuAnchor::ShouldOpenDueToClick() const
+{
+	if ( MyMenuAnchor.IsValid() )
+	{
+		return MyMenuAnchor->ShouldOpenDueToClick();
+	}
+
+	return false;
+}
+
+FVector2D UMenuAnchor::GetMenuPosition() const
+{
+	if ( MyMenuAnchor.IsValid() )
+	{
+		return MyMenuAnchor->GetMenuPosition();
+	}
+
+	return FVector2D(0, 0);
+}
+
+bool UMenuAnchor::HasOpenSubMenus() const
+{
+	if ( MyMenuAnchor.IsValid() )
+	{
+		return MyMenuAnchor->HasOpenSubMenus();
 	}
 
 	return false;

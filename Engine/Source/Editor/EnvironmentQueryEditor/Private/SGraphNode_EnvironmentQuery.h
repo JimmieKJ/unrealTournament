@@ -2,7 +2,9 @@
 
 #pragma once
 
-class SGraphNode_EnvironmentQuery : public SGraphNode
+#include "SGraphNodeAI.h"
+
+class SGraphNode_EnvironmentQuery : public SGraphNodeAI
 {
 public:
 	SLATE_BEGIN_ARGS(SGraphNode_EnvironmentQuery){}
@@ -13,28 +15,10 @@ public:
 	// SGraphNode interface
 	virtual void UpdateGraphNode() override;
 	virtual void CreatePinWidgets() override;
-	virtual void AddPin(const TSharedRef<SGraphPin>& PinToAdd) override;
-	virtual TSharedPtr<SToolTip> GetComplexTooltip() override;
-	virtual void OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
-	virtual FReply OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
-	virtual FReply OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
-	virtual void OnDragLeave( const FDragDropEvent& DragDropEvent ) override;
-	virtual FReply OnMouseMove(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent) override;
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-	virtual void SetOwner(const TSharedRef<SGraphPanel>& OwnerPanel) override;
 	// End of SGraphNode interface
 
-	/** handle mouse down on the node */
-	FReply OnMouseDown(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent);
-
-	/** handle mouse up on the node */
-	FReply OnMouseUp(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent);
-
 	/** adds decorator widget inside current node */
-	void AddTest(TSharedPtr<SGraphNode> TestWidget);
-
-	/** gets decorator or service node if one is found under mouse cursor */
-	TSharedPtr<SGraphNode> GetSubNodeUnderCursor(const FGeometry& WidgetGeometry, const FPointerEvent& MouseEvent);
+	virtual void AddSubNode(TSharedPtr<SGraphNode> SubNodeWidget) override;
 
 	EVisibility GetWeightMarkerVisibility() const;
 	TOptional<float> GetWeightProgressBarPercent() const;
@@ -44,25 +28,9 @@ public:
 	ECheckBoxState IsTestToggleChecked() const;
 	void OnTestToggleChanged(ECheckBoxState NewState);
 
-	/** gets drag over marker visibility */
-	EVisibility GetDragOverMarkerVisibility() const;
-
-	/** sets drag marker visible or collapsed on this node */
-	void SetDragMarker(bool bEnabled);
-
 protected:
-	TArray< TSharedPtr<SGraphNode> > TestWidgets;
 	TSharedPtr<SVerticalBox> TestBox;
-
-	float MouseDownTime;
-
-	uint32 bDragMarkerVisible : 1;
-	uint32 bIsMouseDown : 1;
 
 	FSlateColor GetBorderBackgroundColor() const;
 	FSlateColor GetBackgroundColor() const;
-	FText GetDescription() const;
-
-	virtual FText GetPreviewCornerText() const;
-	virtual const FSlateBrush* GetNameIcon() const;
 };

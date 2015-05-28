@@ -54,28 +54,63 @@ namespace ETaskbarProgressState
 }
 
 
+/**
+ * Allows access to task bar lists.
+ *
+ * This class can be used to change the appearance of a window's entry in the windows task bar,
+ * such as setting an overlay icon or showing a progress indicator.
+ */
 class FTaskbarList
 {
 public:
 
+	/**
+	 * Create and initialize a new task bar list.
+	 *
+	 * @return The new task bar list.
+	 */
 	static TSharedRef<FTaskbarList> Create();
 
+	/**
+	 * Sets the overlay icon of a task bar entry.
+	 *
+	 * @param NativeWindow The native window to change the overlay icon for.
+	 * @param Icon The overlay icon to set.
+	 * @param Description The overlay icon's description text.
+	 */
 	void SetOverlayIcon(const TSharedRef<FGenericWindow>& NativeWindow, HICON Icon, FText Description);
 
+	/**
+	 * Sets the progress state of a task bar entry.
+	 *
+	 * @param NativeWindow The native window to change the progress state for.
+	 * @param State The new progress state.
+	 */
 	void SetProgressState(const TSharedRef<FGenericWindow>& NativeWindow, ETaskbarProgressState::Type State);
 
+	/**
+	 * Sets the progress value of a task bar entry.
+	 *
+	 * @param NativeWindow The native window to change the progress value for.
+	 * @param Current The current progress value.
+	 * @param Total The total progress value.
+	 */
 	void SetProgressValue(const TSharedRef<FGenericWindow>& NativeWindow, uint64 Current, uint64 Total);
 
+	/** Destructor. */
 	~FTaskbarList();
 
 private:
 
+	/** Hidden constructor (use FTaskbarList::Create). */
 	FTaskbarList();
 
+	/** Initializes the task bar list instance. */
 	void Initialize();
 
 private:
 
+	/** Holds the internal task bar object. */
 	ITaskbarList3* TaskBarList3;
 };
 
@@ -214,27 +249,81 @@ PRAGMA_DISABLE_DEPRECATION_WARNINGS
 
 
 /**
+ * Interface for classes that handle Windows events.
+ */
+class IWindowsMessageHandler
+{
+public:
+
+	/**
+	 * Processes a Windows message.
+	 *
+	 * @param hwnd Handle to the window that received the message.
+	 * @param msg The message.
+	 * @param wParam Additional message information.
+	 * @param lParam Additional message information.
+	 * @param OutResult Will contain the result if the message was handled.
+	 * @return true if the message was handled, false otherwise.
+	 */
+	virtual bool ProcessMessage(HWND hwnd, uint32 msg, WPARAM wParam, LPARAM lParam, int32& OutResult) = 0;
+};
+
+
+/**
  * Windows-specific application implementation.
  */
 class FWindowsApplication
-	: public GenericApplication, IForceFeedbackSystem
+	: public GenericApplication
+	, public IForceFeedbackSystem
 {
 public:
 
 	/**
 	 * Static: Creates a new Win32 application
 	 *
-	 * @param	InstanceHandle  Win32 instance handle
-	 * @param	IconHandle		Win32 application icon handle
-	 *
-	 * @return  New application object
+	 * @param InstanceHandle Win32 instance handle.
+	 * @param IconHandle Win32 application icon handle.
+	 * @return New application object.
 	 */
 	static FWindowsApplication* CreateWindowsApplication( const HINSTANCE InstanceHandle, const HICON IconHandle );
 
-public:	
-
+	/** Virtual destructor. */
 	virtual ~FWindowsApplication();
-	virtual void DestroyApplication() override;
+
+public:
+
+	/** Called by a window when an OLE Drag and Drop operation occurred on a non-game thread */
+	void DeferDragDropOperation( const FDeferredWindowsDragDropOperation& DeferredDragDropOperation );
+
+	TSharedPtr<FTaskbarList> GetTaskbarList();
+
+	/** Invoked by a window when an OLE Drag and Drop first enters it. */
+	HRESULT OnOLEDragEnter( const HWND HWnd, const FDragDropOLEData& OLEData, ::DWORD KeyState, POINTL CursorPosition, ::DWORD *CursorEffect);
+
+	/** Invoked by a window when an OLE Drag and Drop moves over the window. */
+	HRESULT OnOLEDragOver( const HWND HWnd, ::DWORD KeyState, POINTL CursorPosition, ::DWORD *CursorEffect);
+
+	/** Invoked by a window when an OLE Drag and Drop exits the window. */
+	HRESULT OnOLEDragOut( const HWND HWnd );
+
+	/** Invoked by a window when an OLE Drag and Drop is dropped onto the window. */
+	HRESULT OnOLEDrop( const HWND HWnd, const FDragDropOLEData& OLEData, ::DWORD KeyState, POINTL CursorPosition, ::DWORD *CursorEffect);
+
+	/**
+	 * Adds a Windows message handler with the application instance.
+	 *
+	 * @param MessageHandler The message handler to register.
+	 * @see RemoveMessageHandler
+	 */
+	virtual void AddMessageHandler(IWindowsMessageHandler& MessageHandler);
+
+	/**
+	 * Removes a Windows message handler with the application instance.
+	 *
+	 * @param MessageHandler The message handler to register.
+	 * @see AddMessageHandler
+	 */
+	virtual void RemoveMessageHandler(IWindowsMessageHandler& MessageHandler);
 
 public:
 
@@ -244,6 +333,7 @@ public:
 	virtual void PollGameDeviceState( const float TimeDelta ) override;
 	virtual void PumpMessages( const float TimeDelta ) override;
 	virtual void ProcessDeferredEvents( const float TimeDelta ) override;
+	virtual void Tick( const float TimeDelta ) override;
 	virtual TSharedRef< FGenericWindow > MakeWindow() override;
 	virtual void InitializeWindow( const TSharedRef< FGenericWindow >& Window, const TSharedRef< FGenericWindowDefinition >& InDefinition, const TSharedPtr< FGenericWindow >& InParent, const bool bShowImmediately ) override;
 	virtual void SetCapture( const TSharedPtr< FGenericWindow >& InWindow ) override;
@@ -252,14 +342,14 @@ public:
 	virtual bool IsUsingHighPrecisionMouseMode() const override { return bUsingHighPrecisionMouseInput; }
 	virtual bool IsMouseAttached() const override { return bIsMouseAttached; }
 	virtual FModifierKeysState GetModifierKeys() const override;
-
+	virtual bool IsCursorDirectlyOverSlateWindow() const override;
 	virtual FPlatformRect GetWorkArea( const FPlatformRect& CurrentWindow ) const override;
-
 	virtual bool TryCalculatePopupWindowPosition( const FPlatformRect& InAnchor, const FVector2D& InSize, const EPopUpOrientation::Type Orientation, /*OUT*/ FVector2D* const CalculatedPopUpPosition ) const override;
 	virtual void GetInitialDisplayMetrics( FDisplayMetrics& OutDisplayMetrics ) const override;
 	virtual EWindowTitleAlignment::Type GetWindowTitleAlignment() const override;
-	
-	/** Function to return the current implementation of the ForceFeedback system */
+	virtual EWindowTransparency GetWindowTransparencySupport() const override;
+	virtual void DestroyApplication() override;
+
 	DEPRECATED(4.7, "Please use GetInputInterface()")
 	virtual IForceFeedbackSystem* GetForceFeedbackSystem() override
 	{
@@ -276,10 +366,6 @@ public:
 		return this;
 	}
 
-	virtual void SetForceFeedbackChannelValue (int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override;
-	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) override;
-	virtual void SetLightColor(int32 ControllerId, FColor Color) override {}
-
 	virtual ITextInputMethodSystem *GetTextInputMethodSystem() override
 	{
 		return TextInputMethodSystem.Get();
@@ -287,7 +373,13 @@ public:
 
 	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice> InputDevice);
 
-	TSharedPtr<FTaskbarList> GetTaskbarList();
+public:
+
+	// IForceFeedbackSystem overrides
+
+	virtual void SetForceFeedbackChannelValue (int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value) override;
+	virtual void SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values) override;
+	virtual void SetLightColor(int32 ControllerId, FColor Color) override { }
 
 protected:
 
@@ -302,23 +394,6 @@ protected:
 
 	/** Processes deferred drag and drop operations. */
 	void ProcessDeferredDragDropOperation(const FDeferredWindowsDragDropOperation& Op);
-
-public:
-
-	/** Called by a window when an OLE Drag and Drop operation occurred on a non-game thread */
-	void DeferDragDropOperation( const FDeferredWindowsDragDropOperation& DeferredDragDropOperation );
-
-	/** Invoked by a window when an OLE Drag and Drop first enters it. */
-	HRESULT OnOLEDragEnter( const HWND HWnd, const FDragDropOLEData& OLEData, ::DWORD KeyState, POINTL CursorPosition, ::DWORD *CursorEffect);
-
-	/** Invoked by a window when an OLE Drag and Drop moves over the window. */
-	HRESULT OnOLEDragOver( const HWND HWnd, ::DWORD KeyState, POINTL CursorPosition, ::DWORD *CursorEffect);
-
-	/** Invoked by a window when an OLE Drag and Drop exits the window. */
-	HRESULT OnOLEDragOut( const HWND HWnd );
-
-	/** Invoked by a window when an OLE Drag and Drop is dropped onto the window. */
-	HRESULT OnOLEDrop( const HWND HWnd, const FDragDropOLEData& OLEData, ::DWORD KeyState, POINTL CursorPosition, ::DWORD *CursorEffect);
 
 private:
 
@@ -360,6 +435,9 @@ private:
 
 	TArray<FDeferredWindowsDragDropOperation> DeferredDragDropOperations;
 
+	/** Registered Windows message handlers. */
+	TArray<IWindowsMessageHandler*> MessageHandlers;
+
 	TArray<TSharedRef<FWindowsWindow>> Windows;
 
 	TSharedRef<class XInputInterface> XInput;
@@ -369,10 +447,12 @@ private:
 	bool bHasLoadedInputPlugins;
 
 	TArray<int32> PressedModifierKeys;
-
-	FAutoConsoleVariableRef CVarDeferMessageProcessing;
+	
+	FModifierKeysState CachedModifierKeyState;
 
 	int32 bAllowedToDeferMessageProcessing;
+
+	FAutoConsoleVariableRef CVarDeferMessageProcessing;
 	
 	/** True if we are in the middle of a windows modal size loop */
 	bool bInModalSizeLoop;
@@ -384,9 +464,9 @@ private:
 	TSharedPtr<FTaskbarList> TaskbarList;
 
 	// Accessibility shortcut keys
-	STICKYKEYS							StartupStickyKeys;
-	TOGGLEKEYS							StartupToggleKeys;
-	FILTERKEYS							StartupFilterKeys;
+	STICKYKEYS StartupStickyKeys;
+	TOGGLEKEYS StartupToggleKeys;
+	FILTERKEYS StartupFilterKeys;
 };
 
 

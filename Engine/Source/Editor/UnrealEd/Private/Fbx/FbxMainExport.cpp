@@ -46,6 +46,8 @@
 #include "Matinee/InterpTrackFloatProp.h"
 #include "Matinee/InterpTrackInstFloatProp.h"
 #include "Matinee/InterpTrackInstMove.h"
+#include "Matinee/InterpTrackAnimControl.h"
+#include "Matinee/InterpTrackInstAnimControl.h"
 
 #include "StaticMeshResources.h"
 #include "LandscapeDataAccess.h"
@@ -65,6 +67,7 @@
 #include "Components/PointLightComponent.h"
 #include "Camera/CameraActor.h"
 #include "Components/DirectionalLightComponent.h"
+#include "Components/ChildActorComponent.h"
 
 namespace UnFbx
 {
@@ -124,10 +127,10 @@ void FFbxExporter::CreateDocument()
 	SceneInfo->mSubject = "Export FBX meshes from Unreal";
 	SceneInfo->Original_ApplicationVendor.Set( "Epic Games" );
 	SceneInfo->Original_ApplicationName.Set( "Unreal Engine" );
-	SceneInfo->Original_ApplicationVersion.Set( TCHAR_TO_ANSI(*GEngineVersion.ToString()) );
+	SceneInfo->Original_ApplicationVersion.Set( TCHAR_TO_UTF8(*GEngineVersion.ToString()) );
 	SceneInfo->LastSaved_ApplicationVendor.Set( "Epic Games" );
 	SceneInfo->LastSaved_ApplicationName.Set( "Unreal Engine" );
-	SceneInfo->LastSaved_ApplicationVersion.Set( TCHAR_TO_ANSI(*GEngineVersion.ToString()) );
+	SceneInfo->LastSaved_ApplicationVersion.Set( TCHAR_TO_UTF8(*GEngineVersion.ToString()) );
 
 	Scene->SetSceneInfo(SceneInfo);
 	
@@ -167,11 +170,8 @@ void FFbxExporter::WriteToFile(const TCHAR* Filename)
 	FbxExporter* Exporter = FbxExporter::Create(SdkManager, "");
 
 	// set file format
-	if( FileFormat < 0 || FileFormat >= SdkManager->GetIOPluginRegistry()->GetWriterFormatCount() )
-	{
-		// Write in fall back format if pEmbedMedia is true
-		FileFormat = SdkManager->GetIOPluginRegistry()->GetNativeWriterFormat();
-	}
+	// Write in fall back format if pEmbedMedia is true
+	FileFormat = SdkManager->GetIOPluginRegistry()->GetNativeWriterFormat();
 
 	// Set the export states. By default, the export states are always set to 
 	// true except for the option eEXPORT_TEXTURE_AS_EMBEDDED. The code below 
@@ -217,6 +217,7 @@ void FFbxExporter::WriteToFile(const TCHAR* Filename)
 void FFbxExporter::CloseDocument()
 {
 	FbxActors.Reset();
+	FbxSkeletonRoots.Reset();
 	FbxMaterials.Reset();
 	FbxNodeNameToIndexMap.Reset();
 	
@@ -305,7 +306,11 @@ void FFbxExporter::ExportLevelMesh( ULevel* InLevel, AMatineeActor* InMatineeAct
 			{
 				ExportActor( Actor, InMatineeActor ); // Just export the placement of the particle emitter.
 			}
-			else if( Actor->GetClass()->ClassGeneratedBy != NULL )
+			else if(Actor->IsA(ACameraActor::StaticClass()))
+			{
+				ExportCamera(CastChecked<ACameraActor>(Actor), InMatineeActor, true); // Just export the placement of the particle emitter.
+			}
+			else if( Actor != NULL )
 			{
 				// Export blueprint actors and all their components
 				ExportActor( Actor, InMatineeActor, true );
@@ -331,7 +336,7 @@ void FFbxExporter::ExportLight( ALight* Actor, AMatineeActor* InMatineeActor )
 	FString FbxNodeName = GetActorNodeName(Actor, InMatineeActor);
 
 	// Export the basic light information
-	FbxLight* Light = FbxLight::Create(Scene, TCHAR_TO_ANSI(*FbxNodeName));
+	FbxLight* Light = FbxLight::Create(Scene, TCHAR_TO_UTF8(*FbxNodeName));
 	Light->Intensity.Set(BaseLight->Intensity);
 	Light->Color.Set(Converter.ConvertToFbxColor(BaseLight->LightColor));
 	
@@ -381,19 +386,19 @@ void FFbxExporter::ExportLight( ALight* Actor, AMatineeActor* InMatineeActor )
 	FbxActor->SetNodeAttribute(Light);
 }
 
-void FFbxExporter::ExportCamera( ACameraActor* Actor, AMatineeActor* InMatineeActor )
+void FFbxExporter::ExportCamera( ACameraActor* Actor, AMatineeActor* InMatineeActor, bool bExportComponents )
 {
 	if (Scene == NULL || Actor == NULL) return;
 
 	// Export the basic actor information.
-	FbxNode* FbxActor = ExportActor( Actor, InMatineeActor ); // this is the pivot node
+	FbxNode* FbxActor = ExportActor( Actor, InMatineeActor, bExportComponents ); // this is the pivot node
 	// The real fbx camera node
 	FbxNode* FbxCameraNode = FbxActor->GetParent();
 
 	FString FbxNodeName = GetActorNodeName(Actor, NULL);
 
 	// Create a properly-named FBX camera structure and instantiate it in the FBX scene graph
-	FbxCamera* Camera = FbxCamera::Create(Scene, TCHAR_TO_ANSI(*FbxNodeName));
+	FbxCamera* Camera = FbxCamera::Create(Scene, TCHAR_TO_UTF8(*FbxNodeName));
 
 	// Export the view area information
 	Camera->ProjectionType.Set(FbxCamera::ePerspective);
@@ -434,7 +439,7 @@ void FFbxExporter::ExportBrush(ABrush* Actor, UModel* InModel, bool bConvertToSt
  		Scene->GetRootNode()->AddChild(FbxActor);
  
  		// Export the mesh information
- 		ExportModel(Model, FbxActor, TCHAR_TO_ANSI(*Actor->GetName()));
+ 		ExportModel(Model, FbxActor, TCHAR_TO_UTF8(*Actor->GetName()));
  	}
  	else
  	{
@@ -615,7 +620,7 @@ void FFbxExporter::ExportStaticMesh( AActor* Actor, UStaticMeshComponent* Static
 	{
 		return;
 	}
-	int32 LODIndex = StaticMeshComponent->ForcedLodModel;
+	int32 LODIndex = StaticMeshComponent->ForcedLodModel-1;
 	FStaticMeshLODResources& RenderMesh = StaticMesh->GetLODForExport(LODIndex);
 
 	FString FbxNodeName = GetActorNodeName(Actor, InMatineeActor);
@@ -628,7 +633,7 @@ void FFbxExporter::ExportStaticMesh( AActor* Actor, UStaticMeshComponent* Static
 	}
 
 	FbxNode* FbxActor = ExportActor( Actor, InMatineeActor );
-	ExportStaticMeshToFbx(StaticMesh, RenderMesh, *FbxNodeName, FbxActor);
+	ExportStaticMeshToFbx(StaticMesh, RenderMesh, *FbxNodeName, FbxActor, -1, ColorBuffer);
 }
 
 struct FBSPExportData
@@ -683,7 +688,7 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 
 		ABrush* BrushActor = Surf.Actor;
 
-		if( (Surf.PolyFlags & PF_Selected) || !bSelectedOnly || (BrushActor && BrushActor->IsSelected() ) )
+		if( (Surf.PolyFlags & PF_Selected) || !bSelectedOnly || (BrushActor && BrushActor->IsSelected() && Node.NumVertices >= 3) )
 		{
 			FPoly Poly;
 			GEditor->polyFindMaster( Model, Node.iSurf, Poly );
@@ -797,7 +802,7 @@ void FFbxExporter::ExportStaticMesh( UStaticMesh* StaticMesh, const TArray<UMate
 	FString MeshName;
 	StaticMesh->GetName(MeshName);
 	FStaticMeshLODResources& RenderMesh = StaticMesh->GetLODForExport(0);
-	FbxNode* MeshNode = FbxNode::Create(Scene, TCHAR_TO_ANSI(*MeshName));
+	FbxNode* MeshNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*MeshName));
 	Scene->GetRootNode()->AddChild(MeshNode);
 	ExportStaticMeshToFbx(StaticMesh, RenderMesh, *MeshName, MeshNode, -1, NULL, MaterialOrder );
 }
@@ -809,7 +814,7 @@ void FFbxExporter::ExportStaticMeshLightMap( UStaticMesh* StaticMesh, int32 LODI
 	FString MeshName;
 	StaticMesh->GetName(MeshName);
 	FStaticMeshLODResources& RenderMesh = StaticMesh->GetLODForExport(LODIndex);
-	FbxNode* MeshNode = FbxNode::Create(Scene, TCHAR_TO_ANSI(*MeshName));
+	FbxNode* MeshNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*MeshName));
 	Scene->GetRootNode()->AddChild(MeshNode);
 	ExportStaticMeshToFbx(StaticMesh, RenderMesh, *MeshName, MeshNode, UVChannel);
 }
@@ -821,10 +826,10 @@ void FFbxExporter::ExportSkeletalMesh( USkeletalMesh* SkeletalMesh )
 	FString MeshName;
 	SkeletalMesh->GetName(MeshName);
 
-	FbxNode* MeshNode = FbxNode::Create(Scene, TCHAR_TO_ANSI(*MeshName));
+	FbxNode* MeshNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*MeshName));
 	Scene->GetRootNode()->AddChild(MeshNode);
 
-	ExportSkeletalMeshToFbx(*SkeletalMesh, *MeshName, MeshNode);
+	ExportSkeletalMeshToFbx(SkeletalMesh, NULL, *MeshName, MeshNode);
 }
 
 void FFbxExporter::ExportSkeletalMesh( AActor* Actor, USkeletalMeshComponent* SkeletalMeshComponent )
@@ -836,8 +841,7 @@ void FFbxExporter::ExportSkeletalMesh( AActor* Actor, USkeletalMeshComponent* Sk
 
 	FString FbxNodeName = GetActorNodeName(Actor, NULL);
 
-	FbxNode* FbxActorNode = ExportActor( Actor, NULL );
-	ExportSkeletalMeshToFbx(*SkeletalMesh, *FbxNodeName, FbxActorNode);
+	ExportActor( Actor, NULL, true );
 }
 
 FbxSurfaceMaterial* FFbxExporter::CreateDefaultMaterial()
@@ -944,13 +948,13 @@ FbxSurfaceMaterial* FFbxExporter::ExportMaterial(UMaterial* Material)
 	// Set the shading model
 	if (Material->GetShadingModel() == MSM_DefaultLit)
 	{
-		FbxMaterial = FbxSurfacePhong::Create(Scene, TCHAR_TO_ANSI(*Material->GetName()));
+		FbxMaterial = FbxSurfacePhong::Create(Scene, TCHAR_TO_UTF8(*Material->GetName()));
 		//((FbxSurfacePhong*)FbxMaterial)->Specular.Set(SetMaterialComponent(Material->Specular));
 		//((FbxSurfacePhong*)FbxMaterial)->Shininess.Set(Material->SpecularPower.Constant);
 	}
 	else // if (Material->ShadingModel == MSM_Unlit)
 	{
-		FbxMaterial = FbxSurfaceLambert::Create(Scene, TCHAR_TO_ANSI(*Material->GetName()));
+		FbxMaterial = FbxSurfaceLambert::Create(Scene, TCHAR_TO_UTF8(*Material->GetName()));
 	}
 	
 	((FbxSurfaceLambert*)FbxMaterial)->Emissive.Set(SetMaterialComponent(Material->EmissiveColor));
@@ -988,13 +992,9 @@ bool FFbxExporter::ExportMatinee(AMatineeActor* InMatineeActor)
 		AActor* Actor = Group->GetGroupActor();
 		if (Group->Group == NULL || Actor == NULL) continue;
 
-		// Look for the class-type of the actor.
-		if (Actor->IsA(ACameraActor::StaticClass()))
-		{
-			ExportCamera( (ACameraActor*) Actor, InMatineeActor );
-		}
-
-		FbxNode* FbxActor = ExportActor( Actor, InMatineeActor );
+		FbxNode* FbxActor = FindActor(Actor); 
+		// now it should export everybody
+		check (FbxActor);
 
 		// Look for the tracks that we currently support
 		int32 TrackCount = FMath::Min(Group->TrackInst.Num(), Group->Group->InterpTracks.Num());
@@ -1002,17 +1002,28 @@ bool FFbxExporter::ExportMatinee(AMatineeActor* InMatineeActor)
 		{
 			UInterpTrackInst* TrackInst = Group->TrackInst[TrackIndex];
 			UInterpTrack* Track = Group->Group->InterpTracks[TrackIndex];
-			if (TrackInst->IsA(UInterpTrackInstMove::StaticClass()) && Track->IsA(UInterpTrackMove::StaticClass()))
+			if ( Track->IsDisabled() == false )
 			{
-				UInterpTrackInstMove* MoveTrackInst = (UInterpTrackInstMove*) TrackInst;
-				UInterpTrackMove* MoveTrack = (UInterpTrackMove*) Track;
-				ExportMatineeTrackMove(FbxActor, MoveTrackInst, MoveTrack, InMatineeActor->MatineeData->InterpLength);
-			}
-			else if (TrackInst->IsA(UInterpTrackInstFloatProp::StaticClass()) && Track->IsA(UInterpTrackFloatProp::StaticClass()))
-			{
-				UInterpTrackInstFloatProp* PropertyTrackInst = (UInterpTrackInstFloatProp*) TrackInst;
-				UInterpTrackFloatProp* PropertyTrack = (UInterpTrackFloatProp*) Track;
-				ExportMatineeTrackFloatProp(FbxActor, PropertyTrack);
+				if(TrackInst->IsA(UInterpTrackInstMove::StaticClass()) && Track->IsA(UInterpTrackMove::StaticClass()))
+				{
+					UInterpTrackInstMove* MoveTrackInst = (UInterpTrackInstMove*)TrackInst;
+					UInterpTrackMove* MoveTrack = (UInterpTrackMove*)Track;
+					ExportMatineeTrackMove(FbxActor, MoveTrackInst, MoveTrack, InMatineeActor->MatineeData->InterpLength);
+				}
+				else if(TrackInst->IsA(UInterpTrackInstFloatProp::StaticClass()) && Track->IsA(UInterpTrackFloatProp::StaticClass()))
+				{
+					UInterpTrackInstFloatProp* PropertyTrackInst = (UInterpTrackInstFloatProp*)TrackInst;
+					UInterpTrackFloatProp* PropertyTrack = (UInterpTrackFloatProp*)Track;
+					ExportMatineeTrackFloatProp(FbxActor, PropertyTrack);
+				}
+				else if(TrackInst->IsA(UInterpTrackInstAnimControl::StaticClass()) && Track->IsA(UInterpTrackAnimControl::StaticClass()))
+				{
+					USkeletalMeshComponent* SkeletalMeshComp = Cast<USkeletalMeshComponent>(Actor->GetComponentByClass(USkeletalMeshComponent::StaticClass()));
+					if(SkeletalMeshComp)
+					{
+						ExportAnimTrack(InMatineeActor, SkeletalMeshComp);
+					}
+				}
 			}
 		}
 	}
@@ -1053,17 +1064,43 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 			FbxNodeNameToIndexMap.Add( FbxNodeName, 1 );	
 		}
 
-		ActorNode = FbxNode::Create(Scene, TCHAR_TO_ANSI(*FbxNodeName));
-		Scene->GetRootNode()->AddChild(ActorNode);
+		ActorNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*FbxNodeName));
+		
 
+		AActor* ParentActor = Actor->GetAttachParentActor();
+		FbxNode* ParentNode;
+		FVector ActorLocation, ActorRotation, ActorScale;
+		if (bKeepHierarchy && ParentActor)
+		{
+			// this doesn't work with skeletalmeshcomponent
+			ParentNode = FindActor(ParentActor);
+			check (ParentNode);
+
+			// Set the default position of the actor on the transforms
+			// The transformation is different from FBX's Z-up: invert the Y-axis for translations and the Y/Z angle values in rotations.
+			const FTransform RelativeTransform = Actor->GetTransform().GetRelativeTransform(ParentActor->GetTransform());
+			ActorLocation = RelativeTransform.GetTranslation();
+			ActorRotation = RelativeTransform.GetRotation().Euler();
+			ActorScale = RelativeTransform.GetScale3D();
+		}
+		else
+		{
+			ParentNode = Scene->GetRootNode();
+			// Set the default position of the actor on the transforms
+			// The transformation is different from FBX's Z-up: invert the Y-axis for translations and the Y/Z angle values in rotations.
+			ActorLocation = Actor->GetActorLocation();
+			ActorRotation = Actor->GetActorRotation().Euler();
+			ActorScale = Actor->GetRootComponent() ? Actor->GetRootComponent()->RelativeScale3D : FVector(1.f,1.f,1.f);
+		}
+
+		ParentNode->AddChild(ActorNode);
 		FbxActors.Add(Actor, ActorNode);
 
 		// Set the default position of the actor on the transforms
 		// The transformation is different from FBX's Z-up: invert the Y-axis for translations and the Y/Z angle values in rotations.
-		ActorNode->LclTranslation.Set(Converter.ConvertToFbxPos(Actor->GetActorLocation()));
-		ActorNode->LclRotation.Set(Converter.ConvertToFbxRot(Actor->GetActorRotation().Euler()));
-		const FVector DrawScale3D = Actor->GetRootComponent() ? Actor->GetRootComponent()->RelativeScale3D : FVector(1.f,1.f,1.f);
-		ActorNode->LclScaling.Set(Converter.ConvertToFbxScale(DrawScale3D));
+		ActorNode->LclTranslation.Set(Converter.ConvertToFbxPos(ActorLocation));
+		ActorNode->LclRotation.Set(Converter.ConvertToFbxRot(ActorRotation));
+		ActorNode->LclScaling.Set(Converter.ConvertToFbxScale(ActorScale));
 	
 		// For cameras and lights: always add a Y-pivot rotation to get the correct coordinate system.
 		if (Actor->IsA(ACameraActor::StaticClass()) || Actor->IsA(ALight::StaticClass()))
@@ -1072,10 +1109,10 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 
 			if (FbxPivotNodeName == FbxNodeName)
 			{
-				FbxPivotNodeName += ANSI_TO_TCHAR("_pivot");
+				FbxPivotNodeName += UTF8_TO_TCHAR("_pivot");
 			}
 
-			FbxNode* PivotNode = FbxNode::Create(Scene, TCHAR_TO_ANSI(*FbxPivotNodeName));
+			FbxNode* PivotNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*FbxPivotNodeName));
 			PivotNode->LclRotation.Set(FbxVector4(90, 0, -90));
 
 			if (Actor->IsA(ACameraActor::StaticClass()))
@@ -1093,16 +1130,17 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 
 		if( bExportComponents )
 		{
-			TInlineComponentArray<UMeshComponent*> MeshComponents;
-			Actor->GetComponents(MeshComponents);
+			TInlineComponentArray<UActorComponent*> ActorComponents;
+			Actor->GetComponents(ActorComponents);
 
 			TInlineComponentArray<UActorComponent*> ComponentsToExport;
-			for( int32 ComponentIndex = 0; ComponentIndex < MeshComponents.Num(); ++ComponentIndex )
+			for( int32 ComponentIndex = 0; ComponentIndex < ActorComponents.Num(); ++ComponentIndex )
 			{
-				UMeshComponent* Component = MeshComponents[ComponentIndex];
+				UActorComponent* Component = ActorComponents[ComponentIndex];
 
 				UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>( Component );
 				USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>( Component );
+				UChildActorComponent* ChildActorComp = Cast<UChildActorComponent>( Component );
 
 				if( StaticMeshComp && StaticMeshComp->StaticMesh )
 				{
@@ -1111,6 +1149,10 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 				else if( SkelMeshComp && SkelMeshComp->SkeletalMesh )
 				{
 					ComponentsToExport.Add( SkelMeshComp );
+				}
+				else if (ChildActorComp && ChildActorComp->ChildActor)
+				{
+					ComponentsToExport.Add(ChildActorComp);
 				}
 			}
 
@@ -1126,7 +1168,7 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 
 					// This actor has multiple components
 					// create a child node under the actor for each component
-					FbxNode* CompNode = FbxNode::Create(Scene, TCHAR_TO_ANSI(*Component->GetName()));
+					FbxNode* CompNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*Component->GetName()));
 
 					if( SceneComp != Actor->GetRootComponent() )
 					{
@@ -1144,6 +1186,7 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 
 				UStaticMeshComponent* StaticMeshComp = Cast<UStaticMeshComponent>( Component );
 				USkeletalMeshComponent* SkelMeshComp = Cast<USkeletalMeshComponent>( Component );
+				UChildActorComponent* ChildActorComp = Cast<UChildActorComponent>( Component );
 
 				if (StaticMeshComp && StaticMeshComp->StaticMesh)
 				{
@@ -1161,7 +1204,12 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 				}
 				else if (SkelMeshComp && SkelMeshComp->SkeletalMesh)
 				{
-					ExportSkeletalMeshToFbx( *SkelMeshComp->SkeletalMesh, *SkelMeshComp->GetName(), ExportNode );
+					ExportSkeletalMeshComponent( SkelMeshComp, *SkelMeshComp->GetName(), ExportNode);
+				}
+				else if (ChildActorComp && ChildActorComp->ChildActor)
+				{
+					FbxNode* ChildActorNode = ExportActor(ChildActorComp->ChildActor, InMatineeActor, true);
+					FbxActors.Add(ChildActorComp->ChildActor, ChildActorNode);
 				}
 			}
 		}
@@ -1347,7 +1395,7 @@ void FFbxExporter::ExportAnimatedVector(FbxAnimCurve* FbxCurve, const char* Chan
 
 	// Determine how many key frames we are exporting. If the user wants to export a key every 
 	// frame, calculate this number. Otherwise, use the number of keys the user created. 
-	int32 KeyCount = bBakeKeys ? (InterpLength * BakeTransformsFPS) + Curve->Points.Num() : Curve->Points.Num();
+	int32 KeyCount = bBakeKeys ? (InterpLength * BakeTransformsFPS) : Curve->Points.Num();
 
 	// Write out the key times from the curve to the FBX curve.
 	TArray<float> KeyTimes;
@@ -1387,22 +1435,36 @@ void FFbxExporter::ExportAnimatedVector(FbxAnimCurve* FbxCurve, const char* Chan
 				KeyRotation = FRotator( FQuat::MakeFromEuler(MoveTrack->EulerTrack.Points[KeyIndex].OutVal) );
 			}
 
-			FVector WorldSpacePos;
-			FRotator WorldSpaceRotator;
-			MoveTrack->ComputeWorldSpaceKeyTransform(
-				MoveTrackInst,
-				KeyPosition,
-				KeyRotation,
-				WorldSpacePos,			// Out
-				WorldSpaceRotator );	// Out
-
-			if( bPosCurve )
+			if (bKeepHierarchy)
 			{
-				FinalOutVec = WorldSpacePos;
+				if(bPosCurve)
+				{
+					FinalOutVec = KeyPosition;
+				}
+				else
+				{
+					FinalOutVec = KeyRotation.Euler();
+				}
 			}
 			else
 			{
-				FinalOutVec = WorldSpaceRotator.Euler();
+				FVector WorldSpacePos;
+				FRotator WorldSpaceRotator;
+				MoveTrack->ComputeWorldSpaceKeyTransform(
+					MoveTrackInst,
+					KeyPosition,
+					KeyRotation,
+					WorldSpacePos,			// Out
+					WorldSpaceRotator);	// Out
+
+				if(bPosCurve)
+				{
+					FinalOutVec = WorldSpacePos;
+				}
+				else
+				{
+					FinalOutVec = WorldSpaceRotator.Euler();
+				}
 			}
 		}
 
@@ -1476,24 +1538,21 @@ void FFbxExporter::ExportMoveSubTrack(FbxAnimCurve* FbxCurve, const ANSICHAR* Ch
 
 	// Determine how many key frames we are exporting. If the user wants to export a key every 
 	// frame, calculate this number. Otherwise, use the number of keys the user created. 
-	int32 KeyCount = bBakeKeys ? (InterpLength * BakeTransformsFPS) + Curve->Points.Num() : Curve->Points.Num();
+	int32 KeyCount = bBakeKeys ? (InterpLength * BakeTransformsFPS) : Curve->Points.Num();
 
 	// Write out the key times from the curve to the FBX curve.
 	TArray<float> KeyTimes;
-	for (int32 KeyIndex = 0; KeyIndex < KeyCount; ++KeyIndex)
+	for(int32 KeyIndex = 0; KeyIndex < KeyCount; ++KeyIndex)
 	{
-		FInterpCurvePoint<float>& Key = Curve->Points[KeyIndex];
-
 		// The Unreal engine allows you to place more than one key at one time value:
 		// displace the extra keys. This assumes that Unreal's keys are always ordered.
-		float KeyTime = bBakeKeys ? (KeyIndex * InterpLength) / KeyCount : Key.InVal;
-		if (KeyTimes.Num() && KeyTime < KeyTimes[KeyIndex-1] + FLT_TOLERANCE)
+		float KeyTime = bBakeKeys ? (KeyIndex * InterpLength) / KeyCount : Curve->Points[KeyIndex].InVal;
+		if(KeyTimes.Num() && KeyTime < KeyTimes[KeyIndex-1] + FLT_TOLERANCE)
 		{
 			KeyTime = KeyTimes[KeyIndex-1] + 0.01f; // Add 1 millisecond to the timing of this key.
 		}
 		KeyTimes.Add(KeyTime);
 	}
-
 	// Write out the key values from the curve to the FBX curve.
 	FbxCurve->KeyModifyBegin();
 	for (int32 KeyIndex = 0; KeyIndex < KeyCount; ++KeyIndex)
@@ -1531,8 +1590,6 @@ void FFbxExporter::ExportMoveSubTrack(FbxAnimCurve* FbxCurve, const ANSICHAR* Ch
 		float OutValue = (CurveIndex == 0) ? FinalOutVec.X : (CurveIndex == 1) ? FinalOutVec.Y : FinalOutVec.Z;
 		float FbxKeyValue = bNegative ? -OutValue : OutValue;
 
-		FInterpCurvePoint<float>& Key = Curve->Points[KeyIndex];
-
 		// Add a new key to the FBX curve
 		FbxTime Time;
 		FbxAnimCurveKey FbxKey;
@@ -1541,14 +1598,16 @@ void FFbxExporter::ExportMoveSubTrack(FbxAnimCurve* FbxCurve, const ANSICHAR* Ch
 
 		FbxAnimCurveDef::EInterpolationType Interpolation = FbxAnimCurveDef::eInterpolationConstant;
 		FbxAnimCurveDef::ETangentMode Tangent = FbxAnimCurveDef::eTangentAuto;
-		ConvertInterpToFBX(Key.InterpMode, Interpolation, Tangent);
-
+		
 		if (bBakeKeys || Interpolation != FbxAnimCurveDef::eInterpolationCubic)
 		{
 			FbxCurve->KeySet(FbxKeyIndex, Time, (float)FbxKeyValue, Interpolation, Tangent);
 		}
 		else
 		{
+			FInterpCurvePoint<float>& Key = Curve->Points[KeyIndex];
+			ConvertInterpToFBX(Key.InterpMode, Interpolation, Tangent);
+
 			// Setup tangents for bezier curves. Avoid this for keys created from baking 
 			// transforms since there is no tangent info created for these types of keys. 
 			if( Interpolation == FbxAnimCurveDef::eInterpolationCubic )
@@ -1676,6 +1735,20 @@ FbxNode* FFbxExporter::FindActor(AActor* Actor)
 	}
 }
 
+bool FFbxExporter::FindSkeleton(const USkeletalMeshComponent* SkelComp, TArray<FbxNode*>& BoneNodes)
+{
+	FbxNode** SkelRoot = FbxSkeletonRoots.Find(SkelComp);
+
+	if (SkelRoot)
+	{
+		BoneNodes.Empty();
+		GetSkeleton(*SkelRoot, BoneNodes);
+
+		return true;
+	}
+
+	return false;
+}
 /**
  * Determines the UVS to weld when exporting a Static Mesh
  * 
@@ -1784,7 +1857,7 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(UStaticMesh* StaticMesh, FStaticMes
 		UniqueVerts = VertRemap;
 	}
 
-	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_ANSI(MeshName));
+	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_UTF8(MeshName));
 
 	// Create and fill in the vertex position data source.
 	// The position vertices are duplicated, for some reason, retrieve only the first half vertices.
@@ -1878,7 +1951,7 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(UStaticMesh* StaticMesh, FStaticMes
 			FCString::Sprintf(UVChannelName, TEXT(""));
 		}
 
-		FbxLayerElementUV* UVDiffuseLayer = FbxLayerElementUV::Create(Mesh, TCHAR_TO_ANSI(UVChannelName));
+		FbxLayerElementUV* UVDiffuseLayer = FbxLayerElementUV::Create(Mesh, TCHAR_TO_UTF8(UVChannelName));
 
 		// Note: when eINDEX_TO_DIRECT is used, IndexArray must be 3xTriangle count, DirectArray can be smaller
 		UVDiffuseLayer->SetMappingMode(FbxLayerElement::eByPolygonVertex);
@@ -2067,7 +2140,7 @@ FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshCom
 		UniqueVerts = VertRemap;
 	}
 
-	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_ANSI(MeshName));
+	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_UTF8(MeshName));
 
 	// Create and fill in the vertex position data source.
 	// The position vertices are duplicated, for some reason, retrieve only the first half vertices.
@@ -2167,7 +2240,7 @@ FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshCom
 			FCString::Sprintf(UVChannelName, TEXT(""));
 		}
 
-		FbxLayerElementUV* UVDiffuseLayer = FbxLayerElementUV::Create(Mesh, TCHAR_TO_ANSI(UVChannelName));
+		FbxLayerElementUV* UVDiffuseLayer = FbxLayerElementUV::Create(Mesh, TCHAR_TO_UTF8(UVChannelName));
 
 		// Note: when eINDEX_TO_DIRECT is used, IndexArray must be 3xTriangle count, DirectArray can be smaller
 		UVDiffuseLayer->SetMappingMode(FbxLayerElement::eByPolygonVertex);
@@ -2325,7 +2398,7 @@ FbxNode* FFbxExporter::ExportLandscapeToFbx(ALandscapeProxy* Landscape, const TC
 		Component->GetComponentExtent(MinX, MinY, MaxX, MaxY);
 	}
 
-	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_ANSI(MeshName));
+	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_UTF8(MeshName));
 
 	// Create and fill in the vertex position data source.
 	const int32 ComponentSizeQuads = ((Landscape->ComponentSizeQuads + 1) >> Landscape->ExportLOD) - 1;

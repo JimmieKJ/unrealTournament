@@ -359,30 +359,28 @@ namespace UnrealBuildTool
 		public static bool bBreakBuildOnLicenseViolation;
 
 		/// <summary>
-		/// True if we should use the new 'experimental' C++ header dependency scanning and caching system that allows Unreal Build Tool to
-		/// detect out of date dependencies very quickly.  When enabled, a deep C++ include graph does not have to be generated, and instead
-		/// we only scan and cache indirect includes for after a dependent build product was already found to be out of date.  During the
-		/// next build, we'll load those cached indirect includes and check for outdatedness.
-		/// </summary>
-		[XmlConfig]
-		public static bool bUseExperimentalFastDependencyScan;
-
-		/// <summary>
-		/// Enables a new 'experimental' support for very fast iterative builds.  Turning this on causes Unreal Build Tool to emit
+		/// Enables support for very fast iterative builds by caching target data.  Turning this on causes Unreal Build Tool to emit
 		/// 'UBT Makefiles' for targets when they're built the first time.  Subsequent builds will load these Makefiles and begin
 		/// outdatedness checking and build invocation very quickly.  The caveat is that if source files are added or removed to
 		/// the project, UBT will need to gather information about those in order for your build to complete successfully.  Currently,
 		/// you must run the project file generator after adding/removing source files to tell UBT to re-gather this information.
+		/// 
 		/// Events that can invalidate the 'UBT Makefile':  
 		///		- Adding/removing .cpp files
 		///		- Adding/removing .h files with UObjects
 		///		- Adding new UObject types to a file that didn't previously have any
 		///		- Changing global build settings (most settings in this file qualify.)
 		///		- Changed code that affects how Unreal Header Tool works
+		///	
 		///	You can force regeneration of the 'UBT Makefile' by passing the '-gather' argument, or simply regenerating project files
+		///
+		///	This also enables the fast include file dependency scanning and caching system that allows Unreal Build Tool to detect out 
+		/// of date dependencies very quickly.  When enabled, a deep C++ include graph does not have to be generated, and instead
+		/// we only scan and cache indirect includes for after a dependent build product was already found to be out of date.  During the
+		/// next build, we'll load those cached indirect includes and check for outdatedness.
 		/// </summary>
 		[XmlConfig]
-		public static bool bUseExperimentalFastBuildIteration;
+		public static bool bUseUBTMakefiles;
 	
 		/// <summary>
 		/// Whether DMUCS/Distcc may be used.
@@ -528,13 +526,10 @@ namespace UnrealBuildTool
 			bCheckLicenseViolations = false;
 			bBreakBuildOnLicenseViolation = true;
 
-			// This feature reduces the time spent tracking C++ header dependencies every run.  This feature is still being tested, 
-			// so we disable it by default
-			bUseExperimentalFastDependencyScan = false;
-
-			// Experimental support for 'gathering' and 'assembling' builds in separate invocations is still being tested, so we
-			// leave it disabled by default
-			bUseExperimentalFastBuildIteration = false;
+			// Enables support for fast include dependency scanning, as well as gathering data for 'UBT Makefiles', then quickly
+			// assembling builds in subsequent runs using data in those cached makefiles
+			// NOTE: This feature is new and has a number of known issues (search the code for '@todo ubtmake')
+			bUseUBTMakefiles = false;// !Utils.IsRunningOnMono;	// @todo ubtmake: Needs support for Mac
 
 			// Distcc requires some setup - so by default disable it so we don't break local or remote building
 			bAllowDistcc = false;

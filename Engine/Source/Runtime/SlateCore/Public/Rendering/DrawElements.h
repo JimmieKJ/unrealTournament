@@ -159,6 +159,7 @@ public:
 		ET_Viewport,
 		ET_Border,
 		ET_Custom,
+		ET_Count,
 	};
 
 	enum ERotationSpace
@@ -603,12 +604,12 @@ public:
 	struct FDeferredPaint
 	{
 	public:
-		SLATECORE_API FDeferredPaint( const TSharedRef<SWidget>& InWidgetToPaint, const FPaintArgs& InArgs, const FGeometry InAllottedGeometry, const FSlateRect InMyClippingRect, const FWidgetStyle& InWidgetStyle, bool InParentEnabled );
+		SLATECORE_API FDeferredPaint( const TSharedRef<const SWidget>& InWidgetToPaint, const FPaintArgs& InArgs, const FGeometry InAllottedGeometry, const FSlateRect InMyClippingRect, const FWidgetStyle& InWidgetStyle, bool InParentEnabled );
 
 		int32 ExecutePaint( int32 LayerId, FSlateWindowElementList& OutDrawElements ) const;
 
 	private:
-		const TWeakPtr<SWidget> WidgetToPaintPtr;
+		const TWeakPtr<const SWidget> WidgetToPaintPtr;
 		const FPaintArgs Args;
 		const FGeometry AllottedGeometry;
 		const FSlateRect MyClippingRect;

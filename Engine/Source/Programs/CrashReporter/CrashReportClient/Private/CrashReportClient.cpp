@@ -12,18 +12,6 @@
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
 
-//#define DO_LOCAL_TESTING 1
-
-#if	DO_LOCAL_TESTING
-	const TCHAR* GServerIP = TEXT( "http://localhost:57005" );
-#else
-	const TCHAR* GServerIP = TEXT( "http://crashreporter.epicgames.com:57005" );
-#endif // DO_LOCAL_TESTING
-
-// Must match filename specified in RunMinidumpDiagnostics
-const TCHAR* GDiagnosticsFilename = TEXT("Diagnostics.txt");
-
-
 FCrashDescription& GetCrashDescription()
 {
 	static FCrashDescription Singleton;
@@ -36,7 +24,7 @@ FCrashReportClient::FCrashReportClient(const FPlatformErrorReport& InErrorReport
 	: DiagnosticText( LOCTEXT("ProcessingReport", "Processing crash report ...") )
 	, DiagnoseReportTask(nullptr)
 	, ErrorReport( InErrorReport )
-	, Uploader(GServerIP)
+	, Uploader( FCrashReportClientConfig::Get().GetReceiverAddress() )
 	, bBeginUploadCalled(false)
 	, bShouldWindowBeHidden(false)
 	, bAllowToBeContacted(true)
@@ -69,6 +57,19 @@ FReply FCrashReportClient::Submit()
 	bSendData = true;
 	StoreCommentAndUpload();
 	bShouldWindowBeHidden = true;
+	return FReply::Handled();
+}
+
+FReply FCrashReportClient::SubmitAndRestart()
+{
+	Submit();
+
+	const FString CrashedAppPath = ErrorReport.FindCrashedAppPath();
+	const FCrashDescription& CrashDescription = GetCrashDescription();
+	const FString CommandLineArguments = CrashDescription.CommandLine;
+
+	FPlatformProcess::CreateProc(*CrashedAppPath, *CommandLineArguments, true, false, false, NULL, 0, NULL, NULL);
+
 	return FReply::Handled();
 }
 
@@ -170,7 +171,7 @@ void FCrashReportClient::FinalizeDiagnoseReportWorker( FText ReportText )
 {
 	DiagnosticText = FCrashReportUtil::FormatDiagnosticText( ReportText, GetCrashDescription().MachineId, GetCrashDescription().EpicAccountId, GetCrashDescription().UserName );
 
-	auto DiagnosticsFilePath = ErrorReport.GetReportDirectory() / GDiagnosticsFilename;
+	auto DiagnosticsFilePath = ErrorReport.GetReportDirectory() / FCrashReportClientConfig::Get().GetDiagnosticsFilename();
 	Uploader.LocalDiagnosisComplete(FPaths::FileExists(DiagnosticsFilePath) ? DiagnosticsFilePath : TEXT(""));
 }
 
@@ -199,15 +200,7 @@ void FDiagnoseReportWorker::DoWork()
 
 FText FCrashReportUtil::FormatDiagnosticText( const FText& DiagnosticText, const FString MachineId, const FString EpicAccountId, const FString UserNameNoDot )
 {
-	if( FRocketSupport::IsRocket() )
-	{
-		return FText::Format( LOCTEXT( "CrashReportClientCallstackPattern", "MachineId:{0}\nEpicAccountId:{1}\n\n{2}" ), FText::FromString( MachineId ), FText::FromString( EpicAccountId ), DiagnosticText );
-	}
-	else
-	{
-		return FText::Format( LOCTEXT( "CrashReportClientCallstackPattern", "MachineId:{0}\n\n{1}" ), FText::FromString( MachineId ), DiagnosticText );
-	}
-
+	return FText::Format( LOCTEXT( "CrashReportClientCallstackPattern", "MachineId:{0}\nEpicAccountId:{1}\n\n{2}" ), FText::FromString( MachineId ), FText::FromString( EpicAccountId ), DiagnosticText );
 }
 
 #undef LOCTEXT_NAMESPACE

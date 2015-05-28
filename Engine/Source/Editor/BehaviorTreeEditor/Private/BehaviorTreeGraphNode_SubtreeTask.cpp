@@ -20,7 +20,7 @@ bool UBehaviorTreeGraphNode_SubtreeTask::UpdateInjectedNodes()
 	}
 
 	UBehaviorTreeGraph* MyGraph = MyNode->GetSubtreeAsset() ? Cast<UBehaviorTreeGraph>(MyNode->GetSubtreeAsset()->BTGraph) : NULL;
-	int32 MyVersion = MyGraph ? MyGraph->GraphVersion : 0;
+	int32 MyVersion = MyGraph ? MyGraph->ModCounter : 0;
 	FString MyPath = MyNode->GetSubtreeAsset() ? MyNode->GetSubtreeAsset()->GetName() : FString();
 
 	if (MyPath == SubtreePath && MyVersion == SubtreeVersion)
@@ -37,6 +37,7 @@ bool UBehaviorTreeGraphNode_SubtreeTask::UpdateInjectedNodes()
 	{
 		if (Decorators[Index] && Decorators[Index]->bInjectedNode)
 		{
+			SubNodes.RemoveSingle(Decorators[Index]);
 			Decorators.RemoveAt(Index, 1, false);
 		}
 	}
@@ -77,6 +78,7 @@ bool UBehaviorTreeGraphNode_SubtreeTask::UpdateInjectedNodes()
 
 					InjectedNode->ParentNode = this;
 					InjectedNode->bInjectedNode = true;
+					InjectedNode->bIsReadOnly = true;
 
 					UBTDecorator* InjectedInstance = Cast<UBTDecorator>(InjectedNode->NodeInstance);
 					if (InjectedInstance)
@@ -107,6 +109,7 @@ bool UBehaviorTreeGraphNode_SubtreeTask::UpdateInjectedNodes()
 						}
 					}
 
+					SubNodes.Add(InjectedNode);
 					Decorators.Add(InjectedNode);
 				}
 			}

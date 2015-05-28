@@ -34,90 +34,9 @@ static const FName StatusViewTabId("StatusView");
 namespace LogVisualizer
 {
 	static const FString LogFileDescription = LOCTEXT("FileTypeDescription", "Visual Log File").ToString();
-	static const FString LoadFileTypes = FString::Printf(TEXT("%s (*.vlog;*.%s)|*.vlog;*.%s"), *LogFileDescription, VISLOG_FILENAME_EXT, VISLOG_FILENAME_EXT);
+	static const FString LoadFileTypes = FString::Printf(TEXT("%s (*.bvlog;*.%s)|*.bvlog;*.%s"), *LogFileDescription, VISLOG_FILENAME_EXT, VISLOG_FILENAME_EXT);
 	static const FString SaveFileTypes = FString::Printf(TEXT("%s (*.%s)|*.%s"), *LogFileDescription, VISLOG_FILENAME_EXT, VISLOG_FILENAME_EXT);
 }
-
-struct FVisualLoggerInterface : public IVisualLoggerInterface
-{
-	FVisualLoggerInterface(TSharedPtr<SVisualLogger> InVisualLogger, FVisualLoggerEvents InVisualLoggerEvents)
-		: VisualLogger(InVisualLogger)
-	{
-		VisualLoggerEvents = InVisualLoggerEvents;
-	}
-
-	virtual ~FVisualLoggerInterface() {}
-
-	virtual bool HasValidCategories(TArray<FVisualLoggerCategoryVerbosityPair> Categories) override
-	{
-		for (const auto& CurrentCategory : Categories)
-		{
-			if (VisualLogger->GetVisualLoggerFilters()->IsFilterEnabled(CurrentCategory.CategoryName.ToString(), CurrentCategory.Verbosity))
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
-	bool IsValidCategory(const FString& InCategoryName, TEnumAsByte<ELogVerbosity::Type> Verbosity)
-	{
-		return VisualLogger->GetVisualLoggerFilters()->IsFilterEnabled(InCategoryName, Verbosity);
-	}
-
-	bool IsValidCategory(const FString& InGraphName, const FString& InDataName, TEnumAsByte<ELogVerbosity::Type> Verbosity = ELogVerbosity::All)
-	{
-		return VisualLogger->GetVisualLoggerFilters()->IsFilterEnabled(InGraphName, InDataName, Verbosity);
-	}
-
-	virtual FLinearColor GetCategoryColor(FName Category) override
-	{
-		return VisualLogger->GetVisualLoggerFilters()->GetColorForUsedCategory(Category.ToString());
-	}
-
-	UWorld* GetWorld() const
-	{
-		UWorld* World = NULL;
-		UEditorEngine *EEngine = Cast<UEditorEngine>(GEngine);
-		if (GIsEditor && EEngine != NULL)
-		{
-			// lets use PlayWorld during PIE/Simulate and regular world from editor otherwise, to draw debug information
-			World = EEngine->PlayWorld != NULL ? EEngine->PlayWorld : EEngine->GetEditorWorldContext().World();
-
-		}
-		else if (!GIsEditor)
-		{
-
-			World = GEngine->GetWorld();
-		}
-
-		if (World == NULL)
-		{
-			World = GWorld;
-		}
-
-		return World;
-	}
-
-	class AActor* GetVisualLoggerHelperActor() override
-	{
-		UWorld* World = GetWorld();
-		for (TActorIterator<AVisualLoggerRenderingActor> It(World); It; ++It)
-		{
-			return *It;
-		}
-
-		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.bNoCollisionFail = true;
-		SpawnInfo.Name = *FString::Printf(TEXT("VisualLoggerRenderingActor"));
-		AActor* HelperActor = World->SpawnActor<AVisualLoggerRenderingActor>(SpawnInfo);
-
-		return HelperActor;
-	}
-
-protected:
-	TSharedPtr<SVisualLogger> VisualLogger;
-};
 
 SVisualLogger::FVisualLoggerDevice::FVisualLoggerDevice(SVisualLogger* InOwner)
 	:Owner(InOwner)
@@ -128,14 +47,21 @@ SVisualLogger::FVisualLoggerDevice::~FVisualLoggerDevice()
 {
 }
 
-void SVisualLogger::FVisualLoggerDevice::Serialize(const class UObject* LogOwner, FName OwnerName, const FVisualLogEntry& LogEntry)
+void SVisualLogger::FVisualLoggerDevice::Serialize(const class UObject* LogOwner, FName OwnerName, FName OwnerClassName, const FVisualLogEntry& LogEntry)
 {
 	if (Owner == NULL)
 	{
 		return;
 	}
 
-	Owner->OnNewLogEntry(FVisualLogDevice::FVisualLogEntryItem(OwnerName, LogEntry));
+	UWorld* World = FLogVisualizer::Get().GetWorld();
+	if (LastWorld.Get() != World)
+	{
+		Owner->OnNewWorld(LastWorld.Get());
+		LastWorld = World;
+	}
+
+	Owner->OnNewLogEntry(FVisualLogDevice::FVisualLogEntryItem(OwnerName, OwnerClassName, LogEntry));
 }
 
 /* SMessagingDebugger constructors
@@ -143,22 +69,50 @@ void SVisualLogger::FVisualLoggerDevice::Serialize(const class UObject* LogOwner
 
 SVisualLogger::SVisualLogger() : SCompoundWidget(), CommandList(MakeShareable(new FUICommandList))
 { 
+	bPausedLogger = false;
+	bGotHistogramData = false;
 	InternalDevice = MakeShareable(new FVisualLoggerDevice(this));
 	FVisualLogger::Get().AddDevice(InternalDevice.Get());
 }
 
 SVisualLogger::~SVisualLogger()
 {
+	UWorld* World = NULL;
+#if WITH_EDITOR
+	FCategoryFiltersManager::Get().SavePresistentData();
 
-}
+	UEditorEngine *EEngine = Cast<UEditorEngine>(GEngine);
+	if (GIsEditor && EEngine != NULL)
+	{
+		// lets use PlayWorld during PIE/Simulate and regular world from editor otherwise, to draw debug information
+		World = EEngine->PlayWorld != NULL ? EEngine->PlayWorld : EEngine->GetEditorWorldContext().World();
 
-void SVisualLogger::OnTabLosed()
-{
+	}
+	else
+#endif
+	if (!GIsEditor)
+	{
+	World = GEngine->GetWorld();
+	}
+
+	if (World == NULL)
+	{
+		World = GWorld;
+	}
+
+	if (World)
+	{
+		for (TActorIterator<AVisualLoggerRenderingActor> It(World); It; ++It)
+		{
+			World->DestroyActor(*It);
+		}
+	}
+
 	UDebugDrawService::Unregister(DrawOnCanvasDelegateHandle);
-	VisualLoggerCanvasRenderer = NULL;
+	VisualLoggerCanvasRenderer.Reset();
 
 	FVisualLogger::Get().RemoveDevice(InternalDevice.Get());
-	InternalDevice = NULL;
+	InternalDevice.Reset();
 }
 
 /* SMessagingDebugger interface
@@ -166,28 +120,31 @@ void SVisualLogger::OnTabLosed()
 
 void SVisualLogger::Construct(const FArguments& InArgs, const TSharedRef<SDockTab>& ConstructUnderMajorTab, const TSharedPtr<SWindow>& ConstructUnderWindow)
 {
+	bPausedLogger = false;
+	bGotHistogramData = false;
+
+	FLogVisualizer::Get().SetCurrentVisualizer(SharedThis(this));
 	//////////////////////////////////////////////////////////////////////////
 	// Visual Logger Events
-	FVisualLoggerEvents VisualLoggerEvents;
-	VisualLoggerEvents.OnItemSelectionChanged = FOnItemSelectionChanged::CreateRaw(this, &SVisualLogger::OnItemSelectionChanged);
-	VisualLoggerEvents.OnFiltersChanged = FOnFiltersChanged::CreateRaw(this, &SVisualLogger::OnFiltersChanged);
-	VisualLoggerEvents.OnObjectSelectionChanged = FOnObjectSelectionChanged::CreateRaw(this, &SVisualLogger::OnObjectSelectionChanged);
-
-	//////////////////////////////////////////////////////////////////////////
-	// Visual Logger Interface
-	VisualLoggerInterface = MakeShareable(new FVisualLoggerInterface(SharedThis(this), VisualLoggerEvents));
+	FLogVisualizer::Get().GetVisualLoggerEvents().OnItemSelectionChanged = FOnItemSelectionChanged::CreateRaw(this, &SVisualLogger::OnItemSelectionChanged);
+	FLogVisualizer::Get().GetVisualLoggerEvents().OnFiltersChanged = FOnFiltersChanged::CreateRaw(this, &SVisualLogger::OnFiltersChanged);
+	FLogVisualizer::Get().GetVisualLoggerEvents().OnObjectSelectionChanged = FOnObjectSelectionChanged::CreateRaw(this, &SVisualLogger::OnObjectSelectionChanged);
+	FLogVisualizer::Get().GetVisualLoggerEvents().OnLogLineSelectionChanged = FOnLogLineSelectionChanged::CreateRaw(this, &SVisualLogger::OnLogLineSelectionChanged);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Command Action Lists
 	const FVisualLoggerCommands& Commands = FVisualLoggerCommands::Get();
 	FUICommandList& ActionList = *CommandList;
 
+	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
+	FCategoryFiltersManager::Get().LoadPresistentData();
+
 	ActionList.MapAction(Commands.StartRecording, FExecuteAction::CreateRaw(this, &SVisualLogger::HandleStartRecordingCommandExecute), FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandleStartRecordingCommandCanExecute), FIsActionChecked(), FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandleStartRecordingCommandIsVisible));
 	ActionList.MapAction(Commands.StopRecording, FExecuteAction::CreateRaw(this, &SVisualLogger::HandleStopRecordingCommandExecute), FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandleStopRecordingCommandCanExecute), FIsActionChecked(), FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandleStopRecordingCommandIsVisible));
 	ActionList.MapAction(Commands.Pause, FExecuteAction::CreateRaw(this, &SVisualLogger::HandlePauseCommandExecute), FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandlePauseCommandCanExecute), FIsActionChecked(), FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandlePauseCommandIsVisible));
 	ActionList.MapAction(Commands.Resume, FExecuteAction::CreateRaw(this, &SVisualLogger::HandleResumeCommandExecute), FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandleResumeCommandCanExecute), FIsActionChecked(), FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandleResumeCommandIsVisible));
-	ActionList.MapAction(Commands.Load, FExecuteAction::CreateRaw(this, &SVisualLogger::HandleLoadCommandExecute), FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandleLoadCommandCanExecute), FIsActionChecked(), FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandleLoadCommandCanExecute));
-	ActionList.MapAction(Commands.Save, FExecuteAction::CreateRaw(this, &SVisualLogger::HandleSaveCommandExecute), FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandleSaveCommandCanExecute), FIsActionChecked(), FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandleSaveCommandCanExecute));
+	ActionList.MapAction(Commands.LoadFromVLog, FExecuteAction::CreateRaw(this, &SVisualLogger::HandleLoadCommandExecute), FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandleLoadCommandCanExecute), FIsActionChecked(), FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandleLoadCommandCanExecute));
+	ActionList.MapAction(Commands.SaveToVLog, FExecuteAction::CreateRaw(this, &SVisualLogger::HandleSaveCommandExecute), FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandleSaveCommandCanExecute), FIsActionChecked(), FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandleSaveCommandCanExecute));
 	ActionList.MapAction(Commands.FreeCamera, 
 		FExecuteAction::CreateRaw(this, &SVisualLogger::HandleCameraCommandExecute), 
 		FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandleCameraCommandCanExecute), 
@@ -195,9 +152,21 @@ void SVisualLogger::Construct(const FArguments& InArgs, const TSharedRef<SDockTa
 		FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandleCameraCommandCanExecute));
 	ActionList.MapAction(Commands.ToggleGraphs,
 		FExecuteAction::CreateLambda([](){bool& bEnableGraphsVisualization = ULogVisualizerSessionSettings::StaticClass()->GetDefaultObject<ULogVisualizerSessionSettings>()->bEnableGraphsVisualization; bEnableGraphsVisualization = !bEnableGraphsVisualization; }),
-		FCanExecuteAction(),
+		FCanExecuteAction::CreateLambda([this]()->bool{return bGotHistogramData; }),
 		FIsActionChecked::CreateLambda([]()->bool{return ULogVisualizerSessionSettings::StaticClass()->GetDefaultObject<ULogVisualizerSessionSettings>()->bEnableGraphsVisualization; }),
-		FIsActionButtonVisible());
+		FIsActionButtonVisible::CreateLambda([this]()->bool{return bGotHistogramData; }));
+	ActionList.MapAction(Commands.ResetData, 
+		FExecuteAction::CreateRaw(this, &SVisualLogger::ResetData),
+		FCanExecuteAction::CreateRaw(this, &SVisualLogger::HandleSaveCommandCanExecute),
+		FIsActionChecked(), 
+		FIsActionButtonVisible::CreateRaw(this, &SVisualLogger::HandleSaveCommandCanExecute));
+
+	ActionList.MapAction(
+		Commands.MoveCursorLeft,
+		FExecuteAction::CreateRaw(this, &SVisualLogger::OnMoveCursorLeftCommand));
+	ActionList.MapAction(
+		Commands.MoveCursorRight,
+		FExecuteAction::CreateRaw(this, &SVisualLogger::OnMoveCursorRightCommand));
 
 
 	// Tab Spawners
@@ -283,6 +252,14 @@ void SVisualLogger::Construct(const FArguments& InArgs, const TSharedRef<SDockTa
 
 	// Window Menu
 	FMenuBarBuilder MenuBarBuilder = FMenuBarBuilder(TSharedPtr<FUICommandList>());
+#if 0 //disabled File menu for now (SebaK)
+	MenuBarBuilder.AddPullDownMenu(
+		LOCTEXT("FileMenuLabel", "File"),
+		FText::GetEmpty(),
+		FNewMenuDelegate::CreateRaw(this, &SVisualLogger::FillFileMenu, TabManager),
+		"File"
+		);
+#endif
 	MenuBarBuilder.AddPullDownMenu(
 		LOCTEXT("WindowMenuLabel", "Window"),
 		FText::GetEmpty(),
@@ -323,10 +300,16 @@ void SVisualLogger::Construct(const FArguments& InArgs, const TSharedRef<SDockTa
 			]
 		];
 
-	VisualLoggerCanvasRenderer = MakeShareable(new FVisualLoggerCanvasRenderer(VisualLoggerInterface));
+	VisualLoggerCanvasRenderer = MakeShareable(new FVisualLoggerCanvasRenderer());
 
 	DrawOnCanvasDelegateHandle = UDebugDrawService::Register(TEXT("VisLog"), FDebugDrawDelegate::CreateRaw(VisualLoggerCanvasRenderer.Get(), &FVisualLoggerCanvasRenderer::DrawOnCanvas));
 	//UGameplayDebuggingComponent::OnDebuggingTargetChangedDelegate.AddSP(this, &SVisualLogger::SelectionChanged);
+}
+
+FReply SVisualLogger::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	FUICommandList& ActionList = *CommandList;
+	return ActionList.ProcessCommandBindings(InKeyEvent) ? FReply::Handled() : FReply::Unhandled();
 }
 
 void SVisualLogger::HandleMajorTabPersistVisualState()
@@ -337,6 +320,55 @@ void SVisualLogger::HandleMajorTabPersistVisualState()
 void SVisualLogger::HandleTabManagerPersistLayout(const TSharedRef<FTabManager::FLayout>& LayoutToSave)
 {
 	FLayoutSaveRestore::SaveToConfig(GEditorLayoutIni, LayoutToSave);
+}
+
+void SVisualLogger::FillFileMenu(FMenuBuilder& MenuBuilder, const TSharedPtr<FTabManager> InTabManager)
+{
+	MenuBuilder.BeginSection("LogFile", LOCTEXT("FileMenu", "Log File"));
+	{
+		MenuBuilder.AddMenuEntry(FVisualLoggerCommands::Get().LoadFromVLog);
+		MenuBuilder.AddMenuEntry(FVisualLoggerCommands::Get().SaveToVLog);
+	}
+	MenuBuilder.EndSection();
+	MenuBuilder.BeginSection("LogFilters", LOCTEXT("FIlterMenu", "Log Filters"));
+	{
+		MenuBuilder.AddSubMenu(
+			LOCTEXT("LoadPreset", "Load Preset"), LOCTEXT("LoadPresetTooltip", "Load filter's preset"),
+			FNewMenuDelegate::CreateRaw(this, &SVisualLogger::FillLoadPresetMenu));
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("SavePreset", "Save Preset"), LOCTEXT("SavePresetTooltip", "Save filter's setting as preset"),
+			FSlateIcon(), FUIAction(
+			FExecuteAction::CreateLambda(
+				[this](){
+				}
+			)));
+	}
+	MenuBuilder.EndSection();
+}
+
+void SVisualLogger::FillLoadPresetMenu(FMenuBuilder& MenuBuilder)
+{
+	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
+	
+	MenuBuilder.BeginSection("FilterPresets", LOCTEXT("FilterPresets", "Presets"));
+#if 0 //disabled for now, we don't use presets yet
+	for (auto& CurrentPreset : Settings->FilterPresets)
+	{
+		MenuBuilder.AddMenuEntry(
+			FText::FromString(CurrentPreset.FilterName), LOCTEXT("LoadPresetTooltip", "Load filter's preset"),
+			FSlateIcon(), FUIAction(
+			FExecuteAction::CreateLambda([this, CurrentPreset](){ this->SetFiltersPreset(CurrentPreset); }
+			))
+		);
+	}
+#endif
+	MenuBuilder.EndSection();
+}
+
+void SVisualLogger::SetFiltersPreset(const struct FFiltersPreset& Preset)
+{
+
 }
 
 void SVisualLogger::FillWindowMenu(FMenuBuilder& MenuBuilder, const TSharedPtr<FTabManager> TabManager)
@@ -361,17 +393,17 @@ TSharedRef<SDockTab> SVisualLogger::HandleTabManagerSpawnTab(const FSpawnTabArgs
 	}
 	else if (TabIdentifier == FiltersTabId)
 	{
-		TabWidget = SAssignNew(VisualLoggerFilters, SVisualLoggerFilters, CommandList, VisualLoggerInterface);
+		TabWidget = SAssignNew(VisualLoggerFilters, SVisualLoggerFilters, CommandList);
 		AutoSizeTab = true;
 	}
 	else if (TabIdentifier == MainViewTabId)
 	{
-		TabWidget = SAssignNew(MainView, SVisualLoggerView, CommandList, VisualLoggerInterface).OnFiltersSearchChanged(this, &SVisualLogger::OnFiltersSearchChanged);
+		TabWidget = SAssignNew(MainView, SVisualLoggerView, CommandList).OnFiltersSearchChanged(this, &SVisualLogger::OnFiltersSearchChanged);
 		AutoSizeTab = false;
 	}
 	else if (TabIdentifier == LogsListTabId)
 	{
-		TabWidget = SAssignNew(LogsList, SVisualLoggerLogsList, CommandList, VisualLoggerInterface);
+		TabWidget = SAssignNew(LogsList, SVisualLoggerLogsList, CommandList);
 		AutoSizeTab = false;
 	}
 	else if (TabIdentifier == StatusViewTabId)
@@ -415,7 +447,7 @@ void SVisualLogger::HandleStopRecordingCommandExecute()
 {
 	FVisualLogger::Get().SetIsRecording(false);
 
-	UWorld* World = VisualLoggerInterface->GetWorld();
+	UWorld* World = FLogVisualizer::Get().GetWorld();
 	if (AVisualLoggerCameraController::IsEnabled(World))
 	{
 		AVisualLoggerCameraController::DisableCamera(World);
@@ -430,17 +462,24 @@ bool SVisualLogger::HandleStopRecordingCommandIsVisible() const
 
 bool SVisualLogger::HandlePauseCommandCanExecute() const
 {
-	UWorld* World = VisualLoggerInterface->GetWorld();
-	return FVisualLogger::Get().IsRecording() && World && !World->bPlayersOnly && !World->bPlayersOnlyPending;
+	return !bPausedLogger;
 }
 
 void SVisualLogger::HandlePauseCommandExecute()
 {
-	UWorld* World = VisualLoggerInterface->GetWorld();
-	if (World != NULL)
+	if (ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bUsePlayersOnlyForPause)
 	{
-		World->bPlayersOnlyPending = true;
+		const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();
+		for (const FWorldContext& Context : WorldContexts)
+		{
+			if (Context.World() != nullptr)
+			{
+				Context.World()->bPlayersOnlyPending = true;
+			}
+		}
 	}
+
+	bPausedLogger = true;
 }
 
 bool SVisualLogger::HandlePauseCommandIsVisible() const
@@ -450,18 +489,31 @@ bool SVisualLogger::HandlePauseCommandIsVisible() const
 
 bool SVisualLogger::HandleResumeCommandCanExecute() const
 {
-	UWorld* World = VisualLoggerInterface->GetWorld();
-	return FVisualLogger::Get().IsRecording() && World && (World->bPlayersOnly || World->bPlayersOnlyPending);
+	return bPausedLogger;
 }
 
 void SVisualLogger::HandleResumeCommandExecute()
 {
-	UWorld* World = VisualLoggerInterface->GetWorld();
-	if (World != NULL)
+	if (ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bUsePlayersOnlyForPause)
 	{
-		World->bPlayersOnly = false;
-		World->bPlayersOnlyPending = false;
+		const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();
+		for (const FWorldContext& Context : WorldContexts)
+		{
+			if (Context.World() != nullptr)
+			{
+				Context.World()->bPlayersOnly = false;
+				Context.World()->bPlayersOnlyPending = false;
+			}
+		}
 	}
+
+	bPausedLogger = false;
+	for (const auto& CurrentEntry : OnPauseCacheForEntries)
+	{
+		OnNewLogEntry(CurrentEntry);
+	}
+	OnPauseCacheForEntries.Reset();
+
 }
 
 bool SVisualLogger::HandleResumeCommandIsVisible() const
@@ -471,19 +523,19 @@ bool SVisualLogger::HandleResumeCommandIsVisible() const
 
 bool SVisualLogger::HandleCameraCommandIsChecked() const
 {
-	UWorld* World = VisualLoggerInterface->GetWorld();
+	UWorld* World = FLogVisualizer::Get().GetWorld();
 	return World && AVisualLoggerCameraController::IsEnabled(World);
 }
 
 bool SVisualLogger::HandleCameraCommandCanExecute() const
 {
-	UWorld* World = VisualLoggerInterface->GetWorld();
+	UWorld* World = FLogVisualizer::Get().GetWorld();
 	return FVisualLogger::Get().IsRecording() && World && (World->bPlayersOnly || World->bPlayersOnlyPending) && World->IsPlayInEditor() && (GEditor && !GEditor->bIsSimulatingInEditor);
 }
 
 void SVisualLogger::HandleCameraCommandExecute()
 {
-	UWorld* World = VisualLoggerInterface->GetWorld();
+	UWorld* World = FLogVisualizer::Get().GetWorld();
 	if (AVisualLoggerCameraController::IsEnabled(World))
 	{
 		AVisualLoggerCameraController::DisableCamera(World);
@@ -539,6 +591,7 @@ void SVisualLogger::HandleLoadCommandExecute()
 
 	if (bOpened && OpenFilenames.Num() > 0)
 	{
+		OnNewWorld(nullptr);
 		for (int FilenameIndex = 0; FilenameIndex < OpenFilenames.Num(); ++FilenameIndex)
 		{
 			FString CurrentFileName = OpenFilenames[FilenameIndex];
@@ -628,10 +681,66 @@ void SVisualLogger::HandleSaveCommandExecute()
 	}
 }
 
+void SVisualLogger::ResetData()
+{
+	if (MainView.IsValid())
+	{
+		MainView->ResetData();
+	}
+
+	if (VisualLoggerFilters.IsValid())
+	{
+		VisualLoggerFilters->ResetData();
+	}
+
+	if (LogsList.IsValid())
+	{
+		LogsList->OnItemSelectionChanged(FVisualLogDevice::FVisualLogEntryItem());
+	}
+
+	if (StatusView.IsValid())
+	{
+		StatusView->OnItemSelectionChanged(FVisualLogDevice::FVisualLogEntryItem());
+	}
+
+	if (VisualLoggerCanvasRenderer.IsValid())
+	{
+		VisualLoggerCanvasRenderer->OnItemSelectionChanged(FVisualLogEntry());
+		VisualLoggerCanvasRenderer->ObjectSelectionChanged(NULL);
+	}
+
+	AVisualLoggerRenderingActor* HelperActor = Cast<AVisualLoggerRenderingActor>(FLogVisualizer::Get().GetVisualLoggerHelperActor());
+	if (HelperActor)
+	{
+		HelperActor->OnItemSelectionChanged(FVisualLogDevice::FVisualLogEntryItem());
+		HelperActor->ObjectSelectionChanged(NULL);
+	}
+
+	bGotHistogramData = false;
+	OnPauseCacheForEntries.Reset();
+}
+
+void SVisualLogger::OnNewWorld(UWorld* NewWorld)
+{
+	InternalDevice->SerLastWorld(NewWorld);
+	if (ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bResetDataWithNewSession)
+	{
+		ResetData();
+	}
+}
+
 void SVisualLogger::OnNewLogEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry)
 {
-	CollectNewCategories(Entry);
-	MainView->OnNewLogEntry(Entry);
+	if (!bPausedLogger)
+	{
+		CollectNewCategories(Entry);
+		MainView->OnNewLogEntry(Entry);
+		bGotHistogramData = bGotHistogramData || Entry.Entry.HistogramSamples.Num() > 0;
+	}
+	else
+	{
+		OnPauseCacheForEntries.Add(Entry);
+	}
 }
 
 void SVisualLogger::CollectNewCategories(const FVisualLogDevice::FVisualLogEntryItem& Item)
@@ -659,10 +768,11 @@ void SVisualLogger::OnItemSelectionChanged(const FVisualLogDevice::FVisualLogEnt
 	LogsList->OnItemSelectionChanged(EntryItem);
 	StatusView->OnItemSelectionChanged(EntryItem);
 	VisualLoggerCanvasRenderer->OnItemSelectionChanged(EntryItem.Entry);
-	AVisualLoggerRenderingActor* HelperActor = Cast<AVisualLoggerRenderingActor>(VisualLoggerInterface->GetVisualLoggerHelperActor());
+	VisualLoggerFilters->OnItemSelectionChanged(EntryItem.Entry);
+	AVisualLoggerRenderingActor* HelperActor = Cast<AVisualLoggerRenderingActor>(FLogVisualizer::Get().GetVisualLoggerHelperActor());
 	if (HelperActor)
 	{
-		HelperActor->OnItemSelectionChanged(EntryItem, VisualLoggerInterface);
+		HelperActor->OnItemSelectionChanged(EntryItem);
 	}
 }
 
@@ -675,18 +785,69 @@ void SVisualLogger::OnFiltersChanged()
 void SVisualLogger::OnObjectSelectionChanged(TSharedPtr<class STimeline> TimeLine)
 {
 	VisualLoggerCanvasRenderer->ObjectSelectionChanged(TimeLine);
-	AVisualLoggerRenderingActor* HelperActor = Cast<AVisualLoggerRenderingActor>(VisualLoggerInterface->GetVisualLoggerHelperActor());
+	AVisualLoggerRenderingActor* HelperActor = Cast<AVisualLoggerRenderingActor>(FLogVisualizer::Get().GetVisualLoggerHelperActor());
 	if (HelperActor)
 	{
 		HelperActor->ObjectSelectionChanged(TimeLine);
 	}
 	MainView->OnObjectSelectionChanged(TimeLine);
+	FLogVisualizer::Get().OnObjectSelectionChanged(TimeLine);
 }
 
 void SVisualLogger::OnFiltersSearchChanged(const FText& Filter)
 {
-	VisualLoggerFilters->OnFiltersSearchChanged(Filter);
-	LogsList->OnFiltersSearchChanged(Filter);
-	MainView->OnFiltersSearchChanged(Filter);
+	FCategoryFiltersManager::Get().SetSearchString(Filter.ToString());
+
+	if (VisualLoggerFilters.IsValid())
+	{
+		VisualLoggerFilters->OnFiltersSearchChanged(Filter);
+	}
+	if (LogsList.IsValid())
+	{
+		LogsList->OnFiltersSearchChanged(Filter);
+	}
+	if (MainView.IsValid())
+	{
+		MainView->OnFiltersSearchChanged(Filter);
+	}
 }
+
+void SVisualLogger::OnLogLineSelectionChanged(TSharedPtr<struct FLogEntryItem> SelectedItem, int64 UserData, FName TagName)
+{
+	TMap<FName, FVisualLogExtensionInterface*>& AllExtensions = FVisualLogger::Get().GetAllExtensions();
+	for (auto Iterator = AllExtensions.CreateIterator(); Iterator; ++Iterator)
+	{
+		FVisualLogExtensionInterface* Extension = (*Iterator).Value;
+		if (Extension != NULL)
+		{
+			Extension->LogEntryLineSelectionChanged(SelectedItem, UserData, TagName);
+		}
+	}
+
+	AVisualLoggerRenderingActor* HelperActor = Cast<AVisualLoggerRenderingActor>(FLogVisualizer::Get().GetVisualLoggerHelperActor());
+	if (HelperActor)
+	{
+		HelperActor->OnItemSelectionChanged(LogsList->GetCurrentLogEntry());
+		HelperActor->MarkComponentsRenderStateDirty();
+	}
+}
+
+void SVisualLogger::OnMoveCursorLeftCommand()
+{
+	FLogVisualizer::Get().GotoNextItem();
+}
+
+void SVisualLogger::OnMoveCursorRightCommand()
+{
+	FLogVisualizer::Get().GotoPreviousItem();
+}
+
+void SVisualLogger::GetTimelines(TArray<TSharedPtr<class STimeline> >& TimeLines, bool bOnlySelectedOnes)
+{
+	if (MainView.IsValid())
+	{
+		MainView->GetTimelines(TimeLines, bOnlySelectedOnes);
+	}
+}
+
 #undef LOCTEXT_NAMESPACE

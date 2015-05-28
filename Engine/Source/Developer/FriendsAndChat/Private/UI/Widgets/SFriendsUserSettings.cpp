@@ -13,10 +13,10 @@ class SFriendsUserSettingsImpl : public SFriendsUserSettings
 {
 public:
 
-	void Construct(const FArguments& InArgs, const TSharedRef<FFriendsUserSettingsViewModel>& ViewModel)
+	void Construct(const FArguments& InArgs, const TSharedRef<FFriendsUserSettingsViewModel>& InViewModel)
 	{
 		FriendStyle = *InArgs._FriendStyle;
-		this->ViewModel = ViewModel;
+		ViewModel = InViewModel;
 
 		SUserWidget::Construct(SUserWidget::FArguments()
 		[

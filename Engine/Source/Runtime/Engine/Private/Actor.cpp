@@ -80,6 +80,7 @@ void AActor::InitializeDefaults()
 	bHiddenEdLevel = false;
 	bActorLabelEditable = true;
 	SpriteScale = 1.0f;
+	bEnableAutoLODGeneration = true;	
 #endif // WITH_EDITORONLY_DATA
 	NetCullDistanceSquared = 225000000.0f;
 	NetDriverName = NAME_GameNetDriver;
@@ -93,22 +94,7 @@ void AActor::InitializeDefaults()
 	bPendingKillPending = false;
 	bFindCameraComponentWhenViewTarget = true;
 	bAllowReceiveTickEventOnDedicatedServer = true;
-	AnimUpdateRateShiftTag = 0;
-	AnimUpdateRateFrameCount = 0;
-}
-
-// Global counter to spread SkinnedMeshComponent tick updates.
-static uint32 SkinnedMeshUpdateRateGroupCount = 0;
-
-uint32 AActor::GetAnimUpdateRateShiftTag()
-{
-	// If hasn't been initialized yet, pick a unique ID, to spread population over frames.
-	if (AnimUpdateRateShiftTag == 0)
-	{
-		AnimUpdateRateShiftTag = ++SkinnedMeshUpdateRateGroupCount;
-	}
-
-	return AnimUpdateRateShiftTag;
+	bRelevantForNetworkReplays = true;
 }
 
 void FActorTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
@@ -205,12 +191,12 @@ bool AActor::CheckActorComponents()
 
 void AActor::ResetOwnedComponents()
 {
-	TArray<UObject*> Children;
+	TArray<UObject*> ActorChildren;
 	OwnedComponents.Empty();
 	ReplicatedComponents.Empty();
-	GetObjectsWithOuter(this, Children, true, RF_PendingKill);
+	GetObjectsWithOuter(this, ActorChildren, true, RF_PendingKill);
 
-	for (UObject* Child : Children)
+	for (UObject* Child : ActorChildren)
 	{
 		UActorComponent* Component = Cast<UActorComponent>(Child);
 		if (Component)
@@ -394,6 +380,11 @@ void AActor::RemoveTickPrerequisiteComponent(UActorComponent* PrerequisiteCompon
 	}
 }
 
+bool AActor::GetTickableWhenPaused()
+{
+	return PrimaryActorTick.bTickEvenWhenPaused;
+}
+
 void AActor::SetTickableWhenPaused(bool bTickableWhenPaused)
 {
 	PrimaryActorTick.bTickEvenWhenPaused = bTickableWhenPaused;
@@ -515,7 +506,7 @@ void AActor::ProcessEvent(UFunction* Function, void* Parameters)
 	#else
 	const bool bAllowScriptExecution = GAllowActorScriptExecutionInEditor;
 	#endif
-	if( ((GetWorld() && (GetWorld()->AreActorsInitialized() || bAllowScriptExecution)) || HasAnyFlags(RF_ClassDefaultObject)) && !GIsGarbageCollecting )
+	if( ((GetWorld() && (GetWorld()->AreActorsInitialized() || bAllowScriptExecution)) || HasAnyFlags(RF_ClassDefaultObject)) && !IsGarbageCollecting() )
 	{
 #if !UE_BUILD_SHIPPING
 		if (!ProcessEventDelegate.IsBound() || !ProcessEventDelegate.Execute(this, Function, Parameters))
@@ -528,19 +519,25 @@ void AActor::ProcessEvent(UFunction* Function, void* Parameters)
 	}
 }
 
-
 void AActor::ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
 {
-	// Do not shift child components
-	if (RootComponent != NULL && RootComponent->AttachParent == NULL)
+	// Attached components will be shifted by parents
+	if (RootComponent != nullptr && RootComponent->AttachParent == nullptr)
 	{
 		RootComponent->ApplyWorldOffset(InOffset, bWorldShift);
+	}
 
-		UNavigationSystem::UpdateNavOctreeBounds(this);
-		UNavigationSystem::UpdateNavOctreeAll(this);
+	// Navigation receives update during component registration. World shift needs a separate path to shift all navigation data
+	// So this normally should happen only in the editor when user moves visible sub-levels
+	if (!bWorldShift && !InOffset.IsZero())
+	{
+		if (RootComponent != nullptr && RootComponent->IsRegistered())
+		{
+			UNavigationSystem::UpdateNavOctreeBounds(this);
+			UNavigationSystem::UpdateNavOctreeAll(this);
+		}
 	}
 }
-
 
 static AActor* GTestRegisterTickFunctions = NULL;
 
@@ -625,7 +622,7 @@ bool AActor::Rename( const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags 
 	return bSuccess;
 }
 
-UNetConnection* AActor::GetNetConnection()
+UNetConnection* AActor::GetNetConnection() const
 {
 	return Owner ? Owner->GetNetConnection() : NULL;
 }
@@ -923,12 +920,12 @@ void AActor::ClearComponentOverlaps()
 	// Remove owned components from overlap tracking
 	// We don't traverse the RootComponent attachment tree since that might contain
 	// components owned by other actors.
+	TArray<UPrimitiveComponent*> OverlappingComponentsForCurrentComponent;
 	for (UPrimitiveComponent* const PrimComp : PrimitiveComponents)
 	{
-		TArray<UPrimitiveComponent*> OverlappingComponents;
-		PrimComp->GetOverlappingComponents(OverlappingComponents);
+		PrimComp->GetOverlappingComponents(OverlappingComponentsForCurrentComponent);
 
-		for (UPrimitiveComponent* const OverlapComp : OverlappingComponents)
+		for (UPrimitiveComponent* const OverlapComp : OverlappingComponentsForCurrentComponent)
 		{
 			if (OverlapComp)
 			{
@@ -955,11 +952,9 @@ void AActor::UpdateOverlaps(bool bDoNotifies)
 
 bool AActor::IsOverlappingActor(const AActor* Other) const
 {
-	// using a stack to walk this actor's attached component tree
-	TArray<USceneComponent*> ComponentStack;
-
+	// use a stack to walk this actor's attached component tree
+	TInlineComponentArray<USceneComponent*> ComponentStack;
 	USceneComponent const* CurrentComponent = GetRootComponent();
-
 	while (CurrentComponent)
 	{
 		// push children on the stack so they get tested later
@@ -972,22 +967,23 @@ bool AActor::IsOverlappingActor(const AActor* Other) const
 			return true;
 		}
 
-		CurrentComponent = (ComponentStack.Num() > 0) ? ComponentStack.Pop() : NULL;
+		// advance to next component
+		const bool bAllowShrinking = false;
+		CurrentComponent = (ComponentStack.Num() > 0) ? ComponentStack.Pop(bAllowShrinking) : nullptr;
 	}
 
 	return false;
 }
 
-
-void AActor::GetOverlappingActors(TArray<AActor*>& OverlappingActors, UClass* ClassFilter) const
+void AActor::GetOverlappingActors(TArray<AActor*>& OutOverlappingActors, UClass* ClassFilter) const
 {
 	// prepare output
-	OverlappingActors.Empty();
+	OutOverlappingActors.Reset();
+	TArray<AActor*> OverlappingActorsForCurrentComponent;
 
-	TArray<USceneComponent*> ComponentStack;
-
+	// use a stack to walk this actor's attached component tree
+	TInlineComponentArray<USceneComponent*> ComponentStack;
 	USceneComponent const* CurrentComponent = GetRootComponent();
-
 	while (CurrentComponent)
 	{
 		// push children on the stack so they get tested later
@@ -997,7 +993,6 @@ void AActor::GetOverlappingActors(TArray<AActor*>& OverlappingActors, UClass* Cl
 		UPrimitiveComponent const* const PrimComp = Cast<const UPrimitiveComponent>(CurrentComponent);
 		if (PrimComp)
 		{
-			TArray<AActor*> OverlappingActorsForCurrentComponent;
 			PrimComp->GetOverlappingActors(OverlappingActorsForCurrentComponent, ClassFilter);
 
 			// then merge it into our final list
@@ -1006,24 +1001,25 @@ void AActor::GetOverlappingActors(TArray<AActor*>& OverlappingActors, UClass* Cl
 				AActor* OverlappingActor = *CompIt;
 				if(OverlappingActor != this)
 				{
-					OverlappingActors.AddUnique(OverlappingActor);
+					OutOverlappingActors.AddUnique(OverlappingActor);
 				}
 			}
 		}
 
 		// advance to next component
-		CurrentComponent = (ComponentStack.Num() > 0) ? ComponentStack.Pop() : NULL;
+		const bool bAllowShrinking = false;
+		CurrentComponent = (ComponentStack.Num() > 0) ? ComponentStack.Pop(bAllowShrinking) : nullptr;
 	}
 }
 
 void AActor::GetOverlappingComponents(TArray<UPrimitiveComponent*>& OutOverlappingComponents) const
 {
-	OutOverlappingComponents.Empty();
+	OutOverlappingComponents.Reset();
+	TArray<UPrimitiveComponent*> OverlappingComponentsForCurrentComponent;
 
-	TArray<USceneComponent*> ComponentStack;
-
+	// use a stack to walk this actor's attached component tree
+	TInlineComponentArray<USceneComponent*> ComponentStack;
 	USceneComponent* CurrentComponent = GetRootComponent();
-
 	while (CurrentComponent)
 	{
 		// push children on the stack so they get tested later
@@ -1033,7 +1029,6 @@ void AActor::GetOverlappingComponents(TArray<UPrimitiveComponent*>& OutOverlappi
 		if (PrimComp)
 		{
 			// get list of components from the component
-			TArray<UPrimitiveComponent*> OverlappingComponentsForCurrentComponent;
 			PrimComp->GetOverlappingComponents(OverlappingComponentsForCurrentComponent);
 
 			// then merge it into our final list
@@ -1044,8 +1039,77 @@ void AActor::GetOverlappingComponents(TArray<UPrimitiveComponent*>& OutOverlappi
 		}
 
 		// advance to next component
-		CurrentComponent = (ComponentStack.Num() > 0) ? ComponentStack.Pop() : NULL;
+		const bool bAllowShrinking = false;
+		CurrentComponent = (ComponentStack.Num() > 0) ? ComponentStack.Pop(bAllowShrinking) : nullptr;
 	}
+}
+
+
+void AActor::NotifyActorBeginOverlap(AActor* OtherActor)
+{
+	// call BP handler
+	ReceiveActorBeginOverlap(OtherActor);
+}
+
+void AActor::NotifyActorEndOverlap(AActor* OtherActor)
+{
+	// call BP handler
+	ReceiveActorEndOverlap(OtherActor);
+}
+
+void AActor::NotifyActorBeginCursorOver()
+{
+	// call BP handler
+	ReceiveActorBeginCursorOver();
+}
+
+void AActor::NotifyActorEndCursorOver()
+{
+	// call BP handler
+	ReceiveActorEndCursorOver();
+}
+
+void AActor::NotifyActorOnClicked()
+{
+	// call BP handler
+	ReceiveActorOnClicked();
+}
+
+void AActor::NotifyActorOnReleased()
+{
+	// call BP handler
+	ReceiveActorOnReleased();
+}
+
+void AActor::NotifyActorOnInputTouchBegin(const ETouchIndex::Type FingerIndex)
+{
+	// call BP handler
+	ReceiveActorOnInputTouchBegin(FingerIndex);
+}
+
+void AActor::NotifyActorOnInputTouchEnd(const ETouchIndex::Type FingerIndex)
+{
+	// call BP handler
+	ReceiveActorOnInputTouchEnd(FingerIndex);
+}
+
+void AActor::NotifyActorOnInputTouchEnter(const ETouchIndex::Type FingerIndex)
+{
+	// call BP handler
+	ReceiveActorOnInputTouchEnter(FingerIndex);
+}
+
+void AActor::NotifyActorOnInputTouchLeave(const ETouchIndex::Type FingerIndex)
+{
+	// call BP handler
+	ReceiveActorOnInputTouchLeave(FingerIndex);
+}
+
+
+void AActor::NotifyHit(class UPrimitiveComponent* MyComp, AActor* Other, class UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit)
+{
+	// call BP handler
+	ReceiveHit(MyComp, Other, OtherComp, bSelfMoved, HitLocation, HitNormal, NormalImpulse, Hit);
 }
 
 /** marks all PrimitiveComponents for which their Owner is relevant for visibility as dirty because the Owner of some Actor in the chain has changed
@@ -1129,6 +1193,13 @@ AActor* AActor::GetOwner() const
 	return Owner; 
 }
 
+const AActor* AActor::GetNetOwner() const
+{
+	// NetOwner is the Actor Owner unless otherwise overridden (see PlayerController/Pawn/Beacon)
+	// Used in ServerReplicateActors
+	return Owner;
+}
+
 bool AActor::HasNetOwner() const
 {
 	if (Owner == NULL)
@@ -1156,14 +1227,6 @@ void AActor::AttachRootComponentTo(USceneComponent* InParent, FName InSocketName
 	if(RootComponent && InParent)
 	{
 		RootComponent->AttachTo(InParent, InSocketName, AttachLocationType, bWeldSimulatedBodies);
-
-
-		AttachmentReplication.AttachParent = InParent->GetAttachmentRootActor();
-		AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
-		AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;
-		AttachmentReplication.RelativeScale3D = RootComponent->RelativeScale3D;
-		AttachmentReplication.AttachSocket = InSocketName;
-		AttachmentReplication.AttachComponent = InParent;
 	}
 }
 
@@ -1211,14 +1274,6 @@ void AActor::AttachRootComponentToActor(AActor* InParentActor, FName InSocketNam
 		if (ParentRootComponent)
 		{
 			RootComponent->AttachTo(ParentRootComponent, InSocketName, AttachLocationType, bWeldSimulatedBodies );
-
-
-			AttachmentReplication.AttachParent = InParentActor;
-			AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
-			AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;
-			AttachmentReplication.RelativeScale3D = RootComponent->RelativeScale3D;
-			AttachmentReplication.AttachSocket = InSocketName;
-			AttachmentReplication.AttachComponent = NULL;
 		}
 	}
 }
@@ -1239,12 +1294,7 @@ void AActor::DetachRootComponentFromParent(bool bMaintainWorldPosition)
 {
 	if(RootComponent)
 	{
-		USceneComponent * RootComponent = GetRootComponent();
-
-
-		GetRootComponent()->DetachFromParent(bMaintainWorldPosition);
-
-		AttachmentReplication.AttachParent = NULL;
+		RootComponent->DetachFromParent(bMaintainWorldPosition);
 	}
 }
 
@@ -1302,14 +1352,14 @@ FName AActor::GetAttachParentSocketName() const
 
 void AActor::GetAttachedActors(TArray<class AActor*>& OutActors) const
 {
-	OutActors.Empty();
+	OutActors.Reset();
 	if (RootComponent != NULL)
 	{
 		// Current set of components to check
-		TArray< USceneComponent*, TInlineAllocator<NumInlinedActorComponents> > CompsToCheck;
+		TInlineComponentArray<USceneComponent*> CompsToCheck;
 
 		// Set of all components we have checked
-		TArray< USceneComponent*, TInlineAllocator<NumInlinedActorComponents> > CheckedComps;
+		TInlineComponentArray<USceneComponent*> CheckedComps;
 
 		CompsToCheck.Push(RootComponent);
 
@@ -1317,7 +1367,8 @@ void AActor::GetAttachedActors(TArray<class AActor*>& OutActors) const
 		while(CompsToCheck.Num() > 0)
 		{
 			// Get the next off the queue
-			USceneComponent* SceneComp = CompsToCheck.Pop();
+			const bool bAllowShrinking = false;
+			USceneComponent* SceneComp = CompsToCheck.Pop(bAllowShrinking);
 
 			// Add it to the 'checked' set, should not already be there!
 			if (!CheckedComps.Contains(SceneComp))
@@ -1424,7 +1475,7 @@ FVector AActor::GetTargetLocation(AActor* RequestedBy) const
 }
 
 
-bool AActor::IsRelevancyOwnerFor(AActor* ReplicatedActor, AActor* ActorOwner, AActor* ConnectionActor)
+bool AActor::IsRelevancyOwnerFor(const AActor* ReplicatedActor, const AActor* ActorOwner, const AActor* ConnectionActor) const
 {
 	return (ActorOwner == this);
 }
@@ -1530,21 +1581,37 @@ void AActor::RouteEndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	if (bActorInitialized)
 	{
-		UninitializeComponents();
-
 		UWorld* World = GetWorld();
 		if (World && World->HasBegunPlay())
 		{
 			EndPlay(EndPlayReason);
 		}
+
+		UninitializeComponents();
 	}
 }
 
 void AActor::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	// Dispatch the blueprint events
-	ReceiveEndPlay(EndPlayReason);
-	OnEndPlay.Broadcast(EndPlayReason);
+	if (bActorHasBegunPlay)
+	{
+		bActorHasBegunPlay = false;
+
+		// Dispatch the blueprint events
+		ReceiveEndPlay(EndPlayReason);
+		OnEndPlay.Broadcast(EndPlayReason);
+
+		TInlineComponentArray<UActorComponent*> Components;
+		GetComponents(Components);
+
+		for (UActorComponent* Component : Components)
+		{
+			if (Component->HasBegunPlay())
+			{
+				Component->EndPlay(EndPlayReason);
+			}
+		}
+	}
 
 	// Behaviors specific to an actor being unloaded due to a streaming level removal
 	if (EndPlayReason == EEndPlayReason::RemovedFromWorld)
@@ -1616,11 +1683,16 @@ FTransform AActor::GetTransform() const
 
 void AActor::Destroyed()
 {
-	RouteEndPlay(EEndPlayReason::ActorDestroyed);
+	RouteEndPlay(EEndPlayReason::Destroyed);
 
 	ReceiveDestroyed();
 	OnDestroyed.Broadcast();
-	GetWorld()->RemoveNetworkActor(this);
+	UWorld* ActorWorld = GetWorld();
+
+	if( ActorWorld )
+	{
+		ActorWorld->RemoveNetworkActor(this);
+	}
 }
 
 void AActor::TornOff() {}
@@ -1629,6 +1701,7 @@ void AActor::Reset()
 {
 	K2_OnReset();
 }
+
 void AActor::FellOutOfWorld(const UDamageType& dmgType)
 {
 	DisableComponentsSimulatePhysics();
@@ -1773,7 +1846,7 @@ bool IsActorValidToNotify(AActor* Actor)
 	return (Actor != NULL) && !Actor->IsPendingKill() && !Actor->GetClass()->HasAnyClassFlags(CLASS_NewerVersionExists);
 }
 
-void AActor::DispatchBlockingHit(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp, bool bSelfMoved, FHitResult const& Hit)
+void AActor::InternalDispatchBlockingHit(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp, bool bSelfMoved, FHitResult const& Hit)
 {
 	check(MyComp);
 
@@ -1782,7 +1855,7 @@ void AActor::DispatchBlockingHit(UPrimitiveComponent* MyComp, UPrimitiveComponen
 	// Call virtual
 	if(IsActorValidToNotify(this))
 	{
-		ReceiveHit(MyComp, OtherActor, OtherComp, bSelfMoved, Hit.ImpactPoint, Hit.ImpactNormal, FVector(0,0,0), Hit);
+		NotifyHit(MyComp, OtherActor, OtherComp, bSelfMoved, Hit.ImpactPoint, Hit.ImpactNormal, FVector(0,0,0), Hit);
 	}
 
 	// If we are still ok, call delegate on actor
@@ -1797,6 +1870,12 @@ void AActor::DispatchBlockingHit(UPrimitiveComponent* MyComp, UPrimitiveComponen
 		MyComp->OnComponentHit.Broadcast(OtherActor, OtherComp, FVector(0,0,0), Hit);
 	}
 }
+
+void AActor::DispatchBlockingHit(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp, bool bSelfMoved, FHitResult const& Hit)
+{
+	InternalDispatchBlockingHit(MyComp, OtherComp, bSelfMoved, bSelfMoved ? Hit : FHitResult::GetReversedHit(Hit));
+}
+
 
 FString AActor::GetHumanReadableName() const
 {
@@ -1815,7 +1894,7 @@ void AActor::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	UFont* RenderFont = GEngine->GetSmallFont();
 	if( T != "" )
 	{
-		Canvas->DrawText(RenderFont, T, 4.0f, YPos);
+		YL = Canvas->DrawText(RenderFont, T, 4.0f, YPos);
 		YPos += YL;
 	}
 
@@ -1832,17 +1911,17 @@ void AActor::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 			{
 				T = T + FString(TEXT(" Tear Off"));
 			}
-			Canvas->DrawText(RenderFont, T, 4.0f, YPos);
+			YL = Canvas->DrawText(RenderFont, T, 4.0f, YPos);
 			YPos += YL;
 		}
 	}
 
-	Canvas->DrawText(RenderFont, FString::Printf(TEXT("Location: %s Rotation: %s"), *GetActorLocation().ToString(), *GetActorRotation().ToString()), 4.0f, YPos);
+	YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("Location: %s Rotation: %s"), *GetActorLocation().ToString(), *GetActorRotation().ToString()), 4.0f, YPos);
 	YPos += YL;
 
 	if( DebugDisplay.IsDisplayOn(TEXT("physics")) )
 	{
-		Canvas->DrawText(RenderFont,FString::Printf(TEXT("Velocity: %s Speed: %f Speed2D: %f"), *GetVelocity().ToString(), GetVelocity().Size(), GetVelocity().Size2D()), 4.0f, YPos);
+		YL = Canvas->DrawText(RenderFont,FString::Printf(TEXT("Velocity: %s Speed: %f Speed2D: %f"), *GetVelocity().ToString(), GetVelocity().Size(), GetVelocity().Size2D()), 4.0f, YPos);
 		YPos += YL;
 	}
 
@@ -1851,12 +1930,12 @@ void AActor::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 		Canvas->DrawColor.B = 0;
 		float MyRadius, MyHeight;
 		GetComponentsBoundingCylinder(MyRadius, MyHeight);
-		Canvas->DrawText(RenderFont, FString::Printf(TEXT("Collision Radius: %f Height: %f"), MyRadius, MyHeight), 4.0f, YPos);
+		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("Collision Radius: %f Height: %f"), MyRadius, MyHeight), 4.0f, YPos);
 		YPos += YL;
 
 		if ( RootComponent == NULL )
 		{
-			Canvas->DrawText(RenderFont, FString(TEXT("No RootComponent")), 4.0f, YPos );
+			YL = Canvas->DrawText(RenderFont, FString(TEXT("No RootComponent")), 4.0f, YPos );
 			YPos += YL;
 		}
 
@@ -1880,10 +1959,10 @@ void AActor::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 		{
 			T = TEXT("Overlapping nothing");
 		}
-		Canvas->DrawText(RenderFont,T, 4,YPos);
+		YL = Canvas->DrawText(RenderFont,T, 4,YPos);
 		YPos += YL;
 	}
-	Canvas->DrawText( RenderFont,FString::Printf(TEXT(" Instigator: %s Owner: %s"), (Instigator ? *Instigator->GetName() : TEXT("None")),
+	YL = Canvas->DrawText( RenderFont,FString::Printf(TEXT(" Instigator: %s Owner: %s"), (Instigator ? *Instigator->GetName() : TEXT("None")),
 		(Owner ? *Owner->GetName() : TEXT("None"))), 4,YPos);
 	YPos += YL;
 
@@ -2239,7 +2318,7 @@ static void DispatchOnComponentsCreated(AActor* NewActor)
 
 	for (UActorComponent* ActorComp : Components)
 	{
-		if (ActorComp && !ActorComp->bHasBeenCreated)
+		if (ActorComp && !ActorComp->HasBeenCreated())
 		{
 			ActorComp->OnComponentCreated();
 		}
@@ -2254,6 +2333,48 @@ void AActor::PostEditImport()
 	DispatchOnComponentsCreated(this);
 }
 #endif
+
+/** Util that sets up the actor's component hierarchy (when users forget to do so, in their native ctor) */
+static USceneComponent* FixupNativeActorComponents(AActor* Actor)
+{
+	TArray<USceneComponent*> SceneComponents;
+	Actor->GetComponents(SceneComponents);
+
+	USceneComponent* SceneRootComponent = Actor->GetRootComponent();
+	if ((SceneRootComponent == nullptr) && (SceneComponents.Num() > 0))
+	{
+		UE_LOG(LogActor, Warning, TEXT("%s has natively added scene component(s), but none of them were set as the actor's RootComponent - picking one arbitrarily"), *Actor->GetFullName());
+	}
+
+	// if the user forgot to set one of their native components as the root, 
+	// we arbitrarily pick one for them (otherwise the SCS could attempt to 
+	// create its own root, and nest native components under it)
+	for (USceneComponent* Component : SceneComponents)
+	{
+		if ((Component == nullptr) || 
+			(Component->AttachParent != nullptr) || 
+			(Component->CreationMethod != EComponentCreationMethod::Native) || 
+			(Component == SceneRootComponent))
+		{
+			continue;
+		}
+
+		// if we've already picked a root component (and this was left 
+		// unattached), then attach this one to the root
+		if (SceneRootComponent != nullptr)
+		{
+			UE_LOG(LogActor, Warning, TEXT("Natively added component (%s) was left unattached from the actor's root."), *SceneRootComponent->GetReadableName());
+			Component->AttachTo(SceneRootComponent);
+		}
+		else
+		{
+			SceneRootComponent = Component;
+			Actor->SetRootComponent(Component);
+		}
+	}
+
+	return SceneRootComponent;
+}
 
 void AActor::PostSpawnInitialize(FVector const& SpawnLocation, FRotator const& SpawnRotation, AActor* InOwner, APawn* InInstigator, bool bRemoteOwned, bool bNoFail, bool bDeferConstruction)
 {
@@ -2275,11 +2396,12 @@ void AActor::PostSpawnInitialize(FVector const& SpawnLocation, FRotator const& S
 	// Set network role.
 	check(Role == ROLE_Authority);
 	ExchangeNetRoles(bRemoteOwned);
-
+	
+	USceneComponent* SceneRootComponent = FixupNativeActorComponents(this);
 	// Set the actor's location and rotation.
-	if (GetRootComponent() != NULL)
+	if (SceneRootComponent != NULL)
 	{
-		GetRootComponent()->SetWorldLocationAndRotation(SpawnLocation, SpawnRotation);
+		SceneRootComponent->SetWorldLocationAndRotation(SpawnLocation, SpawnRotation);
 	}
 
 	// Call OnComponentCreated on all default (native) components
@@ -2340,9 +2462,6 @@ void AActor::PostActorConstruction()
 	{
 		PreInitializeComponents();
 	}
-
-	// components are all there, init overlapping state
-	UpdateOverlaps();
 
 	// If this is dynamically spawned replicted actor, defer calls to BeginPlay and UpdateOverlaps until replicated properties are deserialized
 	bool deferBeginPlayAndUpdateOverlaps = (bExchangedRoles && RemoteRole == ROLE_Authority);
@@ -2435,7 +2554,7 @@ void AActor::PostNetInit()
 	}
 	check(RemoteRole == ROLE_Authority);
 
-	if (GetWorld() && GetWorld()->HasBegunPlay())
+	if (!HasActorBegunPlay() && GetWorld() && GetWorld()->HasBegunPlay())
 	{
 		BeginPlay();
 	}
@@ -2445,6 +2564,8 @@ void AActor::PostNetInit()
 
 void AActor::ExchangeNetRoles(bool bRemoteOwned)
 {
+	checkf(!HasAnyFlags(RF_ClassDefaultObject), TEXT("ExchangeNetRoles should never be called on a CDO as it causes issues when replicating actors over the network due to mutated transient data!"));
+
 	if (!bExchangedRoles)
 	{
 		if (bRemoteOwned)
@@ -2457,9 +2578,28 @@ void AActor::ExchangeNetRoles(bool bRemoteOwned)
 
 void AActor::BeginPlay()
 {
+	ensure(!bActorHasBegunPlay);
 	SetLifeSpan( InitialLifeSpan );
 
+	TInlineComponentArray<UActorComponent*> Components;
+	GetComponents(Components);
+
+	for (UActorComponent* Component : Components)
+	{
+		if (Component->IsRegistered())
+		{
+			Component->BeginPlay();
+		}
+		else
+		{
+			// When an Actor begins play we expect only the not bAutoRegister false components to not be registered
+			//check(!Component->bAutoRegister);
+		}
+	}
+
 	ReceiveBeginPlay();
+
+	bActorHasBegunPlay = true;
 }
 
 void AActor::EnableInput(APlayerController* PlayerController)
@@ -2469,7 +2609,7 @@ void AActor::EnableInput(APlayerController* PlayerController)
 		// If it doesn't exist create it and bind delegates
 		if (!InputComponent)
 		{
-			InputComponent = ConstructObject<UInputComponent>(UInputComponent::StaticClass(), this);
+			InputComponent = NewObject<UInputComponent>(this);
 			InputComponent->RegisterComponent();
 			InputComponent->bBlockInput = bBlockInput;
 			InputComponent->Priority = InputPriority;
@@ -2550,7 +2690,7 @@ bool AActor::SetActorLocation(const FVector& NewLocation, bool bSweep, FHitResul
 	if (RootComponent)
 	{
 		const FVector Delta = NewLocation - GetActorLocation();
-		return RootComponent->MoveComponent( Delta, GetActorRotation(), bSweep, OutSweepHitResult );
+		return RootComponent->MoveComponent(Delta, GetActorQuat(), bSweep, OutSweepHitResult);
 	}
 	else if (OutSweepHitResult)
 	{
@@ -2564,7 +2704,17 @@ bool AActor::SetActorRotation(FRotator NewRotation)
 {
 	if (RootComponent)
 	{
-		return RootComponent->MoveComponent( FVector::ZeroVector, NewRotation, true );
+		return RootComponent->MoveComponent(FVector::ZeroVector, NewRotation, true);
+	}
+
+	return false;
+}
+
+bool AActor::SetActorRotation(const FQuat& NewRotation)
+{
+	if (RootComponent)
+	{
+		return RootComponent->MoveComponent(FVector::ZeroVector, NewRotation, true);
 	}
 
 	return false;
@@ -2575,7 +2725,22 @@ bool AActor::SetActorLocationAndRotation(FVector NewLocation, FRotator NewRotati
 	if (RootComponent)
 	{
 		const FVector Delta = NewLocation - GetActorLocation();
-		return RootComponent->MoveComponent( Delta, NewRotation, bSweep, OutSweepHitResult );
+		return RootComponent->MoveComponent(Delta, NewRotation, bSweep, OutSweepHitResult);
+	}
+	else if (OutSweepHitResult)
+	{
+		*OutSweepHitResult = FHitResult();
+	}
+
+	return false;
+}
+
+bool AActor::SetActorLocationAndRotation(FVector NewLocation, const FQuat& NewRotation, bool bSweep, FHitResult* OutSweepHitResult)
+{
+	if (RootComponent)
+	{
+		const FVector Delta = NewLocation - GetActorLocation();
+		return RootComponent->MoveComponent(Delta, NewRotation, bSweep, OutSweepHitResult);
 	}
 	else if (OutSweepHitResult)
 	{
@@ -2616,6 +2781,18 @@ void AActor::AddActorWorldOffset(FVector DeltaLocation, bool bSweep, FHitResult*
 }
 
 void AActor::AddActorWorldRotation(FRotator DeltaRotation, bool bSweep, FHitResult* OutSweepHitResult)
+{
+	if (RootComponent)
+	{
+		RootComponent->AddWorldRotation(DeltaRotation, bSweep, OutSweepHitResult);
+	}
+	else if (OutSweepHitResult)
+	{
+		*OutSweepHitResult = FHitResult();
+	}
+}
+
+void AActor::AddActorWorldRotation(const FQuat& DeltaRotation, bool bSweep, FHitResult* OutSweepHitResult)
 {
 	if (RootComponent)
 	{
@@ -2692,6 +2869,18 @@ void AActor::AddActorLocalRotation(FRotator DeltaRotation, bool bSweep, FHitResu
 	}
 }
 
+void AActor::AddActorLocalRotation(const FQuat& DeltaRotation, bool bSweep, FHitResult* OutSweepHitResult)
+{
+	if (RootComponent)
+	{
+		RootComponent->AddLocalRotation(DeltaRotation, bSweep, OutSweepHitResult);
+	}
+	else if (OutSweepHitResult)
+	{
+		*OutSweepHitResult = FHitResult();
+	}
+}
+
 void AActor::AddActorLocalTransform(const FTransform& NewTransform, bool bSweep, FHitResult* OutSweepHitResult)
 {
 	if(RootComponent)
@@ -2717,6 +2906,18 @@ void AActor::SetActorRelativeLocation(FVector NewRelativeLocation, bool bSweep, 
 }
 
 void AActor::SetActorRelativeRotation(FRotator NewRelativeRotation, bool bSweep, FHitResult* OutSweepHitResult)
+{
+	if (RootComponent)
+	{
+		RootComponent->SetRelativeRotation(NewRelativeRotation, bSweep, OutSweepHitResult);
+	}
+	else if (OutSweepHitResult)
+	{
+		*OutSweepHitResult = FHitResult();
+	}
+}
+
+void AActor::SetActorRelativeRotation(const FQuat& NewRelativeRotation, bool bSweep, FHitResult* OutSweepHitResult)
 {
 	if (RootComponent)
 	{
@@ -2797,8 +2998,8 @@ bool AActor::GetActorEnableCollision()
 
 bool AActor::Destroy( bool bNetForce, bool bShouldModifyLevel )
 {
-	// It's already pending kill, no need to beat the corpse
-	if (!IsPendingKill())
+	// It's already pending kill or in DestroyActor(), no need to beat the corpse
+	if (!IsPendingKillPending())
 	{
 		UWorld* World = GetWorld();
 		if (World)
@@ -2810,7 +3011,8 @@ bool AActor::Destroy( bool bNetForce, bool bShouldModifyLevel )
 			UE_LOG(LogSpawn, Warning, TEXT("Destroying %s, which doesn't have a valid world pointer"), *GetPathName());
 		}
 	}
-	return IsPendingKill();
+
+	return IsPendingKillPending();
 }
 
 void AActor::K2_DestroyActor()
@@ -2863,17 +3065,17 @@ FRotator AActor::K2_GetActorRotation() const
 
 FVector AActor::GetActorForwardVector() const
 {
-	return GetTransform().GetUnitAxis(EAxis::X);
+	return GetActorQuat().RotateVector(FVector::ForwardVector);
 }
 
 FVector AActor::GetActorUpVector() const
 {
-	return GetTransform().GetUnitAxis(EAxis::Z);
+	return GetActorQuat().RotateVector(FVector::UpVector);
 }
 
 FVector AActor::GetActorRightVector() const
 {
-	return GetTransform().GetUnitAxis(EAxis::Y);
+	return GetActorQuat().RotateVector(FVector::RightVector);
 }
 
 USceneComponent* AActor::K2_GetRootComponent() const
@@ -3164,7 +3366,7 @@ void AActor::DispatchPhysicsCollisionHit(const FRigidBodyCollisionInfo& MyInfo, 
 	Result.BoneName = MyInfo.BoneName;
 	Result.bBlockingHit = true;
 
-	ReceiveHit(MyInfo.Component.Get(), OtherInfo.Actor.Get(), OtherInfo.Component.Get(), true, Result.Location, Result.Normal, RigidCollisionData.TotalNormalImpulse, Result);
+	NotifyHit(MyInfo.Component.Get(), OtherInfo.Actor.Get(), OtherInfo.Component.Get(), true, Result.Location, Result.Normal, RigidCollisionData.TotalNormalImpulse, Result);
 
 	// Execute delegates if bound
 
@@ -3240,6 +3442,9 @@ bool AActor::IncrementalRegisterComponents(int32 NumComponentsToRegister)
 	// Register RootComponent first so all other components can reliable use it (ie call GetLocation) when they register
 	if( RootComponent != NULL && !RootComponent->IsRegistered() )
 	{
+#if PERF_TRACK_DETAILED_ASYNC_STATS
+		FScopeCycleCounterUObject ContextScope(RootComponent);
+#endif
 		// An unregistered root component is bad news
 		check(RootComponent->bAutoRegister);
 
@@ -3255,6 +3460,7 @@ bool AActor::IncrementalRegisterComponents(int32 NumComponentsToRegister)
 	int32 NumRegisteredComponentsThisRun = 0;
 	TInlineComponentArray<UActorComponent*> Components;
 	GetComponents(Components);
+	TSet<UActorComponent*> RegisteredParents;
 	
 	for (int32 CompIdx = 0; CompIdx < Components.Num() && NumRegisteredComponentsThisRun < NumComponentsToRegister; CompIdx++)
 	{
@@ -3265,11 +3471,22 @@ bool AActor::IncrementalRegisterComponents(int32 NumComponentsToRegister)
 			USceneComponent* ParentComponent = GetUnregisteredParent(Component);
 			if (ParentComponent)
 			{
+				bool bParentAlreadyHandled = false;
+				RegisteredParents.Add(ParentComponent, &bParentAlreadyHandled);
+				if (bParentAlreadyHandled)
+				{
+					UE_LOG(LogActor, Error, TEXT("AActor::IncrementalRegisterComponents parent component '%s' cannot be registered in actor '%s'"), *GetPathNameSafe(ParentComponent), *GetPathName());
+					break;
+				}
+
 				// Register parent first, then return to this component on a next iteration
 				Component = ParentComponent;
 				CompIdx--;
 				NumTotalRegisteredComponents--; // because we will try to register the parent again later...
 			}
+#if PERF_TRACK_DETAILED_ASYNC_STATS
+			FScopeCycleCounterUObject ContextScope(Component);
+#endif
 				
 			//Before we register our component, save it to our transaction buffer so if "undone" it will return to an unregistered state.
 			//This should prevent unwanted components hanging around when undoing a copy/paste or duplication action.
@@ -3286,6 +3503,9 @@ bool AActor::IncrementalRegisterComponents(int32 NumComponentsToRegister)
 	// See whether we are done
 	if (Components.Num() == NumTotalRegisteredComponents)
 	{
+#if PERF_TRACK_DETAILED_ASYNC_STATS
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_AActor_IncrementalRegisterComponents_PostRegisterAllComponents);
+#endif
 		// Finally, call PostRegisterAllComponents
 		PostRegisterAllComponents();
 		return true;
@@ -3377,7 +3597,7 @@ void AActor::UninitializeComponents()
 
 	for (UActorComponent* ActorComp : Components)
 	{
-		if (ActorComp->bHasBeenInitialized)
+		if (ActorComp->HasBeenInitialized())
 		{
 			ActorComp->UninitializeComponent();
 		}

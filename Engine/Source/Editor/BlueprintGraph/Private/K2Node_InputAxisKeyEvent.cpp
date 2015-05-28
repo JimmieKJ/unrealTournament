@@ -19,8 +19,20 @@ UK2Node_InputAxisKeyEvent::UK2Node_InputAxisKeyEvent(const FObjectInitializer& O
 	bOverrideParentBinding = true;
 	bInternalEvent = true;
 
-	EventSignatureName = TEXT("InputAxisHandlerDynamicSignature__DelegateSignature");
-	EventSignatureClass = UInputComponent::StaticClass();
+	EventReference.SetExternalDelegateMember(FName(TEXT("InputAxisHandlerDynamicSignature__DelegateSignature")));
+}
+
+void UK2Node_InputAxisKeyEvent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if(Ar.IsLoading())
+	{
+		if(Ar.UE4Ver() < VER_UE4_K2NODE_EVENT_MEMBER_REFERENCE && EventSignatureName_DEPRECATED.IsNone() && EventSignatureClass_DEPRECATED == nullptr)
+		{
+			EventReference.SetExternalDelegateMember(FName(TEXT("InputAxisHandlerDynamicSignature__DelegateSignature")));
+		}
+	}
 }
 
 void UK2Node_InputAxisKeyEvent::Initialize(const FKey InAxisKey)
@@ -36,10 +48,10 @@ FText UK2Node_InputAxisKeyEvent::GetNodeTitle(ENodeTitleType::Type TitleType) co
 
 FText UK2Node_InputAxisKeyEvent::GetTooltipText() const
 {
-	if (CachedTooltip.IsOutOfDate())
+	if (CachedTooltip.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "InputAxisKey_Tooltip", "Event that provides the current value of the {0} axis once per frame when input is enabled for the containing actor."), AxisKey.GetDisplayName());
+		CachedTooltip.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "InputAxisKey_Tooltip", "Event that provides the current value of the {0} axis once per frame when input is enabled for the containing actor."), AxisKey.GetDisplayName()), this);
 	}
 	return CachedTooltip;
 }
@@ -69,18 +81,7 @@ UClass* UK2Node_InputAxisKeyEvent::GetDynamicBindingClass() const
 
 FName UK2Node_InputAxisKeyEvent::GetPaletteIcon(FLinearColor& OutColor) const
 {
-	if (AxisKey.IsMouseButton())
-	{
-		return TEXT("GraphEditor.MouseEvent_16x");
-	}
-	else if (AxisKey.IsGamepadKey())
-	{
-		return TEXT("GraphEditor.PadEvent_16x");
-	}
-	else
-	{
-		return TEXT("GraphEditor.KeyEvent_16x");
-	}
+	return EKeys::GetMenuCategoryPaletteIcon(AxisKey.GetMenuCategory());
 }
 
 void UK2Node_InputAxisKeyEvent::RegisterDynamicBinding(UDynamicBlueprintBinding* BindingObject) const
@@ -159,40 +160,18 @@ void UK2Node_InputAxisKeyEvent::GetMenuActions(FBlueprintActionDatabaseRegistrar
 
 FText UK2Node_InputAxisKeyEvent::GetMenuCategory() const
 {
-	enum EAxisKeyCategory
-	{
-		GamepadKeyCategory,
-		MouseButtonCategory,
-		KeyEventCategory,
-		AxisKeyCategory_MAX,
-	};
-	static FNodeTextCache CachedCategories[AxisKeyCategory_MAX];
+	static TMap<FName, FNodeTextCache> CachedCategories;
 
-	FText SubCategory;
-	EAxisKeyCategory CategoryIndex = AxisKeyCategory_MAX;
+	const FName KeyCategory = AxisKey.GetMenuCategory();
+	const FText SubCategoryDisplayName = FText::Format(LOCTEXT("EventsCategory", "{0} Events"), EKeys::GetMenuCategoryDisplayName(KeyCategory));
+	FNodeTextCache& NodeTextCache = CachedCategories.FindOrAdd(KeyCategory);
 
-	if (AxisKey.IsGamepadKey())
-	{
-		SubCategory = LOCTEXT("GamepadCategory", "Gamepad Events");
-		CategoryIndex = GamepadKeyCategory;
-	}
-	else if (AxisKey.IsMouseButton())
-	{
-		SubCategory = LOCTEXT("MouseCategory", "Mouse Events");
-		CategoryIndex = MouseButtonCategory;
-	}
-	else
-	{
-		SubCategory = LOCTEXT("KeyEventsCategory", "Key Events");
-		CategoryIndex = KeyEventCategory;
-	}
-
-	if (CachedCategories[CategoryIndex].IsOutOfDate())
+	if (NodeTextCache.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedCategories[CategoryIndex] = FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Input, SubCategory);
+		NodeTextCache.SetCachedText(FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Input, SubCategoryDisplayName), this);
 	}
-	return CachedCategories[CategoryIndex];
+	return NodeTextCache;
 }
 
 FBlueprintNodeSignature UK2Node_InputAxisKeyEvent::GetSignature() const

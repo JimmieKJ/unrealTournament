@@ -21,7 +21,7 @@ void FEditorTutorialDetailsCustomization::CustomizeDetails( IDetailLayoutBuilder
 		{
 			FLevelEditorModule& LevelEditorModule = FModuleManager::Get().GetModuleChecked<FLevelEditorModule>("LevelEditor");
 			IIntroTutorials& IntroTutorials = FModuleManager::Get().GetModuleChecked<IIntroTutorials>("IntroTutorials");
-			IntroTutorials.LaunchTutorial(Tutorial, true, LevelEditorModule.GetLevelEditorTab()->GetParentWindow());
+			IntroTutorials.LaunchTutorial(Tutorial, IIntroTutorials::ETutorialStartType::TST_RESTART, LevelEditorModule.GetLevelEditorTab()->GetParentWindow());
 			return FReply::Handled();
 		}
 	};

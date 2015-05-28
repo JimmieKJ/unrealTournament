@@ -22,6 +22,8 @@ public:
 
 	virtual bool ClearFile(const FString& DLName) override;
 
+	virtual void DeleteCachedFiles(bool bSkipEnumerated) override;
+
 	virtual bool EnumerateFiles(const FPagedQuery& Page = FPagedQuery()) override;
 
 	virtual void GetFileList(TArray<FCloudFileHeader>& InFileHeaders) override;

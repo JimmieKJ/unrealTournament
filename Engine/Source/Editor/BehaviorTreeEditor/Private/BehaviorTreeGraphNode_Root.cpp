@@ -6,6 +6,7 @@
 
 UBehaviorTreeGraphNode_Root::UBehaviorTreeGraphNode_Root(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
+	bIsReadOnly = true;
 }
 
 void UBehaviorTreeGraphNode_Root::PostPlacedNewNode()
@@ -32,7 +33,7 @@ void UBehaviorTreeGraphNode_Root::AllocateDefaultPins()
 
 FText UBehaviorTreeGraphNode_Root::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	return NSLOCTEXT("BehaviorTreeGraphNode", "Root", "ROOT");
+	return NSLOCTEXT("BehaviorTreeEditor", "Root", "ROOT");
 }
 
 FName UBehaviorTreeGraphNode_Root::GetNameIcon() const
@@ -62,9 +63,9 @@ void UBehaviorTreeGraphNode_Root::PostEditUndo()
 	UpdateBlackboard();
 }
 
-FString	UBehaviorTreeGraphNode_Root::GetDescription() const
+FText UBehaviorTreeGraphNode_Root::GetDescription() const
 {
-	return *GetNameSafe(BlackboardAsset);
+	return FText::FromString(GetNameSafe(BlackboardAsset));
 }
 
 void UBehaviorTreeGraphNode_Root::UpdateBlackboard()

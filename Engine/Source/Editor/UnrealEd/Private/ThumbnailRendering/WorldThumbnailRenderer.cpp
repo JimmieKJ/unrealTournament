@@ -120,7 +120,7 @@ void UWorldThumbnailRenderer::GetView(UWorld* World, FSceneViewFamily* ViewFamil
 		}
 
 		const FVector Origin = WorldBox.GetCenter();
-		FMatrix ViewMatrix = FTranslationMatrix(-Origin);
+		FMatrix ViewRotationMatrix;
 		FMatrix ProjectionMatrix;
 		float FOVScreenSize = 0; // Screen size taking FOV into account
 		if (ThumbnailInfo->CameraMode == ECameraProjectionMode::Perspective)
@@ -147,13 +147,12 @@ void UWorldThumbnailRenderer::GetView(UWorld* World, FSceneViewFamily* ViewFamil
 			OrbitZoom = FMath::Max<float>(MinCameraDistance, OrbitZoom);
 
 			const FRotator RotationOffsetToViewCenter(0.f, 90.f, 0.f);
-			ViewMatrix = ViewMatrix *
-				FRotationMatrix(FRotator(0, OrbitYaw, 0)) *
+			ViewRotationMatrix = FRotationMatrix(FRotator(0, OrbitYaw, 0)) *
 				FRotationMatrix(FRotator(0, 0, OrbitPitch)) *
 				FTranslationMatrix(FVector(0, OrbitZoom, 0)) *
 				FInverseRotationMatrix(RotationOffsetToViewCenter);
 
-			ViewMatrix = ViewMatrix * FMatrix(
+			ViewRotationMatrix = ViewRotationMatrix * FMatrix(
 				FPlane(0, 0, 1, 0),
 				FPlane(1, 0, 0, 0),
 				FPlane(0, 1, 0, 0),
@@ -176,7 +175,7 @@ void UWorldThumbnailRenderer::GetView(UWorld* World, FSceneViewFamily* ViewFamil
 			switch (ThumbnailInfo->OrthoDirection)
 			{
 				case EOrthoThumbnailDirection::Top:
-					ViewMatrix = ViewMatrix * FMatrix(
+					ViewRotationMatrix = FMatrix(
 						FPlane(1, 0, 0, 0),
 						FPlane(0, -1, 0, 0),
 						FPlane(0, 0, -1, 0),
@@ -185,7 +184,7 @@ void UWorldThumbnailRenderer::GetView(UWorld* World, FSceneViewFamily* ViewFamil
 					WorldSizeMax2D = FVector2D(WorldBox.Max.X,WorldBox.Max.Y);
 					break;
 				case EOrthoThumbnailDirection::Bottom:
-					ViewMatrix = ViewMatrix * FMatrix(
+					ViewRotationMatrix = FMatrix(
 						FPlane(1, 0, 0, 0),
 						FPlane(0, -1, 0, 0),
 						FPlane(0, 0, 1, 0),
@@ -194,7 +193,7 @@ void UWorldThumbnailRenderer::GetView(UWorld* World, FSceneViewFamily* ViewFamil
 					WorldSizeMax2D = FVector2D(WorldBox.Max.X, WorldBox.Max.Y);
 					break;
 				case EOrthoThumbnailDirection::Front:
-					ViewMatrix = ViewMatrix * FMatrix(
+					ViewRotationMatrix = FMatrix(
 						FPlane(1, 0, 0, 0),
 						FPlane(0, 0, -1, 0),
 						FPlane(0, 1, 0, 0),
@@ -203,7 +202,7 @@ void UWorldThumbnailRenderer::GetView(UWorld* World, FSceneViewFamily* ViewFamil
 					WorldSizeMax2D = FVector2D(WorldBox.Max.X, WorldBox.Max.Z);
 					break;
 				case EOrthoThumbnailDirection::Back:
-					ViewMatrix = ViewMatrix * FMatrix(
+					ViewRotationMatrix = FMatrix(
 						FPlane(-1, 0, 0, 0),
 						FPlane(0, 0, 1, 0),
 						FPlane(0, 1, 0, 0),
@@ -212,7 +211,7 @@ void UWorldThumbnailRenderer::GetView(UWorld* World, FSceneViewFamily* ViewFamil
 					WorldSizeMax2D = FVector2D(WorldBox.Max.X, WorldBox.Max.Z);
 					break;
 				case EOrthoThumbnailDirection::Left:
-					ViewMatrix = ViewMatrix * FMatrix(
+					ViewRotationMatrix = FMatrix(
 						FPlane(0, 0, -1, 0),
 						FPlane(-1, 0, 0, 0),
 						FPlane(0, 1, 0, 0),
@@ -221,7 +220,7 @@ void UWorldThumbnailRenderer::GetView(UWorld* World, FSceneViewFamily* ViewFamil
 					WorldSizeMax2D = FVector2D(WorldBox.Max.Y, WorldBox.Max.Z);
 					break;
 				case EOrthoThumbnailDirection::Right:
-					ViewMatrix = ViewMatrix * FMatrix(
+					ViewRotationMatrix = FMatrix(
 						FPlane(0, 0, 1, 0),
 						FPlane(1, 0, 0, 0),
 						FPlane(0, 1, 0, 0),
@@ -265,7 +264,8 @@ void UWorldThumbnailRenderer::GetView(UWorld* World, FSceneViewFamily* ViewFamil
 		ViewInitOptions.ViewFamily = ViewFamily;
 		ViewInitOptions.SetViewRectangle(ViewRect);
 		ViewInitOptions.BackgroundColor = FLinearColor::Black;
-		ViewInitOptions.ViewMatrix = ViewMatrix;
+		ViewInitOptions.ViewOrigin = Origin;
+		ViewInitOptions.ViewRotationMatrix = ViewRotationMatrix;
 		ViewInitOptions.ProjectionMatrix = ProjectionMatrix;
 
 		FSceneView* NewView = new FSceneView(ViewInitOptions);

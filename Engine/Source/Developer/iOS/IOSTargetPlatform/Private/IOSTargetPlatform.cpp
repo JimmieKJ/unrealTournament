@@ -14,7 +14,7 @@ FIOSTargetPlatform::FIOSTargetPlatform()
 {
 #if WITH_ENGINE
 	FConfigCacheIni::LoadLocalIniFile(EngineSettings, TEXT("Engine"), true, *PlatformName());
-	TextureLODSettings.Initialize(EngineSettings, TEXT("SystemSettings"));
+	TextureLODSettings = nullptr; // TextureLODSettings are registered by the device profile.
 	StaticMeshLODSettings.Initialize(EngineSettings);
 #endif // #if WITH_ENGINE
 
@@ -133,14 +133,18 @@ int32 FIOSTargetPlatform::CheckRequirements(const FString& ProjectPath, bool bPr
 #endif
 
 	// shell to IPP and get the status of the provision and cert
+
+	FString BundleIdentifier;
+	GConfig->GetString(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("BundleIdentifier"), BundleIdentifier, GEngineIni);
+	BundleIdentifier = BundleIdentifier.Replace(TEXT("[PROJECT_NAME]"), FApp::GetGameName());
 #if PLATFORM_MAC
     FString CmdExe = TEXT("/bin/sh");
     FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
     FString IPPPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/IOS/IPhonePackager.exe"));
-    FString CommandLine = FString::Printf(TEXT("\"%s\" \"%s\" Validate Engine -project \"%s\""), *ScriptPath, *IPPPath, *ProjectPath);
+	FString CommandLine = FString::Printf(TEXT("\"%s\" \"%s\" Validate Engine -project \"%s\" -bundlename \"%s\""), *ScriptPath, *IPPPath, *ProjectPath, *(BundleIdentifier));
 #else
 	FString CmdExe = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/IOS/IPhonePackager.exe"));
-	FString CommandLine = FString::Printf(TEXT("Validate Engine -project \"%s\""), *ProjectPath);
+	FString CommandLine = FString::Printf(TEXT("Validate Engine -project \"%s\" -bundlename \"%s\""), *ProjectPath, *(BundleIdentifier));
 #endif
 	TSharedPtr<FMonitoredProcess> IPPProcess = MakeShareable(new FMonitoredProcess(CmdExe, CommandLine, true));
 	OutputMessage = TEXT("");
@@ -183,7 +187,8 @@ int32 FIOSTargetPlatform::CheckRequirements(const FString& ProjectPath, bool bPr
 
 void FIOSTargetPlatform::PingNetworkDevices()
 {
-	if (!MessageEndpoint.IsValid())
+	// disabled for now because we find IOS devices from the USB, this is a relic from ULD, but it may be needed in the future
+/*	if (!MessageEndpoint.IsValid())
 	{
 		MessageEndpoint = FMessageEndpoint::Builder("FIOSTargetPlatform")
 			.Handling<FIOSLaunchDaemonPong>(this, &FIOSTargetPlatform::HandlePongMessage);
@@ -206,7 +211,7 @@ void FIOSTargetPlatform::PingNetworkDevices()
 			DeviceIt.RemoveCurrent();
 			DeviceLostEvent.Broadcast(Device.ToSharedRef());
 		}
-	}
+	}*/
 }
 
 
@@ -291,8 +296,6 @@ bool FIOSTargetPlatform::HandleTicker(float DeltaTime )
 /* ITargetPlatform interface
  *****************************************************************************/
 
-#if WITH_ENGINE
-
 static bool SupportsES2()
 {
 	// default to supporting ES2
@@ -333,6 +336,28 @@ static bool CookASTC()
 	return bCookASTCTextures;
 }
 
+bool FIOSTargetPlatform::SupportsFeature( ETargetPlatformFeatures Feature ) const
+{
+	switch (Feature)
+	{
+		case ETargetPlatformFeatures::Packaging:
+			return true;
+			
+		case ETargetPlatformFeatures::LowQualityLightmaps:
+			return SupportsES2() || SupportsMetal();
+			
+		case ETargetPlatformFeatures::HighQualityLightmaps:
+			return SupportsMetalMRT();
+		default:
+			break;
+	}
+	
+	return TTargetPlatformBase<FIOSPlatformProperties>::SupportsFeature(Feature);
+}
+
+
+#if WITH_ENGINE
+
 
 void FIOSTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormats ) const
 {
@@ -356,7 +381,6 @@ void FIOSTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormats 
 	}
 }
 
-
 void FIOSTargetPlatform::GetAllTargetedShaderFormats( TArray<FName>& OutFormats ) const
 {
 	GetAllPossibleShaderFormats(OutFormats);
@@ -375,8 +399,6 @@ void FIOSTargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FNam
 		FName(TEXT("DXT5n")),	FName(TEXT("PVRTCN")),		FName(TEXT("ASTC_NormalAG")),
 		FName(TEXT("BC5")),		FName(TEXT("PVRTCN")),		FName(TEXT("ASTC_NormalRG")),
 		FName(TEXT("AutoDXT")),	FName(TEXT("AutoPVRTC")),	FName(TEXT("ASTC_RGBAuto")),
-		FName(TEXT("BC6H")),	FName(TEXT("RGBA16F")),		FName(TEXT("RGBA16F")),
-		FName(TEXT("BC7")),		FName(TEXT("AutoPVRTC")),	FName(TEXT("ASTC_RGBAuto")),
 	};
 
 	FName TextureFormatName = NAME_None;
@@ -390,7 +412,7 @@ void FIOSTargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FNam
 	// if we didn't assign anything specially, then use the defaults
 	if (TextureFormatName == NAME_None)
 	{
-		TextureFormatName = GetDefaultTextureFormatName(Texture, EngineSettings);
+		TextureFormatName = GetDefaultTextureFormatName(Texture, EngineSettings, false);
 	}
 
 	// perform any remapping away from defaults
@@ -423,9 +445,9 @@ void FIOSTargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FNam
 }
 
 
-const FTextureLODSettings& FIOSTargetPlatform::GetTextureLODSettings() const
+const UTextureLODSettings& FIOSTargetPlatform::GetTextureLODSettings() const
 {
-	return TextureLODSettings;
+	return *TextureLODSettings;
 }
 
 
@@ -436,3 +458,4 @@ FName FIOSTargetPlatform::GetWaveFormat( const class USoundWave* Wave ) const
 }
 
 #endif // WITH_ENGINE
+

@@ -216,13 +216,13 @@ class ENGINE_API UNavigationQueryFilter : public UObject
 	FNavigationFilterFlags ExcludeFlags;
 
 	/** get filter for given navigation data and initialize on first access */
-	TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData* NavData) const;
+	TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData& NavData) const;
 	
 	/** helper functions for accessing filter */
-	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData* NavData, UClass* FilterClass);
+	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData& NavData, TSubclassOf<UNavigationQueryFilter> FilterClass);
 
 	template<class T>
-	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData* NavData, UClass* FilterClass = T::StaticClass())
+	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData& NavData, TSubclassOf<UNavigationQueryFilter> FilterClass = T::StaticClass())
 	{
 		return GetQueryFilter(NavData, FilterClass);
 	}
@@ -240,7 +240,40 @@ protected:
 
 	/** find index of area data */
 	int32 FindAreaOverride(TSubclassOf<UNavArea> AreaClass) const;
-
+	
 	/** setup filter for given navigation data, use to create custom filters */
-	virtual void InitializeFilter(const ANavigationData* NavData, FNavigationQueryFilter* Filter) const;
+	virtual void InitializeFilter(const ANavigationData& NavData, FNavigationQueryFilter& Filter) const;
+
+public:
+	//----------------------------------------------------------------------//
+	// deprecated
+	//----------------------------------------------------------------------//
+
+	DEPRECATED(4.8, "This version of InitializeFilter is deprecated. Please use the version taking NavData and Filter references")
+	virtual void InitializeFilter(const ANavigationData* NavData, FNavigationQueryFilter* Filter) const
+	{
+		if (NavData && Filter)
+		{
+			InitializeFilter(*NavData, *Filter);
+		}
+	}
+
+	DEPRECATED(4.8, "This version of GetQueryFilter is deprecated. Please use ANavigationData reference rather than a pointer version")
+	TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData* NavData) const 
+	{ 
+		return NavData ? GetQueryFilter(*NavData) : nullptr; 
+	}
+
+	DEPRECATED(4.8, "This version of GetQueryFilter is deprecated. Please use ANavigationData reference rather than a pointer version")
+	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData* NavData, TSubclassOf<UNavigationQueryFilter> FilterClass)
+	{
+		return NavData ? GetQueryFilter(*NavData, FilterClass) : nullptr;
+	}
+
+	// will "auto-deprecate" due to the function called inside
+	template<class T>
+	static TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(const ANavigationData* NavData, TSubclassOf<UNavigationQueryFilter> FilterClass = T::StaticClass())
+	{
+		return NavData ? GetQueryFilter(*NavData, FilterClass) : nullptr;
+	}
 };

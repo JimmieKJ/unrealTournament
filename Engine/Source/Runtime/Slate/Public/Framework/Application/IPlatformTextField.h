@@ -9,7 +9,7 @@ class IPlatformTextField
 public:
 	virtual ~IPlatformTextField() {};
 
-	virtual void ShowVirtualKeyboard(bool bShow, TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget) = 0;
+	virtual void ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget) = 0;
 
 private:
 

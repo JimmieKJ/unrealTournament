@@ -11,6 +11,7 @@ UNamedSlot::UNamedSlot(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bIsVariable = true;
+	Visibility = ESlateVisibility::SelfHitTestInvisible;
 }
 
 void UNamedSlot::ReleaseSlateResources(bool bReleaseChildren)

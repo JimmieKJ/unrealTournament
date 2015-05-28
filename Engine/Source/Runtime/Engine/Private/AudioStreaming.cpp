@@ -34,6 +34,8 @@ FAsyncStreamDerivedChunkWorker::FAsyncStreamDerivedChunkWorker(
 /** Retrieves the derived chunk from the derived data cache. */
 void FAsyncStreamDerivedChunkWorker::DoWork()
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FAsyncStreamDerivedChunkWorker::DoWork"), STAT_AsyncStreamDerivedChunkWorker_DoWork, STATGROUP_StreamingDetails);
+
 	UE_LOG(LogAudio, Verbose, TEXT("Start of ASync DDC Chunk read for key: %s"), *DerivedDataKey);
 
 	TArray<uint8> DerivedChunkData;

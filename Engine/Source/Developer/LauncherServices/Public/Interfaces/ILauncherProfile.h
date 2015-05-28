@@ -156,6 +156,24 @@ namespace ELauncherProfileValidationErrors
 		
 		/** The platform SDK is not installed but is required. */
 		NoPlatformSDKInstalled,
+
+		/** The profile has unversioned and incrimental specified these are not compatible together */
+		UnversionedAndIncrimental,
+
+		/** generating patch requires cook by the book mode*/
+		GeneratingPatchesCanOnlyRunFromByTheBookCookMode,
+
+		/** Generating Chunks requires cook by the book mode */
+		GeneratingChunksRequiresCookByTheBook,
+
+		/** Generating Chunks requires UnrealPak */
+		GeneratingChunksRequiresUnrealPak,
+
+		/** Generating http chunk install data requires generating chunks */
+		GeneratingHttpChunkDataRequiresGeneratingChunks,
+
+		/** Generating http chunk install data requires valid install directorys and release name */
+		GeneratingHttpChunkDataRequiresValidDirectoryAndName,
 	};
 }
 
@@ -550,7 +568,13 @@ public:
      * @see SetTimeout
      */
     virtual uint32 GetTimeout() const = 0;
-    
+	
+	/**
+	 * Are we going to generate a patch (Source content patch needs to be specified)
+	 * @Seealso GetPatchSourceContentPath	 * @Seealso SetPatchSourceContentPath
+	 */
+	virtual bool IsGeneratingPatch() const = 0;
+
 	/**
 	 * Checks whether the game should be built.
 	 *
@@ -574,6 +598,14 @@ public:
 	 * @see SetIncrementalCooking
 	 */
 	virtual bool IsCookingIncrementally( ) const = 0;
+
+	/**
+	 * Checks if compression is enabled
+	 *
+	 * @return true if compression is enabled
+	 * @see SetCompressed
+	 */
+	virtual bool IsCompressed( ) const = 0;
 
 	/**
 	 * Checks whether unversioned cooking is enabled.
@@ -614,6 +646,34 @@ public:
 	 * @see SetPackageWithUnrealPak
 	 */
 	virtual bool IsPackingWithUnrealPak( ) const = 0;
+
+	/**
+	 * Return whether packaging will generate chunk data.
+	 *
+	 * @return true if Chunks will be generated, false otherwise.
+	 */
+	virtual bool IsGeneratingChunks() const = 0;
+	
+	/**
+	 * Return whether packaging will use chunk data to generate http chunk install data.
+	 *
+	 * @return true if data will be generated, false otherwise.
+	 */
+	virtual bool IsGenerateHttpChunkData() const = 0;
+	
+	/**
+	 * Where generated http chunk install data will be stored.
+	 *
+	 * @return true if data will be generated, false otherwise.
+	 */
+	virtual FString GetHttpChunkDataDirectory() const = 0;
+	
+	/**
+	 * What name to tag the generated http chunk install data with.
+	 *
+	 * @return true if data will be generated, false otherwise.
+	 */
+	virtual FString GetHttpChunkDataReleaseName() const = 0;
 
 	/**
 	 * Checks whether the profile's selected project supports Engine maps.
@@ -783,6 +843,31 @@ public:
 	virtual void SetDeployWithUnrealPak( bool UseUnrealPak ) = 0;
 
 	/**
+	 * Set whether packaging will generate chunk data.
+	 *
+	 * @param true if Chunks should be generated, false otherwise.
+	 */
+	virtual void SetGenerateChunks(bool bGenerateChunks) = 0;
+	/**
+	 * Set whether packaging will use chunk data to generate http chunk install data.
+	 *
+	 * @param true if data should be generated, false otherwise.
+	 */
+	virtual void SetGenerateHttpChunkData(bool bGenerateHttpChunkData) = 0;
+	/**
+	 * Set where generated http chunk install data will be stored.
+	 *
+	 * @return the directory path to use.
+	 */	
+	virtual void SetHttpChunkDataDirectory(const FString& InHttpChunkDataDirectory ) = 0;
+	/**
+	 * Set what name to tag the generated http chunk install data with.
+	 *
+	 * @param the name to use.
+	 */	
+	virtual void SetHttpChunkDataReleaseName(const FString& InHttpChunkDataReleaseName ) = 0;
+
+	/**
 	 * Sets the device group to deploy to.
 	 *
 	 * @param DeviceGroup The device group, or NULL to reset this setting.
@@ -797,6 +882,41 @@ public:
 	 * @see GetDeploymentMode
 	 */
 	virtual void SetDeploymentMode( ELauncherProfileDeploymentModes::Type Mode ) = 0;
+
+	/**
+	 * Creating a release version of the cooked content 
+	 */
+	virtual bool IsCreatingReleaseVersion() const = 0;
+
+	virtual void SetCreateReleaseVersion(bool InCreateReleaseVersion) = 0;
+
+	virtual FString GetCreateReleaseVersionName() const = 0;
+
+	virtual void SetCreateReleaseVersionName(const FString& InCreateReleaseVersionName) = 0;
+
+	virtual FString GetBasedOnReleaseVersionName() const = 0;
+
+	virtual void SetBasedOnReleaseVersionName(const FString& InBasedOnReleaseVersion) = 0;
+
+
+	/**
+	 * Sets if we are going to generate a patch 
+	 * 
+	 * @param InShouldGeneratePatch enable generating patch
+	 * @seealso IsGeneratingPatch
+	 */
+	virtual void SetGeneratePatch( bool InShouldGeneratePatch ) = 0;
+
+
+	virtual bool IsCreatingDLC() const = 0;
+	virtual void SetCreateDLC(bool InBuildDLC) = 0;
+
+	virtual FString GetDLCName() const = 0;
+	virtual void SetDLCName(const FString& InDLCName) = 0;
+
+	virtual bool IsDLCIncludingEngineContent() const = 0;
+	virtual void SetDLCIncludeEngineContent(bool InDLCIncludeEngineContent) = 0;
+
 
     /**
      * Sets the cook on the fly close mode
@@ -821,6 +941,14 @@ public:
 	 * @see IsCookingIncrementally
 	 */
 	virtual void SetIncrementalCooking( bool Incremental ) = 0;
+
+	/**
+	 * Sets Compression.
+	 *
+	 * @param Enable compression
+	 * @see IsCompressed
+	 */
+	virtual void SetCompressed( bool Enable ) = 0;
 
 	/**
 	 * Sets incremental deploying.
@@ -908,3 +1036,4 @@ public:
 	/** Virtual destructor. */
 	virtual ~ILauncherProfile( ) { }
 };
+

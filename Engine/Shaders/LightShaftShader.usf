@@ -61,9 +61,9 @@ void DownsampleLightShaftsPixelMain(
 	)
 {
 
-#if OCCLUSION_TERM
-
 	OutColor = 1;
+
+#if OCCLUSION_TERM
 
 	float SceneDepth = CalcSceneDepth(InUV);
 

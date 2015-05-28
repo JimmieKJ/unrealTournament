@@ -147,10 +147,16 @@ public:
 	/** For case insensitive filesystems, returns the full path of the file with the same case as in the filesystem */
 	virtual FString GetFilenameOnDisk(const TCHAR* Filename) = 0;
 
-	/** Attempt to open a file for reading. If successful will return a non-nullptr pointer. Close the file by delete'ing the handle. **/
-	virtual IFileHandle*	OpenRead(const TCHAR* Filename) = 0;
+	/** Attempt to open a file for reading.
+	 *
+	 * @param Filename file to be opened
+	 * @param bAllowWrite (applies to certain platforms only) whether this file is allowed to be written to by other processes. This flag is needed to open files that are currently being written to as well.
+	 *
+	 * @return If successful will return a non-nullptr pointer. Close the file by delete'ing the handle.
+	 */
+	virtual IFileHandle*	OpenRead(const TCHAR* Filename, bool bAllowWrite = false) = 0;
 	/** Attempt to open a file for writing. If successful will return a non-nullptr pointer. Close the file by delete'ing the handle. **/
-	virtual IFileHandle*	OpenWrite(const TCHAR* Filename, bool bAppend = 0, bool bAllowRead = 0) = 0;
+	virtual IFileHandle*	OpenWrite(const TCHAR* Filename, bool bAppend = false, bool bAllowRead = false) = 0;
 
 	/** Return true if the directory exists. **/
 	virtual bool		DirectoryExists(const TCHAR* Directory) = 0;

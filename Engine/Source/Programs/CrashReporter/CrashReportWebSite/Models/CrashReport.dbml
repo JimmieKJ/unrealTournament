@@ -4,9 +4,6 @@
     <Type Name="Bugg">
       <Column Name="Id" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
       <Column Name="TTPID" Type="System.String" DbType="VarChar(50)" CanBeNull="true" />
-      <Column Name="Title" Type="System.String" DbType="VarChar(120)" CanBeNull="true" />
-      <Column Name="SummaryV2" Member="Summary" Type="System.String" DbType="VarChar(512)" CanBeNull="true" />
-      <Column Name="Priority" Type="System.Int32" DbType="Int" CanBeNull="true" />
       <Column Name="Pattern" Type="System.String" DbType="VarChar(800) NOT NULL" CanBeNull="false" />
       <Column Name="NumberOfCrashes" Type="System.Int32" DbType="Int" CanBeNull="true" />
       <Column Name="NumberOfUsers" Type="System.Int32" DbType="Int" CanBeNull="true" />
@@ -14,10 +11,7 @@
       <Column Name="TimeOfLastCrash" Type="System.DateTime" DbType="DateTime" CanBeNull="true" />
       <Column Name="Status" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="FixedChangeList" Type="System.String" DbType="VarChar(50)" CanBeNull="true" />
-      <Column Name="Description" Type="System.String" DbType="Text" CanBeNull="true" UpdateCheck="Never" />
-      <Column Name="ReproSteps" Type="System.String" DbType="Text" CanBeNull="true" UpdateCheck="Never" />
-      <Column Name="Game" Type="System.String" DbType="VarChar(120)" CanBeNull="true" />
-      <Column Name="BuildVersion" Type="System.String" DbType="VarChar(128)" CanBeNull="true" />
+      <Column Name="BuildVersion" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="CrashType" Type="System.Int16" DbType="SmallInt" CanBeNull="true" />
       <Association Name="Bugg_Buggs_Crash" Member="Buggs_Crashes" ThisKey="Id" OtherKey="BuggId" Type="Buggs_Crash" />
     </Type>
@@ -28,9 +22,7 @@
       <Column Name="UserName" Type="System.String" DbType="VarChar(64) NOT NULL" CanBeNull="false" />
       <Column Name="UserGroupId" Type="System.Int32" DbType="Int NOT NULL" CanBeNull="false" />
       <Association Name="User_Buggs_User" Member="Buggs_Users" ThisKey="Id" OtherKey="UserNameId" Type="Buggs_User" />
-      <Association Name="User_Buggs_User1" Member="Buggs_Users1" ThisKey="Id" OtherKey="UserNameId" Type="Buggs_User" />
       <Association Name="User_Crash" Member="CrashesFromUserId" Storage="_Crashes" ThisKey="Id" OtherKey="UserNameId" Type="Crash" />
-      <Association Name="User_Crash1" Member="CrashesFromName" ThisKey="UserName" OtherKey="UserName" Type="Crash" />
       <Association Name="UserGroup_User" Member="UserGroup" ThisKey="UserGroupId" OtherKey="Id" Type="UserGroup" IsForeignKey="true" />
     </Type>
   </Table>
@@ -55,13 +47,11 @@
       <Column Name="UserName" Type="System.String" DbType="VarChar(64) NOT NULL" IsPrimaryKey="true" CanBeNull="false" />
       <Column Name="UserNameId" Type="System.Int32" DbType="Int" CanBeNull="true" />
       <Association Name="User_Buggs_User" Member="User" ThisKey="UserNameId" OtherKey="Id" Type="User" IsForeignKey="true" />
-      <Association Name="User_Buggs_User1" Member="User1" ThisKey="UserNameId" OtherKey="Id" Type="User" IsForeignKey="true" />
     </Type>
   </Table>
   <Table Name="dbo.Crashes" Member="Crashes">
     <Type Name="Crash">
       <Column Name="Id" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
-      <Column Name="Title" Type="System.String" DbType="NChar(20)" CanBeNull="true" />
       <Column Name="Summary" Type="System.String" DbType="VarChar(512)" CanBeNull="true" />
       <Column Name="GameName" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="Status" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
@@ -74,22 +64,18 @@
       <Column Name="Pattern" Type="System.String" DbType="VarChar(800)" CanBeNull="true" />
       <Column Name="CommandLine" Type="System.String" DbType="VarChar(512)" CanBeNull="true" />
       <Column Name="ComputerName" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
-      <Column Name="Selected" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
       <Column Name="FixedChangeList" Type="System.String" DbType="VarChar(256)" CanBeNull="true" />
       <Column Name="LanguageExt" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="Module" Type="System.String" DbType="VarChar(128)" CanBeNull="true" />
       <Column Name="BuildVersion" Type="System.String" DbType="VarChar(128)" CanBeNull="true" />
       <Column Name="BaseDir" Type="System.String" DbType="VarChar(512)" CanBeNull="true" />
-      <Column Name="Version" Type="System.Int32" DbType="Int" CanBeNull="true" />
       <Column Name="UserName" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
       <Column Name="TTPID" Type="System.String" DbType="VarChar(64)" CanBeNull="true" />
-      <Column Name="AutoReporterID" Type="System.Int32" DbType="Int" CanBeNull="true" />
-      <Column Name="Processed" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
+      <Column Name="Processed" Member="bAllowToBeContacted" Storage="_Processed" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
       <Column Name="HasLogFile" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
       <Column Name="HasMiniDumpFile" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
       <Column Name="HasVideoFile" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
       <Column Name="HasDiagnosticsFile" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
-      <Column Name="HasNewLogFile" Type="System.Boolean" DbType="Bit" CanBeNull="true" />
       <Column Name="Branch" Type="System.String" DbType="VarChar(32)" CanBeNull="true" />
       <Column Name="UserNameId" Type="System.Int32" DbType="Int" CanBeNull="true" />
       <Column Name="CrashType" Type="System.Int16" DbType="SmallInt" CanBeNull="true" />
@@ -99,7 +85,6 @@
       <Column Name="EngineVersion" Type="System.String" DbType="varchar(64)" CanBeNull="true" />
       <Association Name="Crash_Buggs_Crash" Member="Buggs_Crashes" ThisKey="Id" OtherKey="CrashId" Type="Buggs_Crash" />
       <Association Name="User_Crash" Member="UserById" Storage="_User" ThisKey="UserNameId" OtherKey="Id" Type="User" IsForeignKey="true" />
-      <Association Name="User_Crash1" Member="UserByName" ThisKey="UserName" OtherKey="UserName" Type="User" IsForeignKey="true" />
     </Type>
   </Table>
   <Table Name="dbo.FunctionCalls" Member="FunctionCalls">

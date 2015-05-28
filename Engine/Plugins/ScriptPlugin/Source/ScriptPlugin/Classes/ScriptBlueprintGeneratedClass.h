@@ -41,6 +41,11 @@ public:
 	static FScriptContextBase* CreateContext(const FString& SourceCode, UScriptBlueprintGeneratedClass* Class, UObject* Owner);
 
 	/**
+	* Gets supported script file formats (UFactory formats)
+	*/
+	static void GetSupportedScriptFileFormats(TArray<FString>& OutFormats);
+
+	/**
 	 * Initializes script context given script code
 	 * @param Code Script code
 	 * @param Owner Owner of this context

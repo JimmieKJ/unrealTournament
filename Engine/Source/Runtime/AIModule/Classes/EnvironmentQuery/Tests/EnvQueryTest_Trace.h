@@ -31,21 +31,9 @@ class UEnvQueryTest_Trace : public UEnvQueryTest
 	UPROPERTY(EditDefaultsOnly, Category=Trace)
 	TSubclassOf<UEnvQueryContext> Context;
 
-	// BEGIN: deprecated properties 
-	UPROPERTY()
-	FEnvBoolParam TraceToItem;
-
-	UPROPERTY()
-	FEnvFloatParam ItemOffsetZ;
-
-	UPROPERTY()
-	FEnvFloatParam ContextOffsetZ;
-	// END: deprecated properties
-
 	virtual void RunTest(FEnvQueryInstance& QueryInstance) const override;
-	virtual void PostLoad() override;
 
-	virtual FString GetDescriptionTitle() const override;
+	virtual FText GetDescriptionTitle() const override;
 	virtual FText GetDescriptionDetails() const override;
 
 protected:

@@ -2758,15 +2758,15 @@ void FStaticLightingSystem::CalculateIndirectLightingTextureMapping(
 		} 
 		while (TextureMapping->NumOutstandingCacheTasks > 0);
 
-		TArray<FCacheIndirectTaskDescription*> CompletedTasks;
-		TextureMapping->CompletedCacheIndirectLightingTasks.PopAll<TArray<FCacheIndirectTaskDescription*>, FCacheIndirectTaskDescription*>(CompletedTasks);
-		check(CompletedTasks.Num() == NumTasksSubmitted);
+		TArray<FCacheIndirectTaskDescription*> CompletedCILTasks;
+		TextureMapping->CompletedCacheIndirectLightingTasks.PopAll<TArray<FCacheIndirectTaskDescription*>, FCacheIndirectTaskDescription*>(CompletedCILTasks);
+		check(CompletedCILTasks.Num() == NumTasksSubmitted);
 
 		int32 NextRecordId = 0;
 
-		for (int32 TaskIndex = 0; TaskIndex < CompletedTasks.Num(); TaskIndex++)
+		for (int32 TaskIndex = 0; TaskIndex < CompletedCILTasks.Num(); TaskIndex++)
 		{
-			FCacheIndirectTaskDescription* Task = CompletedTasks[TaskIndex];
+			FCacheIndirectTaskDescription* Task = CompletedCILTasks[TaskIndex];
 
 			TArray<TLightingCache<FFinalGatherSample>::FRecord<FFinalGatherSample> > Records;
 			Task->MappingContext.FirstBounceCache.GetAllRecords(Records);
@@ -2789,7 +2789,7 @@ void FStaticLightingSystem::CalculateIndirectLightingTextureMapping(
 
 			// Note: the task's MappingContext stats will be merged into the global stats automatically due to the MappingContext destructor
 
-			delete CompletedTasks[TaskIndex];
+			delete CompletedCILTasks[TaskIndex];
 		}
 
 		const double EndCacheTime = FPlatformTime::Seconds();
@@ -2804,7 +2804,7 @@ void FStaticLightingSystem::CalculateIndirectLightingTextureMapping(
 			}
 
 			const int32 InterpolationTaskSize = IrradianceCachingSettings.InterpolateTaskSize;
-			int32 NumTasksSubmitted = 0;
+			int32 NumIILTasksSubmitted = 0;
 
 			// Break this mapping into multiple interpolation tasks in texture space blocks
 			for (int32 TaskY = 0; TaskY < TextureMapping->CachedSizeY; TaskY += InterpolationTaskSize)
@@ -2827,7 +2827,7 @@ void FStaticLightingSystem::CalculateIndirectLightingTextureMapping(
 							|| Scene.DebugInput.LocalX >= TaskX && Scene.DebugInput.LocalX < TaskX + InterpolationTaskSize
 							&& Scene.DebugInput.LocalY >= TaskY && Scene.DebugInput.LocalY < TaskY + InterpolationTaskSize);
 
-					NumTasksSubmitted++;
+					NumIILTasksSubmitted++;
 					FPlatformAtomics::InterlockedIncrement(&TextureMapping->NumOutstandingInterpolationTasks);
 					InterpolateIndirectLightingTasks.Push(NewTask);
 				}
@@ -2853,7 +2853,7 @@ void FStaticLightingSystem::CalculateIndirectLightingTextureMapping(
 
 			TArray<FInterpolateIndirectTaskDescription*> CompletedTasks;
 			TextureMapping->CompletedInterpolationTasks.PopAll<TArray<FInterpolateIndirectTaskDescription*>, FInterpolateIndirectTaskDescription*>(CompletedTasks);
-			check(CompletedTasks.Num() == NumTasksSubmitted);
+			check(CompletedTasks.Num() == NumIILTasksSubmitted);
 
 			for (int32 TaskIndex = 0; TaskIndex < CompletedTasks.Num(); TaskIndex++)
 			{

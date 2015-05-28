@@ -109,4 +109,9 @@ DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FTakeEditorScreenshotComma
 */
 DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FLoadGameMapCommand, FString, MapName);
 
+/**
+ * Latent command that requests exit
+ */
+DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND( FRequestExitCommand );
+
 

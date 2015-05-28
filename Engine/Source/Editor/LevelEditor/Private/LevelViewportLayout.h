@@ -13,7 +13,7 @@
  * Base class for level viewport layout configurations
  * Handles maximizing and restoring well as visibility of specific viewports.
  */
-class FLevelViewportLayout : public TSharedFromThis<FLevelViewportLayout>, FTickableEditorObject
+class FLevelViewportLayout : public TSharedFromThis<FLevelViewportLayout>, public FTickableEditorObject
 {
 public:
 	/**
@@ -194,9 +194,9 @@ protected:
 	/** True if we've started an animation and are waiting for it to finish */
 	bool bIsTransitioning;
 
-	/** Curve for animating from a "restored" state to a maximized state, and vice-versa */
+	/** Curve for animating from a "restored" state to a maximized state */
 	FCurveSequence MaximizeAnimation;
-	
+
 	/** List of all of the viewports in this layout */
 	TArray< TSharedPtr< SLevelViewport > > Viewports;
 	

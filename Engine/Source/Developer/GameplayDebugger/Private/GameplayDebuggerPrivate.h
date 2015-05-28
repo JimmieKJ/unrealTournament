@@ -24,6 +24,8 @@
 #include "Components/CapsuleComponent.h"
 #include "Engine/Engine.h"
 
+#include "RenderResource.h"
+#include "Shader.h"
 #include "Engine/Canvas.h"
 #include "EngineUtils.h"
 

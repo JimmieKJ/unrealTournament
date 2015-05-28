@@ -44,6 +44,9 @@ class INavAgentInterface
 	/** Allows delaying repath requests */
 	virtual bool ShouldPostponePathUpdates() const { return false; }
 
+	/** Checks if the agent is actively following a navigation path */
+	virtual bool IsFollowingAPath() const { return false; }
+
 	//----------------------------------------------------------------------//
 	// DEPRECATED
 	//----------------------------------------------------------------------//

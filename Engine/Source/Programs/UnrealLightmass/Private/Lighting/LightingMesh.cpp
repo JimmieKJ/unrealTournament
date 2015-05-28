@@ -111,18 +111,18 @@ void FStaticLightingMesh::Import( FLightmassImporter& Importer )
 	for (int32 MtrlIdx = 0; MtrlIdx < NumMaterialElements; MtrlIdx++)
 	{
 		FMaterialElement& CurrentMaterialElement = MaterialElements[MtrlIdx];
-		FMaterialElementData TempData;
-		Importer.ImportData(&TempData);
-		CurrentMaterialElement.MaterialId = TempData.MaterialId;
-		CurrentMaterialElement.bUseTwoSidedLighting = TempData.bUseTwoSidedLighting;
-		CurrentMaterialElement.bShadowIndirectOnly = TempData.bShadowIndirectOnly;
-		CurrentMaterialElement.bUseEmissiveForStaticLighting = TempData.bUseEmissiveForStaticLighting;
+		FMaterialElementData METempData;
+		Importer.ImportData(&METempData);
+		CurrentMaterialElement.MaterialId = METempData.MaterialId;
+		CurrentMaterialElement.bUseTwoSidedLighting = METempData.bUseTwoSidedLighting;
+		CurrentMaterialElement.bShadowIndirectOnly = METempData.bShadowIndirectOnly;
+		CurrentMaterialElement.bUseEmissiveForStaticLighting = METempData.bUseEmissiveForStaticLighting;
 		// Validating data here instead of in Unreal since EmissiveLightFalloffExponent is used in so many different object types
-		CurrentMaterialElement.EmissiveLightFalloffExponent = FMath::Max(TempData.EmissiveLightFalloffExponent, 0.0f);
-		CurrentMaterialElement.EmissiveLightExplicitInfluenceRadius = FMath::Max(TempData.EmissiveLightExplicitInfluenceRadius, 0.0f);
-		CurrentMaterialElement.EmissiveBoost = TempData.EmissiveBoost;
-		CurrentMaterialElement.DiffuseBoost = TempData.DiffuseBoost;
-		CurrentMaterialElement.FullyOccludedSamplesFraction = TempData.FullyOccludedSamplesFraction;
+		CurrentMaterialElement.EmissiveLightFalloffExponent = FMath::Max(METempData.EmissiveLightFalloffExponent, 0.0f);
+		CurrentMaterialElement.EmissiveLightExplicitInfluenceRadius = FMath::Max(METempData.EmissiveLightExplicitInfluenceRadius, 0.0f);
+		CurrentMaterialElement.EmissiveBoost = METempData.EmissiveBoost;
+		CurrentMaterialElement.DiffuseBoost = METempData.DiffuseBoost;
+		CurrentMaterialElement.FullyOccludedSamplesFraction = METempData.FullyOccludedSamplesFraction;
 		CurrentMaterialElement.Material = Importer.ConditionalImportObject<FMaterial>(CurrentMaterialElement.MaterialId, LM_MATERIAL_VERSION, LM_MATERIAL_EXTENSION, LM_MATERIAL_CHANNEL_FLAGS, Importer.GetMaterials());
 		checkf(CurrentMaterialElement.Material, TEXT("Failed to import material with GUID %s"), *CurrentMaterialElement.MaterialId.ToString());
 

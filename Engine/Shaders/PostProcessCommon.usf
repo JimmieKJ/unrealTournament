@@ -48,28 +48,28 @@ float4 PostprocessInput4MinMax;
 float4 PostprocessInput5MinMax;
 float4 PostprocessInput6MinMax;
 
-// Single pixel RT used for EyeAdaptation, use function EyeAdaptationLookup() to access.
-Texture2D EyeAdaptation;
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
-//Provides access to the EyeAdaptation RT. Only available in SM5.
-float EyeAdaptationLookup()
-{
-	return EyeAdaptation.Load(int3(0, 0, 0)).r;
-}
-#endif
-
-// viewport width, height, 1/width, 1/height (scaled to the current rendertarget resolution)
+// viewport width, height, 1/width, 1/height (scaled to the current rendertarget resolution), depends on SetViewportAndCallRHI() call
 float4 ViewportSize;
-// in pixels (scaled to the current rendertarget resolution)
+// in pixels (scaled to the current rendertarget resolution), float4(minx,miny,maxx,maxy), depends on SetViewportAndCallRHI() call
 float4 ViewportRect;
 
 SamplerState BilinearTextureSampler0;
 SamplerState BilinearTextureSampler1;
 
 // transforms ScreenPos to the screen pixel position, not the viewport local position (*xy +wz)
-// (0,0) left top, (width-1,height-1) at right bottom, in pixels
-// 	float2 PixelPos = UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw;
+// (0,0) left top, (width-1,height-1) at right bottom, in pixels (without offset to reach the pixel center)
+// 	use ComputePixelPosCenter(UVAndScreenPos.zw, bPixelCenter) instead of directly accessing this
 float4 ScreenPosToPixel;
+
+// uses ScreenPosToPixel which is setup in FPostProcessPassParameters
+// for integer output bPixelCenter should be set to true (to avoid rounding errors)
+// @param ScreenPos -1 .. 1, usually from UVAndScreenPos.zw
+// @param bCenter false: left top of the pixel and almost no fractional value, true: added 0.5 to be pixel center
+float2 ComputePixelPosCenter(float2 ScreenPos, bool bPixelCenter)
+{
+	float2 PixelOffset = bPixelCenter ? 0.5f : 0.0f;
+	return ScreenPos * ScreenPosToPixel.xy + ScreenPosToPixel.zw + PixelOffset;
+}
 
 // shape of the lens for vignette like effects and masking
 // @param ScreenPos -1 .. 1
@@ -129,17 +129,12 @@ half3 ColorCorrection(half3 InLDRColor)
 // @param ScreenSpacePos -1..1
 float ComputeVignetteMask(float2 ScreenSpacePos, float Intensity)
 {
-	return lerp(1, DiscMask(ScreenSpacePos / 1.3f), Intensity);
-
-//	NormalizedUV = ScreenSpacePos * 0.5f + 0.5f;
-	// alternative method (pillow like shape):
-	// 0..1 -> 0 .. 0.25f .. 1.0f
-//	float2 Temp = NormalizedUV * (1 - NormalizedUV);
-	// ShapeFactor 1:fast, 0.5:more bright areas, 0.25:even more bright area
-//	float ShapeFactor = 1.0f;
-	// (0 .. 0.25f .. 1.0f, 0 .. 0.25f .. 1.0f) -> (0:border .. 1:center)
-//	float Mask = Temp.x * Temp.y * 16.0f;
-//	return lerp(1, pow(Mask, ShapeFactor), Intensity);
+	// Natural vignetting
+	// cosine-fourth law
+	ScreenSpacePos *= Intensity;
+	float Tan2Angle = dot( ScreenSpacePos, ScreenSpacePos );
+	float Cos4Angle = Square( rcp( Tan2Angle + 1 ) );
+	return Cos4Angle;
 }
 
 // Scale {-1 to 1} space to vignette circle space.
@@ -178,6 +173,22 @@ float4 GatherSceneDepth(float2 UV, float2 InvBufferSize)
 #else
 	return (float4)CalcSceneDepth(UV);
 #endif // FEATURE_LEVEL
+}
+
+half4 UnwrappedTexture3DSample( Texture2D Texture, SamplerState Sampler, float3 UVW, float Size )
+{
+	// a volume texture 16x16x16 would be unwrapped to a 2d texture 256x16
+
+	float IntW = floor( UVW.z * Size - 0.5 );
+	half FracW = UVW.z * Size - 0.5 - IntW;
+
+	float U = ( UVW.x + IntW ) / Size;
+	float V = UVW.y;
+
+	half4 RG0 = Texture.Sample( Sampler, float2(U, V) );
+	half4 RG1 = Texture.Sample( Sampler, float2(U + 1.0f / Size, V) );
+
+	return lerp(RG0, RG1, FracW);
 }
 
 #endif // __POST_PROCESS_COMMON__

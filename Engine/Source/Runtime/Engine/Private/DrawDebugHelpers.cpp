@@ -50,7 +50,7 @@ void DrawDebugPoint(const UWorld* InWorld, FVector const& Position, float Size, 
 	}
 }
 
-void DrawDebugDirectionalArrow(const UWorld* InWorld, FVector const& LineStart, FVector const& LineEnd, float ArrowSize, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority)
+void DrawDebugDirectionalArrow(const UWorld* InWorld, FVector const& LineStart, FVector const& LineEnd, float ArrowSize, FColor const& Color, bool bPersistentLines, float LifeTime, uint8 DepthPriority, float Thickness)
 {
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
@@ -60,7 +60,7 @@ void DrawDebugDirectionalArrow(const UWorld* InWorld, FVector const& LineStart, 
 			ArrowSize = 10.f;
 		}
 
-		DrawDebugLine(InWorld, LineStart, LineEnd, Color, bPersistentLines, LifeTime);
+		DrawDebugLine(InWorld, LineStart, LineEnd, Color, bPersistentLines, LifeTime, DepthPriority, Thickness);
 
 		FVector Dir = (LineEnd-LineStart);
 		Dir.Normalize();
@@ -78,8 +78,8 @@ void DrawDebugDirectionalArrow(const UWorld* InWorld, FVector const& LineStart, 
 		// since dir is x direction, my arrow will be pointing +y, -x and -y, -x
 		float ArrowSqrt = FMath::Sqrt(ArrowSize);
 		FVector ArrowPos;
-		DrawDebugLine(InWorld, LineEnd, LineEnd + TM.TransformPosition(FVector(-ArrowSqrt, ArrowSqrt, 0)), Color, bPersistentLines, LifeTime, DepthPriority);
-		DrawDebugLine(InWorld, LineEnd, LineEnd + TM.TransformPosition(FVector(-ArrowSqrt, -ArrowSqrt, 0)), Color, bPersistentLines, LifeTime, DepthPriority);
+		DrawDebugLine(InWorld, LineEnd, LineEnd + TM.TransformPosition(FVector(-ArrowSqrt, ArrowSqrt, 0)), Color, bPersistentLines, LifeTime, DepthPriority, Thickness);
+		DrawDebugLine(InWorld, LineEnd, LineEnd + TM.TransformPosition(FVector(-ArrowSqrt, -ArrowSqrt, 0)), Color, bPersistentLines, LifeTime, DepthPriority, Thickness);
 	}
 }
 
@@ -121,57 +121,57 @@ void DrawDebugBox(const UWorld* InWorld, FVector const& Center, FVector const& B
 		ULineBatchComponent* const LineBatcher = GetDebugLineBatcher( InWorld, bPersistentLines, LifeTime, (DepthPriority == SDPG_Foreground) );
 		if(LineBatcher != NULL)
 		{
-			float LineLifeTime = (LifeTime > 0.f)? LifeTime : LineBatcher->DefaultLifeTime;
+			float const LineLifeTime = (LifeTime > 0.f) ? LifeTime : LineBatcher->DefaultLifeTime;
 			TArray<struct FBatchedLine> Lines;
 
-			FTransform Transform(Rotation);
+			FTransform const Transform(Rotation);
 			FVector Start = Transform.TransformPosition(FVector( Box.X,  Box.Y,  Box.Z));
 			FVector End = Transform.TransformPosition(FVector( Box.X, -Box.Y, Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X, -Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X, -Box.Y, Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X, -Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X,  Box.Y, Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X,  Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X,  Box.Y, Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X,  Box.Y, -Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X, -Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X, -Box.Y, -Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X, -Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X, -Box.Y, -Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X,  Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X,  Box.Y, -Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X,  Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines )FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X,  Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X,  Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector( Box.X, -Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector( Box.X, -Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X, -Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X, -Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			Start = Transform.TransformPosition(FVector(-Box.X,  Box.Y,  Box.Z));
 			End = Transform.TransformPosition(FVector(-Box.X,  Box.Y, -Box.Z));
-			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime,  DepthPriority, 0.f);
+			new(Lines) FBatchedLine(Center + Start, Center + End, Color, LineLifeTime, 0.f, DepthPriority);
 
 			LineBatcher->DrawLines(Lines);
 		}
@@ -236,6 +236,38 @@ void DrawDebugSolidPlane(const UWorld* InWorld, FPlane const& P, FVector const& 
 		P.FindBestAxisVectors(U, V);
 		U *= Size;
 		V *= Size;
+
+		TArray<FVector> Verts;
+		Verts.AddUninitialized(4);
+		Verts[0] = ClosestPtOnPlane + U + V;
+		Verts[1] = ClosestPtOnPlane - U + V;
+		Verts[2] = ClosestPtOnPlane + U - V;
+		Verts[3] = ClosestPtOnPlane - U - V;
+
+		TArray<int32> Indices;
+		Indices.AddUninitialized(6);
+		Indices[0] = 0; Indices[1] = 2; Indices[2] = 1;
+		Indices[3] = 1; Indices[4] = 2; Indices[5] = 3;
+
+		// plane quad
+		DrawDebugMesh(InWorld, Verts, Indices, Color, bPersistent, LifeTime, DepthPriority);
+
+		// arrow indicating normal
+		DrawDebugDirectionalArrow(InWorld, ClosestPtOnPlane, ClosestPtOnPlane + P * 16.f, 8.f, FColor::White, bPersistent, LifeTime, DepthPriority);
+	}
+}
+
+ENGINE_API void DrawDebugSolidPlane(const UWorld* InWorld, FPlane const& P, FVector const& Loc, FVector2D const& Extents, FColor const& Color, bool bPersistent/*=false*/, float LifeTime/*=-1*/, uint8 DepthPriority /*= 0*/)
+{
+	// no debug line drawing on dedicated server
+	if(GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
+	{
+		FVector const ClosestPtOnPlane = Loc - P.PlaneDot(Loc) * P;
+
+		FVector U, V;
+		P.FindBestAxisVectors(U, V);
+		U *= Extents.Y;
+		V *= Extents.X;
 
 		TArray<FVector> Verts;
 		Verts.AddUninitialized(4);

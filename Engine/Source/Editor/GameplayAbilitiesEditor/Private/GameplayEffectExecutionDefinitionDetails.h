@@ -32,6 +32,9 @@ private:
 	/** Visibility delegate for calculation modifiers */
 	EVisibility GetCalculationModifierVisibility() const;
 
+	/** Visibility delegate for Passed In Tags field */
+	EVisibility GetPassedInTagsVisibility() const;
+
 	/** Property handle for the calculation class */
 	TSharedPtr<IPropertyHandle> CalculationClassPropHandle;
 
@@ -40,4 +43,7 @@ private:
 
 	/** If true, the calculation modifiers array should be shown */
 	bool bShowCalculationModifiers;
+
+	/** If true, the Passed In Tags field will be shown */
+	bool bShowPassedInTags;
 };

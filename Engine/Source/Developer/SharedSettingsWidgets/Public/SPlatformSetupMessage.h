@@ -34,7 +34,7 @@ public:
 	TAttribute<bool> GetReadyToGoAttribute() const;
 
 	// SWidget interface
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	// End of Swidget interface
 private:
 	int32 GetSetupStateAsInt() const;

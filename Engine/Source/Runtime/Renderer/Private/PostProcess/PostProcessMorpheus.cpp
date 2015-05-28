@@ -28,7 +28,7 @@ class FPostProcessMorpheusPS : public FGlobalShader
 		// we must use a run time check for this because the builds the build machines create will have Morpheus defined,
 		// but a user will not necessarily have the Morpheus files
 		bool bEnableMorpheus = false;
-		if (GConfig->GetBool(TEXT("Morpheus.Settings"), TEXT("EnableMorpheus"), bEnableMorpheus, GEngineIni))
+		if (GConfig->GetBool(TEXT("/Script/MorpheusEditor.MorpheusRuntimeSettings"), TEXT("bEnableMorpheus"), bEnableMorpheus, GEngineIni))
 		{
 			return bEnableMorpheus;
 		}
@@ -88,18 +88,21 @@ public:
 		
 		FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
 
-		PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
+		PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Bilinear, AM_Border, AM_Border, AM_Border>::GetRHI());
 		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View);
 
 		{
 			check(GEngine->HMDDevice.IsValid());
-			TSharedPtr< class IHeadMountedDisplay > HMDDevice = GEngine->HMDDevice;
+			TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > HMDDevice = GEngine->HMDDevice;
 
 			check (StereoPass != eSSP_FULL);
 			if (StereoPass == eSSP_LEFT_EYE)
 			{
 				FTexture* TextureLeft = HMDDevice->GetDistortionTextureLeft();
-				SetTextureParameter(Context.RHICmdList, ShaderRHI, DistortionTextureParam, DistortionTextureSampler, TextureLeft->SamplerStateRHI, TextureLeft->TextureRHI);
+				if (TextureLeft)
+				{
+					SetTextureParameter(Context.RHICmdList, ShaderRHI, DistortionTextureParam, DistortionTextureSampler, TextureLeft->SamplerStateRHI, TextureLeft->TextureRHI);
+				}
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureScale, HMDDevice->GetTextureScaleLeft());
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureOffset, HMDDevice->GetTextureOffsetLeft());
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureUVOffset, 0.0f);
@@ -107,7 +110,10 @@ public:
 			else
 			{
 				FTexture* TextureRight = HMDDevice->GetDistortionTextureRight();
-				SetTextureParameter(Context.RHICmdList, ShaderRHI, DistortionTextureParam, DistortionTextureSampler, TextureRight->SamplerStateRHI, TextureRight->TextureRHI);
+				if (TextureRight)
+				{
+					SetTextureParameter(Context.RHICmdList, ShaderRHI, DistortionTextureParam, DistortionTextureSampler, TextureRight->SamplerStateRHI, TextureRight->TextureRHI);
+				}
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureScale, HMDDevice->GetTextureScaleRight());
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureOffset, HMDDevice->GetTextureOffsetRight());
 				SetShaderValue(Context.RHICmdList, ShaderRHI, TextureUVOffset, -0.5f);
@@ -136,7 +142,7 @@ class FPostProcessMorpheusVS : public FGlobalShader
 		// we must use a run time check for this because the builds the build machines create will have Morpheus defined,
 		// but a user will not necessarily have the Morpheus files
 		bool bEnableMorpheus = false;
-		if (GConfig->GetBool(TEXT("Morpheus.Settings"), TEXT("EnableMorpheus"), bEnableMorpheus, GEngineIni))
+		if (GConfig->GetBool(TEXT("/Script/MorpheusEditor.MorpheusRuntimeSettings"), TEXT("bEnableMorpheus"), bEnableMorpheus, GEngineIni))
 		{
 			return bEnableMorpheus;
 		}
@@ -190,7 +196,10 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 	
 	FIntRect SrcRect = View.ViewRect;
-	FIntRect DestRect = View.UnscaledViewRect;
+
+	//we should be the last node in the graph, so use the 'unscaled' view rect.  aka the one not affected by screenpercentage as we should be 
+	//targetting the final final up/downsampled backbuffer.
+	FIntRect DestRect = View.UnscaledViewRect; //View.ViewRect; // View.UnscaledViewRect;
 	FIntPoint SrcSize = InputDesc->Extent;
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
@@ -205,6 +214,7 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 	Context.RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
 	Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
+#if MORPHEUS_ENGINE_DISTORTION
 	TShaderMapRef<FPostProcessMorpheusVS> VertexShader(Context.GetShaderMap());
 	TShaderMapRef<FPostProcessMorpheusPS> PixelShader(Context.GetShaderMap());
 
@@ -230,18 +240,24 @@ void FRCPassPostProcessMorpheus::Process(FRenderingCompositePassContext& Context
 		DestRect.Size(),
 		SrcSize
 		);
+#elif PLATFORM_PS4
+	checkf(false, TEXT("PS4 uses SDK distortion."));
+#else
+	checkf(false, TEXT("Unsupported path.  Morpheus should be disabled."));
+#endif
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessMorpheus::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassOutputs[0].RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
 
 	Ret.NumSamples = 1;	// no MSAA
+	Ret.Reset();
 	Ret.DebugName = TEXT("Morpheus");
 
 	return Ret;
 }
 
-#endif // HAS_MORPHEUS
+#endif // MORPHEUS_ENGINE_DISTORTION

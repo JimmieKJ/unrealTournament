@@ -55,10 +55,27 @@ public:
 	/** Return a single FGameDelegates object */
 	static FGameDelegates& Get();
 
+	// Called when an exit command is received
+	FSimpleMulticastDelegate& GetExitCommandDelegate()
+	{
+		return ExitCommandDelegate;
+	}
+
+	// Called when ending playing a map
+	FSimpleMulticastDelegate& GetEndPlayMapDelegate()
+	{
+		return EndPlayMapDelegate;
+	}
+
 	// Implement all delegates declared above
 	DEFINE_GAME_DELEGATE(CookModificationDelegate);
 	DEFINE_GAME_DELEGATE(AssignStreamingChunkDelegate);
 	DEFINE_GAME_DELEGATE(AssignLayerChunkDelegate);
 	DEFINE_GAME_DELEGATE(ExtendedSaveGameInfoDelegate);
 	DEFINE_GAME_DELEGATE(WebServerActionDelegate);	
+
+private:
+
+	FSimpleMulticastDelegate ExitCommandDelegate;
+	FSimpleMulticastDelegate EndPlayMapDelegate;
 };

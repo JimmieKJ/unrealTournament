@@ -38,12 +38,7 @@ void APhysicsVolume::LoadedFromAnotherClass(const FName& OldClassName)
 void APhysicsVolume::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-
-	UWorld* MyWorld = GetWorld();
-	if (MyWorld)
-	{
-		MyWorld->AddPhysicsVolume(this);
-	}
+	GetWorld()->AddPhysicsVolume(this);
 }
 
 void APhysicsVolume::Destroyed()
@@ -53,8 +48,17 @@ void APhysicsVolume::Destroyed()
 	{
 		MyWorld->RemovePhysicsVolume(this);
 	}
-
 	Super::Destroyed();
+}
+
+void APhysicsVolume::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	UWorld* MyWorld = GetWorld();
+	if (MyWorld)
+	{
+		MyWorld->RemovePhysicsVolume(this);
+	}
+	Super::EndPlay(EndPlayReason);
 }
 
 

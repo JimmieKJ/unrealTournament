@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Components/InstancedStaticMeshComponent.h"
+#include "StaticMeshResources.h"
 
 #include "HierarchicalInstancedStaticMeshComponent.generated.h"
 
@@ -50,13 +51,42 @@ struct FClusterNode
 	}
 };
 
+class FAsyncBuildInstanceBuffer : public FNonAbandonableTask
+{
+public:
+	class UHierarchicalInstancedStaticMeshComponent* Component;
+	class UWorld* World;
+
+	FAsyncBuildInstanceBuffer(class UHierarchicalInstancedStaticMeshComponent* InComponent, class UWorld* InWorld)
+		: Component(InComponent)
+		, World(InWorld)
+	{
+	}
+	void DoWork();
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncBuildInstanceBuffer, STATGROUP_ThreadPoolAsyncTasks);
+	}
+	static const TCHAR *Name()
+	{
+		return TEXT("FAsyncBuildInstanceBuffer");
+	}
+};
 
 UCLASS(ClassGroup=Rendering, meta=(BlueprintSpawnableComponent))
 class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedStaticMeshComponent
 {
 	GENERATED_UCLASS_BODY()
 
+	~UHierarchicalInstancedStaticMeshComponent();
+
 	TSharedPtr<TArray<FClusterNode>, ESPMode::ThreadSafe> ClusterTreePtr;
+
+	// Temp hack, long term we will load data in the right format directly
+	FAsyncTask<FAsyncBuildInstanceBuffer>* AsyncBuildInstanceBufferTask;
+
+	// Prebuilt instance buffer, used mostly for grass. Long term instances will be stored directly in the correct format.
+	FStaticMeshInstanceData WriteOncePrebuiltInstanceBuffer;
 	
 	// Table for remaping instances from cluster tree to PerInstanceSMData order
 	UPROPERTY()
@@ -70,6 +100,10 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 	UPROPERTY()
 	FBox UnbuiltInstanceBounds;
 
+	// The number of nodes in the occlusion layer
+	UPROPERTY()
+	int32 OcclusionLayerNumNodes;
+
 	bool bIsAsyncBuilding;
 	bool bConcurrentRemoval;
 
@@ -80,38 +114,59 @@ class ENGINE_API UHierarchicalInstancedStaticMeshComponent : public UInstancedSt
 	void ApplyBuildTreeAsync(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent, TSharedRef<FClusterBuilder, ESPMode::ThreadSafe> Builder, double StartTime);
 
 public:
+
+	//Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
+	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
+	virtual void PostLoad() override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& BoundTransform) const override;
 
 	// UInstancedStaticMesh interface
 	virtual int32 AddInstance(const FTransform& InstanceTransform) override;
 	virtual bool RemoveInstance(int32 InstanceIndex) override;
-	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace) override;
+	virtual bool UpdateInstanceTransform(int32 InstanceIndex, const FTransform& NewInstanceTransform, bool bWorldSpace, bool bMarkRenderStateDirty = false) override;
 	virtual void ClearInstances() override;
+
+
+	/** Get the number of instances that overlap a given sphere */
+	int32 GetOverlappingSphereCount(const FSphere& Sphere) const;
+	/** Get the number of instances that overlap a given box */
+	int32 GetOverlappingBoxCount(const FBox& Box) const;
+	/** Get the transforms of instances inside the provided box */
+	void GetOverlappingBoxTransforms(const FBox& Box, TArray<FTransform>& OutTransforms) const;
 
 	virtual bool ShouldCreatePhysicsState() const override;
 
 	void BuildTree();
 	void BuildTreeAsync();
 	static void BuildTreeAnyThread(
-		const TArray<FInstancedStaticMeshInstanceData>& PerInstanceSMData, 
+		TArray<FMatrix>& InstanceTransforms, 
 		const FBox& MeshBox,
 		TArray<FClusterNode>& OutClusterTree,
 		TArray<int32>& OutSortedInstances,
 		TArray<int32>& OutInstanceReorderTable,
+		int32& OutOcclusionLayerNum,
 		int32 MaxInstancesPerLeaf
 		);
-	void AcceptPrebuiltTree(
-		TArray<FClusterNode>& InClusterTree,
-		TArray<int32>& InSortedInstances,
-		TArray<int32>& InInstanceReorderTable
-		);
+	void AcceptPrebuiltTree(TArray<FClusterNode>& InClusterTree, int InOcclusionLayerNumNodes);
 	void BuildFlatTree(const TArray<int32>& LeafInstanceCounts);
 	bool IsAsyncBuilding() const { return bIsAsyncBuilding; }
 	bool IsTreeFullyBuilt() const { return NumBuiltInstances == PerInstanceSMData.Num() && RemovedInstances.Num() == 0; }
 
+	void FlushAsyncBuildInstanceBufferTask();
+
+	/** Heuristic for the number of leaves in the tree **/
+	int32 DesiredInstancesPerLeaf();
+
 protected:
+	/** Gets and approximate number of verts for each LOD to generate heuristics **/
+	int32 GetVertsForLOD(int32 LODIndex);
+	/** Average number of instances per leaf **/
+	float ActualInstancesPerLeaf();
+	/** For testing, prints some stats after any kind of build **/
+	void PostBuildStats();
+
 	virtual void GetNavigationPerInstanceTransforms(const FBox& AreaBox, TArray<FTransform>& InstanceData) const override;
 	virtual void PartialNavigationUpdate(int32 InstanceIdx) override;
 	void FlushAccumulatedNavigationUpdates();

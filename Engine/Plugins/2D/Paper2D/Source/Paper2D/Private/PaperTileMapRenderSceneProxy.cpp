@@ -4,32 +4,238 @@
 #include "PaperTileMapRenderSceneProxy.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/BodySetup2D.h"
+#include "EngineGlobals.h"
+#include "SceneManagement.h"
+#include "Engine/Engine.h"
+#include "PaperTileMap.h"
+#include "PaperTileLayer.h"
+#include "PaperTileMapComponent.h"
+
+DECLARE_CYCLE_STAT(TEXT("Tile Map Proxy"), STAT_TileMap_GetDynamicMeshElements, STATGROUP_Paper2D);
+DECLARE_CYCLE_STAT(TEXT("Tile Map Editor Grid"), STAT_TileMap_EditorWireDrawing, STATGROUP_Paper2D);
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperTileMapRenderSceneProxy
 
 FPaperTileMapRenderSceneProxy::FPaperTileMapRenderSceneProxy(const UPaperTileMapComponent* InComponent)
 	: FPaperRenderSceneProxy(InComponent)
+#if WITH_EDITOR
+	, bShowPerTileGrid(false)
+	, bShowPerLayerGrid(false)
+	, bShowOutlineWhenUnselected(false)
+#endif
 	, TileMap(nullptr)
+	, OnlyLayerIndex(InComponent->bUseSingleLayer ? InComponent->UseSingleLayerIndex : INDEX_NONE)
+	, WireDepthBias(0.0001f)
 {
-	if (const UPaperTileMapComponent* InTileComponent = Cast<const UPaperTileMapComponent>(InComponent))
+	check(InComponent);
+
+	WireframeColor = InComponent->GetWireframeColor();
+	TileMap = InComponent->TileMap;
+	Material = InComponent->GetMaterial(0);
+	if (Material == nullptr)
 	{
-		TileMap = InTileComponent->TileMap;
-		Material = InTileComponent->GetMaterial(0);
-		MaterialRelevance = InTileComponent->GetMaterialRelevance(GetScene().GetFeatureLevel());
+		Material = UMaterial::GetDefaultMaterial(MD_Surface);
+	}
+	MaterialRelevance = InComponent->GetMaterialRelevance(GetScene().GetFeatureLevel());
+
+#if WITH_EDITORONLY_DATA
+	bShowPerTileGrid = InComponent->bShowPerTileGridWhenSelected;
+	bShowPerLayerGrid = InComponent->bShowPerLayerGridWhenSelected;
+	bShowOutlineWhenUnselected = InComponent->bShowOutlineWhenUnselected;
+#endif
+}
+
+FPaperTileMapRenderSceneProxy* FPaperTileMapRenderSceneProxy::CreateTileMapProxy(const UPaperTileMapComponent* InComponent, TArray<FSpriteRenderSection>*& OutSections, TArray<FPaperSpriteVertex>*& OutVertices)
+{
+	FPaperTileMapRenderSceneProxy* NewProxy = new FPaperTileMapRenderSceneProxy(InComponent);
+
+	OutVertices = &(NewProxy->VertexBuffer.Vertices);
+	OutSections = &(NewProxy->BatchedSections);
+
+	return NewProxy;
+}
+
+void FPaperTileMapRenderSceneProxy::FinishConstruction_GameThread()
+{
+	if (VertexBuffer.Vertices.Num() > 0)
+	{
+		// Init the vertex factory
+		MyVertexFactory.Init(&VertexBuffer);
+
+		// Enqueue initialization of render resources
+		BeginInitResource(&VertexBuffer);
+		BeginInitResource(&MyVertexFactory);
+	}
+}
+
+void FPaperTileMapRenderSceneProxy::DrawBoundsForLayer(FPrimitiveDrawInterface* PDI, const FLinearColor& Color, int32 LayerIndex) const
+{
+	const FMatrix& LocalToWorld = GetLocalToWorld();
+	const FVector TL(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(0, 0, LayerIndex)));
+	const FVector TR(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(TileMap->MapWidth, 0, LayerIndex)));
+	const FVector BL(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(0, TileMap->MapHeight, LayerIndex)));
+	const FVector BR(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(TileMap->MapWidth, TileMap->MapHeight, LayerIndex)));
+
+	PDI->DrawLine(TL, TR, Color, SDPG_Foreground, 0.0f, WireDepthBias);
+	PDI->DrawLine(TR, BR, Color, SDPG_Foreground, 0.0f, WireDepthBias);
+	PDI->DrawLine(BR, BL, Color, SDPG_Foreground, 0.0f, WireDepthBias);
+	PDI->DrawLine(BL, TL, Color, SDPG_Foreground, 0.0f, WireDepthBias);
+}
+
+void FPaperTileMapRenderSceneProxy::DrawNormalGridLines(FPrimitiveDrawInterface* PDI, const FLinearColor& Color, int32 LayerIndex) const
+{
+	const FMatrix& LocalToWorld = GetLocalToWorld();
+	const uint8 DPG = SDPG_Foreground;//GetDepthPriorityGroup(View);
+
+	// Draw horizontal lines on the selection
+	for (int32 Y = 0; Y <= TileMap->MapHeight; ++Y)
+	{
+		int32 X = 0;
+		const FVector Start(TileMap->GetTilePositionInLocalSpace(X, Y, LayerIndex));
+
+		X = TileMap->MapWidth;
+		const FVector End(TileMap->GetTilePositionInLocalSpace(X, Y, LayerIndex));
+
+		PDI->DrawLine(LocalToWorld.TransformPosition(Start), LocalToWorld.TransformPosition(End), Color, DPG, 0.0f, WireDepthBias);
+	}
+
+	// Draw vertical lines
+	for (int32 X = 0; X <= TileMap->MapWidth; ++X)
+	{
+		int32 Y = 0;
+		const FVector Start(TileMap->GetTilePositionInLocalSpace(X, Y, LayerIndex));
+
+		Y = TileMap->MapHeight;
+		const FVector End(TileMap->GetTilePositionInLocalSpace(X, Y, LayerIndex));
+
+		PDI->DrawLine(LocalToWorld.TransformPosition(Start), LocalToWorld.TransformPosition(End), Color, DPG, 0.0f, WireDepthBias);
+	}
+}
+
+void FPaperTileMapRenderSceneProxy::DrawStaggeredGridLines(FPrimitiveDrawInterface* PDI, const FLinearColor& Color, int32 LayerIndex) const
+{
+	TArray<FVector> Poly;
+	Poly.Empty(4);
+
+	const FMatrix& LocalToWorld = GetLocalToWorld();
+	const uint8 DPG = SDPG_Foreground;//GetDepthPriorityGroup(View);
+
+	FVector CornerPosition;
+	FVector OffsetYFactor;
+	FVector StepX;
+	FVector StepY;
+
+	TileMap->GetTileToLocalParameters(/*out*/ CornerPosition, /*out*/ StepX, /*out*/ StepY, /*out*/ OffsetYFactor);
+
+	const FVector PartialZ = (TileMap->SeparationPerLayer * LayerIndex) * PaperAxisZ;
+	const FVector TotalOffset = CornerPosition + PartialZ;
+
+	const bool bStaggerEven = false;
+
+	const FVector TopCenterStart = TotalOffset + StepX * 0.5f + (StepX * -0.5f) + StepY;
+	for (int32 X = 0-((TileMap->MapHeight+1)/2); X < TileMap->MapWidth; ++X)
+	{
+		int32 XTop = FMath::Max(X, 0);
+		int32 YTop = FMath::Max(-2 * X, 0);
+
+		if (X < 0)
+		{
+			XTop--;
+			YTop--;
+		}
+
+		// A is top of center top row cell
+		Poly.Reset();
+		TileMap->GetTilePolygon(XTop, YTop, LayerIndex, Poly);
+		const FVector LSA = Poly[0];
+
+		// Determine the bottom row cell
+		int32 YBottom = TileMap->MapHeight - 1;
+		int32 XBottom = X + (TileMap->MapHeight +  1) / 2;
+		const int32 XExcess = FMath::Max(XBottom - TileMap->MapWidth, 0);
+		XBottom -= XExcess;
+		YBottom -= XExcess * 2;
+
+ 		if (XBottom == TileMap->MapWidth)
+ 		{
+			YBottom -= ((TileMap->MapHeight & 1) != 0) ? 0 : 1;
+ 		}
+
+		// Bottom center
+		Poly.Reset();
+		TileMap->GetTilePolygon(XBottom, YBottom, LayerIndex, Poly);
+		const FVector LSB = Poly[2];
+
+		PDI->DrawLine(LocalToWorld.TransformPosition(LSA), LocalToWorld.TransformPosition(LSB), Color, DPG, 0.0f, WireDepthBias);
+	}
+
+	for (int32 X = 0; X < TileMap->MapWidth + ((TileMap->MapHeight + 1) / 2) + 1; ++X)
+	{
+		const int32 XTop = FMath::Min(X, TileMap->MapWidth);
+		const int32 YTop = FMath::Max(2 * (X - TileMap->MapWidth), 0);
+
+		// A is top center of top row cell
+		Poly.Reset();
+		TileMap->GetTilePolygon(XTop, YTop, LayerIndex, Poly);
+		const FVector LSA = Poly[0];
+
+		// Determine the bottom row cell
+		int32 YBottom = TileMap->MapHeight;
+		int32 XBottom = X - ((TileMap->MapHeight+1) / 2);
+		const int32 XExcess = FMath::Max(-XBottom, 0);
+		XBottom += XExcess;
+		YBottom -= XExcess * 2;
+
+		if (XExcess > 0)
+		{
+			YBottom += (TileMap->MapHeight & 1);
+		}
+
+		// Bottom left
+		Poly.Reset();
+		TileMap->GetTilePolygon(XBottom, YBottom, LayerIndex, Poly);
+		const FVector LSB = Poly[3];
+
+		PDI->DrawLine(LocalToWorld.TransformPosition(LSA), LocalToWorld.TransformPosition(LSB), Color, DPG, 0.0f, WireDepthBias);
+	}
+}
+
+void FPaperTileMapRenderSceneProxy::DrawHexagonalGridLines(FPrimitiveDrawInterface* PDI, const FLinearColor& Color, int32 LayerIndex) const
+{
+	//@TODO: This isn't very efficient
+	const FMatrix& LocalToWorld = GetLocalToWorld();
+	const uint8 DPG = SDPG_Foreground;//GetDepthPriorityGroup(View);
+
+	TArray<FVector> Poly;
+	Poly.Empty(6);
+	for (int32 Y = 0; Y < TileMap->MapHeight; ++Y)
+	{
+		for (int32 X = 0; X < TileMap->MapWidth; ++X)
+		{
+			Poly.Reset();
+			TileMap->GetTilePolygon(X, Y, LayerIndex, Poly);
+
+			FVector LastVertexWS = LocalToWorld.TransformPosition(Poly[5]);
+			for (int32 VI = 0; VI < Poly.Num(); ++VI)
+			{
+				FVector ThisVertexWS = LocalToWorld.TransformPosition(Poly[VI]);
+				PDI->DrawLine(LastVertexWS, ThisVertexWS, Color, DPG, 0.0f, WireDepthBias);
+				LastVertexWS = ThisVertexWS;
+			}
+		}
 	}
 }
 
 void FPaperTileMapRenderSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const
 {
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_FPaperTileMapRenderSceneProxy_GetDynamicMeshElements);
+	SCOPE_CYCLE_COUNTER(STAT_TileMap_GetDynamicMeshElements);
 	checkSlow(IsInRenderingThread());
-
-	// Slight depth bias so that the wireframe grid overlay doesn't z-fight with the tiles themselves
-	const float DepthBias = 0.0001f;
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_TileMap_EditorWireDrawing);
+
 		if (VisibilityMap & (1 << ViewIndex))
 		{
 			const FSceneView* View = Views[ViewIndex];
@@ -39,8 +245,6 @@ void FPaperTileMapRenderSceneProxy::GetDynamicMeshElements(const TArray<const FS
 			//@TODO: RenderThread race condition
 			if (TileMap != nullptr)
 			{
-				FColor WireframeColor = FColor(0, 255, 255, 255);
-
 				if ((View->Family->EngineShowFlags.Collision /*@TODO: && bIsCollisionEnabled*/) && AllowDebugViewmodes())
 				{
 					if (UBodySetup2D* BodySetup2D = Cast<UBodySetup2D>(TileMap->BodySetup))
@@ -92,72 +296,62 @@ void FPaperTileMapRenderSceneProxy::GetDynamicMeshElements(const TArray<const FS
 				RenderBounds(PDI, View->Family->EngineShowFlags, GetBounds(), IsSelected());
 
 #if WITH_EDITOR
+				const bool bShowAsSelected = IsSelected();
+				const bool bEffectivelySelected = bShowAsSelected || IsHovered();
+
+				const uint8 DPG = SDPG_Foreground;//GetDepthPriorityGroup(View);
+
+				// Draw separation wires if selected
+				const FLinearColor OverrideColor = GetSelectionColor(FLinearColor::White, bShowAsSelected, IsHovered(), /*bUseOverlayIntensity=*/ false);
+
+				FTransform LocalToWorld(GetLocalToWorld());
+
 				// Draw the debug outline
-				if (View->Family->EngineShowFlags.Grid)
+				if (bEffectivelySelected)
 				{
-					const uint8 DPG = SDPG_Foreground;//GetDepthPriorityGroup(View);
+					const int32 SelectedLayerIndex = (OnlyLayerIndex != INDEX_NONE) ? OnlyLayerIndex : TileMap->SelectedLayerIndex;
 
-					// Draw separation wires if selected
-					FLinearColor OverrideColor;
-					bool bUseOverrideColor = false;
-
-					const bool bShowAsSelected = !(GIsEditor && View->Family->EngineShowFlags.Selection) || IsSelected();
-					if (bShowAsSelected || IsHovered())
+					if (bShowPerLayerGrid)
 					{
-						bUseOverrideColor = true;
-						OverrideColor = GetSelectionColor(FLinearColor::White, bShowAsSelected, IsHovered());
-					}
-
-					FTransform LocalToWorld(GetLocalToWorld());
-
-					if (bUseOverrideColor)
-					{
-						const int32 SelectedLayerIndex = TileMap->SelectedLayerIndex;
-
-						// Draw a bound for any invisible layers
-						for (int32 LayerIndex = 0; LayerIndex < TileMap->TileLayers.Num(); ++LayerIndex)
+						if (OnlyLayerIndex == INDEX_NONE)
 						{
-							if (LayerIndex != SelectedLayerIndex)
+							// Draw a bound for every layer but the selected one (and even that one if the per-tile grid is off)
+							for (int32 LayerIndex = 0; LayerIndex < TileMap->TileLayers.Num(); ++LayerIndex)
 							{
-								const FVector TL(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(0, 0, LayerIndex)));
-								const FVector TR(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(TileMap->MapWidth, 0, LayerIndex)));
-								const FVector BL(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(0, TileMap->MapHeight, LayerIndex)));
-								const FVector BR(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(TileMap->MapWidth, TileMap->MapHeight, LayerIndex)));
-
-								PDI->DrawLine(TL, TR, OverrideColor, DPG, 0.0f, DepthBias);
-								PDI->DrawLine(TR, BR, OverrideColor, DPG, 0.0f, DepthBias);
-								PDI->DrawLine(BR, BL, OverrideColor, DPG, 0.0f, DepthBias);
-								PDI->DrawLine(BL, TL, OverrideColor, DPG, 0.0f, DepthBias);
+								if ((LayerIndex != SelectedLayerIndex) || !bShowPerTileGrid)
+								{
+									DrawBoundsForLayer(PDI, OverrideColor, LayerIndex);
+								}
 							}
 						}
-
-						if (SelectedLayerIndex != INDEX_NONE)
+						else if (!bShowPerTileGrid)
 						{
-							// Draw horizontal lines on the selection
-							for (int32 Y = 0; Y <= TileMap->MapHeight; ++Y)
-							{
-								int32 X = 0;
-								const FVector Start(TileMap->GetTilePositionInLocalSpace(X, Y, SelectedLayerIndex));
-
-								X = TileMap->MapWidth;
-								const FVector End(TileMap->GetTilePositionInLocalSpace(X, Y, SelectedLayerIndex));
-
-								PDI->DrawLine(LocalToWorld.TransformPosition(Start), LocalToWorld.TransformPosition(End), OverrideColor, DPG, 0.0f, DepthBias);
-							}
-
-							// Draw vertical lines
-							for (int32 X = 0; X <= TileMap->MapWidth; ++X)
-							{
-								int32 Y = 0;
-								const FVector Start(TileMap->GetTilePositionInLocalSpace(X, Y, SelectedLayerIndex));
-
-								Y = TileMap->MapHeight;
-								const FVector End(TileMap->GetTilePositionInLocalSpace(X, Y, SelectedLayerIndex));
-
-								PDI->DrawLine(LocalToWorld.TransformPosition(Start), LocalToWorld.TransformPosition(End), OverrideColor, DPG, 0.0f, DepthBias);
-							}
+							DrawBoundsForLayer(PDI, OverrideColor, OnlyLayerIndex);
 						}
 					}
+
+					if (bShowPerTileGrid && (SelectedLayerIndex != INDEX_NONE))
+					{
+						switch (TileMap->ProjectionMode)
+						{
+						default:
+						case ETileMapProjectionMode::Orthogonal:
+						case ETileMapProjectionMode::IsometricDiamond:
+							DrawNormalGridLines(PDI, OverrideColor, SelectedLayerIndex);
+							break;
+						case ETileMapProjectionMode::IsometricStaggered:
+							DrawStaggeredGridLines(PDI, OverrideColor, SelectedLayerIndex);
+							break;
+						case ETileMapProjectionMode::HexagonalStaggered:
+							DrawHexagonalGridLines(PDI, OverrideColor, SelectedLayerIndex);
+							break;
+						}
+					}
+				}
+				else if (View->Family->EngineShowFlags.Grid && bShowOutlineWhenUnselected)
+				{
+					// Draw a layer rectangle even when not selected, so you can see where the tile map is in the editor
+					DrawBoundsForLayer(PDI, WireframeColor, /*LayerIndex=*/ (OnlyLayerIndex != INDEX_NONE) ? OnlyLayerIndex : 0);
 				}
 #endif
 			}

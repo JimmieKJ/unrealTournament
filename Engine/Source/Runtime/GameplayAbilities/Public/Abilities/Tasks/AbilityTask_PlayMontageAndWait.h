@@ -16,13 +16,24 @@ class UAbilityTask_PlayMontageAndWait : public UAbilityTask
 	UPROPERTY(BlueprintAssignable)
 	FMontageWaitSimpleDelegate	OnInterrupted;
 
-	UFUNCTION()
-	void OnMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	UPROPERTY(BlueprintAssignable)
+	FMontageWaitSimpleDelegate	OnCancelled;
 
-	UFUNCTION(BlueprintCallable, Category="Ability|Tasks", meta = (FriendlyName="PlayMontageAndWait", HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "TRUE"))
-	static UAbilityTask_PlayMontageAndWait* CreatePlayMontageAndWaitProxy(UObject* WorldContextObject, UAnimMontage *MontageToPlay, float Rate = 1.f);
+	UFUNCTION()
+	void OnMontageBlendingOut(UAnimMontage* Montage, bool bInterrupted);
+
+	UFUNCTION()
+	void OnMontageInterrupted();
+
+	UFUNCTION(BlueprintCallable, Category="Ability|Tasks", meta = (DisplayName="PlayMontageAndWait",
+		HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "TRUE"))
+	static UAbilityTask_PlayMontageAndWait* CreatePlayMontageAndWaitProxy(UObject* WorldContextObject,
+		FName TaskInstanceName, UAnimMontage *MontageToPlay, float Rate = 1.f, FName StartSection = NAME_None);
 
 	virtual void Activate() override;
+
+	/** Called when the ability is asked to cancel from an outside node. What this means depends on the individual task. By default, this does nothing other than ending the task. */
+	virtual void ExternalCancel() override;
 
 	virtual FString GetDebugString() const override;
 
@@ -30,6 +41,10 @@ private:
 
 	virtual void OnDestroy(bool AbilityEnded) override;
 
+	FOnMontageBlendingOutStarted BlendingOutDelegate;
+	FDelegateHandle InterruptedHandle;
+
 	UAnimMontage* MontageToPlay;
 	float Rate;	
+	FName StartSection;
 };

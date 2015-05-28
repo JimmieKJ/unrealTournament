@@ -34,7 +34,7 @@ FSlateDynamicImageBrush::~FSlateDynamicImageBrush( )
 	if (FSlateApplicationBase::IsInitialized())
 	{
 		// Brush resource is no longer referenced by this object
-		if( ResourceObject )
+		if (ResourceObject && bRemoveResourceFromRootSet)
 		{
 			ResourceObject->RemoveFromRoot();
 		}

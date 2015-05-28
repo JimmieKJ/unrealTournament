@@ -5,7 +5,8 @@
 #include "Misc/App.h"
 #include "Misc/OutputDeviceConsole.h"
 
-void							FGenericPlatformOutputDevices::SetupOutputDevices()
+
+void FGenericPlatformOutputDevices::SetupOutputDevices()
 {
 	check(GLog);
 
@@ -26,7 +27,8 @@ void							FGenericPlatformOutputDevices::SetupOutputDevices()
 	GLog->AddOutputDevice(FPlatformOutputDevices::GetEventLog());
 };
 
-FString								FGenericPlatformOutputDevices::GetAbsoluteLogFilename()
+
+FString FGenericPlatformOutputDevices::GetAbsoluteLogFilename()
 {
 	static TCHAR		Filename[1024] = { 0 };
 
@@ -53,17 +55,22 @@ FString								FGenericPlatformOutputDevices::GetAbsoluteLogFilename()
 	return Filename;
 }
 
-class FOutputDevice*				FGenericPlatformOutputDevices::GetLog()
+
+class FOutputDevice* FGenericPlatformOutputDevices::GetLog()
 {
 	static FOutputDeviceFile Singleton;
 	return &Singleton;
 }
-class FOutputDeviceError*			FGenericPlatformOutputDevices::GetError()
+
+
+class FOutputDeviceError* FGenericPlatformOutputDevices::GetError()
 {
 	static FOutputDeviceAnsiError Singleton;
 	return &Singleton;
 }
-class FFeedbackContext*				FGenericPlatformOutputDevices::GetWarn()
+
+
+class FFeedbackContext* FGenericPlatformOutputDevices::GetWarn()
 {
 	static FFeedbackContextAnsi Singleton;
 	return &Singleton;

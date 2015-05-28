@@ -918,7 +918,7 @@ public:
 		}
 	}
 protected:
-	virtual FText GetDisplayName() const
+	virtual FText GetDisplayName() const override
 	{
 		return LOCTEXT("ExecutionTrace", "Execution Trace");
 	}
@@ -1161,9 +1161,6 @@ void SKismetDebuggingView::Tick( const FGeometry& AllottedGeometry, const double
 
 	// Refresh the list
 	DebugTreeView->RequestTreeRefresh();
-
-
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 }
 
 

@@ -4,6 +4,8 @@
 	DistanceFieldLightingShared.usf
 =============================================================================*/
 
+#include "SurfelMaterialShared.usf"
+
 #ifndef THREADGROUP_SIZEX
 #define THREADGROUP_SIZEX 1
 #endif   
@@ -14,10 +16,6 @@
 
 #define THREADGROUP_TOTALSIZE (THREADGROUP_SIZEX * THREADGROUP_SIZEY)
 
-#ifndef MAX_OBJECTS_PER_TILE
-#define MAX_OBJECTS_PER_TILE 1
-#endif
-
 #ifndef DOWNSAMPLE_FACTOR
 #define DOWNSAMPLE_FACTOR 1
 #endif
@@ -25,6 +23,9 @@
 #ifndef UPDATEOBJECTS_THREADGROUP_SIZE
 #define UPDATEOBJECTS_THREADGROUP_SIZE 1
 #endif
+
+// Must match C++
+#define MAX_OBJECTS_PER_TILE 512
 
 float3 DistanceFieldVolumePositionToUV(float3 VolumePosition, float3 UVScale, float3 UVAdd)
 {
@@ -46,7 +47,7 @@ uint GetCulledNumObjects()
 }
 
 // In float4's.  Must match equivalent C++ variables.
-#define OBJECT_DATA_STRIDE 12
+#define OBJECT_DATA_STRIDE 16
 
 uint NumSceneObjects;
 
@@ -58,9 +59,98 @@ Buffer<float> ObjectData;
 RWBuffer<float> RWObjectBounds;
 RWBuffer<float> RWObjectData;
 
+float4 LoadGlobalObjectPositionAndRadius(uint ObjectIndex)
+{
+	uint VectorIndex = ObjectIndex * 4;
+	return float4(ObjectBounds[VectorIndex + 0], ObjectBounds[VectorIndex + 1], ObjectBounds[VectorIndex + 2], ObjectBounds[VectorIndex + 3]);
+}
+
+float4x4 LoadGlobalObjectWorldToVolume(uint ObjectIndex)
+{
+	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 0) * 4;
+	float4 M0 = float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
+	VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 1) * 4;
+	float4 M1 = float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
+	VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 2) * 4;
+	float4 M2 = float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
+	VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 3) * 4;
+	float4 M3 = float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
+
+	return float4x4(M0, M1, M2, M3);
+}
+ 
+float3 LoadGlobalObjectLocalPositionExtent(uint ObjectIndex)
+{
+	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 4) * 4;
+	return float3(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2]);
+}
+
+float4 LoadGlobalObjectUVScale(uint ObjectIndex)
+{
+	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 5) * 4;
+	return float4(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2], ObjectData[VectorIndex + 3]);
+}
+
+float3 LoadGlobalObjectUVAdd(uint ObjectIndex)
+{
+	uint VectorIndex = (ObjectIndex * OBJECT_DATA_STRIDE + 6) * 4;
+	return float3(ObjectData[VectorIndex + 0], ObjectData[VectorIndex + 1], ObjectData[VectorIndex + 2]);
+}
+
 // In float4's.  Must match equivalent C++ variables.
-#define CULLED_OBJECT_DATA_STRIDE 8
+#define CULLED_OBJECT_DATA_STRIDE 16
 #define CULLED_OBJECT_BOX_BOUNDS_STRIDE 5
+
+float4 LoadObjectPositionAndRadiusFromBuffer(uint ObjectIndex, Buffer<float4> InBuffer)
+{
+	return InBuffer.Load(ObjectIndex);
+}
+
+float4x4 LoadObjectWorldToVolumeFromBuffer(uint ObjectIndex, Buffer<float4> InBuffer)
+{
+	float4 M0 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 0);
+	float4 M1 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 1);
+	float4 M2 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 2);
+	float4 M3 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 3);
+
+	return float4x4(M0, M1, M2, M3);
+}
+ 
+float3 LoadObjectLocalPositionExtentFromBuffer(uint ObjectIndex, Buffer<float4> InBuffer)
+{
+	return InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 4).xyz;
+}
+
+float4 LoadObjectUVScaleFromBuffer(uint ObjectIndex, Buffer<float4> InBuffer, out bool bGeneratedAsTwoSided)
+{
+	float4 Value = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 5).xyzw;
+	bGeneratedAsTwoSided = Value.w < 0;
+	return float4(Value.xyz, abs(Value.w));
+}
+
+float3 LoadObjectUVAddFromBuffer(uint ObjectIndex, Buffer<float4> InBuffer)
+{
+	return InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 6).xyz;
+}
+
+float3x3 LoadObjectVolumeToWorldFromBuffer(uint ObjectIndex, Buffer<float4> InBuffer)
+{
+	float3 M0 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 8).xyz;
+	float3 M1 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 9).xyz;
+	float3 M2 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 10).xyz;
+
+	return float3x3(M0, M1, M2);
+}
+
+float4x4 LoadObjectLocalToWorldFromBuffer(uint ObjectIndex, Buffer<float4> InBuffer)
+{
+	float4 M0 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 11);
+	float4 M1 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 12);
+	float4 M2 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 13);
+	float4 M3 = InBuffer.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 14);
+
+	return float4x4(M0, M1, M2, M3);
+}
 
 Buffer<float4> CulledObjectBounds;
 Buffer<float4> CulledObjectData;
@@ -68,32 +158,49 @@ Buffer<float4> CulledObjectBoxBounds;
 
 float4 LoadObjectPositionAndRadius(uint ObjectIndex)
 {
-	return CulledObjectBounds.Load(ObjectIndex);
+	return LoadObjectPositionAndRadiusFromBuffer(ObjectIndex, CulledObjectBounds);
 }
 
 float4x4 LoadObjectWorldToVolume(uint ObjectIndex)
 {
-	float4 M0 = CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 0);
-	float4 M1 = CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 1);
-	float4 M2 = CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 2);
-	float4 M3 = CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 3);
-
-	return float4x4(M0, M1, M2, M3);
+	return LoadObjectWorldToVolumeFromBuffer(ObjectIndex, CulledObjectData);
 }
-
+ 
 float3 LoadObjectLocalPositionExtent(uint ObjectIndex)
 {
-	return CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 4).xyz;
+	return LoadObjectLocalPositionExtentFromBuffer(ObjectIndex, CulledObjectData);
 }
 
 float4 LoadObjectUVScale(uint ObjectIndex)
 {
-	return CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 5).xyzw;
+	bool bUnused;
+	return LoadObjectUVScaleFromBuffer(ObjectIndex, CulledObjectData, bUnused);
+}
+
+float4 LoadObjectUVScale(uint ObjectIndex, out bool bGeneratedAsTwoSided)
+{
+	return LoadObjectUVScaleFromBuffer(ObjectIndex, CulledObjectData, bGeneratedAsTwoSided);
 }
 
 float3 LoadObjectUVAdd(uint ObjectIndex)
 {
-	return CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 6).xyz;
+	return LoadObjectUVAddFromBuffer(ObjectIndex, CulledObjectData);
+}
+
+float3x3 LoadObjectVolumeToWorld(uint ObjectIndex)
+{
+	return LoadObjectVolumeToWorldFromBuffer(ObjectIndex, CulledObjectData);
+}
+
+float4x4 LoadObjectLocalToWorld(uint ObjectIndex)
+{
+	return LoadObjectLocalToWorldFromBuffer(ObjectIndex, CulledObjectData);
+}
+
+// x = Offset in global buffer, y = NumLOD0, z = NumSurfels (all LODs), W = instance index
+uint4 LoadObjectSurfelCoordinate(uint ObjectIndex)
+{
+	return (uint4)CulledObjectData.Load(ObjectIndex * CULLED_OBJECT_DATA_STRIDE + 15);
 }
 
 void LoadObjectViewSpaceBox(uint ObjectIndex, out float3 ObjectViewSpaceMin, out float3 ObjectViewSpaceMax)
@@ -107,4 +214,98 @@ void LoadObjectAxes(uint ObjectIndex, out float3 ObjectAxisX, out float3 ObjectA
 	ObjectAxisX = CulledObjectBoxBounds.Load(ObjectIndex * CULLED_OBJECT_BOX_BOUNDS_STRIDE + 2).xyz;
 	ObjectAxisY = CulledObjectBoxBounds.Load(ObjectIndex * CULLED_OBJECT_BOX_BOUNDS_STRIDE + 3).xyz;
 	ObjectAxisZ = CulledObjectBoxBounds.Load(ObjectIndex * CULLED_OBJECT_BOX_BOUNDS_STRIDE + 4).xyz;
+}
+
+void FindBestAxisVectors2(float3 InZAxis, out float3 OutXAxis, out float3 OutYAxis )
+{
+	float3 UpVector = abs(InZAxis.z) < 0.999 ? float3(0,0,1) : float3(1,0,0);
+	OutXAxis = normalize( cross( UpVector, InZAxis ) );
+	OutYAxis = cross( InZAxis, OutXAxis );
+}
+
+// VPLs generated by raytracing from the light
+#define VPL_DATA_STRIDE 3
+
+#define FINAL_GATHER_THREADGROUP_SIZE 64
+
+// Must match C++
+#define NUM_VISIBILITY_STEPS 10
+
+// Must match C++
+#define RECORD_CONE_DATA_STRIDE NUM_VISIBILITY_STEPS
+
+Buffer<float4> IrradianceCachePositionRadius;
+Buffer<float> IrradianceCacheOccluderRadius;
+Buffer<uint2> IrradianceCacheTileCoordinate;
+Buffer<float4> IrradianceCacheNormal;
+Buffer<float4> IrradianceCacheBentNormal;
+Buffer<float4> IrradianceCacheIrradiance;
+
+Buffer<uint> ScatterDrawParameters;
+Buffer<uint> SavedStartIndex;
+
+uint NumConvexHullPlanes;
+float4 ViewFrustumConvexHull[6];
+
+bool ViewFrustumIntersectSphere(float3 SphereOrigin, float SphereRadius)
+{
+	for (uint PlaneIndex = 0; PlaneIndex < NumConvexHullPlanes; PlaneIndex++)
+	{
+		float4 PlaneData = ViewFrustumConvexHull[PlaneIndex];
+		float PlaneDistance = dot(PlaneData.xyz, SphereOrigin) - PlaneData.w;
+
+		if (PlaneDistance > SphereRadius)
+		{
+			return false;
+		}
+	}
+	
+	return true;
+}
+
+Buffer<float4> SurfelData;
+
+float4 LoadSurfelPositionAndRadius(uint SurfelIndex)
+{
+	return SurfelData[SurfelIndex * SURFEL_DATA_STRIDE + 0];
+}
+
+float3 LoadSurfelNormal(uint SurfelIndex)
+{
+	return SurfelData[SurfelIndex * SURFEL_DATA_STRIDE + 1].xyz;
+}
+
+float3 LoadSurfelDiffuseColor(uint SurfelIndex)
+{
+	return SurfelData[SurfelIndex * SURFEL_DATA_STRIDE + 2].xyz;
+}
+
+float3 LoadSurfelEmissiveColor(uint SurfelIndex)
+{
+	return SurfelData[SurfelIndex * SURFEL_DATA_STRIDE + 3].xyz;
+}
+
+float ApproximateConeConeIntersection(float ArcLength0, float ArcLength1, float AngleBetweenCones)
+{
+	float AngleDifference = abs(ArcLength0 - ArcLength1);
+
+	float Intersection = smoothstep(
+		0,
+		1.0,
+		1.0 - saturate((AngleBetweenCones - AngleDifference) / (ArcLength0 + ArcLength1 - AngleDifference)));
+
+	return Intersection;
+}
+
+float GetVPLOcclusion(float3 BentNormalAO, float3 NormalizedVectorToVPL, float VPLConeAngle, float VPLOcclusionStrength)
+{
+	float BentNormalLength = length(BentNormalAO);
+	float UnoccludedAngle = BentNormalLength * PI / VPLOcclusionStrength;
+	float AngleBetween = acos(dot(BentNormalAO, NormalizedVectorToVPL) / max(BentNormalLength, .0001f));
+	float Visibility = ApproximateConeConeIntersection(VPLConeAngle, UnoccludedAngle, AngleBetween);
+
+	// Can't rely on the direction of the bent normal when close to fully occluded, lerp to shadowed
+	Visibility = lerp(0, Visibility, saturate((UnoccludedAngle - .1f) / .2f));
+
+	return Visibility;
 }

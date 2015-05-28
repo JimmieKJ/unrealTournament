@@ -67,10 +67,15 @@ struct CORE_API FCommandLine
 	static const uint32 MaxCommandLineSize = 16384;
 
 	/** 
-	 * Returns the executables command line. 
+	 * Returns an edited version of the executable's command line with the game name and certain other parameters removed. 
 	 */
 	static const TCHAR* Get();
 	
+	/**
+	 * Returns the command line originally passed to the executable.
+	 */
+	static const TCHAR* GetOriginal();
+
 	/** 
 	 * Checks if the command line has been initialized. 
 	 */
@@ -120,6 +125,8 @@ private:
 	static bool bIsInitialized;
 	/** character buffer containing the command line */
 	static TCHAR CmdLine[MaxCommandLineSize];
+	/** character buffer containing the original command line */
+	static TCHAR OriginalCmdLine[MaxCommandLineSize];
 	/** subprocess command line */
 	static FString SubprocessCommandLine;
 };
@@ -245,14 +252,19 @@ CORE_API class ITargetPlatformManagerModule& GetTargetPlatformManagerRef();
 -----------------------------------------------------------------------------*/
 
 /**
-* Check to see if this executable is running as dedicated server
-* UT is hacked so that it can run as dedicated with -server
-*/
+ * Check to see if this executable is running as dedicated server
+ * UT is hacked so that it can run as dedicated with -server
+ */
 FORCEINLINE bool IsRunningDedicatedServer()
 {
 	if (FPlatformProperties::IsServerOnly())
 	{
 		return true;
+	}
+
+	if (FPlatformProperties::IsGameOnly())
+	{
+		return false;
 	}
 
 	extern CORE_API int32 StaticDedicatedServerCheck();

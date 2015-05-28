@@ -91,7 +91,7 @@ void UWidgetTree::GetAllWidgets(TArray<UWidget*>& Widgets) const
 	ForEachWidget([&] (UWidget* Widget) { Widgets.Add(Widget); });
 }
 
-void UWidgetTree::GetChildWidgets(UWidget* Parent, TArray<UWidget*>& Widgets) const
+void UWidgetTree::GetChildWidgets(UWidget* Parent, TArray<UWidget*>& Widgets)
 {
 	ForWidgetAndChildren(Parent, [&] (UWidget* Widget) { Widgets.Add(Widget); });
 }

@@ -81,4 +81,10 @@ private:
 	 *	@param Index Index of the new slot
 	 */
 	void OnSlotSelected(TSharedPtr<FString> SlotName, ESelectInfo::Type SelectInfo, TSharedPtr<IPropertyHandle> Property);
+
+	/** Return whether or not the LOD filter mode should be visible */
+	EVisibility VisibilityForLODFilterMode() const;
+
+	/** Caches the Filter Mode handle so we can look up its value after customization has finished */
+	TSharedPtr<IPropertyHandle> TriggerFilterModeHandle;
 };

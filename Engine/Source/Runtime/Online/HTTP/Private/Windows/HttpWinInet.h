@@ -93,6 +93,7 @@ public:
 	virtual EHttpRequestStatus::Type GetStatus() override;
 	virtual const FHttpResponsePtr GetResponse() const override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual float GetElapsedTime() override;
 
 	// FHttpRequestWinInet
 
@@ -171,6 +172,8 @@ private:
 	int32 ProgressBytesSent;
 	/** Used to calculate total elapsed time for the request */
 	double StartRequestTime;
+	/** Elapsed time for hte request in seconds. */
+	float ElapsedTime;
 	/** enables verbose logging for any http request that exceeds the total timeout */
 	bool bDebugVerbose;
 };

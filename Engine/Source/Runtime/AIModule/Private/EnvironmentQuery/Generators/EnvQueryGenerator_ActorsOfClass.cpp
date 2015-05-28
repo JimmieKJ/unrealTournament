@@ -15,9 +15,6 @@ UEnvQueryGenerator_ActorsOfClass::UEnvQueryGenerator_ActorsOfClass(const FObject
 	ItemType = UEnvQueryItemType_Actor::StaticClass();
 	SearchRadius.DefaultValue = 500.0f;
 	SearchedActorClass = AActor::StaticClass();
-
-	// keep deprecated properties initialized
-	Radius.Value = 500.0f;
 }
 
 void UEnvQueryGenerator_ActorsOfClass::GenerateItems(FEnvQueryInstance& QueryInstance) const
@@ -67,16 +64,6 @@ FText UEnvQueryGenerator_ActorsOfClass::GetDescriptionDetails() const
 	FText Desc = FText::Format(LOCTEXT("ActorsOfClassDescription", "radius: {Radius}"), Args);
 
 	return Desc;
-}
-
-void UEnvQueryGenerator_ActorsOfClass::PostLoad()
-{
-	if (VerNum < EnvQueryGeneratorVersion::DataProviders)
-	{
-		Radius.Convert(this, SearchRadius);
-	}
-
-	Super::PostLoad();
 }
 
 #undef LOCTEXT_NAMESPACE

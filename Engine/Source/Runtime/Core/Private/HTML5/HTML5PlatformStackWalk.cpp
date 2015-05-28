@@ -134,3 +134,18 @@ void FHTML5PlatformStackWalk::CaptureStackBackTrace(uint64* BackTrace,uint32 Max
 	BackTrace[0] = 0;
 #endif
 }
+
+int32 FHTML5PlatformStackWalk::GetStackBackTraceString(char* OutputString, int32 MaxLen)
+{
+#if PLATFORM_HTML5_BROWSER
+	auto l = emscripten_get_callstack(EM_LOG_C_STACK|EM_LOG_DEMANGLE, OutputString, MaxLen);
+	char* p = OutputString;
+	while (*p && l) {
+		if (*p == '\n') *p = ' ';
+		p++;
+	}
+	return l;
+#else
+	return 0;
+#endif
+}

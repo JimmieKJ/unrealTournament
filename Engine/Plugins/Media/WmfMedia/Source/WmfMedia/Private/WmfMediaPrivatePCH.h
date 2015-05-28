@@ -7,7 +7,6 @@
  *****************************************************************************/
 
 #include "Core.h"
-#include "CoreUObject.h"
 
 #include "IMediaInfo.h"
 #include "IMediaPlayer.h"

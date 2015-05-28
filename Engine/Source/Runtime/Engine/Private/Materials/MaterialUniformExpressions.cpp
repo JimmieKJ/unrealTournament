@@ -93,6 +93,8 @@ void FUniformExpressionSet::Serialize(FArchive& Ar)
 
 	Ar << PerFrameUniformScalarExpressions;
 	Ar << PerFrameUniformVectorExpressions;
+	Ar << PerFramePrevUniformScalarExpressions;
+	Ar << PerFramePrevUniformVectorExpressions;
 
 	// Recreate the uniform buffer struct after loading.
 	if(Ar.IsLoading())
@@ -109,6 +111,8 @@ bool FUniformExpressionSet::IsEmpty() const
 		&& UniformCubeTextureExpressions.Num() == 0
 		&& PerFrameUniformScalarExpressions.Num() == 0
 		&& PerFrameUniformVectorExpressions.Num() == 0
+		&& PerFramePrevUniformScalarExpressions.Num() == 0
+		&& PerFramePrevUniformVectorExpressions.Num() == 0
 		&& ParameterCollections.Num() == 0;
 }
 
@@ -120,6 +124,8 @@ bool FUniformExpressionSet::operator==(const FUniformExpressionSet& ReferenceSet
 	|| UniformCubeTextureExpressions.Num() != ReferenceSet.UniformCubeTextureExpressions.Num()
 	|| PerFrameUniformScalarExpressions.Num() != ReferenceSet.PerFrameUniformScalarExpressions.Num()
 	|| PerFrameUniformVectorExpressions.Num() != ReferenceSet.PerFrameUniformVectorExpressions.Num()
+	|| PerFramePrevUniformScalarExpressions.Num() != ReferenceSet.PerFramePrevUniformScalarExpressions.Num()
+	|| PerFramePrevUniformVectorExpressions.Num() != ReferenceSet.PerFramePrevUniformVectorExpressions.Num()
 	|| ParameterCollections.Num() != ReferenceSet.ParameterCollections.Num())
 	{
 		return false;
@@ -168,6 +174,22 @@ bool FUniformExpressionSet::operator==(const FUniformExpressionSet& ReferenceSet
 	for (int32 i = 0; i < PerFrameUniformVectorExpressions.Num(); i++)
 	{
 		if (!PerFrameUniformVectorExpressions[i]->IsIdentical(ReferenceSet.PerFrameUniformVectorExpressions[i]))
+		{
+			return false;
+		}
+	}
+
+	for (int32 i = 0; i < PerFramePrevUniformScalarExpressions.Num(); i++)
+	{
+		if (!PerFramePrevUniformScalarExpressions[i]->IsIdentical(ReferenceSet.PerFramePrevUniformScalarExpressions[i]))
+		{
+			return false;
+		}
+	}
+
+	for (int32 i = 0; i < PerFramePrevUniformVectorExpressions.Num(); i++)
+	{
+		if (!PerFramePrevUniformVectorExpressions[i]->IsIdentical(ReferenceSet.PerFramePrevUniformVectorExpressions[i]))
 		{
 			return false;
 		}
@@ -327,8 +349,11 @@ FUniformBufferRHIRef FUniformExpressionSet::CreateUniformBuffer(const FMaterialR
 			const UTexture* Value;
 			ESamplerSourceMode SourceMode;
 			Uniform2DTextureExpressions[ExpressionIndex]->GetTextureValue(MaterialRenderContext,MaterialRenderContext.Material,Value,SourceMode);
-			if(Value && Value->Resource)
+			if (Value && Value->Resource)
 			{
+				//@todo-rco: Help track down a invalid values
+				checkf(Value->IsValidLowLevel() && Value->IsA(UTexture::StaticClass()), TEXT("Expecting a UTexture! Value='%s' class='%s'"), *Value->GetName(), *Value->GetClass()->GetName());
+
 				// UMaterial / UMaterialInstance should have caused all dependent textures to be PostLoaded, which initializes their rendering resource
 				check(Value->TextureReference.TextureReferenceRHI);
 				*ResourceTable++ = Value->TextureReference.TextureReferenceRHI;

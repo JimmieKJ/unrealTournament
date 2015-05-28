@@ -19,7 +19,7 @@ bool FIPv4Subnet::Parse( const FString& SubnetString, FIPv4Subnet& OutSubnet )
 {
 	TArray<FString> Tokens;
 
-	if (SubnetString.ParseIntoArray(&Tokens, TEXT("/"), false) == 2)
+	if (SubnetString.ParseIntoArray(Tokens, TEXT("/"), false) == 2)
 	{
 		return (FIPv4Address::Parse(Tokens[0], OutSubnet.Address) && FIPv4SubnetMask::Parse(Tokens[1], OutSubnet.Mask));
 	}

@@ -157,17 +157,11 @@ private:
 	/** Get the text color to use for the given class location checkbox */
 	FSlateColor GetClassLocationTextColor(GameProjectUtils::EClassLocation InLocation) const;
 
-	/** Get the tooltip to use for the given class location */
-	FText GetClassLocationTooltip(GameProjectUtils::EClassLocation InLocation) const;
-
 	/** Checks to see if the given class location is active based on the current value of NewClassPath */
 	ECheckBoxState IsClassLocationActive(GameProjectUtils::EClassLocation InLocation) const;
 
 	/** Update the value of NewClassPath so that it uses the given class location */
 	void OnClassLocationChanged(ECheckBoxState InCheckedState, GameProjectUtils::EClassLocation InLocation);
-
-	/** Checks to see if the class location can be changed (relies on us having a Public/Private folder layout) */
-	bool CanChangeClassLocation() const;
 
 	/** Checks the current class name/path for validity and updates cached values accordingly */
 	void UpdateInputValidity();

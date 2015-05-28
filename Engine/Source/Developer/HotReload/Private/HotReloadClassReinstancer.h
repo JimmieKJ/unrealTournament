@@ -45,6 +45,9 @@ class FHotReloadClassReinstancer : public FBlueprintCompileReinstancer
 	/** True if the provided native class needs re-instancing */
 	bool bNeedsReinstancing;	
 
+	/** Necessary for delta serialization */
+	UObject* CopyOfPreviousCDO;
+
 	/** 
 	 * Sets the re-instancer up for new class re-instancing 
 	 *
@@ -69,11 +72,14 @@ class FHotReloadClassReinstancer : public FBlueprintCompileReinstancer
 	void SerializeCDOProperties(UObject* InObject, FCDOPropertyData& OutData);
 
 	/**
-	* Re-creates class default object
-	*
-	* @param InOldClass Class that has NOT changed after hot-reload
-	*/
-	void ReconstructClassDefaultObject(UClass* InOldClass);
+	 * Re-creates class default object.
+	 *
+	 * @param InClass Class that has NOT changed after hot-reload.
+	 * @param InOuter Outer for the new CDO.
+	 * @param InName Name of the new CDO.
+	 * @param InFlags Flags of the new CDO.
+	 */
+	void ReconstructClassDefaultObject(UClass* InClass, UObject* InOuter, FName InName, EObjectFlags InFlags);
 
 	/** Updates property values on instances of the hot-reloaded class */
 	void UpdateDefaultProperties();
@@ -101,6 +107,24 @@ public:
 
 	/** Reinstances all objects of the hot-reloaded class and update their properties to match the new CDO */
 	void ReinstanceObjectsAndUpdateDefaults();
+
+	/** Creates the reinstancer as a sharable object */
+	static TSharedPtr<FHotReloadClassReinstancer> Create(UClass* InNewClass, UClass* InOldClass)
+	{
+		return MakeShareable(new FHotReloadClassReinstancer(InNewClass, InOldClass));
+	}
+
+	// FSerializableObject interface
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	// End of FSerializableObject interface
+
+	virtual bool IsClassObjectReplaced() const override  { return true; }
+
+protected:
+
+	// FBlueprintCompileReinstancer interface
+	virtual bool ShouldPreserveRootComponentOfReinstancedActor() const override { return false; }
+	// End of FBlueprintCompileReinstancer interface
 };
 
 #endif // WITH_ENGINE

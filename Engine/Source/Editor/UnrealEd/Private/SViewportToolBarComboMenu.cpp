@@ -36,9 +36,7 @@ void SViewportToolBarComboMenu::Construct( const FArguments& InArgs )
 	}
 
 	{
-		SAssignNew( MenuAnchor, SMenuAnchor )
-		.Placement( MenuPlacement_BelowAnchor )
-		[
+		TSharedRef<SWidget> ButtonContents =
 			SNew(SButton)
 			.ButtonStyle( FEditorStyle::Get(), EMultiBlockLocation::ToName(ButtonStyle,EMultiBlockLocation::End) )
 			.ContentPadding( FMargin( 5.0f, 0.0f ) )
@@ -79,7 +77,22 @@ void SViewportToolBarComboMenu::Construct( const FArguments& InArgs )
 					+SHorizontalBox::Slot()
 						.FillWidth(1.0f)
 				]
-			]
+			];
+		
+		if (InArgs._MinDesiredButtonWidth > 0.0f)
+		{
+			ButtonContents =
+				SNew(SBox)
+				.MinDesiredWidth(InArgs._MinDesiredButtonWidth)
+				[
+					ButtonContents
+				];
+		}
+
+		MenuAnchor = SNew(SMenuAnchor)
+		.Placement( MenuPlacement_BelowAnchor )
+		[
+			ButtonContents
 		]
 		.OnGetMenuContent( InArgs._OnGetMenuContent );
 	}

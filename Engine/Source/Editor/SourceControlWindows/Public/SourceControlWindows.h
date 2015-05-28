@@ -17,10 +17,12 @@ public:
 	/**
 	 * Display check in dialog for the specified packages
 	 *
-	 * @param	InPackageNames	Names of packages to check in
-	 * @param	InConfigFiles	Config filenames to check in
+	 * @param	bUseSourceControlStateCache		Whether to use the cached source control status, or force the status to be updated
+	 * @param	InPackageNames					Names of packages to check in
+	 * @param	InPendingDeletePaths			Directories to check for files marked 'pending delete'
+	 * @param	InConfigFiles					Config filenames to check in
 	 */
-	static bool PromptForCheckin(const TArray<FString>& InPackageNames, const TArray<FString>& InConfigFiles = TArray<FString>());
+	static bool PromptForCheckin(bool bUseSourceControlStateCache, const TArray<FString>& InPackageNames, const TArray<FString>& InPendingDeletePaths = TArray<FString>(), const TArray<FString>& InConfigFiles = TArray<FString>());
 
 	/**
 	 * Display file revision history for the provided packages

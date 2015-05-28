@@ -6,7 +6,7 @@
 #include "Curl/CurlHttp.h"
 #include "Curl/CurlHttpManager.h"
 
-bool bUseCurl = false;
+bool bUseCurl = true;
 
 void FWindowsPlatformHttp::Init()
 {
@@ -22,9 +22,9 @@ void FWindowsPlatformHttp::Init()
 	// allow override on command line
 	FString HttpMode;
 	if (FParse::Value(FCommandLine::Get(), TEXT("HTTP="), HttpMode) &&
-		(HttpMode.Equals(TEXT("Curl"), ESearchCase::IgnoreCase) || HttpMode.Equals(TEXT("LibCurl"), ESearchCase::IgnoreCase)))
+		(HttpMode.Equals(TEXT("WinInet"), ESearchCase::IgnoreCase)))
 	{
-		bUseCurl = true;
+		bUseCurl = false;
 	}
 
 #if WITH_LIBCURL

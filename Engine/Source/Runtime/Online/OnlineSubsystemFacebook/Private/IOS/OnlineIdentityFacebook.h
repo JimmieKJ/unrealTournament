@@ -5,14 +5,6 @@
  
 // Module includes
 #include "OnlineIdentityInterface.h"
-
-// Facebook SDK includes
-#include "FBSession.h"
-#include "FBGraphUser.h"
-#include "FBRequest.h"
-#include "FBRequestConnection.h"
-#include "FBAccessTokenData.h"
-
 #include "OnlineSubsystemFacebookPackage.h"
 
 /**
@@ -108,9 +100,6 @@ public:
 
 
 private:
-
-	/** Access for the current FB Session if logged in */
-	FBSession* CurrentSession;
 
 	/** The user account details associated with this identity */
 	TSharedRef< FUserOnlineAccountFacebook > UserAccount;

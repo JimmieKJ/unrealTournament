@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2220769
+﻿INTSourceChangelist:2483253
 Title:A
 Crumbs:Shared/Glossary
 Description:
@@ -11,9 +11,14 @@ Availability:Public
 アクタ
 	[/PARAM]
 	[PARAM:Definition]
+<!--
+**アクタ** はアンリアル エンジン 4 において非常に重要な概念です。ゲームにはアクタがたくさんあります。ゲーム内のすべてのインタラクティブなエンティティはアクタだからです。通常、アクタには 1 つ以上のコンポーネントがあり、**レベル** 内に配置するか、ゲームプレイ中に **スポーン** されます。マルチプレイヤー ゲームではネットワークのレプリケーションをサポートします。
+-->
 
 [EXCERPT:Glossary_Actor]
-**アクタ** は、レベル内へ配置可能な任意のオブジェクトです。技術的に言うならば、平行移動、回転、スケーリングなどの 3D データ変換の情報を持つ一般的なクラスです。配置可能な全オブジェクトはこのクラスから拡張されます。スタティックメッシュ アクタ、カメラ アクタ、そしてライト アクタをサンプルに取り入れています。
+**アクタ** は、レベル内へ配置可能な任意のオブジェクトです。平行移動、回転、スケーリングなどの 3D 変形をサポートする汎用クラスです。アクタはゲームプレイ コード (C++ またはブループリント) を通して作成 (スポーン) 、破壊することができます。C++ において `AActor` は全てのアクタの基本クラスになります。 
+
+様々なタイプのアクタがあります。例えば、StaticMeshActor、CameraActor および、PlayerStartActor などがあります。 
 [/EXCERPT:Glossary_Actor]
 
 	[/PARAM]
@@ -29,6 +34,19 @@ AI
 [EXCERPT:Glossary_AI]
 **AI** (Artificial intelligence) は、人間による入力ではなくプログラムされた一連のインストラクションで制御されるビヘイビアです。例えば、 NPC (ノンプレイヤー キャラクター) は AI で操作されます。
 [/EXCERPT:Glossary_AI]
+
+	[/PARAM]
+[/OBJECT]
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+AIController
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_AIController]
+ゲーム内でプレイヤーを表すものとしてプレイヤー コントローラがポーンを所有するように、**AIController** はゲーム内の NPC (ノン プレイヤー キャラクター) を表すものとしてポーンを所有します。特に PlayerController によって所有されるか、AIController を自ら作成しないように指示されない限り、デフォルトでポーンとキャラクターは結局ベース AIController になります。
+[/EXCERPT:Glossary_AIController]
 
 	[/PARAM]
 [/OBJECT]

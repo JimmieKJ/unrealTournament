@@ -35,6 +35,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
 	int32 GetChildIndex(UWidget* Content) const;
 
+	/** @return true if panel contains this widget */
+	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
+	bool HasChild(UWidget* Content) const;
+
 	/** Removes a child by it's index. */
 	UFUNCTION(BlueprintCallable, Category="Widget|Panel")
 	bool RemoveChildAt(int32 Index);
@@ -100,6 +104,12 @@ public:
 	bool CanHaveMultipleChildren() const
 	{
 		return bCanHaveMultipleChildren;
+	}
+
+	/** @returns true if the panel can accept another child widget. */
+	bool CanAddMoreChildren() const
+	{
+		return CanHaveMultipleChildren() || GetChildrenCount() == 0;
 	}
 
 	/** Sets that this widget is being designed sets it on all children as well. */

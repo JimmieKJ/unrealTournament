@@ -9,6 +9,10 @@ class UK2Node_InputVectorAxisEvent : public UK2Node_InputAxisKeyEvent
 {
 	GENERATED_UCLASS_BODY()
 
+	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	// End of UObject interface
+
 	// Begin UK2Node interface
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual UClass* GetDynamicBindingClass() const override;

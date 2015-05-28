@@ -20,9 +20,9 @@ class UWorldFactory : public UFactory
 	// Begin UFactory Interface
 	virtual bool ConfigureProperties() override;
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
-	virtual FText GetToolTip() const;
-	virtual FString GetToolTipDocumentationPage() const;
-	virtual FString GetToolTipDocumentationExcerpt() const;
+	virtual FText GetToolTip() const override;
+	virtual FString GetToolTipDocumentationPage() const override;
+	virtual FString GetToolTipDocumentationExcerpt() const override;
 	// Begin UFactory Interface	
 };
 

@@ -15,33 +15,48 @@ UNativeWidgetHost::UNativeWidgetHost(const FObjectInitializer& ObjectInitializer
 
 void UNativeWidgetHost::SetContent(TSharedRef<SWidget> InContent)
 {
-	MyWidget = InContent;
+	NativeWidget = InContent;
+
+	TSharedPtr<SWidget> StableMyWidget = MyWidget.Pin();
+	if ( StableMyWidget.IsValid() )
+	{
+		TSharedPtr<SBox> MyBox = StaticCastSharedPtr<SBox>(StableMyWidget);
+		MyBox->SetContent(InContent);
+	}
 }
 
 void UNativeWidgetHost::ReleaseSlateResources(bool bReleaseChildren)
 {
 	Super::ReleaseSlateResources(bReleaseChildren);
 
-	MyWidget.Reset();
+	NativeWidget.Reset();
 }
 
 TSharedRef<SWidget> UNativeWidgetHost::RebuildWidget()
 {
-	if ( MyWidget.IsValid() )
+	return SNew(SBox)
+		[
+			( NativeWidget.IsValid() ) ? NativeWidget.ToSharedRef() : GetDefaultContent()
+		];
+}
+
+TSharedRef<SWidget> UNativeWidgetHost::GetDefaultContent()
+{
+	if ( IsDesignTime() )
 	{
-		return MyWidget.ToSharedRef();
+		return SNew(SBorder)
+			.Visibility(EVisibility::HitTestInvisible)
+			.BorderImage(FUMGStyle::Get().GetBrush("MarchingAnts"))
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("NativeWidgetHostText", "Slate Widget Host"))
+			];
 	}
 	else
 	{
-		return SNew(SBorder)
-		.Visibility(EVisibility::HitTestInvisible)
-		.BorderImage(FUMGStyle::Get().GetBrush("MarchingAnts"))
-		.HAlign(HAlign_Center)
-		.VAlign(VAlign_Center)
-		[
-			SNew(STextBlock)
-			.Text(LOCTEXT("NativeWidgetHostText", "Slate Widget Host"))
-		];
+		return SNullWidget::NullWidget;
 	}
 }
 

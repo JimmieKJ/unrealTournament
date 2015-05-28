@@ -18,7 +18,7 @@ UMaterialInstanceConstant::UMaterialInstanceConstant(const FObjectInitializer& O
 void UMaterialInstanceConstant::SetParentEditorOnly(UMaterialInterface* NewParent)
 {
 	check(GIsEditor);
-	SetParentInternal(NewParent);
+	SetParentInternal(NewParent, true);
 }
 
 void UMaterialInstanceConstant::SetVectorParameterValueEditorOnly(FName ParameterName, FLinearColor Value)

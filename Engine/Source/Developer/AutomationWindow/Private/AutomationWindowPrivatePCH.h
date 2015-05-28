@@ -11,7 +11,9 @@
 #include "AutomationController.h"
 #include "DesktopPlatformModule.h"
 #include "IFilter.h"
-#include "SessionServices.h"
+#include "ISessionInfo.h"
+#include "ISessionInstanceInfo.h"
+#include "ISessionManager.h"
 #include "SlateBasics.h"
 #include "EditorStyle.h"
 

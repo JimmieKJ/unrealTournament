@@ -1,19 +1,17 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================================
-	GenericPlatformProperties.h: Generic platform properties, used a base class for platforms.
-		These are shared between:
-		the runtime platform - via FPlatformProperties
-		the target platforms - via ITargetPlatform
-
-==============================================================================================*/
-
 #pragma once
+
 #include "GenericPlatform/GenericPlatformMisc.h"
 #include "HAL/Platform.h"
 
+
 /**
  * Base class for platform properties.
+ *
+ * These are shared between:
+ *     the runtime platform - via FPlatformProperties
+ *     the target platforms - via ITargetPlatform
  */
 struct FGenericPlatformProperties
 {
@@ -103,16 +101,6 @@ struct FGenericPlatformProperties
 	}
 
 	/**
-	 * Returns the maximum bones the platform supports.
-	 *
-	 * @return the maximum bones the platform supports.
-	 */
-	static FORCEINLINE uint32 MaxGpuSkinBones()
-	{
-		return 256;
-	}
-
-	/**
 	 * Gets the name of this platform
 	 *
 	 * Note: MUST be implemented per platform.
@@ -144,8 +132,7 @@ struct FGenericPlatformProperties
 	/**
 	 * Checks whether the specified build target is supported.
 	 *
-	 * @param BuildTarget - The build target to check.
-	 *
+	 * @param BuildTarget The build target to check.
 	 * @return true if the build target is supported, false otherwise.
 	 */
 	static FORCEINLINE bool SupportsBuildTarget( EBuildTargets::Type BuildTarget )

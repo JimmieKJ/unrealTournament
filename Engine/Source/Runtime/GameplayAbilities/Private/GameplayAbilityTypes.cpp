@@ -55,9 +55,9 @@ void FGameplayAbilityActorInfo::InitFromActor(AActor *InOwnerActor, AActor *InAv
 	}
 }
 
-void FGameplayAbilityActorInfo::SetAvatarActor(AActor *AvatarActor)
+void FGameplayAbilityActorInfo::SetAvatarActor(AActor *InAvatarActor)
 {
-	InitFromActor(OwnerActor.Get(), AvatarActor, AbilitySystemComponent.Get());
+	InitFromActor(OwnerActor.Get(), InAvatarActor, AbilitySystemComponent.Get());
 }
 
 void FGameplayAbilityActorInfo::ClearActorInfo()
@@ -75,15 +75,21 @@ bool FGameplayAbilityActorInfo::IsLocallyControlled() const
 	{
 		return PlayerController->IsLocalController();
 	}
+	else if (IsNetAuthority())
+	{
+		// Non-players are always locally controlled on the server
+		return true;
+	}
 
 	return false;
 }
 
 bool FGameplayAbilityActorInfo::IsNetAuthority() const
 {
-	if (OwnerActor.IsValid())
+	// Make sure this works on pending kill actors
+	if (OwnerActor.IsValid(true))
 	{
-		return (OwnerActor->Role == ROLE_Authority);
+		return (OwnerActor.Get(true)->Role == ROLE_Authority);
 	}
 
 	// If we encounter issues with this being called before or after the owning actor is destroyed,
@@ -99,6 +105,11 @@ void FGameplayAbilityActivationInfo::SetPredicting(FPredictionKey PredictionKey)
 	PredictionKeyWhenActivated = PredictionKey;
 }
 
+void FGameplayAbilityActivationInfo::ServerSetActivationPredictionKey(FPredictionKey PredictionKey)
+{
+	PredictionKeyWhenActivated = PredictionKey;
+}
+
 void FGameplayAbilityActivationInfo::SetActivationConfirmed()
 {
 	ActivationMode = EGameplayAbilityActivationMode::Confirmed;
@@ -108,5 +119,73 @@ void FGameplayAbilityActivationInfo::SetActivationConfirmed()
 
 bool FGameplayAbilitySpec::IsActive() const
 {
-	return ActiveCount > 0;
+	// If ability hasn't replicated yet we're not active
+	return Ability != nullptr && ActiveCount > 0;
+}
+
+UGameplayAbility* FGameplayAbilitySpec::GetPrimaryInstance() const
+{
+	if (Ability && Ability->GetInstancingPolicy() == EGameplayAbilityInstancingPolicy::InstancedPerActor)
+	{
+		if (NonReplicatedInstances.Num() > 0)
+		{
+			return NonReplicatedInstances[0];
+		}
+		if (ReplicatedInstances.Num() > 0)
+		{
+			return ReplicatedInstances[0];
+		}
+	}
+	return nullptr;
+}
+
+void FGameplayAbilitySpec::PreReplicatedRemove(const struct FGameplayAbilitySpecContainer& InArraySerializer)
+{
+	if (InArraySerializer.Owner)
+	{
+		InArraySerializer.Owner->OnRemoveAbility(*this);
+	}
+}
+
+void FGameplayAbilitySpec::PostReplicatedAdd(const struct FGameplayAbilitySpecContainer& InArraySerializer)
+{
+	if (InArraySerializer.Owner)
+	{
+		InArraySerializer.Owner->OnGiveAbility(*this);
+	}
+}
+
+void FGameplayAbilitySpecContainer::RegisterWithOwner(UAbilitySystemComponent* InOwner)
+{
+	Owner = InOwner;
+}
+
+// ----------------------------------------------------
+
+FGameplayAbilitySpec:: FGameplayAbilitySpec(FGameplayAbilitySpecDef& InDef, FActiveGameplayEffectHandle InGameplayEffectHandle)
+	: Ability(InDef.Ability ? InDef.Ability->GetDefaultObject<UGameplayAbility>() : nullptr)
+	, Level(InDef.Level)
+	, InputID(InDef.InputID)
+	, SourceObject(InDef.SourceObject)
+	, InputPressed(false)
+	, ActiveCount(0)
+	, RemoveAfterActivation(false)
+	, PendingRemove(false)
+{
+	Handle.GenerateNewHandle();
+	InDef.AssignedHandle = Handle;
+	GameplayEffectHandle = InGameplayEffectHandle;
+}
+
+// ----------------------------------------------------
+
+FScopedAbilityListLock::FScopedAbilityListLock(UAbilitySystemComponent& InAbilitySystemComponent)
+	: AbilitySystemComponent(InAbilitySystemComponent)
+{
+	AbilitySystemComponent.IncrementAbilityListLock();
+}
+
+FScopedAbilityListLock::~FScopedAbilityListLock()
+{
+	AbilitySystemComponent.DecrementAbilityListLock();
 }

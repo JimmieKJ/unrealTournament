@@ -17,6 +17,7 @@
 
 #include "DetailsPanel/SDeviceProfileDetailsPanel.h"
 #include "DeviceProfileConsoleVariableColumn.h"
+#include "DeviceProfileTextureLODSettingsColumn.h"
 #include "SDeviceProfileEditorSingleProfileView.h"
 #include "SDeviceProfileCreateProfilePanel.h"
 #include "SDeviceProfileSelectionPanel.h"

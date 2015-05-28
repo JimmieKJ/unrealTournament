@@ -32,7 +32,7 @@ bool FIPv4Endpoint::Parse( const FString& EndpointString, FIPv4Endpoint& OutEndp
 {
 	TArray<FString> Tokens;
 
-	if (EndpointString.ParseIntoArray(&Tokens, TEXT(":"), false) == 2)
+	if (EndpointString.ParseIntoArray(Tokens, TEXT(":"), false) == 2)
 	{
 		if (FIPv4Address::Parse(Tokens[0], OutEndpoint.Address))
 		{

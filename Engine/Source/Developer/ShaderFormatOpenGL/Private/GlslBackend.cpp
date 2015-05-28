@@ -1,5 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-// ..
+// .
 
 // This code is largely based on that in ir_print_glsl_visitor.cpp from
 // glsl-optimizer.
@@ -36,7 +36,11 @@
 #include "hlslcc_private.h"
 #include "GlslBackend.h"
 #include "compiler.h"
+
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "glsl_parser_extras.h"
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+
 #include "hash_table.h"
 #include "ir_rvalue_visitor.h"
 #include "PackUniformBuffers.h"
@@ -563,9 +567,32 @@ class ir_gen_glsl_visitor : public ir_visitor
 			const char *name = (const char *) hash_table_find(this->printable_names, var);
 			if (name == NULL)
 			{
-				bool is_global = (scope_depth == 0 && var->mode != ir_var_temporary);
-				const char *prefix = is_global ? "g" : "t";
-				int var_id = is_global ? global_id++ : temp_id++;
+				bool bIsGlobal = (scope_depth == 0 && var->mode != ir_var_temporary);
+				const char* prefix = "g";
+				if (!bIsGlobal)
+				{
+					if (var->type->is_matrix())
+					{
+						prefix = "m";
+					}
+					else if (var->type->is_vector())
+					{
+						prefix = "v";
+					}
+					else
+					{
+						switch (var->type->base_type)
+						{
+						case GLSL_TYPE_BOOL: prefix = "b"; break;
+						case GLSL_TYPE_UINT: prefix = "u"; break;
+						case GLSL_TYPE_INT: prefix = "i"; break;
+						case GLSL_TYPE_HALF: prefix = "h"; break;
+						case GLSL_TYPE_FLOAT: prefix = "f"; break;
+						default: prefix = "t"; break;
+						}
+					}
+				}
+				int var_id = bIsGlobal ? global_id++ : temp_id++;
 				name = ralloc_asprintf(mem_ctx, "%s%d", prefix, var_id);
 				hash_table_insert(this->printable_names, (void *)name, var);
 			}
@@ -2728,13 +2755,19 @@ class ir_gen_glsl_visitor : public ir_visitor
 #endif		
 	}
 
-	void print_extensions(bool bUsesFramebufferFetchES2, bool bUsesES31Extensions)
+	void print_extensions(_mesa_glsl_parse_state* state, bool bUsesFramebufferFetchES2, bool bUsesES31Extensions)
 	{
 		if (bUsesES2TextureLODExtension)
 		{
 			ralloc_asprintf_append(buffer, "#ifndef DONTEMITEXTENSIONSHADERTEXTURELODENABLE\n");
 			ralloc_asprintf_append(buffer, "#extension GL_EXT_shader_texture_lod : enable\n");
 			ralloc_asprintf_append(buffer, "#endif\n");
+		}
+
+		if (state->bSeparateShaderObjects && !state->bGenerateES && 
+			((state->target == tessellation_control_shader) || (state->target == tessellation_evaluation_shader)))
+		{
+			ralloc_asprintf_append(buffer, "#extension GL_ARB_tessellation_shader : enable\n");
 		}
 
 		if (bUsesDXDY && bIsES)
@@ -2823,6 +2856,18 @@ public:
 			ralloc_asprintf_append(buffer, "precision %s sampler2D;\n", DefaultPrecision);
 			ralloc_asprintf_append(buffer, "precision %s samplerCube;\n\n", DefaultPrecision);
 			ralloc_asprintf_append(buffer, "#endif\n");
+
+			// SGX540 compiler can get upset with some operations that mix highp and mediump.
+			// this results in a shader compile fail with output "compile failed."
+			// Although the actual cause of the failure hasnt been determined this code appears to prevent
+			// compile failure for cases so far seen.
+			ralloc_asprintf_append(buffer, "\n#ifdef TEXCOORDPRECISIONWORKAROUND\n");
+			ralloc_asprintf_append(buffer, "vec4 texture2DTexCoordPrecisionWorkaround(sampler2D p, vec2 tcoord)\n");
+			ralloc_asprintf_append(buffer, "{\n");
+			ralloc_asprintf_append(buffer, "	return texture2D(p, tcoord);\n");
+			ralloc_asprintf_append(buffer, "}\n");
+			ralloc_asprintf_append(buffer, "#define texture2D texture2DTexCoordPrecisionWorkaround\n");
+			ralloc_asprintf_append(buffer, "#endif\n");
 		}
 
 		if ((state->language_version == 310) && (ShaderTarget == fragment_shader))
@@ -2878,8 +2923,8 @@ public:
 
 		char* Extensions = ralloc_asprintf(mem_ctx, "");
 		buffer = &Extensions;
-		print_extensions(bUsesFramebufferFetchES2, state->language_version == 310);
-		if(state->bSeparateShaderObjects && !state->bGenerateES)
+		print_extensions(state, bUsesFramebufferFetchES2, state->language_version == 310);
+		if (state->bSeparateShaderObjects && !state->bGenerateES)
 		{
 			switch (state->target)
 			{
@@ -3080,7 +3125,7 @@ struct SPromoteSampleLevelES2 : public ir_hierarchical_visitor
 				YYLTYPE loc;
 				loc.first_column = IR->SourceLocation.Column;
 				loc.first_line = IR->SourceLocation.Line;
-				loc.source_file = IR->SourceLocation.SourceFile.c_str();
+				loc.source_file = IR->SourceLocation.SourceFile;
 				_mesa_glsl_error(&loc, ParseState, "Vertex texture fetch currently not supported on GLSL ES\n");
 			}
 			else
@@ -3100,7 +3145,7 @@ struct SPromoteSampleLevelES2 : public ir_hierarchical_visitor
 			YYLTYPE loc;
 			loc.first_column = IR->SourceLocation.Column;
 			loc.first_line = IR->SourceLocation.Line;
-			loc.source_file = IR->SourceLocation.SourceFile.c_str();
+			loc.source_file = IR->SourceLocation.SourceFile;
 			_mesa_glsl_error(&loc, ParseState, "Texture offset not supported on GLSL ES\n");
 		}
 
@@ -3377,7 +3422,6 @@ static ir_rvalue* GenShaderInputSemantic(
 	bool& ApplyClipSpaceAdjustment
 	)
 {
-	ir_variable* Variable = NULL;
 	if (Semantic && FCStringAnsi::Strnicmp(Semantic, "SV_", 3) == 0)
 	{
 		FSystemValue* SystemValues = SystemValueTable[Frequency];
@@ -3391,7 +3435,7 @@ static ir_rvalue* GenShaderInputSemantic(
 				{
 					// Built-in array variable. Like gl_in[x].gl_Position.
 					// The variable for it has already been created in GenShaderInput().
-					/*ir_variable**/ Variable = ParseState->symbols->get_variable("gl_in");
+					ir_variable* Variable = ParseState->symbols->get_variable("gl_in");
 					check(Variable);
 					ir_dereference_variable* ArrayDeref = new(ParseState)ir_dereference_variable(Variable);
 					ir_dereference_array* StructDeref = new(ParseState)ir_dereference_array(
@@ -3475,6 +3519,7 @@ static ir_rvalue* GenShaderInputSemantic(
 		}
 	}
 
+	ir_variable* Variable = NULL;
 	if (Variable == NULL && Frequency == HSF_DomainShader)
 	{
 		const int PrefixLength = 13;
@@ -3550,7 +3595,7 @@ static ir_rvalue* GenShaderInputSemantic(
 		if (ParseState->bGenerateES && Type->is_integer())
 		{
 			// Convert integer attributes to floats
-			ir_variable* Variable = new(ParseState)ir_variable(
+			Variable = new(ParseState)ir_variable(
 				Type,
 				ralloc_asprintf(ParseState, "%s_%s_I", Prefix, Semantic),
 				ir_var_temporary
@@ -3624,7 +3669,7 @@ static ir_rvalue* GenShaderInputSemantic(
 			VariableType = glsl_type::get_array_instance(VariableType, SemanticArraySize);
 		}
 
-		ir_variable* Variable = new(ParseState)ir_variable(VariableType, ralloc_asprintf(ParseState, "in_%s", Semantic), ir_var_in);
+		Variable = new(ParseState)ir_variable(VariableType, ralloc_asprintf(ParseState, "in_%s", Semantic), ir_var_in);
 		Variable->read_only = true;
 		Variable->is_interface_block = true;
 		Variable->centroid = InputQualifier.Fields.bCentroid;
@@ -3651,7 +3696,7 @@ static ir_rvalue* GenShaderInputSemantic(
 	else
 	{
 		// Array variable, not first pass. It already exists, get it.
-		ir_variable* Variable = ParseState->symbols->get_variable(ralloc_asprintf(ParseState, "in_%s", Semantic));
+		Variable = ParseState->symbols->get_variable(ralloc_asprintf(ParseState, "in_%s", Semantic));
 		check(Variable);
 
 		ir_rvalue* VariableDeref = new(ParseState)ir_dereference_variable(Variable);

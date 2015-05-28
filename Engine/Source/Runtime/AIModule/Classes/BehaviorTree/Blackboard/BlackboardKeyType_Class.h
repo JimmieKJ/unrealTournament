@@ -14,12 +14,16 @@ class AIMODULE_API UBlackboardKeyType_Class : public UBlackboardKeyType
 	UPROPERTY(Category=Blackboard, EditDefaultsOnly, meta=(AllowAbstract="1"))
 	UClass* BaseClass;
 	
-	static UClass* GetValue(const uint8* RawData);
-	static bool SetValue(uint8* RawData, UClass* Value);
+	static UClass* GetValue(const UBlackboardKeyType_Class* KeyOb, const uint8* RawData);
+	static bool SetValue(UBlackboardKeyType_Class* KeyOb, uint8* RawData, UClass* Value);
 
-	virtual FString DescribeValue(const uint8* RawData) const override;
+	virtual EBlackboardCompare::Type CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+		const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const override;
+
 	virtual FString DescribeSelf() const override;
 	virtual bool IsAllowedByFilter(UBlackboardKeyType* FilterOb) const override;
-	virtual EBlackboardCompare::Type Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const override;
-	virtual bool TestBasicOperation(const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const override;
+
+protected:
+	virtual FString DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const override;
+	virtual bool TestBasicOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const override;
 };

@@ -13,17 +13,17 @@ public:
 		Uninitialize();
 	}
 
-	virtual EOnlinePresenceState::Type GetOnlineStatus() const override
+	virtual const EOnlinePresenceState::Type GetOnlineStatus() const override
 	{
 		TSharedPtr<FFriendsAndChatManager> ManagerPinned = FriendsAndChatManager.Pin();
 		if (ManagerPinned.IsValid())
 		{
-			return ManagerPinned->GetUserIsOnline();
+			return ManagerPinned->GetOnlineStatus();
 		}
 		return EOnlinePresenceState::Offline;
 	}
 
-	virtual FString GetClientId() const override
+	virtual const FString GetClientId() const override
 	{
 		FString ClientId;
 		TSharedPtr<FFriendsAndChatManager> ManagerPinned = FriendsAndChatManager.Pin();
@@ -34,7 +34,7 @@ public:
 		return ClientId;
 	}
 
-	virtual FString GetUserNickname() const override
+	virtual const FString GetName() const override
 	{
 		FString Nickname;
 		TSharedPtr<FFriendsAndChatManager> ManagerPinned = FriendsAndChatManager.Pin();
@@ -56,9 +56,9 @@ private:
 	}
 
 	FFriendsUserViewModelImpl(
-		const TSharedRef<FFriendsAndChatManager>& FriendsAndChatManager
+		const TSharedRef<FFriendsAndChatManager>& InFriendsAndChatManager
 		)
-		: FriendsAndChatManager(FriendsAndChatManager)
+		: FriendsAndChatManager(InFriendsAndChatManager)
 	{
 	}
 

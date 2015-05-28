@@ -9,6 +9,9 @@ class FDeferredDecalProxy;
 
 /** 
  * A material that is rendered onto the surface of a mesh. A kind of 'bumper sticker' for a model.
+ *
+ * @see https://docs.unrealengine.com/latest/INT/Engine/Actors/DecalActor
+ * @see UDecalActor
  */
 UCLASS(hidecategories=(Collision, Object, Physics, SceneComponent, Activation, "Components|Activation", Mobility), ClassGroup=Rendering, meta=(BlueprintSpawnableComponent))
 class ENGINE_API UDecalComponent : public USceneComponent
@@ -16,7 +19,6 @@ class ENGINE_API UDecalComponent : public USceneComponent
 	GENERATED_UCLASS_BODY()
 
 	/** Decal material. */
-	//editable(Decal) private{private} const MaterialInterface	DecalMaterial;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Decal)
 	class UMaterialInterface* DecalMaterial;
 
@@ -26,7 +28,7 @@ class ENGINE_API UDecalComponent : public USceneComponent
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Decal)
 	int32 SortOrder;
-
+	
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Decal)
 	float FadeScreenSize;
 
@@ -96,6 +98,7 @@ public:
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
 	virtual void SendRenderTransform_Concurrent() override;
+	virtual const UObject* AdditionalStatObject() const override;
 	// End UActorComponent Interface
 
 	// Begin USceneComponent Interface

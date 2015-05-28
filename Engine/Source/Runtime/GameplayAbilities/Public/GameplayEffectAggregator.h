@@ -26,6 +26,7 @@ struct GAMEPLAYABILITIES_API FAggregatorMod
 	const FGameplayTagRequirements*	TargetTagReqs;
 
 	float EvaluatedMagnitude;		// Magnitude this mod was last evaluated at
+	float StackCount;
 
 	FActiveGameplayEffectHandle ActiveHandle;	// Handle of the active GameplayEffect we are tied to (if any)
 	bool IsPredicted;
@@ -47,12 +48,13 @@ struct GAMEPLAYABILITIES_API FAggregator : public TSharedFromThis<FAggregator>
 	void ExecModOnBaseValue(TEnumAsByte<EGameplayModOp::Type> ModifierOp, float EvaluatedMagnitude);
 	static float StaticExecModOnBaseValue(float BaseValue, TEnumAsByte<EGameplayModOp::Type> ModifierOp, float EvaluatedMagnitude);
 
-	void AddMod(float EvaluatedData, TEnumAsByte<EGameplayModOp::Type> ModifierOp, const FGameplayTagRequirements*	SourceTagReqs, const FGameplayTagRequirements* TargetTagReqs, bool IsPredicted, FActiveGameplayEffectHandle ActiveHandle = FActiveGameplayEffectHandle() );
-	void RemoveMod(FActiveGameplayEffectHandle ActiveHandle);
+	void AddAggregatorMod(float EvaluatedData, TEnumAsByte<EGameplayModOp::Type> ModifierOp, const FGameplayTagRequirements*	SourceTagReqs, const FGameplayTagRequirements* TargetTagReqs, bool IsPredicted, FActiveGameplayEffectHandle ActiveHandle = FActiveGameplayEffectHandle() );
+	void RemoveAggregatorMod(FActiveGameplayEffectHandle ActiveHandle);
 
 	/** Evaluates the Aggregator with the internal base value and given parameters */
 	float Evaluate(const FAggregatorEvaluateParameters& Parameters) const;
 
+	/** Works backwards to calculate the base value. Used on clients for doing predictive modifiers */
 	float ReverseEvaluate(float FinalValue, const FAggregatorEvaluateParameters& Parameters) const;
 
 	/** Evaluates the Aggregator with an arbitrary base value */
@@ -67,7 +69,8 @@ struct GAMEPLAYABILITIES_API FAggregator : public TSharedFromThis<FAggregator>
 
 	void AddModsFrom(const FAggregator& SourceAggregator);
 
-	void AddDependant(FActiveGameplayEffectHandle Handle);
+	void AddDependent(FActiveGameplayEffectHandle Handle);
+	void RemoveDependent(FActiveGameplayEffectHandle Handle);
 
 	bool HasPredictedMods() const;
 	
@@ -84,7 +87,7 @@ private:
 	TArray<FAggregatorMod>	Mods[EGameplayModOp::Max];
 
 	/** ActiveGE handles that we need to notify if we change. NOT copied over during snapshots. */
-	TArray<FActiveGameplayEffectHandle>	Dependants;
+	TArray<FActiveGameplayEffectHandle>	Dependents;
 	bool	IsBroadcastingDirty;
 	int32	NumPredictiveMods;
 

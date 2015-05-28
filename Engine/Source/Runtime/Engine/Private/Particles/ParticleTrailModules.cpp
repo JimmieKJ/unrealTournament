@@ -50,7 +50,7 @@ void UParticleModuleTrailSource::InitializeDefaults()
 {
 	if (!SourceStrength.Distribution)
 	{
-		UDistributionFloatConstant* DistributionSourceStrength = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionSourceStrength"));
+		UDistributionFloatConstant* DistributionSourceStrength = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionSourceStrength"));
 		DistributionSourceStrength->Constant = 100.0f;
 		SourceStrength.Distribution = DistributionSourceStrength;
 	}

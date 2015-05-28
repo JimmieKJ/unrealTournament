@@ -103,10 +103,10 @@ typedef size_t uintptr_t;
 
 #ifdef U_TZSET
     /* Use the predefined value. */
+#elif (U_PLATFORM == U_PF_OS400 || U_PLATFORM == U_PF_ORBIS || U_PLATFORM == U_PF_DURANGO)
+   /* not defined */
 #elif U_PLATFORM_USES_ONLY_WIN32_API
 #   define U_TZSET _tzset
-#elif (U_PLATFORM == U_PF_OS400 || U_PLATFORM == U_PF_ORBIS)
-   /* not defined */
 #else
 #   define U_TZSET tzset
 #endif

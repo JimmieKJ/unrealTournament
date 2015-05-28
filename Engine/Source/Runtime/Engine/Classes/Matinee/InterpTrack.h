@@ -280,12 +280,12 @@ public:
 	/**
 	 *	Conditionally calls PreviewUpdateTrack depending on whether or not the track is enabled.
 	 */
-	virtual void ConditionalPreviewUpdateTrack(float NewPosition, class UInterpTrackInst* TrInst);
+	ENGINE_API virtual void ConditionalPreviewUpdateTrack(float NewPosition, class UInterpTrackInst* TrInst);
 
 	/**
 	 *	Conditionally calls UpdateTrack depending on whether or not the track is enabled.
 	 */
-	virtual void ConditionalUpdateTrack(float NewPosition, class UInterpTrackInst* TrInst, bool bJump);
+	ENGINE_API virtual void ConditionalUpdateTrack(float NewPosition, class UInterpTrackInst* TrInst, bool bJump);
 
 
 	/**
@@ -329,7 +329,7 @@ public:
 	virtual bool AllowStaticActors() { return false; }
 
 	/** Draw this track with the specified parameters */
-	virtual void DrawTrack( FCanvas* Canvas, UInterpGroup* Group, const FInterpTrackDrawParams& Params );
+	ENGINE_API virtual void DrawTrack( FCanvas* Canvas, UInterpGroup* Group, const FInterpTrackDrawParams& Params );
 
 	/** @return color to draw each keyframe in Matinee. */
 	virtual FColor GetKeyframeColor(int32 KeyIndex) const;

@@ -117,11 +117,6 @@ FText UK2Node_IfThenElse::GetTooltipText() const
 	return LOCTEXT("BrancStatement_Tooltip", "Branch Statement\nIf Condition is true, execution goes to True, otherwise it goes to False");
 }
 
-FString UK2Node_IfThenElse::GetKeywords() const
-{
-	return *LOCTEXT("BranchKeywords", "if bool").ToString();
-}
-
 UEdGraphPin* UK2Node_IfThenElse::GetThenPin() const
 {
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();

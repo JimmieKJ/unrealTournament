@@ -87,7 +87,7 @@ private:
 	FOnlineAsyncEventSteamLobbyEnter() :
 		FOnlineAsyncEvent(NULL)
 	{
-		FMemory::MemZero(CallbackResults);
+		FMemory::Memzero(CallbackResults);
 	}
 
 public:
@@ -116,7 +116,7 @@ public:
 	 * Give the async task a chance to marshal its data back to the game thread
 	 * Can only be called on the game thread by the async task manager
 	 */
-	virtual void Finalize()
+	virtual void Finalize() override
 	{
 		FOnlineSessionSteamPtr SessionInt = StaticCastSharedPtr<FOnlineSessionSteam>(Subsystem->GetSessionInterface());
 		if (SessionInt.IsValid())
@@ -161,7 +161,7 @@ private:
 	FOnlineAsyncEventSteamLobbyChatUpdate() :
 		FOnlineAsyncEvent(NULL)
 	{
-		FMemory::MemZero(CallbackResults);
+		FMemory::Memzero(CallbackResults);
 	}
 
 public:
@@ -191,7 +191,7 @@ public:
 	 * Give the async task a chance to marshal its data back to the game thread
 	 * Can only be called on the game thread by the async task manager
 	 */
-	virtual void Finalize()
+	virtual void Finalize() override
 	{
 		FOnlineSessionSteamPtr SessionInt = StaticCastSharedPtr<FOnlineSessionSteam>(Subsystem->GetSessionInterface());
 		if (SessionInt.IsValid())
@@ -469,7 +469,7 @@ public:
 	 * Give the async task a chance to marshal its data back to the game thread
 	 * Can only be called on the game thread by the async task manager
 	 */
-	virtual void Finalize()
+	virtual void Finalize() override
 	{
 		FOnlineAsyncEvent::Finalize();
 		FOnlineLeaderboardsSteamPtr Leaderboards = StaticCastSharedPtr<FOnlineLeaderboardsSteam>(Subsystem->GetLeaderboardsInterface());
@@ -628,7 +628,7 @@ public:
 	 */
 	virtual void Finalize() override
 	{
-		Subsystem->TriggerOnConnectionStatusChangedDelegates(ConnectionState);
+		Subsystem->TriggerOnConnectionStatusChangedDelegates(EOnlineServerConnectionStatus::Normal, ConnectionState);
 	}
 };
 
@@ -779,7 +779,7 @@ public:
 		if (bTriggerConnectionStatusUpdate)
 		{
 			EOnlineServerConnectionStatus::Type ConnectionState = SteamConnectionResult(CallbackResults.m_eResult);
-			Subsystem->TriggerOnConnectionStatusChangedDelegates(ConnectionState);
+			Subsystem->TriggerOnConnectionStatusChangedDelegates(EOnlineServerConnectionStatus::Normal, ConnectionState);
 		}
 	}
 };

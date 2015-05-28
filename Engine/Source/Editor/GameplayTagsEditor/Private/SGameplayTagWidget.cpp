@@ -7,6 +7,7 @@
 #include "ScopedTransaction.h"
 #include "Editor/PropertyEditor/Public/PropertyHandle.h"
 #include "SSearchBox.h"
+#include "SScaleBox.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagWidget"
 
@@ -28,66 +29,75 @@ void SGameplayTagWidget::Construct(const FArguments& InArgs, const TArray<FEdita
 	// Tag the assets as transactional so they can support undo/redo
 	for (int32 AssetIdx = 0; AssetIdx < TagContainers.Num(); ++AssetIdx)
 	{
-		if (TagContainers[AssetIdx].TagContainerOwner)
+		UObject* TagContainerOwner = TagContainers[AssetIdx].TagContainerOwner.Get();
+		if (TagContainerOwner)
 		{
-			TagContainers[AssetIdx].TagContainerOwner->SetFlags(RF_Transactional);
+			TagContainerOwner->SetFlags(RF_Transactional);
 		}
 	}
 
 	ChildSlot
 	[
-		SNew(SBorder)
-		.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+		SNew(SScaleBox)
+		.HAlign(EHorizontalAlignment::HAlign_Left)
+		.VAlign(EVerticalAlignment::VAlign_Top)
+		.StretchDirection(EStretchDirection::DownOnly)
+		.Stretch(EStretch::ScaleToFit)
+		.Content()
 		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.VAlign(VAlign_Top)
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.AutoWidth()
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.VAlign(VAlign_Top)
 				[
-					SNew(SButton)
-					.OnClicked(this, &SGameplayTagWidget::OnExpandAllClicked)
-					.Text(LOCTEXT("GameplayTagWidget_ExpandAll", "Expand All"))
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.OnClicked(this, &SGameplayTagWidget::OnExpandAllClicked)
+						.Text(LOCTEXT("GameplayTagWidget_ExpandAll", "Expand All"))
+					]
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.OnClicked(this, &SGameplayTagWidget::OnCollapseAllClicked)
+						.Text(LOCTEXT("GameplayTagWidget_CollapseAll", "Collapse All"))
+					]
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.IsEnabled(!bReadOnly)
+						.OnClicked(this, &SGameplayTagWidget::OnClearAllClicked)
+						.Text(LOCTEXT("GameplayTagWidget_ClearAll", "Clear All"))
+					]
+					+SHorizontalBox::Slot()
+					.VAlign( VAlign_Center )
+					.FillWidth(1.f)
+					.Padding(5,1,5,1)
+					[
+						SNew(SSearchBox)
+						.HintText(LOCTEXT("GameplayTagWidget_SearchBoxHint", "Search Gameplay Tags"))
+						.OnTextChanged( this, &SGameplayTagWidget::OnFilterTextChanged )
+					]
 				]
-				+SHorizontalBox::Slot()
-				.AutoWidth()
+				+SVerticalBox::Slot()
 				[
-					SNew(SButton)
-					.OnClicked(this, &SGameplayTagWidget::OnCollapseAllClicked)
-					.Text(LOCTEXT("GameplayTagWidget_CollapseAll", "Collapse All"))
-				]
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew(SButton)
-					.IsEnabled(!bReadOnly)
-					.OnClicked(this, &SGameplayTagWidget::OnClearAllClicked)
-					.Text(LOCTEXT("GameplayTagWidget_ClearAll", "Clear All"))
-				]
-				+SHorizontalBox::Slot()
-				.VAlign( VAlign_Center )
-				.FillWidth(1.f)
-				.Padding(5,1,5,1)
-				[
-					SNew(SSearchBox)
-					.HintText(LOCTEXT("GameplayTagWidget_SearchBoxHint", "Search Gameplay Tags"))
-					.OnTextChanged( this, &SGameplayTagWidget::OnFilterTextChanged )
-				]
-			]
-			+SVerticalBox::Slot()
-			[
-				SNew(SBorder)
-				.Padding(FMargin(4.f))
-				[
-					SAssignNew(TagTreeWidget, STreeView< TSharedPtr<FGameplayTagNode> >)
-					.TreeItemsSource(&TagItems)
-					.OnGenerateRow(this, &SGameplayTagWidget::OnGenerateRow)
-					.OnGetChildren(this, &SGameplayTagWidget::OnGetChildren)
-					.OnExpansionChanged( this, &SGameplayTagWidget::OnExpansionChanged)
-					.SelectionMode(ESelectionMode::Multi)
+					SNew(SBorder)
+					.Padding(FMargin(4.f))
+					[
+						SAssignNew(TagTreeWidget, STreeView< TSharedPtr<FGameplayTagNode> >)
+						.TreeItemsSource(&TagItems)
+						.OnGenerateRow(this, &SGameplayTagWidget::OnGenerateRow)
+						.OnGetChildren(this, &SGameplayTagWidget::OnGetChildren)
+						.OnExpansionChanged( this, &SGameplayTagWidget::OnExpansionChanged)
+						.SelectionMode(ESelectionMode::Multi)
+					]
 				]
 			]
 		]
@@ -223,32 +233,32 @@ void SGameplayTagWidget::OnTagChecked(TSharedPtr<FGameplayTagNode> NodeChecked)
 
 	for (int32 ContainerIdx = 0; ContainerIdx < TagContainers.Num(); ++ContainerIdx)
 	{
-		if (TagContainers[ContainerIdx].TagContainerOwner)
+		TWeakPtr<FGameplayTagNode> CurNode(NodeChecked);
+		UObject* OwnerObj = TagContainers[ContainerIdx].TagContainerOwner.Get();
+		FGameplayTagContainer* Container = TagContainers[ContainerIdx].TagContainer;
+
+		if (Container)
 		{
-			TWeakPtr<FGameplayTagNode> CurNode(NodeChecked);
-			UObject* OwnerObj = TagContainers[ContainerIdx].TagContainerOwner;
-			FGameplayTagContainer* Container = TagContainers[ContainerIdx].TagContainer;
 			FGameplayTagContainer EditableContainer = *Container;
 
 			while (CurNode.IsValid())
 			{
 				FGameplayTag Tag = TagsManager.RequestGameplayTag(CurNode.Pin()->GetCompleteTag());
-				if (OwnerObj && Container)
+
+				if (bRemoveParents == false)
 				{
-					if (bRemoveParents == false)
+					bRemoveParents = true;
+					if (bMultiSelect == false)
 					{
-						bRemoveParents = true;
-						if (bMultiSelect == false)
-						{
-							EditableContainer.RemoveAllTags();
-						}
-						EditableContainer.AddTag(Tag);
+						EditableContainer.RemoveAllTags();
 					}
-					else
-					{
-						EditableContainer.RemoveTag(Tag);
-					}
+					EditableContainer.AddTag(Tag);
 				}
+				else
+				{
+					EditableContainer.RemoveTag(Tag);
+				}
+
 				CurNode = CurNode.Pin()->GetParentTagNode();
 			}
 			SetContainer(Container, &EditableContainer, OwnerObj);
@@ -265,13 +275,13 @@ void SGameplayTagWidget::OnTagUnchecked(TSharedPtr<FGameplayTagNode> NodeUncheck
 
 		for (int32 ContainerIdx = 0; ContainerIdx < TagContainers.Num(); ++ContainerIdx)
 		{
-			UObject* OwnerObj = TagContainers[ContainerIdx].TagContainerOwner;
+			UObject* OwnerObj = TagContainers[ContainerIdx].TagContainerOwner.Get();
 			FGameplayTagContainer* Container = TagContainers[ContainerIdx].TagContainer;
-			FGameplayTagContainer EditableContainer = *Container;
 			FGameplayTag Tag = TagsManager.RequestGameplayTag(NodeUnchecked->GetCompleteTag());
 
-			if (OwnerObj && Container)
+			if (Container)
 			{
+				FGameplayTagContainer EditableContainer = *Container;
 				EditableContainer.RemoveTag(Tag);
 
 				TWeakPtr<FGameplayTagNode> ParentNode = NodeUnchecked->GetParentTagNode();
@@ -302,8 +312,9 @@ void SGameplayTagWidget::OnTagUnchecked(TSharedPtr<FGameplayTagNode> NodeUncheck
 					UncheckChildren(ChildNode, EditableContainer);
 				}
 
+				SetContainer(Container, &EditableContainer, OwnerObj);
 			}
-			SetContainer(Container, &EditableContainer, OwnerObj);
+			
 		}
 	}
 }
@@ -375,10 +386,10 @@ FReply SGameplayTagWidget::OnClearAllClicked()
 
 	for (int32 ContainerIdx = 0; ContainerIdx < TagContainers.Num(); ++ContainerIdx)
 	{
-		UObject* OwnerObj = TagContainers[ContainerIdx].TagContainerOwner;
+		UObject* OwnerObj = TagContainers[ContainerIdx].TagContainerOwner.Get();
 		FGameplayTagContainer* Container = TagContainers[ContainerIdx].TagContainer;
 
-		if (OwnerObj && Container)
+		if (Container)
 		{
 			FGameplayTagContainer EmptyContainer;
 			SetContainer(Container, &EmptyContainer, OwnerObj);
@@ -448,12 +459,12 @@ void SGameplayTagWidget::VerifyAssetTagValidity()
 	// Find and remove any tags on the asset that are no longer in the library
 	for (int32 ContainerIdx = 0; ContainerIdx < TagContainers.Num(); ++ContainerIdx)
 	{
-		UObject* OwnerObj = TagContainers[ContainerIdx].TagContainerOwner;
+		UObject* OwnerObj = TagContainers[ContainerIdx].TagContainerOwner.Get();
 		FGameplayTagContainer* Container = TagContainers[ContainerIdx].TagContainer;
-		FGameplayTagContainer EditableContainer = *Container;
 
-		if (OwnerObj && Container)
+		if (Container)
 		{
+			FGameplayTagContainer EditableContainer = *Container;
 			FGameplayTagContainer InvalidTags;
 			for (auto It = Container->CreateConstIterator(); It; ++It)
 			{
@@ -518,7 +529,7 @@ void SGameplayTagWidget::LoadTagNodeItemExpansion( TSharedPtr<FGameplayTagNode> 
 	{
 		bool bExpanded = false;
 
-		if( GConfig->GetBool(*SettingsIniSection, *(TagContainerName + Node->GetCompleteTag().ToString() + TEXT(".Expanded")), bExpanded, GEditorUserSettingsIni) )
+		if( GConfig->GetBool(*SettingsIniSection, *(TagContainerName + Node->GetCompleteTag().ToString() + TEXT(".Expanded")), bExpanded, GEditorPerProjectIni) )
 		{
 			TagTreeWidget->SetItemExpansion( Node, bExpanded );
 		}
@@ -538,23 +549,44 @@ void SGameplayTagWidget::LoadTagNodeItemExpansion( TSharedPtr<FGameplayTagNode> 
 void SGameplayTagWidget::OnExpansionChanged( TSharedPtr<FGameplayTagNode> InItem, bool bIsExpanded )
 {
 	// Save the new expansion setting to ini file
-	GConfig->SetBool(*SettingsIniSection, *(TagContainerName + InItem->GetCompleteTag().ToString() + TEXT(".Expanded")), bIsExpanded, GEditorUserSettingsIni);
+	GConfig->SetBool(*SettingsIniSection, *(TagContainerName + InItem->GetCompleteTag().ToString() + TEXT(".Expanded")), bIsExpanded, GEditorPerProjectIni);
 }
 
 void SGameplayTagWidget::SetContainer(FGameplayTagContainer* OriginalContainer, FGameplayTagContainer* EditedContainer, UObject* OwnerObj)
 {
-	if (PropertyHandle.IsValid())
+	if (OwnerObj)
 	{
-		OwnerObj->PreEditChange(PropertyHandle->GetProperty());
+		OwnerObj->PreEditChange(PropertyHandle.IsValid() ? PropertyHandle->GetProperty() : NULL);
+	}
+
+	if (PropertyHandle.IsValid() && bMultiSelect)
+	{
+		// Case for a tag container 
 		PropertyHandle->SetValueFromFormattedString(EditedContainer->ToString());
+	}
+	else if (PropertyHandle.IsValid() && !bMultiSelect)
+	{
+		// Case for a single Tag		
+		FString FormattedString = TEXT("(TagName=\"");
+		FormattedString += EditedContainer->First().GetTagName().ToString();
+		FormattedString += TEXT("\")");
+		PropertyHandle->SetValueFromFormattedString(FormattedString);
 	}
 	else
 	{
-		OwnerObj->PreEditChange(NULL);
+		// Not sure if we should get here, means the property handle hasnt been setup which could be right or wrong.
 		*OriginalContainer = *EditedContainer;
+	}	
+
+	if (OwnerObj)
+	{
+		OwnerObj->PostEditChange();
 	}
-	OwnerObj->PostEditChange();
-	OnTagChanged.ExecuteIfBound();
+
+	if (!PropertyHandle.IsValid())
+	{
+		OnTagChanged.ExecuteIfBound();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

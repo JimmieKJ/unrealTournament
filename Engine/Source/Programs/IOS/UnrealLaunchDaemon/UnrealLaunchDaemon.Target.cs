@@ -11,6 +11,7 @@ public class UnrealLaunchDaemonTarget : TargetRules
 		bUsesSlate = false;
 		//PlatformType = TargetRules.TargetPlatformType.Mobile;
 		//bRequiresUnrealHeaderGeneration = true;
+		AdditionalPlugins.Add("UdpMessaging");
 	}
 
 	//
@@ -51,6 +52,5 @@ public class UnrealLaunchDaemonTarget : TargetRules
 		UEBuildConfiguration.bCompileAgainstEngine = false;
 
 		OutLinkEnvironmentConfiguration.bHasExports = false;
-		OutLinkEnvironmentConfiguration.bBuildAdditionalConsoleApplication = false;
 	}
 }

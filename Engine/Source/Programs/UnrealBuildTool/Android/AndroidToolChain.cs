@@ -11,8 +11,6 @@ namespace UnrealBuildTool
 {
 	public class AndroidToolChain : UEToolChain
 	{
-		static private string ModuleHasNDKExtensionsCompiled = null;
-
 		// the number of the clang version being used to compile 
 		static private float ClangVersionFloat = 0;
 
@@ -57,7 +55,7 @@ namespace UnrealBuildTool
 			}
 			if (Ini.GetBool("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings", "bBuildForx8664", out bBuild) && bBuild)
 			{
-				ProjectArches.Add("-x86_64");
+				ProjectArches.Add("-x64");
 			}
 
 			// force armv7 if something went wrong
@@ -308,7 +306,7 @@ namespace UnrealBuildTool
 			}
 
 			// debug info
-            if (CompileEnvironment.Config.bCreateDebugInfo && !UnrealBuildTool.BuildingRocket())
+            if (CompileEnvironment.Config.bCreateDebugInfo)
 			{
 				Result += " -g2 -gdwarf-2";
 			}
@@ -437,11 +435,6 @@ namespace UnrealBuildTool
 			Result += " -nostdlib";
 			Result += " -Wl,-shared,-Bsymbolic";
 			Result += " -Wl,--no-undefined";
-
-            if (UnrealBuildTool.BuildingRocket())
-            {
-                Result += " -Wl,--strip-debug";
-            }
 
             if (Architecture == "-armv7")
 			{
@@ -573,15 +566,11 @@ namespace UnrealBuildTool
 
 		static void ConditionallyAddNDKSourceFiles(List<FileItem> SourceFiles, string ModuleName)
 		{
-			// We need to add the extra glue and cpu code only once to the first module. But since
-			// this is called multiple times for the same module we remember the module we
-			// add the extra code to and add it to that always. I.e. it makes this call
-			// consistent within one UBT invocation.
-			if (null == ModuleHasNDKExtensionsCompiled || ModuleHasNDKExtensionsCompiled.Equals(ModuleName))
+			// We need to add the extra glue and cpu code only to Launch module.
+			if (ModuleName.Equals("Launch"))
 			{
 				SourceFiles.Add(FileItem.GetItemByPath(Environment.GetEnvironmentVariable("NDKROOT") + "/sources/android/native_app_glue/android_native_app_glue.c"));
 				SourceFiles.Add(FileItem.GetItemByPath(Environment.GetEnvironmentVariable("NDKROOT") + "/sources/android/cpufeatures/cpu-features.c"));
-				ModuleHasNDKExtensionsCompiled = ModuleName;
 			}
 		}
 
@@ -615,10 +604,7 @@ namespace UnrealBuildTool
 			}
 
 			// Directly added NDK files for NDK extensions
-			if (!UnrealBuildTool.RunningRocket())
-			{
-				ConditionallyAddNDKSourceFiles(SourceFiles, ModuleName);
-			}
+			ConditionallyAddNDKSourceFiles(SourceFiles, ModuleName);
 
 			// Add preprocessor definitions to the argument list.
 			foreach (string Definition in CompileEnvironment.Config.Definitions)
@@ -922,7 +908,7 @@ namespace UnrealBuildTool
 								else
 								{
 									// full pathed libs are compiled by us, so we depend on linking them
-									LinkAction.CommandArguments += string.Format(" \"{0}\"", AdditionalLibrary);
+									LinkAction.CommandArguments += string.Format(" \"{0}\"", Path.GetFullPath(AdditionalLibrary));
 									LinkAction.PrerequisiteItems.Add(FileItem.GetItemByPath(AdditionalLibrary));
 								}
 							}
@@ -942,13 +928,16 @@ namespace UnrealBuildTool
 			return Outputs.ToArray();
 		}
 
-		public override void AddFilesToManifest(BuildManifest Manifest, UEBuildBinary Binary)
+		public override void AddFilesToReceipt(BuildReceipt Receipt, UEBuildBinary Binary)
 		{
 			// the binary will have all of the .so's in the output files, we need to trim down to the shared apk (which is what needs to go into the manifest)
-			foreach (string BinaryPath in Binary.Config.OutputFilePaths)
+			if (Binary.Config.Type != UEBuildBinaryType.StaticLibrary)
 			{
-				string ApkFile = Path.ChangeExtension(BinaryPath, ".apk");
-				Manifest.AddBuildProduct(ApkFile);
+				foreach (string BinaryPath in Binary.Config.OutputFilePaths)
+				{
+					string ApkFile = Path.ChangeExtension(BinaryPath, ".apk");
+					Receipt.AddBuildProduct(ApkFile, BuildProductType.Executable);
+				}
 			}
 		}
 
@@ -968,6 +957,25 @@ namespace UnrealBuildTool
 		public override UnrealTargetPlatform GetPlatform()
 		{
 			return UnrealTargetPlatform.Android;
+		}
+
+		public override void StripSymbols(string SourceFileName, string TargetFileName)
+		{
+			File.Copy(SourceFileName, TargetFileName, true);
+
+			ProcessStartInfo StartInfo = new ProcessStartInfo();
+			if(SourceFileName.Contains("-armv7"))
+			{
+				StartInfo.FileName = ArPathArm.Replace("-ar.exe", "-strip.exe");
+			}
+			else
+			{
+				throw new BuildException("Couldn't determine Android architecture to strip symbols from {0}", SourceFileName);
+			}
+			StartInfo.Arguments = "--strip-debug " + TargetFileName;
+			StartInfo.UseShellExecute = false;
+			StartInfo.CreateNoWindow = true;
+			Utils.RunLocalProcessAndLogOutput(StartInfo);
 		}
 	};
 }

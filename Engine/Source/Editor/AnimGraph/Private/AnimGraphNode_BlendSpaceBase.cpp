@@ -37,7 +37,7 @@ struct FNewBlendSpacePlayerAction : public FEdGraphSchemaAction_K2NewNode
 		Category = TEXT("Animations");
 
 		// Grab extra keywords
-		Keywords = BlendSpace->GetPathName();
+		Keywords = FText::FromString(BlendSpace->GetPathName());
 	}
 };
 
@@ -52,33 +52,6 @@ UAnimGraphNode_BlendSpaceBase::UAnimGraphNode_BlendSpaceBase(const FObjectInitia
 FLinearColor UAnimGraphNode_BlendSpaceBase::GetNodeTitleColor() const
 {
 	return FLinearColor(0.2f, 0.8f, 0.2f);
-}
-
-void UAnimGraphNode_BlendSpaceBase::GetBlendSpaceEntries(bool bWantsAimOffset, FGraphContextMenuBuilder& ContextMenuBuilder)
-{
-	if ((ContextMenuBuilder.FromPin == NULL) || (UAnimationGraphSchema::IsPosePin(ContextMenuBuilder.FromPin->PinType) && (ContextMenuBuilder.FromPin->Direction == EGPD_Input)))
-	{
-		UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraphChecked(ContextMenuBuilder.CurrentGraph);
-
-		// Add an entry for each loaded animation sequence
-		if (UAnimBlueprint* AnimBlueprint = Cast<UAnimBlueprint>(Blueprint))
-		{
-			for (TObjectIterator<UBlendSpaceBase> BlendSpaceIt; BlendSpaceIt; ++BlendSpaceIt)
-			{
-				UBlendSpaceBase* BlendSpace = *BlendSpaceIt;
-				
-				const bool bIsAimOffset = BlendSpace->IsA(UAimOffsetBlendSpace::StaticClass()) || BlendSpace->IsA(UAimOffsetBlendSpace1D::StaticClass());
-				const bool bPassesAimOffsetFilter = !(bIsAimOffset ^ bWantsAimOffset);
-				const bool bPassesSkeletonFilter = (BlendSpace->GetSkeleton() == AnimBlueprint->TargetSkeleton);
-
-				if (bPassesAimOffsetFilter && bPassesSkeletonFilter)
-				{
-					TSharedPtr<FNewBlendSpacePlayerAction> NewAction(new FNewBlendSpacePlayerAction(BlendSpace));
-					ContextMenuBuilder.AddAction( NewAction );
-				}
-			}
-		}
-	}
 }
 
 void UAnimGraphNode_BlendSpaceBase::CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex) const

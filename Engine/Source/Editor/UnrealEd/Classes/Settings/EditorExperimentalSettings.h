@@ -13,7 +13,7 @@
 /**
  * Implements Editor settings for experimental features.
  */
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class UNREALED_API UEditorExperimentalSettings
 	: public UObject
 {
@@ -21,24 +21,28 @@ class UNREALED_API UEditorExperimentalSettings
 
 public:
 
-	/** Allows usage of the Translation Editor */
-	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Translation Editor"))
-	bool bEnableTranslationEditor;
+	/** Allows usage of the procedural foliage system */
+	UPROPERTY(EditAnywhere, config, Category = Foliage, meta = (DisplayName = "Procedural Foliage"))
+	bool bProceduralFoliage;
+
+	/** Allows usage of the Localization Dashboard */
+	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Localization Dashboard"))
+	bool bEnableLocalizationDashboard;
+
+	/** Allows usage of the Translation Picker */
+	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Translation Picker"))
+	bool bEnableTranslationPicker;
 
 	/** The Blutility shelf holds editor utility Blueprints. Summon from the Workspace menu. */
 	UPROPERTY(EditAnywhere, config, Category=Tools, meta=(DisplayName="Editor Utility Blueprints (Blutility)"))
 	bool bEnableEditorUtilityBlueprints;
-
-	/** Enable In World BP Editing (WIP). */
-	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "In World Blueprint Editing"))
-	bool bInWorldBPEditing;
 
 	/** Enable Single Layout BP Editor. */
 	UPROPERTY(EditAnywhere, config, Category = Tools, meta = ( DisplayName = "Single Layout Blueprint Editor" ))
 	bool bUnifiedBlueprintEditor;
 
 	/** Enable being able to subclass components in blueprints */
-	UPROPERTY(EditAnywhere, config, Category=Tools)
+	UPROPERTY(EditAnywhere, config, Category=Tools, meta=(ConfigRestartRequired=true))
 	bool bBlueprintableComponents;
 
 	/** The Messaging Debugger provides a visual utility for debugging the messaging system. */
@@ -46,7 +50,7 @@ public:
 	bool bMessagingDebugger;
 
 	/** Allows to use actor merging utilities (Simplygon Proxy LOD, Grouping by Materials)*/
-	UPROPERTY(EditAnywhere, config, Category=Tools, meta=(DisplayName="Actor Merging"))
+	UPROPERTY(EditAnywhere, config, Category = Tools, meta = (DisplayName = "Actor Merging"))
 	bool bActorMerging;
 
 	/** Specify which console-specific nomenclature to use for gamepad label text */
@@ -74,12 +78,8 @@ public:
 	bool bContextMenuChunkAssignments;
 
 	/** Disable cook in the editor */
-	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Disable Cook In The Editor feature, requires editor restart (cooks from launch on will be run in a separate process if disabled)"))
+	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Disable Cook In The Editor feature (cooks from launch on will be run in a separate process if disabled)", ConfigRestartRequired=true))
 	bool bDisableCookInEditor;
-
-	/** Enable cook on the side */
-	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Cook On The Side, requires editor restart (Run a cook on the fly server in the background of the editor)"))
-	bool bCookOnTheSide;
 
 	/** Enable -iterate for launch on */
 	UPROPERTY(EditAnywhere, config, Category = Cooking, meta = (DisplayName = "Iterative cooking for builds launched form the editor (launch on)"))
@@ -88,7 +88,11 @@ public:
 	/** Enables Environment Queries editor */
 	UPROPERTY(EditAnywhere, config, Category = AI, meta = (DisplayName = "Environment Querying System"))
 	bool bEQSEditor;
-	
+
+	/** Enables Environment Queries editor */
+	UPROPERTY(EditAnywhere, config, Category = Rendering, meta = (DisplayName = "Enable Metal/High-end mobile rendering preview"))
+	bool bFeatureLevelES31Preview;
+
 	/**
 	 * Returns an event delegate that is executed when a setting has changed.
 	 *

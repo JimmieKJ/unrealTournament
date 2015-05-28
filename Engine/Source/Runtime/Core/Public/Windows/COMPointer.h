@@ -41,15 +41,15 @@ public:
 	{
 		if(RawPointer != Source)
 		{
-			if(RawPointer)
+			if (Source)
+			{
+				Source->AddRef();
+			}
+			if (RawPointer)
 			{
 				RawPointer->Release();
 			}
 			RawPointer = Source;
-			if(RawPointer)
-			{
-				RawPointer->AddRef();
-			}
 		}
 		return *this;
 	}
@@ -58,15 +58,15 @@ public:
 	{
 		if(RawPointer != Source.RawPointer)
 		{
-			if(RawPointer)
+			if (Source.RawPointer)
+			{
+				Source->AddRef();
+			}
+			if (RawPointer)
 			{
 				RawPointer->Release();
 			}
 			RawPointer = Source.RawPointer;
-			if(RawPointer)
-			{
-				RawPointer->AddRef();
-			}
 		}
 		return *this;
 	}

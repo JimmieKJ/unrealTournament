@@ -221,10 +221,10 @@ void FLiveEditorListenServer::ShutdownModule()
 void FLiveEditorListenServer::InstallHooks()
 {
 	ObjectCreateListener = new nLiveEditorListenServer::FCreateListener(this);
-	GUObjectArray.AddUObjectCreateListener( ObjectCreateListener );
+	GetUObjectArray().AddUObjectCreateListener(ObjectCreateListener);
 
 	ObjectDeleteListener = new nLiveEditorListenServer::FDeleteListener(this);
-	GUObjectArray.AddUObjectDeleteListener( ObjectDeleteListener );
+	GetUObjectArray().AddUObjectDeleteListener(ObjectDeleteListener);
 
 	TickObject = new nLiveEditorListenServer::FTickObject(this);
 
@@ -329,7 +329,7 @@ void FLiveEditorListenServer::Tick( float DeltaTime )
 		while ( Client->HasPendingData(DataSize) )
 		{
 			FArrayReaderPtr Datagram = MakeShareable(new FArrayReader(true));
-			Datagram->Init(FMath::Min(DataSize, 65507u));
+			Datagram->SetNumUninitialized(FMath::Min(DataSize, 65507u));
 
 			int32 BytesRead = 0;
 			if ( Client->Recv(Datagram->GetData(), Datagram->Num(), BytesRead) )

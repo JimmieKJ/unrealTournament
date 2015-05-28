@@ -1507,7 +1507,7 @@ bool FParticleBeam2EmitterInstance::FillReplayData( FDynamicEmitterReplayDataBas
 			NewReplayData->NoiseRangeScale = BeamModule_Noise->NoiseRangeScale.GetValue(EmitterTime, Component);
 		}
 		else
-		{
+		{	//-V523 Remove when todo will be implemented
 			//@todo.SAS. Need to address this!!!!
 			//					check(0 && TEXT("NoiseRangeScale - No way to get per-particle setting at this time."));
 			//					NewReplayData->NoiseRangeScale	= BeamModule_Noise->NoiseRangeScale.GetValue(Particle->RelativeTime, Component);

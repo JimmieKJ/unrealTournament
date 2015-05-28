@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_APEX_SCENE_H
 #define NX_APEX_SCENE_H
@@ -89,6 +73,10 @@ public:
 	*/
 	virtual void setContactReportFlags(PxShape* shape, PxPairFlags flags, NxDestructibleActor* actor, PxU16 actorChunkIndex) = 0;
 
+	/**
+	\brief Get the current contact report pair flags
+
+	*/
 	virtual physx::PxPairFlags getContactReportFlags(const physx::PxShape* shape) const = 0;
 };
 #endif
@@ -141,6 +129,10 @@ public:
 	these pointers in the ApexScene descriptor.
 	*/
 	PxScene* scene;
+
+
+	/** \brief Give this ApexScene a user defined interface to the PhysX 3.*
+	*/
 	NxApexPhysX3Interface*	physX3Interface;
 
 #endif
@@ -170,13 +162,6 @@ public:
 	bool useCuda;
 #endif
 
-#if APEX_USE_GRB || defined (DOXYGEN)
-	/**
-	\brief If 'enableGrbPhysics' is true, then modules which support GPU Rigid Bodies may create a GRB scene for this APEX scene.
-	*/
-	bool	enableGrbPhysics;
-#endif
-
 private:
 	PX_INLINE void init()
 	{
@@ -192,9 +177,6 @@ private:
 		debugVisualizeLocally = true;
 #if defined(APEX_CUDA_SUPPORT)
 		useCuda = true;
-#endif
-#if APEX_USE_GRB
-		enableGrbPhysics = true;
 #endif
 	}
 };
@@ -305,6 +287,22 @@ struct ProjMatrixType
 };
 
 /**
+\brief Enum of the bounding box types
+*/
+struct UserBoundingBoxFlags
+{
+	/**
+	\brief Enum of the bounding box types
+	*/
+	enum Enum
+	{
+		NONE    = 1 << 0,
+		ENTER   = 1 << 1,
+		LEAVE   = 1 << 2
+	};
+};
+
+/**
 \brief An APEX wrapper for an NxScene
 */
 class NxApexScene : public NxApexRenderable, public NxApexContext, public NxApexInterface
@@ -328,9 +326,9 @@ public:
 	\brief Retrieve the NxScene associated with this NxApexScene
 	*/
 #if NX_SDK_VERSION_MAJOR == 2
-	virtual NxScene* getPhysXScene() = 0;
+	virtual NxScene* getPhysXScene() const = 0;
 #else
-	virtual PxScene* getPhysXScene() = 0;
+	virtual PxScene* getPhysXScene() const = 0;
 #endif
 
 	/**
@@ -346,7 +344,7 @@ public:
 	
 	\note This function must be called outside of interval between simulate & fetchResults.
 	*/
-	virtual void prepareRenderResourceContexts() = 0;
+	virtual void prepareRenderResourceContexts() const = 0;
 
 #if NX_SDK_VERSION_MAJOR == 2
 	/**
@@ -423,14 +421,26 @@ public:
 	/**
 	\brief Returns an NxDebugRenderable object that contains the data for debug rendering of this scene
 	*/
-	virtual const NxDebugRenderable* getDebugRenderable() = 0;
+	virtual const NxDebugRenderable* getDebugRenderable() const = 0;
+
+	/**
+	\brief Returns an NxDebugRenderable object that contains the data for debug rendering of this scene in screenspace
+	*/
+	virtual const NxDebugRenderable* getDebugRenderableScreenSpace() const = 0;
+
 #endif
 
 #if NX_SDK_VERSION_MAJOR == 3
 	/**
 	\brief Returns an NxDebugRenderable object that contains the data for debug rendering of this scene
 	*/
-	virtual const PxRenderBuffer* getRenderBuffer() = 0;
+	virtual const PxRenderBuffer* getRenderBuffer() const = 0;
+
+	/**
+	\brief Returns an NxDebugRenderable object that contains the data for debug rendering of this scene, in screenspace
+	*/
+	virtual const PxRenderBuffer* getRenderBufferScreenSpace() const = 0;
+
 #endif
 
 
@@ -440,7 +450,7 @@ public:
 	Performs same function as fetchResults(), but does not update scene state.  fetchResults()
 	must still be called before the next simulation step can begin.
 	*/
-	virtual bool checkResults(bool block) = 0;
+	virtual bool checkResults(bool block) const = 0;
 
 	/**
 	\brief Set the resource budget for this scene.
@@ -578,12 +588,12 @@ public:
 	/**
 	\brief Gets debug rendering parameters from NxParameterized
 	*/
-	virtual ::NxParameterized::Interface* getDebugRenderParams() = 0;
+	virtual ::NxParameterized::Interface* getDebugRenderParams() const = 0;
 
 	/**
 	\brief Gets module debug rendering parameters from NxParameterized
 	*/
-	virtual ::NxParameterized::Interface* getModuleDebugRenderParams(const char* name) = 0;
+	virtual ::NxParameterized::Interface* getModuleDebugRenderParams(const char* name) const = 0;
 
 #if NX_SDK_VERSION_MAJOR == 3
 	/**
@@ -609,12 +619,12 @@ public:
 	/**
 	\brief Release the PhysX scene read lock
 	*/
-	virtual void unlockRead(void) = 0;
+	virtual void unlockRead() = 0;
 
 	/**
 	\brief Release the PhysX scene write lock
 	*/
-	virtual void unlockWrite(void) = 0;
+	virtual void unlockWrite() = 0;
 #else
 	/**
 	\brief Acquire the PhysX scene lock
@@ -637,12 +647,40 @@ public:
 #endif
 
 #if NX_SDK_VERSION_MAJOR == 3
-	virtual PxU32	getActorPairIndex(PxActor *actor) = 0;
-	virtual bool	releaseActorPairIndex(PxActor *actor) = 0;
+	/**
+	\brief Allows the application to specify a pair of PhysX actors for the purposes of collision filtering.
+
+	The set of methods addActorPair/removeActorPair and findActorPair can be used to implement collision filtering.
+	This is a feature typically required to implement ragdoll systems to prevent nearby bodies from generating 
+	contacts which create jitter in the simulation; causing artifacts and preventing a ragdoll from coming to rest.
+	
+	These methods are not required but are helper methods available if needed by the application.
+
+	\param actor0 The first actor in the actor pair to consider
+	\param actor1 The second actor in the actor pair to consider for filtering
+	*/
 	virtual void	addActorPair(PxActor *actor0,PxActor *actor1) = 0;
+
+	/**
+	\brief Removes a previously specified pair of actors from the actor-pair filter table
+
+	\param actor0 The first actor in the actor pair to remove
+	\param actor1 The second actor in the actor pair to remove
+	*/
 	virtual void	removeActorPair(PxActor *actor0,PxActor *actor1) = 0;
-	virtual bool	findActorPair(PxActor *actor0,PxActor *actor1) = 0;
-	virtual bool	findActorPair(PxU32 id0,PxU32 id1) = 0;
+
+	/**
+	\brief This method is used to determine if two actor pairs match.
+
+	If actor0 and actor1 were previously added to the actor-pair filter table, then this method will return true.  
+	Order is not important, actor0+actor1 will return the same result as actor1+actor0
+
+	\param actor0 The first actor to consider
+	\param actor1 The second actor to consider
+
+	\return Returns true if the two actors match false if they have not been previously defined.
+	*/
+	virtual bool	findActorPair(PxActor *actor0,PxActor *actor1) const = 0;
 #endif
 
 #if NX_SDK_VERSION_MAJOR == 3
@@ -663,10 +701,58 @@ public:
 		physx::PxF32 mirrorRefreshDistance) = 0;
 #endif
 
+	/**
+	\brief Adds user-defined bounding box into the scene. Each module can use these bounding boxes in a module-specific way. See documentation on each module.
+	Some modules might use it as a valid volume of simulation, deleting actors or parts of actors upon leaving a BB.
+
+
+	\param bounds [in] - The bounding box in world coordinates.
+	\param flags [in] - The flag for supplied bounding box.
+	*/
+	virtual void  addBoundingBox(const PxBounds3& bounds, UserBoundingBoxFlags::Enum flags) = 0;
+
+	/**
+	\brief Returns user-defined bounding box added previously. In case there is no bounding box for the given index, zero sized PxBounds3 is returned.
+
+
+	\param index [in] - Index of the bounding box. User could acquire total number of bounding boxes using getBoundingBoxCount.
+	*/
+	virtual const PxBounds3 getBoundingBox(const PxU32 index) const = 0;
+
+	/**
+	\brief Returns user-defined bounding box flags. In case there is no bounding box (and its flags) for the given index, UserBoundingBoxFlags::NONE is returned.
+
+
+	\param index [in] - Index of the bounding box. User could acquire total number of bounding boxes using getBoundingBoxCount.
+	*/
+	virtual UserBoundingBoxFlags::Enum getBoundingBoxFlags(const PxU32 index) const = 0;
+
+	/**
+	\brief Returns user-defined bounding box count.
+	*/
+	virtual PxU32 getBoundingBoxCount() const = 0;
+
+	/**
+	\brief Removes user-defined bounding box at index. In case index is invalid (there is no bounding box for this index) nothing is happenning.
+
+	\param index [in] - Index of the bounding box. User could acquire total number of bounding boxes using getBoundingBoxCount.
+	*/
+	virtual void  removeBoundingBox(const PxU32 index) = 0;
+
+	/**
+	\brief Removed all of the user-specified bounding boxes.
+	*/
+	virtual void  removeAllBoundingBoxes() = 0;
 
 #if defined(APEX_CUDA_SUPPORT)
-	virtual void* getNxApexCudaTestManager() = 0;
-	virtual void* getNxApexCudaProfileManager() = 0;
+	virtual void* getNxApexCudaTestManager() const = 0;
+	virtual void* getNxApexCudaProfileManager() const = 0;
+
+	/**
+	\brief Enables/disables Cuda error check after each kernel launch. Use ONLY for DEBUG purposes, when enabled could dramatically SLOW down performance!
+	*/
+	virtual void setCudaKernelCheckEnabled(bool enabled) = 0;
+	virtual bool getCudaKernelCheckEnabled() const = 0;
 #endif
 
 #if defined(APEX_TEST)
@@ -693,7 +779,7 @@ public:
 	ScopedPhysXLockRead(physx::NxApexScene& scene,const char *fileName,int lineno) : mScene(&scene)
 	{
 #if NX_SDK_VERSION_MAJOR == 3
-		mScene->lockRead(fileName,lineno);
+		mScene->lockRead(fileName, (physx::PxU32)lineno);
 #else
 		PX_UNUSED(fileName);
 		PX_UNUSED(lineno);
@@ -730,7 +816,7 @@ public:
 	ScopedPhysXLockWrite(physx::NxApexScene &scene,const char *fileName,int lineno) : mScene(&scene)
 	{
 #if NX_SDK_VERSION_MAJOR == 3
-		mScene->lockWrite(fileName,lineno);
+		mScene->lockWrite(fileName, (physx::PxU32)lineno);
 #else
 		PX_UNUSED(fileName);
 		PX_UNUSED(lineno);

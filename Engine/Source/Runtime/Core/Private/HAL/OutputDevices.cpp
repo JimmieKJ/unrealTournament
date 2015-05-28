@@ -85,7 +85,7 @@ class FLogSuppressionImplementation: public FLogSuppressionInterface, private FS
 		Cmds = Cmds.Trim().TrimQuotes();
 		Cmds.Trim();
 		TArray<FString> SubCmds;
-		Cmds.ParseIntoArray(&SubCmds, TEXT(","), true);
+		Cmds.ParseIntoArray(SubCmds, TEXT(","), true);
 		for (int32 Index = 0; Index < SubCmds.Num(); Index++)
 		{
 			static FString LogString(TEXT("Log "));
@@ -95,7 +95,7 @@ class FLogSuppressionImplementation: public FLogSuppressionInterface, private FS
 				Command = Command.Right(Command.Len() - LogString.Len());
 			}
 			TArray<FString> CommandParts;
-			Command.ParseIntoArrayWS(&CommandParts);
+			Command.ParseIntoArrayWS(CommandParts);
 			if (CommandParts.Num() < 1)
 			{
 				continue;

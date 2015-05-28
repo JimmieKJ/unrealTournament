@@ -484,6 +484,12 @@ void FBoneReferenceCustomization::CustomizeChildren( TSharedRef<IPropertyHandle>
 void FBoneReferenceCustomization::OnBoneSelectionChanged(FName Name)
 {
 	BoneRefProperty->SetValue(Name);
+
+	// Force a refresh of cached node titles, K2Schema is no different than the AnimSchema for this purpose
+	if (const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>())
+	{
+		K2Schema->ForceVisualizationCacheClear();
+	}
 }
 FName FBoneReferenceCustomization::GetSelectedBone() const
 {

@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-LandscapeCollision.cpp: Landscape collision
-=============================================================================*/
-
 #include "Landscape.h"
 #include "PhysicsPublic.h"
 #include "LandscapeDataAccess.h"
@@ -19,7 +15,7 @@ LandscapeCollision.cpp: Landscape collision
 #include "LandscapeLayerInfoObject.h"
 #include "LandscapeInfo.h"
 #include "InstancedFoliage.h"
-#include "Foliage/FoliageType.h"
+#include "FoliageType.h"
 #include "Engine/StaticMesh.h"
 #include "Components/HierarchicalInstancedStaticMeshComponent.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
@@ -28,6 +24,9 @@ LandscapeCollision.cpp: Landscape collision
 #include "Engine/CollisionProfile.h"
 #include "Engine/Engine.h"
 #include "EngineGlobals.h"
+#include "InstancedFoliageActor.h"
+#include "EngineUtils.h"
+
 
 TMap<FGuid, ULandscapeHeightfieldCollisionComponent::FPhysXHeightfieldRef* > GSharedHeightfieldRefs;
 
@@ -229,7 +228,9 @@ void ULandscapeHeightfieldCollisionComponent::CreatePhysicsState()
 				}
 
 				// Add to scenes
-				PhysScene->GetPhysXScene(PST_Sync)->addActor(*HeightFieldActorSync);
+				PxScene* SyncScene = PhysScene->GetPhysXScene(PST_Sync);
+				SCOPED_SCENE_WRITE_LOCK(SyncScene);
+				SyncScene->addActor(*HeightFieldActorSync);
 
 				if (PhysScene->HasAsyncScene())
 				{
@@ -261,6 +262,8 @@ void ULandscapeHeightfieldCollisionComponent::CreateCollisionObject()
 	// If we have not created a heightfield yet - do it now.
 	if (!IsValidRef(HeightfieldRef))
 	{
+		UWorld* World = GetWorld();
+
 		FPhysXHeightfieldRef* ExistingHeightfieldRef = nullptr;
 		bool bCheckDDC = true;
 
@@ -291,7 +294,11 @@ void ULandscapeHeightfieldCollisionComponent::CreateCollisionObject()
 #if WITH_EDITOR
 			// Prepare heightfield data
 			static FName PhysicsFormatName(FPlatformProperties::GetPhysicsFormat());
-			CookCollsionData(PhysicsFormatName, false, bCheckDDC, CookedCollisionData, CookedPhysicalMaterials);
+			CookCollisionData(PhysicsFormatName, false, bCheckDDC, CookedCollisionData, CookedPhysicalMaterials);
+
+			// The World will clean up any speculatively-loaded data we didn't end up using.
+			SpeculativeDDCRequest.Reset();
+
 #endif //WITH_EDITOR
 
 			if (CookedCollisionData.Num())
@@ -311,17 +318,17 @@ void ULandscapeHeightfieldCollisionComponent::CreateCollisionObject()
 
 				// Release cooked collison data
 				// In cooked builds created collision object will never be deleted while component is alive, so we don't need this data anymore
-				if (FPlatformProperties::RequiresCookedData() || GetWorld()->IsGameWorld())
+				if (FPlatformProperties::RequiresCookedData() || World->IsGameWorld())
 				{
 					CookedCollisionData.Empty();
 				}
 
 #if WITH_EDITOR
 				// Create heightfield for the landscape editor (no holes in it)
-				if (!GetWorld()->IsGameWorld())
+				if (!World->IsGameWorld())
 				{
 					TArray<UPhysicalMaterial*> CookedMaterialsEd;
-					if (CookCollsionData(PhysicsFormatName, true, bCheckDDC, CookedCollisionDataEd, CookedMaterialsEd))
+					if (CookCollisionData(PhysicsFormatName, true, bCheckDDC, CookedCollisionDataEd, CookedMaterialsEd))
 					{
 						FPhysXInputStream HeightFieldStream(CookedCollisionDataEd.GetData(), CookedCollisionDataEd.Num());
 						HeightfieldRef->RBHeightfieldEd = GPhysXSDK->createHeightField(HeightFieldStream);
@@ -335,7 +342,27 @@ void ULandscapeHeightfieldCollisionComponent::CreateCollisionObject()
 }
 
 #if WITH_EDITOR
-bool ULandscapeHeightfieldCollisionComponent::CookCollsionData(const FName& Format, bool bUseDefMaterial, bool bCheckDDC, TArray<uint8>& OutCookedData, TArray<UPhysicalMaterial*>& OutMaterials) const
+void ULandscapeHeightfieldCollisionComponent::SpeculativelyLoadAsyncDDCCollsionData()
+{
+#if WITH_PHYSX
+	if (GetLinkerUE4Version() >= VER_UE4_LANDSCAPE_SERIALIZE_PHYSICS_MATERIALS)
+	{
+		UWorld* World = GetWorld();
+		if (World && HeightfieldGuid.IsValid() && CookedPhysicalMaterials.Num() > 0 && GSharedHeightfieldRefs.FindRef(HeightfieldGuid) == nullptr)
+		{
+			static FName PhysicsFormatName(FPlatformProperties::GetPhysicsFormat());
+
+			FString Key = GetHFDDCKeyString(PhysicsFormatName, false, HeightfieldGuid);
+			uint32 Handle = GetDerivedDataCacheRef().GetAsynchronous(*Key);
+			check(!SpeculativeDDCRequest.IsValid());
+			SpeculativeDDCRequest = MakeShareable(new FAsyncPreRegisterDDCRequest(Key, Handle));
+			World->AsyncPreRegisterDDCRequests.Add(SpeculativeDDCRequest);
+		}
+	}
+#endif
+}
+
+bool ULandscapeHeightfieldCollisionComponent::CookCollisionData(const FName& Format, bool bUseDefMaterial, bool bCheckDDC, TArray<uint8>& OutCookedData, TArray<UPhysicalMaterial*>& OutMaterials) const
 {
 #if WITH_PHYSX
 	// we have 2 versions of collision objects
@@ -346,7 +373,23 @@ bool ULandscapeHeightfieldCollisionComponent::CookCollsionData(const FName& Form
 		// Ensure that content was saved with physical materials before using DDC data
 		if (GetLinkerUE4Version() >= VER_UE4_LANDSCAPE_SERIALIZE_PHYSICS_MATERIALS)
 		{
-			if (GetDerivedDataCacheRef().GetSynchronous(*GetHFDDCKeyString(Format, bUseDefMaterial, HeightfieldGuid), OutCookedData))
+			FString DDCKey = GetHFDDCKeyString(Format, bUseDefMaterial, HeightfieldGuid);
+
+			// Check if the speculatively-loaded data loaded and is what we wanted
+			if (SpeculativeDDCRequest.IsValid() && DDCKey == SpeculativeDDCRequest->GetKey())
+			{
+				SpeculativeDDCRequest->WaitAsynchronousCompletion();
+				bool bSuccess = SpeculativeDDCRequest->GetAsynchronousResults(OutCookedData);
+				// World will clean up remaining reference
+				SpeculativeDDCRequest.Reset();
+				if (bSuccess)
+				{
+					bShouldSaveCookedDataToDDC[CookedDataIndex] = false;
+					return true;
+				}
+			}
+
+			if (GetDerivedDataCacheRef().GetSynchronous(*DDCKey, OutCookedData))
 			{
 				bShouldSaveCookedDataToDDC[CookedDataIndex] = false;
 				return true;
@@ -451,7 +494,7 @@ bool ULandscapeHeightfieldCollisionComponent::CookCollsionData(const FName& Form
 
 	if (Result)
 	{
-		OutCookedData.Init(OutData.Num());
+		OutCookedData.SetNumUninitialized(OutData.Num());
 		FMemory::Memcpy(OutCookedData.GetData(), OutData.GetData(), OutData.Num());
 
 		if (bShouldSaveCookedDataToDDC[CookedDataIndex])
@@ -472,7 +515,7 @@ bool ULandscapeHeightfieldCollisionComponent::CookCollsionData(const FName& Form
 	return false;
 }
 
-bool ULandscapeMeshCollisionComponent::CookCollsionData(const FName& Format, bool bUseDefMaterial, bool bCheckDDC, TArray<uint8>& OutCookedData, TArray<UPhysicalMaterial*>& OutMaterials) const
+bool ULandscapeMeshCollisionComponent::CookCollisionData(const FName& Format, bool bUseDefMaterial, bool bCheckDDC, TArray<uint8>& OutCookedData, TArray<UPhysicalMaterial*>& OutMaterials) const
 {
 #if WITH_PHYSX
 	
@@ -484,7 +527,23 @@ bool ULandscapeMeshCollisionComponent::CookCollsionData(const FName& Format, boo
 		// Ensure that content was saved with physical materials before using DDC data
 		if (GetLinkerUE4Version() >= VER_UE4_LANDSCAPE_SERIALIZE_PHYSICS_MATERIALS)
 		{
-			if (GetDerivedDataCacheRef().GetSynchronous(*GetHFDDCKeyString(Format, bUseDefMaterial, HeightfieldGuid), OutCookedData))
+			FString DDCKey = GetHFDDCKeyString(Format, bUseDefMaterial, MeshGuid);
+
+			// Check if the speculatively-loaded data loaded and is what we wanted
+			if (SpeculativeDDCRequest.IsValid() && DDCKey == SpeculativeDDCRequest->GetKey())
+			{
+				SpeculativeDDCRequest->WaitAsynchronousCompletion();
+				bool bSuccess = SpeculativeDDCRequest->GetAsynchronousResults(OutCookedData);
+				// World will clean up remaining reference
+				SpeculativeDDCRequest.Reset();
+				if (bSuccess)
+				{
+					bShouldSaveCookedDataToDDC[CookedDataIndex] = false;
+					return true;
+				}
+			}
+
+			if (GetDerivedDataCacheRef().GetSynchronous(*DDCKey, OutCookedData))
 			{
 				bShouldSaveCookedDataToDDC[CookedDataIndex] = false;
 				return true;
@@ -517,7 +576,7 @@ bool ULandscapeMeshCollisionComponent::CookCollsionData(const FName& Format, boo
 	}
 
 	// Scale all verts into temporary vertex buffer.
-	Vertices.Init(NumVerts);
+	Vertices.SetNumUninitialized(NumVerts);
 	for (int32 i = 0; i < NumVerts; i++)
 	{
 		int32 X = i % CollisionSizeVerts;
@@ -526,10 +585,10 @@ bool ULandscapeMeshCollisionComponent::CookCollsionData(const FName& Format, boo
 	}
 
 	const int32 NumTris = FMath::Square(CollisionSizeQuads) * 2;
-	Indices.Init(NumTris);
+	Indices.SetNumUninitialized(NumTris);
 	if (DominantLayers)
 	{
-		MaterialIndices.Init(NumTris);
+		MaterialIndices.SetNumUninitialized(NumTris);
 	}
 
 	int32 TriangleIdx = 0;
@@ -623,12 +682,12 @@ bool ULandscapeMeshCollisionComponent::CookCollsionData(const FName& Format, boo
 
 	if (Result)
 	{
-		OutCookedData.Init(OutData.Num());
+		OutCookedData.SetNumUninitialized(OutData.Num());
 		FMemory::Memcpy(OutCookedData.GetData(), OutData.GetData(), OutData.Num());
 
 		if (bShouldSaveCookedDataToDDC[CookedDataIndex])
 		{
-			GetDerivedDataCacheRef().Put(*GetHFDDCKeyString(Format, bUseDefMaterial, HeightfieldGuid), OutCookedData);
+			GetDerivedDataCacheRef().Put(*GetHFDDCKeyString(Format, bUseDefMaterial, MeshGuid), OutCookedData);
 			bShouldSaveCookedDataToDDC[CookedDataIndex] = false;
 		}
 	}
@@ -674,7 +733,7 @@ void ULandscapeMeshCollisionComponent::CreateCollisionObject()
 #if WITH_EDITOR
 			// Create cooked physics data
 			static FName PhysicsFormatName(FPlatformProperties::GetPhysicsFormat());
-			CookCollsionData(PhysicsFormatName, false, bCheckDDC, CookedCollisionData, CookedPhysicalMaterials);
+			CookCollisionData(PhysicsFormatName, false, bCheckDDC, CookedCollisionData, CookedPhysicalMaterials);
 #endif //WITH_EDITOR
 
 			if (CookedCollisionData.Num())
@@ -702,7 +761,7 @@ void ULandscapeMeshCollisionComponent::CreateCollisionObject()
 				if (!GetWorld()->IsGameWorld())
 				{
 					TArray<UPhysicalMaterial*> CookedMaterialsEd;
-					if (CookCollsionData(PhysicsFormatName, true, bCheckDDC, CookedCollisionDataEd, CookedMaterialsEd))
+					if (CookCollisionData(PhysicsFormatName, true, bCheckDDC, CookedCollisionDataEd, CookedMaterialsEd))
 					{
 						FPhysXInputStream MeshStream(CookedCollisionDataEd.GetData(), CookedCollisionDataEd.Num());
 						MeshRef->RBTriangleMeshEd = GPhysXSDK->createTriangleMesh(MeshStream);
@@ -879,7 +938,7 @@ void ULandscapeHeightfieldCollisionComponent::UpdateHeightfieldRegion(int32 Comp
 		// If we're currently sharing this data with a PIE session, we need to make a new heightfield.
 		if (HeightfieldRef->GetRefCount() > 1)
 		{
-			RecreateCollision(false);
+			RecreateCollision();
 			return;
 		}
 
@@ -939,14 +998,14 @@ void ULandscapeHeightfieldCollisionComponent::UpdateHeightfieldRegion(int32 Comp
 		//
 		// Reset geometry of heightfield shape. Required by the modifySamples
 		//
-		FVector LandscapeScale = GetComponentToWorld().GetScale3D();
+		FVector LandscapeScale = GetComponentToWorld().GetScale3D().GetAbs();
 		// Create the geometry
 		PxHeightFieldGeometry LandscapeComponentGeom(HeightfieldRef->RBHeightfieldEd, PxMeshGeometryFlags(), LandscapeScale.Z * LANDSCAPE_ZSCALE, LandscapeScale.Y * CollisionScale, LandscapeScale.X * CollisionScale);
 
 		if (BodyInstance.RigidActorSync)
 		{
 			TArray<PxShape*, TInlineAllocator<8>> PShapes;
-			PShapes.AddZeroed(BodyInstance.RigidActorSync->getNbShapes());
+			PShapes.AddUninitialized(BodyInstance.RigidActorSync->getNbShapes());
 			int32 NumShapes = BodyInstance.RigidActorSync->getShapes(PShapes.GetData(), PShapes.Num());
 			if (NumShapes > 1)
 			{
@@ -993,124 +1052,131 @@ void ULandscapeMeshCollisionComponent::BeginDestroy()
 	Super::BeginDestroy();
 }
 
-void ULandscapeHeightfieldCollisionComponent::RecreateCollision(bool bUpdateAddCollision/*= true*/)
+void ULandscapeHeightfieldCollisionComponent::RecreateCollision()
 {
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
 		HeightfieldRef = NULL;
 		HeightfieldGuid = FGuid();
-#if WITH_EDITOR
-		if (bUpdateAddCollision)
-		{
-			UpdateAddCollisions();
-		}
-#endif
 
 		RecreatePhysicsState();
 	}
 }
 
 #if WITH_EDITORONLY_DATA
-void ULandscapeHeightfieldCollisionComponent::SnapFoliageInstances(AInstancedFoliageActor &IFA, const FBox& InInstanceBox)
+void ULandscapeHeightfieldCollisionComponent::SnapFoliageInstances(const FBox& InInstanceBox)
 {
-	for (auto& MeshPair : IFA.FoliageMeshes)
+	UWorld* ComponentWorld = GetWorld();
+	for (TActorIterator<AInstancedFoliageActor> It(ComponentWorld); It; ++It)
 	{
-		// Find the per-mesh info matching the mesh.
-		UFoliageType* Settings = MeshPair.Key;
-		FFoliageMeshInfo& MeshInfo = *MeshPair.Value;
-
-		FFoliageComponentHashInfo* ComponentHashInfo = MeshInfo.ComponentHash.Find(this);
-		if (ComponentHashInfo)
+		AInstancedFoliageActor* IFA = *It;
+		const auto BaseId = IFA->InstanceBaseCache.GetInstanceBaseId(this);
+		if (BaseId == FFoliageInstanceBaseCache::InvalidBaseId)
 		{
-			float TraceExtentSize = Bounds.SphereRadius * 2.f + 10.f; // extend a little
-			FVector TraceVector = GetOwner()->GetRootComponent()->ComponentToWorld.GetUnitAxis(EAxis::Z) * TraceExtentSize;
-
-			bool bFirst = true;
-			TArray<int32> InstancesToRemove;
-			for (int32 InstanceIndex : ComponentHashInfo->Instances)
+			continue;
+		}
+			
+		for (auto& MeshPair : IFA->FoliageMeshes)
+		{
+			// Find the per-mesh info matching the mesh.
+			UFoliageType* Settings = MeshPair.Key;
+			FFoliageMeshInfo& MeshInfo = *MeshPair.Value;
+			
+			const auto* InstanceSet = MeshInfo.ComponentHash.Find(BaseId);
+			if (InstanceSet)
 			{
-				FFoliageInstance& Instance = MeshInfo.Instances[InstanceIndex];
+				float TraceExtentSize = Bounds.SphereRadius * 2.f + 10.f; // extend a little
+				FVector TraceVector = GetOwner()->GetRootComponent()->ComponentToWorld.GetUnitAxis(EAxis::Z) * TraceExtentSize;
 
-				// Test location should remove any Z offset
-				FVector TestLocation = FMath::Abs(Instance.ZOffset) > KINDA_SMALL_NUMBER
-					? (FVector)Instance.GetInstanceWorldTransform().TransformPosition(FVector(0, 0, -Instance.ZOffset))
-					: Instance.Location;
-
-				if (InInstanceBox.IsInside(TestLocation))
+				bool bFirst = true;
+				TArray<int32> InstancesToRemove;
+				for (int32 InstanceIndex : *InstanceSet)
 				{
-					if (bFirst)
+					FFoliageInstance& Instance = MeshInfo.Instances[InstanceIndex];
+
+					// Test location should remove any Z offset
+					FVector TestLocation = FMath::Abs(Instance.ZOffset) > KINDA_SMALL_NUMBER
+						? (FVector)Instance.GetInstanceWorldTransform().TransformPosition(FVector(0, 0, -Instance.ZOffset))
+						: Instance.Location;
+
+					if (InInstanceBox.IsInside(TestLocation))
 					{
-						bFirst = false;
-						Modify();
-					}
-
-					FVector Start = TestLocation + TraceVector;
-					FVector End = TestLocation - TraceVector;
-
-					static FName TraceTag = FName(TEXT("FoliageSnapToLandscape"));
-					TArray<FHitResult> Results;
-					UWorld* World = GetWorld();
-					check(World);
-					// Editor specific landscape heightfield uses ECC_Visibility collision channel
-					World->LineTraceMulti(Results, Start, End, FCollisionQueryParams(TraceTag, true), FCollisionObjectQueryParams(ECollisionChannel::ECC_Visibility));
-
-					bool bFoundHit = false;
-					for (const FHitResult& Hit : Results)
-					{
-						if (Hit.Component == this)
+						if (bFirst)
 						{
-							bFoundHit = true;
-							if ((TestLocation - Hit.Location).SizeSquared() > KINDA_SMALL_NUMBER)
+							bFirst = false;
+							Modify();
+						}
+
+						FVector Start = TestLocation + TraceVector;
+						FVector End = TestLocation - TraceVector;
+
+						static FName TraceTag = FName(TEXT("FoliageSnapToLandscape"));
+						TArray<FHitResult> Results;
+						UWorld* World = GetWorld();
+						check(World);
+						// Editor specific landscape heightfield uses ECC_Visibility collision channel
+						World->LineTraceMultiByObjectType(Results, Start, End, FCollisionObjectQueryParams(ECollisionChannel::ECC_Visibility), FCollisionQueryParams(TraceTag, true));
+
+						bool bFoundHit = false;
+						for (const FHitResult& Hit : Results)
+						{
+							if (Hit.Component == this)
 							{
-								// Remove instance location from the hash. Do not need to update ComponentHash as we re-add below.
-								MeshInfo.InstanceHash->RemoveInstance(Instance.Location, InstanceIndex);
-
-								// Update the instance editor data
-								Instance.Location = Hit.Location;
-
-								if (Instance.Flags & FOLIAGE_AlignToNormal)
+								bFoundHit = true;
+								if ((TestLocation - Hit.Location).SizeSquared() > KINDA_SMALL_NUMBER)
 								{
-									// Remove previous alignment and align to new normal.
-									Instance.Rotation = Instance.PreAlignRotation;
-									Instance.AlignToNormal(Hit.Normal, Settings->AlignMaxAngle);
+									IFA->Modify();
+
+									// Remove instance location from the hash. Do not need to update ComponentHash as we re-add below.
+									MeshInfo.InstanceHash->RemoveInstance(Instance.Location, InstanceIndex);
+
+									// Update the instance editor data
+									Instance.Location = Hit.Location;
+
+									if (Instance.Flags & FOLIAGE_AlignToNormal)
+									{
+										// Remove previous alignment and align to new normal.
+										Instance.Rotation = Instance.PreAlignRotation;
+										Instance.AlignToNormal(Hit.Normal, Settings->AlignMaxAngle);
+									}
+
+									// Reapply the Z offset in local space
+									if (FMath::Abs(Instance.ZOffset) > KINDA_SMALL_NUMBER)
+									{
+										Instance.Location = Instance.GetInstanceWorldTransform().TransformPosition(FVector(0, 0, Instance.ZOffset));
+									}
+
+									// Todo: add do validation with other parameters such as max/min height etc.
+
+									check(MeshInfo.Component);
+									MeshInfo.Component->Modify();
+									MeshInfo.Component->UpdateInstanceTransform(InstanceIndex, Instance.GetInstanceWorldTransform(), true);
+									MeshInfo.Component->InvalidateLightingCache();
+
+									// Re-add the new instance location to the hash
+									MeshInfo.InstanceHash->InsertInstance(Instance.Location, InstanceIndex);
 								}
-
-								// Reapply the Z offset in local space
-								if (FMath::Abs(Instance.ZOffset) > KINDA_SMALL_NUMBER)
-								{
-									Instance.Location = Instance.GetInstanceWorldTransform().TransformPosition(FVector(0, 0, Instance.ZOffset));
-								}
-
-								// Todo: add do validation with other parameters such as max/min height etc.
-
-								check(MeshInfo.Component);
-								MeshInfo.Component->Modify();
-								MeshInfo.Component->UpdateInstanceTransform(InstanceIndex, Instance.GetInstanceWorldTransform(), true);
-								MeshInfo.Component->InvalidateLightingCache();
-
-								// Re-add the new instance location to the hash
-								MeshInfo.InstanceHash->InsertInstance(Instance.Location, InstanceIndex);
+								break;
 							}
-							break;
+						}
+
+						if (!bFoundHit)
+						{
+							// Couldn't find new spot - remove instance
+							InstancesToRemove.Add(InstanceIndex);
 						}
 					}
-
-					if (!bFoundHit)
-					{
-						// Couldn't find new spot - remove instance
-						InstancesToRemove.Add(InstanceIndex);
-					}
 				}
-			}
 
-			// Remove any unused instances
-			MeshInfo.RemoveInstances(&IFA, InstancesToRemove);
+				// Remove any unused instances
+				MeshInfo.RemoveInstances(IFA, InstancesToRemove);
+			}
 		}
 	}
 }
 #endif // WITH_EDITORONLY_DATA
 
-void ULandscapeMeshCollisionComponent::RecreateCollision(bool bUpdateAddCollision/*= true*/)
+void ULandscapeMeshCollisionComponent::RecreateCollision()
 {
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
@@ -1118,7 +1184,7 @@ void ULandscapeMeshCollisionComponent::RecreateCollision(bool bUpdateAddCollisio
 		MeshGuid = FGuid();
 	}
 
-	Super::RecreateCollision(bUpdateAddCollision);
+	Super::RecreateCollision();
 }
 
 void ULandscapeHeightfieldCollisionComponent::Serialize(FArchive& Ar)
@@ -1130,7 +1196,7 @@ void ULandscapeHeightfieldCollisionComponent::Serialize(FArchive& Ar)
 		if (Ar.IsCooking() && !HasAnyFlags(RF_ClassDefaultObject))
 		{
 			FName Format = Ar.CookingTarget()->GetPhysicsFormat(nullptr);
-			CookCollsionData(Format, false, true, CookedCollisionData, CookedPhysicalMaterials);
+			CookCollisionData(Format, false, true, CookedCollisionData, CookedPhysicalMaterials);
 			GetDerivedDataCacheRef().Put(*GetHFDDCKeyString(Format, false, HeightfieldGuid), CookedCollisionData);
 		}
 	}
@@ -1163,11 +1229,11 @@ void ULandscapeHeightfieldCollisionComponent::Serialize(FArchive& Ar)
 		else
 		{
 #if WITH_EDITORONLY_DATA			
-			// do not need this data in PIE, so don't bother duplicating it
-			if (!(Ar.GetPortFlags() & PPF_DuplicateForPIE)) 
+			// For PIE, we won't need the source height data if we already have a shared reference to the heightfield
+			if (!(Ar.GetPortFlags() & PPF_DuplicateForPIE) || !HeightfieldGuid.IsValid() || GSharedMeshRefs.FindRef(HeightfieldGuid) == nullptr)
 			{
-			CollisionHeightData.Serialize(Ar, this);
-			DominantLayerData.Serialize(Ar, this);
+				CollisionHeightData.Serialize(Ar, this);
+				DominantLayerData.Serialize(Ar, this);
 			}
 #endif//WITH_EDITORONLY_DATA
 		}
@@ -1219,7 +1285,7 @@ void ULandscapeHeightfieldCollisionComponent::PostEditImport()
 	// Reinitialize physics after paste
 	if (CollisionSizeQuads > 0)
 	{
-		RecreateCollision(false);
+		RecreateCollision();
 	}
 }
 
@@ -1230,7 +1296,7 @@ void ULandscapeHeightfieldCollisionComponent::PostEditUndo()
 	// Reinitialize physics after undo
 	if (CollisionSizeQuads > 0)
 	{
-		RecreateCollision(false);
+		RecreateCollision();
 	}
 
 	UNavigationSystem::UpdateNavOctree(this);
@@ -1257,7 +1323,7 @@ bool ULandscapeHeightfieldCollisionComponent::ComponentIsTouchingSelectionFrustu
 }
 #endif
 
-bool ULandscapeHeightfieldCollisionComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExport* GeomExport) const
+bool ULandscapeHeightfieldCollisionComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const
 {
 	check(IsInGameThread());
 #if WITH_PHYSX
@@ -1265,14 +1331,66 @@ bool ULandscapeHeightfieldCollisionComponent::DoCustomNavigableGeometryExport(FN
 	{
 		FTransform HFToW = ComponentToWorld;
 		HFToW.MultiplyScale3D(FVector(CollisionScale, CollisionScale, LANDSCAPE_ZSCALE));
-
-		GeomExport->ExportPxHeightField(HeightfieldRef->RBHeightfield, HFToW);
+		GeomExport.ExportPxHeightField(HeightfieldRef->RBHeightfield, HFToW);
 	}
 #endif// WITH_PHYSX
 	return false;
 }
 
-bool ULandscapeMeshCollisionComponent::DoCustomNavigableGeometryExport(struct FNavigableGeometryExport* GeomExport) const
+void ULandscapeHeightfieldCollisionComponent::GatherGeometrySlice(FNavigableGeometryExport& GeomExport, const FBox& SliceBox) const
+{
+	// note that this function can get called off game thread
+	if (CachedHeightFieldSamples.IsEmpty() == false)
+	{
+		FTransform HFToW = ComponentToWorld;
+		HFToW.MultiplyScale3D(FVector(CollisionScale, CollisionScale, LANDSCAPE_ZSCALE));
+
+		GeomExport.ExportHeightFieldSlice(CachedHeightFieldSamples, HeightfieldRowsCount, HeightfieldColumnsCount, HFToW, SliceBox);
+	}
+}
+
+ENavDataGatheringMode ULandscapeHeightfieldCollisionComponent::GetGeometryGatheringMode() const
+{ 
+	ALandscapeProxy* Proxy = GetLandscapeProxy();
+	return Proxy ? Proxy->NavigationGeometryGatheringMode : ENavDataGatheringMode::Default;
+}
+
+void ULandscapeHeightfieldCollisionComponent::PrepareGeometryExportSync()
+{
+	//check(IsInGameThread());
+#if WITH_PHYSX
+	if (IsValidRef(HeightfieldRef) && HeightfieldRef->RBHeightfield != nullptr && CachedHeightFieldSamples.IsEmpty())
+	{
+		const UWorld* World = GetWorld();
+
+		if (World != nullptr)
+		{
+			HeightfieldRowsCount = HeightfieldRef->RBHeightfield->getNbRows();
+			HeightfieldColumnsCount = HeightfieldRef->RBHeightfield->getNbColumns();
+				
+			if (CachedHeightFieldSamples.Heights.Num() != HeightfieldRowsCount * HeightfieldRowsCount)
+			{
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_NavMesh_ExportPxHeightField_saveCells);
+
+				CachedHeightFieldSamples.Heights.SetNumUninitialized(HeightfieldRowsCount * HeightfieldRowsCount);
+
+				TArray<PxHeightFieldSample> HFSamples;
+				HFSamples.SetNumUninitialized(HeightfieldRowsCount * HeightfieldRowsCount);
+				HeightfieldRef->RBHeightfield->saveCells(HFSamples.GetData(), HFSamples.Num()*HFSamples.GetTypeSize());
+
+				for (int32 SampleIndex = 0; SampleIndex < HFSamples.Num(); ++SampleIndex)
+				{
+					const PxHeightFieldSample& Sample = HFSamples[SampleIndex];
+					CachedHeightFieldSamples.Heights[SampleIndex] = Sample.height;
+					CachedHeightFieldSamples.Holes.Add((Sample.materialIndex0 == PxHeightFieldMaterial::eHOLE));
+				}
+			}
+		}
+	}
+#endif// WITH_PHYSX
+}
+
+bool ULandscapeMeshCollisionComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const
 {
 	check(IsInGameThread());
 #if WITH_PHYSX
@@ -1283,11 +1401,11 @@ bool ULandscapeMeshCollisionComponent::DoCustomNavigableGeometryExport(struct FN
 
 		if (MeshRef->RBTriangleMesh->getTriangleMeshFlags() & PxTriangleMeshFlag::eHAS_16BIT_TRIANGLE_INDICES)
 		{
-			GeomExport->ExportPxTriMesh16Bit(MeshRef->RBTriangleMesh, MeshToW);
+			GeomExport.ExportPxTriMesh16Bit(MeshRef->RBTriangleMesh, MeshToW);
 		}
 		else
 		{
-			GeomExport->ExportPxTriMesh32Bit(MeshRef->RBTriangleMesh, MeshToW);
+			GeomExport.ExportPxTriMesh32Bit(MeshRef->RBTriangleMesh, MeshToW);
 		}
 	}
 #endif// WITH_PHYSX
@@ -1303,6 +1421,28 @@ void ULandscapeHeightfieldCollisionComponent::PostLoad()
 	{
 		bShouldSaveCookedDataToDDC[0] = true;
 		bShouldSaveCookedDataToDDC[1] = true;
+
+		ALandscapeProxy* LandscapeProxy = GetLandscapeProxy();
+		if (ensure(LandscapeProxy) && GIsEditor)
+		{
+			// This is to ensure that component relative location is exact section base offset value
+			float CheckRelativeLocationX = float(SectionBaseX - LandscapeProxy->LandscapeSectionOffset.X);
+			float CheckRelativeLocationY = float(SectionBaseY - LandscapeProxy->LandscapeSectionOffset.Y);
+			if (CheckRelativeLocationX != RelativeLocation.X || 
+				CheckRelativeLocationY != RelativeLocation.Y)
+			{
+				UE_LOG(LogLandscape, Warning, TEXT("ULandscapeHeightfieldCollisionComponent RelativeLocation disagrees with its section base, attempted automated fix: '%s', %f,%f vs %f,%f."),
+					*GetFullName(), RelativeLocation.X, RelativeLocation.Y, CheckRelativeLocationX, CheckRelativeLocationY);
+				RelativeLocation.X = CheckRelativeLocationX;
+				RelativeLocation.Y = CheckRelativeLocationY;
+			}
+		}
+
+		UWorld* World = GetWorld();
+		if (World && World->IsGameWorld())
+		{
+			SpeculativelyLoadAsyncDDCCollsionData();
+		}
 	}
 #endif//WITH_EDITOR
 }
@@ -1331,51 +1471,37 @@ void ULandscapeHeightfieldCollisionComponent::PreSave()
 #if WITH_EDITOR
 void ULandscapeInfo::UpdateAllAddCollisions()
 {
+	XYtoAddCollisionMap.Reset();
+
 	for (auto It = XYtoComponentMap.CreateIterator(); It; ++It)
 	{
-		ULandscapeComponent* Comp = It.Value();
-		if (Comp)
+		const ULandscapeComponent* const Component = It.Value();
+		if (ensure(Component))
 		{
-			ULandscapeHeightfieldCollisionComponent* CollisionComp = Comp->CollisionComponent.Get();
-			if (CollisionComp)
-			{
-				CollisionComp->UpdateAddCollisions();
-			}
-		}
-	}
-}
+			const FIntPoint ComponentBase = Component->GetSectionBase() / ComponentSizeQuads;
 
-void ULandscapeHeightfieldCollisionComponent::UpdateAddCollisions()
-{
-	ULandscapeInfo* Info = GetLandscapeInfo();
-	if (Info)
-	{
-		ALandscapeProxy* Proxy = GetLandscapeProxy();
-		FIntPoint ComponentBase = GetSectionBase() / Proxy->ComponentSizeQuads;
-
-		FIntPoint NeighborsKeys[8] =
-		{
-			ComponentBase + FIntPoint(-1, -1),
-			ComponentBase + FIntPoint(+0, -1),
-			ComponentBase + FIntPoint(+1, -1),
-			ComponentBase + FIntPoint(-1, +0),
-			ComponentBase + FIntPoint(+1, +0),
-			ComponentBase + FIntPoint(-1, +1),
-			ComponentBase + FIntPoint(+0, +1),
-			ComponentBase + FIntPoint(+1, +1)
-		};
-
-		// Search for Neighbors...
-		for (int32 i = 0; i < 8; ++i)
-		{
-			ULandscapeComponent* Comp = Info->XYtoComponentMap.FindRef(NeighborsKeys[i]);
-			if (!Comp || !Comp->CollisionComponent.IsValid())
+			const FIntPoint NeighborsKeys[8] =
 			{
-				Info->UpdateAddCollision(NeighborsKeys[i]);
-			}
-			else
+				ComponentBase + FIntPoint(-1, -1),
+				ComponentBase + FIntPoint(+0, -1),
+				ComponentBase + FIntPoint(+1, -1),
+				ComponentBase + FIntPoint(-1, +0),
+				ComponentBase + FIntPoint(+1, +0),
+				ComponentBase + FIntPoint(-1, +1),
+				ComponentBase + FIntPoint(+0, +1),
+				ComponentBase + FIntPoint(+1, +1)
+			};
+
+			// Search for Neighbors...
+			for (int32 i = 0; i < 8; ++i)
 			{
-				Info->XYtoAddCollisionMap.Remove(NeighborsKeys[i]);
+				ULandscapeComponent* NeighborComponent = XYtoComponentMap.FindRef(NeighborsKeys[i]);
+
+				// UpdateAddCollision() treats a null CollisionComponent as an empty hole
+				if (!NeighborComponent || !NeighborComponent->CollisionComponent.IsValid())
+				{
+					UpdateAddCollision(NeighborsKeys[i]);
+				}
 			}
 		}
 	}
@@ -1383,13 +1509,7 @@ void ULandscapeHeightfieldCollisionComponent::UpdateAddCollisions()
 
 void ULandscapeInfo::UpdateAddCollision(FIntPoint LandscapeKey)
 {
-	FLandscapeAddCollision* AddCollision = XYtoAddCollisionMap.Find(LandscapeKey);
-	if (!AddCollision)
-	{
-		AddCollision = &XYtoAddCollisionMap.Add(LandscapeKey, FLandscapeAddCollision());
-	}
-
-	check(AddCollision);
+	FLandscapeAddCollision& AddCollision = XYtoAddCollisionMap.FindOrAdd(LandscapeKey);
 
 	// 8 Neighbors... 
 	// 0 1 2 
@@ -1406,6 +1526,8 @@ void ULandscapeInfo::UpdateAddCollision(FIntPoint LandscapeKey)
 		LandscapeKey + FIntPoint(+0, +1),
 		LandscapeKey + FIntPoint(+1, +1)
 	};
+
+	// Todo: Use data accessor not collision
 
 	ULandscapeHeightfieldCollisionComponent* NeighborCollisions[8];
 	// Search for Neighbors...
@@ -1507,14 +1629,14 @@ void ULandscapeInfo::UpdateAddCollision(FIntPoint LandscapeKey)
 	FillCornerValues(CornerSet, HeightCorner);
 	//check(CornerSet == 15);
 
-	FIntPoint SectionBase = LandscapeKey*ComponentSizeQuads;
+	FIntPoint SectionBase = LandscapeKey * ComponentSizeQuads;
 
 	// Transform Height to Vectors...
-	FMatrix LtoW = GetLandscapeProxy()->LandscapeActorToWorld().ToMatrixWithScale();
-	AddCollision->Corners[0] = LtoW.TransformPosition(FVector(SectionBase.X, SectionBase.Y, LandscapeDataAccess::GetLocalHeight(HeightCorner[0])));
-	AddCollision->Corners[1] = LtoW.TransformPosition(FVector(SectionBase.X + ComponentSizeQuads, SectionBase.Y, LandscapeDataAccess::GetLocalHeight(HeightCorner[1])));
-	AddCollision->Corners[2] = LtoW.TransformPosition(FVector(SectionBase.X, SectionBase.Y + ComponentSizeQuads, LandscapeDataAccess::GetLocalHeight(HeightCorner[2])));
-	AddCollision->Corners[3] = LtoW.TransformPosition(FVector(SectionBase.X + ComponentSizeQuads, SectionBase.Y + ComponentSizeQuads, LandscapeDataAccess::GetLocalHeight(HeightCorner[3])));
+	FTransform LtoW = GetLandscapeProxy()->LandscapeActorToWorld();
+	AddCollision.Corners[0] = LtoW.TransformPosition(FVector(SectionBase.X                     , SectionBase.Y                     , LandscapeDataAccess::GetLocalHeight(HeightCorner[0])));
+	AddCollision.Corners[1] = LtoW.TransformPosition(FVector(SectionBase.X + ComponentSizeQuads, SectionBase.Y                     , LandscapeDataAccess::GetLocalHeight(HeightCorner[1])));
+	AddCollision.Corners[2] = LtoW.TransformPosition(FVector(SectionBase.X                     , SectionBase.Y + ComponentSizeQuads, LandscapeDataAccess::GetLocalHeight(HeightCorner[2])));
+	AddCollision.Corners[3] = LtoW.TransformPosition(FVector(SectionBase.X + ComponentSizeQuads, SectionBase.Y + ComponentSizeQuads, LandscapeDataAccess::GetLocalHeight(HeightCorner[3])));
 }
 
 void ULandscapeHeightfieldCollisionComponent::ExportCustomProperties(FOutputDevice& Out, uint32 Indent)
@@ -1779,4 +1901,7 @@ ULandscapeHeightfieldCollisionComponent::ULandscapeHeightfieldCollisionComponent
 	Mobility = EComponentMobility::Static;
 	bCanEverAffectNavigation = true;
 	bHasCustomNavigableGeometry = EHasCustomNavigableGeometry::Yes;
+
+	HeightfieldRowsCount = -1;
+	HeightfieldColumnsCount = -1;
 }

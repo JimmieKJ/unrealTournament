@@ -89,7 +89,7 @@ public:
 		: Position(0,0)
 		, AbsolutePosition(0,0)
 		, Bounds(0)
-		, Reserved0(false)
+		, bHideInTileView(false)
 		, ZOrder(0)
 	{
 	}
@@ -103,6 +103,7 @@ public:
 				(Bounds.Max.Equals(OtherInfo.Bounds.Max, 0.5f)) &&
 				(ParentTilePackageName == OtherInfo.ParentTilePackageName) &&
 				(Layer == OtherInfo.Layer) &&
+				(bHideInTileView == OtherInfo.bHideInTileView) &&
 				(ZOrder == OtherInfo.ZOrder) &&
 				(LODList == OtherInfo.LODList);
 	}
@@ -130,8 +131,8 @@ public:
 	FBox				Bounds;
 	/** Tile assigned layer  */
 	FWorldTileLayer		Layer;
-	/** */
-	bool				Reserved0;
+	/** Whether to hide sub-level tile in tile view*/
+	bool				bHideInTileView;
 	/** Parent tile package name */
 	FString				ParentTilePackageName;
 	/** LOD information */

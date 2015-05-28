@@ -9,6 +9,10 @@
 #include "Runtime/Core/Public/Logging/MessageLog.h"
 #include "Runtime/Core/Public/Misc/MapErrors.h"
 #include "Runtime/CoreUObject/Public/Misc/UObjectToken.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "SpriteDrawCall.h"
+
+DECLARE_CYCLE_STAT(TEXT("Tick Flipbook"), STAT_TickFlipbook, STATGROUP_Paper2D);
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 
@@ -52,7 +56,6 @@ UPaperSprite* UPaperFlipbookComponent::GetSpriteAtCachedIndex() const
 }
 
 
-#if WITH_EDITORONLY_DATA
 void UPaperFlipbookComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -74,7 +77,6 @@ void UPaperFlipbookComponent::PostLoad()
 		}
 	}
 }
-#endif
 
 FPrimitiveSceneProxy* UPaperFlipbookComponent::CreateSceneProxy()
 {
@@ -121,9 +123,6 @@ FBoxSphereBounds UPaperFlipbookComponent::CalcBounds(const FTransform& LocalToWo
 
 void UPaperFlipbookComponent::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQualityLevel::Type QualityLevel)
 {
-	// Get any textures referenced by our materials
-	Super::GetUsedTextures(OutTextures, QualityLevel);
-
 	// Get the texture referenced by each keyframe
 	if (SourceFlipbook != nullptr)
 	{
@@ -139,6 +138,9 @@ void UPaperFlipbookComponent::GetUsedTextures(TArray<UTexture*>& OutTextures, EM
 			}
 		}
 	}
+
+	// Get any textures referenced by our materials
+	Super::GetUsedTextures(OutTextures, QualityLevel);
 }
 
 UMaterialInterface* UPaperFlipbookComponent::GetMaterial(int32 MaterialIndex) const
@@ -323,6 +325,8 @@ void UPaperFlipbookComponent::OnRep_SourceFlipbook(class UPaperFlipbook* OldFlip
 
 void UPaperFlipbookComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
+	SCOPE_CYCLE_COUNTER(STAT_TickFlipbook);
+
 	// Advance time
 	TickFlipbook(DeltaTime);
 
@@ -399,7 +403,7 @@ UMaterialInterface* UPaperFlipbookComponent::GetSpriteMaterial() const
 void UPaperFlipbookComponent::SetSpriteColor(FLinearColor NewColor)
 {
 	// Can't set color on a static component
-	if (!(IsRegistered() && (Mobility == EComponentMobility::Static)) && (SpriteColor != NewColor))
+	if (AreDynamicDataChangesAllowed() && (SpriteColor != NewColor))
 	{
 		SpriteColor = NewColor;
 
@@ -454,6 +458,27 @@ bool UPaperFlipbookComponent::IsReversing() const
 	return bPlaying && bReversePlayback;
 }
 
+void UPaperFlipbookComponent::SetPlaybackPositionInFrames(int32 NewFramePosition, bool bFireEvents)
+{
+	const float Framerate = GetFlipbookFramerate();
+	const float NewTime = (Framerate > 0.0f) ? (NewFramePosition / Framerate) : 0.0f;
+	SetPlaybackPosition(NewTime, bFireEvents);
+}
+
+int32 UPaperFlipbookComponent::GetPlaybackPositionInFrames() const
+{
+	const float Framerate = GetFlipbookFramerate();
+	const int32 NumFrames = GetFlipbookLengthInFrames();
+	if (NumFrames > 0)
+	{
+		return FMath::Clamp<int32>(FMath::TruncToInt(AccumulatedTime * Framerate), 0, NumFrames - 1);
+	}
+	else
+	{
+		return 0;
+	}
+}
+
 void UPaperFlipbookComponent::SetPlaybackPosition(float NewPosition, bool bFireEvents)
 {
 	float OldPosition = AccumulatedTime;
@@ -499,14 +524,14 @@ void UPaperFlipbookComponent::SetPlaybackPosition(float NewPosition, bool bFireE
 			bool bFireThisEvent = false;
 			if (!bReversePlayback)
 			{
-				if (EventTime >= MinTime && EventTime < MaxTime)
+				if ((EventTime >= MinTime) && (EventTime < MaxTime))
 				{
 					bFireThisEvent = true;
 				}
 			}
 			else
 			{
-				if (EventTime > MinTime && EventTime <= MaxTime)
+				if ((EventTime > MinTime) && (EventTime <= MaxTime))
 				{
 					bFireThisEvent = true;
 				}

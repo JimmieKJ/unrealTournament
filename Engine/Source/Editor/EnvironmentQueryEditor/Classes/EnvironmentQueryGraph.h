@@ -1,33 +1,36 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
+#include "AIGraph.h"
 #include "EnvironmentQueryGraph.generated.h"
 
+class UEnvQueryOption;
+class UEnvQueryTest;
+class UEnvironmentQueryGraphNode;
+
 UCLASS()
-class UEnvironmentQueryGraph : public UEdGraph
+class UEnvironmentQueryGraph : public UAIGraph
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY()
-	int32 GraphVersion;
+	virtual void Initialize() override;
+	virtual void OnLoaded() override;
+	virtual void UpdateVersion() override;
+	virtual void MarkVersion() override;
+	virtual void UpdateAsset(int32 UpdateFlags = 0) override;
 
-	void UpdateVersion();
-	void MarkVersion();
-
+	void UpdateDeprecatedGeneratorClasses();
+	void SpawnMissingNodes();
 	void CalculateAllWeights();
-	void UpdateAsset();
-	void RemoveOrphanedNodes();
 	void CreateEnvQueryFromGraph(class UEnvironmentQueryGraphNode* RootEdNode);
-
-	void LockUpdates();
-	void UnlockUpdates();
 
 protected:
 
-	/** if set, graph modifications won't cause updates in internal tree structure (skipping UpdateAsset)
-	 * flag allows freezing update during heavy changes like pasting new nodes */
-	uint32 bLockUpdates : 1;
-
 	void UpdateVersion_NestedNodes();
 	void UpdateVersion_FixupOuters();
-};
+	void UpdateVersion_CollectClassData();
 
+	virtual void CollectAllNodeInstances(TSet<UObject*>& NodeInstances) override;
+
+	void SpawnMissingSubNodes(UEnvQueryOption* Option, TSet<UEnvQueryTest*> ExistingTests, UEnvironmentQueryGraphNode* OptionNode);
+};

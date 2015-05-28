@@ -66,7 +66,7 @@ public:
 	virtual UStruct* GetBaseStructure() override { return GetObjectBaseClass(); }
 	virtual const UStruct* GetBaseStructure() const override{ return GetObjectBaseClass(); }
 	virtual int32 GetInstancesNum() const override{ return GetNumObjects(); }
-	virtual uint8* GetMemoryOfInstance(int32 Index)
+	virtual uint8* GetMemoryOfInstance(int32 Index) override
 	{
 		return (uint8*)GetUObject(Index);
 	}
@@ -75,8 +75,8 @@ public:
 		check(Objects.IsValidIndex(Index));
 		return Objects[Index];
 	}
-	virtual EPropertyType GetPropertyType() const override{ return EPT_Object; }
-	virtual void Disconnect() override 
+	virtual EPropertyType GetPropertyType() const override { return EPT_Object; }
+	virtual void Disconnect() override
 	{
 		RemoveAllObjects();
 	}

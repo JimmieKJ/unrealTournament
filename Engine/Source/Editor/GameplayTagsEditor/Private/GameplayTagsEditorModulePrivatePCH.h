@@ -15,4 +15,9 @@
 #include "BlueprintGraphDefinitions.h"
 #include "GameplayTagsEditorClasses.h"
 
+#include "GraphEditor.h"
+#include "SNodePanel.h"
+#include "SGraphNode.h"
+#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
+
 #include "AssetTypeActions_GameplayTagAssetBase.h"

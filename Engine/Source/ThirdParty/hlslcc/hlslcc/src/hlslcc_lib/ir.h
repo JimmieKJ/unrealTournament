@@ -167,7 +167,7 @@ public:
 
 	virtual ir_constant* constant_expression_value();
 
-	virtual ir_rvalue * as_rvalue()
+	virtual ir_rvalue * as_rvalue() override
 	{
 		return this;
 	}
@@ -335,7 +335,7 @@ class ir_variable : public ir_instruction
 public:
 	ir_variable(const struct glsl_type *, const char *, ir_variable_mode);
 
-	virtual ir_variable *clone(void *mem_ctx, struct hash_table *ht) const;
+	virtual ir_variable *clone(void *mem_ctx, struct hash_table *ht) const override;
 
 	virtual ir_variable *as_variable() override
 	{
@@ -1545,7 +1545,7 @@ public:
 	ir_texture(enum ir_texture_opcode op, const SSourceLocation& InSourceLocation)
 		: op(op), sampler(nullptr), coordinate(nullptr), 
 		projector(nullptr), shadow_comparitor(nullptr), offset(nullptr),
-		channel(ir_channel_none), SamplerState(nullptr)
+		channel(ir_channel_none), SamplerStateName(""), SamplerState(nullptr)
 	{
 		SourceLocation = InSourceLocation;
 		this->ir_type = ir_type_texture;
@@ -1626,6 +1626,7 @@ public:
 	ir_texture_channel channel;
 
 	// HLSL-only
+	std::string SamplerStateName;
 	ir_rvalue* SamplerState;
 };
 
@@ -1684,7 +1685,7 @@ public:
 
 	virtual ir_visitor_status accept(ir_hierarchical_visitor *) override;
 
-	bool is_lvalue() const
+	bool is_lvalue() const override
 	{
 		return val->is_lvalue() && !mask.has_duplicates;
 	}
@@ -1710,19 +1711,19 @@ private:
 class ir_dereference : public ir_rvalue
 {
 public:
-	virtual ir_dereference *clone(void *mem_ctx, struct hash_table *) const = 0;
+	virtual ir_dereference *clone(void *mem_ctx, struct hash_table *) const override = 0;
 
 	virtual ir_dereference *as_dereference() override
 	{
 		return this;
 	}
 
-	bool is_lvalue() const;
+	bool is_lvalue() const override;
 
 	/**
 	* Get the variable that is ultimately referenced by an r-value
 	*/
-	virtual ir_variable *variable_referenced() const = 0;
+	virtual ir_variable *variable_referenced() const override = 0;
 };
 
 
@@ -2136,16 +2137,6 @@ struct gl_shader_program;
 void detect_recursion_unlinked(struct _mesa_glsl_parse_state *state, exec_list *instructions);
 
 /**
-* Detect whether a linked shader contains static recursion
-*
-* If the list of instructions is determined to contain static recursion,
-* \c link_error_printf will be called to emit error messages for each function
-* that is in the recursion cycle.  In addition,
-* \c gl_shader_program::LinkStatus will be set to false.
-*/
-void detect_recursion_linked(struct gl_shader_program *prog, exec_list *instructions);
-
-/**
 * Make a clone of each IR instruction in a list
 *
 * \param in   List of IR instructions that are to be cloned
@@ -2156,17 +2147,10 @@ void clone_ir_list(void *mem_ctx, exec_list *out, const exec_list *in);
 extern void _mesa_glsl_initialize_functions(exec_list *instructions,
 	_mesa_glsl_parse_state *state);
 
-extern void _mesa_glsl_release_functions(void);
-
 struct glsl_symbol_table;
 
 extern void import_prototypes(const exec_list *source, exec_list *dest,
-struct glsl_symbol_table *symbols, void *mem_ctx);
-
-extern bool ir_has_call(ir_instruction *ir);
-
-extern void do_set_program_inouts(exec_list *instructions, struct gl_program *prog,
-	bool is_fragment_shader);
+	struct glsl_symbol_table *symbols, void *mem_ctx);
 
 extern char* prototype_string(const glsl_type *return_type, const char *name, exec_list *parameters);
 

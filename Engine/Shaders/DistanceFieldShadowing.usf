@@ -7,6 +7,7 @@
 #include "Common.usf"
 #include "DeferredShadingCommon.usf"
 #include "DistanceFieldLightingShared.usf"
+#include "DistanceFieldShadowingShared.usf"
 
 RWBuffer<float4> RWCulledObjectBounds;
 RWBuffer<float4> RWCulledObjectData;
@@ -18,8 +19,6 @@ float4 FetchObjectDataFloat4(uint SourceIndex)
 	return float4(ObjectData[4 * SourceIndex + 0], ObjectData[4 * SourceIndex + 1], ObjectData[4 * SourceIndex + 2], ObjectData[4 * SourceIndex + 3]);
 }
 
-float4x4 WorldToShadow;
-
 void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
 {
 	RWCulledObjectBounds[DestIndex] = float4(ObjectBounds[4 * SourceIndex + 0], ObjectBounds[4 * SourceIndex + 1], ObjectBounds[4 * SourceIndex + 2], ObjectBounds[4 * SourceIndex + 3]);
@@ -27,6 +26,7 @@ void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
 	UNROLL
 	for (uint VectorIndex = 0; VectorIndex < CULLED_OBJECT_DATA_STRIDE; VectorIndex++)
 	{
+		// Note: only copying the first CULLED_OBJECT_DATA_STRIDE of the original object data
 		RWCulledObjectData[DestIndex * CULLED_OBJECT_DATA_STRIDE + VectorIndex] = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + VectorIndex);
 	}
 
@@ -47,10 +47,10 @@ void CopyCulledObjectData(uint DestIndex, uint SourceIndex)
 	float3 MinViewSpacePosition = float3(2000000, 2000000, 2000000);
 	float3 MaxViewSpacePosition = float3(-2000000, -2000000, -2000000);
 
-	float4 M0 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 8);
-	float4 M1 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 9);
-	float4 M2 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 10);
-	float4 M3 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 11);
+	float4 M0 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 11);
+	float4 M1 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 12);
+	float4 M2 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 13);
+	float4 M3 = FetchObjectDataFloat4(SourceIndex * OBJECT_DATA_STRIDE + 14);
 
 	float4x4 LocalToWorld = float4x4(M0, M1, M2, M3);
 
@@ -111,12 +111,9 @@ void CullObjectsForShadowCS(
 
 	if (DispatchThreadId.x == 0)
 	{
+		// RWObjectIndirectArguments is zeroed by a clear before this shader, only need to set things that are non-zero (and are not read by this shader as that would be a race condition)
 		// IndexCount, NumInstances, StartIndex, BaseVertexIndex, FirstInstance
 		RWObjectIndirectArguments[0] = ObjectBoundingGeometryIndexCount;
-		RWObjectIndirectArguments[1] = 0;
-		RWObjectIndirectArguments[2] = 0;
-		RWObjectIndirectArguments[3] = 0;
-		RWObjectIndirectArguments[4] = 0;
 	}
 
 	GroupMemoryBarrierWithGroupSync();
@@ -131,7 +128,7 @@ void CullObjectsForShadowCS(
 			|| ShadowBoundingSphere.w > 0 && dot(ShadowBoundingSphere.xyz - ObjectBoundingSphere.xyz, ShadowBoundingSphere.xyz - ObjectBoundingSphere.xyz) < Square(ShadowBoundingSphere.w + ObjectBoundingSphere.w))
 		{
 			uint DestIndex;
-			InterlockedAdd(RWObjectIndirectArguments[1], 1, DestIndex);
+			InterlockedAdd(RWObjectIndirectArguments[1], 1U, DestIndex);
 			CopyCulledObjectData(DestIndex, SourceIndex);
 		}
 	}
@@ -143,15 +140,15 @@ void CullObjectsForShadowCS(
 		// IndexCount, NumInstances, StartIndex, BaseVertexIndex, FirstInstance
 		RWObjectIndirectArguments[0] = ObjectBoundingGeometryIndexCount;
 		RWObjectIndirectArguments[1] = NumSceneObjects;
-		RWObjectIndirectArguments[2] = 0;
-		RWObjectIndirectArguments[3] = 0;
-		RWObjectIndirectArguments[4] = 0;
 	}
 
 	uint SourceIndex = ObjectIndex;
 	uint DestIndex = ObjectIndex;
 
-	CopyCulledObjectData(DestIndex, SourceIndex);
+	if (ObjectIndex < NumSceneObjects)
+	{
+		CopyCulledObjectData(DestIndex, SourceIndex);
+	}
 #endif
 }
 
@@ -163,8 +160,8 @@ bool RayHitSphere(float3 RayOrigin, float3 UnitRayDirection, float RayLength, fl
 	return dot(CenterToRay, CenterToRay) <= Square(SphereRadius) && DistanceAlongRay > -SphereRadius && DistanceAlongRay - SphereRadius < RayLength;
 }
 
-RWBuffer<uint> RWTileHeadDataUnpacked;
-RWBuffer<uint> RWTileArrayData;
+RWBuffer<uint> RWShadowTileHeadDataUnpacked;
+RWBuffer<uint> RWShadowTileArrayData;
 
 float2 NumGroups;
 
@@ -176,13 +173,12 @@ void ClearTilesCS(
 {
     uint TileIndex = DispatchThreadId.y * NumGroups.x + DispatchThreadId.x;
 	
-	RWTileHeadDataUnpacked[TileIndex * 2 + 0] = TileIndex;
-	RWTileHeadDataUnpacked[TileIndex * 2 + 1] = 0;
+	RWShadowTileHeadDataUnpacked[TileIndex * 2 + 0] = TileIndex;
+	RWShadowTileHeadDataUnpacked[TileIndex * 2 + 1] = 0;
 }
 
 struct FShadowObjectCullVertexOutput
 {
-	float4 Position : SV_POSITION;
 	nointerpolation float4 PositionAndRadius : TEXCOORD0;
 	nointerpolation uint ObjectIndex : TEXCOORD1;
 };
@@ -194,7 +190,8 @@ float MinRadius;
 void ShadowObjectCullVS(
 	float4 InPosition : ATTRIBUTE0,
 	uint ObjectIndex : SV_InstanceID,
-	out FShadowObjectCullVertexOutput Output
+	out FShadowObjectCullVertexOutput Output,
+	out float4 OutPosition : SV_POSITION
 	)
 {
 	float4 ObjectPositionAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
@@ -202,7 +199,7 @@ void ShadowObjectCullVS(
 	// MinRadius is for conservative rasterization
 	float EffectiveRadius = (ObjectPositionAndRadius.w + MinRadius) * ConservativeRadiusScale;
 	float3 WorldPosition = InPosition.xyz * EffectiveRadius + ObjectPositionAndRadius.xyz;
-	Output.Position = mul(float4(WorldPosition, 1), WorldToShadow);
+	OutPosition = mul(float4(WorldPosition, 1), WorldToShadow);
 	Output.PositionAndRadius = ObjectPositionAndRadius;
 	Output.ObjectIndex = ObjectIndex;
 } 
@@ -211,7 +208,7 @@ void ShadowObjectCullVS(
 void ShadowObjectCullPS(
 	FShadowObjectCullVertexOutput Input, 
 	in float4 SVPos : SV_POSITION,
-	out float4 OutColor : COLOR0)
+	out float4 OutColor : SV_Target0)
 {
 	OutColor = 0;
 	
@@ -275,12 +272,12 @@ void ShadowObjectCullPS(
 		if (all(MinProjections < 1) && all(MaxProjections > -1))
 		{
 			uint ArrayIndex;
-			InterlockedAdd(RWTileHeadDataUnpacked[TileIndex * 2 + 1], 1U, ArrayIndex);
+			InterlockedAdd(RWShadowTileHeadDataUnpacked[TileIndex * 2 + 1], 1U, ArrayIndex);
 
 			if (ArrayIndex < MAX_OBJECTS_PER_TILE)
 			{
 				uint DataIndex = (ArrayIndex * (uint)(NumGroups.x * NumGroups.y + .5f) + TileIndex);
-				RWTileArrayData[DataIndex] = Input.ObjectIndex;
+				RWShadowTileArrayData[DataIndex] = Input.ObjectIndex;
 			}
 		}
 	}
@@ -288,12 +285,12 @@ void ShadowObjectCullPS(
 #else
 	{
 		uint ArrayIndex;
-		InterlockedAdd(RWTileHeadDataUnpacked[TileIndex * 2 + 1], 1U, ArrayIndex);
+		InterlockedAdd(RWShadowTileHeadDataUnpacked[TileIndex * 2 + 1], 1U, ArrayIndex);
 
 		if (ArrayIndex < MAX_OBJECTS_PER_TILE)
 		{
 			uint DataIndex = (ArrayIndex * (uint)(NumGroups.x * NumGroups.y + .5f) + TileIndex);
-			RWTileArrayData[DataIndex] = Input.ObjectIndex;
+			RWShadowTileArrayData[DataIndex] = Input.ObjectIndex;
 		}
 	}
 #endif
@@ -305,25 +302,9 @@ RWTexture2D<float2> RWShadowFactors;
 float3 LightDirection;
 float4 LightPositionAndInvRadius;
 float LightSourceRadius;
+float RayStartOffsetDepthScale;
 float2 TanLightAngleAndNormalThreshold;
 int4 ScissorRectMinAndSize;
-
-#if SCATTER_TILE_CULLING
-
-Buffer<uint> TileHeadDataUnpacked;
-Buffer<uint> TileArrayData;
-uint2 TileListGroupSize;
-
-uint2 GetTileHead(uint2 TileCoordinate)
-{
-	uint TileIndex = TileCoordinate.y * TileListGroupSize.x + TileCoordinate.x;
-
-	return uint2(
-		TileHeadDataUnpacked[TileIndex * 2 + 0], 
-		min(TileHeadDataUnpacked[TileIndex * 2 + 1], (uint)MAX_OBJECTS_PER_TILE)); 
-}
-
-#else // SCATTER_TILE_CULLING
 
 /** Min and Max depth for this tile. */
 groupshared uint IntegerTileMinZ;
@@ -337,53 +318,16 @@ groupshared uint IntegerTileMaxZ2;
 groupshared uint TileNumObjects0;
 groupshared uint TileNumObjects1;
 
-#define MAX_INTERSECTING_OBJECTS 256
-groupshared uint IntersectingObjectIndices[MAX_INTERSECTING_OBJECTS * 2];
-
-#endif
-
-[numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
-void DistanceFieldShadowingCS(
-	uint3 GroupId : SV_GroupID,
-	uint3 DispatchThreadId : SV_DispatchThreadID,
-    uint3 GroupThreadId : SV_GroupThreadID) 
+void CullObjectsToTileWithGather(
+	float SceneDepth, 
+	uint ThreadIndex, 
+	uint2 GroupId, 
+	float TraceDistance, 
+	float MinDepth, 
+	out uint NumIntersectingObjects, 
+	out bool bTileShouldComputeShadowing,
+	out uint GroupIndex)
 {
-	uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
-
-	float2 ScreenUV = float2((DispatchThreadId.xy * DOWNSAMPLE_FACTOR + ScissorRectMinAndSize.xy + .5f) * View.ViewSizeAndSceneTexelSize.zw);
-	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
-
-	float SceneDepth = CalcSceneDepth(ScreenUV);
-	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
-	float3 OpaqueWorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
-
-	// Distance for directional lights to trace
-	float TraceDistance = 10000;
-
-	//@todo - take advantage of CSM covering near pixels
-	//@todo - handle invalid tile depth ranges due to MinDepth
-	float MinDepth = 0;
-
-	uint NumIntersectingObjects = GetCulledNumObjects();
-	bool bTileShouldComputeShadowing = SceneDepth > MinDepth;
-
-#define USE_CULLING 1
-#if USE_CULLING
-
-#if SCATTER_TILE_CULLING
-
-	// Transform into shadow space
-	float4 HomogeneousShadowPosition = mul(float4(OpaqueWorldPosition, 1), WorldToShadow);
-	float2 NormalizedShadowPosition = HomogeneousShadowPosition.xy * .5f + .5f;
-	NormalizedShadowPosition.y = 1 - NormalizedShadowPosition.y;
-	// Quantize the shadow position to get our tile position
-	uint2 TilePosition = (uint2)(NormalizedShadowPosition * TileListGroupSize);
-	// Fetch the tile head information
-	uint2 TileHead = GetTileHead(TilePosition);
-	NumIntersectingObjects = TileHead.y;
-
-#else
-
 	// Initialize per-tile variables
     if (ThreadIndex == 0) 
 	{
@@ -463,8 +407,6 @@ void DistanceFieldShadowingCS(
 	float3 WorldGroup1Center = mul(float4(ViewGroup1Center, 1), View.ViewToTranslatedWorld).xyz - View.PreViewTranslation;
 	float Group1BoundingRadius = length(ViewGroup1Center - ViewTileMax2);
 
-	bool bCullTile = true;
-
 #if POINT_LIGHT
 	float3 LightVector0 = LightPositionAndInvRadius.xyz - WorldGroup0Center;
 	float LightVector0Length = length(LightVector0);
@@ -476,7 +418,7 @@ void DistanceFieldShadowingCS(
 	float RayLength1 = LightVector1Length;
 
 	// Don't operate on tiles completely outside of the light's influence
-	bCullTile = bTileShouldComputeShadowing = LightVector0Length < 1.0f / LightPositionAndInvRadius.w + Group0BoundingRadius
+	bTileShouldComputeShadowing = LightVector0Length < 1.0f / LightPositionAndInvRadius.w + Group0BoundingRadius
 		|| LightVector1Length < 1.0f / LightPositionAndInvRadius.w + Group1BoundingRadius;
 
 #else
@@ -484,10 +426,13 @@ void DistanceFieldShadowingCS(
 	float3 LightDirection1 = LightDirection;
 	float RayLength0 = TraceDistance;
 	float RayLength1 = TraceDistance;
+
+	bTileShouldComputeShadowing = SceneDepth > MinDepth;
+
 #endif
 
 	BRANCH
-	if (bCullTile)
+	if (bTileShouldComputeShadowing)
 	{
 		uint NumCulledObjects = GetCulledNumObjects();
 
@@ -522,8 +467,49 @@ void DistanceFieldShadowingCS(
 
 	GroupMemoryBarrierWithGroupSync();
 
-	uint GroupIndex = SceneDepth > MaxTileZ2 ? 1 : 0;
+	GroupIndex = SceneDepth > MaxTileZ2 ? 1 : 0;
 	NumIntersectingObjects = GroupIndex == 0 ? TileNumObjects0 : TileNumObjects1;
+}
+
+uint DownsampleFactor;
+
+[numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
+void DistanceFieldShadowingCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
+
+	float2 ScreenUV = float2((DispatchThreadId.xy * DownsampleFactor + ScissorRectMinAndSize.xy + .5f) * View.ViewSizeAndSceneTexelSize.zw);
+	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+
+	float SceneDepth = CalcSceneDepth(ScreenUV);
+	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+	float3 OpaqueWorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+
+	// Distance for directional lights to trace
+	float TraceDistance = 10000;
+
+	//@todo - take advantage of CSM covering near pixels
+	//@todo - handle invalid tile depth ranges due to MinDepth
+	float MinDepth = 0;
+
+	uint NumIntersectingObjects = GetCulledNumObjects();
+	uint CulledDataParameter = 0;
+	bool bTileShouldComputeShadowing = SceneDepth > MinDepth;
+
+#define USE_CULLING 1
+#if USE_CULLING
+
+#if SCATTER_TILE_CULLING
+
+	GetShadowTileCulledData(OpaqueWorldPosition, CulledDataParameter, NumIntersectingObjects);
+
+#else
+
+	CullObjectsToTileWithGather(SceneDepth, ThreadIndex, GroupId.xy, TraceDistance, MinDepth, NumIntersectingObjects, bTileShouldComputeShadowing, CulledDataParameter);
+
 #endif
 #endif // USE_CULLING
 
@@ -534,16 +520,9 @@ void DistanceFieldShadowingCS(
 	BRANCH
 	if (bTileShouldComputeShadowing)
 	{
-		FGBufferData GBufferData = GetGBufferData(ScreenUV);
-		float3 WorldNormal = GBufferData.WorldNormal;
-
-#if !POINT_LIGHT
-		BRANCH
-		if (dot(WorldNormal, LightDirection) > TanLightAngleAndNormalThreshold.y)
-#endif
 		{
 			// World space offset along the start of the ray to avoid incorrect self-shadowing
-			float RayStartOffset = 2;
+			float RayStartOffset = 2 + RayStartOffsetDepthScale * SceneDepth;
 			// Keeps result from going all the way sharp
 			float MinSphereRadius = .4f;
 			// Maintain reasonable culling bounds
@@ -569,92 +548,45 @@ void DistanceFieldShadowingCS(
 
 			#endif
 
-			float MinRayTime = MaxRayTime;
-			float MinConeVisibility = 1;
+			#if SCATTER_TILE_CULLING
+				bool bUseScatterTileCulling = true;
+			#else
+				bool bUseScatterTileCulling = false;
+			#endif
+		
+			#if USE_CULLING
+				bool bUseCulling = true;
+			#else
+				bool bUseCulling = false;
+			#endif
 
-			LOOP
-			for (uint ListObjectIndex = 0; ListObjectIndex < NumIntersectingObjects && MinRayTime >= MaxRayTime; ListObjectIndex++)
+			FGBufferData GBufferData = GetGBufferData(ScreenUV);
+
+			float SubsurfaceDensity = 0;
+			bool bUseSubsurfaceTransmission = false;
+
+			BRANCH
+			if (IsSubsurfaceModel(GBufferData.ShadingModelID))
 			{
-				#if USE_CULLING
-					#if SCATTER_TILE_CULLING
-						uint ObjectIndex = TileArrayData.Load(ListObjectIndex * TileListGroupSize.x * TileListGroupSize.y + TileHead.x);
-					#else
-						uint ObjectIndex = IntersectingObjectIndices[MAX_INTERSECTING_OBJECTS * GroupIndex + ListObjectIndex];
-					#endif
-				#else
-					uint ObjectIndex = ListObjectIndex;
-				#endif
-
-				float3 LocalPositionExtent = LoadObjectLocalPositionExtent(ObjectIndex);
-				float4x4 WorldToVolume = LoadObjectWorldToVolume(ObjectIndex);
-				float4 UVScaleAndVolumeScale = LoadObjectUVScale(ObjectIndex);
-				float3 UVAdd = LoadObjectUVAdd(ObjectIndex);
-
-				float3 VolumeRayStart = mul(float4(WorldRayStart, 1), WorldToVolume).xyz;
-				float3 VolumeRayEnd = mul(float4(WorldRayEnd, 1), WorldToVolume).xyz;
-				float3 VolumeRayDirection = VolumeRayEnd - VolumeRayStart;
-				float VolumeRayLength = length(VolumeRayDirection);
-				VolumeRayDirection /= VolumeRayLength;
-				float VolumeMinSphereRadius = MinSphereRadius / UVScaleAndVolumeScale.w;
-				float VolumeMaxSphereRadius = MaxSphereRadius / UVScaleAndVolumeScale.w;
-
-				float4 SphereCenterAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
-				float ObjectCenterDistanceAlongRay = max(dot(SphereCenterAndRadius.xyz - WorldRayStart, WorldRayEnd - WorldRayStart), 0);
-				// Expand the intersection box by the radius of the cone at the distance of the object along the cone
-				float LocalConeRadiusAtObject = min(TanLightAngle * ObjectCenterDistanceAlongRay / UVScaleAndVolumeScale.w, VolumeMaxSphereRadius);
-
-				float2 IntersectionTimes = LineBoxIntersect(VolumeRayStart, VolumeRayEnd, -LocalPositionExtent - LocalConeRadiusAtObject, LocalPositionExtent + LocalConeRadiusAtObject);
-
-				BRANCH
-				if (IntersectionTimes.x < IntersectionTimes.y && IntersectionTimes.x < 1)
-				{
-					float SampleRayTime = IntersectionTimes.x * VolumeRayLength;
-					uint MaxSteps = 64;
-					float MinStepSize = 1.0f / (4 * MaxSteps);
-
-					float MinDistance = 1000000;
-					float3 IntersectionPosition = float3(0, 0, 0);
-
-					uint StepIndex = 0;
-
-					LOOP
-					for (; StepIndex < MaxSteps; StepIndex++)
-					{
-						float3 SampleVolumePosition = VolumeRayStart + VolumeRayDirection * SampleRayTime;
-						float3 ClampedSamplePosition = clamp(SampleVolumePosition, -LocalPositionExtent, LocalPositionExtent);
-						float DistanceToClamped = length(ClampedSamplePosition - SampleVolumePosition);
-						float3 VolumeUV = DistanceFieldVolumePositionToUV(ClampedSamplePosition, UVScaleAndVolumeScale.xyz, UVAdd);
-						float DistanceField = Texture3DSampleLevel(DistanceFieldTexture, DistanceFieldSampler, VolumeUV, 0).x + DistanceToClamped;
-
-						MinDistance = min(MinDistance, DistanceField);
-						float SphereRadius = clamp(TanLightAngle * SampleRayTime, VolumeMinSphereRadius, VolumeMaxSphereRadius);
-
-						MinConeVisibility = min(MinConeVisibility, saturate(DistanceField / SphereRadius));
-						IntersectionPosition = SampleVolumePosition;
-
-						float StepDistance = max(DistanceField, MinStepSize);
-						SampleRayTime += StepDistance;
-
-						// Terminate the trace if we reached a negative area or went past the end of the ray
-						if (DistanceField < 0 
-							|| SampleRayTime > IntersectionTimes.y * VolumeRayLength)
-						{
-							break;
-						}
-					}
-
-					if (MinDistance < 0 || StepIndex == MaxSteps)
-					{
-						MinConeVisibility = 0;
-						MinRayTime = min(MinRayTime, SampleRayTime * UVScaleAndVolumeScale.w);
-					}
-
-					// Force to shadowed as we approach max steps
-					MinConeVisibility = min(MinConeVisibility, (1 - StepIndex / (float)MaxSteps));
-				}
+				// Note: this has to match shadowmap logic
+				// Derive density from a heuristic using opacity, tweaked for useful falloff ranges and to give a linear depth falloff with opacity
+				SubsurfaceDensity = -.05f * log(1 - min(GBufferData.Opacity, .999f));
+				bUseSubsurfaceTransmission = true;
 			}
 
-			Result = MinConeVisibility;
+			Result = ShadowRayTraceThroughCulledObjects(
+				WorldRayStart, 
+				WorldRayEnd, 
+				MaxRayTime, 
+				TanLightAngle, 
+				MinSphereRadius, 
+				MaxSphereRadius, 
+				SubsurfaceDensity,
+				CulledDataParameter, 
+				NumIntersectingObjects,
+				bUseCulling,
+				bUseScatterTileCulling,
+				bUseSubsurfaceTransmission);
 		}
 	}
 
@@ -669,6 +601,9 @@ void DistanceFieldShadowingCS(
 Texture2D ShadowFactorsTexture;
 SamplerState ShadowFactorsSampler;
 
+float FadePlaneOffset;
+float InvFadePlaneLength;
+
 void DistanceFieldShadowingUpsamplePS(
 	in float4 UVAndScreenPos : TEXCOORD0,
 	in float4 SVPos : SV_POSITION,
@@ -676,9 +611,10 @@ void DistanceFieldShadowingUpsamplePS(
 {
 	// Distance field shadowing was computed at 0,0 regardless of viewrect min
 	float2 DistanceFieldUVs = UVAndScreenPos.xy - ScissorRectMinAndSize.xy * View.ViewSizeAndSceneTexelSize.zw;
+	float SceneDepth = CalcSceneDepth(UVAndScreenPos.xy);
 
 #define BILATERAL_UPSAMPLE 1
-#if BILATERAL_UPSAMPLE
+#if BILATERAL_UPSAMPLE && UPSAMPLE_REQUIRED
 	float2 LowResBufferSize = floor(View.RenderTargetSize / DOWNSAMPLE_FACTOR);
 	float2 LowResTexelSize = 1.0f / LowResBufferSize;
 	float2 Corner00UV = floor(DistanceFieldUVs * LowResBufferSize - .5f) / LowResBufferSize + .5f * LowResTexelSize;
@@ -698,7 +634,6 @@ void DistanceFieldShadowingUpsamplePS(
 	float Epsilon = .0001f;
 
 	float4 CornerDepths = abs(float4(TextureValues00.y, TextureValues10.y, TextureValues01.y, TextureValues11.y));
-	float SceneDepth = CalcSceneDepth(UVAndScreenPos.xy);
 	float4 DepthWeights = 1.0f / (abs(CornerDepths - SceneDepth.xxxx) + Epsilon);
 	float4 FinalWeights = CornerWeights * DepthWeights;
 
@@ -715,5 +650,7 @@ void DistanceFieldShadowingUpsamplePS(
 	float Output = Texture2DSampleLevel(ShadowFactorsTexture, ShadowFactorsSampler, DistanceFieldUVs, 0).x;
 #endif
 
-	OutColor = EncodeLightAttenuation(half4(Output, Output, Output, Output));
+	float BlendFactor = 1.0f - saturate((SceneDepth - FadePlaneOffset) * InvFadePlaneLength);
+	Output = lerp(1, Output, BlendFactor);
+	OutColor = EncodeLightAttenuation(half4(Output, Output, Output, BlendFactor));
 }

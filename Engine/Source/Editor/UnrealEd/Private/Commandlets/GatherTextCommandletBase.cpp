@@ -156,7 +156,7 @@ FString UGatherTextCommandletBase::MungeLogOutput( const FString& InString )
 }
 
 
-bool UGatherTextCommandletBase::GetConfigBool( const TCHAR* Section, const TCHAR* Key, bool& OutValue, const FString& Filename )
+bool UGatherTextCommandletBase::GetBoolFromConfig( const TCHAR* Section, const TCHAR* Key, bool& OutValue, const FString& Filename )
 {
 	bool bSuccess = GConfig->GetBool( Section, Key, OutValue, Filename );
 	
@@ -167,7 +167,7 @@ bool UGatherTextCommandletBase::GetConfigBool( const TCHAR* Section, const TCHAR
 	return bSuccess;
 }
 
-bool UGatherTextCommandletBase::GetConfigString( const TCHAR* Section, const TCHAR* Key, FString& OutValue, const FString& Filename )
+bool UGatherTextCommandletBase::GetStringFromConfig( const TCHAR* Section, const TCHAR* Key, FString& OutValue, const FString& Filename )
 {
 	bool bSuccess = GConfig->GetString( Section, Key, OutValue, Filename );
 
@@ -178,7 +178,28 @@ bool UGatherTextCommandletBase::GetConfigString( const TCHAR* Section, const TCH
 	return bSuccess;
 }
 
-int32 UGatherTextCommandletBase::GetConfigArray( const TCHAR* Section, const TCHAR* Key, TArray<FString>& OutArr, const FString& Filename )
+bool UGatherTextCommandletBase::GetPathFromConfig( const TCHAR* Section, const TCHAR* Key, FString& OutValue, const FString& Filename )
+{
+	bool bSuccess = GetStringFromConfig( Section, Key, OutValue, Filename );
+
+	if( bSuccess )
+	{
+		if (FPaths::IsRelative(OutValue))
+		{
+			if (!FPaths::GameDir().IsEmpty())
+			{
+				OutValue = FPaths::Combine( *( FPaths::GameDir() ), *OutValue );
+			}
+			else
+			{
+				OutValue = FPaths::Combine( *( FPaths::EngineDir() ), *OutValue );
+			}
+		}
+	}
+	return bSuccess;
+}
+
+int32 UGatherTextCommandletBase::GetStringArrayFromConfig( const TCHAR* Section, const TCHAR* Key, TArray<FString>& OutArr, const FString& Filename )
 {
 	int32 count = GConfig->GetArray( Section, Key, OutArr, Filename );
 
@@ -189,6 +210,22 @@ int32 UGatherTextCommandletBase::GetConfigArray( const TCHAR* Section, const TCH
 	return count;
 }
 
+int32 UGatherTextCommandletBase::GetPathArrayFromConfig( const TCHAR* Section, const TCHAR* Key, TArray<FString>& OutArr, const FString& Filename )
+{
+	int32 count = GetStringArrayFromConfig( Section, Key, OutArr, Filename );
+
+	for (int32 i = 0; i < count; ++i)
+	{
+		if (FPaths::IsRelative(OutArr[i]))
+		{
+			const FString ProjectBasePath = FPaths::GameDir().IsEmpty() ? FPaths::EngineDir() : FPaths::GameDir();
+			OutArr[i] = FPaths::Combine( *ProjectBasePath, *OutArr[i] );
+			OutArr[i] = FPaths::ConvertRelativePathToFull(OutArr[i]);
+		}
+		FPaths::CollapseRelativeDirectories(OutArr[i]);
+	}
+	return count;
+}
 
 bool FManifestInfo::AddManifestDependency( const FString& InManifestFilePath )
 {
@@ -456,12 +493,12 @@ bool FWordCountReportData::FromCSV( const FString& InString )
 	// Note, we do a trivial parse here and assume every delimiter we see separates entries/rows and is not contained within an entry
 	TArray<FString> CSVRows;
 
-	int32 NumRows = CSVString.ParseIntoArray( &CSVRows, NewLineDelimiter, true );
+	int32 NumRows = CSVString.ParseIntoArray( CSVRows, NewLineDelimiter, true );
 
 	for(int32 RowIdx = 0; RowIdx < NumRows; RowIdx++ )
 	{
 		TArray< FString > RowEntriesArray;
-		CSVRows[RowIdx].ParseIntoArray( &RowEntriesArray, EntryDelimiter, false);
+		CSVRows[RowIdx].ParseIntoArray( RowEntriesArray, EntryDelimiter, false);
 		Data.Add(RowEntriesArray);
 	}
 
@@ -682,17 +719,11 @@ FGatherTextSCC::~FGatherTextSCC()
 {
 	if( CheckedOutFiles.Num() > 0 )
 	{
-		UE_LOG(LogGatherTextCommandletBase, Log, TEXT("Source Control wrapper shutting down with checked out files, cleaning up."));
-		FText SCCErrorStr;
-		if (!CleanUp(SCCErrorStr))
-		{
-			UE_LOG(LogGatherTextCommandletBase, Error, TEXT("%s"), *SCCErrorStr.ToString());
-		}
+		UE_LOG(LogGatherTextCommandletBase, Log, TEXT("Source Control wrapper shutting down with checked out files."));
 	}
 
 	ISourceControlModule::Get().GetProvider().Close();
 }
-
 
 bool FGatherTextSCC::CheckOutFile(const FString& InFile, FText& OutError)
 {
@@ -742,7 +773,7 @@ bool FGatherTextSCC::CheckOutFile(const FString& InFile, FText& OutError)
 				OutError = FText::Format(NSLOCTEXT("GatherTextCmdlet", "FailedToCheckOutFile", "Failed to check out file '{Filepath}'."), Args);
 			}
 		}
-		else if(!SourceControlState->IsSourceControlled())
+		else if(!SourceControlState->IsSourceControlled() && SourceControlState->CanAdd())
 		{
 			bSuccessfullyCheckedOut = (SourceControlProvider.Execute( ISourceControlOperation::Create<FMarkForAdd>(), FilesToBeCheckedOut ) == ECommandResult::Succeeded);
 			if (!bSuccessfullyCheckedOut)

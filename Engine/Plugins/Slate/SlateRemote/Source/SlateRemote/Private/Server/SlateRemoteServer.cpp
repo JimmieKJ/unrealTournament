@@ -18,7 +18,7 @@ FSlateRemoteServer::FSlateRemoteServer( ISocketSubsystem& InSocketSubsystem, con
 }
 
 
-FSlateRemoteServer::~FSlateRemoteServer( )
+FSlateRemoteServer::~FSlateRemoteServer()
 {
 	StopServer();
 }
@@ -48,7 +48,7 @@ bool FSlateRemoteServer::StartServer( const FIPv4Endpoint& ServerEndpoint )
 }
 
 
-void FSlateRemoteServer::StopServer( )
+void FSlateRemoteServer::StopServer()
 {
 	FTicker::GetCoreTicker().RemoveTicker(TickDelegateHandle);
 

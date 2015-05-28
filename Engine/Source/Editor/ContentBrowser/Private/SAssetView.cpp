@@ -24,7 +24,7 @@ namespace
 	const double TimeBetweenAddingNewAssets = 4.0;
 
 	/** Time delay between performing the last jump, and the jump term being reset */
-	const double JumpDelaySeconds = 0.6;
+	const double JumpDelaySeconds = 2.0;
 }
 
 #define MAX_THUMBNAIL_SIZE 4096
@@ -69,7 +69,7 @@ SAssetView::~SAssetView()
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SAssetView::Construct( const FArguments& InArgs )
 {
-	IsWorking = false;
+	bIsWorking = false;
 	TotalAmortizeTime = 0;
 	AmortizeStartTime = 0;
 	MaxSecondsPerFrame = 0.015;
@@ -174,6 +174,7 @@ void SAssetView::Construct( const FArguments& InArgs )
 	OnAssetTagWantsToBeDisplayed = InArgs._OnAssetTagWantsToBeDisplayed;
 	OnGetCustomAssetToolTip = InArgs._OnGetCustomAssetToolTip;
 	OnVisualizeAssetToolTip = InArgs._OnVisualizeAssetToolTip;
+	OnAssetToolTipClosing = InArgs._OnAssetToolTipClosing;
 	HighlightedText = InArgs._HighlightedText;
 	ThumbnailLabel = InArgs._ThumbnailLabel;
 	AllowThumbnailHintLabel = InArgs._AllowThumbnailHintLabel;
@@ -206,8 +207,6 @@ void SAssetView::Construct( const FArguments& InArgs )
 	bPendingFocusOnSync = false;
 	bWereItemsRecursivelyFiltered = false;
 
-	TagColumnRenames.Add("ResourceSize", TEXT("Size (kb)"));
-
 	FEditorWidgetsModule& EditorWidgetsModule = FModuleManager::LoadModuleChecked<FEditorWidgetsModule>("EditorWidgets");
 	TSharedRef<SWidget> AssetDiscoveryIndicator = EditorWidgetsModule.CreateAssetDiscoveryIndicator(EAssetDiscoveryIndicatorScaleMode::Scale_Vertical);
 
@@ -231,7 +230,7 @@ void SAssetView::Construct( const FArguments& InArgs )
 			SNew( SBox )
 			.HeightOverride( 2 )
 			[
-				SNew(SProgressBar)
+				SNew( SProgressBar )
 				.Percent( this, &SAssetView::GetIsWorkingProgressBarState )
 				.Style( FEditorStyle::Get(), "WorkingBar" )
 				.BorderPadding( FVector2D(0,0) )
@@ -260,8 +259,9 @@ void SAssetView::Construct( const FArguments& InArgs )
 			.Padding(FMargin(0, 14, 0, 0))
 			[
 				// A warning to display when there are no assets to show
-				SAssignNew( WarningTextWidget, SRichTextBlock )
+				SNew( STextBlock )
 				.Justification( ETextJustify::Center )
+				.Text( this, &SAssetView::GetAssetShowWarningText )
 				.Visibility( this, &SAssetView::IsAssetShowWarningTextVisible )
 				.AutoWrapText( true )
 			]
@@ -397,7 +397,7 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 TOptional< float > SAssetView::GetIsWorkingProgressBarState() const
 {
-	return IsWorking ? TOptional< float >() : 0.0; 
+	return bIsWorking ? TOptional< float >() : 0.0f; 
 }
 
 void SAssetView::SetSourcesData(const FSourcesData& InSourcesData)
@@ -812,10 +812,8 @@ void SAssetView::ProcessRecentlyLoadedOrChangedAssets()
 	}
 }
 
-void SAssetView::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SAssetView::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	CalculateFillScale( AllottedGeometry );
 
 	CurrentTime = InCurrentTime;
@@ -861,7 +859,7 @@ void SAssetView::Tick(const FGeometry& AllottedGeometry, const double InCurrentT
 		if ( AmortizeStartTime == 0 )
 		{
 			AmortizeStartTime = FPlatformTime::Seconds();
-			IsWorking = true;
+			bIsWorking = true;
 		}
 
 		ProcessQueriedItems( TickStartTime );
@@ -870,7 +868,7 @@ void SAssetView::Tick(const FGeometry& AllottedGeometry, const double InCurrentT
 		{
 			TotalAmortizeTime += FPlatformTime::Seconds() - AmortizeStartTime;
 			AmortizeStartTime = 0;
-			IsWorking = false;
+			bIsWorking = false;
 		}
 	}
 
@@ -929,8 +927,6 @@ void SAssetView::Tick(const FGeometry& AllottedGeometry, const double InCurrentT
 	DeferredCreateNewAsset();
 	DeferredCreateNewFolder();
 
-	AssetThumbnailPool->Tick(InDeltaTime);
-
 	// Do quick-jump last as the Tick function might have canceled it
 	if(QuickJumpData.bHasChangedSinceLastTick)
 	{
@@ -947,13 +943,20 @@ void SAssetView::Tick(const FGeometry& AllottedGeometry, const double InCurrentT
 		ResetQuickJump();
 	}
 
-	if ( IsAssetShowWarningTextVisible() == EVisibility::Visible )
+	TSharedPtr<FAssetViewItem> AssetAwaitingRename = AwaitingRename.Pin();
+	if (AssetAwaitingRename.IsValid())
 	{
-		FText WarningText = GetAssetShowWarningText();
-		if ( WarningText.CompareTo( CachedWarningText ) != 0)
+		TSharedPtr<SWindow> OwnerWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
+		if (!OwnerWindow.IsValid())
 		{
-			CachedWarningText = WarningText;
-			WarningTextWidget->SetText( WarningText );
+			AssetAwaitingRename->bRenameWhenScrolledIntoview = false;
+			AwaitingRename = nullptr;
+		}
+		else if (FSlateApplication::Get().HasFocusedDescendants(OwnerWindow.ToSharedRef()))
+		{
+			AssetAwaitingRename->RenamedRequestEvent.ExecuteIfBound();
+			AssetAwaitingRename->bRenameWhenScrolledIntoview = false;
+			AwaitingRename = nullptr;
 		}
 	}
 }
@@ -1002,7 +1005,7 @@ void SAssetView::CalculateThumbnailHintColorAndOpacity()
 		}
 		else if ( ThumbnailHintFadeInSequence.IsAtEnd() ) 
 		{
-			ThumbnailHintFadeInSequence.PlayReverse();
+			ThumbnailHintFadeInSequence.PlayReverse(this->AsShared());
 		}
 	}
 	else 
@@ -1016,7 +1019,7 @@ void SAssetView::CalculateThumbnailHintColorAndOpacity()
 		}
 		else if ( ThumbnailHintFadeInSequence.IsAtStart() ) 
 		{
-			ThumbnailHintFadeInSequence.Play();
+			ThumbnailHintFadeInSequence.Play(this->AsShared());
 		}
 	}
 
@@ -1773,15 +1776,31 @@ void SAssetView::SetMajorityAssetType(FName NewMajorityAssetType)
 
 							if ( !OnAssetTagWantsToBeDisplayed.IsBound() || OnAssetTagWantsToBeDisplayed.Execute(NewMajorityAssetType, Tag) )
 							{
-								const FString* DisplayNamePtr = TagColumnRenames.Find(Tag);
+								// Get tag metadata
+								TMap<FName, UObject::FAssetRegistryTagMetadata> MetadataMap;
+								CDO->GetAssetRegistryTagMetadata(MetadataMap);
+								const UObject::FAssetRegistryTagMetadata* Metadata = MetadataMap.Find(Tag);
+
 								FText DisplayName;
-								if ( DisplayNamePtr )
+								if (Metadata != nullptr && !Metadata->DisplayName.IsEmpty())
 								{
-									DisplayName = FText::FromString(*DisplayNamePtr);
+									DisplayName = Metadata->DisplayName;
 								}
 								else
 								{
 									DisplayName = FText::FromName(Tag);
+								}
+
+								FText TooltipText;
+								if (Metadata != nullptr && !Metadata->TooltipText.IsEmpty())
+								{
+									TooltipText = Metadata->TooltipText;
+								}
+								else
+								{
+									// If the tag name corresponds to a property name, use the property tooltip
+									UProperty* Property = FindField<UProperty>(TypeClass, Tag);
+									TooltipText = (Property != nullptr) ? Property->GetToolTipText() : FText::FromString(FName::NameToDisplayString(Tag.ToString(), false));
 								}
 
 								ColumnView->GetHeaderRow()->AddColumn(
@@ -1790,6 +1809,7 @@ void SAssetView::SetMajorityAssetType(FName NewMajorityAssetType)
 										.SortPriority(TAttribute< EColumnSortPriority::Type >::Create(TAttribute< EColumnSortPriority::Type >::FGetter::CreateSP(this, &SAssetView::GetColumnSortPriority, Tag)))
 										.OnSort( FOnSortModeChanged::CreateSP( this, &SAssetView::OnSortColumnHeader ) )
 										.DefaultLabel( DisplayName )
+										.DefaultTooltip( TooltipText )
 										.HAlignCell( (TagIt->Type == UObject::FAssetRegistryTag::TT_Numerical) ? HAlign_Right : HAlign_Left )
 										.FillWidth(180)
 									);
@@ -1973,7 +1993,7 @@ void SAssetView::OnAssetRegistryPathAdded(const FString& Path)
 					const FString SubPath = Path.RightChop(SourcePath.Len());
 					
 					TArray<FString> SubPathItemList;
-					SubPath.ParseIntoArray(&SubPathItemList, TEXT("/"), /*InCullEmpty=*/true);
+					SubPath.ParseIntoArray(SubPathItemList, TEXT("/"), /*InCullEmpty=*/true);
 
 					if(SubPathItemList.Num() > 0)
 					{
@@ -2307,21 +2327,18 @@ TSharedRef<SWidget> SAssetView::GetViewButtonContent()
 			EUserInterfaceActionType::ToggleButton
 			);
 
-		if(IPluginManager::Get().GetPluginContentFolders().Num() > 0)
-		{
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("ShowPluginFolderOption", "Show Plugin Content"),
-				LOCTEXT("ShowPluginFolderOptionToolTip", "Shows plugin content in the view."),
-				FSlateIcon(),
-				FUIAction(
-					FExecuteAction::CreateSP( this, &SAssetView::ToggleShowPluginFolders ),
-					FCanExecuteAction(),
-					FIsActionChecked::CreateSP( this, &SAssetView::IsShowingPluginFolders )
-				),
-				NAME_None,
-				EUserInterfaceActionType::ToggleButton
-				);
-		}
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ShowPluginFolderOption", "Show Plugin Content"),
+			LOCTEXT("ShowPluginFolderOptionToolTip", "Shows plugin content in the view."),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP( this, &SAssetView::ToggleShowPluginFolders ),
+				FCanExecuteAction(),
+				FIsActionChecked::CreateSP( this, &SAssetView::IsShowingPluginFolders )
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+			);
 
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("ShowEngineFolderOption", "Show Engine Content"),
@@ -2727,7 +2744,8 @@ TSharedRef<ITableRow> SAssetView::MakeListViewWidget(TSharedPtr<FAssetViewItem> 
 			.AllowThumbnailHintLabel( AllowThumbnailHintLabel )
 			.IsSelected( FIsSelected::CreateSP(TableRowWidget.Get(), &STableRow<TSharedPtr<FAssetViewItem>>::IsSelectedExclusively) )
 			.OnGetCustomAssetToolTip(OnGetCustomAssetToolTip)
-			.OnVisualizeAssetToolTip(OnVisualizeAssetToolTip);
+			.OnVisualizeAssetToolTip(OnVisualizeAssetToolTip)
+			.OnAssetToolTipClosing(OnAssetToolTipClosing);
 
 		TableRowWidget->SetContent(Item);
 
@@ -2814,7 +2832,8 @@ TSharedRef<ITableRow> SAssetView::MakeTileViewWidget(TSharedPtr<FAssetViewItem> 
 			.AllowThumbnailHintLabel( AllowThumbnailHintLabel )
 			.IsSelected( FIsSelected::CreateSP(TableRowWidget.Get(), &STableRow<TSharedPtr<FAssetViewItem>>::IsSelectedExclusively) )
 			.OnGetCustomAssetToolTip(OnGetCustomAssetToolTip)
-			.OnVisualizeAssetToolTip(OnVisualizeAssetToolTip);
+			.OnVisualizeAssetToolTip( OnVisualizeAssetToolTip )
+			.OnAssetToolTipClosing( OnAssetToolTipClosing );
 
 		TableRowWidget->SetContent(Item);
 
@@ -2846,7 +2865,8 @@ TSharedRef<ITableRow> SAssetView::MakeColumnViewWidget(TSharedPtr<FAssetViewItem
 				.OnPathsDragDropped(this, &SAssetView::OnPathsDragDropped)
 				.OnFilesDragDropped(this, &SAssetView::OnFilesDragDropped)
 				.OnGetCustomAssetToolTip(OnGetCustomAssetToolTip)
-				.OnVisualizeAssetToolTip(OnVisualizeAssetToolTip)
+				.OnVisualizeAssetToolTip( OnVisualizeAssetToolTip )
+				.OnAssetToolTipClosing( OnAssetToolTipClosing )
 		);
 }
 
@@ -3075,12 +3095,7 @@ void SAssetView::ItemScrolledIntoView(TSharedPtr<struct FAssetViewItem> AssetIte
 			OwnerWindow->BringToFront();
 		}
 
-		if ( Widget.IsValid() && Widget->GetContent().IsValid() )
-		{
-			AssetItem->RenamedRequestEvent.ExecuteIfBound();
-		}
-
-		AssetItem->bRenameWhenScrolledIntoview = false;
+		AwaitingRename = AssetItem;
 	}
 }
 
@@ -3228,15 +3243,8 @@ FReply SAssetView::OnDraggingAssetItem( const FGeometry& MyGeometry, const FPoin
 					continue;
 				}
 
-				if (AssetData.AssetClass == UClass::StaticClass()->GetFName())
-				{
-					// If dragging a class, send though an FAssetData whose name is null and class is this class' name
-					InAssetData.Add(AssetData);
-				}
-				else
-				{
-					InAssetData.Add(AssetData);
-				}
+				// If dragging a class, send though an FAssetData whose name is null and class is this class' name
+				InAssetData.Add(AssetData);
 			}
 			
 			if ( InAssetData.Num() > 0 )
@@ -3581,7 +3589,7 @@ float SAssetView::GetTileViewItemWidth() const
 	return GetTileViewItemBaseWidth() * FillScale;
 }
 
-float SAssetView::GetTileViewItemBaseWidth() const
+float SAssetView::GetTileViewItemBaseWidth() const //-V524
 {
 	return ( TileViewThumbnailSize + TileViewThumbnailPadding * 2 ) * FMath::Lerp( MinThumbnailScale, MaxThumbnailScale, GetThumbnailScale() );
 }
@@ -3621,7 +3629,7 @@ void SAssetView::OnSortColumnHeader(const EColumnSortPriority::Type SortPriority
 
 EVisibility SAssetView::IsAssetShowWarningTextVisible() const
 {
-	return FilteredAssetItems.Num() > 0 ? EVisibility::Collapsed : EVisibility::Visible;
+	return FilteredAssetItems.Num() > 0 ? EVisibility::Collapsed : EVisibility::HitTestInvisible;
 }
 
 FText SAssetView::GetAssetShowWarningText() const

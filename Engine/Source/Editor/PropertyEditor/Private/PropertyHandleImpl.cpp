@@ -307,7 +307,12 @@ FPropertyAccess::Result FPropertyValueImpl::ImportText( const TArray<FObjectBase
 
 	FPropertyAccess::Result Result = FPropertyAccess::Success;
 
-	if( NodeProperty->IsA<UObjectProperty>() || NodeProperty->IsA<UNameProperty>() )
+	if( !NodeProperty )
+	{
+		// The property has been deleted out from under this
+		Result = FPropertyAccess::Fail;
+	}
+	else if( NodeProperty->IsA<UObjectProperty>() || NodeProperty->IsA<UNameProperty>() )
 	{
 		// certain properties have requirements on the size of string values that can be imported.  Search for strings that are too large.
 		for( int32 ValueIndex = 0; ValueIndex < InValues.Num(); ++ValueIndex )
@@ -884,58 +889,60 @@ template< typename Type >
 static Type ClampValueFromMetaData(Type InValue, FPropertyNode& InPropertyNode )
 {
 	UProperty* Property = InPropertyNode.GetProperty();
-	checkSlow(Property);
 
 	Type RetVal = InValue;
-	//enforce min
-	const FString& MinString = Property->GetMetaData(TEXT("ClampMin"));
-	if (MinString.Len())
+	if( Property )
 	{
-		checkSlow(MinString.IsNumeric());
-		Type MinValue;
-		TTypeFromString<Type>::FromString(MinValue, *MinString);
-		RetVal = FMath::Max<Type>(MinValue, RetVal);
-	}
-	//Enforce max 
-	const FString& MaxString = Property->GetMetaData(TEXT("ClampMax"));
-	if (MaxString.Len())
-	{
-		checkSlow(MaxString.IsNumeric());
-		Type MaxValue;
-		TTypeFromString<Type>::FromString(MaxValue, *MaxString);
-		RetVal = FMath::Min<Type>(MaxValue, RetVal);
-	}
-
-	const bool bIsInteger = Property->IsA(UIntProperty::StaticClass());
-	const bool bIsNonEnumByte = ( Property->IsA(UByteProperty::StaticClass()) && Cast<const UByteProperty>(Property)->Enum == NULL);
-
-	if( bIsInteger || bIsNonEnumByte )
-	{
-		//if there is "Multiple" meta data, the selected number is a multiple
-		const FString& MultipleString = Property->GetMetaData(TEXT("Multiple"));
-		if (MultipleString.Len())
+		//enforce min
+		const FString& MinString = Property->GetMetaData(TEXT("ClampMin"));
+		if(MinString.Len())
 		{
-			check(MultipleString.IsNumeric());
-			int32 MultipleValue = FCString::Atoi(*MultipleString);
-			if (MultipleValue!=0)
-			{
-				RetVal -= int32(RetVal)%MultipleValue;
-			}
+			checkSlow(MinString.IsNumeric());
+			Type MinValue;
+			TTypeFromString<Type>::FromString(MinValue, *MinString);
+			RetVal = FMath::Max<Type>(MinValue, RetVal);
+		}
+		//Enforce max 
+		const FString& MaxString = Property->GetMetaData(TEXT("ClampMax"));
+		if(MaxString.Len())
+		{
+			checkSlow(MaxString.IsNumeric());
+			Type MaxValue;
+			TTypeFromString<Type>::FromString(MaxValue, *MaxString);
+			RetVal = FMath::Min<Type>(MaxValue, RetVal);
 		}
 
-		//enforce array bounds
-		const FString& ArrayClampString = Property->GetMetaData(TEXT("ArrayClamp"));
-		if (ArrayClampString.Len())
+		const bool bIsInteger = Property->IsA(UIntProperty::StaticClass());
+		const bool bIsNonEnumByte = (Property->IsA(UByteProperty::StaticClass()) && Cast<const UByteProperty>(Property)->Enum == NULL);
+
+		if(bIsInteger || bIsNonEnumByte)
 		{
-			FObjectPropertyNode* ObjectPropertyNode = InPropertyNode.FindObjectItemParent();
-			if (ObjectPropertyNode && ObjectPropertyNode->GetNumObjects() == 1)
+			//if there is "Multiple" meta data, the selected number is a multiple
+			const FString& MultipleString = Property->GetMetaData(TEXT("Multiple"));
+			if(MultipleString.Len())
 			{
-				int32 LastValidIndex = GetArrayPropertyLastValidIndex(ObjectPropertyNode, ArrayClampString);
-				RetVal = FMath::Clamp<int32>(RetVal, 0, LastValidIndex);
+				check(MultipleString.IsNumeric());
+				int32 MultipleValue = FCString::Atoi(*MultipleString);
+				if(MultipleValue!=0)
+				{
+					RetVal -= int32(RetVal)%MultipleValue;
+				}
 			}
-			else
+
+			//enforce array bounds
+			const FString& ArrayClampString = Property->GetMetaData(TEXT("ArrayClamp"));
+			if(ArrayClampString.Len())
 			{
-				UE_LOG(LogPropertyNode, Warning, TEXT("Array Clamping isn't supported in multi-select (Param Name: %s)"), *Property->GetName());
+				FObjectPropertyNode* ObjectPropertyNode = InPropertyNode.FindObjectItemParent();
+				if(ObjectPropertyNode && ObjectPropertyNode->GetNumObjects() == 1)
+				{
+					int32 LastValidIndex = GetArrayPropertyLastValidIndex(ObjectPropertyNode, ArrayClampString);
+					RetVal = FMath::Clamp<int32>(RetVal, 0, LastValidIndex);
+				}
+				else
+				{
+					UE_LOG(LogPropertyNode, Warning, TEXT("Array Clamping isn't supported in multi-select (Param Name: %s)"), *Property->GetName());
+				}
 			}
 		}
 	}
@@ -1853,6 +1860,26 @@ FPropertyAccess::Result FPropertyHandleBase::GetPerObjectValues( TArray<FString>
 	return Result;
 }
 
+TArray<FName> GetValidEnumEntries(UProperty* Property, const UEnum* InEnum)
+{
+	TArray<FName> ValidEnumValues;
+
+	static const FName ValidEnumValuesName("ValidEnumValues");
+	if (Property->HasMetaData(ValidEnumValuesName))
+	{
+		TArray<FString> ValidEnumValuesAsString;
+
+		Property->GetMetaData(ValidEnumValuesName).ParseIntoArray(ValidEnumValuesAsString, TEXT(","));
+		for (auto& Value : ValidEnumValuesAsString)
+		{
+			Value.Trim();
+			ValidEnumValues.Add(*UEnum::GenerateFullEnumName(InEnum, *Value));
+		}
+	}
+
+	return ValidEnumValues;
+}
+
 bool FPropertyHandleBase::GeneratePossibleValues(TArray< TSharedPtr<FString> >& OutOptionStrings, TArray< FText >& OutToolTips, TArray<bool>& OutRestrictedItems)
 {
 	UProperty* Property = GetProperty();
@@ -1876,6 +1903,8 @@ bool FPropertyHandleBase::GeneratePossibleValues(TArray< TSharedPtr<FString> >& 
 
 		check( Enum );
 
+		const TArray<FName> ValidEnumValues = GetValidEnumEntries(Property, Enum);
+
 		//NumEnums() - 1, because the last item in an enum is the _MAX item
 		for( int32 EnumIndex = 0; EnumIndex < Enum->NumEnums() - 1; ++EnumIndex )
 		{
@@ -1885,6 +1914,10 @@ bool FPropertyHandleBase::GeneratePossibleValues(TArray< TSharedPtr<FString> >& 
 
 			// Ignore hidden enums
 			bool bShouldBeHidden = Enum->HasMetaData(TEXT("Hidden"), EnumIndex ) || Enum->HasMetaData(TEXT("Spacer"), EnumIndex );
+			if (!bShouldBeHidden && ValidEnumValues.Num() != 0)
+			{
+				bShouldBeHidden = ValidEnumValues.Find(Enum->GetEnum(EnumIndex)) == INDEX_NONE;
+			}
 
 			if( !bShouldBeHidden )
 			{
@@ -2007,6 +2040,15 @@ bool FPropertyHandleBase::GenerateRestrictionToolTip(const FString& Value, FText
 		return PropertyNode->GenerateRestrictionToolTip(Value, OutTooltip);
 	}
 	return false;
+}
+
+void FPropertyHandleBase::SetIgnoreValidation(bool bInIgnore)
+{
+	TSharedPtr<FPropertyNode> PropertyNode = Implementation->GetPropertyNode();
+	if( PropertyNode.IsValid() )
+	{
+		PropertyNode->SetNodeFlags( EPropertyNodeFlags::SkipChildValidation, bInIgnore); 
+	}
 }
 
 /** Implements common property value functions */

@@ -33,7 +33,7 @@ UKismetMathLibrary::UKismetMathLibrary(const FObjectInitializer& ObjectInitializ
 
 bool UKismetMathLibrary::RandomBool()
 {
-	return (FMath::RandRange(0,1) == 1) ? true : false;
+	return FMath::RandBool();
 }
 
 bool UKismetMathLibrary::Not_PreBool(bool A)
@@ -346,6 +346,11 @@ bool UKismetMathLibrary::InRange_FloatFloat(float Value, float Min, float Max, b
 	return ((InclusiveMin ? (Value >= Min) : (Value > Min)) && (InclusiveMax ? (Value <= Max) : (Value < Max)));
 }	
 
+float UKismetMathLibrary::GridSnap_Float(float Location, float GridSize)
+{
+	return FMath::GridSnap(Location, GridSize);
+}
+
 float UKismetMathLibrary::GetPI()
 {
     return PI;
@@ -483,6 +488,11 @@ int32 UKismetMathLibrary::FFloor(float A)
 	return FMath::FloorToInt(A);
 }	
 
+int32 UKismetMathLibrary::FTrunc(float A)
+{
+	return FMath::TruncToInt(A);
+}	
+
 int32 UKismetMathLibrary::FCeil(float A)
 {
 	return FMath::CeilToInt(A);
@@ -548,6 +558,11 @@ float UKismetMathLibrary::FInterpEaseInOut(float A, float B, float Alpha, float 
 	return FMath::InterpEaseInOut<float>(A, B, Alpha, Exponent);
 }
 
+float UKismetMathLibrary::MakePulsatingValue(float InCurrentTime, float InPulsesPerSecond, float InPhase)
+{
+	return FMath::MakePulsatingValue((double)InCurrentTime, InPulsesPerSecond, InPhase);
+}
+
 float UKismetMathLibrary::RandomFloat()
 {
 	return FMath::FRand();
@@ -607,6 +622,25 @@ float UKismetMathLibrary::Lerp(float A, float B, float V)
 {
 	return A + V*(B-A);
 }	
+
+float UKismetMathLibrary::InverseLerp(float A, float B, float Value)
+{
+	if (FMath::IsNearlyEqual(A, B))
+	{
+		if (Value < A)
+		{
+			return 0;
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else
+	{
+		return ((Value - A) / (B - A));
+	}
+}
 
 float UKismetMathLibrary::Ease(float A, float B, float Alpha, TEnumAsByte<EEasingFunc::Type> EasingFunc, float BlendExp, int32 Steps)
 {
@@ -982,6 +1016,11 @@ FLinearColor UKismetMathLibrary::LinearColorLerp(FLinearColor A, FLinearColor B,
 	return A + Alpha * (B - A);
 }
 
+FLinearColor UKismetMathLibrary::LinearColorLerpUsingHSV(FLinearColor A, FLinearColor B, float Alpha)
+{
+	return FLinearColor::LerpUsingHSV( A, B, Alpha );
+}
+
 FLinearColor UKismetMathLibrary::Multiply_LinearColorLinearColor(FLinearColor A, FLinearColor B)
 {
 	return A * B;
@@ -1140,6 +1179,11 @@ FDateTime UKismetMathLibrary::Subtract_DateTimeTimespan( FDateTime A, FTimespan 
 }
 
 
+FTimespan UKismetMathLibrary::Subtract_DateTimeDateTime(FDateTime A, FDateTime B)
+{
+	return A - B;
+}
+
 bool UKismetMathLibrary::EqualEqual_DateTimeDateTime( FDateTime A, FDateTime B )
 {
 	return A == B;
@@ -1255,6 +1299,13 @@ bool UKismetMathLibrary::IsMorning( FDateTime A )
 
 int32 UKismetMathLibrary::DaysInMonth( int32 Year, int32 Month )
 {
+	if ((Month < 1) || (Month > 12))
+	{
+		//@TODO: EXCEPTION: Throw script exception
+		FFrame::KismetExecutionMessage(TEXT("Invalid month (must be between 1 and 12): DaysInMonth"), ELogVerbosity::Warning);
+		return 0;
+	}
+
 	return FDateTime::DaysInMonth(Year, Month);
 }
 
@@ -2030,3 +2081,4 @@ FRandomStream UKismetMathLibrary::MakeRandomStream(int32 InitialSeed)
 {
 	return FRandomStream(InitialSeed);
 }
+

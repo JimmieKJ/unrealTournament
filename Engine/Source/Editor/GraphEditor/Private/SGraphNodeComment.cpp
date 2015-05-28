@@ -21,7 +21,7 @@ namespace SCommentNodeDefs
 	/** Minimum resize height for comment */
 	static const float MinHeight = 30.0;
 
-	/** TitleBarColor = CommnetColor * TitleBarColorMultiplier */
+	/** TitleBarColor = CommentColor * TitleBarColorMultiplier */
 	static const float TitleBarColorMultiplier = 0.6f;
 
 	/** Titlebar Offset - taken from the widget borders in UpdateGraphNode */
@@ -54,19 +54,20 @@ void SGraphNodeComment::Construct(const FArguments& InArgs, UEdGraphNode* InNode
 	bUserIsDragging = false;
 }
 
-void SGraphNodeComment::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SGraphNodeComment::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	SGraphNode::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
-	const int32 CurrentWidth = static_cast<int32>(UserSize.X);
 	const FString CurrentCommentTitle = GetNodeComment();
-
-	if (( CurrentCommentTitle != CachedCommentTitle ) || ( CurrentWidth != CachedWidth ))
+	if (CurrentCommentTitle != CachedCommentTitle)
 	{
 		CachedCommentTitle = CurrentCommentTitle;
-		CachedWidth = CurrentWidth;
+	}
 
-		UpdateGraphNode();
+	const int32 CurrentWidth = static_cast<int32>(UserSize.X);
+	if (CurrentWidth != CachedWidth)
+	{
+		CachedWidth = CurrentWidth;
 	}
 }
 
@@ -182,29 +183,37 @@ void SGraphNodeComment::UpdateGraphNode()
 	// Create comment bubble
 	TSharedPtr<SCommentBubble> CommentBubble;
 
-	SAssignNew( CommentBubble, SCommentBubble )
-	.GraphNode( GraphNode )
-	.Text( this, &SGraphNode::GetNodeComment )
-	.ColorAndOpacity( this, &SGraphNodeComment::GetCommentColor )
-	.AllowPinning( true )
-	.EnableTitleBarBubble( true )
-	.EnableBubbleCtrls( true )
-	.GraphLOD( this, &SGraphNode::GetCurrentLOD )
-	.IsGraphNodeHovered( this, &SGraphNode::IsHovered );
+	SAssignNew(CommentBubble, SCommentBubble)
+	.GraphNode(GraphNode)
+	.Text(this, &SGraphNodeComment::GetNodeComment)
+	.OnTextCommitted(this, &SGraphNodeComment::OnNameTextCommited)
+	.ColorAndOpacity(this, &SGraphNodeComment::GetCommentBubbleColor )
+	.AllowPinning(true)
+	.EnableTitleBarBubble(false)
+	.EnableBubbleCtrls(false)
+	.GraphLOD(this, &SGraphNode::GetCurrentLOD)
+	.InvertLODCulling(true)
+	.IsGraphNodeHovered(this, &SGraphNode::IsHovered);
 
-	GetOrAddSlot( ENodeZone::TopCenter )
-	.SlotOffset( TAttribute<FVector2D>( CommentBubble.Get(), &SCommentBubble::GetOffset ))
-	.SlotSize( TAttribute<FVector2D>( CommentBubble.Get(), &SCommentBubble::GetSize ))
-	.AllowScaling( TAttribute<bool>( CommentBubble.Get(), &SCommentBubble::IsScalingAllowed ))
-	.VAlign( VAlign_Top )
+	GetOrAddSlot(ENodeZone::TopCenter)
+	.SlotOffset(TAttribute<FVector2D>(CommentBubble.Get(), &SCommentBubble::GetOffset))
+	.SlotSize(TAttribute<FVector2D>(CommentBubble.Get(), &SCommentBubble::GetSize))
+	.AllowScaling(TAttribute<bool>(CommentBubble.Get(), &SCommentBubble::IsScalingAllowed))
+	.VAlign(VAlign_Top)
 	[
 		CommentBubble.ToSharedRef()
 	];
 }
 
-FVector2D SGraphNodeComment::ComputeDesiredSize() const
+FVector2D SGraphNodeComment::ComputeDesiredSize( float ) const
 {
 	return UserSize;
+}
+
+FString SGraphNodeComment::GetNodeComment() const
+{
+	const FString Title = GetEditableNodeTitle();;
+	return Title;
 }
 
 FReply SGraphNodeComment::OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent )
@@ -225,8 +234,8 @@ FReply SGraphNodeComment::OnMouseButtonDoubleClick( const FGeometry& InMyGeometr
 	}
 	else
 	{
-		// Otherwise let the base class handle it
-		return SGraphNode::OnMouseButtonDoubleClick(InMyGeometry, InMouseEvent);
+		// Otherwise let the graph handle it, to allow spline interactions to work when they overlap with a comment node
+		return FReply::Unhandled();
 	}
 }
 
@@ -280,7 +289,6 @@ void SGraphNodeComment::HandleSelection(bool bSelected, bool bUpdateNodesUnderCo
 				FChildren* PanelChildren = Panel->GetAllChildren();
 				int32 NumChildren = PanelChildren->Num();
 				CommentNode->ClearNodesUnderComment();
-				int32 MinDepth = 0;
 
 				for ( int32 NodeIndex=0; NodeIndex < NumChildren; ++NodeIndex )
 				{
@@ -294,19 +302,12 @@ void SGraphNodeComment::HandleSelection(bool bSelected, bool bUpdateNodesUnderCo
 						const FVector2D SomeNodeSize = SomeNodeWidget->GetDesiredSize();
 
 						const FSlateRect NodeGeometryGraphSpace( SomeNodePosition.X, SomeNodePosition.Y, SomeNodePosition.X + SomeNodeSize.X, SomeNodePosition.Y + SomeNodeSize.Y );
-						if( FSlateRect::DoRectanglesIntersect( CommentRect, NodeGeometryGraphSpace ) )
+						if( FSlateRect::IsRectangleContained( CommentRect, NodeGeometryGraphSpace ) )
 						{
-							MinDepth = FMath::Min( MinDepth, SomeNodeWidget->GetSortDepth() - 1 );
-
-							if ( FSlateRect::IsRectangleContained( CommentRect, NodeGeometryGraphSpace ) )
-							{
-								CommentNode->AddNodeUnderComment(GraphObject);
-							}
+							CommentNode->AddNodeUnderComment(GraphObject);
 						}
 					}
 				}
-				// Fix Depth to include any overlapped comments
-				CommentNode->CommentDepth = FMath::Min( CommentNode->CommentDepth, MinDepth );
 			}
 		}
 		bIsSelected = bSelected;
@@ -366,6 +367,38 @@ void SGraphNodeComment::MoveTo( const FVector2D& NewPosition, FNodeSet& NodeFilt
 	}
 }
 
+void SGraphNodeComment::EndUserInteraction() const
+{
+	// Find any parent comments and their list of child nodes
+	const FVector2D NodeSize = GetDesiredSize();
+	if( !NodeSize.IsZero() )
+	{
+		const FVector2D NodePosition = GetPosition();
+		const FSlateRect CommentRect( NodePosition.X, NodePosition.Y, NodePosition.X + NodeSize.X, NodePosition.Y + NodeSize.Y );
+
+		TSharedPtr<SGraphPanel> Panel = GetOwnerPanel();
+		FChildren* PanelChildren = Panel->GetAllChildren();
+		int32 NumChildren = PanelChildren->Num();
+
+		for ( int32 NodeIndex=0; NodeIndex < NumChildren; ++NodeIndex )
+		{
+			TSharedPtr<SGraphNodeComment> CommentWidget = StaticCastSharedRef<SGraphNodeComment>(PanelChildren->GetChildAt(NodeIndex));
+
+			if( CommentWidget.IsValid() )
+			{
+				const FVector2D SomeNodePosition = CommentWidget->GetPosition();
+				const FVector2D SomeNodeSize = CommentWidget->GetDesiredSize();
+
+				const FSlateRect NodeGeometryGraphSpace( SomeNodePosition.X, SomeNodePosition.Y, SomeNodePosition.X + SomeNodeSize.X, SomeNodePosition.Y + SomeNodeSize.Y );
+				if( FSlateRect::DoRectanglesIntersect( CommentRect, NodeGeometryGraphSpace ) )
+				{
+					CommentWidget->HandleSelection( CommentWidget->bIsSelected, true );
+				}
+			}
+		}
+	}
+}
+
 float SGraphNodeComment::GetTitleBarHeight() const
 {
 	return TitleBar.IsValid() ? TitleBar->GetDesiredSize().Y : 0.0f;
@@ -404,6 +437,22 @@ FSlateColor SGraphNodeComment::GetCommentTitleBarColor() const
 	if (CommentNode)
 	{
 		const FLinearColor Color = CommentNode->CommentColor * SCommentNodeDefs::TitleBarColorMultiplier;
+		return FLinearColor(Color.R, Color.G, Color.B);
+	}
+	else
+	{
+		const FLinearColor Color = FLinearColor::White * SCommentNodeDefs::TitleBarColorMultiplier;
+		return FLinearColor(Color.R, Color.G, Color.B);
+	}
+}
+
+FSlateColor SGraphNodeComment::GetCommentBubbleColor() const
+{
+	UEdGraphNode_Comment* CommentNode = Cast<UEdGraphNode_Comment>(GraphNode);
+	if (CommentNode)
+	{
+		const FLinearColor Color = CommentNode->bColorCommentBubble ?	(CommentNode->CommentColor * SCommentNodeDefs::TitleBarColorMultiplier) :
+																		GetDefault<UGraphEditorSettings>()->DefaultCommentNodeTitleColor;
 		return FLinearColor(Color.R, Color.G, Color.B);
 	}
 	else

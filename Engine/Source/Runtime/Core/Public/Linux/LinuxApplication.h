@@ -4,8 +4,7 @@
 
 #include "GenericApplication.h"
 #include "LinuxWindow.h"
-
-#define STEAM_CONTROLLER_SUPPORT				(WITH_STEAMWORKS && WITH_ENGINE && WITH_STEAMCONTROLLER)
+#include "LinuxCursor.h"
 
 typedef SDL_GameController* SDL_HController;
 
@@ -18,6 +17,11 @@ class FLinuxApplication : public GenericApplication
 
 public:
 	static FLinuxApplication* CreateLinuxApplication();
+
+	enum UserDefinedEvents
+	{
+		CheckForDeactivation
+	};
 
 public:	
 	virtual ~FLinuxApplication();
@@ -51,21 +55,44 @@ public:
 	//	X
 	virtual bool TryCalculatePopupWindowPosition( const FPlatformRect& InAnchor, const FVector2D& InSize, const EPopUpOrientation::Type Orientation, /*OUT*/ FVector2D* const CalculatedPopUpPosition ) const override;
 
+	virtual EWindowTransparency GetWindowTransparencySupport() const override
+	{
+		return EWindowTransparency::PerWindow;
+	}
+
 	void AddPendingEvent( SDL_Event event );
 
 	void OnMouseCursorLock( bool bLockEnabled );
-	
+
 	void RemoveEventWindow(SDL_HWindow Window);
 
+	void RemoveRevertFocusWindow(SDL_HWindow HWnd);
+
+	void RaiseNotificationWindows( const TSharedPtr< FLinuxWindow >& ParentWindow);
+
+	void RemoveNotificationWindow(SDL_HWindow HWnd);
+
 	EWindowZone::Type WindowHitTest( const TSharedPtr< FLinuxWindow > &window, int x, int y );
+
 	TSharedPtr< FLinuxWindow > FindWindowBySDLWindow( SDL_Window *win );
 
+	virtual bool IsCursorDirectlyOverSlateWindow() const override;
+
 private:
+
 	FLinuxApplication();
 
 	TCHAR ConvertChar( SDL_Keysym Keysym );
 
-	TSharedPtr< FLinuxWindow > FindEventWindow( SDL_Event *pEvent );
+	/**
+	 * Finds a window associated with the event (if there is such an association).
+	 *
+	 * @param Event event in question
+	 * @param bOutWindowlessEvent whether or not the event needs to have a window at all
+	 *
+	 * @return pointer to the window, if any
+	 */
+	TSharedPtr< FLinuxWindow > FindEventWindow(SDL_Event *Event, bool& bOutWindowlessEvent);
 
 	void UpdateMouseCaptureWindow( SDL_HWindow TargetWindow );
 
@@ -80,15 +107,9 @@ private:
 	 */
 	static bool GeneratesKeyCharMessage(const SDL_KeyboardEvent & KeyDownEvent);
 
-	/**
-	 * Tracks window activation changes and sends notifications as required
-	 * 
-	 * @param Window window that caused the activation event
-	 * @param Event type of the activation change
-	 */
-	void TrackActivationChanges(const TSharedPtr<FLinuxWindow> Window, EWindowActivation::Type Event);
-
 private:
+
+	void RefreshDisplayCache();
 
 	struct SDLControllerState
 	{
@@ -98,23 +119,34 @@ private:
 		bool analogOverThreshold[10];
 	};
 
-// 	static const FIntPoint MinimizedWindowPosition;
-
 	bool bUsingHighPrecisionMouseInput;
 
 	TArray< SDL_Event > PendingEvents;
 
 	TArray< TSharedRef< FLinuxWindow > > Windows;
 
+	/** Array of notificaion windows to raise when activating toplevel window */ 
+	TArray< TSharedRef< FLinuxWindow > > NotificationWindows;
+
+	/** Array of windows to focus when current gets removed. */
+	TArray< TSharedRef< FLinuxWindow > > RevertFocusStack;
+
 	int32 bAllowedToDeferMessageProcessing;
 
 	bool bIsMouseCursorLocked;
 	bool bIsMouseCaptureEnabled;
 
-	TSharedPtr< FLinuxWindow > LastEventWindow;
-
-	/** Window that we think has been activated last*/
+	/** Window that we think has been activated last. */
 	TSharedPtr< FLinuxWindow > CurrentlyActiveWindow;
+
+	/** Stores (unescaped) file URIs received during current drag-n-drop operation. */
+	TArray<FString> DragAndDropQueue;
+
+	/** Stores text received during current drag-n-drop operation. */
+	TArray<FString> DragAndDropTextQueue;
+
+	/** Window that we think has been previously active. */
+	TSharedPtr< FLinuxWindow > PreviousActiveWindow;
 
 	SDL_HWindow MouseCaptureWindow;
 
@@ -122,17 +154,32 @@ private:
 
 	float fMouseWheelScrollAccel;
 
-#if STEAM_CONTROLLER_SUPPORT
-	TSharedPtr< class SteamControllerInterface > SteamInput;
-#endif // STEAM_CONTROLLER_SUPPORT
-
 	/** List of input devices implemented in external modules. */
 	TArray< TSharedPtr<class IInputDevice> > ExternalInputDevices;
 
 	/** Whether input plugins have been loaded */
 	bool bHasLoadedInputPlugins;
 
-};
+	/** Whether we entered one of our own windows */
+	bool bInsideOwnWindow;
 
+	/** This is used to assist the drag/drop on tabs. */
+	bool bIsDragWindowButtonPressed;
+
+	/** Used to check if the application is active or not. */
+	bool bActivateApp;
+
+	/** Used to check with cursor type is current and set to true if left button is pressed.*/
+	bool bLockToCurrentMouseType;
+
+	/** Cached displays - to reduce costly communication with X server (may be better cached in SDL? avoids ugly 'mutable') */
+	mutable TArray<SDL_Rect>	CachedDisplays;
+
+	/** Last time we asked about work area (this is a hack. What we need is a callback when screen config changes). */
+	mutable double			LastTimeCachedDisplays;
+
+	/** Somewhat hacky way to know whether a window was deleted because the user pressed Escape. */
+	bool bEscapeKeyPressed;
+};
 
 extern FLinuxApplication* LinuxApplication;

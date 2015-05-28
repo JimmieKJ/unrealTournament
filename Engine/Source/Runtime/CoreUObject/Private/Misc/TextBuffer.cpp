@@ -13,6 +13,11 @@ IMPLEMENT_CORE_INTRINSIC_CLASS(UTextBuffer, UObject, { });
 /* UTextBuffer constructors
  *****************************************************************************/
 
+UTextBuffer::UTextBuffer(const TCHAR* InText)
+	: UObject(FObjectInitializer::Get())
+	, Text(InText)
+{}
+
 UTextBuffer::UTextBuffer (const FObjectInitializer& ObjectInitializer, const TCHAR* InText)
 	: UObject(ObjectInitializer)
 	, Text(InText)

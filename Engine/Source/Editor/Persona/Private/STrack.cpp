@@ -303,7 +303,7 @@ FVector2D STrackNode::GetSize() const
 	return LastSize;
 }
 
-FVector2D STrackNode::ComputeDesiredSize() const
+FVector2D STrackNode::ComputeDesiredSize( float ) const
 {
 	return GetSize();
 }
@@ -372,7 +372,7 @@ void STrack::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChil
 	}
 }
 
-FVector2D STrack::ComputeDesiredSize() const 
+FVector2D STrack::ComputeDesiredSize( float ) const
 {
 	FVector2D Size;
 	Size.X = 5000; // FIXME: Setting this really high so that the track takes all the width it can in the montage tool (since its placed in an HBox next to a fixed with column

@@ -507,6 +507,10 @@ FName FSubversionUpdateStatusWorker::GetName() const
 
 bool FSubversionUpdateStatusWorker::Execute(FSubversionSourceControlCommand& InCommand)
 {
+	// update using any special hints passed in via the operation
+	check(InCommand.Operation->GetName() == GetName());
+	TSharedRef<FUpdateStatus, ESPMode::ThreadSafe> Operation = StaticCastSharedRef<FUpdateStatus>(InCommand.Operation);
+
 	if(InCommand.Files.Num() > 0)
 	{
 		TArray<FXmlFile> ResultsXml;
@@ -515,7 +519,7 @@ bool FSubversionUpdateStatusWorker::Execute(FSubversionSourceControlCommand& InC
 		Parameters.Add(TEXT("--verbose"));
 
 		TArray<FString> Files;
-		if(InCommand.Files.Num() > 1)
+		if(Operation->ShouldCheckAllFiles() && InCommand.Files.Num() > 1)
 		{
 			// Prime the resultant states here depending on whether the files are under the 
 			// working copy or not.
@@ -554,10 +558,6 @@ bool FSubversionUpdateStatusWorker::Execute(FSubversionSourceControlCommand& InC
 	{
 		InCommand.bCommandSuccessful = true;
 	}
-
-	// update using any special hints passed in via the operation
-	check(InCommand.Operation->GetName() == GetName());
-	TSharedRef<FUpdateStatus, ESPMode::ThreadSafe> Operation = StaticCastSharedRef<FUpdateStatus>(InCommand.Operation);
 
 	if(Operation->ShouldUpdateHistory())
 	{

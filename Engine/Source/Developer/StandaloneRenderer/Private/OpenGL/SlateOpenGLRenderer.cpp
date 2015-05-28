@@ -157,6 +157,8 @@ void FSlateOpenGLRenderer::OnWindowDestroyed( const TSharedRef<SWindow>& InWindo
 		Viewport->Destroy();
 	}
 	WindowToViewportMap.Remove( &InWindow.Get() );
+
+	SharedContext.MakeCurrent();
 }
 
 void FSlateOpenGLRenderer::CreateViewport( const TSharedRef<SWindow> InWindow )
@@ -216,18 +218,18 @@ bool FSlateOpenGLRenderer::GenerateDynamicImageResource(FName ResourceName, uint
 }
 
 
-void FSlateOpenGLRenderer::LoadStyleResources( const ISlateStyle& Style )
+void FSlateOpenGLRenderer::LoadStyleResources( const ISlateStyle& InStyle )
 {
 	if ( TextureManager.IsValid() )
 	{
-		TextureManager->LoadStyleResources( Style );
+		TextureManager->LoadStyleResources( InStyle );
 	}
 }
 
 FSlateUpdatableTexture* FSlateOpenGLRenderer::CreateUpdatableTexture(uint32 Width, uint32 Height)
 {
 	TArray<uint8> RawData;
-	RawData.AddZeroed(4);
+	RawData.AddZeroed(Width * Height * 4);
 	FSlateOpenGLTexture* NewTexture = new FSlateOpenGLTexture(Width, Height);
 #if !PLATFORM_USES_ES2
 	NewTexture->Init(GL_SRGB8_ALPHA8, RawData);

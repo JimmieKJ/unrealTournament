@@ -10,15 +10,15 @@ class USlateBrushAsset;
 
 struct FPaintContext;
 
-UCLASS(MinimalAPI)
-class UWidgetBlueprintLibrary : public UBlueprintFunctionLibrary
+UCLASS()
+class UMG_API UWidgetBlueprintLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
 
 public:
 
 	/** Creates a widget */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, meta=( WorldContext="WorldContextObject", FriendlyName="Create Widget", BlueprintInternalUseOnly="true" ), Category="Widget")
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, meta=( WorldContext="WorldContextObject", DisplayName="Create Widget", BlueprintInternalUseOnly="true" ), Category="Widget")
 	static class UUserWidget* Create(UObject* WorldContextObject, TSubclassOf<class UUserWidget> WidgetType, APlayerController* OwningPlayer);
 
 	/**
@@ -193,4 +193,14 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Widget", meta=( WorldContext="WorldContextObject" ))
 	static void GetAllWidgetsOfClass(UObject* WorldContextObject, TArray<UUserWidget*>& FoundWidgets, TSubclassOf<UUserWidget> WidgetClass, bool TopLevelOnly = true);
+
+	/**
+	* Find all widgets in the world with the specified interface.
+	* This is a slow operation, use with caution e.g. do not use every frame.
+	* @param Interface The interface to find. Must be specified or result array will be empty.
+	* @param FoundWidgets Output array of widgets that implement the specified interface.
+	* @param TopLevelOnly Only the widgets that are direct children of the viewport will be returned.
+	*/
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = "Widget", meta = (WorldContext = "WorldContextObject"))
+	static void GetAllWidgetsWithInterface(UObject* WorldContextObject, TSubclassOf<UInterface> Interface, TArray<UUserWidget*>& FoundWidgets, bool TopLevelOnly);
 };

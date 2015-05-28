@@ -89,7 +89,7 @@ void FCreateBlueprintFromActorDialog::OnCreateBlueprint(const FString& InAssetPa
 			AActor* Actor = Cast<AActor>(SelectedActors->GetSelectedObject(0));
 			if(Actor)
 			{
-				GEditor->SetActorLabelUnique(Actor, FPackageName::GetShortName(InAssetPath));
+				FActorLabelUtilities::SetActorLabelUnique(Actor, FPackageName::GetShortName(InAssetPath));
 			}
 		}
 

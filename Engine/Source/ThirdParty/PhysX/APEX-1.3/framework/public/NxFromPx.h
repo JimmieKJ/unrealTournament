@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_FROM_PX_H
 #define NX_FROM_PX_H
@@ -63,75 +47,90 @@ namespace apex
 PX_PUSH_PACK_DEFAULT
 
 #if NX_SDK_VERSION_MAJOR == 2
+//! \brief Convert vector
 PX_INLINE void PxFromNxVec3(physx::PxVec3& out, const NxVec3& in)
 {
 	out = physx::PxVec3(in.x, in.y, in.z);
 }
+//! \brief Convert vector
 PX_INLINE physx::PxVec3 PxFromNxVec3(const NxVec3& in)
 {
 	return physx::PxVec3(in.x, in.y, in.z);
 }
+//! \brief Convert vector
 PX_INLINE void NxFromPxVec3(NxVec3& out, const physx::PxVec3& in)
 {
 	out.set(in.x, in.y, in.z);
 }
+//! \brief Convert vector
 PX_INLINE NxVec3 NxFromPxVec3(const physx::PxVec3& in)
 {
 	return NxVec3(in.x, in.y, in.z);
 }
+//! \brief Convert quaternion
 PX_INLINE void PxFromNxQuat(physx::PxQuat& out, const NxQuat& in)
 {
 	out = physx::PxQuat(in.x, in.y, in.z, in.w);
 }
+//! \brief Convert quaternion
 PX_INLINE void NxFromPxQuat(NxQuat& out, const physx::PxQuat& in)
 {
 	out.setXYZW(in.x, in.y, in.z, in.w);
 }
+//! \brief Convert 3x3 matrix
 PX_INLINE void PxFromNxMat33(physx::PxMat33Legacy& out, const NxMat33& in)
 {
 	physx::PxF32 buf[9];
 	in.getRowMajor(buf);
 	out.setRowMajor(buf);
 }
+//! \brief Convert 3x3 matrix
 PX_INLINE void PxFromNxMat33(physx::PxMat33& out, const NxMat33& in)
 {
 	physx::PxF32 buf[9];
 	in.getRowMajor(buf);
 	out = physx::PxMat33(buf);
 }
+//! \brief Convert 3x3 matrix
 PX_INLINE void NxFromPxMat33(NxMat33& out, const physx::PxMat33Legacy& in)
 {
 	physx::PxF32 buf[9];
 	in.getRowMajor(buf);
 	out.setRowMajor(buf);
 }
+//! \brief Convert 3x3 matrix
 PX_INLINE void PxFromNxMat34(physx::PxMat34Legacy& out, const NxMat34& in)
 {
 	PxFromNxMat33(out.M, in.M);
 	PxFromNxVec3(out.t, in.t);
 }
 
+//! \brief Convert 3x4 matrix
 PX_INLINE void PxFromNxMat34(physx::PxMat44& out, const NxMat34& in)
 {
 	physx::PxMat34Legacy tmp;
 	PxFromNxMat34(tmp, in);
 	out = physx::PxMat44(tmp);
 }
+//! \brief Convert 3x4 matrix
 PX_INLINE void NxFromPxMat34(NxMat34& out, const physx::PxMat34Legacy& in)
 {
 	NxFromPxMat33(out.M, in.M);
 	NxFromPxVec3(out.t, in.t);
 }
+//! \brief Convert bounds
 PX_INLINE void PxFromNxBounds3(physx::PxBounds3& out, const NxBounds3& in)
 {
 	PxFromNxVec3(out.minimum, in.min);
 	PxFromNxVec3(out.maximum, in.max);
 }
+//! \brief Convert bounds
 PX_INLINE void NxFromPxBounds3(NxBounds3& out, const physx::PxBounds3& in)
 {
 	NxFromPxVec3(out.min, in.minimum);
 	NxFromPxVec3(out.max, in.maximum);
 }
+//! \brief Convert array to quaternion
 PX_INLINE void ArrayFromPxQuat(physx::PxF32 arr[4], const physx::PxQuat& q)
 {
 	arr[0] = q.x;
@@ -140,44 +139,55 @@ PX_INLINE void ArrayFromPxQuat(physx::PxF32 arr[4], const physx::PxQuat& q)
 	arr[3] = q.w;
 }
 
+//! \brief Convert vector (fast version)
 PX_INLINE NxVec3& NxFromPxVec3Fast(physx::PxVec3& in)
 {
 	return reinterpret_cast<NxVec3&>(in);
 }
+//! \brief Convert vector (fast version)
 PX_INLINE const NxVec3& NxFromPxVec3Fast(const physx::PxVec3& in)
 {
 	return reinterpret_cast<const NxVec3&>(in);
 }
+//! \brief Convert vector (fast version)
 PX_INLINE physx::PxVec3& PxFromNxVec3Fast(NxVec3& in)
 {
 	return reinterpret_cast<physx::PxVec3&>(in);
 }
+//! \brief Convert vector (fast version)
 PX_INLINE const physx::PxVec3& PxFromNxVec3Fast(const NxVec3& in)
 {
 	return reinterpret_cast<const physx::PxVec3&>(in);
 }
+//! \brief Convert quaternion (fast version)
 PX_INLINE NxQuat& NxFromPxQuatFast(physx::PxQuat& in)
 {
 	return reinterpret_cast<NxQuat&>(in);
 }
+//! \brief Convert quaternion (fast version)
 PX_INLINE const NxQuat& NxFromPxQuatFast(const physx::PxQuat& in)
 {
 	return reinterpret_cast<const NxQuat&>(in);
 }
+//! \brief Convert quaternion (fast version)
 PX_INLINE physx::PxQuat& PxFromNxQuatFast(NxQuat& in)
 {
 	return reinterpret_cast<physx::PxQuat&>(in);
 }
+//! \brief Convert quaternion (fast version)
 PX_INLINE const physx::PxQuat& PxFromNxQuatFast(const NxQuat& in)
 {
 	return reinterpret_cast<const physx::PxQuat&>(in);
 }
+//! \brief Convert 4x4 matrix
 PX_INLINE void NxFromPxMat44(NxMat34& out, const physx::PxMat44& in)
 {
 	out.setColumnMajor44(in.front());
 }
 
+//! \brief Convert to Px vector
 #define PXFROMNXVEC3(nxv) physx::PxVec3((nxv).x, (nxv).y, (nxv).z)
+//! \brief Convert to Nx vector
 #define NXFROMPXVEC3(pxv) NxVec3((pxv).x, (pxv).y, (pxv).z)
 
 #endif // NX_SDK_VERSION_MAJOR == 2
@@ -306,9 +316,9 @@ PX_INLINE void PxBounds3boundsOfOBB(physx::PxBounds3& b, const physx::PxMat33Leg
 	physx::PxF32 dimy = halfDims[1];
 	physx::PxF32 dimz = halfDims[2];
 
-	physx::PxF32 x = PxAbs(orientation(0, 0) * dimx) + PxAbs(orientation(0, 1) * dimy) + PxAbs(orientation(0, 2) * dimz);
-	physx::PxF32 y = PxAbs(orientation(1, 0) * dimx) + PxAbs(orientation(1, 1) * dimy) + PxAbs(orientation(1, 2) * dimz);
-	physx::PxF32 z = PxAbs(orientation(2, 0) * dimx) + PxAbs(orientation(2, 1) * dimy) + PxAbs(orientation(2, 2) * dimz);
+	physx::PxF32 x = physx::PxAbs(orientation(0, 0) * dimx) + physx::PxAbs(orientation(0, 1) * dimy) + physx::PxAbs(orientation(0, 2) * dimz);
+	physx::PxF32 y = physx::PxAbs(orientation(1, 0) * dimx) + physx::PxAbs(orientation(1, 1) * dimy) + physx::PxAbs(orientation(1, 2) * dimz);
+	physx::PxF32 z = physx::PxAbs(orientation(2, 0) * dimx) + physx::PxAbs(orientation(2, 1) * dimy) + physx::PxAbs(orientation(2, 2) * dimz);
 
 	physx::PxVec3 minimum(-x + translation[0], -y + translation[1], -z + translation[2]);
 	physx::PxVec3 maximum(x + translation[0], y + translation[1], z + translation[2]);
@@ -334,9 +344,9 @@ PX_INLINE void PxBounds3boundsOfOBB(physx::PxBounds3& b, const physx::PxMat44& t
 	physx::PxF32 dimy = halfDims[1];
 	physx::PxF32 dimz = halfDims[2];
 
-	physx::PxF32 x = PxAbs(tm(0, 0) * dimx) + PxAbs(tm(0, 1) * dimy) + PxAbs(tm(0, 2) * dimz);
-	physx::PxF32 y = PxAbs(tm(1, 0) * dimx) + PxAbs(tm(1, 1) * dimy) + PxAbs(tm(1, 2) * dimz);
-	physx::PxF32 z = PxAbs(tm(2, 0) * dimx) + PxAbs(tm(2, 1) * dimy) + PxAbs(tm(2, 2) * dimz);
+	physx::PxF32 x = physx::PxAbs(tm(0, 0) * dimx) + physx::PxAbs(tm(0, 1) * dimy) + physx::PxAbs(tm(0, 2) * dimz);
+	physx::PxF32 y = physx::PxAbs(tm(1, 0) * dimx) + physx::PxAbs(tm(1, 1) * dimy) + physx::PxAbs(tm(1, 2) * dimz);
+	physx::PxF32 z = physx::PxAbs(tm(2, 0) * dimx) + physx::PxAbs(tm(2, 1) * dimy) + physx::PxAbs(tm(2, 2) * dimz);
 
 	physx::PxVec3 minimum(-x + center[0], -y + center[1], -z + center[2]);
 	physx::PxVec3 maximum(x + center[0], y + center[1], z + center[2]);

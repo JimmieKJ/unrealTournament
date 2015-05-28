@@ -323,7 +323,20 @@ void SAnimViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr<class 
 				SNew( SEditorViewportToolbarMenu )
 				.ParentToolBar( SharedThis( this ) )
 				.Label( this, &SAnimViewportToolBar::GetPlaybackMenuLabel )
+				.LabelIcon(FEditorStyle::GetBrush("AnimViewportMenu.PlayBackSpeed"))
 				.OnGetMenuContent( this, &SAnimViewportToolBar::GeneratePlaybackMenu ) 
+			]
+
+			// Turn table menu
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2.0f, 2.0f)
+			[
+				SNew(SEditorViewportToolbarMenu)
+				.ParentToolBar(SharedThis(this))
+				.Label(this, &SAnimViewportToolBar::GetTurnTableMenuLabel)
+				.LabelIcon(FEditorStyle::GetBrush("AnimViewportMenu.TurnTableSpeed"))
+				.OnGetMenuContent(this, &SAnimViewportToolBar::GenerateTurnTableMenu)
 			]
 				
  			+SHorizontalBox::Slot()
@@ -463,6 +476,7 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateShowMenu() const
 				ShowMenuBuilder.AddMenuEntry( Actions.ShowRetargetBasePose );
 				ShowMenuBuilder.AddMenuEntry( Actions.ShowBound );
 				ShowMenuBuilder.AddMenuEntry( Actions.ShowPreviewMesh );
+				ShowMenuBuilder.AddMenuEntry( Actions.ShowMorphTargets );
 			}
 			ShowMenuBuilder.EndSection();
 
@@ -538,7 +552,8 @@ void SAnimViewportToolBar::FillShowSceneMenu(FMenuBuilder& MenuBuilder) const
 	{
 		MenuBuilder.AddMenuEntry(Actions.ToggleFloor);
 		MenuBuilder.AddMenuEntry(Actions.ToggleSky);
-		}
+		MenuBuilder.AddMenuEntry(Actions.AutoAlignFloorToMesh);
+	}
 	MenuBuilder.EndSection();
 
 	MenuBuilder.BeginSection("AnimViewportFloorOffset", LOCTEXT("Viewport_FloorOffsetLabel", "Floor Height Offset"));
@@ -726,8 +741,11 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateViewportTypeMenu() const
 
 	CameraMenuBuilder.BeginSection("LevelViewportCameraType_Ortho", LOCTEXT("CameraTypeHeader_Ortho", "Orthographic"));
 	CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Top);
-	CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Side);
+	CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Bottom);
+	CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Left);
+	CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Right);
 	CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Front);
+	CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Back);
 	CameraMenuBuilder.EndSection();
 
 	return CameraMenuBuilder.MakeWidget();
@@ -757,6 +775,56 @@ TSharedRef<SWidget> SAnimViewportToolBar::GeneratePlaybackMenu() const
 	return PlaybackMenuBuilder.MakeWidget();
 
 }
+
+TSharedRef<SWidget> SAnimViewportToolBar::GenerateTurnTableMenu() const
+{
+	const FAnimViewportPlaybackCommands& Actions = FAnimViewportPlaybackCommands::Get();
+
+	const bool bInShouldCloseWindowAfterMenuSelection = true;
+
+	FMenuBuilder TurnTableMenuBuilder(bInShouldCloseWindowAfterMenuSelection, Viewport.Pin()->GetCommandList());
+	{
+		TurnTableMenuBuilder.BeginSection("AnimViewportTurnTableMode", LOCTEXT("TurnTableMenu_ModeLabel", "Turn Table Mode"));
+		{
+			TurnTableMenuBuilder.AddMenuEntry(Actions.PersonaTurnTablePlay);
+			TurnTableMenuBuilder.AddMenuEntry(Actions.PersonaTurnTablePause);
+			TurnTableMenuBuilder.AddMenuEntry(Actions.PersonaTurnTableStop);
+		}
+		TurnTableMenuBuilder.EndSection();
+
+		TurnTableMenuBuilder.BeginSection("AnimViewportTurnTableSpeed", LOCTEXT("TurnTableMenu_SpeedLabel", "Turn Table Speed"));
+		{
+			for (int i = 0; i < EAnimationPlaybackSpeeds::NumPlaybackSpeeds; ++i)
+			{
+				TurnTableMenuBuilder.AddMenuEntry(Actions.TurnTableSpeeds[i]);
+			}
+		}
+		TurnTableMenuBuilder.EndSection();
+	}
+
+	return TurnTableMenuBuilder.MakeWidget();
+}
+
+FText SAnimViewportToolBar::GetTurnTableMenuLabel() const
+{
+	FText Label = LOCTEXT("TurnTableError", "Error");
+	if (Viewport.IsValid())
+	{
+		for (int i = 0; i < EAnimationPlaybackSpeeds::NumPlaybackSpeeds; ++i)
+		{
+			if (Viewport.Pin()->IsTurnTableSpeedSelected(i))
+			{
+				Label = FText::FromString(FString::Printf(
+					(i == EAnimationPlaybackSpeeds::Quarter) ? TEXT("x%.2f") : TEXT("x%.1f"),
+					EAnimationPlaybackSpeeds::Values[i]
+					));
+				break;
+			}
+		}
+	}
+	return Label;
+}
+
 
 FSlateColor SAnimViewportToolBar::GetFontColor() const
 {
@@ -820,11 +888,25 @@ FText SAnimViewportToolBar::GetCameraMenuLabel() const
 			break;
 
 		case LVT_OrthoYZ:
-			Label = LOCTEXT("CameraMenuTitle_Side", "Side");
+			Label = LOCTEXT("CameraMenuTitle_Left", "Left");
 			break;
 
 		case LVT_OrthoXZ:
 			Label = LOCTEXT("CameraMenuTitle_Front", "Front");
+			break;
+
+		case LVT_OrthoNegativeXY:
+			Label = LOCTEXT("CameraMenuTitle_Bottom", "Bottom");
+			break;
+
+		case LVT_OrthoNegativeYZ:
+			Label = LOCTEXT("CameraMenuTitle_Right", "Right");
+			break;
+
+		case LVT_OrthoNegativeXZ:
+			Label = LOCTEXT("CameraMenuTitle_Back", "Back");
+			break;
+		case LVT_OrthoFreelook:
 			break;
 		}
 	}
@@ -849,11 +931,25 @@ const FSlateBrush* SAnimViewportToolBar::GetCameraMenuLabelIcon() const
 			break;
 
 		case LVT_OrthoYZ:
-			Icon = FName("EditorViewport.Side");
+			Icon = FName("EditorViewport.Left");
 			break;
 
 		case LVT_OrthoXZ:
 			Icon = FName("EditorViewport.Front");
+			break;
+
+		case LVT_OrthoNegativeXY:
+			Icon = FName("EditorViewport.Bottom");
+			break;
+
+		case LVT_OrthoNegativeYZ:
+			Icon = FName("EditorViewport.Right");
+			break;
+
+		case LVT_OrthoNegativeXZ:
+			Icon = FName("EditorViewport.Back");
+			break;
+		case LVT_OrthoFreelook:
 			break;
 		}
 	}

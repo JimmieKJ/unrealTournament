@@ -80,6 +80,21 @@ static void getNumberFormat(NUMBERFMTW *fmt, int32_t lcid)
 {
     char buf[10];
 
+#if U_PLATFORM == U_PF_DURANGO
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_RETURN_NUMBER|LOCALE_IDIGITS, (LPWSTR) &fmt->NumDigits, sizeof(UINT));
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_RETURN_NUMBER|LOCALE_ILZERO,  (LPWSTR) &fmt->LeadingZero, sizeof(UINT));
+
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SGROUPING, (LPWSTR) buf, 10);
+	fmt->Grouping = getGrouping(buf);
+
+	fmt->lpDecimalSep = NEW_ARRAY(UChar, 6);
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SDECIMAL,  fmt->lpDecimalSep,  6);
+
+	fmt->lpThousandSep = NEW_ARRAY(UChar, 6);
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_STHOUSAND, fmt->lpThousandSep, 6);
+
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_RETURN_NUMBER|LOCALE_INEGNUMBER, (LPWSTR) &fmt->NegativeOrder, sizeof(UINT));
+#else
     GetLocaleInfoW(lcid, LOCALE_RETURN_NUMBER|LOCALE_IDIGITS, (LPWSTR) &fmt->NumDigits, sizeof(UINT));
     GetLocaleInfoW(lcid, LOCALE_RETURN_NUMBER|LOCALE_ILZERO,  (LPWSTR) &fmt->LeadingZero, sizeof(UINT));
 
@@ -93,6 +108,7 @@ static void getNumberFormat(NUMBERFMTW *fmt, int32_t lcid)
     GetLocaleInfoW(lcid, LOCALE_STHOUSAND, fmt->lpThousandSep, 6);
 
     GetLocaleInfoW(lcid, LOCALE_RETURN_NUMBER|LOCALE_INEGNUMBER, (LPWSTR) &fmt->NegativeOrder, sizeof(UINT));
+#endif
 }
 
 static void freeNumberFormat(NUMBERFMTW *fmt)
@@ -107,7 +123,26 @@ static void getCurrencyFormat(CURRENCYFMTW *fmt, int32_t lcid)
 {
     char buf[10];
 
-    GetLocaleInfoW(lcid, LOCALE_RETURN_NUMBER|LOCALE_ICURRDIGITS, (LPWSTR) &fmt->NumDigits, sizeof(UINT));
+#if U_PLATFORM == U_PF_DURANGO
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_RETURN_NUMBER|LOCALE_ICURRDIGITS, (LPWSTR) &fmt->NumDigits, sizeof(UINT));
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_RETURN_NUMBER|LOCALE_ILZERO, (LPWSTR) &fmt->LeadingZero, sizeof(UINT));
+
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SMONGROUPING, (LPWSTR) buf, sizeof(buf));
+	fmt->Grouping = getGrouping(buf);
+
+	fmt->lpDecimalSep = NEW_ARRAY(UChar, 6);
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SMONDECIMALSEP,  fmt->lpDecimalSep,  6);
+
+	fmt->lpThousandSep = NEW_ARRAY(UChar, 6);
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SMONTHOUSANDSEP, fmt->lpThousandSep, 6);
+
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_RETURN_NUMBER|LOCALE_INEGCURR,  (LPWSTR) &fmt->NegativeOrder, sizeof(UINT));
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_RETURN_NUMBER|LOCALE_ICURRENCY, (LPWSTR) &fmt->PositiveOrder, sizeof(UINT));
+
+	fmt->lpCurrencySymbol = NEW_ARRAY(UChar, 8);
+	GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SCURRENCY, (LPWSTR) fmt->lpCurrencySymbol, 8);
+#else
+	GetLocaleInfoW(lcid, LOCALE_RETURN_NUMBER|LOCALE_ICURRDIGITS, (LPWSTR) &fmt->NumDigits, sizeof(UINT));
     GetLocaleInfoW(lcid, LOCALE_RETURN_NUMBER|LOCALE_ILZERO, (LPWSTR) &fmt->LeadingZero, sizeof(UINT));
 
     GetLocaleInfoA(lcid, LOCALE_SMONGROUPING, buf, sizeof(buf));
@@ -124,6 +159,7 @@ static void getCurrencyFormat(CURRENCYFMTW *fmt, int32_t lcid)
 
     fmt->lpCurrencySymbol = NEW_ARRAY(UChar, 8);
     GetLocaleInfoW(lcid, LOCALE_SCURRENCY, (LPWSTR) fmt->lpCurrencySymbol, 8);
+#endif
 }
 
 static void freeCurrencyFormat(CURRENCYFMTW *fmt)
@@ -306,17 +342,29 @@ UnicodeString &Win32NumberFormat::format(int32_t numDigits, UnicodeString &appen
             formatInfo.currency.Grouping = 0;
         }
 
+#if U_PLATFORM == U_PF_DURANGO
+        result = GetCurrencyFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nBuffer, &formatInfo.currency, buffer, STACK_BUFFER_SIZE);
+#else
         result = GetCurrencyFormatW(fLCID, 0, nBuffer, &formatInfo.currency, buffer, STACK_BUFFER_SIZE);
+#endif
 
         if (result == 0) {
             DWORD lastError = GetLastError();
 
             if (lastError == ERROR_INSUFFICIENT_BUFFER) {
+#if U_PLATFORM == U_PF_DURANGO
+				int newLength = GetCurrencyFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nBuffer, &formatInfo.currency, NULL, 0);
+#else
                 int newLength = GetCurrencyFormatW(fLCID, 0, nBuffer, &formatInfo.currency, NULL, 0);
+#endif
 
                 buffer = NEW_ARRAY(UChar, newLength);
                 buffer[0] = 0x0000;
+#if U_PLATFORM == U_PF_DURANGO
+				GetCurrencyFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nBuffer,  &formatInfo.currency, buffer, newLength);
+#else
                 GetCurrencyFormatW(fLCID, 0, nBuffer,  &formatInfo.currency, buffer, newLength);
+#endif
             }
         }
     } else {
@@ -328,15 +376,27 @@ UnicodeString &Win32NumberFormat::format(int32_t numDigits, UnicodeString &appen
             formatInfo.number.Grouping = 0;
         }
 
+#if U_PLATFORM == U_PF_DURANGO
+		result = GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nBuffer, &formatInfo.number, buffer, STACK_BUFFER_SIZE);
+#else
         result = GetNumberFormatW(fLCID, 0, nBuffer, &formatInfo.number, buffer, STACK_BUFFER_SIZE);
+#endif
 
         if (result == 0) {
             if (GetLastError() == ERROR_INSUFFICIENT_BUFFER) {
+#if U_PLATFORM == U_PF_DURANGO
+				int newLength = GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nBuffer, &formatInfo.number, NULL, 0);
+#else
                 int newLength = GetNumberFormatW(fLCID, 0, nBuffer, &formatInfo.number, NULL, 0);
+#endif
 
                 buffer = NEW_ARRAY(UChar, newLength);
                 buffer[0] = 0x0000;
+#if U_PLATFORM == U_PF_DURANGO
+				GetNumberFormatEx(LOCALE_NAME_USER_DEFAULT, 0, nBuffer, &formatInfo.number, buffer, newLength);
+#else
                 GetNumberFormatW(fLCID, 0, nBuffer, &formatInfo.number, buffer, newLength);
+#endif
             }
         }
     }

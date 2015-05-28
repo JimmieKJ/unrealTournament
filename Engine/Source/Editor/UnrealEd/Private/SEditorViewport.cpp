@@ -9,11 +9,13 @@
 #include "TutorialMetaData.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
+#include "Settings/EditorProjectSettings.h"
 
 #define LOCTEXT_NAMESPACE "EditorViewport"
 
 SEditorViewport::SEditorViewport()
 	: LastTickTime(0)
+	, bInvalidated(false)
 {
 }
 
@@ -40,7 +42,7 @@ void SEditorViewport::Construct( const FArguments& InArgs )
 		SAssignNew( ViewportWidget, SViewport )
 		.ShowEffectWhenDisabled( false )
 		.EnableGammaCorrection( false ) // Scene rendering handles this
-		.AddMetaData(InArgs.MetaData.Num() > 0 ? InArgs.MetaData[0] : MakeShareable(new FTagMetaData(TEXT("EditorViewports"))))
+		.AddMetaData(InArgs.MetaData.Num() > 0 ? InArgs.MetaData[0] : MakeShareable(new FTagMetaData(TEXT("LevelEditorViewport"))))
 		[
 			SAssignNew( ViewportOverlay, SOverlay )
 			+SOverlay::Slot()
@@ -56,10 +58,21 @@ void SEditorViewport::Construct( const FArguments& InArgs )
 	];
 
 	TSharedRef<FEditorViewportClient> ViewportClient = MakeEditorViewportClient();
+
+	if (!ViewportClient->VisibilityDelegate.IsBound())
+	{
+		ViewportClient->VisibilityDelegate.BindSP(this, &SEditorViewport::IsVisible);
+	}
+
 	SceneViewport = MakeShareable( new FSceneViewport( &ViewportClient.Get(), ViewportWidget ) );
 	ViewportClient->Viewport = SceneViewport.Get();
 	ViewportWidget->SetViewportInterface(SceneViewport.ToSharedRef());
 	Client = ViewportClient;
+
+	if ( Client->IsRealtime() )
+	{
+		ActiveTimerHandle = RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SEditorViewport::EnsureTick ) );
+	}
 
 	CommandList = MakeShareable( new FUICommandList );
 	// Ensure the commands are registered
@@ -76,6 +89,8 @@ void SEditorViewport::Construct( const FArguments& InArgs )
 				ViewportToolbar.ToSharedRef()
 			];
 	}
+
+	PopulateViewportOverlays(ViewportOverlay.ToSharedRef());
 }
 
 FReply SEditorViewport::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
@@ -166,7 +181,7 @@ void SEditorViewport::BindCommands()
 		FIsActionChecked::CreateSP(ClientRef, &FEditorViewportClient::IsActiveViewportType, LVT_OrthoXZ));
 
 	CommandListRef.MapAction( 
-		Commands.Side,
+		Commands.Left,
 		FExecuteAction::CreateSP( ClientRef, &FEditorViewportClient::SetViewportType, LVT_OrthoYZ ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(ClientRef, &FEditorViewportClient::IsActiveViewportType, LVT_OrthoYZ));
@@ -176,6 +191,24 @@ void SEditorViewport::BindCommands()
 		FExecuteAction::CreateSP( ClientRef, &FEditorViewportClient::SetViewportType, LVT_OrthoXY ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(ClientRef, &FEditorViewportClient::IsActiveViewportType, LVT_OrthoXY));
+
+	CommandListRef.MapAction(
+		Commands.Back,
+		FExecuteAction::CreateSP(ClientRef, &FEditorViewportClient::SetViewportType, LVT_OrthoNegativeXZ),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(ClientRef, &FEditorViewportClient::IsActiveViewportType, LVT_OrthoNegativeXZ));
+
+	CommandListRef.MapAction(
+		Commands.Right,
+		FExecuteAction::CreateSP(ClientRef, &FEditorViewportClient::SetViewportType, LVT_OrthoNegativeYZ),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(ClientRef, &FEditorViewportClient::IsActiveViewportType, LVT_OrthoNegativeYZ));
+
+	CommandListRef.MapAction(
+		Commands.Bottom,
+		FExecuteAction::CreateSP(ClientRef, &FEditorViewportClient::SetViewportType, LVT_OrthoNegativeXY),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(ClientRef, &FEditorViewportClient::IsActiveViewportType, LVT_OrthoNegativeXY));
 
 	CommandListRef.MapAction(
 		Commands.ScreenCapture,
@@ -222,7 +255,15 @@ void SEditorViewport::BindCommands()
 		FIsActionButtonVisible::CreateSP( this, &SEditorViewport::IsTranslateRotateModeVisible )
 		);
 
-	CommandListRef.MapAction( 
+	CommandListRef.MapAction(
+		Commands.TranslateRotate2DMode,
+		FExecuteAction::CreateSP(ClientRef, &FEditorViewportClient::SetWidgetMode, FWidget::WM_2D),
+		FCanExecuteAction::CreateSP(ClientRef, &FEditorViewportClient::CanSetWidgetMode, FWidget::WM_2D),
+		FIsActionChecked::CreateSP(this, &SEditorViewport::IsWidgetModeActive, FWidget::WM_2D),
+		FIsActionButtonVisible::CreateSP(this, &SEditorViewport::Is2DModeVisible)
+		);
+
+	CommandListRef.MapAction(
 		Commands.ShrinkTransformWidget,
 		FExecuteAction::CreateSP( ClientRef, &FEditorViewportClient::AdjustTransformWidgetSize, -1 )
 		);
@@ -323,7 +364,20 @@ EVisibility SEditorViewport::OnGetViewportContentVisibility() const
 
 void SEditorViewport::OnToggleRealtime()
 {
-	 Client->SetRealtime( ! Client->IsRealtime() );
+	if (Client->IsRealtime())
+	{
+		Client->SetRealtime( false );
+		if ( ActiveTimerHandle.IsValid() )
+		{
+			UnRegisterActiveTimer( ActiveTimerHandle.Pin().ToSharedRef() );
+		}
+		
+	}
+	else
+	{
+		Client->SetRealtime( true );
+		ActiveTimerHandle = RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SEditorViewport::EnsureTick ) );
+	}
 }
 
 void SEditorViewport::OnToggleStats()
@@ -334,7 +388,11 @@ void SEditorViewport::OnToggleStats()
 	if( !bIsEnabled )
 	{
 		// We cannot show stats unless realtime rendering is enabled
-		 Client->SetRealtime( true );
+		if ( !Client->IsRealtime() )
+		{
+			Client->SetRealtime( true );
+			ActiveTimerHandle = RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SEditorViewport::EnsureTick ) );
+		}
 
 		 // let the user know how they can enable stats via the console
 		 FNotificationInfo Info(LOCTEXT("StatsEnableHint", "Stats display can be toggled via the STAT [type] console command"));
@@ -358,7 +416,7 @@ void SEditorViewport::ToggleStatCommand(FString CommandName)
 bool SEditorViewport::IsStatCommandVisible(FString CommandName) const
 {
 	// Only if realtime and stats are also enabled should we show the stat as visible
-	return Client->IsRealtime() && Client->ShouldShowStats() && Client->IsStatEnabled(*CommandName);
+	return Client->IsRealtime() && Client->ShouldShowStats() && Client->IsStatEnabled(CommandName);
 }
 
 void SEditorViewport::ToggleShowFlag(uint32 EngineShowFlagIndex)
@@ -393,6 +451,14 @@ bool SEditorViewport::IsExposureSettingSelected( int32 ID ) const
 	}
 }
 
+void SEditorViewport::Invalidate()
+{
+	bInvalidated = true;
+	if (!ActiveTimerHandle.IsValid())
+	{
+		ActiveTimerHandle = RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SEditorViewport::EnsureTick));
+	}
+}
 
 bool SEditorViewport::IsRealtime() const
 {
@@ -438,7 +504,12 @@ bool SEditorViewport::IsTranslateRotateModeVisible() const
 	return GetDefault<ULevelEditorViewportSettings>()->bAllowTranslateRotateZWidget;
 }
 
-bool SEditorViewport::IsCoordSystemActive( ECoordSystem CoordSystem ) const
+bool SEditorViewport::Is2DModeVisible() const
+{
+	return GetDefault<ULevelEditor2DSettings>()->bEnable2DWidget;
+}
+
+bool SEditorViewport::IsCoordSystemActive(ECoordSystem CoordSystem) const
 {
 	return Client->GetWidgetCoordSystemSpace() == CoordSystem;
 }
@@ -454,6 +525,11 @@ void SEditorViewport::OnCycleWidgetMode()
 		++WidgetModeAsInt;
 
 		if ((WidgetModeAsInt == FWidget::WM_TranslateRotateZ) && (!GetDefault<ULevelEditorViewportSettings>()->bAllowTranslateRotateZWidget))
+		{
+			++WidgetModeAsInt;
+		}
+
+		if ((WidgetModeAsInt == FWidget::WM_2D) && (!GetDefault<ULevelEditor2DSettings>()->bEnable2DWidget))
 		{
 			++WidgetModeAsInt;
 		}
@@ -496,6 +572,14 @@ void SEditorViewport::OnToggleSurfaceSnap()
 bool SEditorViewport::OnIsSurfaceSnapEnabled()
 {
 	return GetDefault<ULevelEditorViewportSettings>()->SnapToSurface.bEnabled;
+}
+
+EActiveTimerReturnType SEditorViewport::EnsureTick( double InCurrentTime, float InDeltaTime )
+{
+	// Keep the timer going if we're realtime or were invalidated this frame
+	const bool bShouldContinue = Client->IsRealtime() || bInvalidated;
+	bInvalidated = false;
+	return bShouldContinue ? EActiveTimerReturnType::Continue : EActiveTimerReturnType::Stop;
 }
 
 #undef LOCTEXT_NAMESPACE

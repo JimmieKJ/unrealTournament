@@ -93,9 +93,13 @@ void UPhysicalMaterial::UpdatePhysXMaterial()
 	{
 		PMaterial->setStaticFriction(Friction);
 		PMaterial->setDynamicFriction(Friction);
+		const uint32 UseFrictionCombineMode = (bOverrideFrictionCombineMode ? FrictionCombineMode.GetValue() : UPhysicsSettings::Get()->FrictionCombineMode.GetValue());
+		PMaterial->setFrictionCombineMode(static_cast<physx::PxCombineMode::Enum>(UseFrictionCombineMode));
+
 		PMaterial->setRestitution(Restitution);
-		uint32 CombineMode = (bOverrideFrictionCombineMode ? FrictionCombineMode.GetValue() : UPhysicsSettings::Get()->FrictionCombineMode.GetValue());
-		PMaterial->setFrictionCombineMode(static_cast<physx::PxCombineMode::Enum>(CombineMode));
+		const uint32 UseRestitutionCombineMode = (bOverrideRestitutionCombineMode ? RestitutionCombineMode.GetValue() : UPhysicsSettings::Get()->RestitutionCombineMode.GetValue());
+		PMaterial->setRestitutionCombineMode(static_cast<physx::PxCombineMode::Enum>(UseRestitutionCombineMode));
+
 #if WITH_VEHICLE
 		FPhysXVehicleManager::UpdateTireFrictionTable();
 #endif
@@ -110,8 +114,12 @@ PxMaterial* UPhysicalMaterial::GetPhysXMaterial()
 	if((PMaterial == NULL) && GPhysXSDK)
 	{
 		PMaterial = GPhysXSDK->createMaterial(Friction, Friction, Restitution);
-		uint32 CombineMode = (bOverrideFrictionCombineMode ? FrictionCombineMode.GetValue() : UPhysicsSettings::Get()->FrictionCombineMode.GetValue());
-		PMaterial->setFrictionCombineMode(static_cast<physx::PxCombineMode::Enum>(CombineMode));
+		const uint32 UseFrictionCombineMode = (bOverrideFrictionCombineMode ? FrictionCombineMode.GetValue() : UPhysicsSettings::Get()->FrictionCombineMode.GetValue());
+		PMaterial->setFrictionCombineMode(static_cast<physx::PxCombineMode::Enum>(UseFrictionCombineMode));
+		
+		const uint32 UseRestitutionCombineMode = (bOverrideRestitutionCombineMode ? RestitutionCombineMode.GetValue() : UPhysicsSettings::Get()->RestitutionCombineMode.GetValue());
+		PMaterial->setRestitutionCombineMode(static_cast<physx::PxCombineMode::Enum>(UseRestitutionCombineMode));
+
 		PMaterial->userData = &PhysxUserData;
 
 		UpdatePhysXMaterial();

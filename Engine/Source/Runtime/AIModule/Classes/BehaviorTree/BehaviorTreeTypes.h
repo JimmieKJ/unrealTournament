@@ -44,8 +44,15 @@ namespace FBlackboard
 	const FKey InvalidKey = FKey(-1);
 }
 
+enum class EBlackboardNotificationResult : uint8
+{
+	RemoveObserver,
+	ContinueObserving
+};
+
 // delegate defines
 DECLARE_DELEGATE_TwoParams(FOnBlackboardChange, const UBlackboardComponent&, FBlackboard::FKey /*key ID*/);
+DECLARE_DELEGATE_RetVal_TwoParams(EBlackboardNotificationResult, FOnBlackboardChangeNotification, const UBlackboardComponent&, FBlackboard::FKey /*key ID*/);
 
 namespace BTSpecialChild
 {
@@ -72,6 +79,15 @@ namespace EBTExecutionMode
 	{
 		SingleRun,
 		Looped,
+	};
+}
+
+namespace EBTStopMode
+{
+	enum Type
+	{
+		Safe,
+		Forced,
 	};
 }
 
@@ -135,7 +151,6 @@ namespace EBTNodeUpdateMode
 	enum Type
 	{
 		Add,				// add node
-		AddForLowerPri,		// add node only when new task has lower priority
 		Remove,				// remove node
 	};
 }
@@ -173,6 +188,13 @@ namespace EBTDescriptionVerbosity
 		Detailed,
 	};
 }
+
+enum class EBTNodeRelativePriority : uint8
+{
+	Lower,
+	Same,
+	Higher
+};
 
 /** debugger data about subtree instance */
 struct FBehaviorTreeDebuggerInstance
@@ -372,13 +394,20 @@ struct FBehaviorTreeSearchData
 	/** search unique number */
 	int32 SearchId;
 
+	/** if set, current search will be restarted in next tick */
+	uint32 bPostponeSearch : 1;
+
+	/** set when task search is in progress */
+	uint32 bSearchInProgress : 1;
+
 	/** adds update info to PendingUpdates array, removing all previous updates for this node */
 	void AddUniqueUpdate(const FBehaviorTreeSearchUpdate& UpdateInfo);
 
 	/** assign unique Id number */
 	void AssignSearchId();
 
-	FBehaviorTreeSearchData(UBehaviorTreeComponent& InOwnerComp) : OwnerComp(InOwnerComp)
+	FBehaviorTreeSearchData(UBehaviorTreeComponent& InOwnerComp) 
+		: OwnerComp(InOwnerComp), bPostponeSearch(false), bSearchInProgress(false)
 	{}
 
 private:
@@ -409,8 +438,8 @@ struct AIMODULE_API FBlackboardKeySelector
 	{}
 
 	/** array of allowed types with additional properties (e.g. uobject's base class) 
-	  * EditDefaults is required for FBlackboardSelectorDetails::CacheBlackboardData() */
-	UPROPERTY(transient, EditDefaultsOnly, BlueprintReadWrite, Category = Blackboard)
+	  * EditAnywhere is required for FBlackboardSelectorDetails::CacheBlackboardData() */
+	UPROPERTY(transient, EditAnywhere, BlueprintReadWrite, Category = Blackboard)
 	TArray<UBlackboardKeyType*> AllowedTypes;
 
 	/** name of selected key */
@@ -429,7 +458,7 @@ protected:
 	static_assert(sizeof(uint8) == sizeof(FBlackboard::FKey), "FBlackboardKeySelector::SelectedKeyId should be of FBlackboard::FKey-compatible type.");
 
 	// Requires BlueprintReadWrite so that blueprint creators (using MakeBlackboardKeySelector) can specify whether or not None is Allowed.
-	UPROPERTY(transient, EditDefaultsOnly, BlueprintReadWrite, Category=Blackboard, Meta=(Tooltip=""))
+	UPROPERTY(transient, EditAnywhere, BlueprintReadWrite, Category = Blackboard, Meta = (Tooltip = ""))
 	uint32 bNoneIsAllowedValue:1;
 
 public:
@@ -444,16 +473,39 @@ public:
 	FORCEINLINE FBlackboard::FKey GetSelectedKeyID() const { return SelectedKeyID; }
 
 	/** helper functions for setting basic filters */
+	void AddObjectFilter(UObject* Owner, FName PropertyName, TSubclassOf<UObject> AllowedClass);
+	void AddClassFilter(UObject* Owner, FName PropertyName, TSubclassOf<UClass> AllowedClass);
+	void AddEnumFilter(UObject* Owner, FName PropertyName, UEnum* AllowedEnum);
+	void AddNativeEnumFilter(UObject* Owner, FName PropertyName, const FString& AllowedEnumName);
+	void AddIntFilter(UObject* Owner, FName PropertyName);
+	void AddFloatFilter(UObject* Owner, FName PropertyName);
+	void AddBoolFilter(UObject* Owner, FName PropertyName);
+	void AddVectorFilter(UObject* Owner, FName PropertyName);
+	void AddRotatorFilter(UObject* Owner, FName PropertyName);
+	void AddStringFilter(UObject* Owner, FName PropertyName);
+	void AddNameFilter(UObject* Owner, FName PropertyName);
+
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddObjectFilter(UObject* Owner, TSubclassOf<UObject> AllowedClass);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddClassFilter(UObject* Owner, TSubclassOf<UClass> AllowedClass);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddEnumFilter(UObject* Owner, UEnum* AllowedEnum);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddNativeEnumFilter(UObject* Owner, const FString& AllowedEnumName);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddIntFilter(UObject* Owner);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddFloatFilter(UObject* Owner);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddBoolFilter(UObject* Owner);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddVectorFilter(UObject* Owner);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddRotatorFilter(UObject* Owner);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddStringFilter(UObject* Owner);
+	DEPRECATED(4.8, "This version is deprecated, please use override with PropertyName.")
 	void AddNameFilter(UObject* Owner);
 
 	FORCEINLINE bool IsNone() const { return bNoneIsAllowedValue && SelectedKeyID == FBlackboard::InvalidKey; }

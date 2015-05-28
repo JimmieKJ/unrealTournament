@@ -6,6 +6,8 @@ namespace UnrealBuildTool.Rules
     {
         public TwitchLiveStreaming(TargetInfo Target)
         {
+			BinariesSubFolder = "NotForLicensees";
+
             PrivateDependencyModuleNames.AddRange(
                 new string[]
 				{
@@ -29,7 +31,6 @@ namespace UnrealBuildTool.Rules
 				});
 
  			bool bHaveTwitchSDK =
-				!UnrealBuildTool.BuildingRocket() &&	// @todo: Twitch support disabled in released builds until it is cleared by legal
  				( System.IO.Directory.Exists( System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "Twitch" ) ) &&
  				  System.IO.Directory.Exists( System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "Twitch", "Twitch-6.17" ) ) ) ||
  				( System.IO.Directory.Exists( System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "NotForLicensees" ) ) &&

@@ -137,7 +137,7 @@ FReply SSequencerSectionAreaView::OnMouseButtonDown( const FGeometry& MyGeometry
 	// Clear selected sections
 	if( !MouseEvent.IsControlDown() )
 	{
-		GetSequencer().ClearSectionSelection();
+		GetSequencer().GetSelection()->EmptySelectedSections();
 	}
 
 	return FReply::Handled();

@@ -26,14 +26,14 @@ ATriggerBase::ATriggerBase(const FObjectInitializer& ObjectInitializer)
 
 	// ATriggerBase is requesting UShapeComponent which is abstract, however it is responsibility
 	// of a derived class to override this type with ObjectInitializer.SetDefaultSubobjectClass.
-	CollisionComponent = ObjectInitializer.CreateAbstractDefaultSubobject<UShapeComponent>(this, TEXT("CollisionComp"));
+	CollisionComponent = CreateAbstractDefaultSubobject<UShapeComponent>(TEXT("CollisionComp"));
 	if (CollisionComponent)
 	{
 		RootComponent = CollisionComponent;
 		CollisionComponent->bHiddenInGame = false;
 	}
 
-	SpriteComponent = ObjectInitializer.CreateDefaultSubobject<UBillboardComponent>(this, TEXT("Sprite"));
+	SpriteComponent = CreateDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 	if (SpriteComponent)
 	{
 		SpriteComponent->Sprite = ConstructorStatics.TriggerTextureObject.Get();

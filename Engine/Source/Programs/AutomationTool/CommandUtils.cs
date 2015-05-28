@@ -1504,7 +1504,7 @@ namespace AutomationTool
 		}
 
 		/// <summary>
-		/// Copies files using miltiple threads
+		/// Copies files using multiple threads
 		/// </summary>
 		/// <param name="SourceDirectory"></param>
 		/// <param name="DestDirectory"></param>
@@ -1567,6 +1567,45 @@ namespace AutomationTool
 					CopyFile(Source[Index], Dest[Index], bQuiet);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Copies a set of files from one folder to another
+		/// </summary>
+		/// <param name="SourceDir">Source directory</param>
+		/// <param name="TargetDir">Target directory</param>
+		/// <param name="RelativePaths">Paths relative to the source directory to copy</param>
+		/// <param name="bIgnoreSymlinks">Whether to ignore symlinks during the copy</param>
+		/// <param name="MaxThreads">Maximum number of threads to create</param>
+		/// <returns>Array of filenames copied to the target directory</returns>
+		public static string[] ThreadedCopyFiles(string SourceDir, string TargetDir, string[] RelativePaths, int MaxThreads = 64)
+		{
+			string[] SourceFileNames = new string[RelativePaths.Length];
+			string[] TargetFileNames = new string[RelativePaths.Length];
+			for(int Idx = 0; Idx < RelativePaths.Length; Idx++)
+			{
+				SourceFileNames[Idx] = CommandUtils.CombinePaths(SourceDir, RelativePaths[Idx]);
+				TargetFileNames[Idx] = CommandUtils.CombinePaths(TargetDir, RelativePaths[Idx]);
+			}
+			CommandUtils.ThreadedCopyFiles(SourceFileNames, TargetFileNames, MaxThreads);
+			return TargetFileNames;
+		}
+
+		/// <summary>
+		/// Copies a set of files from one folder to another
+		/// </summary>
+		/// <param name="SourceDir">Source directory</param>
+		/// <param name="TargetDir">Target directory</param>
+		/// <param name="Filter">Filter which selects files from the source directory to copy</param>
+		/// <param name="bIgnoreSymlinks">Whether to ignore symlinks during the copy</param>
+		/// <param name="MaxThreads">Maximum number of threads to create</param>
+		/// <returns>Array of filenames copied to the target directory</returns>
+		public static string[] ThreadedCopyFiles(string SourceDir, string TargetDir, FileFilter Filter, bool bIgnoreSymlinks, int MaxThreads = 64)
+		{
+			// Filter all the relative paths
+			CommandUtils.Log("Applying filter to {0}...", SourceDir);
+			string[] RelativePaths = Filter.ApplyToDirectory(SourceDir, bIgnoreSymlinks).ToArray();
+			return ThreadedCopyFiles(SourceDir, TargetDir, RelativePaths);
 		}
 
 		#endregion
@@ -2042,6 +2081,70 @@ namespace AutomationTool
                 Log(System.Diagnostics.TraceEventType.Warning, " Exception was {0}", LogUtils.FormatException(Ex));
             }
         }
+
+		/// <summary>
+		/// Returns the generic name for a given platform (eg. "Windows" for Win32/Win64)
+		/// </summary>
+		/// <param name="Platform">Specific platform</param>
+		public static string GetGenericPlatformName(UnrealBuildTool.UnrealTargetPlatform Platform)
+		{
+			if(Platform == UnrealTargetPlatform.Win32 || Platform == UnrealTargetPlatform.Win64)
+			{
+				return "Windows";
+			}
+			else
+			{
+				return Enum.GetName(typeof(UnrealBuildTool.UnrealTargetPlatform), Platform);
+			}
+		}
+
+		/// <summary>
+		/// Creates a zip file containing the given input files
+		/// </summary>
+		/// <param name="ZipFileName">Filename for the zip</param>
+		/// <param name="Filter">Filter which selects files to be included in the zip</param>
+		/// <param name="BaseDirectory">Base directory to store relative paths in the zip file to</param>
+		public static void ZipFiles(string ZipFileName, string BaseDirectory, FileFilter Filter)
+		{
+			Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile();
+			Zip.UseZip64WhenSaving = Ionic.Zip.Zip64Option.Always;
+			foreach(string FilteredFile in Filter.ApplyToDirectory(BaseDirectory, true))
+			{
+				Zip.AddFile(Path.Combine(BaseDirectory, FilteredFile), Path.GetDirectoryName(FilteredFile));
+			}
+			CommandUtils.CreateDirectory(Path.GetDirectoryName(ZipFileName));
+			Zip.Save(ZipFileName);
+		}
+
+		/// <summary>
+		/// Extracts the contents of a zip file
+		/// </summary>
+		/// <param name="ZipFileName">Name of the zip file</param>
+		/// <param name="BaseDirectory">Output directory</param>
+		/// <returns>List of files written</returns>
+		public static IEnumerable<string> UnzipFiles(string ZipFileName, string BaseDirectory)
+		{
+			using(Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(ZipFileName))
+			{
+				// For some reason, calling ExtractAll() under Mono throws an exception from a call to Directory.CreateDirectory(). Manually extract all the files instead.
+				List<string> OutputFileNames = new List<string>();
+				foreach(Ionic.Zip.ZipEntry Entry in Zip.Entries)
+				{
+					string OutputFileName = Path.Combine(BaseDirectory, Entry.FileName);
+					Directory.CreateDirectory(Path.GetDirectoryName(OutputFileName));
+					using(FileStream OutputStream = new FileStream(OutputFileName, FileMode.Create, FileAccess.Write))
+					{
+						Entry.Extract(OutputStream);
+					}
+					if (UnrealBuildTool.Utils.IsRunningOnMono && CommandUtils.IsProbablyAMacOrIOSExe(OutputFileName))
+					{
+						FixUnixFilePermissions(OutputFileName);
+					}
+					OutputFileNames.Add(OutputFileName);
+				}
+				return OutputFileNames;
+			}
+		}
 	}
 
 
@@ -2302,19 +2405,130 @@ namespace AutomationTool
 				}
 				else
 				{
+					List<string> FilesToSign = new List<string>();
 					foreach (string File in Files)
 					{
 						if (!(Path.GetDirectoryName(File).Replace("\\", "/")).Contains("Binaries/XboxOne"))
 						{
-							SignSingleExecutableIfEXEOrDLL(File);
-						}
+							FilesToSign.Add(File);
+						}						
 					}
+					SignMultipleFilesIfEXEOrDLL(FilesToSign);
 				}
 			}
 			else
 			{
 				CommandUtils.Log("Skipping signing {0} files due to -nosign.", Files.Count);
 			}
+		}
+
+		public static void SignListFilesIfEXEOrDLL(string FilesToSign)
+		{
+			string SignToolName = null;
+			if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2013)
+			{
+				SignToolName = "C:/Program Files (x86)/Windows Kits/8.1/bin/x86/SignTool.exe";
+			}
+			else if (WindowsPlatform.Compiler == WindowsCompiler.VisualStudio2012)
+			{
+				SignToolName = "C:/Program Files (x86)/Windows Kits/8.0/bin/x86/SignTool.exe";
+			}
+
+
+			if (!File.Exists(SignToolName))
+			{
+				throw new AutomationException("SignTool not found at '{0}' (are you missing the Windows SDK?)", SignToolName);
+			}
+
+			// Code sign the executable
+			string TimestampServer = "http://timestamp.verisign.com/scripts/timestamp.dll";
+
+			string SpecificStoreArg = bUseMachineStoreInsteadOfUserStore ? " /sm" : "";	
+			//@TODO: Verbosity choosing
+			//  /v will spew lots of info
+			//  /q does nothing on success and minimal output on failure
+			string CodeSignArgs = String.Format("sign{0} /a /n \"{1}\" /t {2} /d /v {3}", SpecificStoreArg, SigningIdentity, TimestampServer, FilesToSign);
+
+			DateTime StartTime = DateTime.Now;
+
+			int NumTrials = 0;
+			for (; ; )
+			{
+				ProcessResult Result = CommandUtils.Run(SignToolName, CodeSignArgs, null, CommandUtils.ERunOptions.AllowSpew);
+				++NumTrials;
+
+				if (Result.ExitCode != 1)
+				{
+					if (Result.ExitCode == 2)
+					{
+						CommandUtils.Log(TraceEventType.Error, String.Format("Signtool returned a warning."));
+					}
+					// Success!
+					break;
+				}
+				else
+				{
+					// Keep retrying until we run out of time
+					TimeSpan RunTime = DateTime.Now - StartTime;
+					if (RunTime > CodeSignTimeOut)
+					{
+						throw new AutomationException("Failed to sign executables {0} times over a period of {1}", NumTrials, RunTime);
+					}
+				}
+			}
+		}
+
+		public static void SignMultipleFilesIfEXEOrDLL(List<string> Files, bool bIgnoreExtension = false)
+		{
+			if (UnrealBuildTool.Utils.IsRunningOnMono)
+			{
+				CommandUtils.Log(TraceEventType.Information, String.Format("Can't sign we are running under mono."));
+				return;
+			}
+			List<string> FinalFiles = new List<string>();
+			foreach (string Filename in Files)
+			{
+				// Make sure the file isn't read-only
+				FileInfo TargetFileInfo = new FileInfo(Filename);
+
+				// Executable extensions
+				List<string> Extensions = new List<string>();
+				Extensions.Add(".dll");
+				Extensions.Add(".exe");
+
+				bool IsExecutable = bIgnoreExtension;
+
+				foreach (var Ext in Extensions)
+				{
+					if (TargetFileInfo.FullName.EndsWith(Ext, StringComparison.InvariantCultureIgnoreCase))
+					{
+						IsExecutable = true;
+						break;
+					}
+				}
+				if (IsExecutable && CommandUtils.FileExists(Filename))
+				{
+					FinalFiles.Add(Filename);
+				}
+			}			
+
+			StringBuilder FilesToSignBuilder = new StringBuilder();
+			List<string> FinalListSignStrings = new List<string>();
+			foreach(string File in FinalFiles)
+			{
+				FilesToSignBuilder.Append("\"" + File + "\" ");				
+				if(FilesToSignBuilder.Length > 1900)
+				{
+					string AddFilesToFinalList = FilesToSignBuilder.ToString();
+					FinalListSignStrings.Add(AddFilesToFinalList);
+					FilesToSignBuilder.Clear();
+				}
+			}
+			foreach(string FilesToSign in FinalListSignStrings)
+			{
+				SignListFilesIfEXEOrDLL(FilesToSign);
+			}
+
 		}
 	}
 

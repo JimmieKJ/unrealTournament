@@ -13,69 +13,30 @@
 
 SPhATPreviewViewport::~SPhATPreviewViewport()
 {
-	if (ViewportClient.IsValid())
+	if (EditorViewportClient.IsValid())
 	{
-		ViewportClient->Viewport->Destroy();
-		ViewportClient->Viewport = NULL;
+		EditorViewportClient->Viewport->Destroy();
+		EditorViewportClient->Viewport = NULL;
 	}
 }
 
 void SPhATPreviewViewport::SetViewportType(ELevelViewportType ViewType)
 {
-	ViewportClient->SetViewportType(ViewType);
+	EditorViewportClient->SetViewportType(ViewType);
 }
 
 void SPhATPreviewViewport::Construct(const FArguments& InArgs)
 {
 	PhATPtr = InArgs._PhAT;
 
-	this->ChildSlot
-	[
-		SAssignNew(ViewportWidget, SViewport)
-		.EnableGammaCorrection(false)
-		.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
-		.ShowEffectWhenDisabled(false)
-		[
-			SNew(SOverlay)
-			+SOverlay::Slot()
-			.VAlign(VAlign_Top)
-			[
-				SNew(SPhATPreviewViewportToolBar)
-				.PhATPtr(PhATPtr)
-				.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
-			]
-		]
-	];
-	
-	ViewportClient = MakeShareable(new FPhATEdPreviewViewportClient(PhATPtr, PhATPtr.Pin()->GetSharedData()));
-
-	ViewportClient->bSetListenerPosition = false;
-
-	if (!FPhAT::IsPIERunning())
-	{
-		ViewportClient->SetRealtime(true);
-	}
-
-	ViewportClient->VisibilityDelegate.BindSP(this, &SPhATPreviewViewport::IsVisible);
-
-	Viewport = MakeShareable(new FSceneViewport(ViewportClient.Get(), ViewportWidget));
-	ViewportClient->Viewport = Viewport.Get();
-
-	// The viewport widget needs an interface so it knows what should render
-	ViewportWidget->SetViewportInterface(Viewport.ToSharedRef());
+	SEditorViewport::Construct(SEditorViewport::FArguments());
+	ViewportWidget->SetEnabled(FSlateApplication::Get().GetNormalExecutionAttribute());
 }
 
 void SPhATPreviewViewport::RefreshViewport()
 {
-	Viewport->Invalidate();
-	Viewport->InvalidateDisplay();
-}
-
-void SPhATPreviewViewport::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
-{
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-	ViewportClient->GetScene()->GetWorld()->Tick(LEVELTICK_All, InDeltaTime);
+	SceneViewport->Invalidate();
+	SceneViewport->InvalidateDisplay();
 }
 
 bool SPhATPreviewViewport::IsVisible() const
@@ -85,15 +46,34 @@ bool SPhATPreviewViewport::IsVisible() const
 
 TSharedPtr<FSceneViewport> SPhATPreviewViewport::GetViewport() const
 {
-	return Viewport;
+	return SceneViewport;
 }
 
 TSharedPtr<FPhATEdPreviewViewportClient> SPhATPreviewViewport::GetViewportClient() const
 {
-	return ViewportClient;
+	return EditorViewportClient;
 }
 
 TSharedPtr<SViewport> SPhATPreviewViewport::GetViewportWidget() const
 {
 	return ViewportWidget;
+}
+
+TSharedRef<FEditorViewportClient> SPhATPreviewViewport::MakeEditorViewportClient()
+{
+	EditorViewportClient = MakeShareable(new FPhATEdPreviewViewportClient(PhATPtr, PhATPtr.Pin()->GetSharedData(), SharedThis(this)));
+
+	EditorViewportClient->bSetListenerPosition = false;
+
+	EditorViewportClient->SetRealtime(!FPhAT::IsPIERunning());
+	EditorViewportClient->VisibilityDelegate.BindSP(this, &SPhATPreviewViewport::IsVisible);
+
+	return EditorViewportClient.ToSharedRef();
+}
+
+TSharedPtr<SWidget> SPhATPreviewViewport::MakeViewportToolbar()
+{
+	return SNew(SPhATPreviewViewportToolBar, SharedThis(this))
+			.PhATPtr(PhATPtr)
+			.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute());
 }

@@ -15,7 +15,7 @@ struct FRandomStream
 #else
 	#define MAYBE_COREUOBJECT_API COREUOBJECT_API
 #endif
-	friend MAYBE_COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_UObject_FRandomStream();
+	friend MAYBE_COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_FRandomStream();
 	
 public:
 

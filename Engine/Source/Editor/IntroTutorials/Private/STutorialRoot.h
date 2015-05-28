@@ -28,7 +28,7 @@ public:
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
 
 	/** Launch the specified tutorial from the specified window */
-	void LaunchTutorial(UEditorTutorial* InTutorial, bool bInRestart, TWeakPtr<SWindow> InNavigationWindow, FSimpleDelegate InOnTutorialClosed, FSimpleDelegate InOnTutorialExited);
+	void LaunchTutorial(UEditorTutorial* InTutorial, IIntroTutorials::ETutorialStartType InStartType, TWeakPtr<SWindow> InNavigationWindow, FSimpleDelegate InOnTutorialClosed, FSimpleDelegate InOnTutorialExited);
 
 	/** Close all tutorial content */
 	void CloseAllTutorialContent();

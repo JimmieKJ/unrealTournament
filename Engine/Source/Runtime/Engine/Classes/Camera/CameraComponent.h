@@ -9,7 +9,7 @@
   * Represents a camera viewpoint and settings, such as projection type, field of view, and post-process overrides.
   * The default behavior for an actor used as the camera view target is to look for an attached camera component and use its location, rotation, and settings.
   */
-UCLASS(HideCategories=(Mobility, Rendering, LOD), ClassGroup=Camera, meta=(BlueprintSpawnableComponent), MinimalAPI)
+UCLASS(HideCategories=(Mobility, Rendering, LOD), Blueprintable, ClassGroup=Camera, meta=(BlueprintSpawnableComponent), MinimalAPI)
 class UCameraComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -22,6 +22,14 @@ class UCameraComponent : public USceneComponent
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
 	float OrthoWidth;
 
+	/** The near plane distance of the orthographic view (in world units) */
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
+	float OrthoNearClipPlane;
+
+	/** The far plane distance of the orthographic view (in world units) */
+	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
+	float OrthoFarClipPlane;
+
 	// Aspect Ratio (Width/Height)
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings, meta=(ClampMin = "0.1", ClampMax = "100.0", EditCondition="bConstrainAspectRatio"))
 	float AspectRatio;
@@ -29,6 +37,10 @@ class UCameraComponent : public USceneComponent
 	// If bConstrainAspectRatio is true, black bars will be added if the destination view has a different aspect ratio than this camera requested.
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
 	uint32 bConstrainAspectRatio:1;
+
+	// If true, account for the field of view angle when computing which level of detail to use for meshes.
+	UPROPERTY(Interp, EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=CameraSettings)
+	uint32 bUseFieldOfViewForLOD:1;
 
 	/**
 	 * If this camera component is placed on a pawn, should it use the view/control rotation of the pawn where possible?
@@ -46,7 +58,7 @@ class UCameraComponent : public USceneComponent
 	float PostProcessBlendWeight;
 
 	/** Post process settings to use for this camera. Don't forget to check the properties you want to override */
-	UPROPERTY(Interp, BlueprintReadWrite, Category=CameraSettings, meta=(ShowOnlyInnerProperties))
+	UPROPERTY(Interp, BlueprintReadWrite, Category=CameraSettings)
 	struct FPostProcessSettings PostProcessSettings;
 
 	// UActorComponent interface
@@ -78,15 +90,16 @@ protected:
 
 	UPROPERTY(transient)
 	class UStaticMesh* CameraMesh;
-	
-	// The camera mesh to show visually where the camera is placed
-	UPROPERTY(transient)
-	class UStaticMeshComponent* ProxyMeshComponent;
 
 public:
 
 	ENGINE_API virtual void SetCameraMesh(UStaticMesh* Mesh) { CameraMesh = Mesh; }
 
+protected:
+
+	// The camera mesh to show visually where the camera is placed
+	UPROPERTY(transient)
+	class UStaticMeshComponent* ProxyMeshComponent;
 #endif
 public:
 #if WITH_EDITORONLY_DATA

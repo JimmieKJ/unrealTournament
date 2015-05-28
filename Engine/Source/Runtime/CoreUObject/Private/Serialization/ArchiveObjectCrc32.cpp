@@ -40,12 +40,6 @@ FArchive& FArchiveObjectCrc32::operator<<(class UObject*& Object)
 {
 	FArchive& Ar = *this;
 
-	// No linker should be a part of the object's state
-	if (Object && Object->IsA<ULinker>())
-	{
-		Object = NULL;
-	}
-
 	if (!Object || !Object->IsIn(RootObject))
 	{
 		auto UniqueName = GetPathNameSafe(Object);
@@ -86,13 +80,16 @@ uint32 FArchiveObjectCrc32::Crc32(UObject* Object, uint32 CRC)
 #endif
 				// Serialize it
 				ObjectBeingSerialized = Object;
-				Object->Serialize(*this);
+				if (!CustomSerialize(Object))
+				{
+					Object->Serialize(*this);
+				}
 				ObjectBeingSerialized = NULL;
 
 				// Calculate the CRC, compounding it with the checksum calculated from the previous object
 				CRC = FCrc::MemCrc32(SerializedObjectData.GetData(), SerializedObjectData.Num(), CRC);
 #ifdef DEBUG_ARCHIVE_OBJECT_CRC32
-				UE_LOG(LogArchiveObjectCrc32, Log, TEXT("=> total size: %d bytes, checksum: 0x%08x"), SerializedObjectData.Num(), CRC);
+				UE_LOG(LogArchiveObjectCrc32, Log, TEXT("=> object: '%s', total size: %d bytes, checksum: 0x%08x"), *GetPathNameSafe(Object), SerializedObjectData.Num(), CRC);
 #endif
 				// Cleanup
 				MemoryWriter.Seek(0L);

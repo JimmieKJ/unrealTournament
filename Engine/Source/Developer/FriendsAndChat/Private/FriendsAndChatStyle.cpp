@@ -24,12 +24,6 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetAddFriendCloseButtonStyle(const F
 	return *this;
 }
 
-FFriendsAndChatStyle& FFriendsAndChatStyle::SetAddFriendButtonStyle(const FButtonStyle& InButtonStyle)
-{
-	AddFriendButtonStyle = InButtonStyle;
-	return *this;
-}
-
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendComboBackgroundLeftBrush(const FSlateBrush& BrushStyle)
 {
 	FriendComboBackgroundLeftBrush = BrushStyle;
@@ -60,9 +54,27 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetAddFriendButtonContentBrush(const
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetAddFriendButtonContentHoveredBrush(const FSlateBrush& BrushStyle)
+{
+	AddFriendButtonContentHoveredBrush = BrushStyle;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendGeneralButtonStyle(const FButtonStyle& ButtonStyle)
 {
 	FriendGeneralButtonStyle = ButtonStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetButtonInvertedForegroundColor(const FSlateColor& Value)
+{
+	ButtonInvertedForegroundColor = Value;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetButtonForegroundColor(const FSlateColor& Value)
+{
+	ButtonForegroundColor = Value;
 	return *this;
 }
 
@@ -105,6 +117,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListItemButtonStyle(const 
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsListItemButtonSimpleStyle(const FButtonStyle& ButtonStyle)
 {
 	FriendListItemButtonSimpleStyle = ButtonStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetGlobalChatHeaderBrush(const FSlateBrush& Value)
+{
+	GlobalChatHeaderBrush = Value;
 	return *this;
 }
 
@@ -188,6 +206,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetBackgroundBrush(const FSlateBrush
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetWindowEdgingBrush(const FSlateBrush& Value)
+{
+	WindowEdgingBrush = Value;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendContainerHeader(const FSlateBrush& InFriendContainerHeader)
 {
 	FriendContainerHeader = InFriendContainerHeader;
@@ -197,6 +221,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendContainerHeader(const FSlat
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendListHeader(const FSlateBrush& InFriendListHeader)
 {
 	FriendListHeader = InFriendListHeader;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendUserHeaderBackground(const FSlateBrush& InFriendUserHeaderBackground)
+{
+	FriendUserHeaderBackground = InFriendUserHeaderBackground;
 	return *this;
 }
 
@@ -242,9 +272,9 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFontStyleBold(const FSlateFontInf
 	return *this;
 }
 
-FFriendsAndChatStyle& FFriendsAndChatStyle::SetFontStyleBoldLarge(const FSlateFontInfo& InFontStyle)
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFontStyleUserLarge(const FSlateFontInfo& InFontStyle)
 {
-	FriendsFontStyleBoldLarge = InFontStyle;
+	FriendsFontStyleUserLarge = InFontStyle;
 	return *this;
 }
 
@@ -269,6 +299,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatFontStyleEntry(const FSlateFo
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetDefaultFontColor(const FLinearColor& InFontColor)
 {
 	DefaultFontColor = InFontColor;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetDefaultDullFontColor(const FLinearColor& InFontColor)
+{
+	DefaultDullFontColor = InFontColor;
 	return *this;
 }
 
@@ -305,18 +341,6 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemTextColorNormal(const FL
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemTextColorHovered(const FLinearColor& InColor)
 {
 	ComboItemTextColorHovered = InColor;
-	return *this;
-}
-
-FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendListCriticalFontColor(const FLinearColor& InColor)
-{
-	FriendListCriticalFontColor = InColor;
-	return *this;
-}
-
-FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendListEmphasisFontColor(const FLinearColor& InColor)
-{
-	FriendListEmphasisFontColor = InColor;
 	return *this;
 }
 
@@ -362,6 +386,12 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetComboItemTextStyle(const FTextBlo
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsComboTextStyle(const FTextBlockStyle& InTextStyle)
+{
+	FriendsComboTextStyle = InTextStyle;
+	return *this;
+}
+
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatEditableTextStyle(const FEditableTextBoxStyle& InEditableTextStyle)
 {
 	ChatEditableTextStyle = InEditableTextStyle;
@@ -383,6 +413,18 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetStatusButtonSize(const FVector2D&
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetActionComboButtonSize(const FVector2D& InActionComboButtonSize)
 {
 	ActionComboButtonSize = InActionComboButtonSize;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetActionComboButtonStyle(const FComboButtonStyle& InActionComboButtonStyle)
+{
+	ActionComboButtonStyle = InActionComboButtonStyle;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetActionComboButtonTextStyle(const FTextBlockStyle& InActionComboButtonTextStyle)
+{
+	ActionComboButtonTextStyle = InActionComboButtonTextStyle;
 	return *this;
 }
 
@@ -419,6 +461,31 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatListPadding(const float InCha
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatBackgroundBrush(const FSlateBrush& InChatBackgroundBrush)
 {
 	ChatBackgroundBrush = InChatBackgroundBrush;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatBubbleBackgroundBrush(const FSlateBrush& Value)
+{
+	ChatBubbleBackgroundBrush = Value;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatBubbleLeftCalloutBrush(const FSlateBrush& Value)
+{
+	ChatBubbleLeftCallout = Value;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatBubbleRightCalloutBrush(const FSlateBrush& Value)
+{
+	ChatBubbleRightCallout = Value;
+	return *this;
+}
+
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatFooterBrush(const FSlateBrush& Value)
+{
+	ChatFooterBrush = Value;
 	return *this;
 }
 
@@ -470,6 +537,23 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetHasUserHeader(bool InHasUserHeade
 	return *this;
 }
 
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetChatWindowStyle(const EChatChannelStyle::Type Value)
+{
+	ChatChannelStyle = Value;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetClanDetailsBrush(const FSlateBrush& Brush)
+{
+	ClanDetailsBrush = Brush;
+	return *this;
+}
+
+FFriendsAndChatStyle& FFriendsAndChatStyle::SetClanMembersBrush(const FSlateBrush& Brush)
+{
+	ClanMembersBrush = Brush;
+	return *this;
+}
 
 const FFriendsAndChatStyle& FFriendsAndChatStyle::GetDefault()
 {
@@ -508,7 +592,7 @@ TSharedRef< FSlateStyleSet > FFriendsAndChatModuleStyle::Create(FFriendsAndChatS
 {
 	TSharedRef< FSlateStyleSet > Style = MakeShareable(new FSlateStyleSet("FriendsAndChatStyle"));
 
-	const FTextBlockStyle DefaultText = FTextBlockStyle()
+	const FTextBlockStyle DefaultText = FTextBlockStyle(FriendStyle.TextStyle)
 		.SetFont(FriendStyle.FriendsFontStyleSmall);
 
 	// Name Style
@@ -544,12 +628,27 @@ TSharedRef< FSlateStyleSet > FFriendsAndChatModuleStyle::Create(FFriendsAndChatS
 		.SetTextStyle(WhisperChatFont)
 		.SetPadding(FMargin(0.0f));
 
+	const FHyperlinkStyle DefaultChatHyperlink = FHyperlinkStyle()
+		.SetUnderlineStyle(UserNameButton)
+		.SetTextStyle(DefaultText)
+		.SetPadding(FMargin(0.0f));
+
+	Style->Set("UserNameTextStyle.Default", DefaultText);
+
 	Style->Set("UserNameTextStyle.GlobalHyperlink", GlobalChatHyperlink);
 	Style->Set("UserNameTextStyle.PartyHyperlink", PartyChatHyperlink);
 	Style->Set("UserNameTextStyle.Whisperlink", WhisperChatHyperlink);
+	Style->Set("UserNameTextStyle.DefaultHyperlink", DefaultChatHyperlink);
 	Style->Set("UserNameTextStyle.GlobalTextStyle", GlobalChatFont);
 	Style->Set("UserNameTextStyle.PartyTextStyle", PartyChatFont);
 	Style->Set("UserNameTextStyle.WhisperTextStyle", WhisperChatFont);
+
+	Style->Set("MessageBreak", FTextBlockStyle(DefaultText)
+		.SetFont(FSlateFontInfo(
+		FriendStyle.FriendsFontStyleSmall.FontObject,
+		6,
+		FriendStyle.FriendsFontStyleSmall.TypefaceFontName
+		)));
 
 	return Style;
 }

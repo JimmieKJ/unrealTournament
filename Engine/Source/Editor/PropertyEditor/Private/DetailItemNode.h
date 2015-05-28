@@ -18,6 +18,8 @@ public:
 
 	void ToggleExpansion();
 
+	void SetExpansionState(bool bWantsExpanded);
+
 	/**
 	 * Generates children for this node
 	 *
@@ -29,6 +31,11 @@ public:
 	 * @return TRUE if this node has a widget with multiple columns                                                              
 	 */
 	bool HasMultiColumnWidget() const;
+
+	/**
+	 * @return true if this node has any children (regardless of child visibility)
+	 */
+	bool HasGeneratedChildren() const { return Children.Num() > 0;}
 
 	/** IDetailTreeNode interface */
 	virtual IDetailsViewPrivate& GetDetailsView() const override{ return ParentCategory.Pin()->GetDetailsView(); }
@@ -43,9 +50,9 @@ public:
 	virtual FName GetNodeName() const override;
 	virtual TSharedPtr<FDetailCategoryImpl> GetParentCategory() override { return ParentCategory.Pin(); }
 	virtual FPropertyPath GetPropertyPath() const override;
-	virtual void SetIsHighlighted(bool bInIsHighlighted) { bIsHighlighted = bInIsHighlighted; }
-	virtual bool IsHighlighted() const { return bIsHighlighted; }
-	virtual bool IsLeaf() { return true; }
+	virtual void SetIsHighlighted(bool bInIsHighlighted) override { bIsHighlighted = bInIsHighlighted; }
+	virtual bool IsHighlighted() const override { return bIsHighlighted; }
+	virtual bool IsLeaf() override { return true; }
 	virtual TAttribute<bool> IsPropertyEditingEnabled() const override { return IsParentEnabled; }
 
 private:

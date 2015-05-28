@@ -27,7 +27,7 @@ public:
 	FMICReentranceGuard(const UMaterialInstance* InMaterial)
 	: Material(InMaterial)
 	{
-		check(IsInGameThread());
+		check(IsInGameThread() || IsAsyncLoading());
 		// NOTE:  we are switching the check to be a log so we can find out which material is causing the assert
 		//check(!Material->ReentrantFlag);
 		if( Material->ReentrantFlag == 1 )
@@ -40,7 +40,7 @@ public:
 
 	~FMICReentranceGuard()
 	{
-		check(IsInGameThread());
+		check(IsInGameThread() || IsAsyncLoading());
 		const_cast<UMaterialInstance*>(Material)->ReentrantFlag = 0;
 	}
 
@@ -106,9 +106,9 @@ public:
 	 */
 	void RenderThread_ClearParameters()
 	{
-		VectorParameterArray.Empty();
-		ScalarParameterArray.Empty();
-		TextureParameterArray.Empty();
+		VectorParameterArray.Reset();
+		ScalarParameterArray.Reset();
+		TextureParameterArray.Reset();
 		InvalidateUniformExpressionCache();
 	}
 

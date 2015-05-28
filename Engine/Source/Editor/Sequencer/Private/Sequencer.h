@@ -36,7 +36,7 @@ struct FSequencerInitParams
 /**
  * Sequencer is the editing tool for MovieScene assets
  */
-class FSequencer : public ISequencer, public FGCObject, public FEditorUndoClient
+class FSequencer : public ISequencer, public FGCObject, public FEditorUndoClient, public FTickableEditorObject
 { 
 
 public:
@@ -58,12 +58,17 @@ public:
 	/** FGCObject interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
+	// FTickableEditorObject interface
+	virtual void Tick(float DeltaTime) override;
+	virtual bool IsTickable() const override { return true; }
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(FSequencer, STATGROUP_Tickables); };
+	// End FTickableEditorObject interface
 
 	/** ISequencer interface */
 	virtual TSharedRef<SWidget> GetSequencerWidget() const override { return SequencerWidget.ToSharedRef(); }
 	virtual UMovieScene* GetRootMovieScene() const override;
 	virtual UMovieScene* GetFocusedMovieScene() const override;
-	virtual void ResetToNewRootMovieScene( UMovieScene& NewRoot, TSharedRef<ISequencerObjectBindingManager> NewObjectBindingManager );
+	virtual void ResetToNewRootMovieScene( UMovieScene& NewRoot, TSharedRef<ISequencerObjectBindingManager> NewObjectBindingManager ) override;
 	virtual TSharedRef<FMovieSceneInstance> GetRootMovieSceneInstance() const override;
 	virtual TSharedRef<FMovieSceneInstance> GetFocusedMovieSceneInstance() const override;
 	virtual void FocusSubMovieScene( TSharedRef<FMovieSceneInstance> SubMovieSceneInstance ) override;
@@ -85,6 +90,8 @@ public:
 	virtual void FilterToSelectedShotSections(bool bZoomToShotBounds = true) override;
 	virtual bool CanKeyProperty(const UClass& ObjectClass, const class IPropertyHandle& PropertyHandle) const override;
 	virtual void KeyProperty(const TArray<UObject*>& ObjectsToKey, const class IPropertyHandle& PropertyHandle) override;
+	virtual TSharedRef<ISequencerObjectBindingManager> GetObjectBindingManager() const override;
+	virtual FSequencerSelection* GetSelection() override;
 
 	bool IsPerspectiveViewportPosessionEnabled() const { return bPerspectiveViewportPossessionEnabled; }
 
@@ -119,9 +126,6 @@ public:
 	 * @return Movie scene tools used by the sequencer
 	 */
 	const TArray< TSharedPtr<FMovieSceneTrackEditor> >& GetTrackEditors() const { return TrackEditors; }
-
-	/** Ticks the sequencer by InDeltaTime */
-	void Tick( const float InDeltaTime );
 
 	/**
 	 * Attempts to add a new spawnable to the MovieScene for the specified asset or class
@@ -160,56 +164,9 @@ public:
 	virtual void CopyActorProperties( AActor* PuppetActor, AActor* TargetActor ) const;
 
 	/**
-	 * Gets all selected sections in the sequencer
-	 */
-	virtual TArray< TWeakObjectPtr<UMovieSceneSection> > GetSelectedSections() const;
-
-	/**
-	 * Selects a section in the sequencer
-	 */
-	void SelectSection(UMovieSceneSection* Section);
-
-	/**
-	 * Returns whether or not a section is selected
-	 *
-	 * @param Section The section to check
-	 * @return true if the section is selected
-	 */
-	bool IsSectionSelected( UMovieSceneSection* Section) const;
-
-	/**
-	 * Clears all selected sections
-	 */
-	void ClearSectionSelection();
-
-	/**
 	 * Zooms to the edges of all currently selected sections
 	 */
 	void ZoomToSelectedSections();
-
-	/**
-	 * Selects a key
-	 * 
-	 * @param Key	Representation of the key to select
-	 */
-	void SelectKey( const FSelectedKey& Key );
-
-	/**
-	 * Clears the entire set of selected keys
-	 */
-	void ClearKeySelection();
-
-	/**
-	 * Returns whether or not a key is selected
-	 * 
-	 * @param Key	Representation of the key to check for selection
-	 */
-	bool IsKeySelected( const FSelectedKey& Key ) const;
-
-	/**
-	 * @return The entire set of selected keys
-	 */
-	TSet<FSelectedKey>& GetSelectedKeys();
 
 	/**
 	 * Gets all shots that are filtering currently
@@ -230,12 +187,6 @@ public:
 	 * Checks to see if shot filtering is on
 	 */
 	bool IsShotFilteringOn() const;
-
-	/**
-	 * Returns true if the sequencer is using the 'Clean View' mode
-	 * Clean View simply means no non-global tracks will appear if no shots are filtering
-	 */
-	bool IsUsingCleanView() const;
 
 	/**
 	 * Gets the overlay fading animation curve lerp
@@ -260,7 +211,7 @@ public:
 	void BuildObjectBindingContextMenu(class FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const class UClass* ObjectClass);
 
 	/** IMovieScenePlayer interface */
-	virtual void GetRuntimeObjects( TSharedRef<FMovieSceneInstance> MovieSceneInstance, const FGuid& ObjectHandle, TArray< UObject* >& OutObjects ) const;
+	virtual void GetRuntimeObjects( TSharedRef<FMovieSceneInstance> MovieSceneInstance, const FGuid& ObjectHandle, TArray< UObject* >& OutObjects ) const override;
 	virtual void UpdatePreviewViewports(UObject* ObjectToViewThrough) const override;
 	virtual EMovieScenePlayerStatus::Type GetPlaybackStatus() const override;
 	virtual void AddMovieSceneInstance( class UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneInstance> InstanceToAdd ) override;
@@ -353,13 +304,6 @@ protected:
 	 * @param bInAllowAutoKey	The new auto key state
 	 */
 	void OnToggleAutoKey();
-	
-	/**
-	 * Called when auto-key is toggled by a user
-	 *
-	 * @param bInAllowAutoKey	The new auto key state
-	 */
-	void OnToggleCleanView( bool bInCleanViewEnabled );
 
 	/** Called via UEditorEngine::GetActorRecordingStateEvent to check to see whether we need to record actor state */
 	void GetActorRecordingState( bool& bIsRecording /* In+Out */ ) const;
@@ -380,6 +324,8 @@ protected:
 	virtual void PostUndo(bool bSuccess) override;
 	virtual void PostRedo(bool bSuccess) override { PostUndo(bSuccess); }
 	// End of FEditorUndoClient
+
+	void OnSectionSelectionChanged();
 
 private:
 	TMap< TWeakObjectPtr<UMovieSceneSection>, TSharedRef<FMovieSceneInstance> > MovieSceneSectionToInstanceMap;
@@ -421,12 +367,6 @@ private:
 	/** A list of object guids that will be visible, regardless of shot filters */
 	TArray<FGuid> UnfilterableObjects;
 
-	/** Selected non-shot sections */
-	TArray< TWeakObjectPtr<class UMovieSceneSection> > SelectedSections;
-
-	/** Set of selected keys */
-	TSet< FSelectedKey > SelectedKeys;
-
 	/** Stack of movie scenes.  The first element is always the root movie scene.  The last element is the focused movie scene */
 	TArray< TSharedRef<FMovieSceneInstance> > MovieSceneStack;
 
@@ -448,10 +388,6 @@ private:
 	/** The current scrub position */
 	// @todo sequencer: Should use FTimespan or "double" for Time Cursor Position! (cascades)
 	float ScrubPosition;
-	
-	/** Whether the clean sequencer view is enabled */
-	bool bCleanViewEnabled;
-
 
 	/** Whether looping while playing is enabled for this sequencer */
 	bool bLoopingEnabled;
@@ -468,4 +404,6 @@ private:
 	    do this simply to avoid refreshing the UI more than once per frame. (e.g. during live recording where
 		the MovieScene data can change many times per frame.) */
 	bool bNeedTreeRefresh;
+
+	FSequencerSelection Selection;
 };

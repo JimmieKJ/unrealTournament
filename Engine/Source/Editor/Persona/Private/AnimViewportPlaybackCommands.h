@@ -10,8 +10,14 @@ class FAnimViewportPlaybackCommands : public TCommands<FAnimViewportPlaybackComm
 public:
 	FAnimViewportPlaybackCommands();
 
-	/** Command list, indexed by EPlaybackSpeeds*/
+	/** Command list for playback speed, indexed by EPlaybackSpeeds*/
 	TArray<TSharedPtr< FUICommandInfo >> PlaybackSpeedCommands;
+
+	/** Command list for turn table speed, indexed by EPlaybackSpeeds*/
+	TArray<TSharedPtr< FUICommandInfo >> TurnTableSpeeds;
+	TSharedPtr<FUICommandInfo> PersonaTurnTablePlay;
+	TSharedPtr<FUICommandInfo> PersonaTurnTablePause;
+	TSharedPtr<FUICommandInfo> PersonaTurnTableStop;
 
 public:
 	/** Registers our commands with the binding system */

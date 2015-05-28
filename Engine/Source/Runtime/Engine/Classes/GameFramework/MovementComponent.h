@@ -85,6 +85,11 @@ class ENGINE_API UMovementComponent : public UActorComponent
 
 private:
 
+#if WITH_EDITOR
+	// Warned about trying to move something with static mobility.
+	uint32 bEditorWarnedStaticMobilityMove:1;
+#endif
+
 	/**
 	 * Setting that controls behavior when movement is restricted to a 2D plane defined by a specific axis/normal,
 	 * so that movement along the locked axis is not be possible.
@@ -177,7 +182,7 @@ public:
 	virtual float GetModifiedMaxSpeed() const;
 
 	/** @return the result of GetMaxSpeed() * GetMaxSpeedModifier(). */
-	UFUNCTION(BlueprintCallable, Category="Components|Movement", meta=(DeprecatedFunction, DisplayName="GetModifiedMaxSpeed", DeprecationMessage="GetModifiedMaxSpeed() is deprecated, apply your own modifiers to GetMaxSpeed() if desired."))
+	UFUNCTION(BlueprintCallable, Category="Components|Movement", meta=(DisplayName="GetModifiedMaxSpeed", DeprecationMessage="GetModifiedMaxSpeed() is deprecated, apply your own modifiers to GetMaxSpeed() if desired."))
 	virtual float K2_GetModifiedMaxSpeed() const;
 
 	/**
@@ -241,42 +246,60 @@ public:
 	virtual bool OverlapTest(const FVector& Location, const FQuat& RotationQuat, const ECollisionChannel CollisionChannel, const FCollisionShape& CollisionShape, const AActor* IgnoreActor) const;
 
 	/**
-	 * Moves our UpdatedComponent by the given Delta, and sets rotation to NewRotation.
-	 * Respects the plane constraint, if enabled.
+	 * Moves our UpdatedComponent by the given Delta, and sets rotation to NewRotation. Respects the plane constraint, if enabled.
+	 * @note This simply calls the virtual MoveUpdatedComponentImpl() which can be overridden to implement custom behavior.
+	 * @note The overload taking rotation as an FQuat is slightly faster than the version using FRotator (which will be converted to an FQuat).
 	 * @return True if some movement occurred, false if no movement occurred. Result of any impact will be stored in OutHit.
 	 */
-	virtual bool MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit = NULL);
+	bool MoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation,    bool bSweep, FHitResult* OutHit = NULL);
+	bool MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit = NULL);
 
+protected:
+
+	virtual bool MoveUpdatedComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit = NULL);
+
+public:
+	
 	/**
 	 * Moves our UpdatedComponent by the given Delta, and sets rotation to NewRotation.
 	 * Respects the plane constraint, if enabled.
 	 * @return True if some movement occurred, false if no movement occurred. Result of any impact will be stored in OutHit.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components|Movement", meta=(FriendlyName = "MoveUpdatedComponent"))
+	UFUNCTION(BlueprintCallable, Category="Components|Movement", meta=(DisplayName = "MoveUpdatedComponent"))
 	bool K2_MoveUpdatedComponent(FVector Delta, FRotator NewRotation, FHitResult& OutHit, bool bSweep = true);
 
 	/**
 	 * Calls MoveUpdatedComponent(), handling initial penetrations by calling ResolvePenetration().
 	 * If this adjustment succeeds, the original movement will be attempted again.
+	 * @note The overload taking rotation as an FQuat is slightly faster than the version using FRotator (which will be converted to an FQuat)..
 	 * @return result of the final MoveUpdatedComponent() call.
 	 */
+	bool SafeMoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation,    bool bSweep, FHitResult& OutHit);
 	bool SafeMoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult& OutHit);
 
 	/**
 	 * Calculate a movement adjustment to try to move out of a penetration from a failed move.
-	 * @param Hit - the result of the failed move
+	 * @param Hit the result of the failed move
 	 * @return The adjustment to use after a failed move, or a zero vector if no attempt should be made.
 	 */
 	virtual FVector GetPenetrationAdjustment(const FHitResult& Hit) const;
 	
 	/**
-	 * Try to move out of penetration in an object after a failed move.
-	 * This function should respect the plane constraint if applicable.
-	 * @param Adjustment - the requested adjustment, usually from GetPenetrationAdjustment().
-	 * @param Hit - the result of the failed move
-	 * @return true if the adjustment was successful and the original move should be retried, or false if no repeated attempt should be made.
+	 * Try to move out of penetration in an object after a failed move. This function should respect the plane constraint if applicable.
+	 * @note This simply calls the virtual ResolvePenetrationImpl() which can be overridden to implement custom behavior.
+	 * @note The overload taking rotation as an FQuat is slightly faster than the version using FRotator (which will be converted to an FQuat)..
+	 * @param Adjustment	The requested adjustment, usually from GetPenetrationAdjustment()
+	 * @param Hit			The result of the failed move
+	 * @return True if the adjustment was successful and the original move should be retried, or false if no repeated attempt should be made.
 	 */
-	virtual bool ResolvePenetration(const FVector& Adjustment, const FHitResult& Hit, const FRotator& NewRotation);
+	bool ResolvePenetration(const FVector& Adjustment, const FHitResult& Hit, const FQuat& NewRotation);
+	bool ResolvePenetration(const FVector& Adjustment, const FHitResult& Hit, const FRotator& NewRotation);
+
+protected:
+
+	virtual bool ResolvePenetrationImpl(const FVector& Adjustment, const FHitResult& Hit, const FQuat& NewRotation);
+
+public:
 
 	/**
 	 * Compute a vector to slide along a surface, given an attempted move, time, and normal.
@@ -391,6 +414,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|Movement|Planar")
 	virtual void SnapUpdatedComponentToPlane();
 
+	/** Called by owning Actor upon successful teleport from AActor::TeleportTo(). */
+	virtual void OnTeleported() {};
+
 private:
 
 	/** Transient flag indicating whether we are executing OnRegister(). */
@@ -418,4 +444,29 @@ inline void UMovementComponent::StopMovementImmediately()
 inline EPlaneConstraintAxisSetting UMovementComponent::GetPlaneConstraintAxisSetting() const
 {
 	return PlaneConstraintAxisSetting;
+}
+
+FORCEINLINE_DEBUGGABLE bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult& OutHit)
+{
+	return SafeMoveUpdatedComponent(Delta, NewRotation.Quaternion(), bSweep, OutHit);
+}
+
+FORCEINLINE_DEBUGGABLE bool UMovementComponent::MoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit)
+{
+	return MoveUpdatedComponentImpl(Delta, NewRotation, bSweep, OutHit);
+}
+
+FORCEINLINE_DEBUGGABLE bool UMovementComponent::MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit)
+{
+	return MoveUpdatedComponentImpl(Delta, NewRotation.Quaternion(), bSweep, OutHit);
+}
+
+FORCEINLINE_DEBUGGABLE bool UMovementComponent::ResolvePenetration(const FVector& Adjustment, const FHitResult& Hit, const FQuat& NewRotation)
+{
+	return ResolvePenetrationImpl(Adjustment, Hit, NewRotation);
+}
+
+FORCEINLINE_DEBUGGABLE bool UMovementComponent::ResolvePenetration(const FVector& Adjustment, const FHitResult& Hit, const FRotator& NewRotation)
+{
+	return ResolvePenetrationImpl(Adjustment, Hit, NewRotation.Quaternion());
 }

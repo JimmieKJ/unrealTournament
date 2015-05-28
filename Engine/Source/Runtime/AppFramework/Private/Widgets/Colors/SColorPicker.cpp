@@ -63,6 +63,8 @@ void SColorPicker::Construct( const FArguments& InArgs )
 	DisplayGamma = InArgs._DisplayGamma;
 	bClosedViaOkOrCancel = false;
 
+	RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SColorPicker::AnimatePostConstruct ) );
+
 	// We need a parent window to set the close callback
 	if (ParentWindowPtr.IsValid())
 	{
@@ -79,13 +81,13 @@ void SColorPicker::Construct( const FArguments& InArgs )
 
 	bool bAdvancedSectionExpanded = false;
 
-	if (!FPaths::FileExists(GEditorUserSettingsIni))
+	if (!FPaths::FileExists(GEditorPerProjectIni))
 	{
 		bool WheelMode = true;
 
-		GConfig->GetBool(TEXT("ColorPickerUI"), TEXT("bWheelMode"), WheelMode, GEditorUserSettingsIni);
-		GConfig->GetBool(TEXT("ColorPickerUI"), TEXT("bAdvancedSectionExpanded"), bAdvancedSectionExpanded, GEditorUserSettingsIni);
-		GConfig->GetBool(TEXT("ColorPickerUI"), TEXT("bSRGBEnabled"), SColorThemesViewer::bSRGBEnabled, GEditorUserSettingsIni);
+		GConfig->GetBool(TEXT("ColorPickerUI"), TEXT("bWheelMode"), WheelMode, GEditorPerProjectIni);
+		GConfig->GetBool(TEXT("ColorPickerUI"), TEXT("bAdvancedSectionExpanded"), bAdvancedSectionExpanded, GEditorPerProjectIni);
+		GConfig->GetBool(TEXT("ColorPickerUI"), TEXT("bSRGBEnabled"), SColorThemesViewer::bSRGBEnabled, GEditorPerProjectIni);
 
 		CurrentMode = WheelMode ? EColorPickerModes::Wheel : EColorPickerModes::Spectrum;
 	}
@@ -570,35 +572,36 @@ void SColorPicker::GenerateDefaultColorPickerContent( bool bAdvancedSectionExpan
 	
 	HideSmallTrash();
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-
-void SColorPicker::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType SColorPicker::AnimatePostConstruct( double InCurrentTime, float InDeltaTime )
 {
-	// animate the wheel and all the sliders
-	static const float AnimationTime = 0.2f;
-	if (CurrentTime < AnimationTime)
+	static const float AnimationTime = 0.25f;
+
+	EActiveTimerReturnType TickReturnVal = EActiveTimerReturnType::Continue;
+	if ( CurrentTime < AnimationTime )
 	{
-		CurrentColorHSV = FMath::Lerp(ColorBegin, ColorEnd, CurrentTime / AnimationTime);
-		if (CurrentColorHSV.R < 0.f)
+		CurrentColorHSV = FMath::Lerp( ColorBegin, ColorEnd, CurrentTime / AnimationTime );
+		if ( CurrentColorHSV.R < 0.f )
 		{
 			CurrentColorHSV.R += 360.f;
 		}
-		else if (CurrentColorHSV.R > 360.f)
+		else if ( CurrentColorHSV.R > 360.f )
 		{
 			CurrentColorHSV.R -= 360.f;
 		}
 
 		CurrentTime += InDeltaTime;
-		if (CurrentTime >= AnimationTime)
+		if ( CurrentTime >= AnimationTime )
 		{
 			CurrentColorHSV = ColorEnd;
+			TickReturnVal = EActiveTimerReturnType::Stop;
 		}
 
 		CurrentColorRGB = CurrentColorHSV.HSVToLinearRGB();
 	}
-}
 
+	return TickReturnVal;
+}
 
 void SColorPicker::GenerateInlineColorPickerContent()
 {
@@ -645,7 +648,7 @@ void SColorPicker::DiscardColor()
 	if (OnColorPickerCancelled.IsBound())
 	{
 		// let the user decide what to do about cancel
-		OnColorPickerCancelled.Execute( OldColor );
+		OnColorPickerCancelled.Execute( OldColor.HSVToLinearRGB() );
 	}
 	else
 	{	
@@ -1121,9 +1124,9 @@ FLinearColor SColorPicker::GetGradientStartColor( EColorPickerChannels Channel )
 
 void SColorPicker::HandleAdvancedAreaExpansionChanged( bool Expanded )
 {
-	if (FPaths::FileExists(GEditorUserSettingsIni))
+	if (FPaths::FileExists(GEditorPerProjectIni))
 	{
-		GConfig->SetBool(TEXT("ColorPickerUI"), TEXT("bAdvancedSectionExpanded"), Expanded, GEditorUserSettingsIni);
+		GConfig->SetBool(TEXT("ColorPickerUI"), TEXT("bAdvancedSectionExpanded"), Expanded, GEditorPerProjectIni);
 	}
 }
 
@@ -1320,9 +1323,9 @@ FReply SColorPicker::HandleColorPickerModeButtonClicked()
 {
 	CycleMode();
 
-	if (FPaths::FileExists(GEditorUserSettingsIni))
+	if (FPaths::FileExists(GEditorPerProjectIni))
 	{
-		GConfig->SetBool(TEXT("ColorPickerUI"), TEXT("bWheelMode"), CurrentMode == EColorPickerModes::Wheel, GEditorUserSettingsIni);
+		GConfig->SetBool(TEXT("ColorPickerUI"), TEXT("bWheelMode"), CurrentMode == EColorPickerModes::Wheel, GEditorPerProjectIni);
 	}
 
 	return FReply::Handled();
@@ -1423,9 +1426,9 @@ void SColorPicker::HandleSRGBCheckBoxCheckStateChanged( ECheckBoxState InIsCheck
 {
 	SColorThemesViewer::bSRGBEnabled = (InIsChecked == ECheckBoxState::Checked);
 
-	if (FPaths::FileExists(GEditorUserSettingsIni))
+	if (FPaths::FileExists(GEditorPerProjectIni))
 	{
-		GConfig->SetBool(TEXT("ColorPickerUI"), TEXT("bSRGBEnabled"), SColorThemesViewer::bSRGBEnabled, GEditorUserSettingsIni);
+		GConfig->SetBool(TEXT("ColorPickerUI"), TEXT("bSRGBEnabled"), SColorThemesViewer::bSRGBEnabled, GEditorPerProjectIni);
 	}
 }
 

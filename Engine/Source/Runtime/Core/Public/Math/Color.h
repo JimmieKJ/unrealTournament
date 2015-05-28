@@ -214,6 +214,11 @@ struct FLinearColor
 	static CORE_API FLinearColor MakeRandomColor();
 
 	/**
+	* Converts temperature in Kelvins of a black body radiator to RGB chromaticity.
+	*/
+	static CORE_API FLinearColor MakeFromColorTemperature( float Temp );
+
+	/**
 	 * Euclidean distance between two points.
 	 */
 	static inline float Dist( const FLinearColor &V1, const FLinearColor &V2 )
@@ -236,6 +241,19 @@ struct FLinearColor
 
 	/** Converts an HSV color to a linear space RGB color */
 	CORE_API FLinearColor HSVToLinearRGB() const;
+
+	/**
+	 * Linearly interpolates between two colors by the specified progress amount.  The interpolation is performed in HSV color space
+	 * taking the shortest path to the new color's hue.  This can give better results than FMath::Lerp(), but is much more expensive.
+	 * The incoming colors are in RGB space, and the output color will be RGB.  The alpha value will also be interpolated.
+	 * 
+	 * @param	From		The color and alpha to interpolate from as linear RGBA
+	 * @param	To			The color and alpha to interpolate to as linear RGBA
+	 * @param	Progress	Scalar interpolation amount (usually between 0.0 and 1.0 inclusive)
+	 * 
+	 * @return	The interpolated color in linear RGB space along with the interpolated alpha value
+	 */
+	static CORE_API FLinearColor LerpUsingHSV( const FLinearColor& From, const FLinearColor& To, const float Progress );
 
 	/** Quantizes the linear color and returns the result as a FColor.  This bypasses the SRGB conversion. */
 	CORE_API FColor Quantize() const;
@@ -435,6 +453,11 @@ public:
 	 * Makes a color red->green with the passed in scalar (e.g. 0 is red, 1 is green)
 	 */
 	static CORE_API FColor MakeRedToGreenColorFromScalar(float Scalar);
+
+	/**
+	* Converts temperature in Kelvins of a black body radiator to RGB chromaticity.
+	*/
+	static CORE_API FColor MakeFromColorTemperature( float Temp );
 
 	/**
 	 *	@return a new FColor based of this color with the new alpha value.

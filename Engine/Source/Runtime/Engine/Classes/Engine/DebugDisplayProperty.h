@@ -4,9 +4,9 @@
 
 #include "DebugDisplayProperty.generated.h"
 
+
 /** 
- * Debug property display functionality
- * to interact with this, use "display", "displayall", "displayclear"
+ * Debug property display functionality to interact with this, use "display", "displayall", "displayclear"
  *
  * @see UGameViewportClient
  * @see FDebugDisplayProperty
@@ -21,7 +21,7 @@ struct FDebugDisplayProperty
 	UPROPERTY()
 	class UObject* Obj;
 
-	/** if Obj is a class and WithinClass is not NULL, further limit the display to objects that have an Outer of WithinClass */
+	/** if Obj is a class and WithinClass is not nullptr, further limit the display to objects that have an Outer of WithinClass */
 	UPROPERTY()
 	TSubclassOf<class UObject>  WithinClass;
 
@@ -31,12 +31,10 @@ struct FDebugDisplayProperty
 	/** whether PropertyName is a "special" value not directly mapping to a real property (e.g. state name) */
 	uint32 bSpecialProperty:1;
 
-
+	/** Default constructor. */
 	FDebugDisplayProperty()
-		: Obj(NULL)
-		, WithinClass(NULL)
+		: Obj(nullptr)
+		, WithinClass(nullptr)
 		, bSpecialProperty(false)
-	{
-	}
-
+	{ }
 };

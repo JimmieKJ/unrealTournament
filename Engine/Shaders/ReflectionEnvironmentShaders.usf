@@ -251,7 +251,7 @@ void FilterPS(
 
 #endif
 
-#if NORMALIZE
+#if NORMALIZE && ALLOW_STATIC_LIGHTING
 	// Remove low frequency
 	// TODO match the frequency removed to the one added. In other words divide out 2nd order SH instead of 1st.
 	float LowFrequencyBrightness = Texture2DSample(AverageBrightnessTexture, AverageBrightnessSampler, float2(0, 0)).r;
@@ -499,6 +499,7 @@ void ReflectionApplyPS(
 		// Alpha of the reflection environment texture contains coverage, where 0 the sky reflection should be applied
 		SpecularLighting = Texture2DSample( ReflectionEnvTexture, ReflectionEnvSampler, UV );
 
+#if ALLOW_STATIC_LIGHTING
 		FLATTEN
 		if( View.UseLightmaps > 0 )
 		{
@@ -510,6 +511,7 @@ void ReflectionApplyPS(
 			SpecularLighting.rgb *= GBuffer.IndirectIrradiance;
 		}
 #endif
+#endif
 
 #if APPLY_SKYLIGHT
 
@@ -518,7 +520,7 @@ void ReflectionApplyPS(
 		{
 			float3 ReflectionVector = reflect(-V, GBuffer.WorldNormal);
 			// Normalize for static skylight types which mix with lightmaps
-			bool bNormalize = SkyLightParameters.z < 1 && View.UseLightmaps > 0;
+			bool bNormalize = SkyLightParameters.z < 1 && View.UseLightmaps > 0 && !ALLOW_STATIC_LIGHTING;
 			float3 SkyLighting = GetSkyLightReflection(ReflectionVector, GBuffer.Roughness, bNormalize);
 
 			FLATTEN

@@ -13,6 +13,7 @@
 #include "ObjectEditorUtils.h"		// for IsFunctionHiddenFromClass()/IsVariableCategoryHiddenFromClass()
 #include "K2Node_VariableSet.h"
 #include "K2Node_VariableGet.h"
+#include "K2Node_CallArrayFunction.h" // for IsFunctionMissingPinParam()
 // "impure" node types (utilized in BlueprintActionFilterImpl::IsImpure)
 #include "K2Node_IfThenElse.h"
 #include "K2Node_MultiGate.h"
@@ -243,6 +244,15 @@ namespace BlueprintActionFilterImpl
 	 * @param  BlueprintAction	
 	 * @return 
 	 */
+	static bool IsLevelScriptActionValid(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction);
+
+	/**
+	 * 
+	 * 
+	 * @param  Filter	
+	 * @param  BlueprintAction	
+	 * @return 
+	 */
 	static bool IsSchemaIncompatible(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction);
 
 	/**
@@ -271,6 +281,11 @@ namespace BlueprintActionFilterImpl
 	 * @return 
 	 */
 	static bool IsFunctionMissingPinParam(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction);
+
+	/**
+	 * 
+	 */
+	static bool ArrayFunctionHasParamOfType(const UFunction* ArrayFunction, UEdGraph const* InGraph, const FEdGraphPinType& DesiredPinType, bool bWantOutput);
 
 	/**
 	 * 
@@ -316,7 +331,7 @@ namespace BlueprintActionFilterImpl
 	 * 
 	 * @param  Filter			Holds the graph context for this test.
 	 * @param  BlueprintAction	The action you wish to query.
-	 * @return true if the action is an animnotification that is incompatible with the current skeleton
+	 * @return True if the action is an animnotification that is incompatible with the current skeleton
 	 */
 	static bool IsIncompatibleAnimNotification( FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction); 
 
@@ -328,6 +343,25 @@ namespace BlueprintActionFilterImpl
 	 * @return 
 	 */
 	static bool IsExtraneousInterfaceCall(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction);
+
+	/**
+	 * Rejection test that checks if a macro instance is incompatible with the current graph context
+	 * 
+	 * @param  Filter			Holds the graph context for this test.
+	 * @param  BlueprintAction	The action you wish to query.
+	 * @return True if the macro instance is incompatible with the current graph context
+	 */
+	static bool IsIncompatibleMacroInstance(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction);
+
+	/**
+	 * Rejection test to help unblock common crashes, where programmers forget 
+	 * to refresh the BlueprintActionDatabase when a blueprint has been re-compiled.
+	 * 
+	 * @param  Filter			Holds the action/field context for this test.
+	 * @param  BlueprintAction	The action you wish to query.
+	 * @return True if the action is stale (associated with a TRASH or REINST class).
+	 */
+	static bool IsStaleFieldAction(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction);
 };
 
 //------------------------------------------------------------------------------
@@ -715,12 +749,14 @@ static bool BlueprintActionFilterImpl::IsNonTargetMember(FBlueprintActionFilter 
 		bool const bSkip = (bPermitNonTargetGlobals && IsGloballyAccessible(ClassField)) || BlueprintAction.GetNodeClass()->IsChildOf<UK2Node_Message>();
 		if (!bSkip)
 		{
+			bIsFilteredOut = Filter.TargetClasses.Num() > 0;
+
 			for (UClass const* Class : Filter.TargetClasses)
 			{
 				bool const bIsTargetOwnedField = IsClassOfType(Class, ActionClass);
-				if (!bIsTargetOwnedField)
+				if (bIsTargetOwnedField)
 				{
-					bIsFilteredOut = true;
+					bIsFilteredOut = false;
 					break;
 				}
 			}
@@ -740,28 +776,31 @@ static bool BlueprintActionFilterImpl::IsFieldCategoryHidden(FBlueprintActionFil
 
 	if (UFunction const* Function = BlueprintAction.GetAssociatedFunction())
 	{
-		auto IsFunctionHiddenLambda = [](UClass* Class, UFunction const* Function)->bool
+		auto IsFunctionHiddenLambda = [](UClass* Class, UFunction const* InFunction)->bool
 		{
-			return FObjectEditorUtils::IsFunctionHiddenFromClass(Function, Class->GetAuthoritativeClass());
+			// Only hide functions that are not static
+			return !InFunction->HasAnyFunctionFlags(FUNC_Static) && FObjectEditorUtils::IsFunctionHiddenFromClass(InFunction, Class->GetAuthoritativeClass());
 		};
 		IsFieldHiddenDelegate = FIsFieldHiddenDelegate::CreateStatic(IsFunctionHiddenLambda, Function);
 	}
 	else if (UProperty const* Property = BlueprintAction.GetAssociatedProperty())
 	{
-		auto IsPropertyHiddenLambda = [](UClass* Class, UProperty const* Property)->bool
+		auto IsPropertyHiddenLambda = [](UClass* Class, UProperty const* InProperty)->bool
 		{
-			return FObjectEditorUtils::IsVariableCategoryHiddenFromClass(Property, Class->GetAuthoritativeClass());
+			return FObjectEditorUtils::IsVariableCategoryHiddenFromClass(InProperty, Class->GetAuthoritativeClass());
 		};
 		IsFieldHiddenDelegate = FIsFieldHiddenDelegate::CreateStatic(IsPropertyHiddenLambda, Property);
 	}
 
 	if (IsFieldHiddenDelegate.IsBound())
 	{
+		bIsFilteredOut = Filter.TargetClasses.Num() > 0;
+
 		for (UClass* TargetClass : Filter.TargetClasses)
 		{
-			if (IsFieldHiddenDelegate.Execute(TargetClass))
+			if (!IsFieldHiddenDelegate.Execute(TargetClass))
 			{
-				bIsFilteredOut = true;
+				bIsFilteredOut = false;
 				break;
 			}
 		}
@@ -905,6 +944,42 @@ static bool BlueprintActionFilterImpl::IsOutOfScopeLocalVariable(FBlueprintActio
 			}
 		}
 	}
+	return bIsFilteredOut;
+}
+
+//------------------------------------------------------------------------------
+static bool BlueprintActionFilterImpl::IsLevelScriptActionValid(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction)
+{
+	bool bIsFilteredOut = false;
+	FBlueprintActionContext const& FilterContext = Filter.Context;
+	UClass* OuterClass = nullptr;
+
+	if( UFunction const* NodeFunction = BlueprintAction.GetAssociatedFunction() )
+	{
+		OuterClass = Cast<UClass>( NodeFunction->GetOuter() );
+	}
+	else if( UProperty const* NodeProperty = BlueprintAction.GetAssociatedProperty() )
+	{
+		OuterClass = Cast<UClass>( NodeProperty->GetOuter() );
+	}
+
+	if( OuterClass )
+	{
+		UBlueprint const* BPOwner = Cast<UBlueprint>( OuterClass->ClassGeneratedBy );
+		if( BPOwner && BPOwner->BlueprintType == BPTYPE_LevelScript )
+		{
+			bIsFilteredOut = true;
+			for( auto Blueprint : FilterContext.Blueprints )
+			{
+				if( BPOwner->GetBlueprintGuid() == Blueprint->GetBlueprintGuid() )
+				{
+					bIsFilteredOut = false;
+					break;
+				}
+			}
+		}
+	}
+
 	return bIsFilteredOut;
 }
 
@@ -1083,7 +1158,8 @@ static bool BlueprintActionFilterImpl::IsFunctionMissingPinParam(FBlueprintActio
 	if (UFunction const* AssociatedFunc = BlueprintAction.GetAssociatedFunction())
 	{
 		UEdGraphSchema_K2 const* K2Schema = GetDefault<UEdGraphSchema_K2>();
-		bool const bIsEventSpawner = BlueprintAction.GetNodeClass()->IsChildOf<UK2Node_Event>();
+		bool const bIsEventSpawner  = BlueprintAction.GetNodeClass()->IsChildOf<UK2Node_Event>();
+		bool const bIsArrayFunction = BlueprintAction.GetNodeClass()->IsChildOf<UK2Node_CallArrayFunction>();
 
 		for (int32 PinIndex = 0; !bIsFilteredOut && (PinIndex < Filter.Context.Pins.Num()); ++PinIndex)
 		{
@@ -1103,8 +1179,9 @@ static bool BlueprintActionFilterImpl::IsFunctionMissingPinParam(FBlueprintActio
 				// the function signature would have them as inputs), so we 
 				// want to flip the connotation here
 				bool const bWantsOutputConnection = (PinDir == EGPD_Input) ^ bIsEventSpawner;
-
-				if (K2Schema->FunctionHasParamOfType(AssociatedFunc, K2Node->GetGraph(), PinType, bWantsOutputConnection))
+				
+				if ( K2Schema->FunctionHasParamOfType(AssociatedFunc, K2Node->GetGraph(), PinType, bWantsOutputConnection) || 
+					(bIsArrayFunction && ArrayFunctionHasParamOfType(AssociatedFunc, K2Node->GetGraph(), PinType, bWantsOutputConnection)) )
 				{
 					bIsFilteredOut = false;
 				}
@@ -1114,11 +1191,63 @@ static bool BlueprintActionFilterImpl::IsFunctionMissingPinParam(FBlueprintActio
 					bIsFilteredOut = bIsEventSpawner || !IsPinCompatibleWithTargetSelf(ContextPin, BlueprintAction);
 				}
 			}
-			
 		}
 	}
 
 	return bIsFilteredOut;
+}
+
+//------------------------------------------------------------------------------
+static bool BlueprintActionFilterImpl::ArrayFunctionHasParamOfType(const UFunction* ArrayFunction, UEdGraph const* InGraph, const FEdGraphPinType& DesiredPinType, bool bWantOutput)
+{
+	UEdGraphSchema_K2 const* K2Schema = GetDefault<UEdGraphSchema_K2>();
+
+	TSet<FString> HiddenPins;
+	FBlueprintEditorUtils::GetHiddenPinsForFunction(InGraph, ArrayFunction, HiddenPins);
+
+	FName ParamTag = FBlueprintMetadata::MD_ArrayDependentParam;
+	if (DesiredPinType.bIsArray)
+	{
+		ParamTag = FBlueprintMetadata::MD_ArrayParam;
+	}
+	const FString FlaggedParamMetaData = ArrayFunction->GetMetaData(ParamTag);
+
+	TArray<FString> WildcardPinNames;
+	FlaggedParamMetaData.ParseIntoArray(WildcardPinNames, TEXT(","), /*CullEmpty =*/true);
+
+	for (TFieldIterator<UProperty> PropIt(ArrayFunction); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
+	{
+		UProperty* FuncParam = *PropIt;
+		const FString ParamName = FuncParam->GetName();
+
+		const bool bIsFunctionInput = !FuncParam->HasAnyPropertyFlags(CPF_OutParm) || FuncParam->HasAnyPropertyFlags(CPF_ReferenceParm);
+		if (bWantOutput == bIsFunctionInput)
+		{
+			continue;
+		}
+
+		if (!WildcardPinNames.Contains(ParamName) || HiddenPins.Contains(ParamName))
+		{
+			continue;
+		}
+
+		FEdGraphPinType ParamPinType;
+		if (K2Schema->ConvertPropertyToPinType(FuncParam, ParamPinType))
+		{
+			ParamPinType.PinCategory = UEdGraphSchema_K2::PC_Wildcard;
+
+			const FEdGraphPinType& InputType  = (bIsFunctionInput) ? ParamPinType : DesiredPinType;
+			const FEdGraphPinType& OutputType = (bIsFunctionInput) ? DesiredPinType : ParamPinType;
+
+			if (K2Schema->ArePinTypesCompatible(OutputType, InputType))
+			{
+				return true;
+			}
+		}
+
+	}
+
+	return false;
 }
 
 //------------------------------------------------------------------------------
@@ -1367,6 +1496,40 @@ static bool BlueprintActionFilterImpl::IsExtraneousInterfaceCall(FBlueprintActio
 	return bIsFilteredOut;
 }
 
+//------------------------------------------------------------------------------
+static bool BlueprintActionFilterImpl::IsIncompatibleMacroInstance(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction)
+{
+	bool bIsFilteredOut = false;
+
+	if(BlueprintAction.GetNodeClass()->IsChildOf<UK2Node_MacroInstance>())
+	{
+		if(const UBlueprint* MacroBP = Cast<const UBlueprint>(BlueprintAction.GetActionOwner()))
+		{
+			check(MacroBP->ParentClass != nullptr);
+
+			for(auto BlueprintIt = Filter.Context.Blueprints.CreateConstIterator(); BlueprintIt && !bIsFilteredOut; ++BlueprintIt)
+			{
+				const UBlueprint* Blueprint = *BlueprintIt;
+				check(Blueprint != nullptr && Blueprint->ParentClass != nullptr)
+
+				bIsFilteredOut = (Blueprint != MacroBP) && (MacroBP->BlueprintType != BPTYPE_MacroLibrary || !Blueprint->ParentClass->IsChildOf(MacroBP->ParentClass));
+			}
+
+			// Note: The rest is handled by IsNodeTemplateSelfFiltered() - the check above is a "fast path" in that we don't have to instance the node template (see UK2Node_MacroInstance::IsActionFilteredOut())
+		}
+	}
+
+	return bIsFilteredOut;
+}
+
+//------------------------------------------------------------------------------
+static bool BlueprintActionFilterImpl::IsStaleFieldAction(FBlueprintActionFilter const& Filter, FBlueprintActionInfo& BlueprintAction)
+{
+	bool const bIsFilteredOut = FBlueprintNodeSpawnerUtils::IsStaleFieldAction(BlueprintAction.NodeSpawner);
+	ensureMsgf(!bIsFilteredOut, TEXT("Invalid BlueprintActionDatabase entry (for %s). Was the database properly updated when this class was compiled?"), *BlueprintAction.GetOwnerClass()->GetName());
+	return bIsFilteredOut;
+}
+
 /*******************************************************************************
  * FBlueprintActionInfo
  ******************************************************************************/
@@ -1554,6 +1717,7 @@ FBlueprintActionFilter::FBlueprintActionFilter(uint32 Flags/*= 0x00*/)
 	AddRejectionTest(FRejectionTestDelegate::CreateStatic(IsIncompatibleWithGraphType));
 	AddRejectionTest(FRejectionTestDelegate::CreateStatic(IsSchemaIncompatible));
 	AddRejectionTest(FRejectionTestDelegate::CreateStatic(IsExtraneousInterfaceCall));
+	AddRejectionTest(FRejectionTestDelegate::CreateStatic(IsIncompatibleMacroInstance));
 
 	if (!(Flags & BPFILTER_PermitDeprecated))
 	{
@@ -1564,6 +1728,12 @@ FBlueprintActionFilter::FBlueprintActionFilter(uint32 Flags/*= 0x00*/)
 	AddRejectionTest(FRejectionTestDelegate::CreateStatic(IsNonTargetMember, !(Flags & BPFILTER_RejectGlobalFields)));
 	AddRejectionTest(FRejectionTestDelegate::CreateStatic(IsUnBoundBindingSpawner));
 	AddRejectionTest(FRejectionTestDelegate::CreateStatic(IsOutOfScopeLocalVariable));
+	AddRejectionTest(FRejectionTestDelegate::CreateStatic(IsLevelScriptActionValid));
+
+
+	// added as the first rejection test, so that we don't operate on stale 
+	// (TRASH/REINST) class fields
+	AddRejectionTest(FRejectionTestDelegate::CreateStatic(IsStaleFieldAction));
 }
 
 //------------------------------------------------------------------------------
@@ -1620,6 +1790,14 @@ FBlueprintActionFilter const& FBlueprintActionFilter::operator&=(FBlueprintActio
 bool FBlueprintActionFilter::IsFilteredByThis(FBlueprintActionInfo& BlueprintAction) const
 {
 	FBlueprintActionFilter const& FilterRef = *this;
+
+	// for debugging purposes:
+// 	FBlueprintActionUiSpec UiSpec = BlueprintAction.NodeSpawner->GetUiSpec(Context, BlueprintAction.GetBindings());
+// 	bool bDebugBreak = false;
+// 	if (UiSpec.MenuName.ToString().Contains("Set Array Elem"))
+// 	{
+// 		bDebugBreak = true;
+// 	}
 
 	bool bIsFiltered = false;
 	// iterate backwards so that custom user test are ran first (and the slow

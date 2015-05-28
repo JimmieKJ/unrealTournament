@@ -1028,7 +1028,7 @@ int32 SBlendSpaceGridWidget::OnPaint( const FPaintArgs& Args, const FGeometry& A
 	const TArray<FTriangle*>& TriangleList = Generator.GetTriangleList();
 	// now I'd like to get all triangles all 4 points are available
 	TArray<FTriangle*> NewTriangles;
-	if ( TriangleList.Num() > 0 )
+	if ( MousePos.IsSet() && TriangleList.Num() > 0 )
 	{
 		FVector BaryCentricCoords;
 		FTriangle * HighlightTriangle = NULL;

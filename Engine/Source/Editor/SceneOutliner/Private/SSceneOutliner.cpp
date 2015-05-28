@@ -61,14 +61,6 @@ namespace SceneOutliner
 			{
 				return InActor->GetLevel() == InActor->GetWorld()->GetCurrentLevel();
 			}
-			virtual bool PassesFilter(const FLevelBlueprintHandle& LevelBlueprint) const override
-			{
-				if (ULevel* Level = LevelBlueprint.ParentLevel.Get())
-				{
-					return Level == Level->GetWorld()->GetCurrentLevel();
-				}
-				return false;
-			}
 		};
 
 		return MakeShareable( new FOnlyCurrentLevelFilter() );
@@ -78,7 +70,6 @@ namespace SceneOutliner
 	{
 		mutable TArray<FActorTreeItem*> Actors;
 		mutable TArray<FWorldTreeItem*> Worlds;
-		mutable TArray<FLevelBlueprintTreeItem*> LevelBlueprints;
 		mutable TArray<FFolderTreeItem*> Folders;
 
 		FItemSelection()
@@ -126,10 +117,6 @@ namespace SceneOutliner
 		virtual void Visit(FWorldTreeItem& WorldItem) const override
 		{
 			Worlds.Add(&WorldItem);
-		}
-		virtual void Visit(FLevelBlueprintTreeItem& LevelBlueprintItem) const override
-		{
-			LevelBlueprints.Add(&LevelBlueprintItem);
 		}
 		virtual void Visit(FFolderTreeItem& FolderItem) const override
 		{
@@ -802,12 +789,6 @@ namespace SceneOutliner
 
 		if (!SharedData->bOnlyShowFolders)
 		{
-			// Add the level blueprints for all levels - we always use the editor world for this, even if we're PIE
-			for (auto It = GEditor->GetEditorWorldContext().World()->GetLevelIterator(); It ; ++It)
-			{
-				ConstructItemFor<FLevelBlueprintTreeItem>(FLevelBlueprintHandle(*It));
-			}
-
 			// Iterate over every actor in memory. WARNING: This is potentially very expensive!
 			for( FActorIterator ActorIt(SharedData->RepresentingWorld); ActorIt; ++ActorIt )
 			{
@@ -1056,6 +1037,19 @@ namespace SceneOutliner
 
 		if (SharedData->Mode == ESceneOutlinerMode::ActorBrowsing)
 		{
+			// Make sure that no components are selected
+			if (GEditor->GetSelectedComponentCount() > 0)
+			{
+				// We want to be able to undo to regain the previous component selection
+				const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "ClickingOnActorsContextMenu", "Clicking on Actors (context menu)"));
+				USelection* ComponentSelection = GEditor->GetSelectedComponents();
+				ComponentSelection->Modify(false);
+				ComponentSelection->DeselectAll();
+
+				GUnrealEd->UpdatePivotLocationForSelection();
+				GEditor->RedrawLevelEditingViewports(false);
+			}
+
 			return BuildDefaultContextMenu();
 		}
 
@@ -1095,7 +1089,7 @@ namespace SceneOutliner
 				else
 				{
 					// Can't move worlds or level blueprints
-					const bool bCanMoveSelection = ItemSelection.Worlds.Num() + ItemSelection.LevelBlueprints.Num() == 0;
+					const bool bCanMoveSelection = ItemSelection.Worlds.Num() == 0;
 					if (bCanMoveSelection)
 					{
 						MenuBuilder.AddSubMenu(
@@ -1231,8 +1225,8 @@ namespace SceneOutliner
 
 			const bool bMoveToRootValid = FFolderDropTarget(FName()).ValidateDrop(DraggedObjects, *SharedData->RepresentingWorld).IsValid();
 
-			MiniSceneOutlinerInitOptions.Filters->AddFilterPredicate(FWorldFilterPredicate::CreateStatic([](const UWorld*, bool bMoveToRootValid){
-				return bMoveToRootValid;
+			MiniSceneOutlinerInitOptions.Filters->AddFilterPredicate(FWorldFilterPredicate::CreateStatic([](const UWorld*, bool bInMoveToRootValid){
+				return bInMoveToRootValid;
 			}, bMoveToRootValid), EDefaultFilterBehaviour::Pass);
 		}
 
@@ -1280,12 +1274,17 @@ namespace SceneOutliner
 				GEditor->SelectActor(Actor, true, /*bNotify=*/false);
 			}
 		}
+	};
+
+	struct FSelectActorsRecursive : FSelectActors
+	{
+		using FSelectActors::Visit;
 
 		virtual void Visit(const FFolderTreeItem& FolderItem) const override
 		{
 			for (auto& Child : FolderItem.GetChildren())
 			{
-				Child.Pin()->Visit(FSelectActors());
+				Child.Pin()->Visit(FSelectActorsRecursive());
 			}
 		}
 	};
@@ -1325,7 +1324,7 @@ namespace SceneOutliner
 
 			for (const auto& Folder : SelectedFolders)
 			{
-				Folder->Visit(FSelectActors());
+				Folder->Visit(FSelectActorsRecursive());
 			}
 
 			GEditor->GetSelectedActors()->EndBatchSelectOperation();
@@ -1711,10 +1710,6 @@ namespace SceneOutliner
 					})
 
 					.Folder(ExpandCollapseFolder)
-
-					.LevelBlueprint([](const FLevelBlueprintTreeItem& LevelBlueprintItem){
-						LevelBlueprintItem.Open();
-					})
 
 					.World([](const FWorldTreeItem& WorldItem){
 						WorldItem.OpenWorldSettings();
@@ -2242,10 +2237,7 @@ namespace SceneOutliner
 	}
 
 	void SSceneOutliner::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-	{
-		// Call parent implementation
-		SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
+	{	
 		for (auto& Pair : Columns)
 		{
 			Pair.Value->Tick(InCurrentTime, InDeltaTime);

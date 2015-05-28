@@ -22,7 +22,7 @@ class GAMEPLAYABILITIES_API UAbilityTask_WaitTargetData: public UAbilityTask
 	FWaitTargetDataDelegate	Cancelled;
 
 	UFUNCTION()
-	void OnTargetDataReplicatedCallback(FGameplayAbilityTargetDataHandle Data);
+	void OnTargetDataReplicatedCallback(FGameplayAbilityTargetDataHandle Data, FGameplayTag ActivationTag);
 
 	UFUNCTION()
 	void OnTargetDataReplicatedCancelledCallback();
@@ -33,9 +33,15 @@ class GAMEPLAYABILITIES_API UAbilityTask_WaitTargetData: public UAbilityTask
 	UFUNCTION()
 	void OnTargetDataCancelledCallback(FGameplayAbilityTargetDataHandle Data);
 
-	/** Spawns Targeting actor and waits for it to return valid data or to be canceled. */
+	/** Spawns target actor and waits for it to return valid data or to be canceled. */
 	UFUNCTION(BlueprintCallable, meta=(HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "true", HideSpawnParms="Instigator"), Category="Ability|Tasks")
 	static UAbilityTask_WaitTargetData* WaitTargetData(UObject* WorldContextObject, FName TaskInstanceName, TEnumAsByte<EGameplayTargetingConfirmation::Type> ConfirmationType, TSubclassOf<AGameplayAbilityTargetActor> Class);
+
+	/** Uses specified target actor and waits for it to return valid data or to be canceled. */
+	UFUNCTION(BlueprintCallable, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "true", HideSpawnParms = "Instigator"), Category = "Ability|Tasks")
+	static UAbilityTask_WaitTargetData* WaitTargetDataUsingActor(UObject* WorldContextObject, FName TaskInstanceName, TEnumAsByte<EGameplayTargetingConfirmation::Type> ConfirmationType, AGameplayAbilityTargetActor* TargetActor);
+
+	virtual void Activate() override;
 
 	UFUNCTION(BlueprintCallable, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "true"), Category = "Abilities")
 	bool BeginSpawningActor(UObject* WorldContextObject, TSubclassOf<AGameplayAbilityTargetActor> Class, AGameplayAbilityTargetActor*& SpawnedActor);
@@ -51,14 +57,22 @@ class GAMEPLAYABILITIES_API UAbilityTask_WaitTargetData: public UAbilityTask
 
 protected:
 
+	bool ShouldSpawnTargetActor() const;
+	void InitializeTargetActor(AGameplayAbilityTargetActor* SpawnedActor) const;
+	void FinalizeTargetActor(AGameplayAbilityTargetActor* SpawnedActor) const;
+
+	void RegisterTargetDataCallbacks();
+
 	virtual void OnDestroy(bool AbilityEnded) override;
 
 	bool ShouldReplicateDataToServer() const;
 
+protected:
+
 	TSubclassOf<AGameplayAbilityTargetActor> TargetClass;
 
-	/** The TargetActor that we spawned, or the class CDO if this is a static targeting task */
-	TWeakObjectPtr<AGameplayAbilityTargetActor>	MyTargetActor;
+	/** The TargetActor that we spawned */
+	TWeakObjectPtr<AGameplayAbilityTargetActor>	TargetActor;
 
 	TEnumAsByte<EGameplayTargetingConfirmation::Type> ConfirmationType;
 

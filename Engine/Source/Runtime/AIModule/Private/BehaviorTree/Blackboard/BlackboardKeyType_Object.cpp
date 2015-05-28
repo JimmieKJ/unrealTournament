@@ -12,21 +12,39 @@ UBlackboardKeyType_Object::UBlackboardKeyType_Object(const FObjectInitializer& O
 	SupportedOp = EBlackboardKeyOperation::Basic;
 }
 
-UObject* UBlackboardKeyType_Object::GetValue(const uint8* RawData)
+UObject* UBlackboardKeyType_Object::GetValue(const UBlackboardKeyType_Object* KeyOb, const uint8* RawData)
 {
+	// RawData can be NULL if the key is corrupted by bad data, such as if someone has duplicated a key in a derived
+	// blackboard.  We must handle that bad data case gracefully.  It's likely that we need to handle this for
+	// all blackboard key types, so possibly GetValueFromMemory should handle the NULL case instead.  But for now I'm
+	// just fixing the case I came across.
+	if (RawData == NULL)
+	{
+		return NULL;
+	}
+
 	FWeakObjectPtr WeakObjPtr = GetValueFromMemory<FWeakObjectPtr>(RawData);
 	return WeakObjPtr.Get();
 }
 
-bool UBlackboardKeyType_Object::SetValue(uint8* RawData, UObject* Value)
+bool UBlackboardKeyType_Object::SetValue(UBlackboardKeyType_Object* KeyOb, uint8* RawData, UObject* Value)
 {
 	TWeakObjectPtr<UObject> WeakObjPtr(Value);
 	return SetWeakObjectInMemory<UObject>(RawData, WeakObjPtr);
 }
 
-FString UBlackboardKeyType_Object::DescribeValue(const uint8* RawData) const
+EBlackboardCompare::Type UBlackboardKeyType_Object::CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+	const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const
 {
-	return *GetNameSafe(GetValue(RawData));
+	const UObject* MyValue = GetValue(this, MemoryBlock);
+	const UObject* OtherValue = GetValue((UBlackboardKeyType_Object*)OtherKeyOb, OtherMemoryBlock);
+
+	return (MyValue == OtherValue) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
+}
+
+FString UBlackboardKeyType_Object::DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
+{
+	return *GetNameSafe(GetValue(this, RawData));
 }
 
 FString UBlackboardKeyType_Object::DescribeSelf() const
@@ -40,9 +58,9 @@ bool UBlackboardKeyType_Object::IsAllowedByFilter(UBlackboardKeyType* FilterOb) 
 	return (FilterObject && (FilterObject->BaseClass == BaseClass || BaseClass->IsChildOf(FilterObject->BaseClass)));
 }
 
-bool UBlackboardKeyType_Object::GetLocation(const uint8* RawData, FVector& Location) const
+bool UBlackboardKeyType_Object::GetLocation(const UBlackboardComponent& OwnerComp, const uint8* RawData, FVector& Location) const
 {
-	AActor* MyActor = Cast<AActor>(GetValue(RawData));
+	AActor* MyActor = Cast<AActor>(GetValue(this, RawData));
 	if (MyActor)
 	{
 		Location = MyActor->GetActorLocation();
@@ -52,9 +70,9 @@ bool UBlackboardKeyType_Object::GetLocation(const uint8* RawData, FVector& Locat
 	return false;
 }
 
-bool UBlackboardKeyType_Object::GetRotation(const uint8* RawData, FRotator& Rotation) const
+bool UBlackboardKeyType_Object::GetRotation(const UBlackboardComponent& OwnerComp, const uint8* RawData, FRotator& Rotation) const
 {
-	AActor* MyActor = Cast<AActor>(GetValue(RawData));
+	AActor* MyActor = Cast<AActor>(GetValue(this, RawData));
 	if (MyActor)
 	{
 		Rotation = MyActor->GetActorRotation();
@@ -64,13 +82,13 @@ bool UBlackboardKeyType_Object::GetRotation(const uint8* RawData, FRotator& Rota
 	return false;
 }
 
-EBlackboardCompare::Type UBlackboardKeyType_Object::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
+bool UBlackboardKeyType_Object::TestBasicOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
 {
-	return (FMemory::Memcmp(MemoryBlockA, MemoryBlockB, ValueSize) == 0) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
-}
+	if (MemoryBlock == NULL)
+	{
+		return false;
+	}
 
-bool UBlackboardKeyType_Object::TestBasicOperation(const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
-{
 	FWeakObjectPtr WeakObjPtr = GetValueFromMemory<FWeakObjectPtr>(MemoryBlock);
 	return (Op == EBasicKeyOperation::Set) ? WeakObjPtr.IsValid() : !WeakObjPtr.IsValid();
 }

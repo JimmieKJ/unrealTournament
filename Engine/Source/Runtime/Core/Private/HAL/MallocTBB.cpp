@@ -44,7 +44,7 @@ void* FMallocTBB::Malloc( SIZE_T Size, uint32 Alignment )
 		NewPtr = scalable_malloc( Size );
 	}
 
-	if( !NewPtr )
+	if( !NewPtr && Size )
 	{
 		OutOfMemory(Size, Alignment);
 	}

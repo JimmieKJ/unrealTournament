@@ -264,6 +264,7 @@ public:
 	 * Allows adjusting the desired streaming distance of streaming textures that uses UV 0.
 	 * 1.0 is the default, whereas a higher value makes the textures stream in sooner from far away.
 	 * A lower value (0.0-1.0) makes the textures stream in later (you have to be closer).
+	 * Value can be < 0 (from legcay content, or code changes)
 	 */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=SkeletalMesh)
 	float StreamingDistanceMultiplier;
@@ -281,6 +282,10 @@ public:
 	/** Draw the skeleton hierarchy for this skel mesh. */
 	UPROPERTY()
 	uint32 bDisplayBones:1;
+
+	/** Disable Morphtarget for this component. */
+	UPROPERTY()
+	uint32 bDisableMorphTarget:1;
 
 	/** Don't bother rendering the skin. */
 	UPROPERTY()
@@ -376,7 +381,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
 	FName GetBoneName(int32 BoneIndex) const;
 
-		/**
+	/**
 	 * Returns bone name linked to a given named socket on the skeletal mesh component.
 	 * If you're unsure to deal with sockets or bones names, you can use this function to filter through, and always return the bone name.
 	 *
@@ -385,7 +390,7 @@ public:
 	 * @return	bone name
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
-	FName GetSocketBoneName(FName InSocketName);
+	FName GetSocketBoneName(FName InSocketName) const;
 
 	/** 
 	 * Change the SkeletalMesh that is rendered for this Component. Will re-initialize the animation tree etc. 
@@ -444,6 +449,8 @@ protected:
 public:
 	// Begin USceneComponent interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
+	virtual FTransform GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace = RTS_World) const override;
+	virtual bool DoesSocketExist(FName InSocketName) const override;
 	virtual bool HasAnySockets() const override;
 	virtual void QuerySupportedSockets(TArray<FComponentSocketDescription>& OutSockets) const override;
 	virtual void UpdateOverlaps(TArray<FOverlapInfo> const* PendingOverlaps=NULL, bool bDoNotifies=true, const TArray<FOverlapInfo>* OverlapsAtEndLocation=NULL) override;
@@ -456,10 +463,6 @@ public:
 	virtual void GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
 	virtual int32 GetNumMaterials() const override;
 	// End UPrimitiveComponent interface
-
-	// Begin MeshComponent interface
-	virtual TArray<class UMaterialInterface*> GetMaterials() const override;
-	// End MeshComponent interface
 
 	/**
 	 *	Sets the value of the bForceWireframe flag and reattaches the component as necessary.
@@ -525,8 +528,9 @@ public:
 	 * @param DeltaTime DeltaTime
 	 *
 	 * @return	Return true if anything modified. Return false otherwise
+	 * @param bNeedsValidRootMotion - Networked games care more about this, but if false we can do less calculations
 	 */
-	virtual void TickPose( float DeltaTime ) {}
+	virtual void TickPose(float DeltaTime, bool bNeedsValidRootMotion) { TickUpdateRate(DeltaTime, bNeedsValidRootMotion); }
 
 	/** 
 	 * Update Slave Component. This gets called when MasterPoseComponent!=NULL
@@ -643,21 +647,15 @@ public:
 
 private:
 	/** Update Rate Optimization ticking. */
-	void TickUpdateRate();
-
-protected:
-	/** Accumulated DeltaTime skipped by Update Rate Optimization. */
-	UPROPERTY(Transient)
-	float SkippedTickDeltaTime;
-	/** check whether animated or not */
-	bool bPoseTicked;
+	void TickUpdateRate(float DeltaTime, bool bNeedsValidRootMotion);
+	
 public:
 	/**
 	 * Set MasterPoseComponent for this component
 	 *
 	 * @param NewMasterBoneComponent New MasterPoseComponent
 	 */
-	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
+	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh", meta=(UnsafeDuringActorConstruction="true"))
 	void SetMasterPoseComponent(USkinnedMeshComponent* NewMasterBoneComponent);
 
 	/** 
@@ -672,24 +670,11 @@ public:
 	 */
 	void UpdateMasterBoneMap();
 
-	//
-	// Get all socket names.
-	//
-
-	virtual TArray<FName> GetAllSocketNames() const override;
-
-	//
-	// Bone Transform.
-	//
-
-	virtual FTransform GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace = RTS_World) const override;
-
 	/**
 	 * @return SkeletalMeshSocket of named socket on the skeletal mesh component, or NULL if not found.
 	 */
 	class USkeletalMeshSocket const* GetSocketByName( FName InSocketName ) const;
 
-	virtual bool DoesSocketExist(FName InSocketName) const override;
 
 	/** 
 	 * Get Bone Matrix from index
@@ -905,19 +890,23 @@ private:
 	template <bool bExtraBoneInfluencesT, bool bCachedMatrices>
 	FVector GetTypedSkinnedVertexPosition(const FSkelMeshChunk& Chunk, const FSkeletalMeshVertexBuffer& VertexBufferGPUSkin, int32 VertIndex, bool bSoftVertex, const TArray<FMatrix> & RefToLocals = TArray<FMatrix>()) const;
 
+	/**
+	 * Gets called when register, verifies all ActiveVertexAnimation is still valid 
+	 */
+	virtual void RefreshActiveVertexAnims() {};
+
 	// Animation update rate control.
 public:
 	/** Animation Update Rate optimization parameters. */
-	UPROPERTY(Transient)
-	struct FAnimUpdateRateParameters AnimUpdateRateParams;
-
-	/** Aimation Update Rate Tick. */
-	void AnimUpdateRateTick();
+	struct FAnimUpdateRateParameters* AnimUpdateRateParams;
 
 	/** Updates AnimUpdateRateParams, used by SkinnedMeshComponents.
+	* 
 	* @param bRecentlyRendered : true if at least one SkinnedMeshComponent on this Actor has been rendered in the last second.
 	* @param MaxDistanceFactor : Largest SkinnedMeshComponent of this Actor drawn on screen. */
-	void AnimUpdateRateSetParams(const bool & bRecentlyRendered, const float& MaxDistanceFactor, const bool & bPlayingRootMotion);
+	void AnimUpdateRateSetParams(uint8 UpdateRateShift, float DeltaTime, const bool & bRecentlyRendered, const float& MaxDistanceFactor, const bool & bPlayingRootMotion);
 
 	virtual bool IsPlayingRootMotion(){ return false; }
+
+	virtual bool IsPlayingRootMotionFromEverything(){ return false; }
 };

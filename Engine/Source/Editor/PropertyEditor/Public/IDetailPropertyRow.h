@@ -2,6 +2,9 @@
 
 #pragma once
 
+// Forward declarations
+class FDetailWidgetRow;
+
 /**
  * A single row for a property in a details panel                                                              
  */
@@ -48,6 +51,14 @@ public:
 	 */
 	virtual IDetailPropertyRow& IsEnabled( TAttribute<bool> InIsEnabled ) = 0;
 	
+
+	/**
+	 * Sets whether or not this property should auto-expand
+	 *
+	 * @param bForceExpansion	true to force the property to be expanded
+	 */
+	virtual IDetailPropertyRow& ShouldAutoExpand(bool bForceExpansion = true) = 0;
+
 	/**
 	 * Sets the visibility of this property
 	 *
@@ -78,7 +89,7 @@ public:
 	 * @param OutValueWidget	The default value widget
 	 * @param OutCustomRow		The default widget row
 	 */
-	virtual void GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, class FDetailWidgetRow& Row ) = 0;
+	virtual void GetDefaultWidgets( TSharedPtr<SWidget>& OutNameWidget, TSharedPtr<SWidget>& OutValueWidget, FDetailWidgetRow& Row ) = 0;
 
 	/**
 	 * Overrides the property widget
@@ -86,6 +97,6 @@ public:
 	 * @param bShowChildren	Whether or not to still show any children of this property
 	 * @return a row for the property that custom widgets can be added to
 	 */
-	virtual class FDetailWidgetRow& CustomWidget( bool bShowChildren = false ) = 0;
+	virtual FDetailWidgetRow& CustomWidget( bool bShowChildren = false ) = 0;
 
 };

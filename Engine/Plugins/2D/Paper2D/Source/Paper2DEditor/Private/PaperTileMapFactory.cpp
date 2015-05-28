@@ -1,6 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "Paper2DEditorPrivatePCH.h"
+#include "PaperTileMap.h"
+#include "PaperTileMapFactory.h"
+#include "PaperImporterSettings.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 
@@ -17,15 +20,9 @@ UPaperTileMapFactory::UPaperTileMapFactory(const FObjectInitializer& ObjectIniti
 
 UObject* UPaperTileMapFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
 {
-	UPaperTileMap* NewTileMap = ConstructObject<UPaperTileMap>(Class, InParent, Name, Flags | RF_Transactional);
+	UPaperTileMap* NewTileMap = NewObject<UPaperTileMap>(InParent, Class, Name, Flags | RF_Transactional);
 
-	if (InitialTileSet != nullptr)
-	{
-		NewTileMap->TileWidth = InitialTileSet->TileWidth;
-		NewTileMap->TileHeight = InitialTileSet->TileHeight;
-	}
-
-	NewTileMap->AddNewLayer();
+	GetDefault<UPaperImporterSettings>()->ApplySettingsForTileMapInit(NewTileMap, InitialTileSet);
 
 	return NewTileMap;
 }

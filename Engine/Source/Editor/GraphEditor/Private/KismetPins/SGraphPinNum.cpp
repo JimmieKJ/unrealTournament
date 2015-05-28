@@ -6,27 +6,23 @@
 #include "SGraphPinString.h"
 #include "SGraphPinNum.h"
 #include "DefaultValueHelper.h"
+#include "Editor/UnrealEd/Public/ScopedTransaction.h"
 
 void SGraphPinNum::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {
-	SGraphPin::Construct(SGraphPin::FArguments(), InGraphPinObj);
+	SGraphPinString::Construct(SGraphPinString::FArguments(), InGraphPinObj);
 }
 
 void SGraphPinNum::SetTypeInValue(const FText& NewTypeInValue, ETextCommit::Type /*CommitInfo*/)
 {
 	FString TypeValueString = NewTypeInValue.ToString();
-	if (FDefaultValueHelper::IsStringValidFloat(TypeValueString))
+	if (FDefaultValueHelper::IsStringValidFloat(TypeValueString) || FDefaultValueHelper::IsStringValidInteger(TypeValueString))
 	{
-		//This is rubbish.
-		//TODO: Make not rubbish.
-		const UEdGraphSchema_K2* K2Schema = Cast<const UEdGraphSchema_K2>(GraphPinObj->GetSchema());
-		if ((K2Schema && (GraphPinObj->PinType.PinCategory == K2Schema->PC_Int || GraphPinObj->PinType.PinCategory == K2Schema->PC_Byte)))
+		if(GraphPinObj->GetDefaultAsString() != TypeValueString)
 		{
-			int32 IntValue = FCString::Atoi(*TypeValueString);
-			GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, FString::FromInt(IntValue));
-		}
-		else
-		{
+			const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeNumberPinValue", "Change Number Pin Value" ) );
+			GraphPinObj->Modify();
+
 			GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, *TypeValueString);
 		}
 	}

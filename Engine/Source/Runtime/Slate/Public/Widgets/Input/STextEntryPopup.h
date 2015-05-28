@@ -10,6 +10,7 @@ public:
 	SLATE_BEGIN_ARGS( STextEntryPopup )
 		: _SelectAllTextWhenFocused( false )
 		, _MaxWidth( 0.0f )
+		, _AutoFocus(true)
 		{}
 
 		/** Label, placed before text entry box */
@@ -39,6 +40,9 @@ public:
 		/** Provide a alternative mechanism for error reporting. */
 		SLATE_ARGUMENT( TSharedPtr<class IErrorReportingWidget>, ErrorReporting )
 
+		/** When set, this widget will automatically attempt to set focus to itself when it is created, or when its owner window is activated */
+		SLATE_ARGUMENT( bool, AutoFocus )
+
 	SLATE_END_ARGS()
 
 	void Construct( const FArguments& InArgs );
@@ -62,6 +66,9 @@ protected:
 	TSharedPtr<class IErrorReportingWidget> ErrorReporting;
 
 private:
+	/** Called when AutoFocussing to automatically set focus to this widget */
+	EActiveTimerReturnType TickAutoFocus(double InCurrentTime, float InDeltaTime);
+
 	/** Widget that we want to be focused when the popup is shown  */
 	TSharedPtr<SWidget> WidgetWithDefaultFocus;
 };

@@ -19,6 +19,7 @@
 
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "EngineAnalytics.h"
+#include "AI/Navigation/NavCollision.h"
 
 #if WITH_PHYSX
 #include "Editor/UnrealEd/Private/EditorPhysXSupport.h"
@@ -45,8 +46,8 @@ namespace {
 	static float AmbientCubemapIntensity = 0.4f;
 }
 
-FStaticMeshEditorViewportClient::FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, TWeakPtr<SStaticMeshEditorViewport> InStaticMeshEditorViewport, FPreviewScene& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent)
-	: FEditorViewportClient(nullptr, &InPreviewScene)
+FStaticMeshEditorViewportClient::FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, const TSharedRef<SStaticMeshEditorViewport>& InStaticMeshEditorViewport, FPreviewScene& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent)
+	: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InStaticMeshEditorViewport))
 	, StaticMeshEditorPtr(InStaticMeshEditor)
 	, StaticMeshEditorViewportPtr(InStaticMeshEditorViewport)
 {
@@ -81,6 +82,7 @@ FStaticMeshEditorViewportClient::FStaticMeshEditorViewportClient(TWeakPtr<IStati
 	bDrawBinormals = false;
 	bShowPivot = false;
 	bDrawAdditionalData = true;
+	bDrawVertices = false;
 
 	bManipulating = false;
 
@@ -131,6 +133,22 @@ struct HSMESocketProxy : public HHitProxy
 		SocketIndex( InSocketIndex ) {}
 };
 IMPLEMENT_HIT_PROXY(HSMESocketProxy, HHitProxy);
+
+/**
+ * A hit proxy class for vertices.
+ */
+struct HSMEVertexProxy : public HHitProxy
+{
+	DECLARE_HIT_PROXY();
+
+	uint32		Index;
+
+	HSMEVertexProxy(uint32 InIndex)
+		: HHitProxy( HPP_UI )
+		, Index( InIndex )
+	{}
+};
+IMPLEMENT_HIT_PROXY(HSMEVertexProxy, HHitProxy);
 
 bool FStaticMeshEditorViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList::Type CurrentAxis, FVector& Drag, FRotator& Rot, FVector& Scale )
 {
@@ -468,7 +486,7 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 			const FColor CollisionColor = StaticMeshEditorPtr.Pin()->IsSelectedPrim(HitProxy->PrimData) ? SelectedColor : UnselectedColor;
 			const FKConvexElem& ConvexElem = AggGeom->ConvexElems[i];
 			const FTransform ElemTM = ConvexElem.GetTransform();
-			ConvexElem.DrawElemWire(PDI, ElemTM, CollisionColor);
+			ConvexElem.DrawElemWire(PDI, ElemTM, 1.f, CollisionColor);
 
 			PDI->SetHitProxy(NULL);
 		}
@@ -510,7 +528,7 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 	}
 
 
-	if( bDrawNormals || bDrawTangents || bDrawBinormals )
+	if( bDrawNormals || bDrawTangents || bDrawBinormals || bDrawVertices )
 	{
 		FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[StaticMeshEditorPtr.Pin()->GetCurrentLODIndex()];
 		FIndexArrayView Indices = LODModel.IndexBuffer.GetArrayView();
@@ -527,6 +545,8 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 			const FVector& Tangent = LODModel.VertexBuffer.VertexTangentX( Indices[i] ); 
 
 			const float Len = 5.0f;
+			const float BoxLen = 2.0f;
+			const FVector Box(BoxLen);
 
 			if( bDrawNormals )
 			{
@@ -541,6 +561,13 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 			if( bDrawBinormals )
 			{
 				PDI->DrawLine( WorldPos, WorldPos+LocalToWorldInverseTranspose.TransformVector( Binormal ).GetSafeNormal() * Len, FLinearColor( 0.0f, 0.0f, 1.0f), SDPG_World );
+			}
+
+			if( bDrawVertices )
+			{								
+				PDI->SetHitProxy(new HSMEVertexProxy(i));
+				DrawWireBox( PDI, FBox(VertexPos - Box, VertexPos + Box), FLinearColor(0.0f, 1.0f, 0.0f), SDPG_World );
+				PDI->SetHitProxy(NULL);								
 			}
 		}	
 	}
@@ -563,6 +590,15 @@ void FStaticMeshEditorViewportClient::Draw(const FSceneView* View,FPrimitiveDraw
 					(*UserDataArray)[AdditionalDataIndex]->Draw(PDI, View);
 				}
 			}
+		}
+
+		// The simple nav geometry is only used by dynamic obstacles for now
+		if (StaticMesh->NavCollision && StaticMesh->NavCollision->bIsDynamicObstacle)
+		{
+			// Draw the static mesh's body setup (simple collision)
+			FTransform GeomTransform(StaticMeshComponent->ComponentToWorld);
+			FColor NavCollisionColor = FColor(118, 84, 255, 255);
+			StaticMesh->NavCollision->DrawSimpleGeom(PDI, GeomTransform, FColorList::LimeGreen);
 		}
 	}
 }
@@ -691,7 +727,7 @@ void FStaticMeshEditorViewportClient::DrawCanvas( FViewport& InViewport, FSceneV
 	int32 CurrentLODLevel = StaticMeshEditor->GetCurrentLODLevel();
 	if (CurrentLODLevel == 0)
 	{
-		CurrentLODLevel = ComputeStaticMeshLOD(StaticMesh->RenderData, StaticMeshComponent->Bounds.Origin, StaticMeshComponent->Bounds.SphereRadius, View);
+		CurrentLODLevel = ComputeStaticMeshLOD(StaticMesh->RenderData, StaticMeshComponent->Bounds.Origin, StaticMeshComponent->Bounds.SphereRadius, View, StaticMesh->MinLOD);
 	}
 	else
 	{
@@ -853,6 +889,27 @@ void FStaticMeshEditorViewportClient::ProcessClick(class FSceneView& InView, cla
 			}
 
 			ClearSelectedPrims = false;
+		}
+		else if (IsSetShowSocketsChecked() && HitProxy->IsA(HSMEVertexProxy::StaticGetType()))
+		{
+			UStaticMeshSocket* Socket = StaticMeshEditorPtr.Pin()->GetSelectedSocket();
+
+			if (Socket)
+			{
+				HSMEVertexProxy* VertexProxy = (HSMEVertexProxy*)HitProxy;
+				TSharedPtr<IStaticMeshEditor> StaticMeshEditor = StaticMeshEditorPtr.Pin();
+				if (StaticMeshEditor.IsValid())
+				{
+					FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[StaticMeshEditor->GetCurrentLODIndex()];
+					FIndexArrayView Indices = LODModel.IndexBuffer.GetArrayView();
+					const uint32 Index = Indices[VertexProxy->Index];
+
+					Socket->RelativeLocation = LODModel.PositionVertexBuffer.VertexPosition(Index);
+					Socket->RelativeRotation = FRotationMatrix::MakeFromYZ(LODModel.VertexBuffer.VertexTangentZ(Index), LODModel.VertexBuffer.VertexTangentX(Index)).Rotator();
+
+					ClearSelectedSockets = false;
+				}
+			}
 		}
 	}
 	else
@@ -1216,6 +1273,21 @@ void FStaticMeshEditorViewportClient::SetShowBinormals()
 bool FStaticMeshEditorViewportClient::IsSetShowBinormalsChecked() const
 {
 	return bDrawBinormals;
+}
+
+void FStaticMeshEditorViewportClient::SetDrawVertices()
+{
+	bDrawVertices = !bDrawVertices;
+	if (FEngineAnalytics::IsAvailable())
+	{
+		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.Toolbar"), TEXT("bDrawVertices"), bDrawVertices ? TEXT("True") : TEXT("False"));
+	}
+	Invalidate();
+}
+
+bool FStaticMeshEditorViewportClient::IsSetDrawVerticesChecked() const
+{
+	return bDrawVertices;
 }
 
 void FStaticMeshEditorViewportClient::SetShowWireframeCollision()

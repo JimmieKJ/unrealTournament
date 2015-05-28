@@ -23,20 +23,34 @@ public abstract class BaseLinuxPlatform : Platform
 	{
 	}
 
+	public override List<string> GetExecutableNames(DeploymentContext SC, bool bIsRun = false)
+	{
+		List<string> Exes = base.GetExecutableNames(SC, bIsRun);
+		// replace the binary name to match what was staged
+		if (bIsRun && !SC.IsCodeBasedProject)
+		{
+			Exes[0] = CommandUtils.CombinePaths(SC.StageProjectRoot, "Binaries", SC.PlatformDir, SC.ShortProjectName);
+		}
+		return Exes;
+	}
+
 	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
 	{
+		// FIXME: use build architecture
+		string BuildArchitecture = "x86_64-unknown-linux-gnu";
+
 		if (SC.bStageCrashReporter)
 		{
-			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "CrashReportClient", false);
+			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "CrashReportClient", false, null, null, true);
 		}
 
 		{
-			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1/", SC.PlatformDir, "x86_64-unknown-linux-gnu"), Params.bDebugBuildsActuallyUseDebugCRT ? "*d.so*" : "*.so*", false, new[] { Params.bDebugBuildsActuallyUseDebugCRT ? "*.so*" : "*d.so*" }, CombinePaths("Engine/Binaries", SC.PlatformDir));
+			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1/", SC.PlatformDir, BuildArchitecture), Params.bDebugBuildsActuallyUseDebugCRT ? "*d.so*" : "*.so*", false, new[] { Params.bDebugBuildsActuallyUseDebugCRT ? "*.so*" : "*d.so*" }, CombinePaths("Engine/Binaries", SC.PlatformDir));
 		}
 
-		// assume that we always have to deploy Steam (FIXME: should be automatic)
+		// assume that we always have to deploy Steam (FIXME: should be automatic - UEPLAT-807)
 		{
-			string SteamVersion = "Steamv130";
+			string SteamVersion = "Steamv132";
 
 			// Check if the Steam directory exists. We need it for Steam controller support, so we include it whenever we can.
 			if (Directory.Exists(CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion)))
@@ -49,7 +63,13 @@ public abstract class BaseLinuxPlatform : Platform
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Config"), "PerfCounters.json", false, null, CommandUtils.CombinePaths(SC.RelativeProjectRootForStage, "Saved/Config"), true);
 		}
 
-		// assume that we always have to deploy OpenAL (FIXME: should be automatic)
+		// stage libLND (omit it for dedservers and Rocket - proper resolution is to use build receipts, see UEPLAT-807)
+		if (!SC.DedicatedServer && !GlobalCommandLine.Rocket)
+		{
+			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/LinuxNativeDialogs/", SC.PlatformDir, BuildArchitecture), "libLND*.so");
+		}
+
+		// assume that we always have to deploy OpenAL (FIXME: should be automatic - UEPLAT-807)
 		{
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/OpenAL/", SC.PlatformDir), "libopenal.so.1", false, null, CombinePaths("Engine/Binaries", SC.PlatformDir));
 		}
@@ -60,21 +80,7 @@ public abstract class BaseLinuxPlatform : Platform
         {
             if (SC.DedicatedServer)
             {
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
-                {
-                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-Linux-Shipping");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
-                {
-                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-Linux-Test");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
-                {
-                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server");
-                }
-
+                SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server*");
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "libUE4Server-*.so");
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins"), "libUE4Server-*.so", true, null, null, true);
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir), "libUE4Server-*.so");
@@ -82,21 +88,6 @@ public abstract class BaseLinuxPlatform : Platform
             }
             else
             {
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
-                {
-                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4-Linux-Shipping");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
-                {
-                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4-Linux-Test");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
-                {
-                    SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4");
-                }
-
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*");
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "libUE4-*.so");
                 SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Plugins"), "libUE4-*.so", true, null, null, true);
@@ -129,7 +120,7 @@ public abstract class BaseLinuxPlatform : Platform
 				    if (!Params.IsCodeBasedProject && Exe == Exes[0])
 				    {
 						// ensure the ue4game binary exists, if applicable
-						if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(Params.ProjectGameExeFilename))
+						if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(Params.ProjectGameExeFilename) && !SC.bIsCombiningMultiplePlatforms)
 						{
 							Log("Failed to find game binary " + Params.ProjectGameExeFilename);
 							AutomationTool.ErrorReporter.Error("Stage Failed.", (int)AutomationTool.ErrorCodes.Error_MissingExecutable);
@@ -368,9 +359,9 @@ chmod 700 $HOME/Desktop/{1}.desktop", DesiredGLVersion, SC.ShortProjectName, SC.
 			// Use key as password
 			ProjParams.DevicePassword = linuxKey;
 		}
-		else if (ProjParams.Deploy || ProjParams.Run)
+		else if ((ProjParams.Deploy || ProjParams.Run) && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Linux)
 		{
-			throw new AutomationException("must specify device for Linux target (-serverdevice=<ip>)");
+			throw new AutomationException("must specify device IP for remote Linux target (-serverdevice=<ip>)");
 		}
 	}
 	public override List<string> GetDebugFileExtentions()

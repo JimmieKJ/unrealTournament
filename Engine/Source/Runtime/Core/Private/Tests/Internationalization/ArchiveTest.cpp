@@ -6,7 +6,7 @@
 #include "Internationalization/InternationalizationMetadata.h"
 
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArchiveTest, "Core.Misc.Internationalization Archive", EAutomationTestFlags::ATF_SmokeTest)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FArchiveTest, "System.Core.Misc.Internationalization Archive", EAutomationTestFlags::ATF_SmokeTest)
 
 
 bool FArchiveTest::RunTest( const FString& Parameters )

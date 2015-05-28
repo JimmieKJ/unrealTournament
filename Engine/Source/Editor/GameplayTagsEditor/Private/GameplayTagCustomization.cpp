@@ -15,6 +15,9 @@ void FGameplayTagCustomization::CustomizeHeader(TSharedRef<class IPropertyHandle
 	TagContainer = MakeShareable(new FGameplayTagContainer);
 	StructPropertyHandle = InStructPropertyHandle;
 
+	FSimpleDelegate OnTagChanged = FSimpleDelegate::CreateSP(this, &FGameplayTagCustomization::OnPropertyValueChanged);
+	StructPropertyHandle->SetOnPropertyValueChanged(OnTagChanged);
+
 	BuildEditableContainerList();
 
 	HeaderRow
@@ -77,7 +80,29 @@ TSharedRef<SWidget> FGameplayTagCustomization::GetListContent()
 			.TagContainerName(StructPropertyHandle->GetPropertyDisplayName().ToString())
 			.MultiSelect(false)
 			.OnTagChanged(this, &FGameplayTagCustomization::OnTagChanged)
+			.PropertyHandle(StructPropertyHandle)
 		];
+}
+
+void FGameplayTagCustomization::OnPropertyValueChanged()
+{
+	TagName = TEXT("");
+	if (StructPropertyHandle.IsValid() && EditableContainers.Num() > 0)
+	{
+		TArray<void*> RawStructData;
+		StructPropertyHandle->AccessRawData(RawStructData);
+		if (RawStructData.Num() > 0)
+		{
+			FGameplayTag* Tag = (FGameplayTag*)(RawStructData[0]);
+			FGameplayTagContainer* Container = EditableContainers[0].TagContainer;			
+			if (Tag && Container)
+			{
+				Container->RemoveAllTags();
+				Container->AddTag(*Tag);
+				TagName = Tag->ToString();
+			}			
+		}
+	}
 }
 
 void FGameplayTagCustomization::OnTagChanged()
@@ -89,11 +114,11 @@ void FGameplayTagCustomization::OnTagChanged()
 		StructPropertyHandle->AccessRawData(RawStructData);
 		if (RawStructData.Num() > 0)
 		{
-			FGameplayTag* Tag = (FGameplayTag*)(RawStructData[0]);
+			FGameplayTag* Tag = (FGameplayTag*)(RawStructData[0]);			
 
 			// Update Tag from the one selected from list
 			FGameplayTagContainer* Container = EditableContainers[0].TagContainer;
-			if (Container)
+			if (Tag && Container)
 			{
 				for (auto It = Container->CreateConstIterator(); It; ++It)
 				{
@@ -107,7 +132,7 @@ void FGameplayTagCustomization::OnTagChanged()
 
 void FGameplayTagCustomization::PostUndo(bool bSuccess)
 {
-	if( bSuccess )
+	if (bSuccess && !StructPropertyHandle.IsValid())
 	{
 		OnTagChanged();
 	}
@@ -115,7 +140,7 @@ void FGameplayTagCustomization::PostUndo(bool bSuccess)
 
 void FGameplayTagCustomization::PostRedo(bool bSuccess)
 {
-	if( bSuccess )
+	if (bSuccess && !StructPropertyHandle.IsValid())
 	{
 		OnTagChanged();
 	}
@@ -144,7 +169,9 @@ void FGameplayTagCustomization::BuildEditableContainerList()
 			TagName = Tag->ToString();
 			TagContainer->AddTag(*Tag);
 		}
-		EditableContainers.Add(SGameplayTagWidget::FEditableGameplayTagContainerDatum(OuterObjects[0], TagContainer.Get()));
+
+		UObject* TagContainerOwner = OuterObjects.Num() ? OuterObjects[0] : nullptr;
+		EditableContainers.Add(SGameplayTagWidget::FEditableGameplayTagContainerDatum(TagContainerOwner, TagContainer.Get()));
 	}
 }
 

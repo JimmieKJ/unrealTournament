@@ -1515,11 +1515,11 @@ void FCurveEditorViewportClient::MoveSelectedKeys(float DeltaIn, float DeltaOut)
 			EdInterface->SetKeyOut(SelKey.SubIndex, SelKey.KeyIndex, NewOut);
 		}
 
-		FCurveEditorModKey TestKey(SelKey.CurveIndex, SelKey.KeyIndex);
+		FCurveEditorModKey KeyToTest(SelKey.CurveIndex, SelKey.KeyIndex);
 
 		// If there is a change in the Input, apply it.
 		// This is slightly complicated because it may change the index of the selected key, so we have to update the selection as we do it.
-		if(FMath::Abs<float>(DeltaIn) > 0.f && !MovedInKeys.Contains(TestKey))
+		if(FMath::Abs<float>(DeltaIn) > 0.f && !MovedInKeys.Contains(KeyToTest))
 		{
 			SelKey.UnsnappedIn += DeltaIn;
 			float NewIn = SnapIn(SelKey.UnsnappedIn);
@@ -1578,8 +1578,8 @@ void FCurveEditorViewportClient::MoveSelectedKeys(float DeltaIn, float DeltaOut)
 			}
 
 			// Remember we have adjusted the In of this key.
-			TestKey.KeyIndex = NewKeyIndex;
-			MovedInKeys.Add(TestKey);
+			KeyToTest.KeyIndex = NewKeyIndex;
+			MovedInKeys.Add(KeyToTest);
 		}
 	} // FOR each selected key
 

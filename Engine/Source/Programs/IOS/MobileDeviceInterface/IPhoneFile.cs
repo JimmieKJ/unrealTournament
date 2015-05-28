@@ -271,7 +271,10 @@ namespace Manzana
             if (ret != 0)
             {
                 phone.Reconnect();
-                throw new IOException("AFCFileRefOpen failed with error " + ret.ToString());
+				// error codes and their meaning
+				// 7 - bad path
+				// 18 - out of disk space
+                throw new IOException("AFCFileRefOpen (" + full_path + ") failed with error " + ret.ToString());
             }
 
             return new iPhoneFile(phone, handle, mode);

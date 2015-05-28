@@ -319,7 +319,7 @@ class UInterpTrackMove : public UInterpTrack
 	 *
 	 * @param bCopy	If subtracks are being added as a result of a copy
 	 */
-	virtual void CreateSubTracks( bool bCopy );
+	virtual void CreateSubTracks( bool bCopy ) override;
 
 	/**
 	 * Split this movment track in to seperate tracks for translation and rotation
@@ -333,7 +333,7 @@ class UInterpTrackMove : public UInterpTrack
 	 * @param bIntervalEnd		end of the key to reduce
 	 * @param Tolerance			tolerance
 	 */
-	virtual void ReduceKeys( float IntervalStart, float IntervalEnd, float Tolerance );
+	virtual void ReduceKeys( float IntervalStart, float IntervalEnd, float Tolerance ) override;
 };
 
 

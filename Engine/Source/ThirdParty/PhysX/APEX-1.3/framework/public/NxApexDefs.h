@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_APEX_DEFS_H
 #define NX_APEX_DEFS_H
@@ -53,9 +37,6 @@
  \def DYNAMIC_CAST
  \brief Determines use of dynamic_cast<> by APEX modules
 
- \def APEX_USE_GRB
- \brief Determines use of GPU Rigid Bodies by APEX modules
-
  \def APEX_USE_PARTICLES
  \brief Determines use of particle-related APEX modules
 
@@ -68,15 +49,10 @@
 #include "foundation/PxPreprocessor.h"
 
 #define NX_APEX_SDK_VERSION 1
-#define NX_APEX_SDK_RELEASE 0x01030100
+#define NX_APEX_SDK_RELEASE 0x01030300
 
 #if defined(PX_WINDOWS)
-	// CUDA does not currently have a VS2013 supported build.
-	#if _MSC_VER >= 1800
-		#define APEX_CUDA_SUPPORT 0
-	#else
-		#define APEX_CUDA_SUPPORT 1
-	#endif
+#define APEX_CUDA_SUPPORT 1
 #endif
 
 
@@ -84,12 +60,6 @@
 #define DYNAMIC_CAST(type) dynamic_cast<type>
 #else
 #define DYNAMIC_CAST(type) static_cast<type>
-#endif
-
-#if NX_SDK_VERSION_NUMBER >= 281 && defined(PX_WINDOWS) && NX_SDK_VERSION_MAJOR >= 2
-#define APEX_USE_GRB 1
-#else
-#define APEX_USE_GRB 0
 #endif
 
 #if defined(PX_WINDOWS)

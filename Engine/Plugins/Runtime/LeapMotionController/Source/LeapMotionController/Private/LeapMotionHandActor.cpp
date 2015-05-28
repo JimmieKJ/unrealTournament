@@ -29,7 +29,12 @@ ALeapMotionBoneActor* ALeapMotionHandActor::GetBoneActor(ELeapBone LeapBone) con
 {
 	if (BoneActors.Num())
 	{
-		return BoneActors[(int)LeapBone - 1 + bShowArm];
+		bool HasArm = (BoneActors.Num() == int(ELeapBone::Finger4Tip) + 1);
+		int Index = (int)LeapBone - 1 + HasArm;
+		if (0 <= Index && Index < BoneActors.Num())
+		{
+			return BoneActors[Index];
+		}
 	}
 	return nullptr;
 }
@@ -116,11 +121,12 @@ void ALeapMotionHandActor::CreateBones(const TSubclassOf<class ALeapMotionBoneAc
 			Success &= Device->GetBoneWidthAndLength(HandId, LeapBone, Width, Length);
 			if (Success)
 			{
-				FQuat RefQuat = GetRootComponent()->GetComponentRotation().Quaternion();
+				const FQuat RefQuat = GetRootComponent()->GetComponentQuat();
 				Position = RefQuat * Position * CombinedScale + GetRootComponent()->GetComponentLocation();
 				Orientation = (RefQuat * Orientation.Quaternion()).Rotator();
 
-				ALeapMotionBoneActor* BoneActor = GWorld->SpawnActor<ALeapMotionBoneActor>(BoneBlueprint ? BoneBlueprint : ALeapMotionBoneActor::StaticClass(), Position, Orientation, SpawnParams);
+				UClass* BoneBlueprintClass = BoneBlueprint;
+				ALeapMotionBoneActor* BoneActor = GetWorld()->SpawnActor<ALeapMotionBoneActor>(BoneBlueprintClass != nullptr ? BoneBlueprintClass : ALeapMotionBoneActor::StaticClass(), Position, Orientation, SpawnParams);
 				if (BoneActor) 
 				{
 					BoneActors.Add(BoneActor);
@@ -164,7 +170,7 @@ void ALeapMotionHandActor::UpdateBones(float DeltaSeconds)
 			if (Success)
 			{
 				// Offset target position & rotation by the SpawnReference actor's transform
-				FQuat RefQuat = GetRootComponent()->GetComponentRotation().Quaternion();
+				const FQuat RefQuat = GetRootComponent()->GetComponentQuat();
 				TargetPosition = RefQuat * TargetPosition * CombinedScale + GetRootComponent()->GetComponentLocation();
 				TargetOrientation = (RefQuat * TargetOrientation.Quaternion()).Rotator();
 

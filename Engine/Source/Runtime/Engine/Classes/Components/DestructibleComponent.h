@@ -22,14 +22,10 @@ namespace physx
 /** Mapping info for destructible chunk user data. */
 struct FDestructibleChunkInfo
 {
-	/** Index of this chunk info */
-	int32 Index;
 	/** Index of the chunk this data belongs to*/
 	int32 ChunkIndex;
 	/** Component owning this chunk info*/
 	TWeakObjectPtr<class UDestructibleComponent> OwningComponent;
-	/** Physx actor */
-	physx::PxRigidDynamic* Actor;
 };
 #endif // WITH_PHYSX 
 
@@ -75,7 +71,7 @@ class ENGINE_API UDestructibleComponent : public USkinnedMeshComponent
 
 #if WITH_PHYSX
 	/** Per chunk info */
-	TIndirectArray<FDestructibleChunkInfo> ChunkInfos;
+	TArray<FDestructibleChunkInfo> ChunkInfos;
 #endif // WITH_PHYSX 
 
 #if WITH_EDITOR
@@ -129,15 +125,17 @@ public:
 
 	virtual void AddImpulse(FVector Impulse, FName BoneName = NAME_None, bool bVelChange = false) override;
 	virtual void AddImpulseAtLocation(FVector Impulse, FVector Position, FName BoneName = NAME_None) override;
-	virtual void AddForce(FVector Force, FName BoneName = NAME_None) override;
+	virtual void AddForce(FVector Force, FName BoneName = NAME_None, bool bAccelChange = false) override;
 	virtual void AddForceAtLocation(FVector Force, FVector Location, FName BoneName = NAME_None) override;
 	virtual void AddRadialImpulse(FVector Origin, float Radius, float Strength, ERadialImpulseFalloff Falloff, bool bVelChange=false) override;
-	virtual void AddRadialForce(FVector Origin, float Radius, float Strength, ERadialImpulseFalloff Falloff) override;
+	virtual void AddRadialForce(FVector Origin, float Radius, float Strength, ERadialImpulseFalloff Falloff, bool bAccelChange = false) override;
 	virtual void ReceiveComponentDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 
 	virtual bool LineTraceComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FCollisionQueryParams& Params ) override;
 	virtual bool SweepComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FCollisionShape& CollisionShape, bool bTraceComplex=false) override;
 	virtual void SetEnableGravity(bool bGravityEnabled) override;
+
+	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* Material) override;
 	// End UPrimitiveComponent interface.
 
 	// Begin SkinnedMeshComponent interface.
@@ -162,6 +160,9 @@ public:
 	
 	/** Resets the BodyInstance to the state that is defined in PrevState. */
 	void ResetFakeBodyInstance(FFakeBodyInstanceState& PrevState);
+
+	/** Setup a pair of PxShape and ChunkIndex */
+	void Pair( int32 ChunkIndex, physx::PxShape* PShape );
 #endif // WITH_APEX
 
 	/** This method makes a chunk (fractured piece) visible or invisible.
@@ -177,7 +178,7 @@ public:
 	 *  @param ActiveActors - The array of actors that need their transforms updated
 	 *
      */
-	static void UpdateDestructibleChunkTM(TArray<const physx::PxRigidActor*> ActiveActors);
+	static void UpdateDestructibleChunkTM(const TArray<const physx::PxRigidActor*>& ActiveActors);
 #endif
 
 
@@ -202,7 +203,7 @@ public:
 
 	// End DestructibleComponent interface.
 
-	virtual bool DoCustomNavigableGeometryExport(struct FNavigableGeometryExport* GeomExport) const override;
+	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 
 	FORCEINLINE static int32 ChunkIdxToBoneIdx(int32 ChunkIdx) { return ChunkIdx + 1; }
 	FORCEINLINE static int32 BoneIdxToChunkIdx(int32 BoneIdx) { return FMath::Max(BoneIdx - 1, 0); }
@@ -219,6 +220,8 @@ private:
 
 	void SetChunksWorldTM(const TArray<FUpdateChunksInfo>& UpdateInfos);
 
+	bool IsFracturedOrInitiallyStatic() const;
+
 	/** Collision response used for chunks */
 	FCollisionResponse LargeChunkCollisionResponse;
 	FCollisionResponse SmallChunkCollisionResponse;
@@ -226,10 +229,15 @@ private:
 	/** User data wrapper for this component passed to physx */
 	FPhysxUserData PhysxUserData;
 
+	void SetCollisionResponseForShape(physx::PxShape* Shape, int32 ChunkIdx);
+	void SetCollisionResponseForActor(physx::PxRigidDynamic* Actor, int32 ChunkIdx, const FCollisionResponseContainer* ResponseOverride = NULL);
+	void SetCollisionResponseForAllActors(const FCollisionResponseContainer& ResponseOverride);
+
+
+public:
 	/** User data wrapper for the chunks passed to physx */
-	TIndirectArray<FPhysxUserData> PhysxChunkUserData;
+	TArray<FPhysxUserData> PhysxChunkUserData;
 	bool IsChunkLarge(int32 ChunkIdx) const;
-	void SetCollisionResponseForActor(physx::PxRigidDynamic* Actor, int32 ChunkIdx);
 #endif
 };
 

@@ -147,6 +147,7 @@ public:
 	static FORCEINLINE bool HasHardwareHiddenSurfaceRemoval()			{ return false; }
 	static FORCEINLINE bool AmdWorkaround()								{ return false; }
 	static FORCEINLINE bool SupportsSeparateShaderObjects()				{ return false; }
+	static FORCEINLINE bool NeedsVertexAttribRemapTable()				{ return false; }
 
 	static FORCEINLINE GLenum GetDepthFormat()							{ return GL_DEPTH_COMPONENT16; }
 	static FORCEINLINE GLenum GetShadowDepthFormat()					{ return GL_DEPTH_COMPONENT16; }
@@ -169,6 +170,7 @@ public:
 	static FORCEINLINE GLint GetFirstComputeTextureUnit()		{ return 0; }
 	static FORCEINLINE GLint GetFirstComputeUAVUnit()			{ return 0; }
 
+	static FORCEINLINE GLint GetMaxVaryingVectors()				{ check(MaxVaryingVectors != -1); return MaxVaryingVectors; }
 	static FORCEINLINE GLint GetMaxPixelUniformComponents()		{ check(MaxPixelUniformComponents != -1); return MaxPixelUniformComponents; }
 	static FORCEINLINE GLint GetMaxVertexUniformComponents()	{ check(MaxVertexUniformComponents != -1); return MaxVertexUniformComponents; }
 	static FORCEINLINE GLint GetMaxGeometryUniformComponents()	{ check(MaxGeometryUniformComponents != -1); return MaxGeometryUniformComponents; }
@@ -332,7 +334,7 @@ public:
 		GLenum CompleteResult = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 		if (CompleteResult != GL_FRAMEBUFFER_COMPLETE)
 		{
-			UE_LOG(LogRHI, Fatal,TEXT("Framebuffer not complete. Status = 0x%x"), CompleteResult);
+				UE_LOG(LogRHI, Fatal,TEXT("Framebuffer not complete. Status = 0x%x"), CompleteResult);
 		}
 #endif 
 	}
@@ -357,6 +359,7 @@ protected:
 	static GLint MaxGeometryUniformComponents;
 	static GLint MaxHullUniformComponents;
 	static GLint MaxDomainUniformComponents;
+	static GLint MaxVaryingVectors;
 
 	/** GL_KHR_texture_compression_astc_ldr */
 	static bool bSupportsASTC;

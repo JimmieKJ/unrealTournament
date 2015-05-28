@@ -2,6 +2,7 @@
 
 
 #pragma once
+#include "CurveBase.h"
 #include "CurveVector.generated.h"
 
 UCLASS(BlueprintType, MinimalAPI)

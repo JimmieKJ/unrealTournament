@@ -2,7 +2,7 @@
 
 #pragma once
 
-class UUserWidget;
+#include "UserWidget.h"
 
 /**
  * The SObjectWidet allows UMG to insert an SWidget into the hierarchy that manages the lifetime of the
@@ -30,9 +30,10 @@ class SObjectWidget : public SCompoundWidget, public FGCObject
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 	// End of FGCObject interface
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 
+	virtual bool IsInteractable() const override;
 	virtual bool SupportsKeyboardFocus() const override;
 
 	virtual FReply OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent) override;
@@ -69,7 +70,17 @@ class SObjectWidget : public SCompoundWidget, public FGCObject
 	virtual FReply OnTouchEnded(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent) override;
 	virtual FReply OnMotionDetected(const FGeometry& MyGeometry, const FMotionEvent& InMotionEvent) override;
 
+	virtual FNavigationReply OnNavigation(const FGeometry& MyGeometry, const FNavigationEvent& InNavigationEvent) override;
+
 private:
+
 	/** The UWidget that created this SObjectWidget who needs to be kept alive. */
 	UUserWidget* WidgetObject;
+
+private:
+
+	FORCEINLINE bool CanRouteEvent() const
+	{
+		return WidgetObject && WidgetObject->CanSafelyRouteEvent();
+	}
 };

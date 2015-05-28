@@ -9,6 +9,7 @@ class AAIController;
 class UNavigationQueryFilter;
 struct FAIMessage;
 
+UENUM()
 namespace EPawnActionMoveMode
 {
 	enum Type
@@ -47,6 +48,10 @@ protected:
 	UPROPERTY()
 	uint32 bUsePathfinding : 1;
 
+	/** if set, use incomplete path when goal can't be reached */
+	UPROPERTY()
+	uint32 bAllowPartialPath : 1;
+
 	/** if set, GoalLocation will be projected on navigation before using  */
 	UPROPERTY()
 	uint32 bProjectGoalToNavigation : 1;
@@ -71,7 +76,7 @@ public:
 	virtual void HandleAIMessage(UBrainComponent*, const FAIMessage&) override;
 
 	void SetPath(FNavPathSharedRef InPath);
-	void OnPathUpdated(FNavigationPath* UpdatedPath, ENavPathEvent::Type Event);
+	virtual void OnPathUpdated(FNavigationPath* UpdatedPath, ENavPathEvent::Type Event);
 
 	void SetAcceptableRadius(float NewAcceptableRadius) { AcceptableRadius = NewAcceptableRadius; }
 	void SetFinishOnOverlap(bool bNewFinishOnOverlap) { bFinishOnOverlap = bNewFinishOnOverlap; }
@@ -85,7 +90,6 @@ protected:
 	/** currently followed path */
 	FNavPathSharedPtr Path;
 
-	FNavigationPath::FPathObserverDelegate::FDelegate PathObserver;
 	FDelegateHandle PathObserverDelegateHandle;
 	
 	/** Handle for efficient management of DeferredPerformMoveAction timer */

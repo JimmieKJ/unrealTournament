@@ -187,6 +187,28 @@ struct FLandscapeImportLayer : public FLandscapeImportLayerInfo
 	}
 };
 
+USTRUCT()
+struct FLandscapePatternBrushWorldSpaceSettings
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(Category="World-Space", EditAnywhere)
+	FVector2D Origin;
+
+	UPROPERTY(Category = "World-Space", EditAnywhere, Meta = (ClampMin = "-360", ClampMax = "360", UIMin = "-180", UIMax = "180"))
+	float Rotation;
+
+	// if true, the texture used for the pattern is centered on the PatternOrigin.
+	// if false, the corner of the texture is placed at the PatternOrigin
+	UPROPERTY(Category = "World-Space", EditAnywhere)
+	bool bCenterTextureOnOrigin;
+
+	UPROPERTY(Category = "World-Space", EditAnywhere)
+	float RepeatSize;
+
+	FLandscapePatternBrushWorldSpaceSettings() = default;
+};
+
 UCLASS()
 class ULandscapeEditorObject : public UObject
 {
@@ -197,7 +219,7 @@ class ULandscapeEditorObject : public UObject
 
 	// Common Tool Settings:
 
-	// Strength of the tool
+	// Strength of the tool. If you're using a pen/tablet with pressure-sensing, the pressure used affects the strength of the tool.
 	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(ShowForTools="Paint,Sculpt,Smooth,Flatten,Erosion,HydraErosion,Noise,Mask,CopyPaste", ClampMin="0", ClampMax="10", UIMin="0", UIMax="1"))
 	float ToolStrength;
 
@@ -206,7 +228,7 @@ class ULandscapeEditorObject : public UObject
 	bool bUseWeightTargetValue;
 
 	// Enable to make tools blend towards a target value
-	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Use Target Value", editcondition="bUseWeightTargetValue", ShowForTools="Paint,Sculpt,Noise", ClampMin="0", ClampMax="10", UIMin="0", UIMax="1"))
+	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Use Target Value", EditCondition="bUseWeightTargetValue", ShowForTools="Paint,Sculpt,Noise", ClampMin="0", ClampMax="10", UIMin="0", UIMax="1"))
 	float WeightTargetValue;
 
 	// I have no idea what this is for but it's used by the noise and erosion tools, and isn't exposed to the UI
@@ -232,11 +254,11 @@ class ULandscapeEditorObject : public UObject
 	bool bUseFlattenTarget;
 
 	// Target height to flatten towards (in Unreal Units)
-	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(ShowForTools="Flatten", ShowForTargetTypes="Heightmap", editcondition="bUseFlattenTarget", UIMin="-32768", UIMax="32768"))
+	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(ShowForTools="Flatten", ShowForTargetTypes="Heightmap", EditCondition="bUseFlattenTarget", UIMin="-32768", UIMax="32768"))
 	float FlattenTarget;
 
 	// Whether to show the preview grid for the flatten target height
-	UPROPERTY(Category = "Tool Settings", EditAnywhere, NonTransactional, AdvancedDisplay, meta = (DisplayName = "Show Preview Grid", ShowForTools = "Flatten", ShowForTargetTypes = "Heightmap", editcondition = "bUseFlattenTarget", HideEditConditionToggle, UIMin = "-32768", UIMax = "32768"))
+	UPROPERTY(Category = "Tool Settings", EditAnywhere, NonTransactional, AdvancedDisplay, meta = (DisplayName = "Show Preview Grid", ShowForTools = "Flatten", ShowForTargetTypes = "Heightmap", EditCondition = "bUseFlattenTarget", HideEditConditionToggle, UIMin = "-32768", UIMax = "32768"))
 	bool bShowFlattenTargetPreview;
 
 	// Ramp Tool:
@@ -261,7 +283,7 @@ class ULandscapeEditorObject : public UObject
 	bool bDetailSmooth;
 
 	// Larger detail smoothing values remove more details, while smaller values preserve more details
-	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Detail Smooth", editcondition="bDetailSmooth", ShowForTools="Smooth", ClampMin="0", ClampMax="0.99"))
+	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Detail Smooth", EditCondition="bDetailSmooth", ShowForTools="Smooth", ClampMin="0", ClampMax="0.99"))
 	float DetailScale;
 
 	// Erosion Tool:
@@ -313,7 +335,7 @@ class ULandscapeEditorObject : public UObject
 	bool bHErosionDetailSmooth;
 
 	// Larger detail smoothing values remove more details, while smaller values preserve more details
-	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Detail Smooth", editcondition="bHErosionDetailSmooth", ShowForTools="HydraErosion", ClampMin="0", ClampMax="0.99"))
+	UPROPERTY(Category="Tool Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Detail Smooth", EditCondition="bHErosionDetailSmooth", ShowForTools="HydraErosion", ClampMin="0", ClampMax="0.99"))
 	float HErosionDetailScale;
 
 	// Noise Tool:
@@ -472,6 +494,12 @@ class ULandscapeEditorObject : public UObject
 	UPROPERTY(Category="Brush Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Texture Pan V", ShowForBrushes="BrushSet_Pattern", ClampMin="0", ClampMax="1"))
 	float AlphaBrushPanV;
 
+	UPROPERTY(Category = "Brush Settings", EditAnywhere, NonTransactional, meta = (DisplayName = "Use World-Space", ShowForBrushes = "BrushSet_Pattern"))
+	bool bUseWorldSpacePatternBrush;
+
+	UPROPERTY(Category = "Brush Settings", EditAnywhere, NonTransactional, meta = (DisplayName = "World-Space Settings", ShowForBrushes = "BrushSet_Pattern", EditCondition = "bUseWorldSpacePatternBrush"))
+	FLandscapePatternBrushWorldSpaceSettings WorldSpacePatternBrushSettings;
+
 	// Mask texture to use
 	UPROPERTY(Category="Brush Settings", EditAnywhere, NonTransactional, meta=(DisplayName="Texture", ShowForBrushes="BrushSet_Alpha,BrushSet_Pattern"))
 	UTexture2D* AlphaTexture;
@@ -527,12 +555,22 @@ class ULandscapeEditorObject : public UObject
 	void ClearImportLandscapeData() { ImportLandscape_Data.Empty(); }
 
 	void RefreshImportLayersList();
+	
+	int32 ClampLandscapeSize(int32 InComponenetsCount) const
+	{
+		// Max size is either whole components below 8192 verts, or 32 components 
+		return FMath::Clamp(InComponenetsCount, 1, FMath::Min(32, FMath::FloorToInt(8191 / (NewLandscape_SectionsPerComponent * NewLandscape_QuadsPerSection))));
+	}
+	
+	int32 CalcComponentsCount(int32 InResolution) const
+	{
+		return ClampLandscapeSize(InResolution / (NewLandscape_SectionsPerComponent * NewLandscape_QuadsPerSection));
+	}
 
 	void NewLandscape_ClampSize()
 	{
-		// Max size is either whole components below 8192 verts, or 32 components
-		NewLandscape_ComponentCount.X = FMath::Clamp(NewLandscape_ComponentCount.X, 1, FMath::Min(32, FMath::FloorToInt(8191 / (NewLandscape_SectionsPerComponent * NewLandscape_QuadsPerSection))));
-		NewLandscape_ComponentCount.Y = FMath::Clamp(NewLandscape_ComponentCount.Y, 1, FMath::Min(32, FMath::FloorToInt(8191 / (NewLandscape_SectionsPerComponent * NewLandscape_QuadsPerSection))));
+		NewLandscape_ComponentCount.X = ClampLandscapeSize(NewLandscape_ComponentCount.X);
+		NewLandscape_ComponentCount.Y = ClampLandscapeSize(NewLandscape_ComponentCount.Y);
 	}
 
 	void UpdateComponentCount()

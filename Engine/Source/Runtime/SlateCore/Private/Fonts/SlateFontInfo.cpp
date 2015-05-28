@@ -27,6 +27,10 @@ FSlateFontInfo::FSlateFontInfo( TSharedPtr<const FCompositeFont> InCompositeFont
 	, FontName_DEPRECATED()
 	, Hinting_DEPRECATED(EFontHinting::Default)
 {
+	if (!InCompositeFont.IsValid())
+	{
+		UE_LOG(LogSlate, Warning, TEXT("FSlateFontInfo was constructed with a null FCompositeFont. Slate will be forced to use the fallback font path which may be slower."));
+	}
 }
 
 
@@ -38,6 +42,18 @@ FSlateFontInfo::FSlateFontInfo( const UObject* InFontObject, const int32 InSize,
 	, FontName_DEPRECATED()
 	, Hinting_DEPRECATED(EFontHinting::Default)
 {
+	if (InFontObject)
+	{
+		const IFontProviderInterface* FontProvider = Cast<const IFontProviderInterface>(InFontObject);
+		if (!FontProvider || !FontProvider->GetCompositeFont())
+		{
+			UE_LOG(LogSlate, Warning, TEXT("'%s' does not provide a composite font that can be used with Slate. Slate will be forced to use the fallback font path which may be slower."), *InFontObject->GetName());
+		}
+	}
+	else
+	{
+		UE_LOG(LogSlate, Warning, TEXT("FSlateFontInfo was constructed with a null UFont. Slate will be forced to use the fallback font path which may be slower."));
+	}
 }
 
 
@@ -112,7 +128,8 @@ const FCompositeFont* FSlateFontInfo::GetCompositeFont() const
 	const IFontProviderInterface* FontProvider = Cast<const IFontProviderInterface>(FontObject);
 	if (FontProvider)
 	{
-		return FontProvider->GetCompositeFont();
+		const FCompositeFont* const ProvidedCompositeFont = FontProvider->GetCompositeFont();
+		return (ProvidedCompositeFont) ? ProvidedCompositeFont : FLegacySlateFontInfoCache::Get().GetFallbackFont().Get();
 	}
 
 	if (CompositeFont.IsValid())
@@ -120,7 +137,7 @@ const FCompositeFont* FSlateFontInfo::GetCompositeFont() const
 		return CompositeFont.Get();
 	}
 
-	return nullptr;
+	return FLegacySlateFontInfoCache::Get().GetFallbackFont().Get();
 }
 
 

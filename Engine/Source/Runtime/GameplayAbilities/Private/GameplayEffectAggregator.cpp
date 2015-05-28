@@ -51,9 +51,9 @@ float FAggregator::EvaluateWithBase(float InlineBaseValue, const FAggregatorEval
 		}
 	}
 
-	float Additive = SumMods(Mods[EGameplayModOp::Additive], 0.f, Parameters);
-	float Multiplicitive = SumMods(Mods[EGameplayModOp::Multiplicitive], 1.f, Parameters);
-	float Division = SumMods(Mods[EGameplayModOp::Division], 1.f, Parameters);
+	float Additive = SumMods(Mods[EGameplayModOp::Additive], GameplayEffectUtilities::GetModifierBiasByModifierOp(EGameplayModOp::Additive), Parameters);
+	float Multiplicitive = SumMods(Mods[EGameplayModOp::Multiplicitive], GameplayEffectUtilities::GetModifierBiasByModifierOp(EGameplayModOp::Multiplicitive), Parameters);
+	float Division = SumMods(Mods[EGameplayModOp::Division], GameplayEffectUtilities::GetModifierBiasByModifierOp(EGameplayModOp::Division), Parameters);
 
 	if (FMath::IsNearlyZero(Division))
 	{
@@ -75,9 +75,9 @@ float FAggregator::ReverseEvaluate(float FinalValue, const FAggregatorEvaluatePa
 		}
 	}
 
-	float Additive = SumMods(Mods[EGameplayModOp::Additive], 0.f, Parameters);
-	float Multiplicitive = SumMods(Mods[EGameplayModOp::Multiplicitive], 1.f, Parameters);
-	float Division = SumMods(Mods[EGameplayModOp::Division], 1.f, Parameters);
+	float Additive = SumMods(Mods[EGameplayModOp::Additive], GameplayEffectUtilities::GetModifierBiasByModifierOp(EGameplayModOp::Additive), Parameters);
+	float Multiplicitive = SumMods(Mods[EGameplayModOp::Multiplicitive], GameplayEffectUtilities::GetModifierBiasByModifierOp(EGameplayModOp::Multiplicitive), Parameters);
+	float Division = SumMods(Mods[EGameplayModOp::Division], GameplayEffectUtilities::GetModifierBiasByModifierOp(EGameplayModOp::Division), Parameters);
 
 	if (FMath::IsNearlyZero(Division))
 	{
@@ -151,11 +151,11 @@ void FAggregator::ExecModOnBaseValue(TEnumAsByte<EGameplayModOp::Type> ModifierO
 	BroadcastOnDirty();
 }
 
-float FAggregator::SumMods(const TArray<FAggregatorMod> &Mods, float Bias, const FAggregatorEvaluateParameters& Parameters) const
+float FAggregator::SumMods(const TArray<FAggregatorMod> &InMods, float Bias, const FAggregatorEvaluateParameters& Parameters) const
 {
 	float Sum = Bias;
 
-	for (const FAggregatorMod& Mod : Mods)
+	for (const FAggregatorMod& Mod : InMods)
 	{
 		if (Mod.Qualifies(Parameters))
 		{
@@ -166,7 +166,7 @@ float FAggregator::SumMods(const TArray<FAggregatorMod> &Mods, float Bias, const
 	return Sum;
 }
 
-void FAggregator::AddMod(float EvaluatedMagnitude, TEnumAsByte<EGameplayModOp::Type> ModifierOp, const FGameplayTagRequirements* SourceTagReqs, const FGameplayTagRequirements* TargetTagReqs, bool IsPredicted, FActiveGameplayEffectHandle ActiveHandle)
+void FAggregator::AddAggregatorMod(float EvaluatedMagnitude, TEnumAsByte<EGameplayModOp::Type> ModifierOp, const FGameplayTagRequirements* SourceTagReqs, const FGameplayTagRequirements* TargetTagReqs, bool IsPredicted, FActiveGameplayEffectHandle ActiveHandle)
 {
 	TArray<FAggregatorMod> &ModList = Mods[ModifierOp];
 
@@ -180,12 +180,14 @@ void FAggregator::AddMod(float EvaluatedMagnitude, TEnumAsByte<EGameplayModOp::T
 	NewMod.IsPredicted = IsPredicted;
 
 	if (IsPredicted)
+	{
 		NumPredictiveMods++;
+	}
 
 	BroadcastOnDirty();
 }
 
-void FAggregator::RemoveMod(FActiveGameplayEffectHandle ActiveHandle)
+void FAggregator::RemoveAggregatorMod(FActiveGameplayEffectHandle ActiveHandle)
 {
 	if (ActiveHandle.IsValid())
 	{
@@ -206,9 +208,14 @@ void FAggregator::AddModsFrom(const FAggregator& SourceAggregator)
 	}
 }
 
-void FAggregator::AddDependant(FActiveGameplayEffectHandle Handle)
+void FAggregator::AddDependent(FActiveGameplayEffectHandle Handle)
 {
-	Dependants.Add(Handle);
+	Dependents.Add(Handle);
+}
+
+void FAggregator::RemoveDependent(FActiveGameplayEffectHandle Handle)
+{
+	Dependents.Remove(Handle);
 }
 
 bool FAggregator::HasPredictedMods() const
@@ -216,18 +223,20 @@ bool FAggregator::HasPredictedMods() const
 	return NumPredictiveMods > 0;
 }
 
-void FAggregator::RemoveModsWithActiveHandle(TArray<FAggregatorMod>& Mods, FActiveGameplayEffectHandle ActiveHandle)
+void FAggregator::RemoveModsWithActiveHandle(TArray<FAggregatorMod>& InMods, FActiveGameplayEffectHandle ActiveHandle)
 {
 	check(ActiveHandle.IsValid());
 
-	for(int32 idx=Mods.Num()-1; idx >= 0; --idx)
+	for(int32 idx=InMods.Num()-1; idx >= 0; --idx)
 	{
-		if (Mods[idx].ActiveHandle == ActiveHandle)
+		if (InMods[idx].ActiveHandle == ActiveHandle)
 		{
-			if (Mods[idx].IsPredicted)
+			if (InMods[idx].IsPredicted)
+			{
 				NumPredictiveMods--;
+			}
 
-			Mods.RemoveAtSwap(idx, 1, false);
+			InMods.RemoveAtSwap(idx, 1, false);
 		}
 	}
 }
@@ -243,8 +252,8 @@ void FAggregator::TakeSnapshotOf(const FAggregator& AggToSnapshot)
 
 void FAggregator::BroadcastOnDirty()
 {
-	// If we are batching on Dirty calls (and we actually have dependants registered with us) then early out.
-	if (FScopedAggregatorOnDirtyBatch::GlobalBatchCount > 0 && (Dependants.Num() > 0 || OnDirty.IsBound()))
+	// If we are batching on Dirty calls (and we actually have dependents registered with us) then early out.
+	if (FScopedAggregatorOnDirtyBatch::GlobalBatchCount > 0 && (Dependents.Num() > 0 || OnDirty.IsBound()))
 	{
 		FScopedAggregatorOnDirtyBatch::DirtyAggregators.Add(this);
 		return;
@@ -253,7 +262,7 @@ void FAggregator::BroadcastOnDirty()
 	if (IsBroadcastingDirty)
 	{
 		// Apologies for the vague warning but its very hard from this spot to call out what data has caused this. If this frequently happens we should improve this.
-		ABILITY_LOG(Warning, TEXT("FAggregator detected cyclic attribute dependancies. We are skipping a recursive dirty call. Its possible the resulting attribute values are not what you expect!"));
+		ABILITY_LOG(Warning, TEXT("FAggregator detected cyclic attribute dependencies. We are skipping a recursive dirty call. Its possible the resulting attribute values are not what you expect!"));
 		return;
 	}
 
@@ -262,17 +271,17 @@ void FAggregator::BroadcastOnDirty()
 	OnDirty.Broadcast(this);
 
 
-	TArray<FActiveGameplayEffectHandle>	ValidDependants;
-	for (FActiveGameplayEffectHandle Handle : Dependants)
+	TArray<FActiveGameplayEffectHandle>	ValidDependents;
+	for (FActiveGameplayEffectHandle Handle : Dependents)
 	{
 		UAbilitySystemComponent* ASC = Handle.GetOwningAbilitySystemComponent();
 		if (ASC)
 		{
-			ASC->OnMagnitudeDependancyChange(Handle, this);
-			ValidDependants.Add(Handle);
+			ASC->OnMagnitudeDependencyChange(Handle, this);
+			ValidDependents.Add(Handle);
 		}
 	}
-	Dependants = ValidDependants;
+	Dependents = ValidDependents;
 
 }
 
@@ -315,11 +324,12 @@ void FScopedAggregatorOnDirtyBatch::EndLock()
 	GlobalBatchCount--;
 	if (GlobalBatchCount == 0)
 	{
-		for (FAggregator* Agg : DirtyAggregators)
+		TSet<FAggregator*> LocalSet(MoveTemp(DirtyAggregators));
+		for (FAggregator* Agg : LocalSet)
 		{
 			Agg->BroadcastOnDirty();
 		}
-		DirtyAggregators.Empty();
+		LocalSet.Empty();
 	}
 }
 

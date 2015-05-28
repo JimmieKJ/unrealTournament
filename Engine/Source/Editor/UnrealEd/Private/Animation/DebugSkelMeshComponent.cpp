@@ -88,6 +88,10 @@ UDebugSkelMeshComponent::UDebugSkelMeshComponent(const FObjectInitializer& Objec
 	bMeshSocketsVisible = true;
 	bSkeletonSocketsVisible = true;
 
+	TurnTableSpeedScaling = 1.f;
+	PlaybackSpeedScaling = 1.f;
+	TurnTableMode = EPersonaTurnTableMode::Stopped;
+
 #if WITH_APEX_CLOTHING
 	SectionsDisplayMode = ESectionDisplayMode::None;
 	// always shows cloth morph target when previewing in editor
@@ -172,7 +176,7 @@ void UDebugSkelMeshComponent::ConsumeRootMotion(const FVector& FloorMin, const F
 
 	if (UAnimInstance* AnimInst = GetAnimInstance())
 	{
-		ExtractedRootMotion = AnimInst->ConsumeExtractedRootMotion();
+		ExtractedRootMotion = AnimInst->ConsumeExtractedRootMotion(1.f);
 	}
 
 	if (bPreviewRootMotion)
@@ -192,7 +196,14 @@ void UDebugSkelMeshComponent::ConsumeRootMotion(const FVector& FloorMin, const F
 	}
 	else
 	{
-		SetWorldTransform(FTransform());
+		if (TurnTableMode == EPersonaTurnTableMode::Stopped)
+		{
+			SetWorldTransform(FTransform());
+		}
+		else
+		{
+			SetRelativeLocation(FVector::ZeroVector);
+		}
 	}
 }
 
@@ -277,7 +288,7 @@ void UDebugSkelMeshComponent::InitAnim(bool bForceReinit)
 	// if PreviewInstance is NULL, create here once
 	if (PreviewInstance == NULL)
 	{
-		PreviewInstance = ConstructObject<UAnimPreviewInstance>(UAnimPreviewInstance::StaticClass(), this);				
+		PreviewInstance = NewObject<UAnimPreviewInstance>(this);
 		check(PreviewInstance);
 
 		//Set transactional flag in order to restore slider position when undo operation is performed
@@ -409,6 +420,9 @@ void UDebugSkelMeshComponent::GenSpaceBases(TArray<FTransform>& OutSpaceBases)
 
 void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* TickFunction)
 {
+	// Run regular update first so we get RequiredBones up to date.
+	Super::RefreshBoneTransforms(NULL); // Pass NULL so we force non threaded work
+
 	const bool bIsPreviewInstance = (PreviewInstance && PreviewInstance == AnimScriptInstance);
 
 	BakedAnimationPoses.Empty();
@@ -443,18 +457,13 @@ void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction*
 		}
 	}
 
-	bool bGenerateRAWAnimation = bDisplayRawAnimation && AnimScriptInstance && AnimScriptInstance->RequiredBones.IsValid();
-
-	if (bGenerateRAWAnimation)
+	UncompressedSpaceBases.Empty();
+	if (bDisplayRawAnimation && AnimScriptInstance && AnimScriptInstance->RequiredBones.IsValid())
 	{
+		UncompressedSpaceBases.AddUninitialized(AnimScriptInstance->RequiredBones.GetNumBones());
+
 		AnimScriptInstance->RequiredBones.SetUseRAWData(true);
-	}
-
-	// Run regular update first so we get RequiredBones up to date.
-	Super::RefreshBoneTransforms(NULL); // Pass NULL so we force non threaded work
-
-	if (bGenerateRAWAnimation)
-	{
+		GenSpaceBases(UncompressedSpaceBases);
 		AnimScriptInstance->RequiredBones.SetUseRAWData(false);
 	}
 
@@ -462,20 +471,10 @@ void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction*
 	NonRetargetedSpaceBases.Empty();
 	if( bDisplayNonRetargetedPose && AnimScriptInstance && AnimScriptInstance->RequiredBones.IsValid() )
 	{
-		NonRetargetedSpaceBases.AddUninitialized(PreviewInstance->RequiredBones.GetNumBones());
+		NonRetargetedSpaceBases.AddUninitialized(AnimScriptInstance->RequiredBones.GetNumBones());
 		AnimScriptInstance->RequiredBones.SetDisableRetargeting(true);
 		GenSpaceBases(NonRetargetedSpaceBases);
 		AnimScriptInstance->RequiredBones.SetDisableRetargeting(false);
-	}
-
-	if (bDisplayRawAnimation)
-	{
-		// Generate the normal compressed space bases
-		GenSpaceBases(CompressedSpaceBases);
-	}
-	else
-	{
-		CompressedSpaceBases.Empty();
 	}
 
 	// Only works in PreviewInstance, and not for anim blueprint. This is intended.
@@ -703,3 +702,16 @@ void UDebugSkelMeshComponent::CheckClothTeleport(float DeltaTime)
 }
 
 #endif // #if WITH_APEX_CLOTHING
+
+void UDebugSkelMeshComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
+{
+	if (TurnTableMode == EPersonaTurnTableMode::Playing)
+	{
+		FRotator Rotation = GetRelativeTransform().Rotator();
+		// Take into account PlaybackSpeedScaling, so it doesn't affect turn table turn rate.
+		Rotation.Yaw += 36.f * TurnTableSpeedScaling * DeltaTime / FMath::Max(PlaybackSpeedScaling, KINDA_SMALL_NUMBER);
+		SetRelativeRotation(Rotation);
+	}
+
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+}

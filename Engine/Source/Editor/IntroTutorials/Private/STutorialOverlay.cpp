@@ -287,7 +287,7 @@ void STutorialOverlay::FocusOnAnyBlueprintNodes(const FTutorialWidgetContent &Wi
 		if (!FocusObject)
 		{
 			const FString ObjectName = FPackageName::ObjectPathToObjectName(ObjectPath.ToString());
-			const FName RedirectedObjectName = ULinkerLoad::FindNewNameForClass(*ObjectName, false);
+			const FName RedirectedObjectName = FLinkerLoad::FindNewNameForClass(*ObjectName, false);
 			if (!RedirectedObjectName.IsNone())
 			{
 				FocusObject = FindObject<UClass>(ANY_PACKAGE, *RedirectedObjectName.ToString());

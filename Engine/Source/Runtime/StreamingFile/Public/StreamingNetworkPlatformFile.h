@@ -182,7 +182,7 @@ public:
 	virtual FDateTime GetTimeStamp(const TCHAR* Filename) override;
 	virtual void SetTimeStamp(const TCHAR* Filename, FDateTime DateTime) override;
 	virtual FDateTime GetAccessTimeStamp(const TCHAR* Filename) override;
-	virtual IFileHandle* OpenRead(const TCHAR* Filename) override;
+	virtual IFileHandle* OpenRead(const TCHAR* Filename, bool bAllowWrite = false) override;
 	virtual IFileHandle* OpenWrite(const TCHAR* Filename, bool bAppend, bool bAllowRead) override;
 	virtual bool DirectoryExists(const TCHAR* Directory) override;
 	virtual bool CreateDirectoryTree(const TCHAR* Directory) override;

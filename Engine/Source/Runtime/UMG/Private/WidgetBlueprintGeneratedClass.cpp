@@ -92,6 +92,9 @@ void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) c
 							bSourcePathBound = Widget->AddBinding(DelegateProperty, UserWidget, Binding.SourcePath);
 						}
 
+						// If no native binder is found then the only possibility is that the binding is for
+						// a delegate that doesn't match the known native binders available and so we
+						// fallback to just attempting to bind to the function directly.
 						if ( bSourcePathBound == false )
 						{
 							FScriptDelegate* ScriptDelegate = DelegateProperty->GetPropertyValuePtr_InContainer(Widget);
@@ -102,6 +105,12 @@ void UWidgetBlueprintGeneratedClass::InitializeWidget(UUserWidget* UserWidget) c
 						}
 					}
 				}
+			}
+
+			// Initialize Navigation Data
+			if (Widget->Navigation)
+			{
+				Widget->Navigation->ResolveExplictRules(ClonedTree);
 			}
 
 	#if WITH_EDITOR

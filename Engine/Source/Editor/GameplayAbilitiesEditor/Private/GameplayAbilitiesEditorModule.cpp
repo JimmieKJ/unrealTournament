@@ -138,7 +138,7 @@ void FGameplayAbilitiesEditorModule::ShutdownModule()
 		GameplayAbilitiesGraphPanelNodeFactory.Reset();
 	}
 
-	if ( IGameplayTagsModule::IsAvailable() )
+	if ( UObjectInitialized() && IGameplayTagsModule::IsAvailable() )
 	{
 		UGameplayTagsManager& GameplayTagsManager = IGameplayTagsModule::Get().GetGameplayTagsManager();
 		GameplayTagsManager.OnGameplayTagTreeChanged().Remove(GameplayTagTreeChangedDelegateHandle);

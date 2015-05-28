@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "ContentWidget.h"
 #include "NamedSlot.generated.h"
 
 /**

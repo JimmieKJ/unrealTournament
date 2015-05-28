@@ -11,6 +11,8 @@
 class UNavigationQueryFilter;
 class FNavDataGenerator; 
 class INavLinkCustomInterface;
+class UPrimitiveComponent;
+class UWorld;
 
 USTRUCT()
 struct FSupportedAreaData
@@ -31,7 +33,7 @@ struct FSupportedAreaData
 
 struct FNavPathRecalculationRequest
 {
-	FNavPathSharedRef Path;
+	FNavPathWeakPtr Path;
 	ENavPathUpdateType::Type Reason;
 
 	FNavPathRecalculationRequest(const FNavPathSharedPtr& InPath, ENavPathUpdateType::Type InReason)
@@ -98,7 +100,7 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 	{
 		return ObserverDelegate;
 	}
-	FORCEINLINE FDelegateHandle AddObserver(FPathObserverDelegate::FDelegate& NewObserver)
+	FORCEINLINE FDelegateHandle AddObserver(FPathObserverDelegate::FDelegate NewObserver)
 	{
 		return ObserverDelegate.Add(NewObserver);
 	}
@@ -170,10 +172,14 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 		ObserverDelegate.Broadcast(this, UpdateType == ENavPathUpdateType::GoalMoved ? ENavPathEvent::UpdatedDueToGoalMoved : ENavPathEvent::UpdatedDueToNavigationChanged);
 	}
 
+	FORCEINLINE float GetTimeStamp() const { return LastUpdateTimeStamp; }
+	FORCEINLINE void SetTimeStamp(float TimeStamp) { LastUpdateTimeStamp = TimeStamp; }
+
 	void Invalidate();
 	void RePathFailed();
 
 	virtual void DebugDraw(const ANavigationData* NavData, FColor PathColor, class UCanvas* Canvas, bool bPersistent, const uint32 NextPathPointIndex = 0) const;
+	
 #if ENABLE_VISUAL_LOG
 	virtual void DescribeSelfToVisLog(struct FVisualLogEntry* Snapshot) const;
 	virtual FString GetDescription() const;
@@ -233,18 +239,21 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 		return PathPoints;
 	}
 
+	/** get based position of path point */
+	FBasedPosition GetPathPointLocation(uint32 Index) const;
+
 	/** checks if given path, starting from StartingIndex, intersects with given AABB box */
-	virtual bool DoesIntersectBox(const FBox& Box, uint32 StartingIndex = 0, int32* IntersectingSegmentIndex = NULL) const;
+	virtual bool DoesIntersectBox(const FBox& Box, uint32 StartingIndex = 0, int32* IntersectingSegmentIndex = NULL, FVector* AgentExtent = NULL) const;
 	/** checks if given path, starting from StartingIndex, intersects with given AABB box. This version uses AgentLocation as beginning of the path
 	 *	with segment between AgentLocation and path's StartingIndex-th node treated as first path segment to check */
-	virtual bool DoesIntersectBox(const FBox& Box, const FVector& AgentLocation, uint32 StartingIndex = 0, int32* IntersectingSegmentIndex = NULL) const;
+	virtual bool DoesIntersectBox(const FBox& Box, const FVector& AgentLocation, uint32 StartingIndex = 0, int32* IntersectingSegmentIndex = NULL, FVector* AgentExtent = NULL) const;
 	/** retrieves normalized direction vector to given path segment
 	 *	for '0'-th segment returns same as for 1st segment 
 	 */
 	virtual FVector GetSegmentDirection(uint32 SegmentEndIndex) const;
 
 private:
-	bool DoesPathIntersectBoxImplementation(const FBox& Box, const FVector& StartLocation, uint32 StartingIndex, int32* IntersectingSegmentIndex) const;
+	bool DoesPathIntersectBoxImplementation(const FBox& Box, const FVector& StartLocation, uint32 StartingIndex, int32* IntersectingSegmentIndex, FVector* AgentExtent) const;
 
 public:
 
@@ -366,6 +375,9 @@ protected:
 	/** navigation data used to generate this path */
 	TWeakObjectPtr<ANavigationData> NavigationDataUsed;
 
+	/** gets set during path creation and on subsequent path's updates */
+	float LastUpdateTimeStamp;
+
 private:
 	/* if GoalActor is set this is the distance we'll try to keep GoalActor from end of path. If GoalActor
 	* moves more then this from the end of the path we'll recalculate the path */
@@ -376,6 +388,22 @@ private:
 };
 
 /** 
+ *  Supported options for runtime navigation data generation
+ */
+UENUM()
+enum class ERuntimeGenerationType : uint8
+{
+	// No runtime generation, fully static navigation data
+	Static,				
+	// Supports only navigation modifiers updates
+	DynamicModifiersOnly,	
+	// Fully dynamic, supports geometry changes along with navigation modifiers
+	Dynamic,
+	// Only for legacy loading don't use it!
+	LegacyGeneration UMETA(Hidden)
+};
+
+/** 
  *	Represents abstract Navigation Data (sub-classed as NavMesh, NavGraph, etc)
  *	Used as a common interface for all navigation types handled by NavigationSystem
  */
@@ -383,10 +411,11 @@ UCLASS(config=Engine, defaultconfig, NotBlueprintable, abstract)
 class ENGINE_API ANavigationData : public AActor
 {
 	GENERATED_UCLASS_BODY()
-
+	
 	UPROPERTY(transient, duplicatetransient)
-	class UPrimitiveComponent* RenderingComp;
+	UPrimitiveComponent* RenderingComp;
 
+protected:
 	UPROPERTY()
 	FNavDataConfig NavDataConfig;
 
@@ -397,10 +426,14 @@ class ENGINE_API ANavigationData : public AActor
 	//----------------------------------------------------------------------//
 	// game-time config
 	//----------------------------------------------------------------------//
-
+	
 	/** If true, the NavMesh can be dynamically rebuilt at runtime. */
+	UPROPERTY(config)
+	uint32 bRebuildAtRuntime_DEPRECATED:1;
+
+	/** Navigation data runtime generation options */
 	UPROPERTY(EditAnywhere, Category = Runtime, config)
-	uint32 bRebuildAtRuntime:1;
+	ERuntimeGenerationType RuntimeGeneration;
 
 	/** By default navigation will skip the first update after being successfully loaded
 	 *  setting bForceRebuildOnLoad to false can override this behavior */
@@ -411,6 +444,10 @@ class ENGINE_API ANavigationData : public AActor
 	UPROPERTY(EditAnywhere, Category = Runtime, config)
 	float ObservedPathsTickInterval;
 
+	UPROPERTY(Transient)
+	UWorld* CachedWorld;
+
+public:
 	//----------------------------------------------------------------------//
 	// Life cycle                                                                
 	//----------------------------------------------------------------------//
@@ -422,7 +459,7 @@ class ENGINE_API ANavigationData : public AActor
 #if WITH_EDITOR
 	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
-	virtual void BeginDestroy() override;
+	virtual void Destroyed() override;
 	// End UObject Interface
 		
 	virtual void CleanUp();
@@ -441,15 +478,17 @@ class ENGINE_API ANavigationData : public AActor
 
 	virtual bool NeedsRebuild() const { return false; }
 	virtual bool SupportsRuntimeGeneration() const;
+	virtual bool SupportsStreaming() const;
 	virtual void OnNavigationBoundsChanged();
-	virtual void OnStreamingLevelAdded(ULevel* InLevel) {};
-	virtual void OnStreamingLevelRemoved(ULevel* InLevel) {};
+	virtual void OnStreamingLevelAdded(ULevel* InLevel, UWorld* InWorld) {};
+	virtual void OnStreamingLevelRemoved(ULevel* InLevel, UWorld* InWorld) {};
 	
 	//----------------------------------------------------------------------//
 	// Generation & data access                                                      
 	//----------------------------------------------------------------------//
 public:
-	const FNavDataConfig& GetConfig() const { return NavDataConfig; }
+	FORCEINLINE const FNavDataConfig& GetConfig() const { return NavDataConfig; }
+	FORCEINLINE ERuntimeGenerationType GetRuntimeGenerationMode() const { return RuntimeGeneration; }
 	virtual void SetConfig(const FNavDataConfig& Src) { NavDataConfig = Src; }
 
 	void SetSupportsDefaultAgent(bool bIsDefault) { bSupportsDefaultAgent = bIsDefault; SetNavRenderingEnabled(bIsDefault); }
@@ -459,12 +498,14 @@ public:
 
 	FORCEINLINE void MarkAsNeedingUpdate() { bWantsUpdate = true; }
 
+	virtual void RestrictBuildingToActiveTiles(bool InRestrictBuildingToActiveTiles) {}
+
 protected:
 	virtual void FillConfig(FNavDataConfig& Dest) { Dest = NavDataConfig; }
 
 public:
 	/** Creates new generator in case navigation supports it */
-	virtual void ConstructGenerator();
+	virtual void ConditionalConstructGenerator();
 	
 	/** Triggers rebuild in case navigation supports it */
 	virtual void RebuildAll();
@@ -484,7 +525,7 @@ public:
 
 	/** Request navigation data update after changes in nav octree */
 	virtual void RebuildDirtyAreas(const TArray<FNavigationDirtyArea>& DirtyAreas);
-
+	
 	/** releases navigation generator if any has been created */
 protected:
 	/** register self with navigation system as new NavAreaDefinition(s) observer */
@@ -501,6 +542,7 @@ public:
 		FNavPathSharedPtr SharedPath = MakeShareable(new PathType());
 		SharedPath->SetNavigationDataUsed(this);
 		SharedPath->SetQuerier(Querier);
+		SharedPath->SetTimeStamp( GetWorldTimeStamp() );
 
 		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.Adding a path to ActivePaths"),
 			STAT_FSimpleDelegateGraphTask_AddingPathToActivePaths,
@@ -544,12 +586,14 @@ public:
 	TArray<FBox> GetNavigableBounds() const;
 	
 	/** Returns list of navigable bounds that belongs to specific level */
-	TArray<FBox> GetNavigableBoundsInLevel(const FName& InLevelPackageName) const;
+	TArray<FBox> GetNavigableBoundsInLevel(ULevel* InLevel) const;
 	
 	//----------------------------------------------------------------------//
 	// Debug                                                                
 	//----------------------------------------------------------------------//
 	void DrawDebugPath(FNavigationPath* Path, FColor PathColor = FColor::White, class UCanvas* Canvas = NULL, bool bPersistent = true, const uint32 NextPathPointIndex = 0) const;
+
+	FORCEINLINE bool IsDrawingEnabled() const { return bEnableDrawing; }
 
 	/** @return Total mem counted, including super calls. */
 	virtual uint32 LogMemUsed() const;
@@ -632,7 +676,7 @@ public:
 	/** 
 	 *	Synchronously makes a raycast on navigation data using QueryFilter
 	 *	@param HitLocation if line was obstructed this will be set to hit location. Otherwise it contains SegmentEnd
-	 *	@return true if line from RayStart to RayEnd was obstructed
+	 *	@return true if line from RayStart to RayEnd is obstructed
 	 *
 	 *	@note don't make this function virtual! Look at implementation details and its comments for more info.
 	 */
@@ -648,8 +692,12 @@ public:
 
 	virtual FNavLocation GetRandomPoint(TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPoint, return FNavLocation(););
 
-	virtual bool GetRandomPointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPointInRadius, return false;);
+	/** finds a random location in Radius, reachable from Origin */
+	virtual bool GetRandomReachablePointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomReachablePointInRadius, return false;);
 
+	/** finds a random location in navigable space, in given Radius */
+	virtual bool GetRandomPointInNavigableRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPointInNavigableRadius, return false;);
+	
 	/**	Tries to project given Point to this navigation type, within given Extent.
 	 *	@param OutLocation if successful this variable will be filed with result
 	 *	@return true if successful, false otherwise
@@ -674,6 +722,13 @@ public:
 	 *	@NOTE potentially expensive, so use it with caution */
 	virtual ENavigationQueryResult::Type CalcPathLengthAndCost(const FVector& PathStart, const FVector& PathEnd, float& OutPathLength, float& OutPathCost, TSharedPtr<const FNavigationQueryFilter> QueryFilter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::CalcPathLength, return ENavigationQueryResult::Invalid;);
 
+	/** Checks if specified navigation node contains given location 
+	 *	@param Location is expressed in WorldSpace, navigation data is responsible for tansforming if need be */
+	virtual bool DoesNodeContainLocation(NavNodeRef NodeRef, const FVector& WorldSpaceLocation) const PURE_VIRTUAL(ANavigationData::DoesNodeContainLocation, return false;);
+
+	const UWorld* GetCachedWorld() const;
+	float GetWorldTimeStamp() const;
+
 	//----------------------------------------------------------------------//
 	// Areas
 	//----------------------------------------------------------------------//
@@ -683,7 +738,10 @@ public:
 	
 	/** area was removed from navigation system */
 	virtual void OnNavAreaRemoved(const UClass* NavAreaClass);
-		
+
+	/** called after changes to registered area classes */
+	virtual void OnNavAreaChanged();
+
 	void OnNavAreaEvent(const UClass* NavAreaClass, ENavAreaEvent::Type Event);
 
 	/** add all existing areas */
@@ -753,7 +811,7 @@ protected:
 	FNavRaycastPtr RaycastImplementation; 
 
 protected:
-	TUniquePtr<FNavDataGenerator> NavDataGenerator;
+	TSharedPtr<FNavDataGenerator, ESPMode::ThreadSafe> NavDataGenerator;
 	/** 
 	 *	Container for all path objects generated with this Navigation Data instance. 
 	 *	Is meant to be added to only on GameThread, and in fact should user should never 
@@ -799,6 +857,10 @@ private:
 	uint16 NavDataUniqueID;
 
 	static uint16 GetNextUniqueID();
+
+public:
+	DEPRECATED(4.8, "GetRandomPointInRadius is deprecated, please use GetRandomReachablePointInRadius")
+	virtual bool GetRandomPointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPointInRadius, return false;);
 };
 
 struct FAsyncPathFindingQuery : public FPathFindingQuery
@@ -812,7 +874,10 @@ struct FAsyncPathFindingQuery : public FPathFindingQuery
 		: QueryID(INVALID_NAVQUERYID)
 	{ }
 
+	DEPRECATED(4.8, "This version of FAsyncPathFindingQuery constructor is deprecated. Please use ANavigationData reference rather than a pointer version")
 	FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter);
+
+	FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter);
 	FAsyncPathFindingQuery(const FPathFindingQuery& Query, const FNavPathQueryDelegate& Delegate, const EPathFindingMode::Type QueryMode);
 
 protected:
@@ -826,7 +891,7 @@ protected:
 
 FORCEINLINE bool FPathFindingResult::IsPartial() const
 {
-	return Result == ENavigationQueryResult::Fail && Path.IsValid() && Path->IsPartial();
+	return (Result != ENavigationQueryResult::Error) && Path.IsValid() && Path->IsPartial();
 }
 
 FORCEINLINE void FNavigationPath::SetNavigationDataUsed(const ANavigationData* const NewData)

@@ -115,23 +115,28 @@ class AIMODULE_API UAIPerceptionComponent : public UActorComponent
 
 protected:
 	/** Max distance at which a makenoise(1.0) loudness sound can be heard, regardless of occlusion */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AI)
+	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float HearingRange;
 
 	/** Max distance at which a makenoise(1.0) loudness sound can be heard if unoccluded (LOSHearingThreshold should be > HearingThreshold) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AI)
+	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float LoSHearingRange;
 
 	/** Maximum sight distance to notice a target. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AI)
+	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float SightRadius;
 
 	/** Maximum sight distance to see target that has been already seen. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AI)
+	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float LoseSightRadius;
 
 	/** How far to the side AI can see, in degrees. Use SetPeripheralVisionAngle to change the value at runtime. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AI)
+	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float PeripheralVisionAngle;
 		
 	UPROPERTY(EditDefaultsOnly, Instanced, Category = "AI Perception")
@@ -147,7 +152,7 @@ protected:
 	UPROPERTY(Transient)
 	AAIController* AIOwner;
 
-	FPerceptionChannelFilter PerceptionFilter;
+	FPerceptionChannelWhitelist PerceptionFilter;
 
 private:
 	TActorPerceptionContainer PerceptualData;
@@ -185,8 +190,9 @@ public:
 	
 	void GetLocationAndDirection(FVector& Location, FVector& Direction) const;
 	const AActor* GetBodyActor() const;
+	AActor* GetMutableBodyActor();
 
-	FORCEINLINE const FPerceptionChannelFilter GetPerceptionFilter() const { return PerceptionFilter; }
+	FORCEINLINE const FPerceptionChannelWhitelist GetPerceptionFilter() const { return PerceptionFilter; }
 
 	FGenericTeamId GetTeamIdentifier() const;
 	FORCEINLINE FPerceptionListenerID GetListenerId() const { return PerceptionListenerId; }
@@ -235,6 +241,10 @@ public:
 	//----------------------------------------------------------------------//
 	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
 	void GetPerceivedHostileActors(TArray<AActor*>& OutActors) const;
+
+	/** If SenseToUse is none all actors perceived in any way will get fetched */
+	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
+	void GetPerceivedActors(TSubclassOf<UAISense> SenseToUse, TArray<AActor*>& OutActors) const;
 	
 	/** Retrieves whatever has been sensed about given actor */
 	UFUNCTION(BlueprintCallable, Category = "AI|Perception")

@@ -771,26 +771,26 @@ enum EDawnLightFlags
 
 struct FLightData
 {
-	FGuid		Guid;
+	FGuid			Guid;
 	/** Bit-wise combination of flags from EDawnLightFlags */
-	uint32		LightFlags;
+	uint32			LightFlags;
 	/** Homogeneous coordinates */
-	FVector4	Position;
-	FVector4	Direction;
-	FColor		Color;
-	float		Brightness;
+	FVector4		Position;
+	FVector4		Direction;
+	FLinearColor	Color;
+	float			Brightness;
 	/** The radius of the light's surface, not the light's influence. */
-	float		LightSourceRadius;
+	float			LightSourceRadius;
 	/** The length of the light source*/
-	float		LightSourceLength;
+	float			LightSourceLength;
 	/** Scale factor for the indirect lighting */
-	float		IndirectLightingScale;
+	float			IndirectLightingScale;
 	/** 0 will be completely desaturated, 1 will be unchanged, 2 will be completely saturated */
-	float		IndirectLightingSaturation;
+	float			IndirectLightingSaturation;
 	/** Controls the falloff of shadow penumbras */
-	float		ShadowExponent;
+	float			ShadowExponent;
 	//	only used if an LightProfile, 1d texture data 0:occluded, 255:not occluded
-	uint8		LightProfileTextureData[256];
+	uint8			LightProfileTextureData[256];
 
 	// @param DotProd dot product of light direction and (normalized vector to surface) -1..1
 	inline float ComputeLightProfileMultiplier(const float DotProd) const

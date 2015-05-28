@@ -50,7 +50,7 @@ static void D3D11FilterShaderCompileWarnings(const FString& CompileWarnings, TAr
 {
 	TArray<FString> WarningArray;
 	FString OutWarningString = TEXT("");
-	CompileWarnings.ParseIntoArray(&WarningArray, TEXT("\n"), true);
+	CompileWarnings.ParseIntoArray(WarningArray, TEXT("\n"), true);
 	
 	//go through each warning line
 	for (int32 WarningIndex = 0; WarningIndex < WarningArray.Num(); WarningIndex++)
@@ -95,7 +95,7 @@ static const TCHAR* GetShaderProfileName(FShaderTarget Target)
 			return TEXT("cs_5_0");
 		}
 	}
-	else if(Target.Platform == SP_PCD3D_SM4 || Target.Platform == SP_PCD3D_ES2)
+	else if(Target.Platform == SP_PCD3D_SM4 || Target.Platform == SP_PCD3D_ES2 || Target.Platform == SP_PCD3D_ES3_1)
 	{
 		checkSlow(Target.Frequency == SF_Vertex ||
 			Target.Frequency == SF_Pixel ||
@@ -782,5 +782,14 @@ void CompileShader_Windows_ES2(const FShaderCompilerInput& Input,FShaderCompiler
 
 	FShaderCompilerDefinitions AdditionalDefines;
 	AdditionalDefines.SetDefine(TEXT("ES2_PROFILE"), 1);
+	CompileD3D11Shader(Input, Output, AdditionalDefines, WorkingDirectory);
+}
+
+void CompileShader_Windows_ES3_1(const FShaderCompilerInput& Input, FShaderCompilerOutput& Output, const FString& WorkingDirectory)
+{
+	check(Input.Target.Platform == SP_PCD3D_ES3_1);
+
+	FShaderCompilerDefinitions AdditionalDefines;
+	AdditionalDefines.SetDefine(TEXT("ES3_1_PROFILE"), 1);
 	CompileD3D11Shader(Input, Output, AdditionalDefines, WorkingDirectory);
 }

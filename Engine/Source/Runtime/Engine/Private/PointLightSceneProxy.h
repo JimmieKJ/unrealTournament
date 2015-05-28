@@ -8,73 +8,6 @@
 #define __PointLightSceneProxy_H__
 #include "Components/PointLightComponent.h"
 
-/**
- * Compute the screen bounds of a point light along one axis.
- * Based on http://www.gamasutra.com/features/20021011/lengyel_06.htm
- * and http://sourceforge.net/mailarchive/message.php?msg_id=10501105
- */
-static bool GetPointLightBounds(
-	float LightX,
-	float LightZ,
-	float Radius,
-	const FVector& Axis,
-	float AxisSign,
-	const FSceneView& View,
-	float ViewX,
-	float ViewSizeX,
-	int32& OutMinX,
-	int32& OutMaxX
-	)
-{
-	// Vertical planes: T = <Nx, 0, Nz, 0>
-	float Discriminant = (FMath::Square(LightX) - FMath::Square(Radius) + FMath::Square(LightZ)) * FMath::Square(LightZ);
-	if(Discriminant >= 0)
-	{
-		float SqrtDiscriminant = FMath::Sqrt(Discriminant);
-		float InvLightSquare = 1.0f / (FMath::Square(LightX) + FMath::Square(LightZ));
-
-		float Nxa = (Radius * LightX - SqrtDiscriminant) * InvLightSquare;
-		float Nxb = (Radius * LightX + SqrtDiscriminant) * InvLightSquare;
-		float Nza = (Radius - Nxa * LightX) / LightZ;
-		float Nzb = (Radius - Nxb * LightX) / LightZ;
-		float Pza = LightZ - Radius * Nza;
-		float Pzb = LightZ - Radius * Nzb;
-
-		// Tangent a
-		if(Pza > 0)
-		{
-			float Pxa = -Pza * Nza / Nxa;
-			FVector4 P = View.ViewMatrices.ProjMatrix.TransformFVector4(FVector4(Axis.X * Pxa,Axis.Y * Pxa,Pza,1));
-			float X = (Dot3(P,Axis) / P.W + 1.0f * AxisSign) / 2.0f * AxisSign;
-			if(FMath::IsNegativeFloat(Nxa) ^ FMath::IsNegativeFloat(AxisSign))
-			{
-				OutMaxX = FMath::Min<int64>(FMath::CeilToInt(ViewSizeX * X + ViewX),OutMaxX);
-			}
-			else
-			{
-				OutMinX = FMath::Max<int64>(FMath::FloorToInt(ViewSizeX * X + ViewX),OutMinX);
-			}
-		}
-
-		// Tangent b
-		if(Pzb > 0)
-		{
-			float Pxb = -Pzb * Nzb / Nxb;
-			FVector4 P = View.ViewMatrices.ProjMatrix.TransformFVector4(FVector4(Axis.X * Pxb,Axis.Y * Pxb,Pzb,1));
-			float X = (Dot3(P,Axis) / P.W + 1.0f * AxisSign) / 2.0f * AxisSign;
-			if(FMath::IsNegativeFloat(Nxb) ^ FMath::IsNegativeFloat(AxisSign))
-			{
-				OutMaxX = FMath::Min<int64>(FMath::CeilToInt(ViewSizeX * X + ViewX),OutMaxX);
-			}
-			else
-			{
-				OutMinX = FMath::Max<int64>(FMath::FloorToInt(ViewSizeX * X + ViewX),OutMinX);
-			}
-		}
-	}
-
-	return OutMinX <= OutMaxX;
-}
 
 /** The parts of the point light scene info that aren't dependent on the light policy type. */
 class FPointLightSceneProxyBase : public FLightSceneProxy
@@ -119,22 +52,22 @@ public:
 	// FLightSceneInfo interface.
 
 	/** @return radius of the light or 0 if no radius */
-	virtual float GetRadius() const 
+	virtual float GetRadius() const override
 	{ 
 		return Radius; 
 	}
 
-	virtual float GetSourceRadius() const 
+	virtual float GetSourceRadius() const override
 	{ 
 		return SourceRadius; 
 	}
 
-	virtual bool IsInverseSquared() const
+	virtual bool IsInverseSquared() const override
 	{
 		return bInverseSquared;
 	}
 
-	virtual bool AffectsBounds(const FBoxSphereBounds& Bounds) const
+	virtual bool AffectsBounds(const FBoxSphereBounds& Bounds) const override
 	{
 		if((Bounds.Origin - GetLightToWorld().GetOrigin()).SizeSquared() > FMath::Square(Radius + Bounds.SphereRadius))
 		{
@@ -152,50 +85,7 @@ public:
 	virtual bool GetScissorRect(FIntRect& ScissorRect, const FSceneView& View) const override
 	{
 		ScissorRect = View.ViewRect;
-
-		// Calculate a scissor rectangle for the light's radius.
-		if((GetLightToWorld().GetOrigin() - View.ViewMatrices.ViewOrigin).Size() > Radius)
-		{
-			FVector LightVector = View.ViewMatrices.ViewMatrix.TransformPosition(GetLightToWorld().GetOrigin());
-
-			if(!GetPointLightBounds(
-				LightVector.X,
-				LightVector.Z,
-				Radius,
-				FVector(+1,0,0),
-				+1,
-				View,
-				View.ViewRect.Min.X,
-				View.ViewRect.Width(),
-				ScissorRect.Min.X,
-				ScissorRect.Max.X))
-			{
-				return false;
-			}
-
-			int32 ScissorMinY = View.ViewRect.Min.Y;
-			int32 ScissorMaxY = View.ViewRect.Max.Y;
-			if(!GetPointLightBounds(
-				LightVector.Y,
-				LightVector.Z,
-				Radius,
-				FVector(0,+1,0),
-				-1,
-				View,
-				View.ViewRect.Min.Y,
-				View.ViewRect.Height(),
-				ScissorRect.Min.Y,
-				ScissorRect.Max.Y))
-			{
-				return false;
-			}
-
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+		return FMath::ComputeProjectedSphereScissorRect(ScissorRect, GetLightToWorld().GetOrigin(), Radius, View.ViewMatrices.ViewOrigin, View.ViewMatrices.ViewMatrix, View.ViewMatrices.ProjMatrix) == 1;
 	}
 
 	virtual void SetScissorRect(FRHICommandList& RHICmdList, const FSceneView& View) const override
@@ -212,7 +102,7 @@ public:
 		}
 	}
 
-	virtual bool GetPerObjectProjectedShadowInitializer(const FBoxSphereBounds& SubjectBounds,class FPerObjectProjectedShadowInitializer& OutInitializer) const
+	virtual bool GetPerObjectProjectedShadowInitializer(const FBoxSphereBounds& SubjectBounds,class FPerObjectProjectedShadowInitializer& OutInitializer) const override
 	{
 		// Use a perspective projection looking at the primitive from the light position.
 		FVector LightPosition = LightToWorld.GetOrigin();
@@ -236,7 +126,6 @@ public:
 			SilhouetteRadius = 1.0f;
 		}
 
-		OutInitializer.bDirectionalLight = false;
 		OutInitializer.PreShadowTranslation = -LightPosition;
 		OutInitializer.WorldToLight = FInverseRotationMatrix((LightVector / LightDistance).Rotation());
 		OutInitializer.Scales = FVector(1.0f,1.0f / SilhouetteRadius,1.0f / SilhouetteRadius);

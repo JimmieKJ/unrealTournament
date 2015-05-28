@@ -17,7 +17,11 @@ void FLeapMotionControllerPlugin::StartupModule()
 {
 	FString LeapDllRoot = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/Leap/") / (PLATFORM_64BITS ? TEXT("Win64/") : TEXT("Win32/"));
 	FPlatformProcess::PushDllDirectory(*LeapDllRoot);
+#if LEAP_USE_DEBUG_LIB
+  	LeapDllHandle = FPlatformProcess::GetDllHandle(*(LeapDllRoot + "Leapd.dll"));
+#else
 	LeapDllHandle = FPlatformProcess::GetDllHandle(*(LeapDllRoot + "Leap.dll"));
+#endif
 	FPlatformProcess::PopDllDirectory(*LeapDllRoot);
 
 	// Continue with initialization if dll loads successfully

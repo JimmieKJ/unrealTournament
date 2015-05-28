@@ -8,6 +8,7 @@ public class BuildPatchToolTarget : TargetRules
 	public BuildPatchToolTarget( TargetInfo Target )
 	{
 		Type = TargetType.Program;
+		bOutputPubliclyDistributable = true;
 	}
 
 	//
@@ -47,13 +48,13 @@ public class BuildPatchToolTarget : TargetRules
 		OutCPPEnvironmentConfiguration.Definitions.Add("WITH_BUILDPATCHGENERATION=1");
 
 		OutLinkEnvironmentConfiguration.bIsBuildingConsoleApplication = true;
-		OutLinkEnvironmentConfiguration.bBuildAdditionalConsoleApplication = false;
 		OutLinkEnvironmentConfiguration.bHasExports = false;
 	}
-    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, bool bBuildingRocket, out bool bInternalToolOnly, out bool SeparateNode)
+    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
     {
         bInternalToolOnly = true;
         SeparateNode = true;
+		CrossCompile = false;
         return true;
     }
 }

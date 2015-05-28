@@ -16,9 +16,13 @@ DECLARE_DELEGATE( FOnUpdatePanel )
 DECLARE_DELEGATE_RetVal( float, FOnGetScrubValue )
 DECLARE_DELEGATE( FRefreshOffsetsRequest )
 DECLARE_DELEGATE( FDeleteNotify )
+DECLARE_DELEGATE_RetVal( bool, FOnGetIsAnimNotifySelectionValidForReplacement )
+DECLARE_DELEGATE_TwoParams( FReplaceWithNotify, FString, UClass* )
+DECLARE_DELEGATE_TwoParams( FReplaceWithBlueprintNotify, FString, FString )
 DECLARE_DELEGATE( FDeselectAllNotifies )
 DECLARE_DELEGATE( FCopyNotifies )
 DECLARE_DELEGATE_OneParam( FOnGetBlueprintNotifyData, TArray<FAssetData>& )
+DECLARE_DELEGATE_OneParam( FOnGetNativeNotifyClasses, TArray<UClass*>&)
 
 class SAnimNotifyNode;
 class SAnimNotifyTrack;
@@ -195,12 +199,12 @@ public:
 	void OnPropertyChanged(UObject* ChangedObject, FPropertyChangedEvent& PropertyEvent);
 
 	/** SWidget Interface */
-	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);	
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnDragDetected(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
-	virtual void OnFocusLost(const FFocusEvent& InFocusEvent);
+	virtual void OnFocusLost(const FFocusEvent& InFocusEvent) override;
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 	/** End SWidget Interface */
 
@@ -208,8 +212,18 @@ public:
 
 	void OnNotifyObjectChanged(UObject* EditorBaseObj, bool bRebuild);
 
+	/** Check to make sure the current AnimNotify selection is a valid selection for replacing (i.e., AnimNotifies and AnimNotifyStates aren't mixed together in the selection) */
+	bool IsNotifySelectionValidForReplacement();
+
+	/** Handler for replacing with notify */
+	void OnReplaceSelectedWithNotify(FString NewNotifyName, UClass* NewNotifyClass);
+
+	/** Handler for replacing with notify blueprint */
+	void OnReplaceSelectedWithNotifyBlueprint(FString NewBlueprintNotifyName, FString NewBlueprintNotifyClass);
+
 private:
 	TSharedPtr<SBorder> PanelArea;
+	TSharedPtr<SScrollBar> NotifyTrackScrollBar;
 	class UAnimSequenceBase* Sequence;
 	float WidgetWidth;
 	TAttribute<float> CurrentPosition;
@@ -239,6 +253,9 @@ private:
 	/** Handler for delete command */
 	void OnDeletePressed();
 
+	/** Deletes all currently selected notifies in the panel */
+	void DeleteSelectedNotifies();
+
 	/** We support keyboard focus to detect when we should process key commands like delete */
 	virtual bool SupportsKeyboardFocus() const override
 	{
@@ -265,6 +282,18 @@ private:
 	 * @param InOutAllowedClassNames Classes to allow, this will be expanded to cover all derived classes of those originally present
 	 */
 	void OnGetNotifyBlueprintData(TArray<FAssetData>& OutNotifyData, TArray<FString>* InOutAllowedClassNames);
+
+	/** Find classes that inherit from NotifyOutermost and add correctly formatted class name to OutAllowedBlueprintClassNames
+	 *  to allow us to find blueprints inherited from those types without loading the blueprints.
+	 *	@param OutClasses Array of classes that inherit from NotifyOutermost
+	 *	@param NotifyOutermost Outermost notify class to detect children of
+	 *	@param OutAllowedBlueprintClassNames list of class names to add the native class names to
+	 */
+	void OnGetNativeNotifyData(TArray<UClass*>& OutClasses, UClass* NotifyOutermost, TArray<FString>* OutAllowedBlueprintClassNames);
+
+	void OnNotifyTrackScrolled(float InScrollOffsetFraction);
+
+	virtual void InputViewRangeChanged(float ViewMin, float ViewMax) override;
 
 	/** Persona reference **/
 	TWeakPtr<FPersona> PersonaPtr;

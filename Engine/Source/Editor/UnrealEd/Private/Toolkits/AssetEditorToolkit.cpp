@@ -12,6 +12,7 @@
 #include "IUserFeedbackModule.h"
 #include "IDocumentation.h"
 #include "ReferenceViewer.h"
+#include "ISizeMapModule.h"
 #include "IIntroTutorials.h"
 #include "SuperSearchModule.h"
 #include "SDockTab.h"
@@ -92,13 +93,15 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 		{
 			static_assert(sizeof(EAssetEditorToolkitTabLocation) == sizeof(int32), "EAssetEditorToolkitTabLocation is the incorrect size");
 
+			const UEditorStyleSettings* StyleSettings = GetDefault<UEditorStyleSettings>();
+
 			// Work out where we should create this asset editor
-			EAssetEditorToolkitTabLocation SavedAssetEditorToolkitTabLocation = EAssetEditorToolkitTabLocation::Docked;
+			EAssetEditorToolkitTabLocation SavedAssetEditorToolkitTabLocation = StyleSettings->bOpenAssetEditorTabsInNewWindow ? EAssetEditorToolkitTabLocation::Standalone : EAssetEditorToolkitTabLocation::Docked;
 			GConfig->GetInt(
 				TEXT("AssetEditorToolkitTabLocation"), 
 				*ObjectsToEdit[0]->GetPathName(), 
 				reinterpret_cast<int32&>(SavedAssetEditorToolkitTabLocation), 
-				GEditorUserSettingsIni
+				GEditorPerProjectIni
 				);
 
 			const FName AssetEditorToolkitTab = (SavedAssetEditorToolkitTabLocation == EAssetEditorToolkitTabLocation::Docked) ? "DockedToolkit" : "StandaloneToolkit";
@@ -197,6 +200,11 @@ void FAssetEditorToolkit::InitAssetEditor( const EToolkitMode::Type Mode, const 
 		FGlobalEditorCommonCommands::Get().ViewReferences,
 		FExecuteAction::CreateSP( this, &FAssetEditorToolkit::ViewReferences_Execute ),
 		FCanExecuteAction::CreateSP( this, &FAssetEditorToolkit::CanViewReferences ));
+	
+	ToolkitCommands->MapAction(
+		FGlobalEditorCommonCommands::Get().ViewSizeMap,
+		FExecuteAction::CreateSP( this, &FAssetEditorToolkit::ViewSizeMap_Execute ),
+		FCanExecuteAction::CreateSP( this, &FAssetEditorToolkit::CanViewSizeMap ));
 	
 	ToolkitCommands->MapAction(
 		FGlobalEditorCommonCommands::Get().OpenDocumentation,
@@ -323,6 +331,27 @@ bool FAssetEditorToolkit::CloseWindow()
 void FAssetEditorToolkit::InvokeTab(const FTabId& TabId)
 {
 	GetTabManager()->InvokeTab(TabId);
+}
+
+TSharedPtr<class FTabManager> FAssetEditorToolkit::GetAssociatedTabManager()
+{
+	return TabManager;
+}
+
+double FAssetEditorToolkit::GetLastActivationTime()
+{
+	double MostRecentTime = 0.0;
+
+	if (TabManager.IsValid())
+	{
+		TSharedPtr<SDockTab> OwnerTab = TabManager->GetOwnerTab();
+		if (OwnerTab.IsValid())
+		{
+			MostRecentTime = OwnerTab->GetLastActivationTime();
+		}
+	}
+
+	return MostRecentTime;
 }
 
 TSharedPtr< IToolkitHost > FAssetEditorToolkit::GetPreviousWorldCentricToolkitHost()
@@ -555,6 +584,29 @@ bool FAssetEditorToolkit::CanViewReferences()
 	return ViewableObjects.Num() > 0;
 }
 
+void FAssetEditorToolkit::ViewSizeMap_Execute()
+{
+	if (ensure( ViewableObjects.Num() > 0))
+	{
+		ISizeMapModule::Get().InvokeSizeMapTab(ViewableObjects);
+	}
+}
+
+bool FAssetEditorToolkit::CanViewSizeMap()
+{
+	ViewableObjects.Empty();
+	for (const auto EditingObject : EditingObjects)
+	{
+		// Don't allow user to perform certain actions on objects that aren't actually assets (e.g. Level Script blueprint objects)
+		if (EditingObject != NULL && EditingObject->IsAsset())
+		{
+			ViewableObjects.Add(EditingObject->GetOuter()->GetFName());
+		}
+	}
+
+	return ViewableObjects.Num() > 0;
+}
+
 FString FAssetEditorToolkit::GetDocumentationLink() const
 {
 	return FString(TEXT("%ROOT%"));
@@ -676,6 +728,7 @@ void FAssetEditorToolkit::FillDefaultAssetMenuCommands( FMenuBuilder& MenuBuilde
 	{
 		MenuBuilder.AddMenuEntry( FGlobalEditorCommonCommands::Get().FindInContentBrowser, "FindInContentBrowser", LOCTEXT("FindInContentBrowser", "Find in Content Browser...") );
 		MenuBuilder.AddMenuEntry( FGlobalEditorCommonCommands::Get().ViewReferences);
+		MenuBuilder.AddMenuEntry( FGlobalEditorCommonCommands::Get().ViewSizeMap);
 
 		// Add a reimport menu entry for each supported editable object
 		for( auto ObjectIter = EditingObjects.CreateConstIterator(); ObjectIter; ++ObjectIter )

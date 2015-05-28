@@ -31,6 +31,8 @@ void SAssetDialog::Construct(const FArguments& InArgs, const FSharedAssetDialogC
 
 	const FString DefaultPath = InConfig.DefaultPath;
 
+	RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SAssetDialog::SetFocusPostConstruct ) );
+
 	FPathPickerConfig PathPickerConfig;
 	PathPickerConfig.DefaultPath = DefaultPath;
 	PathPickerConfig.bFocusSearchBoxWhenOpened = false;
@@ -244,15 +246,10 @@ FReply SAssetDialog::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& In
 	return SCompoundWidget::OnKeyDown(MyGeometry, InKeyEvent);
 }
 
-void SAssetDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+EActiveTimerReturnType SAssetDialog::SetFocusPostConstruct( double InCurrentTime, float InDeltaTime )
 {
-	if (bPendingFocusNextFrame)
-	{
-		FocusNameBox();
-		bPendingFocusNextFrame = false;
-	}
-
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	FocusNameBox();
+	return EActiveTimerReturnType::Stop;
 }
 
 void SAssetDialog::SetOnAssetsChosenForOpen(const FOnAssetsChosenForOpen& InOnAssetsChosenForOpen)

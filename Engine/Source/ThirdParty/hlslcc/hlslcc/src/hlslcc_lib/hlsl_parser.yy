@@ -154,7 +154,6 @@ static void yyerror(YYLTYPE *loc, _mesa_glsl_parse_state *st, const char *msg)
 %token PRAGMA_DEBUG_ON PRAGMA_DEBUG_OFF
 %token PRAGMA_OPTIMIZE_ON PRAGMA_OPTIMIZE_OFF
 %token PRAGMA_INVARIANT_ALL
-%token LAYOUT_TOK
 
    /* Reserved words that are not actually used in the grammar.
 	*/
@@ -182,8 +181,6 @@ static void yyerror(YYLTYPE *loc, _mesa_glsl_parse_state *st, const char *msg)
 %type <type_qualifier> type_qualifier
 %type <type_qualifier> storage_qualifier
 %type <type_qualifier> interpolation_qualifier
-%type <type_qualifier> layout_qualifier
-%type <type_qualifier> layout_qualifier_id_list layout_qualifier_id
 %type <type_qualifier> struct_type_qualifier
 %type <fully_specified_type> struct_type_specifier
 %type <type_specifier> type_specifier
@@ -286,23 +283,6 @@ translation_unit:
 	   delete state->symbols;
 	   state->symbols = new(ralloc_parent(state)) glsl_symbol_table;
 	   _mesa_glsl_initialize_types(state);
-	}
-	;
-
-pragma_statement:
-	PRAGMA_DEBUG_ON EOL
-	| PRAGMA_DEBUG_OFF EOL
-	| PRAGMA_OPTIMIZE_ON EOL
-	| PRAGMA_OPTIMIZE_OFF EOL
-	| PRAGMA_INVARIANT_ALL EOL
-	{
-	   if (state->language_version < 120) {
-		  _mesa_glsl_warning(& @1, state,
-				 "pragma 'invariant(all)' not supported in %s",
-				 state->version_string);
-	   } else {
-		  state->all_invariant = true;
-	   }
 	}
 	;
 
@@ -1180,133 +1160,6 @@ fully_specified_type:
 	}
 	;
 
-layout_qualifier:
-	LAYOUT_TOK '(' layout_qualifier_id_list ')'
-	{
-	  $$ = $3;
-	}
-	;
-
-layout_qualifier_id_list:
-	layout_qualifier_id
-	| layout_qualifier_id_list ',' layout_qualifier_id
-	{
-	   if (($1.flags.i & $3.flags.i) != 0) {
-		  _mesa_glsl_error(& @3, state,
-				   "duplicate layout qualifiers used\n");
-		  YYERROR;
-	   }
-
-	   $$.flags.i = $1.flags.i | $3.flags.i;
-
-	   if ($1.flags.q.explicit_location)
-		  $$.location = $1.location;
-
-	   if ($3.flags.q.explicit_location)
-		  $$.location = $3.location;
-	}
-	;
-
-layout_qualifier_id:
-	any_identifier
-	{
-	   bool got_one = false;
-
-	   memset(& $$, 0, sizeof($$));
-
-	   /* Layout qualifiers for ARB_fragment_coord_conventions. */
-	   if (!got_one && state->ARB_fragment_coord_conventions_enable) {
-		  if (strcmp($1, "origin_upper_left") == 0) {
-		 got_one = true;
-		 $$.flags.q.origin_upper_left = 1;
-		  } else if (strcmp($1, "pixel_center_integer") == 0) {
-		 got_one = true;
-		 $$.flags.q.pixel_center_integer = 1;
-		  }
-
-		  if (got_one && state->ARB_fragment_coord_conventions_warn) {
-		 _mesa_glsl_warning(& @1, state,
-					"GL_ARB_fragment_coord_conventions layout "
-					"identifier '%s' used\n", $1);
-		  }
-	   }
-
-	   /* Layout qualifiers for AMD/ARB_conservative_depth. */
-	   if (!got_one &&
-		   (state->AMD_conservative_depth_enable ||
-			state->ARB_conservative_depth_enable)) {
-		  if (strcmp($1, "depth_any") == 0) {
-			 got_one = true;
-			 $$.flags.q.depth_any = 1;
-		  } else if (strcmp($1, "depth_greater") == 0) {
-			 got_one = true;
-			 $$.flags.q.depth_greater = 1;
-		  } else if (strcmp($1, "depth_less") == 0) {
-			 got_one = true;
-			 $$.flags.q.depth_less = 1;
-		  } else if (strcmp($1, "depth_unchanged") == 0) {
-			 got_one = true;
-			 $$.flags.q.depth_unchanged = 1;
-		  }
-	
-		  if (got_one && state->AMD_conservative_depth_warn) {
-			 _mesa_glsl_warning(& @1, state,
-								"GL_AMD_conservative_depth "
-								"layout qualifier '%s' is used\n", $1);
-		  }
-		  if (got_one && state->ARB_conservative_depth_warn) {
-			 _mesa_glsl_warning(& @1, state,
-								"GL_ARB_conservative_depth "
-								"layout qualifier '%s' is used\n", $1);
-		  }
-	   }
-
-	   if (!got_one) {
-		  _mesa_glsl_error(& @1, state, "unrecognized layout identifier "
-				   "'%s'\n", $1);
-		  YYERROR;
-	   }
-	}
-	| any_identifier '=' INTCONSTANT
-	{
-	   bool got_one = false;
-
-	   memset(& $$, 0, sizeof($$));
-
-	   if (state->ARB_explicit_attrib_location_enable) {
-		  /* FINISHME: Handle 'index' once GL_ARB_blend_func_exteneded and
-		   * FINISHME: GLSL 1.30 (or later) are supported.
-		   */
-		  if (strcmp("location", $1) == 0) {
-		 got_one = true;
-
-		 $$.flags.q.explicit_location = 1;
-
-		 if ($3 >= 0) {
-			$$.location = $3;
-		 } else {
-			_mesa_glsl_error(& @3, state,
-					 "invalid location %d specified\n", $3);
-			YYERROR;
-		 }
-		  }
-	   }
-
-	   /* If the identifier didn't match any known layout identifiers,
-		* emit an error.
-		*/
-	   if (!got_one) {
-		  _mesa_glsl_error(& @1, state, "unrecognized layout identifier "
-				   "'%s'\n", $1);
-		  YYERROR;
-	   } else if (state->ARB_explicit_attrib_location_warn) {
-		  _mesa_glsl_warning(& @1, state,
-				 "GL_ARB_explicit_attrib_location layout "
-				 "identifier '%s' used\n", $1);
-	   }
-	}
-	;
-
 interpolation_qualifier:
 	LINEAR
 	{
@@ -1351,12 +1204,6 @@ parameter_type_qualifier:
 
 type_qualifier:
 	storage_qualifier
-	| layout_qualifier
-	| layout_qualifier storage_qualifier
-	{
-	   $$ = $1;
-	   $$.flags.i |= $2.flags.i;
-	}
 	| interpolation_qualifier
 	| interpolation_qualifier storage_qualifier
 	{
@@ -1529,7 +1376,7 @@ type_specifier_nonarray:
 	| RWSTRUCTUREDBUFFER '<' TYPE_IDENTIFIER '>'
 	{
 		void *ctx = state;
-		$$ = new(ctx) ast_type_specifier($1,$3);
+		$$ = new(ctx) ast_type_specifier("RWStructuredBuffer",$3);
 		$$->set_location(yylloc);
 	}
 	| outputstream_type_specifier_nonarray '<' TYPE_IDENTIFIER '>'
@@ -2197,7 +2044,6 @@ jump_statement:
 external_declaration:
 	function_definition	{ $$ = $1; }
 	| global_declaration { $$ = $1; }
-	| pragma_statement	{ $$ = NULL; }
 	;
 
 attribute_arg:

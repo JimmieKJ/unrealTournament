@@ -157,7 +157,7 @@ FString FGenericScriptCodeGenerator::ExportAdditionalClassGlue(const FString& Cl
 		GeneratedGlue += TEXT("\r\n{\r\n");
 		GeneratedGlue += TEXT("\tUObject* Outer = NULL;\r\n");
 		GeneratedGlue += TEXT("\tFName Name = FName(\"ScriptObject\");\r\n");
-		GeneratedGlue += FString::Printf(TEXT("\tUObject* Obj = NewNamedObject<%s>(Outer, Name);\r\n"), *ClassNameCPP);
+		GeneratedGlue += FString::Printf(TEXT("\tUObject* Obj = NewObject<%s>(Outer, Name);\r\n"), *ClassNameCPP);
 		GeneratedGlue += TEXT("\tif (Obj)\r\n\t{\r\n");
 		GeneratedGlue += TEXT("\t\tFScriptObjectReferencer::Get().AddObjectReference(Obj);\r\n");
 		GeneratedGlue += TEXT("\t\t// @todo: Register the object with the script context here\r\n");
@@ -182,33 +182,30 @@ bool FGenericScriptCodeGenerator::CanExportClass(UClass* Class)
 	bool bCanExport = FScriptCodeGeneratorBase::CanExportClass(Class);
 	if (bCanExport)
 	{
-		if (bCanExport)
+		const FString ClassNameCPP = GetClassNameCPP(Class);
+		// No members to export? Don't bother exporting the class.
+		bool bHasMembersToExport = false;
+		for (TFieldIterator<UFunction> FuncIt(Class, EFieldIteratorFlags::ExcludeSuper); !bHasMembersToExport && FuncIt; ++FuncIt)
 		{
-			const FString ClassNameCPP = GetClassNameCPP(Class);
-			// No members to export? Don't bother exporting the class.
-			bool bHasMembersToExport = false;
-			for (TFieldIterator<UFunction> FuncIt(Class, EFieldIteratorFlags::ExcludeSuper); !bHasMembersToExport && FuncIt; ++FuncIt)
+			UFunction* Function = *FuncIt;
+			if (CanExportFunction(ClassNameCPP, Class, Function))
 			{
-				UFunction* Function = *FuncIt;
-				if (CanExportFunction(ClassNameCPP, Class, Function))
+				bHasMembersToExport = true;
+			}
+		}
+		// Check properties too
+		if (!bHasMembersToExport)
+		{
+			for (TFieldIterator<UProperty> PropertyIt(Class, EFieldIteratorFlags::ExcludeSuper); !bHasMembersToExport && PropertyIt; ++PropertyIt)
+			{
+				UProperty* Property = *PropertyIt;
+				if (CanExportProperty(ClassNameCPP, Class, Property))
 				{
 					bHasMembersToExport = true;
 				}
 			}
-			// Check properties too
-			if (!bHasMembersToExport)
-			{
-				for (TFieldIterator<UProperty> PropertyIt(Class, EFieldIteratorFlags::ExcludeSuper); !bHasMembersToExport && PropertyIt; ++PropertyIt)
-				{
-					UProperty* Property = *PropertyIt;
-					if (CanExportProperty(ClassNameCPP, Class, Property))
-					{
-						bHasMembersToExport = true;
-					}
-				}
-			}
-			bCanExport = bHasMembersToExport;
 		}
+		bCanExport = bHasMembersToExport;
 	}
 	return bCanExport;
 }

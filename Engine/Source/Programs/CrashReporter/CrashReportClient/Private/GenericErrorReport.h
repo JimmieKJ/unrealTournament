@@ -88,6 +88,11 @@ public:
 	FString FindCrashedAppName() const;
 
 	/**
+	 * Get the full path of the crashed app from the report
+	 */
+	FString FindCrashedAppPath() const;
+
+	/**
 	 * Is there anything to upload?
 	 */
 	bool HasFilesToUpload() const

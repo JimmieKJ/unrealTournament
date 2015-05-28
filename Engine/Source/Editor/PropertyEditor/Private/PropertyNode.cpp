@@ -7,7 +7,9 @@
 #include "ScopedTransaction.h"
 #include "PropertyRestriction.h"
 #include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
+#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
 #include "Engine/UserDefinedStruct.h"
+#include "Misc/ScopeExit.h"
 
 FPropertySettings& FPropertySettings::Get()
 {
@@ -21,9 +23,9 @@ FPropertySettings::FPropertySettings()
 	, bExpandDistributions( false )
 	, bShowHiddenProperties(false)
 {
-	GConfig->GetBool(TEXT("PropertySettings"), TEXT("ShowHiddenProperties"), bShowHiddenProperties, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("PropertySettings"), TEXT("ShowFriendlyPropertyNames"), bShowFriendlyPropertyNames, GEditorUserSettingsIni);
-	GConfig->GetBool(TEXT("PropertySettings"), TEXT("ExpandDistributions"), bExpandDistributions, GEditorUserSettingsIni);
+	GConfig->GetBool(TEXT("PropertySettings"), TEXT("ShowHiddenProperties"), bShowHiddenProperties, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("PropertySettings"), TEXT("ShowFriendlyPropertyNames"), bShowFriendlyPropertyNames, GEditorPerProjectIni);
+	GConfig->GetBool(TEXT("PropertySettings"), TEXT("ExpandDistributions"), bExpandDistributions, GEditorPerProjectIni);
 }
 
 DEFINE_LOG_CATEGORY(LogPropertyNode);
@@ -103,10 +105,8 @@ void FPropertyNode::InitNode( const FPropertyNodeInitParams& InitParams )
 		SetNodeFlags(EPropertyNodeFlags::ShowCategories, InitParams.bCreateCategoryNodes );
 	}
 
-	if (InitParams.bForceHiddenPropertyVisibility)
-	{
-		SetNodeFlags(EPropertyNodeFlags::ShouldShowHiddenProperties, true );
-	}
+	SetNodeFlags(EPropertyNodeFlags::ShouldShowHiddenProperties, InitParams.bForceHiddenPropertyVisibility);
+	SetNodeFlags(EPropertyNodeFlags::ShouldShowDisableEditOnInstance, InitParams.bCreateDisableEditOnInstanceNodes);
 
 	//Custom code run prior to setting property flags
 	//needs to happen after the above SetNodeFlags calls so that ObjectPropertyNode can properly respond to CollapseCategories
@@ -321,6 +321,8 @@ FObjectPropertyNode* FPropertyNode::FindRootObjectItemParent()
  */
 FPropertyNode::DataValidationResult FPropertyNode::EnsureDataIsValid()
 {
+	bool bValidateChildren = !HasNodeFlags(EPropertyNodeFlags::SkipChildValidation);
+
 	// The root must always be validated
 	if( GetParentNode() == NULL || HasNodeFlags(EPropertyNodeFlags::RequiresValidation) != 0 )
 	{
@@ -346,6 +348,14 @@ FPropertyNode::DataValidationResult FPropertyNode::EnsureDataIsValid()
 			bool bArraysMatchChildNum = true;
 
 			bool bArrayHasNewItem = false;
+
+			if (ArrayProperty)
+			{
+				if (!ArrayProperty->Inner->IsA(UObjectProperty::StaticClass()) && !ArrayProperty->Inner->IsA(UStructProperty::StaticClass()))
+				{
+					bValidateChildren = false;
+				}
+			}
 
 			//verify that the number of object children are the same too
 			UObjectPropertyBase* ObjectProperty = Cast<UObjectPropertyBase>(MyProperty);
@@ -453,20 +463,23 @@ FPropertyNode::DataValidationResult FPropertyNode::EnsureDataIsValid()
 	FPropertyNode::DataValidationResult FinalResult = DataValid;
 
 	//go through my children
-	for (int32 Scan = 0; Scan < ChildNodes.Num(); ++Scan)
+	if (bValidateChildren)
 	{
-		TSharedPtr<FPropertyNode>& ChildNode = ChildNodes[Scan];
-		check( ChildNode.IsValid() );
-
-		// @todo Slate Property Window 
-		//if (ChildNode->HasNodeFlags(EPropertyNodeFlags::IsSeen))
-		//{
-		FPropertyNode::DataValidationResult ChildDataResult = ChildNode->EnsureDataIsValid();
-		if (FinalResult == DataValid && ChildDataResult != DataValid )
+		for (int32 Scan = 0; Scan < ChildNodes.Num(); ++Scan)
 		{
-			FinalResult = ChildDataResult;
+			TSharedPtr<FPropertyNode>& ChildNode = ChildNodes[Scan];
+			check(ChildNode.IsValid());
+
+			// @todo Slate Property Window 
+			//if (ChildNode->HasNodeFlags(EPropertyNodeFlags::IsSeen))
+			//{
+			FPropertyNode::DataValidationResult ChildDataResult = ChildNode->EnsureDataIsValid();
+			if (FinalResult == DataValid && ChildDataResult != DataValid)
+			{
+				FinalResult = ChildDataResult;
+			}
+			//}
 		}
-		//}
 	}
 
 	return FinalResult;
@@ -524,8 +537,8 @@ bool FPropertyNode::IsEditConst() const
 	// Ask the objects whether this property can be changed
 	const FObjectPropertyNode* ObjectPropertyNode = FindObjectItemParent();
 
-	bool bIsEditConst = false;
-	if (Property != NULL && ObjectPropertyNode)
+	bool bIsEditConst = (HasNodeFlags(EPropertyNodeFlags::IsReadOnly) != 0);
+	if (!bIsEditConst && Property != NULL && ObjectPropertyNode)
 	{
 		bIsEditConst = (Property->PropertyFlags & CPF_EditConst) ? true : false;
 		if (!bIsEditConst)
@@ -1498,12 +1511,14 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 				{
 					FPropertyItemValueDataTrackerSlate& ValueTracker = *ValueTrackerPtr;
 
+					bool bIsGameWorld = false;
 					// If the object we are modifying is in the PIE world, than make the PIE world the active
 					// GWorld.  Assumes all objects managed by this property window belong to the same world.
 					UWorld* OldGWorld = NULL;
 					if ( GUnrealEd && GUnrealEd->PlayWorld && !GUnrealEd->bIsSimulatingInEditor && Object->IsIn(GUnrealEd->PlayWorld))
 					{
 						OldGWorld = SetPlayInEditorWorld(GUnrealEd->PlayWorld);
+						bIsGameWorld = true;
 					}
 
 					if( !bNotifiedPreChange )
@@ -1513,6 +1528,13 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 						bNotifiedPreChange = true;
 					}
 
+					// Cache the value of the property before modifying it.
+					FString PreviousValue;
+					TheProperty->ExportText_Direct(PreviousValue, ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyValueAddress(), NULL, 0);
+
+			
+					FString PreviousArrayValue;
+
 					if( ValueTracker.GetPropertyDefaultAddress() != NULL )
 					{
 						UObject* RootObject = ValueTracker.GetTopLevelObject();
@@ -1521,8 +1543,20 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 
 						// dynamic arrays are the only property type that do not support CopySingleValue correctly due to the fact that they cannot
 						// be used in a static array
-						UArrayProperty* ArrayProp = Cast<UArrayProperty>(TheProperty);
 
+						FPropertyNode* ParentPropertyNode = GetParentNode();
+						if(ParentPropertyNode != NULL && ParentPropertyNode->GetProperty() && ParentPropertyNode->GetProperty()->IsA(UArrayProperty::StaticClass()))
+						{
+							UArrayProperty* ArrayProp = Cast<UArrayProperty>(ParentPropertyNode->GetProperty());
+							if(ArrayProp->Inner == TheProperty)
+							{
+								uint8* Addr = ParentPropertyNode->GetValueBaseAddress((uint8*)Object);
+
+								ArrayProp->ExportText_Direct(PreviousArrayValue, Addr, Addr, NULL, 0);
+							}
+						}
+
+						UArrayProperty* ArrayProp = Cast<UArrayProperty>(TheProperty);
 						if( ArrayProp != NULL )
 						{
 							TheProperty->CopyCompleteValue(ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyDefaultAddress());
@@ -1588,6 +1622,17 @@ void FPropertyNode::ResetToDefault( FNotifyHook* InNotifyHook )
 					else
 					{
 						TheProperty->ClearValue(ValueTracker.GetPropertyValueAddress());
+					}
+
+					// Cache the value of the property after having modified it.
+					FString ValueAfterImport;
+					Property->ExportText_Direct(ValueAfterImport, ValueTracker.GetPropertyValueAddress(), ValueTracker.GetPropertyValueAddress(), NULL, 0);
+
+					if((Object->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject) ||
+						(Object->HasAnyFlags(RF_DefaultSubObject) && Object->GetOuter()->HasAnyFlags(RF_ClassDefaultObject | RF_ArchetypeObject))) &&
+						!bIsGameWorld)
+					{
+						PropagatePropertyChange(Object, *ValueAfterImport, PreviousArrayValue.IsEmpty() ? PreviousValue : PreviousArrayValue);
 					}
 
 					if(OldGWorld)
@@ -1808,25 +1853,23 @@ void FPropertyNode::NotifyPreChange( UProperty* PropertyAboutToChange, FNotifyHo
 {
 	TSharedRef<FEditPropertyChain> PropertyChain = BuildPropertyChain( PropertyAboutToChange );
 
-	FObjectPropertyNode* ObjectNode = FindObjectItemParent();
+	// Call through to the property window's notify hook.
+	if( InNotifyHook )
+	{
+		if ( PropertyChain->Num() == 0 )
+		{
+			InNotifyHook->NotifyPreChange( PropertyAboutToChange );
+		}
+		else
+		{
+			InNotifyHook->NotifyPreChange( &PropertyChain.Get() );
+		}
+	}
 
+	FObjectPropertyNode* ObjectNode = FindObjectItemParent();
 	if( ObjectNode )
 	{
 		UProperty* CurProperty = PropertyAboutToChange;
-
-		// Call through to the property window's notify hook.
-		if( InNotifyHook )
-		{
-			if ( PropertyChain->Num() == 0 )
-			{
-				InNotifyHook->NotifyPreChange( PropertyAboutToChange );
-			}
-			else
-			{
-				InNotifyHook->NotifyPreChange( &PropertyChain.Get() );
-			}
-		}
-
 
 		// Call PreEditChange on the object chain.
 		while ( true )
@@ -1884,18 +1927,17 @@ void FPropertyNode::NotifyPreChange( UProperty* PropertyAboutToChange, FNotifyHo
 void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEvent, class FNotifyHook* InNotifyHook )
 {
 	TSharedRef<FEditPropertyChain> PropertyChain = BuildPropertyChain( InPropertyChangedEvent.Property );
+	
+	// remember the property that was the chain's original active property; this will correspond to the outermost property of struct/array that was modified
+	UProperty* const OriginalActiveProperty = PropertyChain->GetActiveMemberNode()->GetValue();
 
 	FObjectPropertyNode* ObjectNode = FindObjectItemParent();
-	
 	if( ObjectNode )
 	{
 		UProperty* CurProperty = InPropertyChangedEvent.Property;
 
 		// Fire ULevel::LevelDirtiedEvent when falling out of scope.
 		FScopedLevelDirtied	LevelDirtyCallback;
-
-		// remember the property that was the chain's original active property; this will correspond to the outermost property of struct/array that was modified
-		UProperty* OriginalActiveProperty = PropertyChain->GetActiveMemberNode()->GetValue();
 
 		// Call PostEditChange on the object chain.
 		while ( true )
@@ -1914,7 +1956,10 @@ void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEv
 						ChangedEvent = FPropertyChangedEvent(CurProperty, InPropertyChangedEvent.ChangeType);
 					}
 					ChangedEvent.ObjectIteratorIndex = CurrentObjectIndex;
-					Object->PostEditChangeProperty( ChangedEvent );
+					if( Object )
+					{
+						Object->PostEditChangeProperty( ChangedEvent );
+					}
 				}
 				else
 				{
@@ -1926,7 +1971,10 @@ void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEv
 					}
 					FPropertyChangedChainEvent ChainEvent(*PropertyChain, ChangedEvent);
 					ChainEvent.ObjectIteratorIndex = CurrentObjectIndex;
-					Object->PostEditChangeChainProperty(ChainEvent);
+					if( Object )
+					{
+						Object->PostEditChangeChainProperty(ChainEvent);
+					}
 				}
 				LevelDirtyCallback.Request();
 				++CurrentObjectIndex;
@@ -1966,44 +2014,43 @@ void FPropertyNode::NotifyPostChange( FPropertyChangedEvent& InPropertyChangedEv
 				}
 			}
 		}
+	}
 
+	// Broadcast the change to any listeners
+	BroadcastPropertyValueChanged();
 
-		// Broadcast the change to any listeners
-		BroadcastPropertyValueChanged();
-
-		// Call through to the property window's notify hook.
-		if( InNotifyHook )
+	// Call through to the property window's notify hook.
+	if( InNotifyHook )
+	{
+		if ( PropertyChain->Num() == 0 )
 		{
-			if ( PropertyChain->Num() == 0 )
-			{
-				InNotifyHook->NotifyPostChange( InPropertyChangedEvent, InPropertyChangedEvent.Property );
-			}
-			else
-			{
-				PropertyChain->SetActiveMemberPropertyNode( OriginalActiveProperty );
-				PropertyChain->SetActivePropertyNode( InPropertyChangedEvent.Property);
-				InNotifyHook->NotifyPostChange( InPropertyChangedEvent, &PropertyChain.Get() );
-			}
+			InNotifyHook->NotifyPostChange( InPropertyChangedEvent, InPropertyChangedEvent.Property );
 		}
-
-
-		if( OriginalActiveProperty )
+		else
 		{
-			//if i have metadata forcing other property windows to rebuild
-			FString MetaData = OriginalActiveProperty->GetMetaData(TEXT("ForceRebuildProperty"));
+			PropertyChain->SetActiveMemberPropertyNode( OriginalActiveProperty );
+			PropertyChain->SetActivePropertyNode( InPropertyChangedEvent.Property);
+			InNotifyHook->NotifyPostChange( InPropertyChangedEvent, &PropertyChain.Get() );
+		}
+	}
 
-			if( MetaData.Len() > 0 )
+
+	if( ObjectNode && OriginalActiveProperty )
+	{
+		//if i have metadata forcing other property windows to rebuild
+		FString MetaData = OriginalActiveProperty->GetMetaData(TEXT("ForceRebuildProperty"));
+
+		if( MetaData.Len() > 0 )
+		{
+			// We need to find the property node beginning at the root/parent, not at our own node.
+			ObjectNode = FindObjectItemParent();
+			check(ObjectNode != NULL);
+
+			TSharedPtr<FPropertyNode> ForceRebuildNode = ObjectNode->FindChildPropertyNode( FName(*MetaData), true );
+
+			if( ForceRebuildNode.IsValid() )
 			{
-				// We need to find the property node beginning at the root/parent, not at our own node.
-				ObjectNode = FindObjectItemParent();
-				check(ObjectNode != NULL);
-
-				TSharedPtr<FPropertyNode> ForceRebuildNode = ObjectNode->FindChildPropertyNode( FName(*MetaData), true );
-
-				if( ForceRebuildNode.IsValid() )
-				{
-					ForceRebuildNode->RequestRebuildChildren();
-				}
+				ForceRebuildNode->RequestRebuildChildren();
 			}
 		}
 	}
@@ -2293,7 +2340,7 @@ void FPropertyNode::PropagatePropertyChange( UObject* ModifiedObject, const TCHA
 
 	if (Object->HasAnyFlags(RF_ClassDefaultObject|RF_ArchetypeObject))
 	{
-		// Object is a default suobject, collect all instances.
+		// Object is a default subobject, collect all instances.
 		Object->GetArchetypeInstances(ArchetypeInstances);
 	}
 	else if (Object->HasAnyFlags(RF_DefaultSubObject) && Object->GetOuter()->HasAnyFlags(RF_ClassDefaultObject|RF_ArchetypeObject))
@@ -2308,10 +2355,19 @@ void FPropertyNode::PropagatePropertyChange( UObject* ModifiedObject, const TCHA
 		}
 	}
 
-	FPropertyNode* Parent = GetParentNode();
-	UArrayProperty* ParentArrayProp  = Cast<UArrayProperty>(Parent->GetProperty());	
+	static FName FNAME_EditableWhenInherited = GET_MEMBER_NAME_CHECKED(UActorComponent,bEditableWhenInherited);
+	if (GetProperty()->GetFName() == FNAME_EditableWhenInherited && ModifiedObject->IsA<UActorComponent>() && FString(TEXT("False")) == NewValue)
+	{
+		FBlueprintEditorUtils::HandleDisableEditableWhenInherited(ModifiedObject, ArchetypeInstances);
+	}
 
-	if (ParentArrayProp != NULL && ParentArrayProp->Inner != GetProperty())
+	FPropertyNode*  Parent          = GetParentNode();
+	UProperty*      ParentProp      = Parent->GetProperty();
+	UArrayProperty* ParentArrayProp = Cast<UArrayProperty>(ParentProp);
+	UProperty*      Prop            = GetProperty();
+	UMapProperty*   MapProp         = Cast<UMapProperty>(Prop);
+
+	if (ParentArrayProp != NULL && ParentArrayProp->Inner != Prop)
 	{
 		ParentArrayProp = NULL;
 	}
@@ -2345,20 +2401,57 @@ void FPropertyNode::PropagatePropertyChange( UObject* ModifiedObject, const TCHA
 			uint8* Addr = GetValueBaseAddress( (uint8*)ActualObjToChange );
 			if (Addr != NULL)
 			{
-				if (ParentArrayProp != NULL)
+				if (MapProp != NULL)
 				{
-					uint8* ArrayAddr = ParentNode->GetValueBaseAddress( (uint8*)ActualObjToChange );
-					ParentArrayProp->ExportText_Direct(OrgValue, ArrayAddr, ArrayAddr, NULL, PPF_Localized );
+					// Read previous value back into object
+					uint8* PreviousMap = (uint8*)FMemory::Malloc(MapProp->GetSize(), MapProp->GetMinAlignment());
+					ON_SCOPE_EXIT
+					{
+						FMemory::Free(PreviousMap);
+					};
+
+					MapProp->InitializeValue(PreviousMap);
+					ON_SCOPE_EXIT
+					{
+						MapProp->DestroyValue(PreviousMap);
+					};
+
+					MapProp->ImportText(*PreviousValue, PreviousMap, PPF_Localized, ModifiedObject);
+
+					uint8* ModifiedObjectAddr = GetValueBaseAddress( (uint8*)ModifiedObject );
+
+					auto ModifiedObjectAddrPtr = (TMap<int32, FString>*)ModifiedObjectAddr;
+
+					// Serialize differences from the 'default' (the old object)
+					TArray<uint8> Data;
+					{
+						FMemoryWriter Ar(Data);
+						MapProp->SerializeItem(Ar, Addr, PreviousMap);
+					}
+
+					// Deserialize differences back over the new object
+					{
+						FMemoryReader Ar(Data);
+						MapProp->SerializeItem(Ar, Addr, ModifiedObjectAddr);
+					}
 				}
 				else
 				{
-					GetProperty()->ExportText_Direct(OrgValue, Addr, Addr, NULL, PPF_Localized );
-				}
+					if (ParentArrayProp != NULL)
+					{
+						uint8* ArrayAddr = ParentNode->GetValueBaseAddress( (uint8*)ActualObjToChange );
+						ParentArrayProp->ExportText_Direct(OrgValue, ArrayAddr, ArrayAddr, NULL, PPF_Localized );
+					}
+					else
+					{
+						Prop->ExportText_Direct(OrgValue, Addr, Addr, NULL, PPF_Localized );
+					}
 
-				// Check if the original value was the default value and change it only then
-				if (OrgValue == PreviousValue)
-				{
-					GetProperty()->ImportText( NewValue, Addr, PPF_Localized, ActualObjToChange );
+					// Check if the original value was the default value and change it only then
+					if (OrgValue == PreviousValue)
+					{
+						Prop->ImportText( NewValue, Addr, PPF_Localized, ActualObjToChange );
+					}
 				}
 			}
 		}

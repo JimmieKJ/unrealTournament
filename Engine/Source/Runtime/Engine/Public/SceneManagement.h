@@ -134,7 +134,11 @@ public:
 
 	/** Resets pool for GetReusableMID() */
 	virtual void OnStartPostProcessing(FSceneView& CurrentView) = 0;
-	/** Allows MIDs being created and released during view rendering without the overhead of creating and relasing objects */
+	/**
+	 * Allows MIDs being created and released during view rendering without the overhead of creating and releasing objects
+	 * As MID are not allowed to be parent of MID this gets fixed up by parenting it to the next Material or MIC
+	 * @param ParentMaterial can be Material, MIC or MID, must not be 0
+	 */
 	virtual UMaterialInstanceDynamic* GetReusableMID(class UMaterialInterface* ParentMaterial) = 0;
 	/** Returns the temporal LOD struct from the viewstate */
 	virtual FTemporalLODState& GetTemporalLODState() = 0;
@@ -143,6 +147,10 @@ public:
 	 * Returns the blend factor between the last two LOD samples
 	 */
 	virtual float GetTemporalLODTransition() const = 0;
+	/** 
+	 * returns a unique key for the view state, non-zero
+	 */
+	virtual uint32 GetViewKey() const = 0;
 protected:
 	// Don't allow direct deletion of the view state, Destroy should be called instead.
 	virtual ~FSceneViewStateInterface() {}
@@ -432,8 +440,8 @@ public:
 
 	/** Default constructor. */
 	FShadowMapInteraction() :
-		Type(SMIT_None),
-		ShadowTexture(NULL)
+		ShadowTexture(nullptr),
+		Type(SMIT_None)
 	{
 		for (int Channel = 0; Channel < ARRAY_COUNT(bChannelValid); Channel++)
 		{
@@ -469,12 +477,11 @@ public:
 	}
 
 private:
-
-	EShadowMapInteractionType Type;
 	UShadowMapTexture2D* ShadowTexture;
 	FVector2D CoordinateScale;
 	FVector2D CoordinateBias;
 	bool bChannelValid[4];
+	EShadowMapInteractionType Type;
 };
 
 /**
@@ -521,6 +528,21 @@ public:
 	FPlane NearFrustumPlane;
 	FPlane FarFrustumPlane;
 
+	/** When enabled, the cascade only renders objects marked with bCastFarShadows enabled (e.g. Landscape). */
+	bool bFarShadowCascade;
+
+	/** Whether the shadow will be computed by ray tracing the distance field. */
+	bool bRayTracedDistanceField;
+
+	/** Whether the shadow is a point light shadow that renders all faces of a cubemap in one pass. */
+	bool bOnePassPointLightShadow;
+
+	/** 
+	 * Index of the split if this is a whole scene shadow from a directional light, 
+	 * Or index of the direction if this is a whole scene shadow from a point light, otherwise INDEX_NONE. 
+	 */
+	int32 ShadowSplitIndex;
+	
 	FShadowCascadeSettings()
 		: SplitNear(0.0f)
 		, SplitFar(WORLD_MAX)
@@ -528,6 +550,10 @@ public:
 		, SplitFarFadeRegion(0.0f)
 		, FadePlaneOffset(SplitFar)
 		, FadePlaneLength(SplitFar - FadePlaneOffset)
+		, bFarShadowCascade(false)
+		, bRayTracedDistanceField(false)
+		, bOnePassPointLightShadow(false)
+		, ShadowSplitIndex(INDEX_NONE)
 	{
 	}
 };
@@ -550,12 +576,8 @@ public:
 	float MinLightW;
 	float MaxDistanceToCastInLightW;
 
-	/** Whether the shadow is for a directional light. */
-	bool bDirectionalLight;
-
 	/** Default constructor. */
 	FProjectedShadowInitializer()
-	:	bDirectionalLight(false)
 	{}
 };
 
@@ -570,27 +592,13 @@ public:
 class ENGINE_API FWholeSceneProjectedShadowInitializer : public FProjectedShadowInitializer
 {
 public:
-	int32 SplitIndex;
-	
 	FShadowCascadeSettings CascadeSettings;
-
-	/** Whether the shadow is a point light shadow that renders all faces of a cubemap in one pass. */
-	bool bOnePassPointLightShadow;
-
-	/** Whether the shadow will be computed by ray tracing the distance field. */
-	bool bRayTracedDistanceFieldShadow;
-
-	FWholeSceneProjectedShadowInitializer()
-	:	SplitIndex(INDEX_NONE)
-	,	bOnePassPointLightShadow(false)
-	,	bRayTracedDistanceFieldShadow(false)
-	{}	
 };
 
 inline bool DoesPlatformSupportDistanceFieldShadowing(EShaderPlatform Platform)
 {
 	// Hasn't been tested elsewhere yet
-	return Platform == SP_PCD3D_SM5;
+	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4;
 }
 
 /** Represents a USkyLightComponent to the rendering thread. */
@@ -610,6 +618,7 @@ public:
 	bool bHasStaticLighting;
 	FLinearColor LightColor;
 	FSHVectorRGB3 IrradianceEnvironmentMap;
+	float IndirectLightingIntensity;
 	float OcclusionMaxDistance;
 	float Contrast;
 	float MinOcclusion;
@@ -617,7 +626,11 @@ public:
 };
 
 
-/** Encapsulates the data which is used to render a light parallel to the game thread. */
+/** 
+ * Encapsulates the data which is used to render a light by the rendering thread. 
+ * The constructor is called from the game thread, and after that the rendering thread owns the object.
+ * FLightSceneProxy is in the engine module and is subclassed to implement various types of lights.
+ */
 class ENGINE_API FLightSceneProxy
 {
 public:
@@ -660,7 +673,7 @@ public:
 	/** Accesses parameters needed for rendering the light. */
 	virtual void GetParameters(FVector4& LightPositionAndInvRadius, FVector4& LightColorAndFalloffExponent, FVector& NormalizedLightDirection, FVector2D& SpotAngles, float& LightSourceRadius, float& LightSourceLength, float& LightMinRoughness) const {}
 
-	virtual FVector2D GetDirectionalLightDistanceFadeParameters(ERHIFeatureLevel::Type InFeatureLevel) const
+	virtual FVector2D GetDirectionalLightDistanceFadeParameters(ERHIFeatureLevel::Type InFeatureLevel, bool bPrecomputedLightingIsValid) const
 	{
 		return FVector2D(0, 0);
 	}
@@ -686,21 +699,21 @@ public:
 		return false;
 	}
 
-	/** Called when precomputed lighting has been determined to be invalid */
-	virtual void InvalidatePrecomputedLighting(bool bIsEditor) {}
-
 	/** Whether this light should create per object shadows for dynamic objects. */
 	virtual bool ShouldCreatePerObjectShadowsForDynamicObjects() const;
 
-	virtual int32 GetNumViewDependentWholeSceneShadows(const FSceneView& View) const { return 0; }
+	/** Returns the number of view dependent shadows this light will create, not counting distance field shadow cascades. */
+	virtual uint32 GetNumViewDependentWholeSceneShadows(const FSceneView& View, bool bPrecomputedLightingIsValid) const { return 0; }
 
 	/**
 	 * Sets up a projected shadow initializer that's dependent on the current view for shadows from the entire scene.
+	 * @param InCascadeIndex cascade index or INDEX_NONE for the distance field cascade
 	 * @return True if the whole-scene projected shadow should be used.
 	 */
 	virtual bool GetViewDependentWholeSceneProjectedShadowInitializer(
 		const class FSceneView& View, 
-		int32 SplitIndex,
+		int32 InCascadeIndex, 
+		bool bPrecomputedLightingIsValid,
 		class FWholeSceneProjectedShadowInitializer& OutInitializer) const
 	{
 		return false;
@@ -729,8 +742,10 @@ public:
 		return false;
 	}
 
+	// @param InCascadeIndex cascade index or INDEX_NONE for the distance field cascade
 	// @param OutCascadeSettings can be 0
-	virtual FSphere GetShadowSplitBounds(const class FSceneView& View, int32 SplitIndex, FShadowCascadeSettings* OutCascadeSettings) const { return FSphere(FVector::ZeroVector, 0); }
+	virtual FSphere GetShadowSplitBounds(const class FSceneView& View, int32 InCascadeIndex, bool bPrecomputedLightingIsValid, FShadowCascadeSettings* OutCascadeSettings) const { return FSphere(FVector::ZeroVector, 0); }
+	virtual FSphere GetShadowSplitBoundsDepthRange(const FSceneView& View, FVector ViewOrigin, float SplitNear, float SplitFar, FShadowCascadeSettings* OutCascadeSettings) const { return FSphere(FVector::ZeroVector, 0); }
 
 	virtual bool GetScissorRect(FIntRect& ScissorRect, const FSceneView& View) const
 	{
@@ -741,6 +756,8 @@ public:
 	virtual void SetScissorRect(FRHICommandList& RHICmdList, const FSceneView& View) const
 	{
 	}
+
+	virtual bool ShouldCreateRayTracedCascade(ERHIFeatureLevel::Type Type, bool bPrecomputedLightingIsValid) const { return false; }
 
 	// Accessors.
 	float GetUserShadowBias() const { return ShadowBias; }
@@ -772,8 +789,10 @@ public:
 	inline bool CastsDynamicShadow() const { return bCastDynamicShadow; }
 	inline bool CastsStaticShadow() const { return bCastStaticShadow; }
 	inline bool CastsTranslucentShadows() const { return bCastTranslucentShadows; }
+	inline bool CastsShadowsFromCinematicObjectsOnly() const { return bCastShadowsFromCinematicObjectsOnly; }
 	inline bool AffectsTranslucentLighting() const { return bAffectTranslucentLighting; }
 	inline bool UseRayTracedDistanceFieldShadows() const { return bUseRayTracedDistanceFieldShadows; }
+	inline float GetRayStartOffsetDepthScale() const { return RayStartOffsetDepthScale; }
 	inline uint8 GetLightType() const { return LightType; }
 	inline FName GetComponentName() const { return ComponentName; }
 	inline FName GetLevelName() const { return LevelName; }
@@ -878,6 +897,8 @@ protected:
 	/** Whether the light is allowed to cast dynamic shadows from translucency. */
 	const uint32 bCastTranslucentShadows : 1;
 
+	const uint32 bCastShadowsFromCinematicObjectsOnly : 1;
+
 	/** Whether the light affects translucency or not.  Disabling this can save GPU time when there are many small lights. */
 	const uint32 bAffectTranslucentLighting : 1;
 
@@ -891,6 +912,8 @@ protected:
 	/** Whether to use ray traced distance field area shadows. */
 	const uint32 bUseRayTracedDistanceFieldShadows : 1;
 
+	float RayStartOffsetDepthScale;
+
 	/** The light type (ELightComponentType) */
 	const uint8 LightType;
 
@@ -902,6 +925,12 @@ protected:
 
 	/** Used for dynamic stats */
 	TStatId StatId;
+
+	/** Only for whole scene directional lights, if FarShadowCascadeCount > 0 and FarShadowDistance >= WholeSceneDynamicShadowRadius, where far shadow cascade should end. */
+	float FarShadowDistance;
+
+	/** Only for whole scene directional lights, 0: no FarShadowCascades, otherwise the count of cascades between WholeSceneDynamicShadowRadius and FarShadowDistance that are covered by distant shadow cascades. */
+	uint32 FarShadowCascadeCount;
 
 	/**
 	 * Updates the light proxy's cached transforms.
@@ -999,30 +1028,55 @@ public:
 /** Represents a wind source component to the scene manager in the rendering thread. */
 class ENGINE_API FWindSourceSceneProxy
 {
-public:
+public:	
+
+	class ENGINE_API FWindData
+	{
+	public:
+		FWindData()
+			: Speed(0.0f)
+			, MinGustAmt(0.0f)
+			, MaxGustAmt(0.0f)
+			, Direction(1.0f, 0.0f, 0.0f)
+		{
+		}
+
+		void PrepareForAccumulate();
+		void AddWeighted(const FWindData& InWindData, float Weight);
+		void NormalizeByTotalWeight(float TotalWeight);
+
+		float Speed;
+		float MinGustAmt;
+		float MaxGustAmt;
+		FVector Direction;
+	};
 
 	/** Initialization constructor. */
-	FWindSourceSceneProxy(const FVector& InDirection,float InStrength,float InSpeed):
+	FWindSourceSceneProxy(const FVector& InDirection, float InStrength, float InSpeed, float InMinGustAmt, float InMaxGustAmt) :
 	  Position(FVector::ZeroVector),
 		  Direction(InDirection),
 		  Strength(InStrength),
 		  Speed(InSpeed),
+		  MinGustAmt(InMinGustAmt),
+		  MaxGustAmt(InMaxGustAmt),
 		  Radius(0),
 		  bIsPointSource(false)
 	  {}
 
 	  /** Initialization constructor. */
-	  FWindSourceSceneProxy(const FVector& InPosition,float InStrength,float InSpeed,float InRadius):
+	FWindSourceSceneProxy(const FVector& InPosition, float InStrength, float InSpeed, float InMinGustAmt, float InMaxGustAmt, float InRadius) :
 	  Position(InPosition),
 		  Direction(FVector::ZeroVector),
 		  Strength(InStrength),
 		  Speed(InSpeed),
+		  MinGustAmt(InMinGustAmt),
+		  MaxGustAmt(InMaxGustAmt),
 		  Radius(InRadius),
 		  bIsPointSource(true)
 	  {}
 
-	  bool GetWindParameters(const FVector& EvaluatePosition, FVector4& WindDirectionAndSpeed, float& Strength) const;
-	  bool GetDirectionalWindParameters(FVector4& WindDirectionAndSpeed, float& Strength) const;
+	  bool GetWindParameters(const FVector& EvaluatePosition, FWindData& WindData, float& Weight) const;
+	  bool GetDirectionalWindParameters(FWindData& WindData, float& Weight) const;
 	  void ApplyWorldOffset(FVector InOffset);
 
 private:
@@ -1031,6 +1085,8 @@ private:
 	FVector	Direction;
 	float Strength;
 	float Speed;
+	float MinGustAmt;
+	float MaxGustAmt;
 	float Radius;
 	bool bIsPointSource;
 };
@@ -1145,8 +1201,8 @@ public:
 	FSimpleElementCollector();
 	~FSimpleElementCollector();
 
-	virtual void SetHitProxy(HHitProxy* HitProxy);
-	virtual void AddReserveLines(uint8 DepthPriorityGroup, int32 NumLines, bool bDepthBiased = false, bool bThickLines = false) {}
+	virtual void SetHitProxy(HHitProxy* HitProxy) override;
+	virtual void AddReserveLines(uint8 DepthPriorityGroup, int32 NumLines, bool bDepthBiased = false, bool bThickLines = false) override {}
 
 	virtual void DrawSprite(
 		const FVector& Position,
@@ -1182,7 +1238,7 @@ public:
 	virtual void RegisterDynamicResource(FDynamicPrimitiveResource* DynamicResource) override;
 
 	// Not supported
-	virtual bool IsHitTesting() 
+	virtual bool IsHitTesting() override
 	{ 
 		static bool bTriggered = false;
 
@@ -1196,7 +1252,7 @@ public:
 	}
 
 	// Not supported
-	virtual int32 DrawMesh(const FMeshBatch& Mesh) 
+	virtual int32 DrawMesh(const FMeshBatch& Mesh) override
 	{
 		static bool bTriggered = false;
 
@@ -1378,6 +1434,7 @@ private:
 
 	friend class FSceneRenderer;
 	friend class FProjectedShadowInfo;
+	friend class FUniformMeshConverter;
 };
 
 
@@ -1488,6 +1545,7 @@ public:
 	 *	@return	bool				true if the primitive info was found and set
 	 */
 	bool GetPrimitiveMotionBlurInfo(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld);
+	bool GetPrimitiveMotionBlurInfo(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld) const;
 
 	/** Request to clear all stored motion blur data for this scene. */
 	void SetClearMotionBlurInfo();
@@ -1508,6 +1566,7 @@ private:
 	 * @return 0 if not found, otherwise pointer into MotionBlurInfos, don't store for longer
 	 */
 	FMotionBlurInfo* FindMBInfoIndex(FPrimitiveComponentId ComponentId);
+	const FMotionBlurInfo* FindMBInfoIndex(FPrimitiveComponentId ComponentId) const;
 };
 
 
@@ -1517,7 +1576,7 @@ private:
 //
 
 // Solid shape drawing utility functions. Not really designed for speed - more for debugging.
-// These utilities functions are implemented in UnScene.cpp using GetTRI.
+// These utilities functions are implemented in PrimitiveDrawingUtils.cpp.
 
 // 10x10 tessellated plane at x=-1..1 y=-1...1 z=0
 extern ENGINE_API void DrawPlane10x10(class FPrimitiveDrawInterface* PDI,const FMatrix& ObjectToWorld,float Radii,FVector2D UVMin, FVector2D UVMax,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriority);
@@ -1532,8 +1591,12 @@ extern ENGINE_API void DrawCylinder(class FPrimitiveDrawInterface* PDI, const FM
 	float Radius, float HalfHeight, int32 Sides, const FMaterialRenderProxy* MaterialInstance, uint8 DepthPriority);
 
 extern ENGINE_API void GetBoxMesh(const FMatrix& BoxToWorld,const FVector& Radii,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriority,int32 ViewIndex,FMeshElementCollector& Collector);
-extern ENGINE_API void GetSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector);
-extern ENGINE_API void GetHalfSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, float StartAngle, float EndAngle, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector);
+extern ENGINE_API void GetHalfSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, float StartAngle, float EndAngle, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, bool bDisableBackfaceCulling, 
+									int32 ViewIndex, FMeshElementCollector& Collector, bool bUseSelectionOutline=false, HHitProxy* HitProxy=NULL);
+extern ENGINE_API void GetSphereMesh(const FVector& Center, const FVector& Radii, int32 NumSides, int32 NumRings, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority,
+	bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector);
+extern ENGINE_API void GetSphereMesh(const FVector& Center,const FVector& Radii,int32 NumSides,int32 NumRings,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriority,
+									bool bDisableBackfaceCulling,int32 ViewIndex,FMeshElementCollector& Collector, bool bUseSelectionOutline, HHitProxy* HitProxy);
 extern ENGINE_API void GetCylinderMesh(const FVector& Base, const FVector& XAxis, const FVector& YAxis, const FVector& ZAxis,
 									float Radius, float HalfHeight, int32 Sides, const FMaterialRenderProxy* MaterialInstance, uint8 DepthPriority, int32 ViewIndex, FMeshElementCollector& Collector);
 extern ENGINE_API void GetCylinderMesh(const FMatrix& CylToWorld, const FVector& Base, const FVector& XAxis, const FVector& YAxis, const FVector& ZAxis,
@@ -1544,30 +1607,283 @@ extern ENGINE_API void GetCapsuleMesh(const FVector& Origin, const FVector& XAxi
 									const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, bool bDisableBackfaceCulling, int32 ViewIndex, FMeshElementCollector& Collector);
 
 
+/**
+ * Draws a circle using triangles.
+ *
+ * @param	PDI						Draw interface.
+ * @param	Base					Center of the circle.
+ * @param	XAxis					X alignment axis to draw along.
+ * @param	YAxis					Y alignment axis to draw along.
+ * @param	Color					Color of the circle.
+ * @param	Radius					Radius of the circle.
+ * @param	NumSides				Numbers of sides that the circle has.
+ * @param	MaterialRenderProxy		Material to use for render 
+ * @param	DepthPriority			Depth priority for the circle.
+ */
 extern ENGINE_API void DrawDisc(class FPrimitiveDrawInterface* PDI,const FVector& Base,const FVector& XAxis,const FVector& YAxis,FColor Color,float Radius,int32 NumSides, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority);
-extern ENGINE_API void DrawFlatArrow(class FPrimitiveDrawInterface* PDI,const FVector& Base,const FVector& XAxis,const FVector& YAxis,FColor Color,float Length,int32 Width, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority);
+
+
+/**
+ * Draws a flat arrow with an outline.
+ *
+ * @param	PDI						Draw interface.
+ * @param	Base					Base of the arrow.
+ * @param	XAxis					X alignment axis to draw along.
+ * @param	YAxis					Y alignment axis to draw along.
+ * @param	Color					Color of the circle.
+ * @param	Length					Length of the arrow, from base to tip.
+ * @param	Width					Width of the base of the arrow, head of the arrow will be 2x.
+ * @param	MaterialRenderProxy		Material to use for render 
+ * @param	DepthPriority			Depth priority for the circle.
+ * @param	Thickness				Thickness of the lines comprising the arrow
+ */
+
+/*
+x-axis is from point 0 to point 2
+y-axis is from point 0 to point 1
+		6
+		/\
+	   /  \
+	  /    \
+	 4_2  3_5
+	   |  |
+	   0__1
+*/
+extern ENGINE_API void DrawFlatArrow(class FPrimitiveDrawInterface* PDI,const FVector& Base,const FVector& XAxis,const FVector& YAxis,FColor Color,float Length,int32 Width, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriority, float Thickness = 0.0f);
 
 // Line drawing utility functions.
-extern ENGINE_API void DrawWireBox(class FPrimitiveDrawInterface* PDI, const FBox& Box, const FLinearColor& Color, uint8 DepthPriority, float Thickness = 0, float DepthBias = 0.0f, bool bScreenSpace = false);
-extern ENGINE_API void DrawCircle(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector& X, const FVector& Y, const FLinearColor& Color, float Radius, int32 NumSides, uint8 DepthPriority, float Thickness = 0, float DepthBias = 0.0f, bool bScreenSpace = false);
+
+/**
+ * Draws a wireframe box.
+ *
+ * @param	PDI				Draw interface.
+ * @param	Box				The FBox to use for drawing.
+ * @param	Color			Color of the box.
+ * @param	DepthPriority	Depth priority for the circle.
+ * @param	Thickness		Thickness of the lines comprising the box
+ */
+extern ENGINE_API void DrawWireBox(class FPrimitiveDrawInterface* PDI, const FBox& Box, const FLinearColor& Color, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+extern ENGINE_API void DrawWireBox(class FPrimitiveDrawInterface* PDI, const FMatrix& Matrix, const FBox& Box, const FLinearColor& Color, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+
+/**
+ * Draws a circle using lines.
+ *
+ * @param	PDI				Draw interface.
+ * @param	Base			Center of the circle.
+ * @param	X				X alignment axis to draw along.
+ * @param	Y				Y alignment axis to draw along.
+ * @param	Z				Z alignment axis to draw along.
+ * @param	Color			Color of the circle.
+ * @param	Radius			Radius of the circle.
+ * @param	NumSides		Numbers of sides that the circle has.
+ * @param	DepthPriority	Depth priority for the circle.
+ * @param	Thickness		Thickness of the lines comprising the circle
+ */
+extern ENGINE_API void DrawCircle(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector& X, const FVector& Y, const FLinearColor& Color, float Radius, int32 NumSides, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+
+
+/**
+ * Draws an arc using lines.
+ *
+ * @param	PDI				Draw interface.
+ * @param	Base			Center of the circle.
+ * @param	X				Normalized axis from one point to the center
+ * @param	Y				Normalized axis from other point to the center
+ * @param   MinAngle        The minimum angle
+ * @param   MinAngle        The maximum angle
+ * @param   Radius          Radius of the arc
+ * @param	Sections		Numbers of sides that the circle has.
+ * @param	Color			Color of the circle.
+ * @param	DepthPriority	Depth priority for the circle.
+ */
 extern ENGINE_API void DrawArc(FPrimitiveDrawInterface* PDI, const FVector Base, const FVector X, const FVector Y, const float MinAngle, const float MaxAngle, const float Radius, const int32 Sections, const FLinearColor& Color, uint8 DepthPriority);
-extern ENGINE_API void DrawWireSphere(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FLinearColor& Color, float Radius, int32 NumSides, uint8 DepthPriority, float Thickness = 0, float DepthBias = 0.0f, bool bScreenSpace = false);
-extern ENGINE_API void DrawWireSphere(class FPrimitiveDrawInterface* PDI, const FTransform& Transform, const FLinearColor& Color, float Radius, int32 NumSides, uint8 DepthPriority, float Thickness = 0, float DepthBias = 0.0f, bool bScreenSpace = false);
-extern ENGINE_API void DrawWireSphereAutoSides(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FLinearColor& Color, float Radius, uint8 DepthPriority, float Thickness = 0, float DepthBias = 0.0f, bool bScreenSpace = false);
-extern ENGINE_API void DrawWireSphereAutoSides(class FPrimitiveDrawInterface* PDI, const FTransform& Transform, const FLinearColor& Color, float Radius, uint8 DepthPriority, float Thickness = 0, float DepthBias = 0.0f, bool bScreenSpace = false);
+
+/**
+ * Draws a sphere using circles.
+ *
+ * @param	PDI				Draw interface.
+ * @param	Base			Center of the sphere.
+ * @param	Color			Color of the sphere.
+ * @param	Radius			Radius of the sphere.
+ * @param	NumSides		Numbers of sides that the circle has.
+ * @param	DepthPriority	Depth priority for the circle.
+ * @param	Thickness		Thickness of the lines comprising the sphere
+ */
+extern ENGINE_API void DrawWireSphere(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FLinearColor& Color, float Radius, int32 NumSides, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+extern ENGINE_API void DrawWireSphere(class FPrimitiveDrawInterface* PDI, const FTransform& Transform, const FLinearColor& Color, float Radius, int32 NumSides, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+
+/**
+ * Draws a sphere using circles, automatically calculating a reasonable number of sides
+ *
+ * @param	PDI				Draw interface.
+ * @param	Base			Center of the sphere.
+ * @param	Color			Color of the sphere.
+ * @param	Radius			Radius of the sphere.
+ * @param	DepthPriority	Depth priority for the circle.
+ * @param	Thickness		Thickness of the lines comprising the sphere
+ */
+extern ENGINE_API void DrawWireSphereAutoSides(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FLinearColor& Color, float Radius, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+extern ENGINE_API void DrawWireSphereAutoSides(class FPrimitiveDrawInterface* PDI, const FTransform& Transform, const FLinearColor& Color, float Radius, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+
+/**
+ * Draws a wireframe cylinder.
+ *
+ * @param	PDI				Draw interface.
+ * @param	Base			Center pointer of the base of the cylinder.
+ * @param	X				X alignment axis to draw along.
+ * @param	Y				Y alignment axis to draw along.
+ * @param	Z				Z alignment axis to draw along.
+ * @param	Color			Color of the cylinder.
+ * @param	Radius			Radius of the cylinder.
+ * @param	HalfHeight		Half of the height of the cylinder.
+ * @param	NumSides		Numbers of sides that the cylinder has.
+ * @param	DepthPriority	Depth priority for the cylinder.
+ * @param	Thickness		Thickness of the lines comprising the cylinder
+ */
 extern ENGINE_API void DrawWireCylinder(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector& X, const FVector& Y, const FVector& Z, const FLinearColor& Color, float Radius, float HalfHeight, int32 NumSides, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+
+/**
+ * Draws a wireframe capsule.
+ *
+ * @param	PDI				Draw interface.
+ * @param	Base			Center pointer of the base of the cylinder.
+ * @param	X				X alignment axis to draw along.
+ * @param	Y				Y alignment axis to draw along.
+ * @param	Z				Z alignment axis to draw along.
+ * @param	Color			Color of the cylinder.
+ * @param	Radius			Radius of the cylinder.
+ * @param	HalfHeight		Half of the height of the cylinder.
+ * @param	NumSides		Numbers of sides that the cylinder has.
+ * @param	DepthPriority	Depth priority for the cylinder.
+ * @param	Thickness		Thickness of the lines comprising the cylinder
+ */
 extern ENGINE_API void DrawWireCapsule(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector& X, const FVector& Y, const FVector& Z, const FLinearColor& Color, float Radius, float HalfHeight, int32 NumSides, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+
+/**
+ * Draws a wireframe chopped cone (cylinder with independent top and bottom radius).
+ *
+ * @param	PDI				Draw interface.
+ * @param	Base			Center pointer of the base of the cone.
+ * @param	X				X alignment axis to draw along.
+ * @param	Y				Y alignment axis to draw along.
+ * @param	Z				Z alignment axis to draw along.
+ * @param	Color			Color of the cone.
+ * @param	Radius			Radius of the cone at the bottom.
+ * @param	TopRadius		Radius of the cone at the top.
+ * @param	HalfHeight		Half of the height of the cone.
+ * @param	NumSides		Numbers of sides that the cone has.
+ * @param	DepthPriority	Depth priority for the cone.
+ */
 extern ENGINE_API void DrawWireChoppedCone(class FPrimitiveDrawInterface* PDI,const FVector& Base,const FVector& X,const FVector& Y,const FVector& Z,const FLinearColor& Color,float Radius,float TopRadius,float HalfHeight,int32 NumSides,uint8 DepthPriority);
+
+/**
+ * Draws a wireframe cone
+ *
+ * @param	PDI				Draw interface.
+ * @param	Transform		Generic transform to apply (ex. a local-to-world transform).
+ * @param	ConeRadius		Radius of the cone.
+ * @param	ConeAngle		Angle of the cone.
+ * @param	ConeSides		Numbers of sides that the cone has.
+ * @param	Color			Color of the cone.
+ * @param	DepthPriority	Depth priority for the cone.
+ * @param	Verts			Out param, the positions of the verts at the cone's base.
+ * @param	Thickness		Thickness of the lines comprising the cone
+ */
 extern ENGINE_API void DrawWireCone(class FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FMatrix& Transform, float ConeRadius, float ConeAngle, int32 ConeSides, const FLinearColor& Color, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
 extern ENGINE_API void DrawWireCone(class FPrimitiveDrawInterface* PDI, TArray<FVector>& Verts, const FTransform& Transform, float ConeRadius, float ConeAngle, int32 ConeSides, const FLinearColor& Color, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
+
+/**
+ * Draws a wireframe cone with a arcs on the cap
+ *
+ * @param	PDI				Draw interface.
+ * @param	Transform		Generic transform to apply (ex. a local-to-world transform).
+ * @param	ConeRadius		Radius of the cone.
+ * @param	ConeAngle		Angle of the cone.
+ * @param	ConeSides		Numbers of sides that the cone has.
+ * @param   ArcFrequency    How frequently to draw an arc (1 means every vertex, 2 every 2nd etc.)
+ * @param	CapSegments		How many lines to use to make the arc
+ * @param	Color			Color of the cone.
+ * @param	DepthPriority	Depth priority for the cone.
+ */
 extern ENGINE_API void DrawWireSphereCappedCone(FPrimitiveDrawInterface* PDI, const FTransform& Transform, float ConeRadius, float ConeAngle, int32 ConeSides, int32 ArcFrequency, int32 CapSegments, const FLinearColor& Color, uint8 DepthPriority);
+
+/**
+ * Draws an oriented box.
+ *
+ * @param	PDI				Draw interface.
+ * @param	Base			Center point of the box.
+ * @param	X				X alignment axis to draw along.
+ * @param	Y				Y alignment axis to draw along.
+ * @param	Z				Z alignment axis to draw along.
+ * @param	Color			Color of the box.
+ * @param	Extent			Vector with the half-sizes of the box.
+ * @param	DepthPriority	Depth priority for the cone.
+ * @param	Thickness		Thickness of the lines comprising the box
+ */
 extern ENGINE_API void DrawOrientedWireBox(class FPrimitiveDrawInterface* PDI, const FVector& Base, const FVector& X, const FVector& Y, const FVector& Z, FVector Extent, const FLinearColor& Color, uint8 DepthPriority, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
-extern ENGINE_API void DrawDirectionalArrow(class FPrimitiveDrawInterface* PDI,const FMatrix& ArrowToWorld,const FLinearColor& InColor,float Length,float ArrowSize,uint8 DepthPriority);
+
+/**
+ * Draws a directional arrow (starting at ArrowToWorld.Origin and continuing for Length units in the X direction of ArrowToWorld).
+ *
+ * @param	PDI				Draw interface.
+ * @param	ArrowToWorld	Transform matrix for the arrow.
+ * @param	InColor			Color of the arrow.
+ * @param	Length			Length of the arrow
+ * @param	ArrowSize		Size of the arrow head.
+ * @param	DepthPriority	Depth priority for the arrow.
+ * @param	Thickness		Thickness of the lines comprising the arrow
+ */
+extern ENGINE_API void DrawDirectionalArrow(class FPrimitiveDrawInterface* PDI, const FMatrix& ArrowToWorld, const FLinearColor& InColor, float Length, float ArrowSize, uint8 DepthPriority, float Thickness = 0.0f);
+
+/**
+ * Draws a directional arrow with connected spokes.
+ *
+ * @param	PDI				Draw interface.
+ * @param	ArrowToWorld	Transform matrix for the arrow.
+ * @param	Color			Color of the arrow.
+ * @param	ArrowHeight		Height of the the arrow head.
+ * @param	ArrowWidth		Width of the arrow head.
+ * @param	DepthPriority	Depth priority for the arrow.
+ * @param	Thickness		Thickness of the lines used to draw the arrow.
+ * @param	NumSpokes		Number of spokes used to make the arrow head.
+ */
 extern ENGINE_API void DrawConnectedArrow(class FPrimitiveDrawInterface* PDI, const FMatrix& ArrowToWorld, const FLinearColor& Color, float ArrowHeight, float ArrowWidth, uint8 DepthPriority, float Thickness = 0.5f, int32 NumSpokes = 6);
-extern ENGINE_API void DrawWireStar(class FPrimitiveDrawInterface* PDI,const FVector& Position, float Size, const FLinearColor& Color,uint8 DepthPriority);
+
+/**
+ * Draws a axis-aligned 3 line star.
+ *
+ * @param	PDI				Draw interface.
+ * @param	Position		Position of the star.
+ * @param	Size			Size of the star
+ * @param	InColor			Color of the arrow.
+ * @param	DepthPriority	Depth priority for the star.
+ */
+extern ENGINE_API void DrawWireStar(class FPrimitiveDrawInterface* PDI, const FVector& Position, float Size, const FLinearColor& Color, uint8 DepthPriority);
+
+/**
+ * Draws a dashed line.
+ *
+ * @param	PDI				Draw interface.
+ * @param	Start			Start position of the line.
+ * @param	End				End position of the line.
+ * @param	Color			Color of the arrow.
+ * @param	DashSize		Size of each of the dashes that makes up the line.
+ * @param	DepthPriority	Depth priority for the line.
+ */
 extern ENGINE_API void DrawDashedLine(class FPrimitiveDrawInterface* PDI, const FVector& Start, const FVector& End, const FLinearColor& Color, float DashSize, uint8 DepthPriority, float DepthBias = 0.0f);
-extern ENGINE_API void DrawWireDiamond(class FPrimitiveDrawInterface* PDI,const FMatrix& DiamondMatrix, float Size, const FLinearColor& InColor,uint8 DepthPriority);
-extern ENGINE_API void DrawCoordinateSystem(FPrimitiveDrawInterface* PDI, FVector const& AxisLoc, FRotator const& AxisRot, float Scale, uint8 DepthPriority);
+
+/**
+ * Draws a wireframe diamond.
+ *
+ * @param	PDI				Draw interface.
+ * @param	DiamondMatrix	Transform Matrix for the diamond.
+ * @param	Size			Size of the diamond.
+ * @param	InColor			Color of the diamond.
+ * @param	DepthPriority	Depth priority for the diamond.
+ */
+extern ENGINE_API void DrawWireDiamond(class FPrimitiveDrawInterface* PDI, const FMatrix& DiamondMatrix, float Size, const FLinearColor& InColor, uint8 DepthPriority);
+
+extern ENGINE_API void DrawCoordinateSystem(FPrimitiveDrawInterface* PDI, FVector const& AxisLoc, FRotator const& AxisRot, float Scale, uint8 DepthPriority, float Thickness = 0.0f);
 
 /**
  * Draws a wireframe of the bounds of a frustum as defined by a transform from clip-space into world-space.
@@ -1687,7 +2003,7 @@ float ENGINE_API ComputeBoundsScreenSize(const FVector4& Origin, const float Sph
  * @param SphereRadius - Radius of the sphere to use to calculate screen coverage
  * @param View - The view to calculate the LOD level for
  */
-int8 ENGINE_API ComputeStaticMeshLOD(const FStaticMeshRenderData* RenderData, const FVector4& Origin, const float SphereRadius, const FSceneView& View, float FactorScale = 1.0f);
+int8 ENGINE_API ComputeStaticMeshLOD(const FStaticMeshRenderData* RenderData, const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale = 1.0f);
 
 /**
  * Computes the LOD to render for the list of static meshes in the given view.

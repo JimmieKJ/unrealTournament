@@ -3,6 +3,7 @@
 #pragma once
 
 #include "GameplayTagContainer.h"
+#include "GameplayTagAssetInterface.h"
 #include "BlueprintGameplayTagLibrary.generated.h"
 
 // Forward declarations
@@ -83,4 +84,29 @@ class UBlueprintGameplayTagLibrary : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintPure, Category = "GameplayTags")
 	static FGameplayTag MakeLiteralGameplayTag(FGameplayTag Value);
+
+	/**
+	 * Check Gameplay tags in the interface has all of the specified tags in the tag container (expands to include parents of asset tags)
+	 *
+	 * @param TagContainerInterface		An Interface to a tag container
+	 * @param OtherContainer			A Tag Container
+	 *
+	 * @return True if the tagcontainer in the interface has all the tags inside the container.
+	 */
+	UFUNCTION(BlueprintPure, meta = (BlueprintInternalUseOnly = "TRUE"))
+	static bool HasAllMatchingGameplayTags(TScriptInterface<IGameplayTagAssetInterface> TagContainerInterface, const FGameplayTagContainer& OtherContainer, bool bCountEmptyAsMatch);
+
+	/**
+	* Check if the specified tag container has the specified tag, using the specified tag matching types
+	*
+	* @param TagContainerInterface		An Interface to a tag container
+	* @param ContainerTagsMatchType		Matching options to use for tags inside the container
+	* @param Tag						Tag to check for in the container
+	* @param TagMatchType				Matching option to use for the tag
+	*
+	* @return True if the container has the specified tag, false if it does not
+	*/
+	UFUNCTION(BlueprintPure, meta = (BlueprintInternalUseOnly = "TRUE"))
+	static bool DoesTagAssetInterfaceHaveTag(TScriptInterface<IGameplayTagAssetInterface> TagContainerInterface, TEnumAsByte<EGameplayTagMatchType::Type> ContainerTagsMatchType, const FGameplayTag& Tag, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType);
+
 };

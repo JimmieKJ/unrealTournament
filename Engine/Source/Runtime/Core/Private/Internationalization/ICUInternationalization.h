@@ -5,6 +5,9 @@
 
 #include <unicode/umachine.h>
 
+// Linux needs to have those compiled statically at least until we settle on .so location for deployed/native builds
+#define NEEDS_ICU_DLLS		(IS_PROGRAM || !IS_MONOLITHIC) && PLATFORM_DESKTOP && !PLATFORM_LINUX
+
 class FICUInternationalization
 {
 public:
@@ -18,7 +21,7 @@ public:
 	FCulturePtr GetCulture(const FString& Name);
 
 private:
-#if (IS_PROGRAM || !IS_MONOLITHIC)
+#if NEEDS_ICU_DLLS
 	void LoadDLLs();
 	void UnloadDLLs();
 #endif

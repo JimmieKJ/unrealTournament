@@ -138,8 +138,6 @@ LAUNCH_API int32 GuardedMainWrapper( const TCHAR* CmdLine, HINSTANCE hInInstance
 	}
 	return ErrorLevel;
 }
-
-
 int32 WINAPI WinMain( HINSTANCE hInInstance, HINSTANCE hPrevInstance, char*, int32 nCmdShow )
 {
 	// Setup common Windows settings
@@ -147,8 +145,8 @@ int32 WINAPI WinMain( HINSTANCE hInInstance, HINSTANCE hPrevInstance, char*, int
 
 	int32 ErrorLevel			= 0;
 	hInstance				= hInInstance;
-	const TCHAR* CmdLine	= GetCommandLine();
-	
+	const TCHAR* CmdLine = ::GetCommandLine();
+
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
 	// Named mutex we use to figure out whether we are the first instance of the game running. This is needed to e.g.
 	// make sure there is no contention when trying to save the shader cache.

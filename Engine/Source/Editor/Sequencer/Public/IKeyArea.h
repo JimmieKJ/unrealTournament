@@ -22,6 +22,24 @@ struct FKeyDrawingInfo
 class IKeyArea
 {
 public:
+	/** Defines curve information for this key area. */
+	class FCurveInfo
+	{
+	public:
+		FCurveInfo( FRichCurve* InCurve, UMovieSceneSection* InOwningSection )
+			: Curve(InCurve)
+			, OwningSection(InOwningSection)
+		{
+		}
+
+		/** The curve associated with the key area. */
+		FRichCurve* const Curve;
+
+		/** The movie section which owns curve. */
+		UMovieSceneSection* const OwningSection;
+	};
+
+public:
 	virtual ~IKeyArea() {}
 
 	/** @return The array of unsorted key handles in the key area */
@@ -50,6 +68,10 @@ public:
 	 * @param KeyHandle The key to delete
 	 */
 	virtual void DeleteKey(FKeyHandle KeyHandle) = 0;
+
+	/** Gets any curve info associated with this key area.  This can be null but it must be valid in order to be
+	  * edited by the curve editor. */
+	virtual FCurveInfo* GetCurveInfo() = 0;
 };
 
 

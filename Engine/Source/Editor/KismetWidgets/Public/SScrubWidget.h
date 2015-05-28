@@ -12,6 +12,7 @@
  * Keyboard-based manipulation: click on the spinbox to enter text mode.
  */
 DECLARE_DELEGATE_TwoParams( FOnCropAnimSequence, bool, float )
+DECLARE_DELEGATE_TwoParams( FOnAddAnimSequence, bool, int32 )
 DECLARE_DELEGATE_TwoParams( FOnScrubBarDrag, int32, float)
 
 class KISMETWIDGETS_API SScrubWidget : public SCompoundWidget
@@ -49,6 +50,8 @@ public:
 		SLATE_EVENT( FOnSetInputViewRange, OnSetInputViewRange )
 		/** Called when an anim sequence is cropped before/after a selected frame */
 		SLATE_EVENT( FOnCropAnimSequence, OnCropAnimSequence )
+		/** Called when an frane is added before/after a selected frame */
+		SLATE_EVENT( FOnAddAnimSequence, OnAddAnimSequence )
 		/** Called to zero out selected frame's translation from origin */
 		SLATE_EVENT( FSimpleDelegate, OnReZeroAnimSequence )
 		/** Optional, additional values to draw on the timeline **/
@@ -65,7 +68,7 @@ public:
 	void Construct( const FArguments& InArgs );
 
 	// SWidget interface
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
@@ -93,6 +96,9 @@ private:
 	/** Function to crop animation sequence before/after selected frame */
 	void OnSequenceCropped( bool bFromStart, float CurrentFrameTime );
 
+	/** Function to crop animation sequence before/after selected frame */
+	void OnSequenceAdded(bool bBefore, int32 CurrentFrameNumber);
+
 	/** Function to zero out translation of the selected frame */
 	void OnReZero();
 
@@ -105,6 +111,7 @@ private:
 	TAttribute<float> ViewInputMax;
 	FOnSetInputViewRange OnSetInputViewRange;
 	FOnCropAnimSequence OnCropAnimSequence;
+	FOnAddAnimSequence	OnAddAnimSequence;
 	FSimpleDelegate		OnReZeroAnimSequence;
 
 	/** Dragagble bars are generic lines drawn on the scrub widget that can be dragged with the mouse. This is very bare bones and just represents drawing/moving float values */

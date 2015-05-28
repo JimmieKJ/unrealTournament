@@ -20,9 +20,9 @@ public:
 	virtual void StartRecordingToFile(float TImeStamp) override;
 	virtual void StopRecordingToFile(float TImeStamp) override;
 	virtual void SetFileName(const FString& InFileName) override;
-	virtual void Serialize(const class UObject* LogOwner, FName OwnerName, const FVisualLogEntry& LogEntry) override;
+	virtual void Serialize(const class UObject* LogOwner, FName OwnerName, FName OwnerClassName, const FVisualLogEntry& LogEntry) override;
 	virtual void GetRecordedLogs(TArray<FVisualLogEntryItem>& RecordedLogs) const override { RecordedLogs = FrameCache; }
-	virtual bool HasFlags(int32 InFlags) const { return !!(InFlags & (EVisualLoggerDeviceFlags::CanSaveToFile | EVisualLoggerDeviceFlags::StoreLogsLocally)); }
+	virtual bool HasFlags(int32 InFlags) const override { return !!(InFlags & (EVisualLoggerDeviceFlags::CanSaveToFile | EVisualLoggerDeviceFlags::StoreLogsLocally)); }
 
 protected:
 	int32 bUseCompression : 1;

@@ -29,9 +29,7 @@ ULeapMotionControllerComponent::ULeapMotionControllerComponent(const class FObje
 
 	Scale = 5.0f;
 
-	IsInHmdMode = false;
-	UseHmdMode(IsInHmdMode);
-
+	bHmdMode = false;
 	bShowCollider = true;
 	bShowMesh = true;
 }
@@ -79,12 +77,12 @@ ALeapMotionHandActor* ULeapMotionControllerComponent::GetOldestLeftOrRightHandAc
 
 void ULeapMotionControllerComponent::UseHmdMode(bool EnableOrDisable)
 {
-	IsInHmdMode = EnableOrDisable;
+	bHmdMode = EnableOrDisable;
 	
 	FLeapMotionDevice* Device = FLeapMotionControllerPlugin::GetLeapDeviceSafe();
 	if (Device && Device->IsConnected())
 	{
-		Device->SetHmdPolicy(IsInHmdMode);
+		Device->SetHmdPolicy(bHmdMode);
 	}
 }
 
@@ -96,11 +94,17 @@ void ULeapMotionControllerComponent::TickComponent(float DeltaTime, enum ELevelT
 	UdpateHandsPositions(DeltaTime);
 }
 
+void ULeapMotionControllerComponent::PostInitProperties()
+{
+	Super::PostInitProperties();
+	UseHmdMode(bHmdMode);
+}
+
 #if WITH_EDITOR
 void ULeapMotionControllerComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
-	UseHmdMode(IsInHmdMode);
+	UseHmdMode(bHmdMode);
 }
 #endif
 
@@ -168,14 +172,15 @@ void ULeapMotionControllerComponent::OnHandAddedImpl(int32 HandId)
 	SpawnParams.Owner = GetOwner();
 	SpawnParams.Instigator = GetOwner()->GetInstigator();
 
-	if (IsInHmdMode)
+	if (bHmdMode)
 	{
 		FRotator ForwardTilt(-90, 0, 0);
 		FRotator Roll(0, 0, 180);
 		SpawnRotation = (SpawnRotation.Quaternion() * Roll.Quaternion() * ForwardTilt.Quaternion()).Rotator();
 	}
 
-	ALeapMotionHandActor* handActor = GWorld->SpawnActor<ALeapMotionHandActor>(HandBlueprint ? HandBlueprint : ALeapMotionHandActor::StaticClass(), SpawnLocation, SpawnRotation, SpawnParams);
+	UClass* HandBlueprintClass = HandBlueprint;
+	ALeapMotionHandActor* handActor = GetWorld()->SpawnActor<ALeapMotionHandActor>(HandBlueprintClass != nullptr ? HandBlueprintClass : ALeapMotionHandActor::StaticClass(), SpawnLocation, SpawnRotation, SpawnParams);
 
 	if (handActor)
 	{

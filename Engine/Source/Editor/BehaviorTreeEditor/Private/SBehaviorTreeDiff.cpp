@@ -62,8 +62,8 @@ public:
 	/** Initialize commands */
 	virtual void RegisterCommands() override
 	{
-		UI_COMMAND(Previous, "Prev", "Go to previous difference", EUserInterfaceActionType::Button, FInputGesture(EKeys::F7, EModifierKey::Control));
-		UI_COMMAND(Next, "Next", "Go to next difference", EUserInterfaceActionType::Button, FInputGesture(EKeys::F7));
+		UI_COMMAND(Previous, "Prev", "Go to previous difference", EUserInterfaceActionType::Button, FInputChord(EKeys::F7, EModifierKey::Control));
+		UI_COMMAND(Next, "Next", "Go to next difference", EUserInterfaceActionType::Button, FInputChord(EKeys::F7));
 	}
 
 	/** Go to previous difference */
@@ -395,10 +395,10 @@ void SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GeneratePanel(UEdGraph* Graph, U
 		];
 
 	FPropertyEditorModule& PropertyEditorModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>( "PropertyEditor" );
-	const FDetailsViewArgs DetailsViewArgs( false, false, true, FDetailsViewArgs::ObjectsUseNameArea, false );
+	FDetailsViewArgs DetailsViewArgs( false, false, true, FDetailsViewArgs::ObjectsUseNameArea, false );
+	DetailsViewArgs.DefaultsOnlyVisibility = FDetailsViewArgs::EEditDefaultsOnlyNodeVisibility::Hide;
 	DetailsView = PropertyEditorModule.CreateDetailView( DetailsViewArgs );
 	DetailsView->SetObject( NULL );
-	DetailsView->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateRaw(this, &SBehaviorTreeDiff::FBehaviorTreeDiffPanel::IsPropertyVisible));
 	DetailsView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateRaw(this, &SBehaviorTreeDiff::FBehaviorTreeDiffPanel::IsPropertyEditable));
 	
 	if(Graph)
@@ -466,12 +466,9 @@ FText SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GetTitle() const
 	if (!RevisionInfo.Revision.IsEmpty())
 	{
 		// Don't use grouping on the revision or CL numbers to match how Perforce displays them
-		static const FNumberFormattingOptions RevisionFormatOptions = FNumberFormattingOptions()
-			.SetUseGrouping(false);
-
 		const FText DateText = FText::AsDate(RevisionInfo.Date, EDateTimeStyle::Short);
 		const FText RevisionText = FText::FromString(RevisionInfo.Revision);
-		const FText ChangelistText = FText::AsNumber(RevisionInfo.Changelist, &RevisionFormatOptions);
+		const FText ChangelistText = FText::AsNumber(RevisionInfo.Changelist, &FNumberFormattingOptions::DefaultNoGrouping());
 
 		if (bShowAssetName)
 		{
@@ -582,11 +579,6 @@ void SBehaviorTreeDiff::FBehaviorTreeDiffPanel::OnSelectionChanged( const FGraph
 	{
 		DetailsView->SetObject(NULL);
 	}
-}
-
-bool SBehaviorTreeDiff::FBehaviorTreeDiffPanel::IsPropertyVisible(const FPropertyAndParent& PropertyAndParent) const
-{
-	return !PropertyAndParent.Property.HasAnyPropertyFlags(CPF_DisableEditOnInstance);
 }
 
 bool SBehaviorTreeDiff::FBehaviorTreeDiffPanel::IsPropertyEditable()

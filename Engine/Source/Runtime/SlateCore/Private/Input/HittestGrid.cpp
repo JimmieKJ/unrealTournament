@@ -228,9 +228,23 @@ void FHittestGrid::ClearGridForNewFrame( const FSlateRect& HittestArea )
 	GridOrigin = HittestArea.GetTopLeft();
 	const FVector2D GridSize = HittestArea.GetSize();
 	NumCells = FIntPoint( FMath::CeilToInt(GridSize.X / CellSize.X), FMath::CeilToInt(GridSize.Y / CellSize.Y) );
-	WidgetsCachedThisFrame->Empty();
-	Cells.Reset( NumCells.X * NumCells.Y );	
-	Cells.SetNum( NumCells.X * NumCells.Y );
+	WidgetsCachedThisFrame->Empty(WidgetsCachedThisFrame->Num());
+
+	const int32 NewTotalCells = NumCells.X * NumCells.Y;
+	if (NewTotalCells != Cells.Num())
+	{
+		Cells.Reset( NewTotalCells );	
+		Cells.SetNum( NewTotalCells );
+	}
+	else
+	{
+		// As an optimization, if the number of cells do not change then we will just reset the index list inside of them
+		// This will leave slack for indices to be re-added without reallocating.
+		for(auto& Cell : Cells)
+		{
+			Cell.CachedWidgetIndexes.Reset();
+		}
+	}
 }
 
 int32 FHittestGrid::InsertWidget( const int32 ParentHittestIndex, const EVisibility& Visibility, const FArrangedWidget& Widget, const FVector2D InWindowOffset, const FSlateRect& InClippingRect )
@@ -371,7 +385,7 @@ TSharedPtr<SWidget> FHittestGrid::FindFocusableWidget(FSlateRect WidgetRect, con
 				check(CurrentIndex < WidgetsCachedThisFrame->Num());
 
 				const FCachedWidget& TestCandidate = (*WidgetsCachedThisFrame)[CurrentIndex];
-				FSlateRect TestCandidateRect = TestCandidate.ClippingRect;
+				FSlateRect TestCandidateRect = TestCandidate.ClippingRect.OffsetBy(-GridOrigin);
 
 				if (CompareFunc(DestSideFunc(TestCandidateRect), CurrentSourceSide) && FSlateRect::DoRectanglesIntersect(SweptRect, TestCandidateRect))
 				{
@@ -691,7 +705,6 @@ TArray<FWidgetAndPointer> FHittestGrid::GetBubblePathFromHitIndex(const int32 Hi
 	if (WidgetsCachedThisFrame->IsValidIndex(HitIndex))
 	{
 		int32 CurWidgetIndex = HitIndex;
-		bool bPathUninterrupted = false;
 		do
 		{
 			check(CurWidgetIndex < WidgetsCachedThisFrame->Num());
@@ -699,21 +712,23 @@ TArray<FWidgetAndPointer> FHittestGrid::GetBubblePathFromHitIndex(const int32 Hi
 			const TSharedPtr<SWidget> CachedWidgetPtr = CurCachedWidget.WidgetPtr.Pin();
 
 
-			bPathUninterrupted = CachedWidgetPtr.IsValid();
-			if (bPathUninterrupted)
+			const bool bPathInterrupted = !CachedWidgetPtr.IsValid();
+			if ( bPathInterrupted )
+			{
+				// A widget in the path to the root has been removed, so anything
+				// we thought we had hittest so far is no longer actually in the hierarchy.
+				// Continue bubbling to the root of the hirarchy to find an unbroken chain to root.
+				// The leafmost widget in that chain will get first shot at the events.
+				BubblePath.Reset();
+			}
+			else
 			{
 				BubblePath.Insert(FWidgetAndPointer(FArrangedWidget(CachedWidgetPtr.ToSharedRef(), CurCachedWidget.CachedGeometry), TSharedPtr<FVirtualPointerPosition>()), 0);
-				CurWidgetIndex = CurCachedWidget.ParentIndex;
 			}
-		} while (CurWidgetIndex != INDEX_NONE && bPathUninterrupted);
-
-		if (!bPathUninterrupted)
-		{
-			// A widget in the path to the root has been removed, so anything
-			// we thought we had hittest is no longer actually there.
-			// Pretend we didn't hit anything.
-			BubblePath.Reset();
+			CurWidgetIndex = CurCachedWidget.ParentIndex;
 		}
+		while (CurWidgetIndex != INDEX_NONE);
+
 
 		// Disabling a widget disables all of its logical children
 		// This effect is achieved by truncating the path to the

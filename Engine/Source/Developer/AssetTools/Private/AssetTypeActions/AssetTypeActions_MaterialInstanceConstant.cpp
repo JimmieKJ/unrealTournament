@@ -15,7 +15,7 @@ void FAssetTypeActions_MaterialInstanceConstant::GetActions( const TArray<UObjec
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("MaterialInstanceConstant_FindParent", "Find Parent"),
 		LOCTEXT("MaterialInstanceConstant_FindParentTooltip", "Finds the material this instance is based on in the content browser."),
-		FSlateIcon(),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.GenericFind"),
 		FUIAction(
 			FExecuteAction::CreateSP( this, &FAssetTypeActions_MaterialInstanceConstant::ExecuteFindParent, MICs ),
 			FCanExecuteAction()

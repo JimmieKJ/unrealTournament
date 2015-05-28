@@ -78,7 +78,7 @@ public:
 	virtual bool GetCursor(EMouseCursor::Type& OutCursor) const { return false; }
 
 	virtual bool ShouldDrawBrushWireframe( AActor* InActor ) const { return true; }
-	virtual bool GetCustomDrawingCoordinateSystem( FMatrix& InMatrix, void* InData ) { return 0; }
+	virtual bool GetCustomDrawingCoordinateSystem(FMatrix& InMatrix, void* InData);
 	virtual bool GetCustomInputCoordinateSystem( FMatrix& InMatrix, void* InData ) { return 0; }
 
 	/** If Rotation Snap should be enabled for this mode*/ 
@@ -289,6 +289,8 @@ public:
 			, bIsTransform(false)
 		{
 		}
+		
+		void GetTransformAndColor(UObject* BestSelectedItem, bool bIsSelected, FTransform& OutLocalTransform, FString& OutValidationMessage, FColor& OutDrawColor) const;
 	};
 
 protected:
@@ -305,6 +307,9 @@ protected:
 	 * @param OutInfos An array of widget info structures (output).
 	 */
 	void GetPropertyWidgetInfos(const UStruct* InStruct, const void* InContainer, TArray<FPropertyWidgetInfo>& OutInfos) const;
+
+	/** Finds the best item to display widgets for (preferring selected components over selected actors) */
+	virtual UObject* GetItemToTryDisplayingWidgetsFor(FTransform& OutWidgetToWorld) const;
 
 	/** Name of the property currently being edited */
 	FString EditedPropertyName;

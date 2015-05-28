@@ -25,7 +25,8 @@ void FCrashReportClientStyle::Shutdown()
 }
 
 #define TTF_FONT(RelativePath, ...) FSlateFontInfo(ContentFromEngine(TEXT(RelativePath), TEXT(".ttf")), __VA_ARGS__)
-#define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush(ContentFromEngine(RelativePath, TEXT(".png")), __VA_ARGS__)
+#define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush(ContentFromEngine(TEXT(RelativePath), TEXT(".png")), __VA_ARGS__)
+#define BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush(ContentFromEngine(TEXT(RelativePath), TEXT(".png")), __VA_ARGS__)
 
 namespace
 {
@@ -64,14 +65,23 @@ TSharedRef< FSlateStyleSet > FCrashReportClientStyle::Create()
 	const FVector2D Icon16x16( 16.0f, 16.0f );
 	FSlateBrush* GenericWhiteBox = new IMAGE_BRUSH( "Old/White", Icon16x16 );
 
+	// Scrollbar
+	const FScrollBarStyle ScrollBar = FScrollBarStyle()
+		.SetVerticalTopSlotImage(IMAGE_BRUSH("Common/Scrollbar_Background_Vertical", FVector2D(8, 8)))
+		.SetVerticalBottomSlotImage(IMAGE_BRUSH("Common/Scrollbar_Background_Vertical", FVector2D(8, 8)))
+		.SetHorizontalTopSlotImage(IMAGE_BRUSH("Common/Scrollbar_Background_Horizontal", FVector2D(8, 8)))
+		.SetHorizontalBottomSlotImage(IMAGE_BRUSH("Common/Scrollbar_Background_Horizontal", FVector2D(8, 8)))
+		.SetNormalThumbImage(BOX_BRUSH("Common/Scrollbar_Thumb", FMargin(4.f / 16.f)))
+		.SetDraggedThumbImage(BOX_BRUSH("Common/Scrollbar_Thumb", FMargin(4.f / 16.f)))
+		.SetHoveredThumbImage(BOX_BRUSH("Common/Scrollbar_Thumb", FMargin(4.f / 16.f)));
+
 	// SEditableTextBox defaults...
-	const FScrollBarStyle& ScrollBarStyle = FCoreStyle::Get().GetWidgetStyle<FScrollBarStyle>( "ScrollBar" );
 	const FEditableTextBoxStyle NormalEditableTextBoxStyle = FEditableTextBoxStyle()
-		.SetBackgroundImageNormal( *GenericWhiteBox )
-		.SetBackgroundImageHovered( *GenericWhiteBox )
-		.SetBackgroundImageFocused( *GenericWhiteBox )
-		.SetBackgroundImageReadOnly( *GenericWhiteBox )
-		.SetScrollBarStyle( ScrollBarStyle );
+		.SetBackgroundImageNormal(*GenericWhiteBox)
+		.SetBackgroundImageHovered(*GenericWhiteBox)
+		.SetBackgroundImageFocused(*GenericWhiteBox)
+		.SetBackgroundImageReadOnly(*GenericWhiteBox)
+		.SetScrollBarStyle(ScrollBar);
 	{
 		Style.Set( "NormalEditableTextBox", NormalEditableTextBoxStyle );
 	}

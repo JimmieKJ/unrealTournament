@@ -11,6 +11,7 @@ class USlateBrushAsset;
  * to surround it with a background image and adjustable padding.
  *
  * ● Single Child
+ * ● Image
  */
 UCLASS()
 class UMG_API UBorder : public UContentWidget
@@ -20,7 +21,7 @@ class UMG_API UBorder : public UContentWidget
 public:
 
 	/** Color and opacity multiplier of content in the border */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Content")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Content")
 	FLinearColor ContentColorAndOpacity;
 
 	/** A bindable delegate for the ContentColorAndOpacity. */
@@ -28,19 +29,19 @@ public:
 	FGetLinearColor ContentColorAndOpacityDelegate;
 
 	/** The padding area between the slot and the content it contains. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Content")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Content")
 	FMargin Padding;
 
 	/** The alignment of the content horizontally. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Content")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Content")
 	TEnumAsByte<EHorizontalAlignment> HorizontalAlignment;
 
 	/** The alignment of the content vertically. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Content")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Content")
 	TEnumAsByte<EVerticalAlignment> VerticalAlignment;
 
 	/** Brush to drag as the background */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance, meta=( DisplayName="Brush" ))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, meta=( DisplayName="Brush" ))
 	FSlateBrush Background;
 
 	/** A bindable delegate for the Brush. */
@@ -48,7 +49,7 @@ public:
 	FGetSlateBrush BackgroundDelegate;
 
 	/** Color and opacity of the actual border image */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FLinearColor BrushColor;
 
 	/** A bindable delegate for the BrushColor. */
@@ -56,21 +57,21 @@ public:
 	FGetLinearColor BrushColorDelegate;
 
 	/** Whether or not to show the disabled effect when this border is disabled */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
 	bool bShowEffectWhenDisabled;
 
 public:
 
-	UPROPERTY(EditDefaultsOnly, Category=Events)
+	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))
 	FOnPointerEvent OnMouseButtonDownEvent;
 
-	UPROPERTY(EditDefaultsOnly, Category=Events)
+	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))
 	FOnPointerEvent OnMouseButtonUpEvent;
 
-	UPROPERTY(EditDefaultsOnly, Category=Events)
+	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))
 	FOnPointerEvent OnMouseMoveEvent;
 
-	UPROPERTY(EditDefaultsOnly, Category=Events)
+	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))
 	FOnPointerEvent OnMouseDoubleClickEvent;
 
 public:
@@ -91,6 +92,10 @@ public:
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
 	void SetBrushColor(FLinearColor InBrushColor);
+
+	/**  */
+	UFUNCTION(BlueprintCallable, Category="Appearance")
+	void SetBrush(const FSlateBrush& InBrush);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")

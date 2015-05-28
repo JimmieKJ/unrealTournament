@@ -3,11 +3,12 @@
 #pragma once
 
 /**
- * Hitbox use for clickable hud elements.
+ * Hitbox used for clickable HUD elements.
  * These are named regions that receive various events when clicked upon.
  * @see AHud
  * @see AddHitBox(), ReceiveHitBoxClick(), ReceiveHitBoxRelease(), ReceiveHitBoxBeginCursorOver(), ReceiveHitBoxEndCursorOver()
- * @see  GetHitBoxAtCoordinates(), GetHitBoxesAtCoordinates(), GetHitBoxWithName()
+ * @see NotifyHitBoxClick(), NotifyHitBoxRelease(), NotifyHitBoxBeginCursorOver(), NotifyHitBoxEndCursorOver()
+ * @see GetHitBoxAtCoordinates(), GetHitBoxesAtCoordinates(), GetHitBoxWithName()
  */
 class ENGINE_API FHUDHitBox
 {

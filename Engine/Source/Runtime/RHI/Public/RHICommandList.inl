@@ -46,6 +46,15 @@ FORCEINLINE_DEBUGGABLE void FRHICommandListImmediate::ImmediateFlush(EImmediateF
 			}
 		}
 		break;
+	case EImmediateFlushType::WaitForDispatchToRHIThread:
+		{
+			if (HasCommands())
+			{
+				GRHICommandList.ExecuteList(*this);
+			}
+			WaitForDispatch();
+		}
+		break;
 	case EImmediateFlushType::WaitForRHIThread:
 		{
 			check(GRHIThread);

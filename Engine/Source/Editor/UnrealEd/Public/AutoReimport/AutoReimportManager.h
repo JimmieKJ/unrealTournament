@@ -34,7 +34,10 @@ public:
 	TArray<FPathAndMountPoint> GetMonitoredDirectories() const;
 
 	/** Report an external change to the manager, such that a subsequent equal change reported by the os be ignored */
-	void ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action);
+	void IgnoreNewFile(const FString& Filename);
+	void IgnoreFileModification(const FString& Filename);
+	void IgnoreMovedFile(const FString& SrcFilename, const FString& DstFilename);
+	void IgnoreDeletedFile(const FString& Filename);
 
 private:
 

@@ -5,7 +5,7 @@
 #include "Manifest.h"
 #include "Json.h"
 #include "Manifest.h"
-
+#include "GeneratedCodeVersion.h"
 
 namespace
 {
@@ -117,7 +117,7 @@ FManifest FManifest::LoadFromFile(const FString& Filename)
 		auto& KnownModule = Result.Modules.Last();
 
 		FString Outer = FString::Printf(TEXT("Modules[%d]"), ModuleIndex);
-
+		FString GeneratedCodeVersionString;
 		GetJsonFieldValue(KnownModule.Name,                      ModuleObj, TEXT("Name"),                     *Outer);
 		GetJsonFieldValue(KnownModule.BaseDirectory,             ModuleObj, TEXT("BaseDirectory"),            *Outer);
 		GetJsonFieldValue(KnownModule.IncludeBase,               ModuleObj, TEXT("IncludeBase"),              *Outer);
@@ -128,6 +128,8 @@ FManifest FManifest::LoadFromFile(const FString& Filename)
 		GetJsonFieldValue(PrivateHeaders,                        ModuleObj, TEXT("PrivateHeaders"),           *Outer);
 		GetJsonFieldValue(KnownModule.PCH,                       ModuleObj, TEXT("PCH"),                      *Outer);
 		GetJsonFieldValue(KnownModule.GeneratedCPPFilenameBase,  ModuleObj, TEXT("GeneratedCPPFilenameBase"), *Outer);
+		GetJsonFieldValue(GeneratedCodeVersionString, ModuleObj, TEXT("UHTGeneratedCodeVersion"), *Outer);
+		KnownModule.GeneratedCodeVersion = ToGeneratedCodeVersion(GeneratedCodeVersionString);
 
 		FString ModuleTypeText;
 		GetJsonFieldValue(ModuleTypeText, ModuleObj, TEXT("ModuleType"), *Outer);

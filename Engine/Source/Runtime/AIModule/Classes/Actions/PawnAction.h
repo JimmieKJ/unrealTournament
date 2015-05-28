@@ -40,7 +40,7 @@ namespace EPawnActionFailHandling
  *	Things to remember:
  *	* Actions are created paused
  */
-UCLASS(abstract)
+UCLASS(abstract, EditInlineNew)
 class AIMODULE_API UPawnAction : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -87,15 +87,21 @@ protected:
 
 	/** if this is FALSE and we're trying to push a new instance of a given class,
 	 *	but the top of the stack is already an instance of that class ignore the attempted push */
-	UPROPERTY(Category = PawnAction, EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(Category = PawnAction, EditDefaultsOnly, BlueprintReadOnly)
 	uint32 bAllowNewSameClassInstance : 1;
 
 	/** if this is TRUE, when we try to push a new instance of an action who has the
 	 *	same class as the action on the top of the stack, pop the one on the stack, and push the new one
 	 *	NOTE: This trumps bAllowNewClassInstance (e.g. if this is true and bAllowNewClassInstance
 	 *	is false the active instance will still be replaced) */
-	UPROPERTY(Category = AIAction, EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(Category = PawnAction, EditDefaultsOnly, BlueprintReadWrite)
 	uint32 bReplaceActiveSameClassInstance : 1;
+
+	/** this is a temporary solution to allow having movement action running in background while there's 
+	 *	another action on top doing its thing
+	 *	@note should go away once AI resource locking comes on-line */
+	UPROPERTY(Category = PawnAction, EditDefaultsOnly, BlueprintReadWrite)
+	uint32 bShouldPauseMovement : 1;
 
 private:
 	/** indicates whether action is in the process of abortion, and if so on what state */
@@ -135,6 +141,8 @@ public:
 	FORCEINLINE bool IsFinished() const { return FinishResult > EPawnActionResult::InProgress; }
 	FORCEINLINE bool WantsTick() const { return bWantsTick; }
 
+	FORCEINLINE bool ShouldPauseMovement() const { return bShouldPauseMovement; }
+
 protected:
 	FORCEINLINE void TickAction(float DeltaTime)
 	{ 
@@ -163,14 +171,14 @@ public:
 	FORCEINLINE EPawnActionAbortState::Type GetAbortState() const { return AbortState; }
 	FORCEINLINE UPawnActionsComponent* GetOwnerComponent() const { return OwnerComponent; }
 	FORCEINLINE UObject* GetInstigator() const { return Instigator; }
-	APawn* GetPawn();
-	AController* GetController();
+	APawn* GetPawn() const;
+	AController* GetController() const;
 
 	template<class TActionClass>
 	static TActionClass* CreateActionInstance(UWorld& World)
 	{
 		TSubclassOf<UPawnAction> ActionClass = TActionClass::StaticClass();
-		return ConstructObject<TActionClass>(ActionClass, &World);
+		return NewObject<TActionClass>(&World, ActionClass);
 	}
 
 	//----------------------------------------------------------------------//
@@ -180,7 +188,7 @@ public:
 	// @note this function will change its signature once AI messaging is rewritten @todo
 	virtual void HandleAIMessage(UBrainComponent*, const FAIMessage&){};
 
-	void SetActionObserver(const FPawnActionEventDelegate& ActionObserver) { this->ActionObserver = ActionObserver; }
+	void SetActionObserver(const FPawnActionEventDelegate& InActionObserver) { ActionObserver = InActionObserver; }
 	bool HasActionObserver() const { return ActionObserver.IsBound(); }
 
 	//----------------------------------------------------------------------//
@@ -197,6 +205,7 @@ public:
 	//----------------------------------------------------------------------//
 	FString GetStateDescription() const;
 	FString GetPriorityName() const;
+	virtual FString GetDisplayName() const;
 
 protected:
 

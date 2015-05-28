@@ -105,7 +105,7 @@ static bool SquarifyImage(FImage& Image, uint32 MinSquareSize)
     
     // Allocate room to fill out into
     TArray<uint32> SquareRawData;
-	SquareRawData.Init(SquareSize * SquareSize * Image.NumSlices);
+	SquareRawData.SetNumUninitialized(SquareSize * SquareSize * Image.NumSlices);
     
 	int32 SourceSliceSize = Image.SizeX * Image.SizeY;
 	int32 DestSliceSize = SquareSize * SquareSize;
@@ -133,7 +133,7 @@ static bool SquarifyImage(FImage& Image, uint32 MinSquareSize)
 
 	// Put the new image data into the existing Image (copying from uint32 array to uint8 array)
 	Image.RawData.Empty(SquareSize * SquareSize * Image.NumSlices * sizeof(uint32));
-	Image.RawData.Init(SquareSize * SquareSize * Image.NumSlices * sizeof(uint32));
+	Image.RawData.SetNumUninitialized(SquareSize * SquareSize * Image.NumSlices * sizeof(uint32));
 	uint32* FinalData = (uint32*)Image.RawData.GetData();
 	FMemory::Memcpy(Image.RawData.GetData(), SquareRawData.GetData(), SquareSize * SquareSize * Image.NumSlices * sizeof(uint32));
 
@@ -221,7 +221,7 @@ static void UseOriginal(const FImage& InImage, FCompressedImage2D& OutCompressed
     OutCompressedImage.PixelFormat = CompressedPixelFormat;
 	
 	// Output Data
-	OutCompressedImage.RawData.Init(Image.SizeX * Image.SizeY * 4);
+	OutCompressedImage.RawData.SetNumUninitialized(Image.SizeX * Image.SizeY * 4);
     void* MipData = (void*)Image.RawData.GetData();
     FMemory::Memcpy(MipData, Image.RawData.GetData(), Image.SizeX * Image.SizeY * 4);
 }
@@ -480,7 +480,7 @@ class FTextureFormatPVR : public ITextureFormat
 			{
 				FPlatformProcess::Sleep(0.01f);
 			}
-			Proc.Close();
+			FPlatformProcess::CloseProc(Proc);
 
 			// Did it fail?
 			if ( ReturnCode != 0 )

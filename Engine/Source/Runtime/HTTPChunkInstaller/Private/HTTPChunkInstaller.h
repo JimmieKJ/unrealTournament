@@ -52,8 +52,8 @@ public:
 	}
 	
 	virtual bool PrioritizeChunk( uint32 ChunkID, EChunkPriority::Type Priority ) override;
-	virtual bool SetChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate) override;
-	virtual void RemoveChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate);
+	virtual FDelegateHandle SetChunkInstallDelgate(uint32 ChunkID, FPlatformChunkInstallCompleteDelegate Delegate) override;
+	virtual void RemoveChunkInstallDelgate(uint32 ChunkID, FDelegateHandle Delegate) override;
 
 	virtual bool DebugStartNextChunk()
 	{
@@ -63,14 +63,18 @@ public:
 
 	bool Tick(float DeltaSeconds) override;
 
+	void EndInstall();
+
 private:
 
+	void InitialiseSystem();
 	bool AddDataToFileCache(const FString& ManifestHash,const TArray<uint8>& Data);
 	bool IsDataInFileCache(const FString& ManifestHash);
 	bool GetDataFromFileCache(const FString& ManifestHash,TArray<uint8>& Data);
 	bool RemoveDataFromFileCache(const FString& ManifestHash);
 	void UpdatePendingInstallQueue();
-	void BeginChunkInstall(uint32 NextChunkID,IBuildManifestPtr ChunkManifest);
+	IBuildManifestPtr FindPreviousInstallManifest(const IBuildManifestPtr& ChunkManifest);
+	void BeginChunkInstall(uint32 NextChunkID,IBuildManifestPtr ChunkManifest, IBuildManifestPtr PrevInstallChunkManifest);
 	void ParseTitleFileManifest(const FString& ManifestFileHash);
 	bool BuildChunkFolderName(IBuildManifestRef Manifest, FString& ChunkFdrName, FString& ManifestName, uint32& ChunkID, bool& bIsPatch);
 	void OSSEnumerateFilesComplete(bool bSuccess);
@@ -84,6 +88,7 @@ private:
 		Setup,
 		SetupWait,
 		QueryRemoteManifests,
+		EnterOfflineMode,
 		MoveInstalledChunks,
 		RequestingTitleFiles,
 		SearchTitleFiles,
@@ -119,13 +124,18 @@ private:
 		}
 	};
 
-	FAsyncTask<FChunkInstallTask>								ChunkCopyInstall;
-	FAsyncTask<FChunkSetupTask>									ChunkSetupTask;
-	FAsyncTask<FChunkMountTask>									ChunkMountTask;
+	FChunkInstallTask											ChunkCopyInstall;
+	TUniquePtr<FRunnableThread>									ChunkCopyInstallThread;
+	FChunkSetupTask												ChunkSetupTask;
+	TUniquePtr<FRunnableThread>									ChunkSetupTaskThread;
+	FChunkMountTask												ChunkMountTask;
+	TUniquePtr<FRunnableThread>									ChunkMountTaskThread;
 	TMultiMap<uint32, IBuildManifestPtr>						InstalledManifests;
+	TMultiMap<uint32, IBuildManifestPtr>						PrevInstallManifests;
 	TMultiMap<uint32, IBuildManifestPtr>						RemoteManifests;
 	TMap<uint32, FPlatformChunkInstallCompleteMultiDelegate>	DelegateMap;
 	TSet<FString>												ManifestsInMemory;
+	TSet<uint32>												ExpectedChunks;
 	TArray<FCloudFileHeader>									TitleFilesToRead;
 	TArray<uint8>												FileContentBuffer;
 	TArray<FChunkPrio>											PriorityQueue;
@@ -133,17 +143,21 @@ private:
 	IOnlineTitleFilePtr											OnlineTitleFile;
 	IBuildInstallerPtr											InstallService;
 	IBuildManifestPtr											InstallingChunkManifest;
+	FDelegateHandle												EnumFilesCompleteHandle;
+	FDelegateHandle												ReadFileCompleteHandle;
 	FString														CloudDir;
 	FString														StageDir;
 	FString														InstallDir;
 	FString														BackupDir;
 	FString														ContentDir;
 	FString														CacheDir;
+	FString														HoldingDir;
 	IBuildPatchServicesModule*									BPSModule;
 	uint32														InstallingChunkID;
 	ChunkInstallState											InstallerState;
 	EChunkInstallSpeed::Type									InstallSpeed;
 	bool														bFirstRun;
+	bool														bSystemInitialised;
 #if !UE_BUILD_SHIPPING
 	bool														bDebugNoInstalledRequired;
 #endif

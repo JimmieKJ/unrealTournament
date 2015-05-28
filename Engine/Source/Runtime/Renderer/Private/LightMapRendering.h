@@ -179,8 +179,10 @@ public:
 
 		void SetLightMapScale(FRHICommandList& RHICmdList, FShader* PixelShader,const FLightMapInteraction& LightMapInteraction) const
 		{
-			SetShaderValueArray(RHICmdList, PixelShader->GetPixelShader(),LightMapScaleParameter,LightMapInteraction.GetScaleArray(),LightMapInteraction.GetNumLightmapCoefficients());
-			SetShaderValueArray(RHICmdList, PixelShader->GetPixelShader(),LightMapAddParameter,LightMapInteraction.GetAddArray(),LightMapInteraction.GetNumLightmapCoefficients());
+			const FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
+
+			SetShaderValueArray(RHICmdList,ShaderRHI,LightMapScaleParameter,LightMapInteraction.GetScaleArray(),LightMapInteraction.GetNumLightmapCoefficients());
+			SetShaderValueArray(RHICmdList,ShaderRHI,LightMapAddParameter,LightMapInteraction.GetAddArray(),LightMapInteraction.GetNumLightmapCoefficients());
 		}
 
 		void Serialize(FArchive& Ar)
@@ -357,9 +359,11 @@ public:
 
 		void SetMesh(FRHICommandList& RHICmdList, FShader* PixelShader, const FShadowMapInteraction& ShadowMapInteraction, const FVector4& DistanceFieldValues) const
 		{
-			SetShaderValue(RHICmdList, PixelShader->GetPixelShader(), DistanceFieldParameters, DistanceFieldValues);
+			const FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
+
+			SetShaderValue(RHICmdList, ShaderRHI, DistanceFieldParameters, DistanceFieldValues);
 			
-			SetShaderValue(RHICmdList, PixelShader->GetPixelShader(), StaticShadowMapMasks, FVector4(
+			SetShaderValue(RHICmdList, ShaderRHI, StaticShadowMapMasks, FVector4(
 				ShadowMapInteraction.GetChannelValid(0),
 				ShadowMapInteraction.GetChannelValid(1),
 				ShadowMapInteraction.GetChannelValid(2),
@@ -368,7 +372,7 @@ public:
 
 			SetTextureParameter(
 				RHICmdList, 
-				PixelShader->GetPixelShader(),
+				ShaderRHI,
 				StaticShadowTexture,
 				StaticShadowSampler,
 				ShadowMapInteraction.GetTexture() ? ShadowMapInteraction.GetTexture()->Resource : GWhiteTexture
@@ -567,6 +571,8 @@ public:
 	{
 		if (PixelShaderParameters)
 		{
+			const FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
+
 			// Set these even if ElementData.TranslucentSelfShadow is NULL to avoid a d3d debug error from the shader expecting texture SRV's when a different type are bound
 			PixelShaderParameters->TranslucencyShadowParameters.Set(RHICmdList, PixelShader);
 
@@ -575,18 +581,20 @@ public:
 				FVector4 ShadowmapMinMax;
 				FMatrix WorldToShadowMatrixValue = ElementData.TranslucentSelfShadow->GetWorldToShadowMatrix(ShadowmapMinMax);
 
-				SetShaderValue(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->WorldToShadowMatrix, WorldToShadowMatrixValue);
-				SetShaderValue(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->ShadowUVMinMax, ShadowmapMinMax);
-				SetShaderValue(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->DirectionalLightDirection, ElementData.TranslucentSelfShadow->LightSceneInfo->Proxy->GetDirection());
+				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->WorldToShadowMatrix, WorldToShadowMatrixValue);
+				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->ShadowUVMinMax, ShadowmapMinMax);
+
+				const FLightSceneProxy* const LightProxy = ElementData.TranslucentSelfShadow->GetLightSceneInfo().Proxy;
+				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->DirectionalLightDirection, LightProxy->GetDirection());
 				//@todo - support fading from both views
 				const float FadeAlpha = ElementData.TranslucentSelfShadow->FadeAlphas[0];
 				// Incorporate the diffuse scale of 1 / PI into the light color
-				const FVector4 DirectionalLightColorValue(FVector(ElementData.TranslucentSelfShadow->LightSceneInfo->Proxy->GetColor() * FadeAlpha / PI), FadeAlpha);
-				SetShaderValue(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->DirectionalLightColor, DirectionalLightColorValue);
+				const FVector4 DirectionalLightColorValue(FVector(LightProxy->GetColor() * FadeAlpha / PI), FadeAlpha);
+				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->DirectionalLightColor, DirectionalLightColorValue);
 			}
 			else
 			{
-				SetShaderValue(RHICmdList, PixelShader->GetPixelShader(), PixelShaderParameters->DirectionalLightColor, FVector4(0, 0, 0, 0));
+				SetShaderValue(RHICmdList, ShaderRHI, PixelShaderParameters->DirectionalLightColor, FVector4(0, 0, 0, 0));
 			}
 		}
 	}
@@ -976,7 +984,7 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT"), TEXT("1"));
-		OutEnvironment.SetDefine(TEXT("MAX_FORWARD_SHADOWCASCADES"), TEXT(PREPROCESSOR_TO_STRING(MAX_FORWARD_SHADOWCASCADES)));
+		OutEnvironment.SetDefine(TEXT(PREPROCESSOR_TO_STRING(MAX_FORWARD_SHADOWCASCADES)), MAX_FORWARD_SHADOWCASCADES);
 		FSimpleDirectionalLightAndSHIndirectPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 	}
 
@@ -1052,7 +1060,7 @@ public:
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT"), TEXT("1"));
-		OutEnvironment.SetDefine(TEXT("MAX_FORWARD_SHADOWCASCADES"), TEXT(PREPROCESSOR_TO_STRING(MAX_FORWARD_SHADOWCASCADES)));
+		OutEnvironment.SetDefine(TEXT(PREPROCESSOR_TO_STRING(MAX_FORWARD_SHADOWCASCADES)), MAX_FORWARD_SHADOWCASCADES);
 
 		Super::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 	}

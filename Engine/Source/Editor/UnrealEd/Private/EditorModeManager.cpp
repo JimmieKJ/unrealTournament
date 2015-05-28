@@ -33,17 +33,22 @@
 ------------------------------------------------------------------------------*/
 
 FEditorModeTools::FEditorModeTools()
-	:	PivotShown( 0 )
-	,	Snapping( 0 )
-	,	SnappedActor( 0 )
-	,	TranslateRotateXAxisAngle(0)
-	,	DefaultID(FBuiltinEditorModes::EM_Default)
-	,	WidgetMode( FWidget::WM_None )
-	,	OverrideWidgetMode( FWidget::WM_None )
-	,	bShowWidget( 1 )
-	,	bHideViewportUI(false)
-	,	CoordSystem(COORD_World)
-	,	bIsTracking(false)
+	: PivotShown(false)
+	, Snapping(false)
+	, SnappedActor(false)
+	, CachedLocation(ForceInitToZero)
+	, PivotLocation(ForceInitToZero)
+	, SnappedLocation(ForceInitToZero)
+	, GridBase(ForceInitToZero)
+	, TranslateRotateXAxisAngle(0.0f)
+	, TranslateRotate2DAngle(0.0f)
+	, DefaultID(FBuiltinEditorModes::EM_Default)
+	, WidgetMode(FWidget::WM_None)
+	, OverrideWidgetMode(FWidget::WM_None)
+	, bShowWidget(true)
+	, bHideViewportUI(false)
+	, CoordSystem(COORD_World)
+	, bIsTracking(false)
 {
 	// Load the last used settings
 	LoadConfig();
@@ -70,38 +75,27 @@ FEditorModeTools::~FEditorModeTools()
 	GEditor->UnregisterForUndo(this);
 }
 
-/**
- * Loads the state that was saved in the INI file
- */
 void FEditorModeTools::LoadConfig(void)
 {
 	GConfig->GetBool(TEXT("FEditorModeTools"),TEXT("ShowWidget"),bShowWidget,
-		GEditorUserSettingsIni);
+		GEditorPerProjectIni);
 
 	const bool bGetRawValue = true;
 	int32 Bogus = (int32)GetCoordSystem(bGetRawValue);
 	GConfig->GetInt(TEXT("FEditorModeTools"),TEXT("CoordSystem"),Bogus,
-		GEditorUserSettingsIni);
+		GEditorPerProjectIni);
 	SetCoordSystem((ECoordSystem)Bogus);
 
-	
-	GConfig->GetBool( TEXT("UnEdViewport"), TEXT("InterpEdPanInvert"), bInterpPanInverted, GEditorUserSettingsIni );
+
 	LoadWidgetSettings();
 }
 
-/**
- * Saves the current state to the INI file
- */
 void FEditorModeTools::SaveConfig(void)
 {
-	GConfig->SetBool(TEXT("FEditorModeTools"),TEXT("ShowWidget"),bShowWidget,
-		GEditorUserSettingsIni);
+	GConfig->SetBool(TEXT("FEditorModeTools"), TEXT("ShowWidget"), bShowWidget, GEditorPerProjectIni);
 
 	const bool bGetRawValue = true;
-	GConfig->SetInt(TEXT("FEditorModeTools"),TEXT("CoordSystem"),(int32)GetCoordSystem(bGetRawValue),
-		GEditorUserSettingsIni);
-
-	GConfig->SetBool( TEXT("UnEdViewport"), TEXT("InterpEdPanInvert"), bInterpPanInverted, GEditorUserSettingsIni );
+	GConfig->SetInt(TEXT("FEditorModeTools"), TEXT("CoordSystem"), (int32)GetCoordSystem(bGetRawValue), GEditorPerProjectIni);
 
 	SaveWidgetSettings();
 }
@@ -119,14 +113,19 @@ void FEditorModeTools::SetToolkitHost(TSharedRef<class IToolkitHost> InHost)
 	ToolkitHost = InHost;
 }
 
-class USelection* FEditorModeTools::GetSelectedActors() const
+USelection* FEditorModeTools::GetSelectedActors() const
 {
 	return GEditor->GetSelectedActors();
 }
 
-class USelection* FEditorModeTools::GetSelectedObjects() const
+USelection* FEditorModeTools::GetSelectedObjects() const
 {
 	return GEditor->GetSelectedObjects();
+}
+
+USelection* FEditorModeTools::GetSelectedComponents() const
+{
+	return GEditor->GetSelectedComponents();
 }
 
 UWorld* FEditorModeTools::GetWorld() const
@@ -138,7 +137,7 @@ void FEditorModeTools::OnEditorSelectionChanged(UObject* NewSelection)
 {
 	// If selecting an actor, move the pivot location.
 	AActor* Actor = Cast<AActor>(NewSelection);
-	if (Actor != NULL)
+	if (Actor != nullptr)
 	{
 		//@fixme - why isn't this using UObject::IsSelected()?
 		if ( GEditor->GetSelectedActors()->IsSelected( Actor ) )
@@ -174,12 +173,6 @@ void FEditorModeTools::OnEditorSelectNone()
 	GEditor->ActorsThatWereSelected.Empty();
 }
 
-/** 
- * Sets the pivot locations
- * 
- * @param Location 		The location to set
- * @param bIncGridBase	Whether or not to also set the GridBase
- */
 void FEditorModeTools::SetPivotLocation( const FVector& Location, const bool bIncGridBase )
 {
 	CachedLocation = PivotLocation = SnappedLocation = Location;
@@ -191,7 +184,7 @@ void FEditorModeTools::SetPivotLocation( const FVector& Location, const bool bIn
 
 ECoordSystem FEditorModeTools::GetCoordSystem(bool bGetRawValue)
 {
-	if (!bGetRawValue && GetWidgetMode() == FWidget::WM_Scale )
+	if (!bGetRawValue && (GetWidgetMode() == FWidget::WM_Scale))
 	{
 		return COORD_Local;
 	}
@@ -229,11 +222,6 @@ void FEditorModeTools::DeactivateModeAtIndex(int32 InIndex)
 	Modes.RemoveAt( InIndex );
 }
 
-/**
- * Deactivates an editor mode. 
- * 
- * @param InID		The ID of the editor mode to deactivate.
- */
 void FEditorModeTools::DeactivateMode( FEditorModeID InID )
 {
 	// Find the mode from the ID and exit it.
@@ -279,13 +267,7 @@ void FEditorModeTools::DestroyMode( FEditorModeID InID )
 	RecycledModes.Remove(InID);
 }
 
-/**
- * Activates an editor mode. Shuts down all other active modes which cannot run with the passed in mode.
- * 
- * @param InID		The ID of the editor mode to activate.
- * @param bToggle	true if the passed in editor mode should be toggled off if it is already active.
- */
-void FEditorModeTools::ActivateMode( FEditorModeID InID, bool bToggle )
+void FEditorModeTools::ActivateMode(FEditorModeID InID, bool bToggle)
 {
 	if (InID == FBuiltinEditorModes::EM_Default)
 	{
@@ -293,51 +275,51 @@ void FEditorModeTools::ActivateMode( FEditorModeID InID, bool bToggle )
 	}
 
 	// Check to see if the mode is already active
-	if( IsModeActive(InID) )
+	if (IsModeActive(InID))
 	{
 		// The mode is already active toggle it off if we should toggle off already active modes.
-		if( bToggle )
+		if (bToggle)
 		{
-			DeactivateMode( InID );
+			DeactivateMode(InID);
 		}
 		// Nothing more to do
 		return;
 	}
 
 	// Recycle a mode or factory a new one
-	TSharedPtr<FEdMode> Mode = RecycledModes.FindRef( InID );
+	TSharedPtr<FEdMode> Mode = RecycledModes.FindRef(InID);
 
-	if ( Mode.IsValid() )
+	if (Mode.IsValid())
 	{
-		RecycledModes.Remove( InID );
+		RecycledModes.Remove(InID);
 	}
 	else
 	{
-		Mode = FEditorModeRegistry::Get().CreateMode( InID, *this );
+		Mode = FEditorModeRegistry::Get().CreateMode(InID, *this);
 	}
 
-	if( !Mode.IsValid() )
+	if (!Mode.IsValid())
 	{
-		UE_LOG(LogEditorModes, Log, TEXT("FEditorModeTools::ActivateMode : Couldn't find mode '%s'."), *InID.ToString() );
+		UE_LOG(LogEditorModes, Log, TEXT("FEditorModeTools::ActivateMode : Couldn't find mode '%s'."), *InID.ToString());
 		// Just return and leave the mode list unmodified
 		return;
 	}
 
 	// Remove anything that isn't compatible with this mode
-	for( int32 ModeIndex = Modes.Num() - 1; ModeIndex >= 0; --ModeIndex )
+	for (int32 ModeIndex = Modes.Num() - 1; ModeIndex >= 0; --ModeIndex)
 	{
-		const bool bModesAreCompatible = Mode->IsCompatibleWith( Modes[ModeIndex]->GetID() ) || Modes[ModeIndex]->IsCompatibleWith( Mode->GetID() );
-		if ( !bModesAreCompatible )
+		const bool bModesAreCompatible = Mode->IsCompatibleWith(Modes[ModeIndex]->GetID()) || Modes[ModeIndex]->IsCompatibleWith(Mode->GetID());
+		if (!bModesAreCompatible)
 		{
 			DeactivateModeAtIndex(ModeIndex);
 		}
 	}
 
-	Modes.Add( Mode );
+	Modes.Add(Mode);
 
 	// Enter the new mode
 	Mode->Enter();
-	
+
 	// Update the editor UI
 	FEditorSupportDelegates::UpdateUI.Broadcast();
 }
@@ -372,7 +354,7 @@ FEdMode* FEditorModeTools::FindMode( FEditorModeID InID )
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 /**
@@ -407,7 +389,7 @@ FMatrix FEditorModeTools::GetCustomDrawingCoordinateSystem()
 				// Coordinate system needs to come from the last actor selected
 				if (Num > 0)
 				{
-					Matrix = FRotationMatrix(GetSelectedActors()->GetBottom<AActor>()->GetActorRotation());
+					Matrix = FQuatRotationMatrix(GetSelectedActors()->GetBottom<AActor>()->GetActorQuat());
 				}
 			}
 
@@ -838,7 +820,7 @@ void FEditorModeTools::CycleWidgetMode (void)
 /**Save Widget Settings to Ini file*/
 void FEditorModeTools::SaveWidgetSettings(void)
 {
-	GEditor->SaveEditorUserSettings();
+	GetMutableDefault<UEditorPerProjectUserSettings>()->SaveConfig();
 }
 
 /**Load Widget Settings from Ini file*/
@@ -918,7 +900,7 @@ void FEditorModeTools::SetBookmark( uint32 InIndex, FEditorViewportClient* InVie
 			// If the index doesn't already have a bookmark in place, create a new one
 			if ( !WorldSettings->BookMarks[ InIndex ] )
 			{
-				WorldSettings->BookMarks[ InIndex ] = ConstructObject<UBookMark>( UBookMark::StaticClass(), WorldSettings );
+				WorldSettings->BookMarks[InIndex] = NewObject<UBookMark>(WorldSettings);
 			}
 
 			UBookMark* CurBookMark = WorldSettings->BookMarks[ InIndex ];
@@ -1016,7 +998,7 @@ void FEditorModeTools::ClearBookmark( uint32 InIndex, FEditorViewportClient* InV
 		// Verify the index is valid for the bookmark
 		if ( pWorldSettings && InIndex < AWorldSettings::MAX_BOOKMARK_NUMBER )
 		{
-			pWorldSettings->BookMarks[ InIndex ] = NULL;
+			pWorldSettings->BookMarks[ InIndex ] = nullptr;
 		}
 	}
 }
@@ -1032,10 +1014,6 @@ void FEditorModeTools::ClearAllBookmarks( FEditorViewportClient* InViewportClien
 	}
 }
 
-/**
- * Serializes the components for all modes.
- */
-
 void FEditorModeTools::AddReferencedObjects( FReferenceCollector& Collector )
 {
 	for( int32 x = 0 ; x < Modes.Num() ; ++x )
@@ -1044,10 +1022,6 @@ void FEditorModeTools::AddReferencedObjects( FReferenceCollector& Collector )
 	}
 }
 
-/**
- * Returns a pointer to an active mode specified by the passed in ID
- * If the editor mode is not active, NULL is returned
- */
 FEdMode* FEditorModeTools::GetActiveMode( FEditorModeID InID )
 {
 	for( auto& Mode : Modes )
@@ -1060,10 +1034,6 @@ FEdMode* FEditorModeTools::GetActiveMode( FEditorModeID InID )
 	return nullptr;
 }
 
-/**
- * Returns a pointer to an active mode specified by the passed in ID
- * If the editor mode is not active, NULL is returned
- */
 const FEdMode* FEditorModeTools::GetActiveMode( FEditorModeID InID ) const
 {
 	for (const auto& Mode : Modes)
@@ -1077,14 +1047,10 @@ const FEdMode* FEditorModeTools::GetActiveMode( FEditorModeID InID ) const
 	return nullptr;
 }
 
-/**
- * Returns the active tool of the passed in editor mode.
- * If the passed in editor mode is not active or the mode has no active tool, NULL is returned
- */
 const FModeTool* FEditorModeTools::GetActiveTool( FEditorModeID InID ) const
 {
 	const FEdMode* ActiveMode = GetActiveMode( InID );
-	const FModeTool* Tool = NULL;
+	const FModeTool* Tool = nullptr;
 	if( ActiveMode )
 	{
 		Tool = ActiveMode->GetCurrentTool();
@@ -1092,25 +1058,16 @@ const FModeTool* FEditorModeTools::GetActiveTool( FEditorModeID InID ) const
 	return Tool;
 }
 
-/** 
- * Returns true if the passed in editor mode is active 
- */
 bool FEditorModeTools::IsModeActive( FEditorModeID InID ) const
 {
-	return GetActiveMode( InID ) != NULL;
+	return GetActiveMode( InID ) != nullptr;
 }
 
-/** 
- * Returns true if the default editor mode is active 
- */
 bool FEditorModeTools::IsDefaultModeActive() const
 {
 	return IsModeActive(DefaultID);
 }
 
-/** 
- * Returns an array of all active modes
- */
 void FEditorModeTools::GetActiveModes( TArray<FEdMode*>& OutActiveModes )
 {
 	OutActiveModes.Empty();

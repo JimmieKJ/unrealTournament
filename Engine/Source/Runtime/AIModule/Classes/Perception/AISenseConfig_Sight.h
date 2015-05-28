@@ -31,6 +31,10 @@ public:
 	/** */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sense", config)
 	FAISenseAffiliationFilter DetectionByAffiliation;
+
+	/** If not an InvalidRange (which is the default), we will always be able to see the target that has already been seen if they are within this range of their last seen location. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sense", config)
+	float AutoSuccessRangeFromLastSeenLocation;
 		
 	virtual TSubclassOf<UAISense> GetSenseImplementation() const override;
 #if !UE_BUILD_SHIPPING

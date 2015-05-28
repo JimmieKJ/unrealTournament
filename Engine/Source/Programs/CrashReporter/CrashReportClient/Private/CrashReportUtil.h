@@ -2,6 +2,40 @@
 
 #pragma once
 
+#include "Core.h"
+
+/** Holds basic configuration for the crash report client. */
+struct FCrashReportClientConfig
+{
+	/** Accesses the singleton. */
+	static FCrashReportClientConfig& Get()
+	{
+		static FCrashReportClientConfig Instance;
+		return Instance;
+	}
+
+	/** Initialization constructor. */
+	FCrashReportClientConfig();
+
+	const FString& GetReceiverAddress() const
+	{
+		return CrashReportReceiverIP;
+	}
+
+	const FString& GetDiagnosticsFilename() const
+	{
+		return DiagnosticsFilename;
+	}
+
+protected:
+	/** IP address of crash report receiver. */
+	FString CrashReportReceiverIP;
+
+	/** Filename to use when saving diagnostics report, if generated locally. */
+	FString DiagnosticsFilename;
+};
+
+
 /**
  * Helper class for MakeDirectoryVisitor
  */
@@ -60,7 +94,7 @@ struct FCrashReportUtil
 		if( !Assertion.IsEmpty() )
 		{
 			TArray<FString> MultilineAssertion;
-			Assertion.ParseIntoArray( &MultilineAssertion, TEXT( "#" ), true );
+			Assertion.ParseIntoArray( MultilineAssertion, TEXT( "#" ), true );
 
 			for( const auto& AssertionLine : MultilineAssertion )
 			{

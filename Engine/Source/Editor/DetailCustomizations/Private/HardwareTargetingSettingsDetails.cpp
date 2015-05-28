@@ -26,7 +26,16 @@ public:
 	{
 		GetMutableDefault<UHardwareTargetingSettings>()->OnSettingChanged().RemoveAll(this);
 	}
-	
+
+private:
+
+	static FReply Apply()
+	{
+		IHardwareTargetingModule& Module = IHardwareTargetingModule::Get();
+		Module.ApplyHardwareTargetingSettings();
+		return FReply::Handled();
+	}
+
 public:
 
 	TMap<TWeakObjectPtr<UObject>, TSharedPtr<SRichTextBlock>> SettingRegions;
@@ -37,9 +46,8 @@ public:
 		GetMutableDefault<UHardwareTargetingSettings>()->OnSettingChanged().AddRaw(this, &SRequiredDefaultConfig::Update);
 
 		auto ApplyNow = []{
-			IHardwareTargetingModule& Module = IHardwareTargetingModule::Get();
-			Module.ApplyHardwareTargetingSettings();
-
+			Apply();
+			FUnrealEdMisc::Get().RestartEditor(false);
 			return FReply::Handled();
 		};
 
@@ -65,9 +73,19 @@ public:
 				.Padding(6)
 				[
 					SNew(SButton)
-					.Text(LOCTEXT("ApplyNow", "Apply Now"))
+					.Text(LOCTEXT("RestartEditor", "Restart Editor"))
 					.IsEnabled(this, &SRequiredDefaultConfig::CanApply)
 					.OnClicked_Static(ApplyNow)
+				]
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(6)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("ApplyLater", "Apply Later"))
+					.IsEnabled(this, &SRequiredDefaultConfig::CanApply)
+					.OnClicked_Static(&SRequiredDefaultConfig::Apply)
 				]
 			]
 			
@@ -240,12 +258,12 @@ void FHardwareTargetingSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& D
 		DetailBuilder.HideProperty(PropertyName);
 
 		TSharedRef<IPropertyHandle> Property = DetailBuilder.GetProperty(PropertyName);
-		auto SetPropertyValue = [](EHardwareClass::Type NewValue, TSharedRef<IPropertyHandle> Property){
-			Property->SetValue(uint8(NewValue));
+		auto SetPropertyValue = [](EHardwareClass::Type NewValue, TSharedRef<IPropertyHandle> InProperty){
+			InProperty->SetValue(uint8(NewValue));
 		};
-		auto GetPropertyValue = [](TSharedRef<IPropertyHandle> Property){
+		auto GetPropertyValue = [](TSharedRef<IPropertyHandle> InProperty){
 			uint8 Value = 0;
-			Property->GetValue(Value);
+			InProperty->GetValue(Value);
 			return EHardwareClass::Type(Value);
 		};
 		
@@ -261,12 +279,12 @@ void FHardwareTargetingSettingsDetails::CustomizeDetails(IDetailLayoutBuilder& D
 		DetailBuilder.HideProperty(PropertyName);
 
 		TSharedRef<IPropertyHandle> Property = DetailBuilder.GetProperty(PropertyName);
-		auto SetPropertyValue = [](EGraphicsPreset::Type NewValue, TSharedRef<IPropertyHandle> Property){
-			Property->SetValue(uint8(NewValue));
+		auto SetPropertyValue = [](EGraphicsPreset::Type NewValue, TSharedRef<IPropertyHandle> InProperty){
+			InProperty->SetValue(uint8(NewValue));
 		};
-		auto GetPropertyValue = [](TSharedRef<IPropertyHandle> Property){
+		auto GetPropertyValue = [](TSharedRef<IPropertyHandle> InProperty){
 			uint8 Value = 0;
-			Property->GetValue(Value);
+			InProperty->GetValue(Value);
 			return EGraphicsPreset::Type(Value);
 		};
 		GraphicsPresetCombo = HardwareTargeting.MakeGraphicsPresetTargetCombo(

@@ -4,7 +4,6 @@
 
 #include "SZoomPan.h"
 
-#define LOCTEXT_NAMESPACE "UMG"
 
 /////////////////////////////////////////////////////
 // SZoomPan
@@ -18,6 +17,14 @@ void SZoomPan::Construct(const FArguments& InArgs)
 	[
 		InArgs._Content.Widget
 	];
+}
+
+void SZoomPan::SetContent(const TSharedRef< SWidget >& InContent)
+{
+	ChildSlot
+		[
+			InContent
+		];
 }
 
 void SZoomPan::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
@@ -38,12 +45,8 @@ void SZoomPan::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChi
 	}
 }
 
-void SZoomPan::SetContent(const TSharedRef< SWidget >& InContent)
+float SZoomPan::GetRelativeLayoutScale(const FSlotBase& Child) const
 {
-	ChildSlot
-	[
-		InContent
-	];
+	return ZoomAmount.Get();
 }
 
-#undef LOCTEXT_NAMESPACE

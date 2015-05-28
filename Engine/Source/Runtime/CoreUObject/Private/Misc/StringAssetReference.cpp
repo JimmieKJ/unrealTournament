@@ -86,6 +86,15 @@ bool FStringAssetReference::ImportTextItem( const TCHAR*& Buffer, int32 PortFlag
 			}
 		}
 	}
+
+#if WITH_EDITOR
+	// Consider this a load, so Config string asset references get cooked
+	if (FCoreUObjectDelegates::StringAssetReferenceLoaded.IsBound())
+	{
+		FCoreUObjectDelegates::StringAssetReferenceLoaded.Execute(AssetLongPathname);
+	}
+#endif // WITH_EDITOR
+
 	return true;
 }
 
@@ -104,12 +113,18 @@ bool FStringAssetReference::SerializeFromMismatchedTag(struct FPropertyTag const
 
 UObject* FStringAssetReference::TryLoad() const
 {
+	UObject* LoadedObject = nullptr;
+
 	if ( IsValid() )
 	{
-		return LoadObject<UObject>(nullptr, *ToString());
+		LoadedObject = LoadObject<UObject>(nullptr, *ToString());
+		while (UObjectRedirector* Redirector = Cast<UObjectRedirector>(LoadedObject))
+		{
+			LoadedObject = Redirector->DestinationObject;
+		}
 	}
 
-	return nullptr;
+	return LoadedObject;
 }
 
 UObject* FStringAssetReference::ResolveObject() const
@@ -118,18 +133,13 @@ UObject* FStringAssetReference::ResolveObject() const
 	// and we usually don't want to force references to weak pointers while saving.
 	if (!IsValid() || GIsSavingPackage)
 	{
-		return NULL;
+		return nullptr;
 	}
-	UObject* FoundObject = NULL;
-	// construct full name
-	FString FullPath = ToString();
-	FoundObject = StaticFindObject( UObject::StaticClass(), NULL, *FullPath);
 
-	UObjectRedirector* Redir = dynamic_cast<UObjectRedirector*>(FoundObject);
-	if (Redir)
+	UObject* FoundObject = FindObject<UObject>(nullptr, *ToString());
+	while (UObjectRedirector* Redirector = Cast<UObjectRedirector>(FoundObject))
 	{
-		// If we found a redirector, follow it
-		FoundObject = Redir->DestinationObject;
+		FoundObject = Redirector->DestinationObject;
 	}
 
 	return FoundObject;
@@ -181,5 +191,5 @@ void FStringAssetReference::FixupForPIE()
 	}
 }
 
-int32 FStringAssetReference::CurrentTag = 1;
+FThreadSafeCounter FStringAssetReference::CurrentTag(1);
 TArray<FString> FStringAssetReference::PackageNamesBeingDuplicatedForPIE;

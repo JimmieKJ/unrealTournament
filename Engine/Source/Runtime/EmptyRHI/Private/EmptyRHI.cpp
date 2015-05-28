@@ -176,3 +176,14 @@ void* FEmptyDynamicRHI::RHIGetNativeDevice()
 {
 	return NULL;
 }
+
+IRHICommandContext* FEmptyDynamicRHI::RHIGetDefaultContext()
+{
+	return this;
+}
+
+IRHICommandContextContainer* FEmptyDynamicRHI::RHIGetCommandContextContainer()
+{
+	return nullptr;
+}
+

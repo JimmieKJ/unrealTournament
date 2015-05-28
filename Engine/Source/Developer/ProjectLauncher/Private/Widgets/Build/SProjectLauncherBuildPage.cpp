@@ -158,8 +158,12 @@ bool SProjectLauncherBuildPage::GenerateDSYMForProject( const FString& ProjectNa
 
     // launch the builder and monitor its process
     FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*(ExecutablePath / Executable), *CommandLine, false, false, false, NULL, 0, *ExecutablePath, NULL);
-
-	return ProcessHandle.Close();
+	if (ProcessHandle.IsValid())
+	{
+		FPlatformProcess::CloseProc(ProcessHandle);
+		return true;
+	}
+	return false;
 }
 
 

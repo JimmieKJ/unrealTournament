@@ -57,15 +57,20 @@ void FAssetEditorManager::OnExit()
 	CloseAllAssetEditors();
 
 	// Don't attempt to report usage stats if analytics isn't available
-	if(FEngineAnalytics::IsAvailable())
+	if (FEngineAnalytics::IsAvailable())
 	{
 		TArray<FAnalyticsEventAttribute> EditorUsageAttribs;
-		for (auto Iter = EditorDurations.CreateConstIterator(); Iter; ++Iter)
+		EditorUsageAttribs.Empty(2);
+		for (auto Iter = EditorUsageAnalytics.CreateConstIterator(); Iter; ++Iter)
 		{
-			FString EventName = FString::Printf(TEXT("Editor.Usage.%s"), *Iter.Key().ToString());
+			const FAssetEditorAnalyticInfo& Data = Iter.Value();
+			EditorUsageAttribs.Reset();
+			EditorUsageAttribs.Emplace(TEXT("TotalDuration.Seconds"), FString::Printf(TEXT("%.1f"), Data.SumDuration.GetTotalSeconds()));
+			EditorUsageAttribs.Emplace(TEXT("OpenedInstances.Count"), FString::Printf(TEXT("%d"), Data.NumTimesOpened));
 
-			FEngineAnalytics::GetProvider().RecordEvent(EventName, TEXT("Duration.Seconds"), FString::Printf( TEXT( "%.1f" ), Iter.Value().GetTotalSeconds()));
-		}	
+			const FString EventName = FString::Printf(TEXT("Editor.Usage.%s"), *Iter.Key().ToString());
+			FEngineAnalytics::GetProvider().RecordEvent(EventName, EditorUsageAttribs);
+		}
 	}
 }
 
@@ -206,12 +211,9 @@ void FAssetEditorManager::NotifyEditorClosed(IAssetEditorInstance* InInstance)
 	FOpenedEditorTime EditorTime = OpenedEditorTimes.FindAndRemoveChecked(InInstance);
 
 	// Record the editor open-close duration
-	FTimespan* Duration = EditorDurations.Find(EditorTime.EditorName);
-	if (Duration == NULL)
-	{
-		Duration = &EditorDurations.Add(EditorTime.EditorName, FTimespan::Zero());
-	}
-	*Duration += FDateTime::UtcNow() - EditorTime.OpenedTime;
+	FAssetEditorAnalyticInfo& AnalyticsForThisAsset = EditorUsageAnalytics.FindOrAdd(EditorTime.EditorName);
+	AnalyticsForThisAsset.SumDuration += FDateTime::UtcNow() - EditorTime.OpenedTime;
+	AnalyticsForThisAsset.NumTimesOpened++;
 
 	SaveOpenAssetEditors(false);
 }
@@ -486,10 +488,10 @@ void FAssetEditorManager::RequestRestorePreviouslyOpenAssets()
 void FAssetEditorManager::RestorePreviouslyOpenAssets()
 {
 	TArray<FString> OpenAssets;
-	GConfig->GetArray(TEXT("AssetEditorManager"), TEXT("OpenAssetsAtExit"), OpenAssets, GEditorUserSettingsIni);
+	GConfig->GetArray(TEXT("AssetEditorManager"), TEXT("OpenAssetsAtExit"), OpenAssets, GEditorPerProjectIni);
 
 	bool bCleanShutdown =  false;
-	GConfig->GetBool(TEXT("AssetEditorManager"), TEXT("CleanShutdown"), bCleanShutdown, GEditorUserSettingsIni);
+	GConfig->GetBool(TEXT("AssetEditorManager"), TEXT("CleanShutdown"), bCleanShutdown, GEditorPerProjectIni);
 
 	SaveOpenAssetEditors(false);
 
@@ -509,7 +511,7 @@ void FAssetEditorManager::RestorePreviouslyOpenAssets()
 			{
 				// Has this notification previously been suppressed by the user?
 				bool bSuppressNotification = false;
-				GConfig->GetBool(TEXT("AssetEditorManager"), TEXT("SuppressRestorePreviouslyOpenAssetsNotification"), bSuppressNotification, GEditorUserSettingsIni);
+				GConfig->GetBool(TEXT("AssetEditorManager"), TEXT("SuppressRestorePreviouslyOpenAssetsNotification"), bSuppressNotification, GEditorPerProjectIni);
 
 				if(!bSuppressNotification)
 				{
@@ -534,14 +536,14 @@ void FAssetEditorManager::SpawnRestorePreviouslyOpenAssetsNotification(const boo
 		static ECheckBoxState GetDontAskAgainCheckBoxState()
 		{
 			bool bSuppressNotification = false;
-			GConfig->GetBool(TEXT("AssetEditorManager"), TEXT("SuppressRestorePreviouslyOpenAssetsNotification"), bSuppressNotification, GEditorUserSettingsIni);
+			GConfig->GetBool(TEXT("AssetEditorManager"), TEXT("SuppressRestorePreviouslyOpenAssetsNotification"), bSuppressNotification, GEditorPerProjectIni);
 			return bSuppressNotification ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 		}
 
 		static void OnDontAskAgainCheckBoxStateChanged(ECheckBoxState NewState)
 		{
 			const bool bSuppressNotification = (NewState == ECheckBoxState::Checked);
-			GConfig->SetBool(TEXT("AssetEditorManager"), TEXT("SuppressRestorePreviouslyOpenAssetsNotification"), bSuppressNotification, GEditorUserSettingsIni);
+			GConfig->SetBool(TEXT("AssetEditorManager"), TEXT("SuppressRestorePreviouslyOpenAssetsNotification"), bSuppressNotification, GEditorPerProjectIni);
 		}
 	};
 
@@ -604,7 +606,7 @@ void FAssetEditorManager::OnConfirmRestorePreviouslyOpenAssets(TArray<FString> A
 		// If the user suppressed the notification for future sessions, make sure this is reflected in their settings
 		// Note: We do that inside this if statement so that we only do it if we were showing a UI they could interact with
 		bool bSuppressNotification = false;
-		GConfig->GetBool(TEXT("AssetEditorManager"), TEXT("SuppressRestorePreviouslyOpenAssetsNotification"), bSuppressNotification, GEditorUserSettingsIni);
+		GConfig->GetBool(TEXT("AssetEditorManager"), TEXT("SuppressRestorePreviouslyOpenAssetsNotification"), bSuppressNotification, GEditorPerProjectIni);
 		UEditorLoadingSavingSettings& Settings = *GetMutableDefault<UEditorLoadingSavingSettings>();
 		Settings.bRestoreOpenAssetTabsOnRestart = bSuppressNotification;
 		Settings.PostEditChange();
@@ -655,9 +657,9 @@ void FAssetEditorManager::SaveOpenAssetEditors(bool bOnShutdown)
 			}
 		}
 
-		GConfig->SetArray(TEXT("AssetEditorManager"), TEXT("OpenAssetsAtExit"), OpenAssets, GEditorUserSettingsIni);
-		GConfig->SetBool(TEXT("AssetEditorManager"), TEXT("CleanShutdown"), bOnShutdown, GEditorUserSettingsIni);
-		GConfig->Flush(false, GEditorUserSettingsIni);
+		GConfig->SetArray(TEXT("AssetEditorManager"), TEXT("OpenAssetsAtExit"), OpenAssets, GEditorPerProjectIni);
+		GConfig->SetBool(TEXT("AssetEditorManager"), TEXT("CleanShutdown"), bOnShutdown, GEditorPerProjectIni);
+		GConfig->Flush(false, GEditorPerProjectIni);
 	}
 }
 

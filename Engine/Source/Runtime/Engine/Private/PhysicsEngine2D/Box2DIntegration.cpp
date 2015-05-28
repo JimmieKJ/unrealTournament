@@ -217,6 +217,8 @@ bool FPhysicsScene2D::ShouldCollide(b2Fixture* FixtureA, b2Fixture* FixtureB)
 
 void FStartPhysics2DTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(FStartPhysics2DTickFunction_ExecuteTick);
+
 	if (Target->UnrealWorld->bShouldSimulatePhysics)
 	{
 		const int32 VelocityIterations = 8;
@@ -264,6 +266,7 @@ FString FStartPhysics2DTickFunction::DiagnosticMessage()
 
 void FEndPhysics2DTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(FEndPhysics2DTickFunction_ExecuteTick);
 }
 
 FString FEndPhysics2DTickFunction::DiagnosticMessage()

@@ -21,6 +21,7 @@
 
 #include "HideWindowsPlatformTypes.h"
 #include "WindowsPlatformMisc.h"
+#include "EventPool.h"
 
 #pragma comment(lib, "psapi.lib")
 
@@ -36,10 +37,17 @@ void FWindowsPlatformProcess::AddDllDirectory(const TCHAR* Directory)
 	FPaths::NormalizeDirectoryName(NormalizedDirectory);
 	FPaths::MakePlatformFilename(NormalizedDirectory);
 
-	// Get the current value of the PATH variable
+	// Get the size of the PATH variable
 	TArray<TCHAR> PathVariable;
-	PathVariable.AddUninitialized(GetEnvironmentVariable(TEXT("PATH"), NULL, 0));
-	verify(::GetEnvironmentVariable(TEXT("PATH"), PathVariable.GetData(), PathVariable.Num()) == PathVariable.Num() - 1);
+	PathVariable.AddUninitialized(::GetEnvironmentVariable(TEXT("PATH"), NULL, 0));
+
+	// Get the actual value of variable.
+	if (::GetEnvironmentVariable(TEXT("PATH"), PathVariable.GetData(), PathVariable.Num()) == 0)
+	{
+		// Log a warning if reading value fails, but continue anyway.
+		UE_LOG(LogWindows, Warning, TEXT("Failed to load PATH environment variable. It either doesn't exist, or is too long."));
+		PathVariable.Add(TEXT(';'));
+	}
 
 	// Set the new path variable with the input directory at the start. Skip over any existing instances of the input directory.
 	FString NewPathVariable = NormalizedDirectory;
@@ -244,10 +252,10 @@ static void LaunchWebURL( const FString& URLParams, FString* Error )
 	}
 }
 
-static void LaunchMailToURL( const TCHAR* MailTo, FString* Error )
+static void LaunchDefaultHandlerForURL( const TCHAR* URL, FString* Error )
 {
-	// ShellExecute will open the default mail app with a "mailto:" link
-	const HINSTANCE Code = ::ShellExecuteW(NULL, TEXT("open"), MailTo, NULL, NULL, SW_SHOWNORMAL);
+	// ShellExecute will open the default handler for a URL
+	const HINSTANCE Code = ::ShellExecuteW(NULL, TEXT("open"), URL, NULL, NULL, SW_SHOWNORMAL);
 	if (Error)
 	{
 		*Error = ((PTRINT)Code <= 32) ? NSLOCTEXT("Core", "UrlFailed", "Failed launching URL").ToString() : TEXT("");
@@ -264,9 +272,11 @@ void FWindowsPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, F
 		*Error = TEXT("");
 	}
 
-	if( FString(URL).StartsWith(TEXT("mailto:")) )
+	// Use the default handler if we have a URI scheme name that doesn't look like a Windows path, and is not http: or https:
+	FString SchemeName;
+	if(FParse::SchemeNameFromURI(URL, SchemeName) && SchemeName.Len() > 1 && SchemeName != TEXT("http") && SchemeName != TEXT("https"))
 	{
-		LaunchMailToURL( URL, Error );
+		LaunchDefaultHandlerForURL(URL, Error);
 	}
 	else
 	{
@@ -282,48 +292,42 @@ FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* 
 
 	// initialize process attributes
 	SECURITY_ATTRIBUTES Attr;
-	{
-		Attr.nLength = sizeof(SECURITY_ATTRIBUTES);
-		Attr.lpSecurityDescriptor = NULL;
-		Attr.bInheritHandle = true;
-	}
+	Attr.nLength = sizeof(SECURITY_ATTRIBUTES);
+	Attr.lpSecurityDescriptor = NULL;
+	Attr.bInheritHandle = true;
 
 	// initialize process creation flags
 	uint32 CreateFlags = NORMAL_PRIORITY_CLASS;
+	if (PriorityModifier < 0)
 	{
-		if (PriorityModifier < 0)
-		{
-			CreateFlags = (PriorityModifier == -1) ? BELOW_NORMAL_PRIORITY_CLASS : IDLE_PRIORITY_CLASS;
-		}
-		else if (PriorityModifier > 0)
-		{
-			CreateFlags = (PriorityModifier == 1) ? ABOVE_NORMAL_PRIORITY_CLASS : HIGH_PRIORITY_CLASS;
-		}
+		CreateFlags = (PriorityModifier == -1) ? BELOW_NORMAL_PRIORITY_CLASS : IDLE_PRIORITY_CLASS;
+	}
+	else if (PriorityModifier > 0)
+	{
+		CreateFlags = (PriorityModifier == 1) ? ABOVE_NORMAL_PRIORITY_CLASS : HIGH_PRIORITY_CLASS;
+	}
 
-		if (bLaunchDetached)
-		{
-			CreateFlags |= DETACHED_PROCESS;
-		}
+	if (bLaunchDetached)
+	{
+		CreateFlags |= DETACHED_PROCESS;
 	}
 
 	// initialize window flags
 	uint32 dwFlags = 0;
 	uint16 ShowWindowFlags = SW_HIDE;
+	if (bLaunchReallyHidden)
 	{
-		if (bLaunchReallyHidden)
-		{
-			dwFlags = STARTF_USESHOWWINDOW;
-		}
-		else if (bLaunchHidden)
-		{
-			dwFlags = STARTF_USESHOWWINDOW;
-			ShowWindowFlags = SW_SHOWMINNOACTIVE;
-		}
+		dwFlags = STARTF_USESHOWWINDOW;
+	}
+	else if (bLaunchHidden)
+	{
+		dwFlags = STARTF_USESHOWWINDOW;
+		ShowWindowFlags = SW_SHOWMINNOACTIVE;
+	}
 
-		if (PipeWrite != nullptr)
-		{
-			dwFlags |= STARTF_USESTDHANDLES;
-		}
+	if (PipeWrite != nullptr)
+	{
+		dwFlags |= STARTF_USESTDHANDLES;
 	}
 
 	// initialize startup info
@@ -349,6 +353,7 @@ FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* 
 
 	if (!CreateProcess(NULL, CommandLine.GetCharArray().GetData(), &Attr, &Attr, true, CreateFlags, NULL, OptionalWorkingDirectory, &StartupInfo, &ProcInfo))
 	{
+		UE_LOG(LogWindows, Warning, TEXT("CreateProc failed (%u) %s %s"), ::GetLastError(), URL, Parms);
 		if (OutProcessID != nullptr)
 		{
 			*OutProcessID = 0;
@@ -362,7 +367,7 @@ FProcHandle FWindowsPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* 
 		*OutProcessID = ProcInfo.dwProcessId;
 	}
 
-	::CloseHandle(ProcInfo.hThread);
+	::CloseHandle( ProcInfo.hThread );
 
 	return FProcHandle(ProcInfo.hProcess);
 }
@@ -381,6 +386,15 @@ bool FWindowsPlatformProcess::IsProcRunning( FProcHandle & ProcessHandle )
 void FWindowsPlatformProcess::WaitForProc( FProcHandle & ProcessHandle )
 {
 	::WaitForSingleObject(ProcessHandle.Get(), INFINITE);
+}
+
+void FWindowsPlatformProcess::CloseProc(FProcHandle & ProcessHandle)
+{
+	if (ProcessHandle.IsValid())
+	{
+		::CloseHandle(ProcessHandle.Get());
+		ProcessHandle.Reset();
+	}
 }
 
 void FWindowsPlatformProcess::TerminateProc( FProcHandle & ProcessHandle, bool KillTree )
@@ -418,8 +432,6 @@ void FWindowsPlatformProcess::TerminateProc( FProcHandle & ProcessHandle, bool K
 	}
 
 	TerminateProcess(ProcessHandle.Get(),0);
-	// Process is terminated, so we can close the process handle.
-	ProcessHandle.Close();
 }
 
 uint32 FWindowsPlatformProcess::GetCurrentProcessId()
@@ -443,7 +455,7 @@ bool FWindowsPlatformProcess::GetProcReturnCode( FProcHandle & ProcHandle, int32
 bool FWindowsPlatformProcess::GetApplicationMemoryUsage(uint32 ProcessId, SIZE_T* OutMemoryUsage)
 {
 	bool bSuccess = false;
-	HANDLE ProcessHandle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, ProcessId);
+	HANDLE ProcessHandle = ::OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, ProcessId);
 
 	if (ProcessHandle != NULL)
 	{
@@ -464,7 +476,7 @@ bool FWindowsPlatformProcess::GetApplicationMemoryUsage(uint32 ProcessId, SIZE_T
 bool FWindowsPlatformProcess::IsApplicationRunning( uint32 ProcessId )
 {
 	bool bApplicationRunning = true;
-	HANDLE ProcessHandle = OpenProcess(SYNCHRONIZE, false, ProcessId);
+	HANDLE ProcessHandle = ::OpenProcess(SYNCHRONIZE, false, ProcessId);
 	if (ProcessHandle == NULL)
 	{
 		bApplicationRunning = false;
@@ -517,7 +529,7 @@ bool FWindowsPlatformProcess::IsApplicationRunning( const TCHAR* ProcName )
 FString FWindowsPlatformProcess::GetApplicationName( uint32 ProcessId )
 {
 	FString Output = TEXT("");
-	HANDLE ProcessHandle = OpenProcess(PROCESS_QUERY_INFORMATION, false, ProcessId);
+	HANDLE ProcessHandle = ::OpenProcess(PROCESS_QUERY_INFORMATION, false, ProcessId);
 	if (ProcessHandle != NULL)
 	{
 		const int32 ProcessNameBufferSize = 4096;
@@ -964,13 +976,16 @@ bool FWindowsPlatformProcess::ResolveNetworkPath( FString InUNCPath, FString& Ou
 	return false;
 }
 
-DECLARE_CYCLE_STAT(TEXT("CPU Stall - Sleep"),STAT_Sleep,STATGROUP_CPUStalls);
-
 void FWindowsPlatformProcess::Sleep( float Seconds )
 {
 	SCOPE_CYCLE_COUNTER(STAT_Sleep);
 	FThreadIdleStats::FScopeIdle Scope;
-	::Sleep( (uint32)(Seconds * 1000.0) );
+	SleepNoStats(Seconds);
+}
+
+void FWindowsPlatformProcess::SleepNoStats(float Seconds)
+{
+	::Sleep((uint32)(Seconds * 1000.0));
 }
 
 void FWindowsPlatformProcess::SleepInfinite()
@@ -1005,14 +1020,11 @@ FEvent* FWindowsPlatformProcess::CreateSynchEvent(bool bIsManualReset)
 
 #include "AllowWindowsPlatformTypes.h"
 
-DECLARE_CYCLE_STAT(TEXT("CPU Stall - Wait For Event"),STAT_EventWait,STATGROUP_CPUStalls);
-
 bool FEventWin::Wait(uint32 WaitTime, const bool bIgnoreThreadIdleStats /*= false*/)
 {
-	SCOPE_CYCLE_COUNTER(STAT_EventWait);
-	check(Event);
-
+	FScopeCycleCounter Counter(StatID);
 	FThreadIdleStats::FScopeIdle Scope(bIgnoreThreadIdleStats);
+	check(Event);
 	return (WaitForSingleObject(Event, WaitTime) == WAIT_OBJECT_0);
 }
 
@@ -1082,7 +1094,7 @@ bool FWindowsPlatformProcess::ReadPipeToArray(void* ReadPipe, TArray<uint8> & Ou
 	uint32 BytesAvailable = 0;
 	if (::PeekNamedPipe(ReadPipe, NULL, 0, NULL, (::DWORD*)&BytesAvailable, NULL) && (BytesAvailable > 0))
 	{
-		Output.Init(BytesAvailable);
+		Output.SetNumUninitialized(BytesAvailable);
 		uint32 BytesRead = 0;
 		if (::ReadFile(ReadPipe, Output.GetData(), BytesAvailable, (::DWORD*)&BytesRead, NULL))
 		{
@@ -1104,7 +1116,7 @@ bool FWindowsPlatformProcess::ReadPipeToArray(void* ReadPipe, TArray<uint8> & Ou
 
 #include "AllowWindowsPlatformTypes.h"
 
-FWindowsPlatformProcess::FWindowsSemaphore::FWindowsSemaphore(const FString& InName, HANDLE InSemaphore)
+FWindowsPlatformProcess::FWindowsSemaphore::FWindowsSemaphore(const FString & InName, HANDLE InSemaphore)
 	:	FSemaphore(InName)
 	,	Semaphore(InSemaphore)
 {
@@ -1158,7 +1170,7 @@ void FWindowsPlatformProcess::FWindowsSemaphore::Unlock()
 	}
 }
 
-FWindowsPlatformProcess::FSemaphore* FWindowsPlatformProcess::NewInterprocessSynchObject(const FString& Name, bool bCreate, uint32 MaxLocks)
+FWindowsPlatformProcess::FSemaphore * FWindowsPlatformProcess::NewInterprocessSynchObject(const FString & Name, bool bCreate, uint32 MaxLocks)
 {
 	HANDLE Semaphore = NULL;
 	
@@ -1228,6 +1240,11 @@ bool FWindowsPlatformProcess::Daemonize()
 {
 	// TODO: implement
 	return true;
+}
+
+FProcHandle FWindowsPlatformProcess::OpenProcess(uint32 ProcessID)
+{
+	return FProcHandle(::OpenProcess(PROCESS_ALL_ACCESS, 0, ProcessID));
 }
 
 #include "HideWindowsPlatformTypes.h"

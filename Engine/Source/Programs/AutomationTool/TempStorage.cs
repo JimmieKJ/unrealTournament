@@ -59,6 +59,8 @@ namespace AutomationTool
                     bSilentOkToBeDifferent = bSilentOkToBeDifferent || (Name == "Engine/Binaries/DotNET/AutomationTool.exe");
                     bSilentOkToBeDifferent = bSilentOkToBeDifferent || (Name == "Engine/Binaries/DotNET/UnrealBuildTool.exe");
                     bSilentOkToBeDifferent = bSilentOkToBeDifferent || (Name == "Engine/Binaries/DotNET/UnrealBuildTool.exe.config");					
+                    bSilentOkToBeDifferent = bSilentOkToBeDifferent || (Name == "Engine/Binaries/DotNET/EnvVarsToXML.exe");
+                    bSilentOkToBeDifferent = bSilentOkToBeDifferent || (Name == "Engine/Binaries/DotNET/EnvVarsToXML.exe.config");					
 
                     // Lets just allow all mac warnings to be slient
                     bSilentOkToBeDifferent = bSilentOkToBeDifferent || Name.Contains("Engine/Binaries/Mac");
@@ -119,30 +121,30 @@ namespace AutomationTool
             }
         }
 
-        public static bool Robust_DirectoryExists_NoExceptions(string Directoryname, string Message)
-        {
-            bool bFound = false;
-            if (!DirectoryExists_NoExceptions(Directoryname))
-            {
-                // mac is terrible on shares, this isn't a solution, but a stop gap
-                if (Directoryname.StartsWith("/Volumes/"))
-                {
-                    int Retry = 0;
-                    while (!bFound && Retry < 60)
-                    {
-                        CommandUtils.Log(System.Diagnostics.TraceEventType.Warning, "*** Mac temp storage retry {0}", Directoryname);
-                        System.Threading.Thread.Sleep(10000);
-                        bFound = DirectoryExists_NoExceptions(Directoryname);
-                        Retry++;
-                    }
-                }
-            }
-            else
-            {
-                bFound = true;
-            }
-            return bFound;
-        }
+		public static bool Robust_DirectoryExists_NoExceptions(string Directoryname, string Message)
+		{
+			bool bFound = false;
+			if (!DirectoryExists_NoExceptions(Directoryname))
+			{				
+				// mac is terrible on shares, this isn't a solution, but a stop gap
+				if (Directoryname.StartsWith("/Volumes/"))
+				{
+					int Retry = 0;
+					while (!bFound && Retry < 60)
+					{
+						CommandUtils.Log(System.Diagnostics.TraceEventType.Warning, "*** Mac temp storage retry {0}", Directoryname);
+						System.Threading.Thread.Sleep(10000);
+						bFound = DirectoryExists_NoExceptions(Directoryname);
+						Retry++;
+					}
+				}				
+			}
+			else
+			{
+				bFound = true;
+			}
+			return bFound;
+		}
         public static bool Robust_DirectoryExistsAndIsWritable_NoExceptions(string Directoryname)
         {
             bool bFound = false;

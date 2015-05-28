@@ -25,6 +25,10 @@ public class Voice : ModuleRules
 		{
 			AddThirdPartyPrivateStaticDependencies(Target, "DirectSound");
 		}
+		else if(Target.Platform == UnrealTargetPlatform.Mac)
+		{
+			PublicFrameworks.AddRange(new string[] { "CoreAudio", "AudioToolbox", "AudioUnit" });
+		}
 
 		AddThirdPartyPrivateStaticDependencies(Target, "libOpus");
     }

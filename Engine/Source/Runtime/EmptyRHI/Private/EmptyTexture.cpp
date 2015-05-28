@@ -149,7 +149,7 @@ void FEmptyDynamicRHI::RHIGenerateMips(FTextureRHIParamRef SourceSurfaceRHI)
 
 FTexture2DRHIRef FEmptyDynamicRHI::RHIAsyncReallocateTexture2D(FTexture2DRHIParamRef OldTextureRHI, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(Texture2D,OldTexture);
+	FEmptyTexture2D* OldTexture = ResourceCast(OldTextureRHI);
 
 	return NULL;
 }
@@ -167,37 +167,37 @@ ETextureReallocationStatus FEmptyDynamicRHI::RHICancelAsyncReallocateTexture2D( 
 
 void* FEmptyDynamicRHI::RHILockTexture2D(FTexture2DRHIParamRef TextureRHI,uint32 MipIndex,EResourceLockMode LockMode,uint32& DestStride,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(Texture2D,Texture);
+	FEmptyTexture2D* Texture = ResourceCast(TextureRHI);
 	return Texture->Surface.Lock(MipIndex, 0, LockMode, DestStride);
 }
 
 void FEmptyDynamicRHI::RHIUnlockTexture2D(FTexture2DRHIParamRef TextureRHI,uint32 MipIndex,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(Texture2D,Texture);
+	FEmptyTexture2D* Texture = ResourceCast(TextureRHI);
 	Texture->Surface.Unlock(MipIndex, 0);
 }
 
 void* FEmptyDynamicRHI::RHILockTexture2DArray(FTexture2DArrayRHIParamRef TextureRHI,uint32 TextureIndex,uint32 MipIndex,EResourceLockMode LockMode,uint32& DestStride,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(Texture2DArray,Texture);
+	FEmptyTexture2DArray* Texture = ResourceCast(TextureRHI);
 	return Texture->Surface.Lock(MipIndex, TextureIndex, LockMode, DestStride);
 }
 
 void FEmptyDynamicRHI::RHIUnlockTexture2DArray(FTexture2DArrayRHIParamRef TextureRHI,uint32 TextureIndex,uint32 MipIndex,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(Texture2DArray,Texture);
+	FEmptyTexture2DArray* Texture = ResourceCast(TextureRHI);
 	Texture->Surface.Unlock(MipIndex, TextureIndex);
 }
 
 void FEmptyDynamicRHI::RHIUpdateTexture2D(FTexture2DRHIParamRef TextureRHI, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
 {	
-	DYNAMIC_CAST_EMPTYRESOURCE(Texture3D,Texture);
+	FEmptyTexture3D* Texture = ResourceCast(TextureRHI);
 
 }
 
 void FEmptyDynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI,uint32 MipIndex,const FUpdateTextureRegion3D& UpdateRegion,uint32 SourceRowPitch,uint32 SourceDepthPitch,const uint8* SourceData)
 {	
-	DYNAMIC_CAST_EMPTYRESOURCE(Texture3D,Texture);
+	FEmptyTexture3D* Texture = ResourceCast(TextureRHI);
 
 }
 
@@ -217,14 +217,14 @@ FTextureCubeRHIRef FEmptyDynamicRHI::RHICreateTextureCubeArray(uint32 Size, uint
 
 void* FEmptyDynamicRHI::RHILockTextureCubeFace(FTextureCubeRHIParamRef TextureCubeRHI,uint32 FaceIndex,uint32 ArrayIndex,uint32 MipIndex,EResourceLockMode LockMode,uint32& DestStride,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(TextureCube,TextureCube);
+	FEmptyTextureCube* TextureCube = ResourceCast(TextureCubeRHI);
 	uint32 EmptyFace = GetEmptyCubeFace((ECubeFace)FaceIndex);
 	return TextureCube->Surface.Lock(MipIndex, FaceIndex + 6 * ArrayIndex, LockMode, DestStride);
 }
 
 void FEmptyDynamicRHI::RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef TextureCubeRHI,uint32 FaceIndex,uint32 ArrayIndex,uint32 MipIndex,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(TextureCube,TextureCube);
+	FEmptyTextureCube* TextureCube = ResourceCast(TextureCubeRHI);
 	uint32 EmptyFace = GetEmptyCubeFace((ECubeFace)FaceIndex);
 	TextureCube->Surface.Unlock(MipIndex, FaceIndex + ArrayIndex * 6);
 }

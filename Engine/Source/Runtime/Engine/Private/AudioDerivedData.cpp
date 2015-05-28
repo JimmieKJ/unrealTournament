@@ -243,40 +243,50 @@ class FStreamedAudioCacheDerivedDataWorker : public FNonAbandonableTask
 			DerivedData->AudioFormat = AudioFormatName;
 
 			FByteBulkData* CompressedData = SoundWave.GetCompressedData(AudioFormatName);
-			TArray<uint8> CompressedBuffer;
-			CompressedBuffer.Empty(CompressedData->GetBulkDataSize());
-			CompressedBuffer.AddUninitialized(CompressedData->GetBulkDataSize());
-			void* BufferData = CompressedBuffer.GetData();
-			CompressedData->GetCopy(&BufferData, false);
-			TArray<TArray<uint8>> ChunkBuffers;
-
-			if (AudioFormat->SplitDataForStreaming(CompressedBuffer, ChunkBuffers))
+			if (CompressedData)
 			{
-				for (int32 ChunkIndex = 0; ChunkIndex < ChunkBuffers.Num(); ++ChunkIndex)
+				TArray<uint8> CompressedBuffer;
+				CompressedBuffer.Empty(CompressedData->GetBulkDataSize());
+				CompressedBuffer.AddUninitialized(CompressedData->GetBulkDataSize());
+				void* BufferData = CompressedBuffer.GetData();
+				CompressedData->GetCopy(&BufferData, false);
+				TArray<TArray<uint8>> ChunkBuffers;
+
+				if (AudioFormat->SplitDataForStreaming(CompressedBuffer, ChunkBuffers))
 				{
+					for (int32 ChunkIndex = 0; ChunkIndex < ChunkBuffers.Num(); ++ChunkIndex)
+					{
+						FStreamedAudioChunk* NewChunk = new(DerivedData->Chunks) FStreamedAudioChunk();
+						NewChunk->DataSize = ChunkBuffers[ChunkIndex].Num();
+						NewChunk->BulkData.Lock(LOCK_READ_WRITE);
+						void* NewChunkData = NewChunk->BulkData.Realloc(ChunkBuffers[ChunkIndex].Num());
+						FMemory::Memcpy(NewChunkData, ChunkBuffers[ChunkIndex].GetData(), ChunkBuffers[ChunkIndex].Num());
+						NewChunk->BulkData.Unlock();
+					}
+				}
+				else
+				{
+					// Could not split so copy compressed data into a single chunk
 					FStreamedAudioChunk* NewChunk = new(DerivedData->Chunks) FStreamedAudioChunk();
-					NewChunk->DataSize = ChunkBuffers[ChunkIndex].Num();
+					NewChunk->DataSize = CompressedBuffer.Num();
 					NewChunk->BulkData.Lock(LOCK_READ_WRITE);
-					void* NewChunkData = NewChunk->BulkData.Realloc(ChunkBuffers[ChunkIndex].Num());
-					FMemory::Memcpy(NewChunkData, ChunkBuffers[ChunkIndex].GetData(), ChunkBuffers[ChunkIndex].Num());
+					void* NewChunkData = NewChunk->BulkData.Realloc(CompressedBuffer.Num());
+					FMemory::Memcpy(NewChunkData, CompressedBuffer.GetData(), CompressedBuffer.Num());
 					NewChunk->BulkData.Unlock();
 				}
+
+				DerivedData->NumChunks = DerivedData->Chunks.Num();
+
+				// Store it in the cache.
+				PutDerivedDataInCache(DerivedData, KeySuffix);
 			}
 			else
 			{
-				// Could not split so copy compressed data into a single chunk
-				FStreamedAudioChunk* NewChunk = new(DerivedData->Chunks) FStreamedAudioChunk();
-				NewChunk->DataSize = CompressedBuffer.Num();
-				NewChunk->BulkData.Lock(LOCK_READ_WRITE);
-				void* NewChunkData = NewChunk->BulkData.Realloc(CompressedBuffer.Num());
-				FMemory::Memcpy(NewChunkData, CompressedBuffer.GetData(), CompressedBuffer.Num());
-				NewChunk->BulkData.Unlock();
+				UE_LOG(LogAudio, Warning, TEXT("Failed to retrieve compressed data for format %s and soundwave %s"),
+					   *AudioFormatName.GetPlainNameString(),
+					   *SoundWave.GetPathName()
+					);
 			}
-
-			DerivedData->NumChunks = DerivedData->Chunks.Num();
-
-			// Store it in the cache.
-			PutDerivedDataInCache(DerivedData, KeySuffix);
 		}
 		
 		if (DerivedData->Chunks.Num())
@@ -359,10 +369,9 @@ public:
 		}
 	}
 
-	/** Interface for FAsyncTask. */
-	static const TCHAR* Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FStreamedAudioAsyncCacheDerivedDataTask");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FStreamedAudioCacheDerivedDataWorker, STATGROUP_ThreadPoolAsyncTasks);
 	}
 };
 
@@ -921,15 +930,6 @@ void USoundWave::CleanupCachedRunningPlatformData()
 	}
 }
 
-void USoundWave::CleanupCachedCookedPlatformData()
-{
-	for (auto It : CookedPlatformData)
-	{
-		delete It.Value;
-	}
-
-	CookedPlatformData.Empty();
-}
 
 void USoundWave::SerializeCookedPlatformData(FArchive& Ar)
 {
@@ -937,6 +937,8 @@ void USoundWave::SerializeCookedPlatformData(FArchive& Ar)
 	{
 		return;
 	}
+
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("USoundWave::SerializeCookedPlatformData"), STAT_SoundWave_SerializeCookedPlatformData, STATGROUP_LoadTime );
 
 #if WITH_EDITORONLY_DATA
 	if (Ar.IsCooking() && Ar.IsPersistent())
@@ -993,11 +995,11 @@ void USoundWave::BeginCachePlatformData()
 {
 	CachePlatformData(true);
 
+#if WITH_EDITOR
 	// enable caching in postload for derived data cache commandlet and cook by the book
 	ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
 	if (TPM && (TPM->RestrictFormatsToRuntimeOnly() == false))
 	{
-		ITargetPlatformManagerModule* TPM = GetTargetPlatformManager();
 		TArray<ITargetPlatform*> Platforms = TPM->GetActiveTargetPlatforms();
 		// Cache for all the audio formats that the cooking target requires
 		for (int32 FormatIndex = 0; FormatIndex < Platforms.Num(); FormatIndex++)
@@ -1005,7 +1007,9 @@ void USoundWave::BeginCachePlatformData()
 			BeginCacheForCookedPlatformData(Platforms[FormatIndex]);
 		}
 	}
+#endif
 }
+#if WITH_EDITOR
 
 void USoundWave::BeginCacheForCookedPlatformData(const ITargetPlatform *TargetPlatform)
 {
@@ -1065,6 +1069,57 @@ bool USoundWave::IsCachedCookedPlatformDataLoaded( const ITargetPlatform* Target
 	}
 	return true; 
 }
+
+
+/**
+* Clear all the cached cooked platform data which we have accumulated with BeginCacheForCookedPlatformData calls
+* The data can still be cached again using BeginCacheForCookedPlatformData again
+*/
+void USoundWave::ClearAllCachedCookedPlatformData()
+{
+	Super::ClearAllCachedCookedPlatformData();
+
+	for (auto It : CookedPlatformData)
+	{
+		delete It.Value;
+	}
+
+	CookedPlatformData.Empty();
+}
+
+void USoundWave::ClearCachedCookedPlatformData( const ITargetPlatform* TargetPlatform )
+{
+	Super::ClearCachedCookedPlatformData(TargetPlatform);
+
+	if (TargetPlatform->SupportsFeature(ETargetPlatformFeatures::AudioStreaming) && IsStreaming())
+	{
+		// Retrieve format to cache for targetplatform.
+		FName PlatformFormat = TargetPlatform->GetWaveFormat(this);
+
+		// find format data by comparing derived data keys.
+		FString DerivedDataKey;
+		GetStreamedAudioDerivedDataKeySuffix(*this, PlatformFormat, DerivedDataKey);
+
+		
+		if ( CookedPlatformData.Contains(DerivedDataKey) )
+		{
+			FStreamedAudioPlatformData *PlatformData = CookedPlatformData.FindAndRemoveChecked( DerivedDataKey );
+			delete PlatformData;
+		}	
+	}
+}
+
+void USoundWave::WillNeverCacheCookedPlatformDataAgain()
+{
+	// this is called after we have finished caching the platform data but before we have saved the data
+	// so need to keep the cached platform data around 
+	Super::WillNeverCacheCookedPlatformDataAgain();
+
+	// TODO: We can clear these arrays if we never need to cook again. 
+	// RawData.RemoveBulkData();
+	// CompressedFormatData.FlushData();
+}
+#endif
 
 void USoundWave::FinishCachePlatformData()
 {

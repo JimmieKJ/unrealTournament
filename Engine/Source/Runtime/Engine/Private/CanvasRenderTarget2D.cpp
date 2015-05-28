@@ -11,22 +11,14 @@ UCanvasRenderTarget2D::UCanvasRenderTarget2D( const FObjectInitializer& ObjectIn
 }
 
 void UCanvasRenderTarget2D::UpdateResource()
-{	
+{
+	// Call parent implementation
+	Super::UpdateResource();
+	
 	// Don't allocate canvas object for CRT2D CDO
-	// don't do anything on dedicated server
-	if (IsTemplate() || !FApp::CanEverRender())
+	if(IsTemplate())
 	{
 		return;
-	}
-
-	if (Resource == NULL)
-	{
-		// Create a new texture resource.
-		Resource = CreateResource();
-		if (Resource != NULL)
-		{
-			BeginInitResource(Resource);
-		}
 	}
 
 	// Create or find the canvas object to use to render onto the texture.  Multiple canvas render target textures can share the same canvas.
@@ -34,7 +26,7 @@ void UCanvasRenderTarget2D::UpdateResource()
 	UCanvas* Canvas = (UCanvas*)StaticFindObjectFast(UCanvas::StaticClass(), GetTransientPackage(), CanvasName );
 	if (Canvas == nullptr)
 	{
-		Canvas = ConstructObject<UCanvas>(UCanvas::StaticClass(), GetTransientPackage(), CanvasName );
+		Canvas = NewObject<UCanvas>(GetTransientPackage(), CanvasName);
 		Canvas->AddToRoot();
 	}
 
@@ -93,7 +85,7 @@ UCanvasRenderTarget2D* UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(UObject
 {
 	if ((Width > 0) && (Height > 0) && (CanvasRenderTarget2DClass != NULL))
 	{
-		UCanvasRenderTarget2D* NewCanvasRenderTarget = ConstructObject<UCanvasRenderTarget2D>(CanvasRenderTarget2DClass, GetTransientPackage());
+		UCanvasRenderTarget2D* NewCanvasRenderTarget = NewObject<UCanvasRenderTarget2D>(GetTransientPackage(), CanvasRenderTarget2DClass);
 		if (NewCanvasRenderTarget)
 		{
 			NewCanvasRenderTarget->World = GEngine->GetWorldFromContextObject(WorldContextObject);

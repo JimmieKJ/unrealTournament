@@ -149,7 +149,7 @@ int32 SDockingCross::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedG
 
 }
 
-FVector2D SDockingCross::ComputeDesiredSize() const
+FVector2D SDockingCross::ComputeDesiredSize( float ) const
 {
 	// DockCross does not really have a desired size.
 	return FVector2D( 16, 16 );

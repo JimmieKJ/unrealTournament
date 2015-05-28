@@ -607,11 +607,11 @@ void FPropertyEditorToolkit::TickPinColorAndOpacity()
 	{
 		if ( PinSequence.IsAtStart() )
 		{
-			PinSequence.Play();
+			PinSequence.Play( PropertyTree.ToSharedRef() );
 		}
 		else
 		{
-			PinSequence.PlayReverse();
+			PinSequence.PlayReverse( PropertyTree.ToSharedRef() );
 		}
 	}
 

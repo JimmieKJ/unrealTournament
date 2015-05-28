@@ -1,12 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	ArchiveUObject.h: Implements the FArchive class and related types for UObjects
-=============================================================================*/
-
 #pragma once
 
+
 struct FObjectInstancingGraph;
+
 
 /**
  * Archive for counting memory usage.
@@ -87,20 +85,21 @@ class FObjectWriter : public FMemoryWriter
 {
 
 public:
-	FObjectWriter(UObject* Obj, TArray<uint8>& InBytes, bool bIgnoreClassRef = false, bool bIgnoreArchetypeRef = false, bool bDoDelta = true)
+	FObjectWriter(UObject* Obj, TArray<uint8>& InBytes, bool bIgnoreClassRef = false, bool bIgnoreArchetypeRef = false, bool bDoDelta = true, uint32 AdditionalPortFlags = 0)
 		: FMemoryWriter(InBytes)
 	{
 		ArIgnoreClassRef = bIgnoreClassRef;
 		ArIgnoreArchetypeRef = bIgnoreArchetypeRef;
 		ArNoDelta = !bDoDelta;
+		ArPortFlags |= AdditionalPortFlags;
 		Obj->Serialize(*this);
 	}
 
 	// FArchive interface
 	COREUOBJECT_API virtual FArchive& operator<<( class FName& N ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( class UObject*& Res ) override;
-	COREUOBJECT_API virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr );
-	COREUOBJECT_API virtual FArchive& operator<<( FAssetPtr& AssetPtr );
+	COREUOBJECT_API virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr ) override;
+	COREUOBJECT_API virtual FArchive& operator<<( FAssetPtr& AssetPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<(FStringAssetReference& AssetPtr) override;
 	COREUOBJECT_API virtual FString GetArchiveName() const override;
 	// End of FArchive interface
@@ -132,8 +131,8 @@ public:
 	// FArchive interface
 	COREUOBJECT_API virtual FArchive& operator<<( class FName& N ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( class UObject*& Res ) override;
-	COREUOBJECT_API virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr );
-	COREUOBJECT_API virtual FArchive& operator<<( FAssetPtr& AssetPtr );
+	COREUOBJECT_API virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr ) override;
+	COREUOBJECT_API virtual FArchive& operator<<( FAssetPtr& AssetPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<(FStringAssetReference& AssetPtr) override;
 	COREUOBJECT_API virtual FString GetArchiveName() const override;
 	// End of FArchive interface
@@ -154,7 +153,7 @@ protected:
  * of the UObject data being saved/loaded.
  * <p>
  * UObject references are not serialized directly into the memory archive.  Instead, we use
- * a system similar to the Export/ImportMap of ULinker - the pointer to the UObject is added
+ * a system similar to the Export/ImportMap of FLinker - the pointer to the UObject is added
  * to a persistent (from the standpoint of the FReloadObjectArc) array.  The location into
  * this array is what is actually stored in the archive's buffer.
  * <p>
@@ -262,14 +261,14 @@ protected:
 	 */
 	void SetRootObject( UObject* NewRoot );
 
+	/** the raw UObject data contained by this archive */
+	TArray<uint8>		Bytes;
+
 	/** moves UObject data from storage into UObject address space */
 	FMemoryReader		Reader;
 
 	/** stores UObject data in a temporary location for later retrieval */
 	FMemoryWriter		Writer;
-
-	/** the raw UObject data contained by this archive */
-	TArray<uint8>		Bytes;
 
 	/** UObjects for which all data is stored in the memory archive */
 	TArray<UObject*>	CompleteObjects;
@@ -470,7 +469,7 @@ private:
 	/**
 	 * Serializer - if Obj is one of the objects we're looking for, increments the reference count for that object
 	 */
-	FArchive& operator<<( class UObject*& Obj );
+	COREUOBJECT_API FArchive& operator<<( class UObject*& Obj );
 };
 
 /**
@@ -496,23 +495,26 @@ public:
 	TFindObjectReferencers( TArray< T* > TargetObjects, UPackage* PackageToCheck=NULL, bool bIgnoreTemplates = true )
 	: TMultiMap< T*, UObject* >()
 	{
+		TArray<UObject*> ReferencedObjects;
+		TMap<UObject*, int32> ReferenceCounts;
+
 		FFindReferencersArchive FindReferencerAr(nullptr, ( TArray<UObject*>& )TargetObjects);
 
 		// Loop over every object to find any reference that may exist for the target objects
 		for (FObjectIterator It; It; ++It)
 		{
 			UObject* PotentialReferencer = *It;
-			if ( !TargetObjects.Contains(dynamic_cast<T*>( PotentialReferencer ))
+			if ( !TargetObjects.Contains(PotentialReferencer)
 			&&	(PackageToCheck == NULL || PotentialReferencer->IsIn(PackageToCheck))
 			&&	(!bIgnoreTemplates || !PotentialReferencer->IsTemplate()) )
 			{
 				FindReferencerAr.ResetPotentialReferencer(PotentialReferencer);
 
-				TMap<UObject*, int32> ReferenceCounts;
+				ReferenceCounts.Reset();
 				if ( FindReferencerAr.GetReferenceCounts(ReferenceCounts) > 0 )
 				{
 					// here we don't really care about the number of references from PotentialReferencer to the target object...just that he's a referencer
-					TArray<UObject*> ReferencedObjects;
+					ReferencedObjects.Reset();
 					ReferenceCounts.GenerateKeyArray(ReferencedObjects);
 					for ( int32 RefIndex = 0; RefIndex < ReferencedObjects.Num(); RefIndex++ )
 					{
@@ -576,7 +578,7 @@ protected:
 	class TArray<const UProperty*>	Referencers;
 
 private:
-	FArchive& operator<<( class UObject*& Obj );
+	COREUOBJECT_API FArchive& operator<<( class UObject*& Obj );
 };
 
 struct FTraceRouteRecord
@@ -1092,7 +1094,7 @@ public:
 				}
 				else
 				{
-					ObjectClass->SerializeBin(*this, SearchObject, 0);
+					ObjectClass->SerializeBin(*this, SearchObject);
 				}
 				StopSerializingDefaults();
 			}
@@ -1141,11 +1143,11 @@ public:
 					UE_LOG(LogSerialization, Log,  TEXT("FArchiveReplaceObjectRef: Obj == SearchObject : '%s'"), *ObjName );
 				}
 #endif
-
-				if ( !SerializedObjects.Find(Obj) )
+				bool bAlreadyAdded = false;
+				SerializedObjects.Add(Obj, &bAlreadyAdded);
+				if (!bAlreadyAdded)
 				{
 					// otherwise recurse down into the object if it is contained within the initial search object
-					SerializedObjects.Add(Obj);
 	
 					// serialization for class default objects must be deterministic (since class 
 					// default objects may be serialized during script compilation while the script
@@ -1161,7 +1163,7 @@ public:
 						}
 						else
 						{
-							ObjectClass->SerializeBin(*this, Obj, 0);
+							ObjectClass->SerializeBin(*this, Obj);
 						}
 						StopSerializingDefaults();
 					}
@@ -1555,6 +1557,8 @@ private:
 	int64							CurrentChunkIndex;
 	/** Compression flags determining compression of CompressedChunks.				*/
 	ECompressionFlags				CompressionFlags;
+	/** Caches the return value of FPlatformMisc::SupportsMultithreading (comes up in profiles often) */
+	bool PlatformIsSinglethreaded;
 };
 
 /*----------------------------------------------------------------------------
@@ -1584,11 +1588,14 @@ public:
 	*/
 	uint32 Crc32(UObject* Object, uint32 CRC = 0);
 
-private:
-	/** Internal archive used for serialization */
-	FMemoryWriter MemoryWriter;
+protected:
+	/** Return if object was already serialized */
+	virtual bool CustomSerialize(class UObject* Object) { return false; }
+
 	/** Internal byte array used for serialization */
 	TArray<uint8> SerializedObjectData;
+	/** Internal archive used for serialization */
+	FMemoryWriter MemoryWriter;
 	/** Internal queue of object references awaiting serialization */
 	TQueue<UObject*> ObjectsToSerialize;
 	/** Internal currently serialized object */

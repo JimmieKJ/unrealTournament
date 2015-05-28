@@ -860,6 +860,8 @@ void FTabManager::DrawAttention( const TSharedRef<SDockTab>& TabToHighlight )
 	}
 	TabToHighlight->GetParentDockTabStack()->BringToFront(TabToHighlight);
 	TabToHighlight->FlashTab();
+
+	FGlobalTabmanager::Get()->UpdateMainMenu(TabToHighlight, true);
 }
 
 void FTabManager::InsertNewDocumentTab( FName PlaceholderId, ESearchPreference::Type SearchPreference, const TSharedRef<SDockTab>& UnmanagedTab )
@@ -880,6 +882,9 @@ TSharedRef<SDockTab> FTabManager::InvokeTab( const FTabId& TabId )
 	{
 		ParentWindowPtr->SetTitle( NewTab->GetTabLabel() );
 	}
+#if PLATFORM_MAC
+	FPlatformMisc::bChachedMacMenuStateNeedsUpdate = true;
+#endif
 	return NewTab;
 }
 
@@ -1588,18 +1593,26 @@ TSharedPtr<class SDockTab> FGlobalTabmanager::GetActiveTab() const
 	return ActiveTabPtr.Pin();
 }
 
+bool FGlobalTabmanager::CanSetAsActiveTab(const TSharedPtr<SDockTab>& Tab)
+{
+	// Setting NULL wipes out the active tab; always apply that change.
+	// Major tabs are ignored for the purposes of active-tab tracking. We do not care about their
+	return !Tab.IsValid() || Tab->GetVisualTabRole() != ETabRole::MajorTab;
+}
+
 void FGlobalTabmanager::SetActiveTab( const TSharedPtr<class SDockTab>& NewActiveTab )
 {
-	const bool bShouldApplyChange =
-		// Setting NULL wipes out the active tab; always apply that change.
-		!NewActiveTab.IsValid() ||
-		// Major tabs are ignored for the purposes of active-tab tracking. We do not care about their 
-		(NewActiveTab->GetTabRole() != ETabRole::MajorTab && !NewActiveTab->IsNomadTabWithMajorTabStyle());
+	const bool bShouldApplyChange = CanSetAsActiveTab(NewActiveTab);
 	
 	TSharedPtr<SDockTab> CurrentlyActiveTab = GetActiveTab();
 
-	if (bShouldApplyChange && CurrentlyActiveTab != NewActiveTab)
+	if (bShouldApplyChange && (CurrentlyActiveTab != NewActiveTab))
 	{
+		if (NewActiveTab.IsValid())
+		{
+			NewActiveTab->UpdateActivationTime();
+		}
+
 		OnActiveTabChanged.Broadcast( CurrentlyActiveTab, NewActiveTab );
 		ActiveTabPtr = NewActiveTab;
 	}	
@@ -1763,9 +1776,11 @@ void FGlobalTabmanager::OnTabForegrounded( const TSharedPtr<SDockTab>& NewForegr
 			TSharedPtr<FTabManager> ForegroundTabManager = SubTabManagers[ForegroundedTabIndex].TabManager.Pin();
 			ForegroundTabManager->GetPrivateApi().ShowWindows();
 		}
+
+		NewForegroundTab->UpdateActivationTime();
 	}
 	
-	if ( BackgroundedTab.IsValid() )
+	if (BackgroundedTab.IsValid())
 	{
 		// Hide any child windows associated with the Major Tab that got backgrounded.
 		const int32 BackgroundedTabIndex = SubTabManagers.IndexOfByPredicate(FindByTab(BackgroundedTab.ToSharedRef()));

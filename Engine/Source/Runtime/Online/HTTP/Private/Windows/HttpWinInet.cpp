@@ -341,6 +341,7 @@ FHttpRequestWinInet::FHttpRequestWinInet()
 ,	ElapsedTimeSinceLastServerResponse(0)
 ,	ProgressBytesSent(0)
 ,	StartRequestTime(0)
+,	ElapsedTime(0.0f)
 ,	bDebugVerbose(false)
 {
 
@@ -469,6 +470,8 @@ bool FHttpRequestWinInet::ProcessRequest()
 		FHttpModule::Get().GetHttpManager().AddRequest(SharedThis(this));
 		// keep track of time when request was started
 		StartRequestTime = FPlatformTime::Seconds();
+		// reset elapsed time.
+		ElapsedTime = 0.0f;
 		// Try to start the connection and send the Http request
 		bStarted = StartRequest();
 	}
@@ -617,7 +620,7 @@ void FHttpRequestWinInet::FinishedRequest()
 	// Remove from global list since processing is now complete
 	FHttpModule::Get().GetHttpManager().RemoveRequest(Request);
 
-	double ElapsedTime = FPlatformTime::Seconds() - StartRequestTime;
+	ElapsedTime = (float)(FPlatformTime::Seconds() - StartRequestTime);
 	if (Response.IsValid() &&
 		Response->bResponseSucceeded)
 	{
@@ -743,7 +746,7 @@ void FHttpRequestWinInet::Tick(float DeltaSeconds)
 		if(ResponseBytes > ProgressBytesSent)
 		{
 			ProgressBytesSent = ResponseBytes;
-			OnRequestProgress().ExecuteIfBound(SharedThis(this),ResponseBytes);
+			OnRequestProgress().ExecuteIfBound(SharedThis(this), RequestPayload.Num(), ResponseBytes);
 		}
 	}
 
@@ -776,10 +779,16 @@ void FHttpRequestWinInet::Tick(float DeltaSeconds)
 	// No longer waiting for a response and done processing it
 	else if (CompletionStatus == EHttpRequestStatus::Processing &&
 		Response.IsValid() &&
-		Response->bIsReady)
+		Response->bIsReady &&
+		TotalElapsed >= FHttpModule::Get().GetHttpDelayTime())
 	{
 		FinishedRequest();
 	}
+}
+
+float FHttpRequestWinInet::GetElapsedTime()
+{
+	return ElapsedTime;
 }
 
 // FHttpResponseWinInet
@@ -1027,7 +1036,7 @@ void FHttpResponseWinInet::ProcessResponseHeaders()
 			}
 			FString HeaderLine(DelimiterPtr-HeaderPtr, HeaderPtr);
 			FString HeaderKey,HeaderValue;
-			if (HeaderLine.Split(TEXT(":"), &HeaderKey, &HeaderValue))
+			if (HeaderLine.Split(TEXT(":"), &HeaderKey, &HeaderValue, ESearchCase::CaseSensitive))
 			{
 				if (!HeaderKey.IsEmpty())
 				{
@@ -1213,7 +1222,7 @@ void FURLWinInet::ClearCachedData() const
 {
 	URLPtr = NULL;
 	URLParameters.Reset();
-	FMemory::MemZero(URLParts);
+	FMemory::Memzero(URLParts);
 }
 
 void FURLWinInet::CrackUrlParameters() const

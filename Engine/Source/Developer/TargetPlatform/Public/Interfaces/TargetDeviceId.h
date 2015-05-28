@@ -126,7 +126,7 @@ public:
 	 */
 	static bool Parse( const FString& IdString, FTargetDeviceId& OutId )
 	{
-		return IdString.Split(TEXT("@"), &OutId.PlatformName, &OutId.DeviceName);
+		return IdString.Split(TEXT("@"), &OutId.PlatformName, &OutId.DeviceName, ESearchCase::CaseSensitive);
 	}
 
 private:

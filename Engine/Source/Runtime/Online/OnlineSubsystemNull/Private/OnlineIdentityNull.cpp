@@ -53,7 +53,7 @@ bool FOnlineIdentityNull::Login(int32 LocalUserNum, const FOnlineAccountCredenti
 	}
 	else if (AccountCredentials.Id.IsEmpty())
 	{
-		ErrorStr = FString::Printf(TEXT("Invalid account id=%s"), *AccountCredentials.Id);
+		ErrorStr = TEXT("Invalid account id, string empty");
 	}
 	else
 	{

@@ -41,9 +41,9 @@ void FMessageLogViewModel::ChangeCurrentListingViewModel( const FName& LogName )
 	TSharedPtr<FMessageLogListingViewModel> LogListingViewModel = FindLogListingViewModel( LogName );
 	if( LogListingViewModel.IsValid() )
 	{
-		if ( FPaths::FileExists(GEditorUserSettingsIni) )
+		if ( FPaths::FileExists(GEditorPerProjectIni) )
 		{
-			GConfig->SetString( TEXT("MessageLog"), TEXT("LastLogListing"), *LogName.ToString(), GEditorUserSettingsIni );
+			GConfig->SetString( TEXT("MessageLog"), TEXT("LastLogListing"), *LogName.ToString(), GEditorPerProjectIni );
 		}
 		SelectedLogListingViewModel = LogListingViewModel;
 		SelectionChangedEvent.Broadcast();		

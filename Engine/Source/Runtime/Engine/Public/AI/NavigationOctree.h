@@ -6,6 +6,7 @@
 
 class AActor;
 class UActorComponent;
+struct FNavDataConfig;
 
 struct ENGINE_API FNavigationOctreeFilter
 {
@@ -25,7 +26,7 @@ struct ENGINE_API FNavigationOctreeFilter
 
 // @todo consider optional structures that can contain a delegate instead of 
 // actual copy of collision data
-struct ENGINE_API FNavigationRelevantData
+struct ENGINE_API FNavigationRelevantData : public TSharedFromThis<FNavigationRelevantData, ESPMode::ThreadSafe>
 {
 	DECLARE_DELEGATE_RetVal_OneParam(bool, FFilterNavDataDelegate, const struct FNavDataConfig*);
 
@@ -38,46 +39,74 @@ struct ENGINE_API FNavigationRelevantData
 	/** bounds of geometry (unreal coords) */
 	FBox Bounds;
 
+	/** Gathers per instance data for navigation geometry in a specified area box */
+	FNavDataPerInstanceTransformDelegate NavDataPerInstanceTransformDelegate;
+
 	/** called to check if hosted geometry should be used for given FNavDataConfig. If not set then "true" is assumed. */
 	FFilterNavDataDelegate ShouldUseGeometryDelegate;
 
 	/** additional modifiers: areas and external links */
 	FCompositeNavModifier Modifiers;
 
-	// Gathers per instance data for navigation geometry in a specified area box
-	FNavDataPerInstanceTransformDelegate NavDataPerInstanceTransformDelegate;
+	/** UObject these data represents */
+	const TWeakObjectPtr<UObject> SourceObject;
+
+	/** get set to true when lazy navigation exporting is enabled and this navigation data has "potential" of 
+	 *	containing geometry data. First access will result in gathering the data and setting this flag back to false.
+	 *	Mind that this flag can go back to 'true' if related data gets cleared out. */
+	uint32 bPendingLazyGeometryGathering : 1;
+	uint32 bPendingLazyModifiersGathering : 1;
+
+	uint32 bSupportsGatheringGeometrySlices : 1;
+	
+	FNavigationRelevantData(UObject& Source) 
+		: SourceObject(&Source)
+		, bPendingLazyGeometryGathering(false)
+		, bPendingLazyModifiersGathering(false)
+	{}
 
 	FORCEINLINE bool HasGeometry() const { return VoxelData.Num() || CollisionData.Num(); }
 	FORCEINLINE bool HasModifiers() const { return !Modifiers.IsEmpty(); }
+	FORCEINLINE bool IsPendingLazyGeometryGathering() const { return bPendingLazyGeometryGathering; }
+	FORCEINLINE bool IsPendingLazyModifiersGathering() const { return bPendingLazyModifiersGathering; }
+	FORCEINLINE bool SupportsGatheringGeometrySlices() const { return bSupportsGatheringGeometrySlices; }
 	FORCEINLINE bool IsEmpty() const { return !HasGeometry() && !HasModifiers(); }
 	FORCEINLINE uint32 GetAllocatedSize() const { return CollisionData.GetAllocatedSize() + VoxelData.GetAllocatedSize() + Modifiers.GetAllocatedSize(); }
+	FORCEINLINE uint32 GetGeometryAllocatedSize() const { return CollisionData.GetAllocatedSize() + VoxelData.GetAllocatedSize(); }
 	FORCEINLINE int32 GetDirtyFlag() const
 	{
-		return (HasGeometry() ? ENavigationDirtyFlag::Geometry : 0) |
-			(HasModifiers() ? ENavigationDirtyFlag::DynamicModifier : 0) |
+		return ((HasGeometry() || IsPendingLazyGeometryGathering()) ? ENavigationDirtyFlag::Geometry : 0) |
+			((HasModifiers() || IsPendingLazyModifiersGathering())? ENavigationDirtyFlag::DynamicModifier : 0) |
 			(Modifiers.HasAgentHeightAdjust() ? ENavigationDirtyFlag::UseAgentHeight : 0);
 	}
 	
 	bool HasPerInstanceTransforms() const;
 	bool IsMatchingFilter(const FNavigationOctreeFilter& Filter) const;
 	void Shrink();
+
+	FORCEINLINE UObject* GetOwner() const { return SourceObject.Get(); }
 };
 
 struct ENGINE_API FNavigationOctreeElement
 {
 	FBoxSphereBounds Bounds;
-	TWeakObjectPtr<UObject> Owner;
-	FNavigationRelevantData Data;
+	TSharedRef<FNavigationRelevantData, ESPMode::ThreadSafe> Data;
+
+	FNavigationOctreeElement(UObject& SourceObject)
+		: Data(new FNavigationRelevantData(SourceObject))
+	{
+
+	}
 
 	FORCEINLINE bool IsEmpty() const
 	{
 		const FBox BBox = Bounds.GetBox();
-		return Data.IsEmpty() && (BBox.IsValid == 0 || BBox.GetSize().IsNearlyZero());
+		return Data->IsEmpty() && (BBox.IsValid == 0 || BBox.GetSize().IsNearlyZero());
 	}
 
 	FORCEINLINE bool IsMatchingFilter(const FNavigationOctreeFilter& Filter) const
 	{
-		return Data.IsMatchingFilter(Filter);
+		return Data->IsMatchingFilter(Filter);
 	}
 
 	/** 
@@ -87,23 +116,25 @@ struct ENGINE_API FNavigationOctreeElement
 	 */
 	FORCEINLINE FCompositeNavModifier GetModifierForAgent(const struct FNavAgentProperties* NavAgent = NULL) const 
 	{ 
-		return Data.Modifiers.HasMetaAreas() ? Data.Modifiers.GetInstantiatedMetaModifier(NavAgent, Owner) : Data.Modifiers;
+		return Data->Modifiers.HasMetaAreas() ? Data->Modifiers.GetInstantiatedMetaModifier(NavAgent, Data->SourceObject) : Data->Modifiers;
 	}
 
-	FORCEINLINE bool ShouldUseGeometry(const struct FNavDataConfig* NavConfig) const
+	FORCEINLINE bool ShouldUseGeometry(const FNavDataConfig& NavConfig) const
 	{ 
-		return !Data.ShouldUseGeometryDelegate.IsBound() || Data.ShouldUseGeometryDelegate.Execute(NavConfig);
+		return !Data->ShouldUseGeometryDelegate.IsBound() || Data->ShouldUseGeometryDelegate.Execute(&NavConfig);
 	}
 
 	FORCEINLINE int32 GetAllocatedSize() const
 	{
-		return Data.GetAllocatedSize();
+		return Data->GetAllocatedSize();
 	}
 
 	FORCEINLINE void Shrink()
 	{
-		Data.Shrink();
+		Data->Shrink();
 	}
+
+	FORCEINLINE UObject* GetOwner() const { return Data->SourceObject.Get(); }
 };
 
 struct FNavigationOctreeSemantics
@@ -122,7 +153,7 @@ struct FNavigationOctreeSemantics
 
 	FORCEINLINE static bool AreElementsEqual(const FNavigationOctreeElement& A, const FNavigationOctreeElement& B)
 	{
-		return A.Owner == B.Owner;
+		return A.Data->SourceObject == B.Data->SourceObject;
 	}
 
 #if NAVSYS_DEBUG
@@ -131,7 +162,7 @@ struct FNavigationOctreeSemantics
 	static void SetElementId(const FNavigationOctreeElement& Element, FOctreeElementId Id);
 };
 
-class FNavigationOctree : public TOctree<FNavigationOctreeElement, FNavigationOctreeSemantics>
+class FNavigationOctree : public TOctree<FNavigationOctreeElement, FNavigationOctreeSemantics>, public TSharedFromThis<FNavigationOctree, ESPMode::ThreadSafe>
 {
 public:
 	DECLARE_DELEGATE_TwoParams(FNavigableGeometryComponentExportDelegate, UActorComponent*, FNavigationRelevantData&);
@@ -159,8 +190,21 @@ public:
 
 	void SetNavigableGeometryStoringMode(ENavGeometryStoringMode NavGeometryMode);
 
-protected:
+	const FNavigationRelevantData* GetDataForID(const FOctreeElementId& Id) const;
 
+	ENavGeometryStoringMode GetNavGeometryStoringMode() const
+	{
+		return bGatherGeometry ? StoreNavGeometry : SkipNavGeometry;
+	}
+
+	void SetDataGatheringMode(ENavDataGatheringModeConfig Mode);
+	
+	// @hack! TO BE FIXED
+	void DemandLazyDataGathering(const FNavigationOctreeElement& Element);
+	void DemandLazyDataGathering(FNavigationRelevantData& ElementData);
+
+protected:
+	ENavDataGatheringMode DefaultGeometryGatheringMode;
 	uint32 bGatherGeometry : 1;
 	uint32 NodesMemory;
 };

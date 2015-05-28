@@ -69,32 +69,29 @@ void SVisualLoggerView::GetTimelines(TArray<TSharedPtr<STimeline> >& OutList, bo
 	OutList = bOnlySelectedOnes ? TimelinesContainer->GetSelectedNodes() : TimelinesContainer->GetAllNodes();
 }
 
-void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUICommandList>& InCommandList, TSharedPtr<IVisualLoggerInterface> InVisualLoggerInterface)
+void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUICommandList>& InCommandList)
 {
-	VisualLoggerInterface = InVisualLoggerInterface;
 	AnimationOutlinerFillPercentage = .25f;
-	VisualLoggerEvents = VisualLoggerInterface->GetVisualLoggerEvents();
+	VisualLoggerEvents = FLogVisualizer::Get().GetVisualLoggerEvents();
 
 	FVisualLoggerTimeSliderArgs TimeSliderArgs;
 	TimeSliderArgs.ViewRange = InArgs._ViewRange;
 	TimeSliderArgs.ClampMin = InArgs._ViewRange.Get().GetLowerBoundValue();
 	TimeSliderArgs.ClampMax = InArgs._ViewRange.Get().GetUpperBoundValue();
 	TimeSliderArgs.ScrubPosition = InArgs._ScrubPosition;
+	FLogVisualizer::Get().GetTimeSliderController()->SetTimesliderArgs(TimeSliderArgs);
 
 	TSharedRef<SScrollBar> ZoomScrollBar =
 		SNew(SScrollBar)
 		.Orientation(EOrientation::Orient_Horizontal)
 		.Thickness(FVector2D(2.0f, 2.0f));
 	ZoomScrollBar->SetState(0.0f, 1.0f);
-
-	TSharedPtr<FVisualLoggerTimeSliderController> TimeSliderController(new FVisualLoggerTimeSliderController(TimeSliderArgs));
-	TimeSliderController->SetExternalScrollbar(ZoomScrollBar);
-	VisualLoggerInterface->SetTimeSliderController(TimeSliderController);
+	FLogVisualizer::Get().GetTimeSliderController()->SetExternalScrollbar(ZoomScrollBar);
 
 	// Create the top and bottom sliders
 	const bool bMirrorLabels = true;
-	TSharedRef<ITimeSlider> TopTimeSlider = SNew(STimeSlider, TimeSliderController.ToSharedRef()).MirrorLabels(bMirrorLabels);
-	TSharedRef<ITimeSlider> BottomTimeSlider = SNew(STimeSlider, TimeSliderController.ToSharedRef()).MirrorLabels(bMirrorLabels);
+	TSharedRef<ITimeSlider> TopTimeSlider = SNew(STimeSlider, FLogVisualizer::Get().GetTimeSliderController().ToSharedRef()).MirrorLabels(bMirrorLabels);
+	TSharedRef<ITimeSlider> BottomTimeSlider = SNew(STimeSlider, FLogVisualizer::Get().GetTimeSliderController().ToSharedRef()).MirrorLabels(bMirrorLabels);
 
 	TSharedRef<SScrollBar> ScrollBar =
 		SNew(SScrollBar)
@@ -126,7 +123,39 @@ void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUI
 							SNew(SHorizontalBox)
 							+ SHorizontalBox::Slot()
 							.Padding(FMargin(0))
+							.AutoWidth()
+							.HAlign(HAlign_Center)
 							.VAlign(VAlign_Center)
+							[
+								SNew(SImage)
+								.Visibility_Lambda([]()->EVisibility{ return FCategoryFiltersManager::Get().GetSelectedObjects().Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed; })
+								.Image(FLogVisualizerStyle::Get().GetBrush("Filters.FilterIcon"))
+							]
+							+ SHorizontalBox::Slot()
+							.Padding(FMargin(0))
+							.HAlign(HAlign_Right)
+							.AutoWidth()
+							[
+								SAssignNew(ClassesComboButton, SComboButton)
+								.Visibility_Lambda([this]()->EVisibility{ return TimelinesContainer.IsValid() && (TimelinesContainer->GetAllNodes().Num() > 1 || FCategoryFiltersManager::Get().GetSelectedObjects().Num() > 0) ? EVisibility::Visible : EVisibility::Collapsed; })
+								.ComboButtonStyle(FLogVisualizerStyle::Get(), "Filters.Style")
+								.ForegroundColor(FLinearColor::White)
+								.ContentPadding(0)
+								.OnGetMenuContent(this, &SVisualLoggerView::MakeClassesFilterMenu)
+								.ToolTipText(LOCTEXT("SetFilterByClasses", "Select classes to show"))
+								.HasDownArrow(true)
+								.ContentPadding(FMargin(1, 0))
+								.ButtonContent()
+								[
+									SNew(STextBlock)
+									.TextStyle(FLogVisualizerStyle::Get(), "Filters.Text")
+									.Text(LOCTEXT("FilterClasses", "Classes"))
+								]
+							]
+							+ SHorizontalBox::Slot()
+							.Padding(FMargin(0))
+							.HAlign(HAlign_Fill)
+							.FillWidth(1)
 							[
 								SNew(SBox)
 								.Padding(FMargin(0, 0, 4, 0))
@@ -167,10 +196,10 @@ void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUI
 					+ SVerticalBox::Slot()
 					.FillHeight(1.0)
 					[
-						SNew(SInputCatcherOverlay, TimeSliderController.ToSharedRef())
+						SNew(SInputCatcherOverlay, FLogVisualizer::Get().GetTimeSliderController().ToSharedRef())
 						+ SOverlay::Slot()
 						[
-							MakeSectionOverlay(TimeSliderController.ToSharedRef(), InArgs._ViewRange, InArgs._ScrubPosition, false)
+							MakeSectionOverlay(FLogVisualizer::Get().GetTimeSliderController().ToSharedRef(), InArgs._ViewRange, InArgs._ScrubPosition, false)
 						]
 						+ SOverlay::Slot()
 						[
@@ -178,20 +207,18 @@ void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUI
 							.ExternalScrollbar(ScrollBar)
 							+ SScrollBox::Slot()
 							[
-								SAssignNew(TimelinesContainer, STimelinesContainer, SharedThis(this), TimeSliderController.ToSharedRef())
-								.VisualLoggerInterface(VisualLoggerInterface)
+								SAssignNew(TimelinesContainer, STimelinesContainer, SharedThis(this), FLogVisualizer::Get().GetTimeSliderController().ToSharedRef())
 							]
 						]
 						+ SOverlay::Slot()
 						[
-							MakeSectionOverlay(TimeSliderController.ToSharedRef(), InArgs._ViewRange, InArgs._ScrubPosition, true)
+							MakeSectionOverlay(FLogVisualizer::Get().GetTimeSliderController().ToSharedRef(), InArgs._ViewRange, InArgs._ScrubPosition, true)
 						]
 						+ SOverlay::Slot()
 						.VAlign(VAlign_Bottom)
 						[
 							SNew(SHorizontalBox)
 							+ SHorizontalBox::Slot()
-							//.Visibility(EVisibility::HitTestInvisible)
 							.FillWidth(TAttribute<float>(this, &SVisualLoggerView::GetAnimationOutlinerFillPercentage))
 							[
 								// Take up space but display nothing. This is required so that all areas dependent on time align correctly
@@ -236,13 +263,8 @@ void SVisualLoggerView::Construct(const FArguments& InArgs, const TSharedRef<FUI
 				]
 			]
 		];
-
-		//ScrollBox->AddSlot()
-		//[
-		//	SAssignNew(TimelinesContainer, STimelinesContainer, SharedThis(this), TimeSliderController.ToSharedRef())
-		//	.VisualLoggerInterface(VisualLoggerInterface)
-		//];
-
+		
+		SearchBox->SetText(FText::FromString(FCategoryFiltersManager::Get().GetSearchString()));
 }
 
 void SVisualLoggerView::SetAnimationOutlinerFillPercentage(float FillPercentage) 
@@ -302,6 +324,11 @@ TSharedRef<SWidget> SVisualLoggerView::MakeSectionOverlay(TSharedRef<FVisualLogg
 		];
 }
 
+void SVisualLoggerView::ResetData()
+{
+	TimelinesContainer->ResetData();
+}
+
 void SVisualLoggerView::OnNewLogEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry)
 {
 	TimelinesContainer->OnNewLogEntry(Entry);
@@ -319,12 +346,119 @@ void SVisualLoggerView::OnFiltersSearchChanged(const FText& Filter)
 
 FCursorReply SVisualLoggerView::OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const
 {
-	if (VisualLoggerInterface->GetTimeSliderController()->IsPanning())
+	if (FLogVisualizer::Get().GetTimeSliderController()->IsPanning())
 	{
 		return FCursorReply::Cursor(EMouseCursor::GrabHand);
 	}
 	return FCursorReply::Cursor(EMouseCursor::Default);
 }
 
+TSharedRef<SWidget> SVisualLoggerView::MakeClassesFilterMenu()
+{
+	const TArray< TSharedPtr<class STimeline> >& AllTimelines = TimelinesContainer->GetAllNodes();
+
+	FMenuBuilder MenuBuilder(true, NULL);
+
+	TArray<FString> UniqueClasses;
+	MenuBuilder.BeginSection(TEXT("Graphs"));
+	for (TSharedPtr<class STimeline> CurrentTimeline : AllTimelines)
+	{
+		FString OwnerClassName = CurrentTimeline->GetOwnerClassName().ToString();
+		if (UniqueClasses.Find(OwnerClassName) == INDEX_NONE)
+		{
+			FText LabelText = FText::FromString(OwnerClassName);
+			MenuBuilder.AddMenuEntry(
+				LabelText,
+				FText::Format(LOCTEXT("FilterByClassPrefix", "Toggle {0} class"), LabelText),
+				FSlateIcon(),
+				FUIAction(
+				FExecuteAction::CreateLambda([this, OwnerClassName]()
+				{
+				if (FCategoryFiltersManager::Get().MatchObjectName(OwnerClassName) && FCategoryFiltersManager::Get().GetSelectedObjects().Num() != 0)
+					{
+						FCategoryFiltersManager::Get().RemoveObjectFromSelection(OwnerClassName);
+					}
+					else
+					{
+						FCategoryFiltersManager::Get().SelectObject(OwnerClassName);
+					}
+
+					OnChangedClassesFilter();
+				}),
+				FCanExecuteAction(),
+				FIsActionChecked::CreateLambda([OwnerClassName]()->bool
+				{
+					return FCategoryFiltersManager::Get().GetSelectedObjects().Find(OwnerClassName) != INDEX_NONE;
+				}),
+				FIsActionButtonVisible()),
+				NAME_None,
+				EUserInterfaceActionType::ToggleButton
+				);
+			UniqueClasses.AddUnique(OwnerClassName);
+		}
+	}
+	//show any classes from persistent data
+	for (const FString& SelectedObj : FCategoryFiltersManager::Get().GetSelectedObjects())
+	{
+		if (UniqueClasses.Find(SelectedObj) == INDEX_NONE)
+		{
+			FText LabelText = FText::FromString(SelectedObj);
+			MenuBuilder.AddMenuEntry(
+			LabelText,
+			FText::Format(LOCTEXT("FilterByClassPrefix", "Toggle {0} class"), LabelText),
+			FSlateIcon(),
+			FUIAction(
+			FExecuteAction::CreateLambda([this, SelectedObj]()
+			{
+				if (FCategoryFiltersManager::Get().MatchObjectName(SelectedObj) && FCategoryFiltersManager::Get().GetSelectedObjects().Num() != 0)
+				{
+					FCategoryFiltersManager::Get().RemoveObjectFromSelection(SelectedObj);
+				}
+				else
+				{
+					FCategoryFiltersManager::Get().SelectObject(SelectedObj);
+				}
+
+				OnChangedClassesFilter();
+			}),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([SelectedObj]()->bool
+			{
+				return FCategoryFiltersManager::Get().GetSelectedObjects().Find(SelectedObj) != INDEX_NONE;
+			}),
+			FIsActionButtonVisible()),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+			);
+			UniqueClasses.AddUnique(SelectedObj);
+		}
+	}
+	MenuBuilder.EndSection(); 
+
+
+	FDisplayMetrics DisplayMetrics;
+	FSlateApplication::Get().GetDisplayMetrics(DisplayMetrics);
+
+	const FVector2D DisplaySize(
+		DisplayMetrics.PrimaryDisplayWorkAreaRect.Right - DisplayMetrics.PrimaryDisplayWorkAreaRect.Left,
+		DisplayMetrics.PrimaryDisplayWorkAreaRect.Bottom - DisplayMetrics.PrimaryDisplayWorkAreaRect.Top);
+
+	return
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.MaxHeight(DisplaySize.Y * 0.5)
+		[
+			MenuBuilder.MakeWidget()
+		];
+}
+
+void SVisualLoggerView::OnChangedClassesFilter()
+{
+	ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->SaveConfig();
+	for (auto CurrentItem : TimelinesContainer->GetAllNodes())
+	{
+		CurrentItem->UpdateVisibility();
+	}
+}
 
 #undef LOCTEXT_NAMESPACE

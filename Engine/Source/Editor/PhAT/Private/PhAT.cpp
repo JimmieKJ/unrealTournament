@@ -195,6 +195,7 @@ void FPhAT::InitPhAT(const EToolkitMode::Type Mode, const TSharedPtr< class IToo
 	HierarchyFilterMode = PHFM_All;
 	SelectedAnimation = NULL;
 	SelectedSimulation = false;
+	BeforeSimulationWidgetMode = FWidget::EWidgetMode::WM_None;
 
 	SharedData = MakeShareable(new FPhATSharedData);
 
@@ -520,7 +521,7 @@ void FPhAT::RefreshHierachyTree()
 
 		// Force the tree to refresh now instead of next tick
 		const FGeometry Stub;
-		Hierarchy->Tick(Stub, 0.0, 0.0f);
+		Hierarchy->Tick( Stub, 0.0f, 0.0f );
 
 		if (!InsideSelChanged && (Hierarchy->GetNumItemsSelected() > 0))
 		{
@@ -573,29 +574,6 @@ void FPhAT::AddReferencedObjects(FReferenceCollector& Collector)
 	}
 
 	Collector.AddReferencedObject(SharedData->MouseHandle);
-}
-
-void FPhAT::CycleTransformMode()
-{
-	if ( !SharedData->bRunningSimulation )
-	{
-		switch( SharedData->WidgetMode )
-		{
-		case FWidget::WM_Translate:
-			SharedData->WidgetMode = FWidget::WM_Rotate;
-			break;
-		case FWidget::WM_Rotate:
-			SharedData->WidgetMode = FWidget::WM_Scale;
-			break;
-		case FWidget::WM_Scale:
-			SharedData->WidgetMode = FWidget::WM_Translate;
-			break;	
-		default:
-			SharedData->WidgetMode = FWidget::WM_Translate;
-		}
-
-		RefreshPreviewViewport();
-	}
 }
 
 void FPhAT::PostUndo(bool bSuccess)
@@ -808,14 +786,7 @@ void FPhAT::ExtendToolbar()
 			}
 			ToolbarBuilder.EndSection();
 	
-			ToolbarBuilder.BeginSection("PhATTransform");
-			{
-				ToolbarBuilder.AddToolBarButton(Commands.PhATTranslationMode);
-				ToolbarBuilder.AddToolBarButton(Commands.PhATRotationMode);
-				ToolbarBuilder.AddToolBarButton(Commands.PhATScaleMode);
-			}
-			ToolbarBuilder.EndSection();
-
+	
 			if ( InPhATEditingMode == FPhATSharedData::PEM_BodyEdit )
 			{
 				ToolbarBuilder.BeginSection("PhATCollision");
@@ -989,36 +960,6 @@ void FPhAT::BindCommands()
 		FExecuteAction::CreateSP(this, &FPhAT::OnEditingMode, (int32)FPhATSharedData::PEM_ConstraintEdit),
 		FCanExecuteAction::CreateSP(this, &FPhAT::IsNotSimulation),
 		FIsActionChecked::CreateSP(this, &FPhAT::IsEditingMode, (int32)FPhATSharedData::PEM_ConstraintEdit));
-
-	ToolkitCommands->MapAction(
-		Commands.MovementSpace_Local,
-		FExecuteAction::CreateSP(this, &FPhAT::OnMovementSpace, (int32)COORD_Local),
-		FCanExecuteAction::CreateSP(this, &FPhAT::IsNotSimulation),
-		FIsActionChecked::CreateSP(this, &FPhAT::IsMovementSpace, (int32)COORD_Local));
-
-	ToolkitCommands->MapAction(
-		Commands.MovementSpace_World,
-		FExecuteAction::CreateSP(this, &FPhAT::OnMovementSpace, (int32)COORD_World),
-		FCanExecuteAction::CreateSP(this, &FPhAT::IsNotSimulation),
-		FIsActionChecked::CreateSP(this, &FPhAT::IsMovementSpace, (int32)COORD_World));
-
-	ToolkitCommands->MapAction(
-		Commands.PhATTranslationMode,
-		FExecuteAction::CreateSP(this, &FPhAT::OnTransformMode, (int32)FWidget::WM_Translate),
-		FCanExecuteAction::CreateSP(this, &FPhAT::IsNotSimulation),
-		FIsActionChecked::CreateSP(this, &FPhAT::IsTransformMode, (int32)FWidget::WM_Translate));
-
-	ToolkitCommands->MapAction(
-		Commands.PhATRotationMode,
-		FExecuteAction::CreateSP(this, &FPhAT::OnTransformMode, (int32)FWidget::WM_Rotate),
-		FCanExecuteAction::CreateSP(this, &FPhAT::IsNotSimulation),
-		FIsActionChecked::CreateSP(this, &FPhAT::IsTransformMode, (int32)FWidget::WM_Rotate));
-
-	ToolkitCommands->MapAction(
-		Commands.PhATScaleMode,
-		FExecuteAction::CreateSP(this, &FPhAT::OnTransformMode, (int32)FWidget::WM_Scale),
-		FCanExecuteAction::CreateSP(this, &FPhAT::IsNotSimulation),
-		FIsActionChecked::CreateSP(this, &FPhAT::IsTransformMode, (int32)FWidget::WM_Scale));
 
 	ToolkitCommands->MapAction(
 		Commands.CopyProperties,
@@ -1250,7 +1191,7 @@ void FPhAT::BindCommands()
 		);
 
 	ToolkitCommands->MapAction(
-		Commands.SideView,
+		Commands.LeftView,
 		FExecuteAction::CreateSP(this, &FPhAT::OnViewType, ELevelViewportType::LVT_OrthoYZ),
 		FCanExecuteAction()
 		);
@@ -1258,6 +1199,24 @@ void FPhAT::BindCommands()
 	ToolkitCommands->MapAction(
 		Commands.FrontView,
 		FExecuteAction::CreateSP(this, &FPhAT::OnViewType, ELevelViewportType::LVT_OrthoXZ),
+		FCanExecuteAction()
+		);
+
+	ToolkitCommands->MapAction(
+		Commands.BottomView,
+		FExecuteAction::CreateSP(this, &FPhAT::OnViewType, ELevelViewportType::LVT_OrthoNegativeXY),
+		FCanExecuteAction()
+		);
+
+	ToolkitCommands->MapAction(
+		Commands.RightView,
+		FExecuteAction::CreateSP(this, &FPhAT::OnViewType, ELevelViewportType::LVT_OrthoNegativeYZ),
+		FCanExecuteAction()
+		);
+
+	ToolkitCommands->MapAction(
+		Commands.BackView,
+		FExecuteAction::CreateSP(this, &FPhAT::OnViewType, ELevelViewportType::LVT_OrthoNegativeXZ),
 		FCanExecuteAction()
 		);
 
@@ -1351,11 +1310,6 @@ void FPhAT::BindCommands()
 		FExecuteAction::CreateSP(this, &FPhAT::OnFocusSelection),
 		FCanExecuteAction());
 	
-	ToolkitCommands->MapAction(
-		Commands.CycleTransformMode,
-		FExecuteAction::CreateSP(this, &FPhAT::CycleTransformMode),
-		FCanExecuteAction::CreateSP(this, &FPhAT::IsNotSimulation));
-
 	ToolkitCommands->MapAction(
 		Commands.SelectAllObjects,
 		FExecuteAction::CreateSP(this, &FPhAT::OnSelectAll));
@@ -2271,12 +2225,6 @@ void FPhAT::OnEditingMode(int32 Mode)
 		SharedData->EditingMode = FPhATSharedData::PEM_ConstraintEdit;
 		RefreshHierachyTree();
 		SharedData->SetSelectedConstraint(INDEX_NONE, true);
-
-		// Scale isn't valid for constraints!
-		if (SharedData->WidgetMode == FWidget::WM_Scale)
-		{
-			SharedData->WidgetMode = FWidget::WM_Translate;
-		}
 	}
 	
 	RefreshPreviewViewport();
@@ -2291,30 +2239,6 @@ void FPhAT::OnEditingMode(int32 Mode)
 bool FPhAT::IsEditingMode(int32 Mode) const
 {
 	return (FPhATSharedData::EPhATEditingMode)Mode == SharedData->EditingMode;
-}
-
-void FPhAT::OnMovementSpace(int32 Mode)
-{
-	SharedData->MovementSpace = (ECoordSystem)Mode;
-
-	RefreshPreviewViewport();
-}
-
-bool FPhAT::IsMovementSpace(int32 Mode) const
-{
-	return (ECoordSystem)Mode == SharedData->MovementSpace;
-}
-
-void FPhAT::OnTransformMode(int32 Mode)
-{
-	SharedData->WidgetMode = (FWidget::EWidgetMode)Mode;
-
-	RefreshPreviewViewport();
-}
-
-bool FPhAT::IsTransformMode(int32 Mode) const
-{
-	return SharedData->WidgetMode == (FWidget::EWidgetMode)Mode;
 }
 
 void FPhAT::OnCopyProperties()
@@ -2402,6 +2326,17 @@ void FPhAT::FixPhysicsState()
 
 void FPhAT::ImpToggleSimulation()
 {
+	TSharedPtr<FPhATEdPreviewViewportClient> PreviewClient = PreviewViewport->GetViewportClient();
+	if(!SharedData->bRunningSimulation)
+	{
+		BeforeSimulationWidgetMode = PreviewClient->GetWidgetMode();
+		PreviewClient->SetWidgetMode(FWidget::EWidgetMode::WM_None);
+	}else
+	{
+		PreviewClient->SetWidgetMode(BeforeSimulationWidgetMode);
+	}
+	
+
 	SharedData->ToggleSimulation();
 
 	if (!PreviewViewport->GetViewportClient()->IsRealtime() && !IsPIERunning())

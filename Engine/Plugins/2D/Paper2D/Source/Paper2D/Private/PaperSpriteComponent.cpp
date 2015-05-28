@@ -9,6 +9,7 @@
 #include "Runtime/Core/Public/Logging/MessageLog.h"
 #include "Runtime/Core/Public/Misc/MapErrors.h"
 #include "Runtime/CoreUObject/Public/Misc/UObjectToken.h"
+#include "SpriteDrawCall.h"
 
 #define LOCTEXT_NAMESPACE "Paper2D"
 
@@ -37,7 +38,6 @@ void UPaperSpriteComponent::PostEditChangeProperty(FPropertyChangedEvent& Proper
 }
 #endif
 
-#if WITH_EDITORONLY_DATA
 void UPaperSpriteComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -59,7 +59,6 @@ void UPaperSpriteComponent::PostLoad()
 		}
 	}
 }
-#endif
 
 FPrimitiveSceneProxy* UPaperSpriteComponent::CreateSceneProxy()
 {
@@ -225,9 +224,6 @@ bool UPaperSpriteComponent::SetSprite(class UPaperSprite* NewSprite)
 
 void UPaperSpriteComponent::GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQualityLevel::Type QualityLevel)
 {
-	// Get any textures referenced by our materials
-	Super::GetUsedTextures(OutTextures, QualityLevel);
-
 	// Get the texture referenced by the sprite
 	if (SourceSprite != nullptr)
 	{
@@ -235,7 +231,20 @@ void UPaperSpriteComponent::GetUsedTextures(TArray<UTexture*>& OutTextures, EMat
 		{
 			OutTextures.AddUnique(BakedTexture);
 		}
+
+		FAdditionalSpriteTextureArray AdditionalTextureList;
+		SourceSprite->GetBakedAdditionalSourceTextures(/*out*/ AdditionalTextureList);
+		for (UTexture* AdditionalTexture : AdditionalTextureList)
+		{
+			if (AdditionalTexture != nullptr)
+			{
+				OutTextures.AddUnique(AdditionalTexture);
+			}
+		}
 	}
+
+	// Get any textures referenced by our materials
+	Super::GetUsedTextures(OutTextures, QualityLevel);
 }
 
 UMaterialInterface* UPaperSpriteComponent::GetMaterial(int32 MaterialIndex) const
@@ -283,7 +292,7 @@ UPaperSprite* UPaperSpriteComponent::GetSprite()
 void UPaperSpriteComponent::SetSpriteColor(FLinearColor NewColor)
 {
 	// Can't set color on a static component
-	if (!(IsRegistered() && (Mobility == EComponentMobility::Static)) && (SpriteColor != NewColor))
+	if (AreDynamicDataChangesAllowed() && (SpriteColor != NewColor))
 	{
 		SpriteColor = NewColor;
 
@@ -337,6 +346,38 @@ void UPaperSpriteComponent::CheckForErrors()
 			}
 		}
 	}
+
+	// Make sure any non uniform scaled sprites have appropriate collision
+	if (IsCollisionEnabled() && (SourceSprite != nullptr) && (SourceSprite->BodySetup != nullptr) && (Owner != nullptr))
+	{
+		UBodySetup* BodySetup = SourceSprite->BodySetup;
+
+		// Overall scale factor for this mesh.
+		const FVector& TotalScale3D = ComponentToWorld.GetScale3D();
+		if (!TotalScale3D.IsUniform() && ((BodySetup->AggGeom.BoxElems.Num() > 0) || (BodySetup->AggGeom.SphylElems.Num() > 0) || (BodySetup->AggGeom.SphereElems.Num() > 0)))
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("SpriteName"), FText::FromString(SourceSprite->GetName()));
+			FMessageLog("MapCheck").Warning()
+				->AddToken(FUObjectToken::Create(Owner))
+				->AddToken(FTextToken::Create(FText::Format(LOCTEXT("MapCheck_Message_SimpleCollisionButNonUniformScaleSprite", "'{SpriteName}' has simple collision but is being scaled non-uniformly - collision creation will fail"), Arguments)))
+				->AddToken(FMapErrorToken::Create(FMapErrors::SimpleCollisionButNonUniformScale));
+		}
+	}
+}
+#endif
+
+#if WITH_EDITOR
+void UPaperSpriteComponent::SetTransientTextureOverride(const UTexture* TextureToModifyOverrideFor, UTexture* OverrideTexture)
+{
+	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+		FSendPaperSpriteComponentDynamicData,
+		FPaperSpriteSceneProxy*, InSceneProxy, (FPaperSpriteSceneProxy*)SceneProxy,
+		const UTexture*, InTextureToModifyOverrideFor, TextureToModifyOverrideFor,
+		UTexture*, InOverrideTexture, OverrideTexture,
+		{
+			InSceneProxy->SetTransientTextureOverride_RenderThread(InTextureToModifyOverrideFor, InOverrideTexture);
+		});
 }
 #endif
 

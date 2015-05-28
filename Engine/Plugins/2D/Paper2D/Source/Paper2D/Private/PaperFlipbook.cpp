@@ -3,6 +3,7 @@
 #include "Paper2DPrivatePCH.h"
 #include "PaperFlipbook.h"
 #include "PaperCustomVersion.h"
+#include "PaperFlipbookComponent.h"
 
 #if WITH_EDITORONLY_DATA
 #include "Runtime/Engine/Public/ComponentReregisterContext.h"
@@ -87,7 +88,6 @@ UPaperSprite* UPaperFlipbook::GetSpriteAtFrame(int32 FrameIndex) const
 	return KeyFrames.IsValidIndex(FrameIndex) ? KeyFrames[FrameIndex].Sprite : nullptr;
 }
 
-#if WITH_EDITOR
 void UPaperFlipbook::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
@@ -106,6 +106,7 @@ void UPaperFlipbook::PostLoad()
 	}
 }
 
+#if WITH_EDITOR
 void UPaperFlipbook::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	if (FramesPerSecond < 0.0f)
@@ -148,7 +149,7 @@ FBoxSphereBounds UPaperFlipbook::GetRenderBounds() const
 
 bool UPaperFlipbook::FindSocket(FName SocketName, int32 KeyFrameIndex, FTransform& OutLocalTransform)
 {
-	if (KeyFrames.IsValidIndex(KeyFrameIndex))
+	if (KeyFrames.IsValidIndex(KeyFrameIndex) && (SocketName != NAME_None))
 	{
 		if (UPaperSprite* SpriteFrame = KeyFrames[KeyFrameIndex].Sprite)
 		{

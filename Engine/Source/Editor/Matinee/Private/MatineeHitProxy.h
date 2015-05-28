@@ -230,7 +230,7 @@ struct HMatineeMarker : public HHitProxy
 	/**
 	 * Displays the cross mouse cursor when hovering over the timeline markers.
 	 */
-	virtual EMouseCursor::Type GetMouseCursor()
+	virtual EMouseCursor::Type GetMouseCursor() override
 	{
 		return EMouseCursor::Crosshairs;
 	}

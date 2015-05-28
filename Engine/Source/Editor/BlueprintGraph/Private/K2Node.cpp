@@ -259,17 +259,41 @@ void UK2Node::PinConnectionListChanged(UEdGraphPin* Pin)
 		{
 			const UEdGraphSchema_K2* Schema = Cast<const UEdGraphSchema_K2>(GetSchema());
 
-			Pin->DefaultObject = NULL;
-			Schema->SetPinDefaultValueBasedOnType(Pin);
+			Pin->ResetDefaultValue();
+			if (EEdGraphPinDirection::EGPD_Input == Pin->Direction)
+			{
+				Schema->SetPinDefaultValueBasedOnType(Pin);
+			}
 		}
 	}
 
 	NotifyPinConnectionListChanged(Pin);
 }
 
-void UK2Node::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& /*OldPins*/)
+void UK2Node::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins)
 {
 	AllocateDefaultPins();
+
+	for (auto OldPin : OldPins)
+	{
+		if (OldPin->ParentPin)
+		{
+			// find the new pin that corresponds to parent, and split it if it isn't already split
+			for (auto NewPin : Pins)
+			{
+				if (FCString::Stricmp(*(NewPin->PinName), *(OldPin->ParentPin->PinName)) == 0)
+				{
+					// Make sure we're not dealing with a menu node
+					UEdGraph* OuterGraph = GetGraph();
+					if (OuterGraph && OuterGraph->Schema && NewPin->SubPins.Num() == 0)
+					{
+						NewPin->PinType = OldPin->ParentPin->PinType;
+						GetSchema()->SplitPin(NewPin);
+					}
+				}
+			}
+		}
+	}
 }
 
 void UK2Node::PostReconstructNode()
@@ -366,47 +390,13 @@ void UK2Node::ReconstructNode()
 	}
 	else
 	{
-		// Rewire any connection to pins that are matched by name (O(N^2) right now)
-		//@TODO: Can do moderately smart things here if only one pin changes name by looking at it's relative position, etc...,
-		// rather than just failing to map it and breaking the links
-		for (int32 OldPinIndex = 0; OldPinIndex < OldPins.Num(); ++OldPinIndex)
-		{
-			UEdGraphPin* OldPin = OldPins[OldPinIndex];
-
-			for (int32 NewPinIndex = 0; NewPinIndex < Pins.Num(); ++NewPinIndex)
-			{
-				UEdGraphPin* NewPin = Pins[NewPinIndex];
-
-				const ERedirectType RedirectType = DoPinsMatchForReconstruction(NewPin, NewPinIndex, OldPin, OldPinIndex);
-				if (RedirectType != ERedirectType_None)
-				{
-					ReconstructSinglePin(NewPin, OldPin, RedirectType);
-					break;
-				}
-			}
-		}
+		RewireOldPinsToNewPins(OldPins, Pins);
 	}
 
 
 	if (bDestroyOldPins)
 	{
-		// Throw away the original pins
-		for (int32 OldPinIndex = 0; OldPinIndex < OldPins.Num(); ++OldPinIndex)
-		{
-			UEdGraphPin* OldPin = OldPins[OldPinIndex];
-			OldPin->Modify();
-			OldPin->BreakAllPinLinks();
-			
-			// just in case this pin was set to watch (don't want to save PinWatches with dead pins)
-			Blueprint->PinWatches.Remove(OldPin);
-#if 0
-			UEdGraphNode::ReturnPinToPool(OldPin);
-#else
-			OldPin->Rename(NULL, GetTransientPackage(), (Blueprint->bIsRegeneratingOnLoad ? REN_ForceNoResetLoaders : REN_None));
-			OldPin->RemoveFromRoot();
-			OldPin->MarkPendingKill();
-#endif
-		}
+		DestroyPinList(OldPins);
 	}
 
 	// Let subclasses do any additional work
@@ -424,7 +414,7 @@ UK2Node::ERedirectType UK2Node::ShouldRedirectParam(const TArray<FString>& OldPi
 {
 	if ( ensure(NewPinNode) )
 	{
-		InitFieldRedirectMap();
+		const TMultiMap<UClass*, FParamRemapInfo>& ParamRedirectMap = FMemberReference::GetParamRedirectMap();
 
 		if ( ParamRedirectMap.Num() > 0 )
 		{
@@ -511,29 +501,32 @@ UK2Node::ERedirectType UK2Node::DoPinsMatchForReconstruction(const UEdGraphPin* 
 				};
 
 				TArray<FPropertyDetails> ParentHierarchy;
-				const UEdGraphPin* CurPin = OldPin;
-				do 
-				{
-					ParentHierarchy.Add(FPropertyDetails(CurPin, CurPin->PinName.RightChop(CurPin->ParentPin->PinName.Len() + 1)));
-					CurPin = CurPin->ParentPin;
-				} while (CurPin->ParentPin);
-
-				// if you don't have matching pin, now check if there is any redirect param set
-				TArray<FString> OldPinNames;
-				GetRedirectPinNames(*CurPin, OldPinNames);
-
 				FString NewPinNameStr;
-				FName NewPinName;
-				RedirectType = ShouldRedirectParam(OldPinNames, /*out*/ NewPinName, Node);
+				{
+					const UEdGraphPin* CurPin = OldPin;
+					do 
+					{
+						ParentHierarchy.Add(FPropertyDetails(CurPin, CurPin->PinName.RightChop(CurPin->ParentPin->PinName.Len() + 1)));
+						CurPin = CurPin->ParentPin;
+					} while (CurPin->ParentPin);
 
-				NewPinNameStr = (RedirectType == ERedirectType_None ? CurPin->PinName : NewPinName.ToString());
+					// if you don't have matching pin, now check if there is any redirect param set
+					TArray<FString> OldPinNames;
+					GetRedirectPinNames(*CurPin, OldPinNames);
+
+					FName NewPinName;
+					RedirectType = ShouldRedirectParam(OldPinNames, /*out*/ NewPinName, Node);
+
+					NewPinNameStr = (RedirectType == ERedirectType_None ? CurPin->PinName : NewPinName.ToString());
+				}
 
 				for (int32 ParentIndex = ParentHierarchy.Num() - 1; ParentIndex >= 0; --ParentIndex)
 				{
 					const UEdGraphPin* CurPin = ParentHierarchy[ParentIndex].Pin;
-					const UEdGraphPin* ParentPin = CurPin->ParentPin;
+					const UEdGraphPin* ParentPin = CurPin ? CurPin->ParentPin : nullptr;
+					const UObject* SubCategoryObject = ParentPin ? ParentPin->PinType.PinSubCategoryObject.Get() : nullptr;
 
-					TMap<FName, FName>* StructRedirects = UStruct::TaggedPropertyRedirects.Find(ParentPin->PinType.PinSubCategoryObject->GetFName());
+					TMap<FName, FName>* StructRedirects = SubCategoryObject ? UStruct::TaggedPropertyRedirects.Find(SubCategoryObject->GetFName()) : nullptr;
 					if (StructRedirects)
 					{
 						FName* PropertyRedirect = StructRedirects->Find(FName(*ParentHierarchy[ParentIndex].PropertyName));
@@ -569,6 +562,8 @@ void UK2Node::ReconstructSinglePin(UEdGraphPin* NewPin, UEdGraphPin* OldPin, ERe
 {
 	UBlueprint* Blueprint = GetBlueprint();
 
+	check(NewPin && OldPin);
+
 	// Copy over modified persistent data
 	NewPin->CopyPersistentDataFromOldPin(*OldPin);
 
@@ -588,7 +583,7 @@ void UK2Node::ReconstructSinglePin(UEdGraphPin* NewPin, UEdGraphPin* OldPin, ERe
 			}
 
 			// go through for the NewPinNode
-			for(TMultiMap<UClass*, FParamRemapInfo>::TConstKeyIterator ParamIter(ParamRedirectMap, Cast<UK2Node>(NewPin->GetOwningNode())->GetClass()); ParamIter; ++ParamIter)
+			for(TMultiMap<UClass*, FParamRemapInfo>::TConstKeyIterator ParamIter(FMemberReference::GetParamRedirectMap(), Cast<UK2Node>(NewPin->GetOwningNode())->GetClass()); ParamIter; ++ParamIter)
 			{
 				const FParamRemapInfo& ParamRemap = ParamIter.Value();
 
@@ -622,6 +617,50 @@ void UK2Node::ReconstructSinglePin(UEdGraphPin* NewPin, UEdGraphPin* OldPin, ERe
 	}
 
 	OldPin->Rename(NULL, GetTransientPackage(), (REN_DontCreateRedirectors|(Blueprint->bIsRegeneratingOnLoad ? REN_ForceNoResetLoaders : REN_None)));
+}
+
+void UK2Node::RewireOldPinsToNewPins(TArray<UEdGraphPin*>& InOldPins, TArray<UEdGraphPin*>& InNewPins)
+{
+	// Rewire any connection to pins that are matched by name (O(N^2) right now)
+	//@TODO: Can do moderately smart things here if only one pin changes name by looking at it's relative position, etc...,
+	// rather than just failing to map it and breaking the links
+	for (int32 OldPinIndex = 0; OldPinIndex < InOldPins.Num(); ++OldPinIndex)
+	{
+		UEdGraphPin* OldPin = InOldPins[OldPinIndex];
+
+		for (int32 NewPinIndex = 0; NewPinIndex < InNewPins.Num(); ++NewPinIndex)
+		{
+			UEdGraphPin* NewPin = InNewPins[NewPinIndex];
+
+			const ERedirectType RedirectType = DoPinsMatchForReconstruction(NewPin, NewPinIndex, OldPin, OldPinIndex);
+			if (RedirectType != ERedirectType_None)
+			{
+				ReconstructSinglePin(NewPin, OldPin, RedirectType);
+				break;
+			}
+		}
+	}
+}
+
+void UK2Node::DestroyPinList(TArray<UEdGraphPin*>& InPins)
+{
+	UBlueprint* Blueprint = GetBlueprint();
+	// Throw away the original pins
+	for (UEdGraphPin* Pin : InPins)
+	{
+		Pin->Modify();
+		Pin->BreakAllPinLinks();
+
+		// just in case this pin was set to watch (don't want to save PinWatches with dead pins)
+		Blueprint->PinWatches.Remove(Pin);
+#if 0
+		UEdGraphNode::ReturnPinToPool(Pin);
+#else
+		Pin->Rename(NULL, GetTransientPackage(), (Blueprint->bIsRegeneratingOnLoad ? REN_ForceNoResetLoaders : REN_None));
+		Pin->RemoveFromRoot();
+		Pin->MarkPendingKill();
+#endif
+	}
 }
 
 bool UK2Node::AllowSplitPins() const
@@ -702,220 +741,6 @@ FLinearColor UK2Node::GetNodeTitleColor() const
 	return GetDefault<UGraphEditorSettings>()->FunctionCallNodeTitleColor;
 }
 
-
-TMap<FFieldRemapInfo, FFieldRemapInfo> UK2Node::FieldRedirectMap;
-TMultiMap<UClass*, FParamRemapInfo> UK2Node::ParamRedirectMap;
-
-bool UK2Node::bFieldRedirectMapInitialized = false;
-
-bool UK2Node::FindReplacementFieldName(UClass* Class, FName FieldName, FFieldRemapInfo& RemapInfo)
-{
-	check(Class != NULL);
-	InitFieldRedirectMap();
-
-	// Reset the property remap info
-	RemapInfo = FFieldRemapInfo();
-
-	FFieldRemapInfo OldField;
-	OldField.FieldClass = Class->GetFName();
-	OldField.FieldName = FieldName;
-
-	FFieldRemapInfo* NewFieldInfoPtr = FieldRedirectMap.Find(OldField);
-	if (NewFieldInfoPtr != NULL)
-	{
-		RemapInfo = *NewFieldInfoPtr;
-		return true;
-	}
-	else
-	{
-		return false;
-	}
-}
-
-void UK2Node::InitFieldRedirectMap()
-{
-	if (!bFieldRedirectMapInitialized)
-	{
-		if (GConfig)
-		{
-			FConfigSection* PackageRedirects = GConfig->GetSectionPrivate( TEXT("/Script/Engine.Engine"), false, true, GEngineIni );
-			for (FConfigSection::TIterator It(*PackageRedirects); It; ++It)
-			{
-				if (It.Key() == TEXT("K2FieldRedirects"))
-				{
-					FString OldFieldPathString;
-					FString NewFieldPathString;
-
-					FParse::Value( *It.Value(), TEXT("OldFieldName="), OldFieldPathString );
-					FParse::Value( *It.Value(), TEXT("NewFieldName="), NewFieldPathString );
-
-					// Handle both cases of just a field being renamed (just one FName), as well as a class and field name (ClassName.FieldName)
-					FFieldRemapInfo OldFieldRemap;
-					{
-						TArray<FString> OldFieldPath;
-						OldFieldPathString.ParseIntoArray(&OldFieldPath, TEXT("."), true);
-
-						if (OldFieldPath.Num() == 1)
-						{
-							// Only the new property name is specified
-							OldFieldRemap.FieldName = FName(*OldFieldPath[0]);
-						}
-						else if (OldFieldPath.Num() == 2)
-						{
-							// Property name and new class are specified
-							OldFieldRemap.FieldClass = FName(*OldFieldPath[0]);
-							OldFieldRemap.FieldName = FName(*OldFieldPath[1]);
-						}
-					}
-
-					// Handle both cases of just a field being renamed (just one FName), as well as a class and field name (ClassName.FieldName)
-					FFieldRemapInfo NewFieldRemap;
-					{
-						TArray<FString> NewFieldPath;
-						NewFieldPathString.ParseIntoArray(&NewFieldPath, TEXT("."), true);
-
-						if( NewFieldPath.Num() == 1 )
-						{
-							// Only the new property name is specified
-							NewFieldRemap.FieldName = FName(*NewFieldPath[0]);
-						}
-						else if( NewFieldPath.Num() == 2 )
-						{
-							// Property name and new class are specified
-							NewFieldRemap.FieldClass = FName(*NewFieldPath[0]);
-							NewFieldRemap.FieldName = FName(*NewFieldPath[1]);
-						}
-					}
-
-					FieldRedirectMap.Add(OldFieldRemap, NewFieldRemap);
-				}			
-				if (It.Key() == TEXT("K2ParamRedirects"))
-				{
-					FName NodeName = NAME_None;
-					FName OldParam = NAME_None;
-					FName NewParam = NAME_None;
-					FName NodeTitle = NAME_None;
-
-					FString OldParamValues;
-					FString NewParamValues;
-					FString CustomValueMapping;
-
-					FParse::Value( *It.Value(), TEXT("NodeName="), NodeName );
-					FParse::Value( *It.Value(), TEXT("NodeTitle="), NodeTitle );
-					FParse::Value( *It.Value(), TEXT("OldParamName="), OldParam );
-					FParse::Value( *It.Value(), TEXT("NewParamName="), NewParam );
-					FParse::Value( *It.Value(), TEXT("OldParamValues="), OldParamValues );
-					FParse::Value( *It.Value(), TEXT("NewParamValues="), NewParamValues );
-					FParse::Value( *It.Value(), TEXT("CustomValueMapping="), CustomValueMapping );
-
-					FParamRemapInfo ParamRemap;
-					ParamRemap.NewParam = NewParam;
-					ParamRemap.OldParam = OldParam;
-					ParamRemap.NodeTitle = NodeTitle;
-					ParamRemap.bCustomValueMapping = (FCString::Stricmp(*CustomValueMapping,TEXT("true")) == 0);
-
-					if (CustomValueMapping.Len() > 0 && !ParamRemap.bCustomValueMapping)
-					{
-						UE_LOG(LogBlueprint, Warning, TEXT("Value other than true specified for CustomValueMapping for '%s' node param redirect '%s' to '%s'."), *(NodeName.ToString()), *(OldParam.ToString()), *(NewParam.ToString()));
-					}
-
-					TArray<FString> OldParamValuesList;
-					TArray<FString> NewParamValuesList;
-					OldParamValues.ParseIntoArray(&OldParamValuesList, TEXT(";"), false);
-					NewParamValues.ParseIntoArray(&NewParamValuesList, TEXT(";"), false);
-
-					if (OldParamValuesList.Num() != NewParamValuesList.Num())
-					{
-						UE_LOG(LogBlueprint, Warning, TEXT("Unequal lengths for old and new param values for '%s' node param redirect '%s' to '%s'."), *(NodeName.ToString()), *(OldParam.ToString()), *(NewParam.ToString()));
-					}
-
-					if (CustomValueMapping.Len() > 0 && (OldParamValuesList.Num() > 0 || NewParamValuesList.Num() > 0))
-					{
-						UE_LOG(LogBlueprint, Warning, TEXT("Both Custom and Automatic param value remapping specified for '%s' node param redirect '%s' to '%s'.  Only Custom will be applied."), *(NodeName.ToString()), *(OldParam.ToString()), *(NewParam.ToString()));
-					}
-
-					for (int32 i = FMath::Min(OldParamValuesList.Num(), NewParamValuesList.Num()) - 1; i >= 0; --i)
-					{
-						int32 CurSize = ParamRemap.ParamValueMap.Num();
-						ParamRemap.ParamValueMap.Add(OldParamValuesList[i], NewParamValuesList[i]);
-						if (CurSize == ParamRemap.ParamValueMap.Num())
-						{
-							UE_LOG(LogBlueprint, Warning, TEXT("Duplicate old param value '%s' for '%s' node param redirect '%s' to '%s'."), *(OldParamValuesList[i]), *(NodeName.ToString()), *(OldParam.ToString()), *(NewParam.ToString()));
-						}
-					}
-
-					// load class
-					UClass* NodeClass = LoadClass<UK2Node>(NULL, *NodeName.ToString(), NULL, LOAD_None, NULL);
-					if (NodeClass )
-					{
-						ParamRedirectMap.Add(NodeClass, ParamRemap);
-					}
-				}			
-			}
-
-			bFieldRedirectMapInitialized = true;
-		}
-	}
-}
-
-UField* UK2Node::FindRemappedField(UClass* InitialScope, FName InitialName, bool bInitialScopeMustBeOwnerOfField)
-{
-	FFieldRemapInfo NewFieldInfo;
-
-	bool bFoundReplacement = false;
-	
-	// Step up the class chain to check if us or any of our parents specify a redirect
-	UClass* TestRemapClass = InitialScope;
-	while( TestRemapClass != NULL )
-	{
-		if( FindReplacementFieldName(TestRemapClass, InitialName, NewFieldInfo) )
-		{
-			// Found it, stop our search
-			bFoundReplacement = true;
-			break;
-		}
-
-		TestRemapClass = TestRemapClass->GetSuperClass();
-	}
-
-	// In the case of a bifurcation of a variable (e.g. moved from a parent into certain children), verify that we don't also define the variable in the current scope first
-	if( bFoundReplacement && (FindField<UField>(InitialScope, InitialName) != nullptr))
-	{
-		bFoundReplacement = false;		
-	}
-
-	if( bFoundReplacement )
-	{
-		const FName NewFieldName = NewFieldInfo.FieldName;
-		UClass* SearchClass = (NewFieldInfo.FieldClass != NAME_None) ? (UClass*)StaticFindObject(UClass::StaticClass(), ANY_PACKAGE, *NewFieldInfo.FieldClass.ToString()) : (UClass*)TestRemapClass;
-
-		// Find the actual field specified by the redirector, so we can return it and update the node that uses it
-		UField* NewField = FindField<UField>(SearchClass, NewFieldInfo.FieldName);
-		if( NewField != NULL )
-		{
-			if (bInitialScopeMustBeOwnerOfField && !InitialScope->IsChildOf(SearchClass))
-			{
-				UE_LOG(LogBlueprint, Log, TEXT("UK2Node:  Unable to update field. Remapped field '%s' in not owned by given scope. Scope: '%s', Owner: '%s'."), *InitialName.ToString(), *InitialScope->GetName(), *NewFieldInfo.FieldClass.ToString());
-			}
-			else
-			{
-				UE_LOG(LogBlueprint, Log, TEXT("UK2Node:  Fixed up old field '%s' to new name '%s' on class '%s'."), *InitialName.ToString(), *NewFieldInfo.FieldName.ToString(), *SearchClass->GetName());
-				return NewField;
-			}
-		}
-		else if (SearchClass != NULL)
-		{
-			UE_LOG(LogBlueprint, Log, TEXT("UK2Node:  Unable to find updated field name for '%s' on class '%s'."), *InitialName.ToString(), *SearchClass->GetName());
-		}
-		else
-		{
-			UE_LOG(LogBlueprint, Log, TEXT("UK2Node:  Unable to find updated field name for '%s' on unknown class '%s'."), *InitialName.ToString(), *NewFieldInfo.FieldClass.ToString());
-		}
-	}
-
-	return NULL;
-}
-
 ERenamePinResult UK2Node::RenameUserDefinedPin(const FString& OldName, const FString& NewName, bool bTest)
 {
 	UEdGraphPin* Pin = NULL;
@@ -951,7 +776,7 @@ ERenamePinResult UK2Node::RenameUserDefinedPin(const FString& OldName, const FSt
 
 			while (PinsToUpdate.Num() > 0)
 			{
-				UEdGraphPin* PinToRename = PinsToUpdate.Pop();
+				UEdGraphPin* PinToRename = PinsToUpdate.Pop(/*bAllowShrinking=*/ false);
 				if (PinToRename->SubPins.Num() > 0)
 				{
 					PinsToUpdate.Append(PinToRename->SubPins);
@@ -1122,6 +947,28 @@ UEdGraphPin* UK2Node::GetExecPin() const
 	return Pin;
 }
 
+UEdGraphPin* UK2Node::GetPassThroughPin(const UEdGraphPin* FromPin) const
+{
+	UEdGraphPin* MatchedPin = nullptr;
+	if(FromPin && Pins.Contains(FromPin))
+	{
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+		if(K2Schema->IsExecPin(*FromPin))
+		{
+			if(FromPin->Direction == EGPD_Input)
+			{
+				MatchedPin = FindPin(K2Schema->PN_Then);
+			}
+			else
+			{
+				MatchedPin = FindPin(K2Schema->PN_Execute);
+			}
+		}
+	}
+
+	return MatchedPin;
+}
+
 bool UK2Node::CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const
 {
 	return DesiredSchema->GetClass()->IsChildOf(UEdGraphSchema_K2::StaticClass());
@@ -1273,99 +1120,13 @@ void UK2Node::GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) con
 	}
 }
 
-//////////////////////////////////////////////////////////////////////////
-// FMemberReference
-
-void FMemberReference::SetExternalMember(FName InMemberName, TSubclassOf<class UObject> InMemberParentClass)
+UClass* UK2Node::GetBlueprintClassFromNode() const
 {
-	MemberName = InMemberName;
-	MemberParentClass = (InMemberParentClass != nullptr) ? InMemberParentClass->GetAuthoritativeClass() : nullptr;
-	MemberScope.Empty();
-	bSelfContext = false;
-	bWasDeprecated = false;
-}
-
-void FMemberReference::SetSelfMember(FName InMemberName)
-{
-	MemberName = InMemberName;
-	MemberParentClass = NULL;
-	MemberScope.Empty();
-	bSelfContext = true;
-	bWasDeprecated = false;
-}
-
-void FMemberReference::SetDirect(const FName InMemberName, const FGuid InMemberGuid, TSubclassOf<class UObject> InMemberParentClass, bool bIsConsideredSelfContext)
-{
-	MemberName = InMemberName;
-	MemberGuid = InMemberGuid;
-	bSelfContext = bIsConsideredSelfContext;
-	bWasDeprecated = false;
-	MemberParentClass = InMemberParentClass;
-	MemberScope.Empty();
-}
-
-void FMemberReference::SetGivenSelfScope(const FName InMemberName, const FGuid InMemberGuid, TSubclassOf<class UObject> InMemberParentClass, TSubclassOf<class UObject> SelfScope) const
-{
-	MemberName = InMemberName;
-	MemberGuid = InMemberGuid;
-	MemberParentClass = (InMemberParentClass != nullptr) ? InMemberParentClass->GetAuthoritativeClass() : nullptr;
-	MemberScope.Empty();
-	bSelfContext = (SelfScope->IsChildOf(InMemberParentClass)) || (SelfScope->ClassGeneratedBy == InMemberParentClass->ClassGeneratedBy);
-	bWasDeprecated = false;
-
-	if (bSelfContext)
-	{
-		MemberParentClass = NULL;
-	}
-}
-
-void FMemberReference::SetLocalMember(FName InMemberName, UStruct* InScope, const FGuid InMemberGuid)
-{
-	SetLocalMember(InMemberName, InScope->GetName(), InMemberGuid);
-}
-
-void FMemberReference::SetLocalMember(FName InMemberName, FString InScopeName, const FGuid InMemberGuid)
-{
-	MemberName = InMemberName;
-	MemberScope = InScopeName;
-	MemberGuid = InMemberGuid;
-	bSelfContext = false;
-}
-
-void FMemberReference::InvalidateSelfScope()
-{
-	if( IsSelfContext() )
-	{
-		MemberParentClass = NULL;
-	}
-}
-
-UClass* FMemberReference::GetBlueprintClassFromNode(const UK2Node* Node)
-{
-	UClass* BPClass = NULL;
-	if(Node != NULL && Node->HasValidBlueprint())
-	{
-		BPClass =  Node->GetBlueprint()->SkeletonGeneratedClass;
-	}
+	auto BP = FBlueprintEditorUtils::FindBlueprintForNode(this);
+	UClass* BPClass = BP
+		? (BP->SkeletonGeneratedClass ? BP->SkeletonGeneratedClass : BP->GeneratedClass)
+		: nullptr;
 	return BPClass;
-}
-
-FName FMemberReference::RefreshLocalVariableName(UClass* InSelfScope) const
-{
-	TArray<UBlueprint*> Blueprints;
-	UBlueprint::GetBlueprintHierarchyFromClass(InSelfScope, Blueprints);
-
-	FName RenamedMemberName = NAME_None;
-	for (int32 BPIndex = 0; BPIndex < Blueprints.Num(); ++BPIndex)
-	{
-		RenamedMemberName = FBlueprintEditorUtils::FindLocalVariableNameByGuid(Blueprints[BPIndex], MemberGuid);
-		if (RenamedMemberName != NAME_None)
-		{
-			MemberName = RenamedMemberName;
-			break;
-		}
-	}
-	return RenamedMemberName;
 }
 
 #undef LOCTEXT_NAMESPACE

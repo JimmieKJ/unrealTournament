@@ -24,7 +24,7 @@ private:
 
 	// array custom boxes - these will stay around as long as this window is up
 	TArray<TSharedPtr<SEditableTextBox>>	DisplayNameTextBoxes;
-	TArray<TArray<TSharedPtr<FString>>>		ParentSpaceOptionList;
+	TIndirectArray<TArray<TSharedPtr<FString>>>		ParentSpaceOptionList;
 	TArray<TSharedPtr<SComboBox< TSharedPtr<FString> >>>	ParentSpaceComboBoxes;
 
 	/** we only support one item */

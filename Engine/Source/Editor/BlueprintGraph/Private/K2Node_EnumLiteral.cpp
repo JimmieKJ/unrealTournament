@@ -52,18 +52,18 @@ FText UK2Node_EnumLiteral::GetTooltipText() const
 	{
 		return NSLOCTEXT("K2Node", "BadEnumLiteral_Tooltip", "Literal enum (bad enum)");
 	}
-	else if (CachedTooltip.IsOutOfDate())
+	else if (CachedTooltip.IsOutOfDate(this))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("EnumName"), FText::FromName(Enum->GetFName()));
-		CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "EnumLiteral_Tooltip", "Literal enum {EnumName}"), Args);
+		CachedTooltip.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "EnumLiteral_Tooltip", "Literal enum {EnumName}"), Args), this);
 	}
 	return CachedTooltip;	
 }
 
 FText UK2Node_EnumLiteral::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
-	if (CachedTooltip.IsOutOfDate())
+	if (CachedTooltip.IsOutOfDate(this))
 	{
 		return GetTooltipText();
 	}
@@ -117,8 +117,8 @@ void UK2Node_EnumLiteral::GetMenuActions(FBlueprintActionDatabaseRegistrar& Acti
 
 	for (TObjectIterator<UEnum> EnumIt; EnumIt; ++EnumIt)
 	{
-		UEnum const* Enum = (*EnumIt);
-		if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(Enum))
+		UEnum const* EnumToConsider = (*EnumIt);
+		if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(EnumToConsider))
 		{
 			continue;
 		}
@@ -127,20 +127,20 @@ void UK2Node_EnumLiteral::GetMenuActions(FBlueprintActionDatabaseRegistrar& Acti
 		// check to make sure that the registrar is looking for actions of this type
 		// (could be regenerating actions for a specific asset, and therefore the 
 		// registrar would only accept actions corresponding to that asset)
-		if (!ActionRegistrar.IsOpenForRegistration(Enum))
+		if (!ActionRegistrar.IsOpenForRegistration(EnumToConsider))
 		{
 			continue;
 		}
 
-		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(GetClass(), Enum);
+		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(GetClass(), EnumToConsider);
 		check(NodeSpawner != nullptr);
-		TWeakObjectPtr<UEnum> NonConstEnumPtr = Enum;
+		TWeakObjectPtr<UEnum> NonConstEnumPtr = EnumToConsider;
 		NodeSpawner->SetNodeFieldDelegate = UBlueprintFieldNodeSpawner::FSetNodeFieldDelegate::CreateStatic(SetNodeEnumLambda, NonConstEnumPtr);
 
 		// this enum could belong to a class, or is a user defined enum (asset), 
 		// that's why we want to make sure to register it along with the action 
 		// (so the action can be refreshed when the class/asset is).
-		ActionRegistrar.AddBlueprintAction(Enum, NodeSpawner);
+		ActionRegistrar.AddBlueprintAction(EnumToConsider, NodeSpawner);
 	}
 }
 

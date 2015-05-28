@@ -42,6 +42,20 @@ namespace EMontageNotifyTickType
 	};
 }
 
+/** Filtering method for deciding whether to trigger a notify */
+UENUM()
+namespace ENotifyFilterType
+{
+	enum Type
+	{
+		/** No filtering*/
+		NoFiltering,
+
+		/** Filter By Skeletal Mesh LOD */
+		LOD,
+	};
+}
+
 /**
  * Triggers an animation notify.  Each AnimNotifyEvent contains an AnimNotify object
  * which has its Notify method called and passed to the animation.
@@ -89,6 +103,18 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=AnimNotifyEvent)
 	TEnumAsByte<EMontageNotifyTickType::Type> MontageTickType;
 
+	/** Defines the chance of of this notify triggering, 0 = No Chance, 1 = Always triggers */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AnimNotifyTriggerSettings, meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float NotifyTriggerChance;
+
+	/** Defines a method for filtering notifies (stopping them triggering) e.g. by looking at the meshes current LOD */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AnimNotifyTriggerSettings)
+	TEnumAsByte<ENotifyFilterType::Type> NotifyFilterType;
+
+	/** LOD to start filtering this notify from.*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AnimNotifyTriggerSettings, meta = (ClampMin = "0"))
+	int32 NotifyFilterLOD;
+
 #if WITH_EDITORONLY_DATA
 	/** Color of Notify in editor */
 	UPROPERTY()
@@ -112,6 +138,9 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 		, Duration(0)
 		, bConvertedFromBranchingPoint(false)
 		, MontageTickType(EMontageNotifyTickType::Queued)
+		, NotifyTriggerChance(1.f)
+		, NotifyFilterType(ENotifyFilterType::NoFiltering)
+		, NotifyFilterLOD(0)
 #if WITH_EDITORONLY_DATA
 		, TrackIndex(0)
 #endif // WITH_EDITORONLY_DATA
@@ -155,8 +184,35 @@ struct FAnimNotifyEvent : public FAnimLinkableElement
 			);
 	}
 
+	/** This can be used with the Sort() function on a TArray of FAnimNotifyEvents to sort the notifies array by time, earliest first. */
+	ENGINE_API bool operator <(const FAnimNotifyEvent& Other) const;
+
 	ENGINE_API virtual void SetTime(float NewTime, EAnimLinkMethod::Type ReferenceFrame = EAnimLinkMethod::Absolute) override;
 };
+
+// Used by UAnimSequenceBase::SortNotifies() to sort its Notifies array
+FORCEINLINE bool FAnimNotifyEvent::operator<(const FAnimNotifyEvent& Other) const
+{
+	float ATime = GetTriggerTime();
+	float BTime = Other.GetTriggerTime();
+
+#if WITH_EDITORONLY_DATA
+	// this sorting only works if it's saved in editor or loaded with editor data
+	// this is required for gameplay team to have reliable order of notifies
+	// but it was noted that this change will require to resave notifies. 
+	// once you resave, this order will be preserved
+	if (FMath::IsNearlyEqual(ATime, BTime))
+	{
+
+		// if the 2 anim notify events are the same display time sort based off of track index
+		return TrackIndex < Other.TrackIndex;
+	}
+	else
+#endif // WITH_EDITORONLY_DATA
+	{
+		return ATime < BTime;
+	}
+}
 
 /**
  * Keyframe position data for one track.  Pos(i) occurs at Time(i).  Pos.Num() always equals Time.Num().
@@ -313,6 +369,7 @@ struct FFloatCurve : public FAnimCurveBase
 	void CopyCurve(FFloatCurve& SourceCurve);
 	float Evaluate(float CurrentTime, float BlendWeight) const;
 	void UpdateOrAddKey(float NewKey, float CurrentTime);
+	void Resize(float NewLength);
 };
 
 USTRUCT()
@@ -353,6 +410,7 @@ struct FVectorCurve : public FAnimCurveBase
 	FVector Evaluate(float CurrentTime, float BlendWeight) const;
 	void UpdateOrAddKey(const FVector& NewKey, float CurrentTime);
 	bool DoesContainKey() const { return (FloatCurves[0].GetNumKeys() > 0 || FloatCurves[1].GetNumKeys() > 0 || FloatCurves[2].GetNumKeys() > 0);}
+	void Resize(float NewLength);
 };
 
 USTRUCT()
@@ -394,6 +452,7 @@ struct FTransformCurve: public FAnimCurveBase
 	void CopyCurve(FTransformCurve& SourceCurve);
 	FTransform Evaluate(float CurrentTime, float BlendWeight) const;
 	ENGINE_API void UpdateOrAddKey(const FTransform& NewKey, float CurrentTime);
+	void Resize(float NewLength);
 };
 /**
  * Raw Curve data for serialization
@@ -470,6 +529,10 @@ struct FRawCurveTracks
 	 */
 	void Serialize(FArchive& Ar);
 
+	/*
+	 * resize curve length. If longer, it doesn't do any. If shorter, remove previous keys and add new key to the end of the frame. 
+	 */
+	void Resize(float TotalLength);
 	/** 
 	 * Clear all keys
 	 */
@@ -575,7 +638,7 @@ class UAnimSequenceBase : public UAnimationAsset
 	 * Supports playing backwards (CurrentPosition<PreviousPosition).
 	 * Only supports contiguous range, does NOT support looping and wrapping over.
 	 */
-	void GetAnimNotifiesFromDeltaPositions(const float& PreviousPosition, const float& CurrentPosition, TArray<const FAnimNotifyEvent *>& OutActiveNotifies) const;
+	ENGINE_API void GetAnimNotifiesFromDeltaPositions(const float& PreviousPosition, const float & CurrentPosition, TArray<const FAnimNotifyEvent *>& OutActiveNotifies) const;
 
 	/** Evaluate curve data to Instance at the time of CurrentTime **/
 	ENGINE_API virtual void EvaluateCurveData(class UAnimInstance* Instance, float CurrentTime, float BlendWeight ) const;
@@ -588,7 +651,13 @@ class UAnimSequenceBase : public UAnimationAsset
 
 #if WITH_EDITOR
 	/** Return Number of Frames **/
-	virtual int32 GetNumberOfFrames();
+	virtual int32 GetNumberOfFrames() const;
+
+	/** Get the frame number for the provided time */
+	virtual int32 GetFrameAtTime(const float Time) const;
+
+	/** Get the time at the given frame */
+	virtual float GetTimeAtFrame(const int32 Frame) const;
 
 	// update anim notify track cache
 	ENGINE_API void UpdateAnimNotifyTrackCache();

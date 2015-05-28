@@ -338,10 +338,10 @@ public:
 		return WinRTEpoch + TimeSinceEpoch;
 	}
 
-	virtual IFileHandle* OpenRead(const TCHAR* Filename) override
+	virtual IFileHandle* OpenRead(const TCHAR* Filename, bool bAllowWrite = false) override
 	{
 		DWORD  Access    = GENERIC_READ;
-		DWORD  WinFlags  = FILE_SHARE_READ;
+		DWORD  WinFlags  = FILE_SHARE_READ | (bAllowWrite ? FILE_SHARE_WRITE : 0);
 		DWORD  Create    = OPEN_EXISTING;
 		FString NormalizedFilename = NormalizeFilename(Filename);
 		HANDLE Handle	 = CreateFile2(*NormalizedFilename, Access, WinFlags, Create, NULL);

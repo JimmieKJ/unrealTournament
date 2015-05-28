@@ -33,7 +33,20 @@ void FIOSInputInterface::Tick( float DeltaTime )
 
 void ModifyVectorByOrientation(FVector& Vec, bool bIsRotation)
 {
-	UIInterfaceOrientation Orientation = [[IOSAppDelegate GetDelegate].IOSController interfaceOrientation];
+    UIInterfaceOrientation Orientation = UIInterfaceOrientationPortrait;
+#ifdef __IPHONE_8_0
+    if ([[IOSAppDelegate GetDelegate].IOSController respondsToSelector:@selector(interfaceOrientation)] == NO)
+    {
+        Orientation = [[UIApplication sharedApplication] statusBarOrientation];
+    }
+    else
+#endif
+    {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_8_0
+        Orientation = [[IOSAppDelegate GetDelegate].IOSController interfaceOrientation];
+#endif
+    }
+
 	switch (Orientation)
 	{
 	case UIInterfaceOrientationPortrait:

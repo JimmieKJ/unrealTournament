@@ -61,7 +61,7 @@ void FLightingBuildInfoStatsPage::GenerateTotals( const TArray< TWeakObjectPtr<U
 {
 	if(InObjects.Num())
 	{
-		ULightingBuildInfo* TotalEntry = ConstructObject<ULightingBuildInfo>( ULightingBuildInfo::StaticClass() );
+		ULightingBuildInfo* TotalEntry = NewObject<ULightingBuildInfo>();
 		for( auto It = InObjects.CreateConstIterator(); It; ++It )
 		{
 			ULightingBuildInfo* Entry = Cast<ULightingBuildInfo>( It->Get() );

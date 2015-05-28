@@ -11,7 +11,6 @@
 
 UBTNode::UBTNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	NodeName = "";
 	ParentNode = NULL;
 	TreeAsset = NULL;
 	ExecutionIndex = 0;
@@ -74,7 +73,7 @@ void UBTNode::InitializeInSubtree(UBehaviorTreeComponent& OwnerComp, uint8* Node
 		UBTNode* NodeInstance = OwnerComp.NodeInstances.IsValidIndex(NextInstancedIndex) ? OwnerComp.NodeInstances[NextInstancedIndex] : NULL;
 		if (NodeInstance == NULL)
 		{
-			NodeInstance = ConstructObject<UBTNode>(GetClass(), &OwnerComp, GetFName(), RF_NoFlags, (UObject*)(this));
+			NodeInstance = NewObject<UBTNode>(&OwnerComp, GetClass(), GetFName(), RF_NoFlags, (UObject*)(this));
 			NodeInstance->InitializeNode(GetParentNode(), GetExecutionIndex(), GetMemoryOffset(), GetTreeDepth());
 			NodeInstance->bIsInstanced = true;
 
@@ -143,9 +142,14 @@ UBTNode* UBTNode::GetNodeInstance(FBehaviorTreeSearchData& SearchData) const
 	return GetNodeInstance(SearchData.OwnerComp, GetNodeMemory<uint8>(SearchData));
 }
 
+FString UBTNode::GetNodeName() const
+{
+	return NodeName.Len() ? NodeName : UBehaviorTreeTypes::GetShortTypeName(this);
+}
+
 FString UBTNode::GetRuntimeDescription(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity) const
 {
-	FString Description = NodeName.Len() ? FString::Printf(TEXT("%s [%s]"), *NodeName, *GetStaticDescription()) : GetStaticDescription();
+	FString Description = NodeName.Len() ? FString::Printf(TEXT("%d. %s [%s]"), ExecutionIndex, *NodeName, *GetStaticDescription()) : GetStaticDescription();
 	TArray<FString> RuntimeValues;
 
 	const UBTNode* NodeOb = bCreateNodeInstance ? GetNodeInstance(OwnerComp, NodeMemory) : this;

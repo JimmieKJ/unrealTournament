@@ -198,6 +198,26 @@ bool FDesktopPlatformBase::IsStockEngineRelease(const FString &Identifier)
 	return !FGuid::Parse(Identifier, Guid);
 }
 
+bool FDesktopPlatformBase::TryParseStockEngineVersion(const FString& Identifier, FEngineVersion& OutVersion)
+{
+	TCHAR* End;
+
+	uint64 Major = FCString::Strtoui64(*Identifier, &End, 10);
+	if (Major > MAX_uint16 || *(End++) != '.')
+	{
+		return false;
+	}
+
+	uint64 Minor = FCString::Strtoui64(End, &End, 10);
+	if (Minor > MAX_uint16 || *End != 0)
+	{
+		return false;
+	}
+
+	OutVersion = FEngineVersion(Major, Minor, 0, 0, TEXT(""));
+	return true;
+}
+
 bool FDesktopPlatformBase::IsSourceDistribution(const FString &EngineRootDir)
 {
 	// Check for the existence of a SourceBuild.txt file
@@ -415,13 +435,13 @@ bool FDesktopPlatformBase::CompileGameProject(const FString& RootDir, const FStr
 	}
 
 	// Append the Rocket flag
-	if(!IsSourceDistribution(RootDir))
+	if(!IsSourceDistribution(RootDir) || FRocketSupport::IsRocket())
 	{
 		Arguments += TEXT(" -rocket");
 	}
 
 	// Append any other options
-	Arguments += " -editorrecompile -progress";
+	Arguments += " -editorrecompile -progress -noubtmakefiles";
 
 	// Run UBT
 	return RunUnrealBuildTool(LOCTEXT("CompilingProject", "Compiling project..."), RootDir, Arguments, Warn);
@@ -430,11 +450,11 @@ bool FDesktopPlatformBase::CompileGameProject(const FString& RootDir, const FStr
 bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn)
 {
 #if PLATFORM_MAC
-	FString Arguments = TEXT("-xcodeprojectfile");
+	FString Arguments = TEXT(" -xcodeprojectfile");
 #elif PLATFORM_LINUX
-	FString Arguments = TEXT(" -makefile -qmakefile -cmakefile ");
+	FString Arguments = TEXT(" -makefile -kdevelopfile -qmakefile -cmakefile ");
 #else
-	FString Arguments = TEXT("-projectfiles");
+	FString Arguments = TEXT(" -projectfiles");
 #endif
 
 	// Build the arguments to pass to UBT. If it's a non-foreign project, just build full project files.
@@ -447,20 +467,20 @@ bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FS
 			Arguments += FString::Printf(TEXT(" -project=\"%s\""), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*ProjectFileName));
 
 			// Always include game source
-			Arguments += " -game";
+			Arguments += TEXT(" -game");
 
 			// Determine whether or not to include engine source
 			if(IsSourceDistribution(RootDir) && !FRocketSupport::IsRocket())
 			{
-				Arguments += " -engine";
+				Arguments += TEXT(" -engine");
 			}
 			else
 			{
-				Arguments += " -rocket";
+				Arguments += TEXT(" -rocket");
 			}
 		}
 	}
-	Arguments += " -progress";
+	Arguments += TEXT(" -progress");
 
 	// Compile UnrealBuildTool if it doesn't exist. This can happen if we're just copying source from somewhere.
 	bool bRes = true;
@@ -474,6 +494,50 @@ bool FDesktopPlatformBase::GenerateProjectFiles(const FString& RootDir, const FS
 	{
 		Warn->StatusUpdate(0, 1, LOCTEXT("GeneratingProjectFiles", "Generating project files..."));
 		bRes = RunUnrealBuildTool(LOCTEXT("GeneratingProjectFiles", "Generating project files..."), RootDir, Arguments, Warn);
+	}
+	Warn->EndSlowTask();
+	return bRes;
+}
+
+bool FDesktopPlatformBase::InvalidateMakefiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn)
+{
+	// Composes the target, platform, and config (eg, "QAGame Win64 Development")
+	FString Arguments = FString::Printf(TEXT("%s %s %s"), FApp::GetGameName(), FPlatformMisc::GetUBTPlatform(), FModuleManager::GetUBTConfiguration());
+
+	// -editorrecompile tells UBT to work out the editor target name from the game target name we provided (eg, converting "QAGame" to "QAGameEditor")
+	Arguments += TEXT(" -editorrecompile");
+
+	// Build the arguments to pass to UBT. If it's a non-foreign project, just build full project files.
+	if ( !ProjectFileName.IsEmpty() && GetCachedProjectDictionary(RootDir).IsForeignProject(ProjectFileName) )
+	{
+		// Figure out whether it's a foreign project
+		const FUProjectDictionary &ProjectDictionary = GetCachedProjectDictionary(RootDir);
+		if(ProjectDictionary.IsForeignProject(ProjectFileName))
+		{
+			Arguments += FString::Printf(TEXT(" \"%s\""), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*ProjectFileName));
+		}
+	}
+	
+	// -invalidatemakefilesonly tells UBT to invalidate its UBT makefiles without building
+	Arguments += TEXT(" -invalidatemakefilesonly");
+
+	if (FRocketSupport::IsRocket())
+	{
+		Arguments += TEXT(" -rocket");
+	}
+
+	// Compile UnrealBuildTool if it doesn't exist. This can happen if we're just copying source from somewhere.
+	bool bRes = true;
+	Warn->BeginSlowTask(LOCTEXT("InvalidateMakefiles", "Invalidating makefiles..."), true, true);
+	if(!FPaths::FileExists(GetUnrealBuildToolExecutableFilename(RootDir)))
+	{
+		Warn->StatusUpdate(0, 1, LOCTEXT("BuildingUBT", "Building UnrealBuildTool..."));
+		bRes = BuildUnrealBuildTool(RootDir, *Warn);
+	}
+	if(bRes)
+	{
+		Warn->StatusUpdate(0, 1, LOCTEXT("InvalidateMakefiles", "Invalidating makefiles..."));
+		bRes = RunUnrealBuildTool(LOCTEXT("InvalidateMakefiles", "Invalidating makefiles..."), RootDir, Arguments, Warn);
 	}
 	Warn->EndSlowTask();
 	return bRes;
@@ -494,16 +558,8 @@ bool FDesktopPlatformBase::IsUnrealBuildToolAvailable()
 
 bool FDesktopPlatformBase::InvokeUnrealBuildToolSync(const FString& InCmdLineParams, FOutputDevice &Ar, bool bSkipBuildUBT, int32& OutReturnCode, FString& OutProcOutput)
 {
-	// Setup output redirection pipes, so that we can harvest compiler output and display it ourselves
-#if PLATFORM_LINUX
-	int pipefd[2];
-	pipe(pipefd);
-	void* PipeRead = &pipefd[0];
-	void* PipeWrite = &pipefd[1];
-#else
-	void* PipeRead = NULL;
-	void* PipeWrite = NULL;
-#endif
+	void* PipeRead = nullptr;
+	void* PipeWrite = nullptr;
 
 	verify(FPlatformProcess::CreatePipe(PipeRead, PipeWrite));
 
@@ -808,18 +864,18 @@ void FDesktopPlatformBase::GetProjectBuildProducts(const FString& ProjectDir, TA
 	}
 }
 
-bool FDesktopPlatformBase::EnumerateProjectsKnownByEngine(const FString &Identifier, bool bIncludeNativeProjects, TArray<FString> &OutProjectFileNames)
+FString FDesktopPlatformBase::GetEngineSavedConfigDirectory(const FString& Identifier)
 {
 	// Get the engine root directory
 	FString RootDir;
-	if(!GetEngineRootDirFromIdentifier(Identifier, RootDir))
+	if (!GetEngineRootDirFromIdentifier(Identifier, RootDir))
 	{
-		return false;
+		return FString();
 	}
 
 	// Get the path to the game agnostic settings
 	FString UserDir;
-	if(IsStockEngineRelease(Identifier))
+	if (IsStockEngineRelease(Identifier))
 	{
 		UserDir = FPaths::Combine(FPlatformProcess::UserSettingsDir(), *FString(EPIC_PRODUCT_IDENTIFIER), *Identifier);
 	}
@@ -829,7 +885,24 @@ bool FDesktopPlatformBase::EnumerateProjectsKnownByEngine(const FString &Identif
 	}
 
 	// Get the game agnostic config dir
-	FString GameAgnosticConfigDir = UserDir / TEXT("Saved/Config") / ANSI_TO_TCHAR(FPlatformProperties::PlatformName());
+	return UserDir / TEXT("Saved/Config") / ANSI_TO_TCHAR(FPlatformProperties::PlatformName());
+}
+
+bool FDesktopPlatformBase::EnumerateProjectsKnownByEngine(const FString &Identifier, bool bIncludeNativeProjects, TArray<FString> &OutProjectFileNames)
+{
+	// Get the engine root directory
+	FString RootDir;
+	if (!GetEngineRootDirFromIdentifier(Identifier, RootDir))
+	{
+		return false;
+	}
+
+	FString GameAgnosticConfigDir = GetEngineSavedConfigDirectory(Identifier);
+
+	if (GameAgnosticConfigDir.Len() == 0)
+	{
+		return false;
+	}
 
 	// Find all the created project directories. Start with the default project creation path.
 	TArray<FString> SearchDirectories;
@@ -837,10 +910,10 @@ bool FDesktopPlatformBase::EnumerateProjectsKnownByEngine(const FString &Identif
 
 	// Load the config file
 	FConfigFile GameAgnosticConfig;
-	FConfigCacheIni::LoadExternalIniFile(GameAgnosticConfig, TEXT("EditorGameAgnostic"), NULL, *GameAgnosticConfigDir, false);
+	FConfigCacheIni::LoadExternalIniFile(GameAgnosticConfig, TEXT("EditorSettings"), NULL, *GameAgnosticConfigDir, false);
 
 	// Find the editor game-agnostic settings
-	FConfigSection* Section = GameAgnosticConfig.Find(TEXT("/Script/UnrealEd.EditorGameAgnosticSettings"));
+	FConfigSection* Section = GameAgnosticConfig.Find(TEXT("/Script/UnrealEd.EditorSettings"));
 	if(Section != NULL)
 	{
 		// Add in every path that the user has ever created a project file. This is to catch new projects showing up in the user's project folders
@@ -919,55 +992,65 @@ bool FDesktopPlatformBase::BuildUnrealBuildTool(const FString& RootDir, FOutputD
 
 	FString CompilerExecutableFilename;
 	FString CmdLineParams;
-#if PLATFORM_WINDOWS
-	// To build UBT for windows, we must assemble a batch file that first registers the environment variable necessary to run msbuild then run it
-	// This can not be done in a single invocation of CMD.exe because the environment variables do not transfer between subsequent commands when using the "&" syntax
-	// devenv.exe can be used to build as well but it takes several seconds to start up so it is not desirable
 
-	// First determine the appropriate vcvars batch file to launch
-	FString VCVarsBat;
-
-#if _MSC_VER >= 1800
-	FPlatformMisc::GetVSComnTools(12, VCVarsBat);
-#else
-	FPlatformMisc::GetVSComnTools(11, VCVarsBat);
-#endif
-
-	VCVarsBat = FPaths::Combine(*VCVarsBat, L"../../VC/bin/x86_amd64/vcvarsx86_amd64.bat");
-
-	// Check to make sure we found one.
-	if (VCVarsBat.IsEmpty() || !FPaths::FileExists(VCVarsBat))
+	if (PLATFORM_WINDOWS)
 	{
-		Ar.Logf(TEXT("Couldn't find %s; skipping."), *VCVarsBat);
+		// To build UBT for windows, we must assemble a batch file that first registers the environment variable necessary to run msbuild then run it
+		// This can not be done in a single invocation of CMD.exe because the environment variables do not transfer between subsequent commands when using the "&" syntax
+		// devenv.exe can be used to build as well but it takes several seconds to start up so it is not desirable
+
+		// First determine the appropriate vcvars batch file to launch
+		FString VCVarsBat;
+
+#if PLATFORM_WINDOWS
+	#if _MSC_VER >= 1800
+		FPlatformMisc::GetVSComnTools(12, VCVarsBat);
+	#else
+		FPlatformMisc::GetVSComnTools(11, VCVarsBat);
+	#endif
+#endif // PLATFORM_WINDOWS
+
+		VCVarsBat = FPaths::Combine(*VCVarsBat, L"../../VC/bin/x86_amd64/vcvarsx86_amd64.bat");
+
+		// Check to make sure we found one.
+		if (VCVarsBat.IsEmpty() || !FPaths::FileExists(VCVarsBat))
+		{
+			Ar.Logf(TEXT("Couldn't find %s; skipping."), *VCVarsBat);
+			return false;
+		}
+
+		// Now make a batch file in the intermediate directory to invoke the vcvars batch then msbuild
+		FString BuildBatchFile = RootDir / TEXT("Engine/Intermediate/Build/UnrealBuildTool/BuildUBT.bat");
+		BuildBatchFile.ReplaceInline(TEXT("/"), TEXT("\\"));
+
+		FString BatchFileContents;
+		BatchFileContents = FString::Printf(TEXT("call \"%s\"") LINE_TERMINATOR, *VCVarsBat);
+		BatchFileContents += FString::Printf(TEXT("msbuild /nologo /verbosity:quiet \"%s\" /property:Configuration=Development /property:Platform=AnyCPU"), *CsProjLocation);
+		FFileHelper::SaveStringToFile(BatchFileContents, *BuildBatchFile);
+
+		TCHAR CmdExePath[MAX_PATH];
+		FPlatformMisc::GetEnvironmentVariable(TEXT("ComSpec"), CmdExePath, ARRAY_COUNT(CmdExePath));
+		CompilerExecutableFilename = CmdExePath;
+
+		CmdLineParams = FString::Printf(TEXT("/c \"%s\""), *BuildBatchFile);
+	}
+	else if (PLATFORM_MAC)
+	{
+		FString ScriptPath = FPaths::ConvertRelativePathToFull(RootDir / TEXT("Engine/Build/BatchFiles/Mac/RunXBuild.sh"));
+		CompilerExecutableFilename = TEXT("/bin/sh");
+		CmdLineParams = FString::Printf(TEXT("\"%s\" /property:Configuration=Development %s"), *ScriptPath, *CsProjLocation);
+	}
+	else if (PLATFORM_LINUX)
+	{
+		FString ScriptPath = FPaths::ConvertRelativePathToFull(RootDir / TEXT("Engine/Build/BatchFiles/Linux/RunXBuild.sh"));
+		CompilerExecutableFilename = TEXT("/bin/bash");
+		CmdLineParams = FString::Printf(TEXT("\"%s\" /property:Configuration=Development /property:TargetFrameworkVersion=v4.0 %s"), *ScriptPath, *CsProjLocation);
+	}
+	else
+	{
+		Ar.Log(TEXT("Unknown platform, unable to build UnrealBuildTool."));
 		return false;
 	}
-
-	// Now make a batch file in the intermediate directory to invoke the vcvars batch then msbuild
-	FString BuildBatchFile = RootDir / TEXT("Engine/Intermediate/Build/UnrealBuildTool/BuildUBT.bat");
-	BuildBatchFile.ReplaceInline(TEXT("/"), TEXT("\\"));
-
-	FString BatchFileContents;
-	BatchFileContents = FString::Printf(TEXT("call \"%s\"") LINE_TERMINATOR, *VCVarsBat);
-	BatchFileContents += FString::Printf(TEXT("msbuild /nologo /verbosity:quiet \"%s\" /property:Configuration=Development /property:Platform=AnyCPU"), *CsProjLocation);
-	FFileHelper::SaveStringToFile(BatchFileContents, *BuildBatchFile);
-
-	TCHAR CmdExePath[MAX_PATH];
-	FPlatformMisc::GetEnvironmentVariable(TEXT("ComSpec"), CmdExePath, ARRAY_COUNT(CmdExePath));
-	CompilerExecutableFilename = CmdExePath;
-
-	CmdLineParams = FString::Printf(TEXT("/c \"%s\""), *BuildBatchFile);
-#elif PLATFORM_MAC
-	FString ScriptPath = FPaths::ConvertRelativePathToFull(RootDir / TEXT("Engine/Build/BatchFiles/Mac/RunXBuild.sh"));
-	CompilerExecutableFilename = TEXT("/bin/sh");
-	CmdLineParams = FString::Printf(TEXT("\"%s\" /property:Configuration=Development %s"), *ScriptPath, *CsProjLocation);
-#elif PLATFORM_LINUX
-	FString ScriptPath = FPaths::ConvertRelativePathToFull(RootDir / TEXT("Build/BatchFiles/Linux/RunXBuild.sh"));
-	CompilerExecutableFilename = TEXT("/bin/bash");
-	CmdLineParams = FString::Printf(TEXT("\"%s\" /property:Configuration=Development /property:TargetFrameworkVersion=v4.0 %s"), *ScriptPath, *CsProjLocation);
-#else
-	Ar.Log(TEXT("Unknown platform, unable to build UnrealBuildTool."));
-	return false;
-#endif
 
 	// Spawn the compiler
 	Ar.Logf(TEXT("Running: %s %s"), *CompilerExecutableFilename, *CmdLineParams);
@@ -981,7 +1064,7 @@ bool FDesktopPlatformBase::BuildUnrealBuildTool(const FString& RootDir, FOutputD
 		return false;
 	}
 	FPlatformProcess::WaitForProc(ProcHandle);
-	ProcHandle.Close();
+	FPlatformProcess::CloseProc(ProcHandle);
 
 	// If the executable appeared where we expect it, then we were successful
 	FString UnrealBuildToolExePath = GetUnrealBuildToolExecutableFilename(RootDir);
@@ -996,11 +1079,7 @@ bool FDesktopPlatformBase::BuildUnrealBuildTool(const FString& RootDir, FOutputD
 
 FString FDesktopPlatformBase::GetUnrealBuildToolProjectFileName(const FString& RootDir) const
 {
-#if PLATFORM_WINDOWS
 	return FPaths::ConvertRelativePathToFull(RootDir / TEXT("Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj"));
-#else
-	return FPaths::ConvertRelativePathToFull(RootDir / TEXT("Engine/Source/Programs/UnrealBuildTool/UnrealBuildTool_Mono.csproj"));
-#endif
 }
 
 FString FDesktopPlatformBase::GetUnrealBuildToolExecutableFilename(const FString& RootDir) const

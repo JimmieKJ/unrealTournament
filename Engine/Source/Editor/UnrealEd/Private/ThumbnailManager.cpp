@@ -87,7 +87,7 @@ void UThumbnailManager::InitializeRenderTypeArray(TArray<FThumbnailRenderingInfo
 			UClass* RenderClass = LoadObject<UClass>(nullptr, *RenderInfo.RendererClassName, nullptr, LOAD_None, nullptr);
 			if (RenderClass != nullptr)
 			{
-				RenderInfo.Renderer = ConstructObject<UThumbnailRenderer>(RenderClass);
+				RenderInfo.Renderer = NewObject<UThumbnailRenderer>(GetTransientPackage(), RenderClass);
 			}
 		}
 
@@ -185,7 +185,7 @@ void UThumbnailManager::RegisterCustomRenderer(UClass* Class, TSubclassOf<UThumb
 	FThumbnailRenderingInfo& Info = *(new (RenderableThumbnailTypes) FThumbnailRenderingInfo());
 	Info.ClassNeedingThumbnailName = NewClassPathName;
 	Info.ClassNeedingThumbnail = Class;
-	Info.Renderer = ConstructObject<UThumbnailRenderer>(RendererClass);
+	Info.Renderer = NewObject<UThumbnailRenderer>(GetTransientPackage(), RendererClass);
 	Info.RendererClassName = RendererClass->GetPathName();
 
 	bMapNeedsUpdate = true;
@@ -225,14 +225,14 @@ UThumbnailManager& UThumbnailManager::Get()
 			if (Class != nullptr)
 			{
 				// Create an instance of this class
-				ThumbnailManagerSingleton = ConstructObject<UThumbnailManager>(Class);
+				ThumbnailManagerSingleton = NewObject<UThumbnailManager>(GetTransientPackage(), Class);
 			}
 		}
 
 		// If the class couldn't be loaded or is the wrong type, fallback to the default
 		if (ThumbnailManagerSingleton == nullptr)
 		{
-			ThumbnailManagerSingleton = ConstructObject<UThumbnailManager>(UThumbnailManager::StaticClass());
+			ThumbnailManagerSingleton = NewObject<UThumbnailManager>();
 		}
 
 		// Keep the singleton alive

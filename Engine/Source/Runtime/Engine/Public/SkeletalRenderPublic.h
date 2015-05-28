@@ -128,7 +128,7 @@ public:
 	virtual SIZE_T GetResourceSize() = 0;
 
 	/**
-     * List of chunks to be rendered based on instance weight usage. Full swap of weights will render with its own chunks.
+	 * List of chunks to be rendered based on instance weight usage. Full swap of weights will render with its own chunks.
 	 * @return Chunks to iterate over for rendering
 	 */
 	const TArray<FSkelMeshChunk>& GetRenderChunks(int32 InLODIndex) const;

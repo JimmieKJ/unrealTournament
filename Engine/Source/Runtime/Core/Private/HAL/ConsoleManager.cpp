@@ -122,10 +122,10 @@ public:
 			FConsoleManager& ConsoleManager = (FConsoleManager&)IConsoleManager::Get();
 			FString CVarName = ConsoleManager.FindConsoleObjectName(this);
 			UE_LOG(LogConsoleManager, Warning,
-				TEXT("Console variable '%s' wasn't set (Priority %s < %s)"),
+				TEXT("Console variable '%s' wasn't set ('%s' has a lower priority than '%s')"),
 				CVarName.IsEmpty() ? TEXT("unknown?") : *CVarName,
-				GetSetByTCHAR((EConsoleVariableFlags)OldPri),
-				GetSetByTCHAR((EConsoleVariableFlags)NewPri)
+				GetSetByTCHAR((EConsoleVariableFlags)NewPri),
+				GetSetByTCHAR((EConsoleVariableFlags)OldPri)
 				);
 		}
 
@@ -141,8 +141,6 @@ public:
 		check(CanChange(SetBy));
 
 		// only change on main thread
-
-		Flags = (EConsoleVariableFlags)((uint32)Flags | ECVF_Changed);
 
 		Flags = (EConsoleVariableFlags)(((uint32)Flags & ~ECVF_SetByMask) | SetBy);
 
@@ -875,7 +873,7 @@ void FConsoleManager::LoadHistoryIfNeeded()
 	FConfigFile Ini;
 
 	FString ConfigPath = FPaths::GeneratedConfigDir() + TEXT("ConsoleHistory.ini");
-	ProcessIniContents(*ConfigPath, *ConfigPath, &Ini, false, false, false);
+	ProcessIniContents(*ConfigPath, *ConfigPath, &Ini, false, false);
 
 	const FString History = TEXT("History");
 
@@ -975,7 +973,7 @@ bool FConsoleManager::ProcessUserConsoleInput(const TCHAR* InInput, FOutputDevic
 		// Process command
 		// Build up argument list
 		TArray< FString > Args;
-		FString( It ).ParseIntoArrayWS( &Args );
+		FString( It ).ParseIntoArrayWS( Args );
 
 		const bool bShowHelp = Args.Num() == 1 && Args[0] == TEXT("?");
 		if( bShowHelp )
@@ -1373,13 +1371,6 @@ void FConsoleManager::Test()
 		check(VarE->GetFloat() == RefE);
 		check(VarE->GetString() == FString(TEXT("2.1")));
 
-		// test changed
-
-		check(!VarA->TestFlags(ECVF_Changed));
-		check(!VarB->TestFlags(ECVF_Changed));
-		check(!VarD->TestFlags(ECVF_Changed));
-		check(!VarE->TestFlags(ECVF_Changed));
-
 		// call Set(string)
 
 		VarA->Set(TEXT("3.1"), ECVF_SetByConsoleVariablesIni);
@@ -1388,13 +1379,6 @@ void FConsoleManager::Test()
 		VarE->Set(TEXT("3.1"), ECVF_SetByConsoleVariablesIni);
 
 		check(GConsoleVariableCallbackTestCounter == 1);
-
-		// test changed
-
-		check(VarA->TestFlags(ECVF_Changed));
-		check(VarB->TestFlags(ECVF_Changed));
-		check(VarD->TestFlags(ECVF_Changed));
-		check(VarE->TestFlags(ECVF_Changed));
 
 		// verify Set()
 
@@ -1438,9 +1422,7 @@ void FConsoleManager::Test()
 			// note: exact comparison fails in Win32 release
 			check(FMath::IsNearlyEqual(VarC->GetFloat(), 1.23f, KINDA_SMALL_NUMBER));
 			check(VarC->GetString() == FString(TEXT("1.23")));
-			check(!VarC->TestFlags(ECVF_Changed));
 			VarC->Set(TEXT("3.1"), ECVF_SetByConsole);
-			check(VarC->TestFlags(ECVF_Changed));
 			check(VarC->GetString() == FString(TEXT("3.1")));
 			UnregisterConsoleObject(TEXT("TestNameC"), false);
 			check(!IConsoleManager::Get().FindConsoleVariable(TEXT("TestNameC")));
@@ -1498,6 +1480,13 @@ void FConsoleManager::Test()
 // These don't belong here, but they belong here more than they belong in launch engine loop.
 void CreateConsoleVariables()
 {
+	// this registeres to a reference, so we cannot use TAutoConsoleVariable
+	IConsoleManager::Get().RegisterConsoleVariableRef(TEXT("r.DumpingMovie"),
+		GIsDumpingMovie,
+		TEXT("Allows to dump each rendered frame to disk (slow fps, names MovieFrame..).\n")
+		TEXT("<=0:off (default), <0:remains on, >0:remains on for n frames (n is the number specified)"),
+		ECVF_Cheat);
+
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
@@ -1518,32 +1507,6 @@ void CreateConsoleVariables()
 		ConsoleManager.Test();
 	}
 }
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-static void DumpHelp(FOutputDevice& Ar)
-{
-	Ar.Logf(TEXT("Console Help:"));
-	Ar.Logf(TEXT("============="));
-	Ar.Logf(TEXT(" "));
-	Ar.Logf(TEXT("A console variable is a engine wide key value pair. The key is a string usually starting with the subsystem prefix followed"));
-	Ar.Logf(TEXT("by '.' e.g. r.BloomQuality. The value can be of different tpe (e.g. float, int, string). A console command has no state associated with"));
-	Ar.Logf(TEXT("and gets executed immediately."));
-	Ar.Logf(TEXT(" "));
-	Ar.Logf(TEXT("Console variables can be put into ini files (e.g. ConsoleVariables.ini or BaseEngine.ini) with this syntax:"));
-	Ar.Logf(TEXT("<Console variable> = <value>"));
-	Ar.Logf(TEXT(" "));
-	Ar.Logf(TEXT("DumpConsoleCommands         Lists all console variables and commands that are registered (Some are not registered)"));
-	Ar.Logf(TEXT("<Console variable>          Get the console variable state"));
-	Ar.Logf(TEXT("<Console variable> ?        Get the console variable help text"));
-	Ar.Logf(TEXT("<Console variable> <value>  Set the console variable value"));
-	Ar.Logf(TEXT("<Console command> [Params]  Execute the console command with optional parameters"));
-}
-static FAutoConsoleCommandWithOutputDevice GConsoleCommandHelp(
-	TEXT("help"),
-	TEXT("Outputs some helptext to the console and the log"),
-	FConsoleCommandWithOutputDeviceDelegate::CreateStatic(DumpHelp)
-	);
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 // Naming conventions:
 //
@@ -1595,13 +1558,6 @@ static TAutoConsoleVariable<int32> CVarLimitRenderingFeatures(
 	TEXT(" <=0:off, order is defined in code (can be documented here when we settled on an order)"),
 	ECVF_Cheat | ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<int32> CVarDumpingMovie(
-	TEXT("r.DumpingMovie"),
-	GIsDumpingMovie,
-	TEXT("Allows to dump each rendered frame to disk (slow fps, names MovieFrame..).\n")
-	TEXT("<=0:off (default), <0:remains on, >0:remains on for n frames (n is the number specified)"),
-	ECVF_Cheat);
-
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
 static TAutoConsoleVariable<int32> CVarUniformBufferPooling(
@@ -1652,10 +1608,16 @@ static TAutoConsoleVariable<int32> CVarMobileHDR32bpp(
 	TEXT("1: Mobile HDR renders to an RGBA8 target."),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarMobileReduceLoadedMips(
+	TEXT("r.MobileReduceLoadedMips"),
+	0,
+	TEXT("Reduce loaded texture mipmaps for nonstreaming mobile platforms.\n"),
+	ECVF_RenderThreadSafe);
+
 static TAutoConsoleVariable<int32> CVarSetClearSceneMethod(
 	TEXT("r.ClearSceneMethod"),
 	1,
-	TEXT("Select how scene rendertarget clears are handled\n")
+	TEXT("Select how the g-buffer is cleared in game mode (only affects deferred shading).\n")
 	TEXT(" 0: No clear\n")
 	TEXT(" 1: RHIClear (default)\n")
 	TEXT(" 2: Quad at max z"),
@@ -1768,10 +1730,11 @@ static TAutoConsoleVariable<int32> CVarDepthOfFieldQuality(
 
 static TAutoConsoleVariable<float> CVarScreenPercentage(
 	TEXT("r.ScreenPercentage"),
-	-1.0f,
-	TEXT("To render in lower resolution and upscale for better performance.\n")
+	100.0f,
+	TEXT("To render in lower resolution and upscale for better performance (combined up with the blenable post process setting).\n")
 	TEXT("70 is a good value for low aliasing and performance, can be verified with 'show TestImage'\n")
-	TEXT("in percent, >0 and <=100, <0 means the post process volume settings are used"),
+	TEXT("in percent, >0 and <=100, larger numbers are possible (supersampling) but the downsampling quality is improvable.")
+	TEXT("<0 is treated like 100."),
 	ECVF_Scalability | ECVF_Default);
 
 static TAutoConsoleVariable<int32> CVarMaterialQualityLevel(
@@ -1828,6 +1791,13 @@ static TAutoConsoleVariable<int32> CVarDistField(
 	TEXT("Enabling will increase mesh build times and memory usage.  Changing this value will cause a rebuild of all static meshes."),
 	ECVF_ReadOnly);
 
+static TAutoConsoleVariable<int32> CVarLandscapeGI(
+	TEXT("r.GenerateLandscapeGIData"),
+	1,
+	TEXT("Whether to generate a low-resolution base color texture for landscapes for rendering real-time global illumination.\n")
+	TEXT("This feature requires GenerateMeshDistanceFields is also enabled, and will increase mesh build times and memory usage.\n"),
+	ECVF_Default);
+
 static TAutoConsoleVariable<int32> CVarMinLogVerbosity(
 	TEXT("con.MinLogVerbosity"),
 	0,
@@ -1850,7 +1820,7 @@ static TAutoConsoleVariable<int32> CVarMSAACompositingSampleCount(
 	TEXT(" 2: 2x MSAA, medium quality (medium GPU memory consumption)\n")
 	TEXT(" 4: 4x MSAA, high quality (high GPU memory consumption)\n")
 	TEXT(" 8: 8x MSAA, very high quality (insane GPU memory consumption)"),
-	ECVF_RenderThreadSafe);
+	ECVF_Scalability | ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<FString> CVarNetPackageMapDebugObject(
 	TEXT("net.PackageMap.DebugObject"),
@@ -2029,6 +1999,30 @@ static TAutoConsoleVariable<int32> CVarTonemapperQuality(
 	TEXT("1: high (default, with high frequency pixel pattern to fight 8 bit color quantization)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<float> CVarTonemapperHDR(
+	TEXT("r.TonemapperHDR"),
+	1,
+	TEXT("Make tonemapper work with HDR display.\n")
+	TEXT("Requires 'r.TonemapperPhoto 1'.\n")
+	TEXT("1: standard dynamic range\n")
+	TEXT("#: high dynamic range (#=2 for 1 stop more, #=4 for 2 stops more, #=8 for 3 stops more and so on"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarTonemapperGamma(
+	TEXT("r.TonemapperGamma"),
+	0,
+	TEXT("0: don't use\n")
+	TEXT("#: used fixed gamma # instead of sRGB or Rec709 transform"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarTonemapper709(
+	TEXT("r.Tonemapper709"),
+	0,
+	TEXT("0: use sRGB on PC monitor output\n")
+	TEXT("1: use Rec.709 for HDTV/projector output"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+
 static TAutoConsoleVariable<int32> CVarDetailMode(
 	TEXT("r.DetailMode"),
 	2,
@@ -2116,3 +2110,9 @@ static TAutoConsoleVariable<float> CVarEmitterSpawnRateScale(
 	1.0,
 	TEXT("A global scale upon the spawn rate of emitters. Emitters can choose to apply or ignore it via their bApplyGlobalSpawnRateScale property."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<int32> CVarCheckSRVTransitions(
+	TEXT("r.CheckSRVTransitions"),
+	0,
+	TEXT("Tests that render targets are properly transitioned to SRV when SRVs are set."),
+	ECVF_RenderThreadSafe);  

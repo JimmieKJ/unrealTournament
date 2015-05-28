@@ -10,9 +10,9 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogSlateOpenGL, Log, All);
 
-FSlateOpenGLTextureManager::FDynamicTextureResource::FDynamicTextureResource( FSlateOpenGLTexture* OpenGLTexture )
+FSlateOpenGLTextureManager::FDynamicTextureResource::FDynamicTextureResource( FSlateOpenGLTexture* InOpenGLTexture )
 	: Proxy( new FSlateShaderResourceProxy )
-	, OpenGLTexture( OpenGLTexture  )
+	, OpenGLTexture( InOpenGLTexture  )
 {
 }
 

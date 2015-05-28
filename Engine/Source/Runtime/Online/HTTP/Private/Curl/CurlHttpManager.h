@@ -28,8 +28,8 @@ protected:
 public:
 
 	// Begin HttpManager interface
-	virtual void AddRequest(TSharedRef<class IHttpRequest> Request) override;
-	virtual void RemoveRequest(TSharedRef<class IHttpRequest> Request) override;
+	virtual void AddRequest(const TSharedRef<class IHttpRequest>& Request) override;
+	virtual void RemoveRequest(const TSharedRef<class IHttpRequest>& Request) override;
 	virtual bool Tick(float DeltaSeconds) override;
 	// End HttpManager interface
 

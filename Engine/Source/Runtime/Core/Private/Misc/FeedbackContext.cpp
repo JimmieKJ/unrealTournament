@@ -20,9 +20,9 @@ void FFeedbackContext::RequestUpdateUI(bool bForceUpdate)
 
 void FFeedbackContext::UpdateUI()
 {
-	if (ScopeStack.Num() != 0)
+	if (ScopeStack->Num() != 0)
 	{
-		ProgressReported(ScopeStack.GetProgressFraction(0), ScopeStack[0]->GetCurrentMessage());
+		ProgressReported(ScopeStack->GetProgressFraction(0), (*ScopeStack)[0]->GetCurrentMessage());
 	}
 }
 
@@ -85,7 +85,10 @@ void FScopedSlowTask::MakeDialog(bool bShowCancelButton, bool bAllowInPIE)
 	if (!GIsSlowTask && bIsDialogAllowed)
 	{
 		Context.StartSlowTask(GetCurrentMessage(), bShowCancelButton);
-		bCreatedDialog = true;
+		if (GIsSlowTask)
+		{
+			bCreatedDialog = true;
+		}
 	}
 }
 

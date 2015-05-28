@@ -35,6 +35,7 @@ namespace CCT
 		uint32 Flags = 0;
 
 		Flags |= RunInfo.bRunCPP ? 0 : HLSLCC_NoPreprocess;
+		Flags |= RunInfo.bForcePackedUBs ? (HLSLCC_PackUniforms | HLSLCC_FlattenUniformBufferStructures | HLSLCC_FlattenUniformBuffers) : 0;
 
 		FGlslLanguageSpec GlslLanguage(RunInfo.Target == HCT_FeatureLevelES2);
 		FGlslCodeBackend GlslBackend(Flags);
@@ -85,7 +86,7 @@ namespace CCT
 						UE_LOG(LogCrossCompilerTool, Error, TEXT("Couldn't load Input file '%s'!"), *File);
 						continue;
 					}
-					UE_LOG(LogCrossCompilerTool, Log, TEXT("%d: %s!"), Count++, *File);
+					UE_LOG(LogCrossCompilerTool, Log, TEXT("%d: %s"), Count++, *File);
 
 					if (!CrossCompiler::Parser::Parse(HLSLShader, File, false))
 					{
@@ -140,18 +141,17 @@ namespace CCT
 
 		ANSICHAR* ShaderSource = 0;
 		ANSICHAR* ErrorLog = 0;
-		int Result = HlslCrossCompile(
-			TCHAR_TO_ANSI(*RunInfo.InputFile),
-			TCHAR_TO_ANSI(*HLSLShaderSource),
-			TCHAR_TO_ANSI(*RunInfo.Entry),
-			RunInfo.Frequency,
-			Backend,
-			Language,
-			Flags,
-			RunInfo.Target,
-			&ShaderSource,
-			&ErrorLog
-			);
+
+		FHlslCrossCompilerContext Context(Flags, RunInfo.Frequency, RunInfo.Target);
+		if (Context.Init(TCHAR_TO_ANSI(*RunInfo.InputFile), Language))
+		{
+			Context.Run(
+				TCHAR_TO_ANSI(*HLSLShaderSource),
+				TCHAR_TO_ANSI(*RunInfo.Entry),
+				Backend,
+				&ShaderSource,
+				&ErrorLog);
+		}
 
 		if (ErrorLog)
 		{

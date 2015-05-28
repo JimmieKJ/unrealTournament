@@ -76,12 +76,12 @@ FEmptyBoundShaderState::FEmptyBoundShaderState(
 			FGeometryShaderRHIParamRef InGeometryShaderRHI)
 	:	CacheLink(InVertexDeclarationRHI,InVertexShaderRHI,InPixelShaderRHI,InHullShaderRHI,InDomainShaderRHI,InGeometryShaderRHI,this)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexDeclaration,InVertexDeclaration);
-	DYNAMIC_CAST_EMPTYRESOURCE(VertexShader,InVertexShader);
-	DYNAMIC_CAST_EMPTYRESOURCE(PixelShader,InPixelShader);
-	DYNAMIC_CAST_EMPTYRESOURCE(HullShader,InHullShader);
-	DYNAMIC_CAST_EMPTYRESOURCE(DomainShader,InDomainShader);
-	DYNAMIC_CAST_EMPTYRESOURCE(GeometryShader,InGeometryShader);
+	FEmptyVertexDeclaration* InVertexDeclaration = ResourceCast(InVertexDeclarationRHI);
+	FEmptyVertexShader* InVertexShader = ResourceCast(InVertexShaderRHI);
+	FEmptyPixelShader* InPixelShader = ResourceCast(InPixelShaderRHI);
+	FEmptyHullShader* InHullShader = ResourceCast(InHullShaderRHI);
+	FEmptyDomainShader* InDomainShader = ResourceCast(InDomainShaderRHI);
+	FEmptyGeometryShader* InGeometryShader = ResourceCast(InGeometryShaderRHI);
 
 	// cache everything
 	VertexDeclaration = InVertexDeclaration;
@@ -106,6 +106,7 @@ FBoundShaderStateRHIRef FEmptyDynamicRHI::RHICreateBoundShaderState(
 	FGeometryShaderRHIParamRef GeometryShaderRHI
 	)
 {
+	check(IsInRenderingThread());
 	// Check for an existing bound shader state which matches the parameters
 	FCachedBoundShaderStateLink* CachedBoundShaderStateLink = GetCachedBoundShaderState(
 		VertexDeclarationRHI,

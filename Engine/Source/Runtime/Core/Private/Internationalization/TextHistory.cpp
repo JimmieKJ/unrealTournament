@@ -3,6 +3,7 @@
 #include "CorePrivatePCH.h"
 
 #include "TextHistory.h"
+#include "PropertyPortFlags.h"
 
 ///////////////////////////////////////
 // FTextHistory
@@ -10,14 +11,14 @@
 /** Base class for all FText history types */
 
 FTextHistory::FTextHistory()
-	: Revision(FTextLocalizationManager::Get().GetHeadCultureRevision())
+	: Revision(FTextLocalizationManager::Get().GetTextRevision())
 {
 
 }
 
 bool FTextHistory::IsOutOfDate()
 {
-	return Revision < FTextLocalizationManager::Get().GetHeadCultureRevision();
+	return Revision < FTextLocalizationManager::Get().GetTextRevision();
 }
 
 TSharedPtr< FString, ESPMode::ThreadSafe > FTextHistory::GetSourceString() const
@@ -25,7 +26,13 @@ TSharedPtr< FString, ESPMode::ThreadSafe > FTextHistory::GetSourceString() const
 	return NULL;
 }
 
-void FTextHistory::SerializeForDisplayString(FArchive& Ar, TSharedRef<FString, ESPMode::ThreadSafe>& InOutDisplayString)
+void FTextHistory::GetSourceTextsFromFormatHistory(FText Text, TArray<FText>& OutSourceTexts) const
+{
+	// If we get here, we have no more source so this must be the base text
+	OutSourceTexts.Add(Text);
+}
+
+void FTextHistory::SerializeForDisplayString(FArchive& Ar, FTextDisplayStringRef& InOutDisplayString)
 {
 	if(Ar.IsLoading())
 	{
@@ -45,7 +52,7 @@ void FTextHistory::Rebuild(TSharedRef< FString, ESPMode::ThreadSafe > InDisplayS
 
 	// FTextHistory_Base will never report being out-of-date, but we need to keep the history revision in sync
 	// with the head culture regardless so that FTextSnapshot::IdenticalTo still works correctly
-	Revision = FTextLocalizationManager::Get().GetHeadCultureRevision();
+	Revision = FTextLocalizationManager::Get().GetTextRevision();
 
 	if(bIsOutOfDate)
 	{
@@ -100,7 +107,7 @@ void FTextHistory_Base::Serialize( FArchive& Ar )
 	}
 }
 
-void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, TSharedRef<FString, ESPMode::ThreadSafe>& InOutDisplayString)
+void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, FTextDisplayStringRef& InOutDisplayString)
 {
 	if(Ar.IsLoading())
 	{
@@ -122,44 +129,32 @@ void FTextHistory_Base::SerializeForDisplayString(FArchive& Ar, TSharedRef<FStri
 		}
 
 		// Using the deserialized namespace and key, find the DisplayString.
-		InOutDisplayString = FTextLocalizationManager::Get().GetString(Namespace, Key, SourceString.Get());
+		InOutDisplayString = FTextLocalizationManager::Get().GetDisplayString(Namespace, Key, SourceString.Get());
 	}
 	else if(Ar.IsSaving())
 	{
-		TSharedPtr< FString, ESPMode::ThreadSafe > Namespace;
-		TSharedPtr< FString, ESPMode::ThreadSafe > Key;
+		FString Namespace;
+		FString Key;
 
-		FTextLocalizationManager::Get().FindKeyNamespaceFromDisplayString(InOutDisplayString, Namespace, Key);
+		const bool FoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(InOutDisplayString, Namespace, Key);
 
-		// Serialize the Namespace, or an empty string if there is none
-		if( Namespace.IsValid() )
+		// If this has no namespace or key, attempt to give it a GUID for a key and register it.
+		if (!FoundNamespaceAndKey && GIsEditor && (Ar.IsPersistent() && !Ar.HasAnyPortFlags(PPF_Duplicate)))
 		{
-			Ar << *(Namespace);
-		}
-		else
-		{
-			FString Empty;
-			Ar << Empty;
-		}
-
-		// Serialize the Key, if there is not one and this is in the editor, generate a new key.
-		if( Key.IsValid() )
-		{
-			Ar << *(Key);
-		}
-		else
-		{
-			if(GIsEditor)
+			Key = FGuid::NewGuid().ToString();
+			if (!FTextLocalizationManager::Get().AddDisplayString(InOutDisplayString, Namespace, Key))
 			{
-				FString SerializedKey = FGuid::NewGuid().ToString();
-				Ar << SerializedKey;
-			}
-			else
-			{
-				FString Empty;
-				Ar << Empty;
+				// Could not add display string, reset namespace and key.
+				Namespace.Empty();
+				Key.Empty();
 			}
 		}
+
+		// Serialize the Namespace
+		Ar << Namespace;
+
+		// Serialize the Key
+		Ar << Key;
 
 		// Serialize the SourceString, or an empty string if there is none
 		if( SourceString.IsValid() )
@@ -201,6 +196,25 @@ void FTextHistory_NamedFormat::Serialize( FArchive& Ar )
 	Ar << Arguments;
 }
 
+void FTextHistory_NamedFormat::GetSourceTextsFromFormatHistory(FText, TArray<FText>& OutSourceTexts) const
+{
+	// Search the formatting text itself for source text
+	SourceText.GetSourceTextsFromFormatHistory(OutSourceTexts);
+
+	for (auto It = Arguments.CreateConstIterator(); It; ++It)
+	{
+		const FFormatArgumentValue& ArgumentValue = It.Value();
+		if (ArgumentValue.Type == EFormatArgumentType::Text)
+		{
+			if (ArgumentValue.TextValue && ArgumentValue.TextValue->History.IsValid())
+			{
+				// Search any text arguments for source text
+				ArgumentValue.TextValue->History->GetSourceTextsFromFormatHistory(*(ArgumentValue.TextValue), OutSourceTexts);
+			}
+		}
+	}
+}
+
 ///////////////////////////////////////
 // FTextHistory_OrderedFormat
 
@@ -228,6 +242,25 @@ void FTextHistory_OrderedFormat::Serialize( FArchive& Ar )
 	Ar << Arguments;
 }
 
+void FTextHistory_OrderedFormat::GetSourceTextsFromFormatHistory(FText, TArray<FText>& OutSourceTexts) const
+{
+	// Search the formatting text itself for source text
+	SourceText.GetSourceTextsFromFormatHistory(OutSourceTexts);
+
+	for (auto It = Arguments.CreateConstIterator(); It; ++It)
+	{
+		const FFormatArgumentValue& ArgumentValue = *It;
+		if (ArgumentValue.Type == EFormatArgumentType::Text)
+		{
+			if (ArgumentValue.TextValue && ArgumentValue.TextValue->History.IsValid())
+			{
+				// Search any text arguments for source text
+				ArgumentValue.TextValue->History->GetSourceTextsFromFormatHistory(*(ArgumentValue.TextValue), OutSourceTexts);
+			}
+		}
+	}
+}
+
 ///////////////////////////////////////
 // FTextHistory_ArgumentDataFormat
 
@@ -253,6 +286,25 @@ void FTextHistory_ArgumentDataFormat::Serialize( FArchive& Ar )
 
 	Ar << SourceText;
 	Ar << Arguments;
+}
+
+void FTextHistory_ArgumentDataFormat::GetSourceTextsFromFormatHistory(FText, TArray<FText>& OutBaseTexts) const
+{
+	// Search the formatting text itself for source text
+	SourceText.GetSourceTextsFromFormatHistory(OutBaseTexts);
+
+	for (int32 x = 0; x < Arguments.Num(); ++x)
+	{
+		const FFormatArgumentValue& ArgumentValue = Arguments[x].ArgumentValue;
+		if (ArgumentValue.Type == EFormatArgumentType::Text)
+		{
+			if (ArgumentValue.TextValue && ArgumentValue.TextValue->History.IsValid())
+			{
+				// Search any text arguments for source text
+				ArgumentValue.TextValue->History->GetSourceTextsFromFormatHistory(*(ArgumentValue.TextValue), OutBaseTexts);
+			}
+		}
+	}
 }
 
 ///////////////////////////////////////

@@ -10,7 +10,7 @@
 #pragma once
 #include "PersonaOptions.generated.h"
 
-UCLASS(hidecategories=Object, config=EditorUserSettings)
+UCLASS(hidecategories=Object, config=EditorPerProjectUserSettings)
 class UNREALED_API UPersonaOptions : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -31,14 +31,14 @@ class UNREALED_API UPersonaOptions : public UObject
 	uint32 bMuteAudio:1;
 
 	// currently Stats can have None, Basic and Detailed. Please refer to EDisplayInfoMode.
-	UPROPERTY(EditAnywhere, config, Category = Options)
+	UPROPERTY(EditAnywhere, config, Category = Options, meta=(ClampMin ="0", ClampMax = "2", UIMin = "0", UIMax = "2"))
 	int32 ShowMeshStats;
 
 	UPROPERTY(EditAnywhere, config, Category=Options)
 	int32 GridSize;
 
 	UPROPERTY(EditAnywhere, config, Category=Options)
-	int32 ViewModeIndex;
+	TEnumAsByte<EViewModeIndex> ViewModeIndex;
 
 	UPROPERTY(EditAnywhere, config, Category=Options)
 	FLinearColor ViewportBackgroundColor;
@@ -57,7 +57,7 @@ public:
 	void SetShowSky( bool bInShowSky );
 	void SetMuteAudio( bool bInMuteAudio );
 	void SetGridSize( int32 InGridSize );
-	void SetViewModeIndex( int32 InViewModeIndex );
+	void SetViewModeIndex( EViewModeIndex InViewModeIndex );
 	void SetViewFOV( float InViewFOV );
 	void SetDefaultLocalAxesSelection( uint32 InDefaultLocalAxesSelection );
 	void SetShowMeshStats( int32 InShowMeshStats );

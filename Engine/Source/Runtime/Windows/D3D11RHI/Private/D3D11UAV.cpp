@@ -5,7 +5,7 @@
 
 FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FStructuredBufferRHIParamRef StructuredBufferRHI, bool bUseUAVCounter, bool bAppendBuffer)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(StructuredBuffer,StructuredBuffer);
+	FD3D11StructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
 
 	D3D11_BUFFER_DESC BufferDesc;
 	StructuredBuffer->Resource->GetDesc(&BufferDesc);
@@ -83,7 +83,7 @@ FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FTextu
 
 FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FVertexBufferRHIParamRef VertexBufferRHI, uint8 Format)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(VertexBuffer,VertexBuffer);
+	FD3D11VertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 
 	D3D11_BUFFER_DESC BufferDesc;
 	VertexBuffer->Resource->GetDesc(&BufferDesc);
@@ -112,7 +112,7 @@ FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FVerte
 
 FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FStructuredBufferRHIParamRef StructuredBufferRHI)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(StructuredBuffer,StructuredBuffer);
+	FD3D11StructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
 
 	D3D11_BUFFER_DESC BufferDesc;
 	StructuredBuffer->Resource->GetDesc(&BufferDesc);
@@ -146,7 +146,7 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FStructu
 
 FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FVertexBufferRHIParamRef VertexBufferRHI, uint32 Stride, uint8 Format)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(VertexBuffer,VertexBuffer);
+	FD3D11VertexBuffer* VertexBuffer = ResourceCast(VertexBufferRHI);
 	check(VertexBuffer);
 	check(VertexBuffer->Resource);
 
@@ -155,7 +155,7 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FVertexB
 
 	// Create a Shader Resource View
 	D3D11_SHADER_RESOURCE_VIEW_DESC SRVDesc;
-	FMemory::MemZero(SRVDesc);
+	FMemory::Memzero(SRVDesc);
 	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
 	SRVDesc.Buffer.FirstElement = 0;
 
@@ -183,7 +183,7 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FVertexB
 
 void FD3D11DynamicRHI::RHIClearUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values)
 {
-	DYNAMIC_CAST_D3D11RESOURCE(UnorderedAccessView,UnorderedAccessView);
+	FD3D11UnorderedAccessView* UnorderedAccessView = ResourceCast(UnorderedAccessViewRHI);
 	
 	Direct3DDeviceIMContext->ClearUnorderedAccessViewUint(UnorderedAccessView->View, Values);
 	

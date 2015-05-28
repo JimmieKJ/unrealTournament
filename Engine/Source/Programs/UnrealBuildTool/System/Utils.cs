@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using System.Xml;
 using System.Xml.Serialization;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Linq;
 
 namespace UnrealBuildTool
@@ -75,7 +76,47 @@ namespace UnrealBuildTool
 				
 			return Result;
 		}
-				
+
+		/// <summary>
+		/// Expands variables in $(VarName) format in the given string. Variables are retrieved from the given dictionary, or through the environment of the current process.
+		/// Any unknown variables are ignored.
+		/// </summary>
+		/// <param name="InputString">String to search for variable names</param>
+		/// <param name="Variables">Lookup of variable names to values</param>
+		/// <returns>String with all variables replaced</returns>
+		public static string ExpandVariables(string InputString, Dictionary<string, string> AdditionalVariables = null)
+		{
+			string Result = InputString;
+			for(int Idx = Result.IndexOf("$("); Idx != -1; Idx = Result.IndexOf("$(", Idx))
+			{
+				// Find the end of the variable name
+				int EndIdx = Result.IndexOf(')', Idx + 2);
+				if(EndIdx == -1)
+				{
+					break;
+				}
+
+				// Extract the variable name from the string
+				string Name = Result.Substring(Idx + 2, EndIdx - (Idx + 2));
+
+				// Find the value for it, either from the dictionary or the environment block
+				string Value;
+				if(AdditionalVariables == null || !AdditionalVariables.TryGetValue(Name, out Value))
+				{
+					Value = Environment.GetEnvironmentVariable(Name);
+					if(Value == null)
+					{
+						Idx = EndIdx + 1;
+						continue;
+					}
+				}
+
+				// Replace the variable, or skip past it
+				Result = Result.Substring(0, Idx) + Value + Result.Substring(EndIdx + 1);
+			}
+			return Result;
+		}
+		
 		/**
 		 * This is a faster replacement of File.ReadAllText. Code snippet based on code 
 		 * and analysis by Sam Allen
@@ -162,6 +203,40 @@ namespace UnrealBuildTool
 			return Default;
 		}
 
+		[Serializable]
+		[DebuggerDisplay("\\{{Key}={Value}\\}")]
+		public struct EnvVar
+		{
+			[XmlAttribute("Key")]
+			public string Key;
+
+			[XmlAttribute("Value")]
+			public string Value;
+		}
+
+		private static XmlSerializer EnvVarListSerializer = XmlSerializer.FromTypes(new Type[]{ typeof(List<EnvVar>) })[0];
+
+		[DllImport("kernel32.dll", SetLastError=true)]
+		private static extern int GetShortPathName(string pathName, StringBuilder shortName, int cbShortName);
+
+		public static string GetShortPathName(string Path)
+		{
+			int BufferSize = GetShortPathName(Path, null, 0);
+			if (BufferSize == 0)
+			{
+				throw new BuildException("Unable to convert path {0} to 8.3 format", Path);
+			}
+
+			var Builder = new StringBuilder(BufferSize);
+			int ConversionResult = GetShortPathName(Path, Builder, BufferSize);
+			if (ConversionResult == 0)
+			{
+				throw new BuildException("Unable to convert path {0} to 8.3 format", Path);
+			}
+
+			return Builder.ToString();
+		}
+
 		/**
 		 * Sets the environment variables from the passed in batch file
 		 * 
@@ -169,25 +244,43 @@ namespace UnrealBuildTool
 		 */
 		public static void SetEnvironmentVariablesFromBatchFile(string BatchFileName)
 		{
-			// @todo fastubt: Experiment with changing this to run asynchronously at startup, and only blocking if accessed before the .bat file finishes
+			// @todo ubtmake: Experiment with changing this to run asynchronously at startup, and only blocking if accessed before the .bat file finishes
 			if( File.Exists( BatchFileName ) )
 			{
 				// Create a wrapper batch file that echoes environment variables to a text file
-				var EnvOutputFileName = Path.GetTempFileName();
-				var EnvReaderBatchFileName = EnvOutputFileName + ".bat";
-				Log.TraceVerbose( "Creating .bat file {0} for harvesting environment variables.", EnvReaderBatchFileName );
+                string EnvOutputFileName;
+                string EnvReaderBatchFileName;
+                try
+                {
+					EnvOutputFileName = Path.GetTempFileName();
+					EnvReaderBatchFileName = EnvOutputFileName + ".bat";
 
-				{
+					Log.TraceVerbose( "Creating .bat file {0} for harvesting environment variables.", EnvReaderBatchFileName );
+
 					var EnvReaderBatchFileContent = new List<string>();
 
-					// Run 'vcvars32.bat' (or similar x64 version) to set environment variables
-					EnvReaderBatchFileContent.Add( String.Format( "call \"{0}\"", BatchFileName ) );
+					var EnvVarsToXMLExePath = Path.Combine( GetExecutingAssemblyDirectory(), "EnvVarsToXML.exe" );
 
-					// Pipe all environment variables to a file where we can read them in
-					EnvReaderBatchFileContent.Add( String.Format( "set >\"{0}\"", EnvOutputFileName ) );
+					// Convert every path to short filenames to ensure we don't accidentally write out a non-ASCII batch file
+					var ShortBatchFileName       = GetShortPathName(BatchFileName);
+					var ShortEnvOutputFileName   = GetShortPathName(EnvOutputFileName);
+					var ShortEnvVarsToXMLExePath = GetShortPathName(EnvVarsToXMLExePath);
+
+					// Run 'vcvars32.bat' (or similar x64 version) to set environment variables
+					EnvReaderBatchFileContent.Add( String.Format( "call \"{0}\"", ShortBatchFileName ) );
+
+					// Pipe all environment variables to a file where we can read them in.
+					// We use a separate executable which runs after the batch file because we want to capture
+					// the environment after it has been set, and there's no easy way of doing this, and parsing
+					// the output of the set command is problematic when the vars contain non-ASCII characters.
+					EnvReaderBatchFileContent.Add( String.Format( "\"{0}\" \"{1}\"", ShortEnvVarsToXMLExePath, ShortEnvOutputFileName ) );
 
 					ResponseFile.Create( EnvReaderBatchFileName, EnvReaderBatchFileContent );
-				}
+                }
+                catch (Exception Ex)
+                {
+                    throw new BuildException(Ex, "Failed to create temporary batch file to harvest environment variables (\"{0}\")", Ex.Message);
+                }
 
 				Log.TraceVerbose( "Finished creating .bat file.  Environment variables will be written to {0}.", EnvOutputFileName );
 
@@ -196,10 +289,25 @@ namespace UnrealBuildTool
 				{
 					// Run the batch file using cmd.exe with the /U option, to force Unicode output. Many locales have non-ANSI characters in system paths.
 					var StartInfo = BatchFileProcess.StartInfo;
+
 					StartInfo.FileName = Path.Combine(Environment.SystemDirectory, "cmd.exe");
 					StartInfo.Arguments = String.Format("/U /C \"{0}\"", EnvReaderBatchFileName);
 					StartInfo.CreateNoWindow = true;
 					StartInfo.UseShellExecute = false;
+
+					// The engine adds a lot of DLL search paths to the PATH environment variable, and this gets propagated through to UBT. MSVC wants
+					// to add a lot more, so reset it to the system default before spawning the batch file, otherwise we can overflow the max length and fail.
+					string NewPathVariable = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.Machine) ?? "";
+					if(String.IsNullOrEmpty(NewPathVariable))
+					{
+						NewPathVariable = Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
+					}
+					else
+					{
+						NewPathVariable += ";" + Environment.GetEnvironmentVariable("PATH", EnvironmentVariableTarget.User);
+					}
+					StartInfo.EnvironmentVariables["PATH"] = NewPathVariable;
+
 					StartInfo.RedirectStandardOutput = true;
 					StartInfo.RedirectStandardError = true;
 					StartInfo.RedirectStandardInput = true;
@@ -221,19 +329,27 @@ namespace UnrealBuildTool
 					Log.TraceVerbose( "Finished launching {0}.", StartInfo.FileName );
 				}
 
-				// Load environment variables (the file will be encoded without a BOM, so we need to manually specify the encoding)
-				var EnvStringsFromFile = File.ReadAllLines( EnvOutputFileName, Encoding.Unicode ).Where( Line => !String.IsNullOrEmpty( Line ) );
-				foreach( var EnvString in EnvStringsFromFile )
+				// Accept chars which are technically not valid XML - they were written out by XmlSerializer anyway!
+				var Settings = new XmlReaderSettings();
+				Settings.CheckCharacters  = false;
+
+				List<EnvVar> EnvVars;
+				try
 				{
-					// Parse the environment variable name and value from the string ("name=value")
-					int EqualSignPos = EnvString.IndexOf( '=' );
-					var EnvironmentVariableName = EnvString.Substring( 0, EqualSignPos );
-					var EnvironmentVariableValue = EnvString.Substring( EqualSignPos + 1 );
+					using (var Stream = new StreamReader(EnvOutputFileName))
+					using (var Reader = XmlReader.Create(Stream, Settings))
+					{
+						EnvVars = (List<EnvVar>)EnvVarListSerializer.Deserialize(Reader);
+					}
+				}
+				catch (Exception e)
+				{
+					throw new BuildException(e, "Failed to read environment variables from XML file: {0}", EnvOutputFileName);
+				}
 
-					Log.TraceVerbose("Setting environment variable: {0}={1}", EnvironmentVariableName, EnvironmentVariableValue);
-
-					// Set the environment variable
-					Environment.SetEnvironmentVariable( EnvironmentVariableName, EnvironmentVariableValue );
+				foreach (var EnvVar in EnvVars)
+				{
+					Environment.SetEnvironmentVariable(EnvVar.Key, EnvVar.Value);
 				}
 
 				// Clean up the temporary files we created earlier on, so the temp directory doesn't fill up
@@ -833,7 +949,7 @@ namespace UnrealBuildTool
 		/// assembly path in case shadow copying is enabled.
 		/// </summary>
 		/// <returns>Absolute path to the executing assembly including the assembly filename.</returns>
-		internal static string GetExecutingAssemblyLocation()
+		public static string GetExecutingAssemblyLocation()
 		{
 			return new Uri(System.Reflection.Assembly.GetExecutingAssembly().CodeBase).LocalPath;
 		}
@@ -844,7 +960,7 @@ namespace UnrealBuildTool
 		/// assembly directory in case shadow copying is enabled.
 		/// </summary>
 		/// <returns>Absolute path to the directory containing the executing assembly.</returns>
-		internal static string GetExecutingAssemblyDirectory()
+		public static string GetExecutingAssemblyDirectory()
 		{
 			return Path.GetDirectoryName(GetExecutingAssemblyLocation());
 		}
@@ -858,6 +974,37 @@ namespace UnrealBuildTool
 		public static bool ImplementsInterface<InterfaceType>(Type TestType)
 		{
 			return Array.IndexOf(TestType.GetInterfaces(), typeof(InterfaceType)) != -1;
+		}
+
+		/// <summary>
+		/// Returns the User Settings Directory path. This matches FPlatformProcess::UserSettingsDir()
+		/// </summary>
+		public static string GetUserSettingDirectory()
+		{
+			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
+			{
+				return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Library", "Application Support", "Epic");
+			}
+			else if (Environment.OSVersion.Platform == PlatformID.Unix)
+			{
+				return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Epic");
+			}
+			else
+			{
+				return Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+			}
+		}
+
+		/** Helper function to get the minimum of two comparable objects */
+		public static T Min<T>(T a, T b) where T : IComparable
+		{
+			return a.CompareTo(b) < 0 ? a : b;
+		}
+
+		/** Helper function to get the maximum of two comparable objects */
+		public static T Max<T>(T a, T b) where T : IComparable
+		{
+			return a.CompareTo(b) > 0 ? a : b;
 		}
 	}
 

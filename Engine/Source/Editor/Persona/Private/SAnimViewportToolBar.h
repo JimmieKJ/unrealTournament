@@ -84,6 +84,9 @@ private:
 	 */
 	TSharedRef<SWidget> GeneratePlaybackMenu() const;
 
+	TSharedRef<SWidget> GenerateTurnTableMenu() const;
+	FText GetTurnTableMenuLabel() const;
+
 	/**
 	* Generate color of the text on the top
 	*/ 

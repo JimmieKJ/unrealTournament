@@ -68,56 +68,75 @@ TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetSystemFont()
 	return SystemFont;
 }
 
-const FFontData& FLegacySlateFontInfoCache::GetFallbackFont()
+TSharedPtr<const FCompositeFont> FLegacySlateFontInfoCache::GetFallbackFont()
 {
-	const FName FallbackFontName = *(FPaths::EngineContentDir() / TEXT("Slate/Fonts/") / (NSLOCTEXT("Slate", "FallbackFont", "DroidSansFallback").ToString() + TEXT(".ttf")));
-
-	// GetFallbackFont is called directly from the font cache, so may be called from multiple threads at once
+	// GetFallbackFont may be called from multiple threads at once
 	FScopeLock Lock(&FallbackFontCS);
 
+	// The fallback font can change if the active culture is changed
+	const int32 CurrentHistoryVersion = FTextLocalizationManager::Get().GetTextRevision();
+
+	if (!FallbackFont.IsValid() || FallbackFontHistoryVersion != CurrentHistoryVersion)
 	{
-		TSharedPtr<const FFontData>* const ExistingFallbackFont = FallbackFonts.Find(FallbackFontName);
-		if(ExistingFallbackFont)
-		{
-			return **ExistingFallbackFont;
-		}
+		FallbackFontHistoryVersion = CurrentHistoryVersion;
+
+		const FString FallbackFontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/") / (NSLOCTEXT("Slate", "FallbackFont", "DroidSansFallback").ToString() + TEXT(".ttf"));
+		UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
+		FontBulkData->Initialize(FallbackFontPath);
+		FallbackFont = MakeShareable(new FStandaloneCompositeFont(NAME_None, FallbackFontPath, FontBulkData, EFontHinting::Default));
 	}
 
-	const FString FallbackFontPath = FallbackFontName.ToString();
-	UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
-	FontBulkData->Initialize(FallbackFontPath);
-	TSharedRef<const FFontData> NewFallbackFont = MakeShareable(new FFontData(FallbackFontPath, FontBulkData, EFontHinting::Default));
-	FallbackFonts.Add(FallbackFontName, NewFallbackFont);
-	return *NewFallbackFont;
+	return FallbackFont;
 }
 
-const FFontData& FLegacySlateFontInfoCache::GetLastResortFont()
+const FFontData& FLegacySlateFontInfoCache::GetFallbackFontData()
 {
-	// GetLastResortFont is called directly from the font cache, so may be called from multiple threads at once
-	FScopeLock Lock(&LastResortFontCS);
+	// GetFallbackFontData is called directly from the font cache, so may be called from multiple threads at once
+	FScopeLock Lock(&FallbackFontDataCS);
 
-	if (!LastResortFont.IsValid())
+	// The fallback font can change if the active culture is changed
+	const int32 CurrentHistoryVersion = FTextLocalizationManager::Get().GetTextRevision();
+
+	if (!FallbackFontData.IsValid() || FallbackFontDataHistoryVersion != CurrentHistoryVersion)
+	{
+		FallbackFontDataHistoryVersion = CurrentHistoryVersion;
+
+		const FString FallbackFontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/") / (NSLOCTEXT("Slate", "FallbackFont", "DroidSansFallback").ToString() + TEXT(".ttf"));
+		UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
+		FontBulkData->Initialize(FallbackFontPath);
+		FallbackFontData = MakeShareable(new FFontData(FallbackFontPath, FontBulkData, EFontHinting::Default));
+	}
+
+	return *FallbackFontData;
+}
+
+const FFontData& FLegacySlateFontInfoCache::GetLastResortFontData()
+{
+	// GetLastResortFontData is called directly from the font cache, so may be called from multiple threads at once
+	FScopeLock Lock(&LastResortFontDataCS);
+
+	if (!LastResortFontData.IsValid())
 	{
 		const FString LastResortFontPath = FPaths::EngineContentDir() / TEXT("Slate/Fonts/LastResort.ttf");
 		UFontBulkData* FontBulkData = NewObject<UFontBulkData>();
 		FontBulkData->Initialize(LastResortFontPath);
-		LastResortFont = MakeShareable(new FFontData(LastResortFontPath, FontBulkData, EFontHinting::Default));
+		LastResortFontData = MakeShareable(new FFontData(LastResortFontPath, FontBulkData, EFontHinting::Default));
 	}
 
-	return *LastResortFont;
+	return *LastResortFontData;
 }
 
 void FLegacySlateFontInfoCache::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	for(auto& FallbackFontEntry : FallbackFonts)
+	if(FallbackFontData.IsValid())
 	{
-		const UFontBulkData* TmpPtr = FallbackFontEntry.Value->BulkDataPtr;
+		const UFontBulkData* TmpPtr = FallbackFontData->BulkDataPtr;
 		Collector.AddReferencedObject(TmpPtr);
 	}
 
-	if(LastResortFont.IsValid())
+	if(LastResortFontData.IsValid())
 	{
-		const UFontBulkData* TmpPtr = LastResortFont->BulkDataPtr;
+		const UFontBulkData* TmpPtr = LastResortFontData->BulkDataPtr;
 		Collector.AddReferencedObject(TmpPtr);
 	}
 }

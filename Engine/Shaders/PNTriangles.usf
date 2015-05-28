@@ -77,17 +77,11 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 		TessellationMultipliers.x = 0.5 * (I[0].TessellationMultiplier + I[1].TessellationMultiplier);
 		TessellationMultipliers.y = 0.5 * (I[1].TessellationMultiplier + I[2].TessellationMultiplier);
 		TessellationMultipliers.z = 0.5 * (I[2].TessellationMultiplier + I[0].TessellationMultiplier);
-		TessellationMultipliers.w = (I[0].TessellationMultiplier + I[1].TessellationMultiplier + I[2].TessellationMultiplier) / 3.0;
+		TessellationMultipliers.w = 0.333 * (I[0].TessellationMultiplier + I[1].TessellationMultiplier + I[2].TessellationMultiplier);
 
 		//@todo: This should be vectorized and done in the MainHull shader.
 		float4 CompositeTessellationFactors = TessellationMultipliers * CalculateCompositeTessellationFactors(B300.xyz,B030.xyz,B003.xyz);
-
-		// Limit the tessellation factor to <= 8. The multiplies and saturates handle any potential NANs/INFs in CompositeTessellationFactors.
-		float4 MaxTessFactor = 8.0f;
-		float4 InvMaxTessFactor = 1.0f / MaxTessFactor;
-
-		// clamp at 1 to prevent triangle to disappear with 
-		CompositeTessellationFactors = max(1, MaxTessFactor * saturate(CompositeTessellationFactors * InvMaxTessFactor));
+		CompositeTessellationFactors = clamp( CompositeTessellationFactors, 1, 15 );
 
 		O.TessFactor[0] = CompositeTessellationFactors.x; // 1->2 edge
 		O.TessFactor[1] = CompositeTessellationFactors.y; // 2->0 edge
@@ -101,6 +95,7 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 	[domain("tri")]
 	[patchconstantfunc("PNSharedConstantHull")]
 	[outputcontrolpoints(OUT_CONTROL_POINTS)]
+	[maxtessfactor(15)]
 	TESSELLATION_ATTRIBUTES
 	FPNTessellationHSToDS MainHull( InputPatch<FPassSpecificVSToDS, IN_CONTROL_POINTS> I, uint ControlPointID : SV_OutputControlPointID )
 	{

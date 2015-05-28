@@ -43,7 +43,7 @@ void UEnvQueryItemType_Direction::SetContextHelper(FEnvQueryContextData& Context
 {
 	ContextData.ValueType = UEnvQueryItemType_Direction::StaticClass();
 	ContextData.NumValues = 1;
-	ContextData.RawData.Init(sizeof(FVector));
+	ContextData.RawData.SetNumUninitialized(sizeof(FVector));
 
 	UEnvQueryItemType_Direction::SetValue((uint8*)ContextData.RawData.GetData(), SingleDirection);
 }
@@ -52,7 +52,7 @@ void UEnvQueryItemType_Direction::SetContextHelper(FEnvQueryContextData& Context
 {
 	ContextData.ValueType = UEnvQueryItemType_Direction::StaticClass();
 	ContextData.NumValues = 1;
-	ContextData.RawData.Init(sizeof(FVector));
+	ContextData.RawData.SetNumUninitialized(sizeof(FVector));
 
 	UEnvQueryItemType_Direction::SetValueRot((uint8*)ContextData.RawData.GetData(), SingleRotation);
 }
@@ -61,7 +61,7 @@ void UEnvQueryItemType_Direction::SetContextHelper(FEnvQueryContextData& Context
 {
 	ContextData.ValueType = UEnvQueryItemType_Direction::StaticClass();
 	ContextData.NumValues = MultipleDirections.Num();
-	ContextData.RawData.Init(sizeof(FVector) * MultipleDirections.Num());
+	ContextData.RawData.SetNumUninitialized(sizeof(FVector) * MultipleDirections.Num());
 
 	uint8* RawData = (uint8*)ContextData.RawData.GetData();
 	for (int32 DirectionIndex = 0; DirectionIndex < MultipleDirections.Num(); DirectionIndex++)
@@ -75,7 +75,7 @@ void UEnvQueryItemType_Direction::SetContextHelper(FEnvQueryContextData& Context
 {
 	ContextData.ValueType = UEnvQueryItemType_Direction::StaticClass();
 	ContextData.NumValues = MultipleRotations.Num();
-	ContextData.RawData.Init(sizeof(FVector) * MultipleRotations.Num());
+	ContextData.RawData.SetNumUninitialized(sizeof(FVector) * MultipleRotations.Num());
 
 	uint8* RawData = (uint8*)ContextData.RawData.GetData();
 	for (int32 RotationIndex = 0; RotationIndex < MultipleRotations.Num(); RotationIndex++)

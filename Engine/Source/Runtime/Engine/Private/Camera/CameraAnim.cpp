@@ -20,6 +20,7 @@ UCameraAnim::UCameraAnim(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	AnimLength = 3.0f;
+	bRelativeToInitialTransform = true;
 	BaseFOV = 90.0f;
 }
 
@@ -29,7 +30,7 @@ bool UCameraAnim::CreateFromInterpGroup(class UInterpGroup* SrcGroup, class AMat
 	// assert we're controlling a camera actor
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	{
-		UInterpGroupInst* GroupInst = InMatineeActor->FindFirstGroupInst(SrcGroup);
+		UInterpGroupInst* GroupInst = InMatineeActor ? InMatineeActor->FindFirstGroupInst(SrcGroup) : NULL;
 		if (GroupInst)
 		{
 			check( GroupInst->GetGroupActor()->IsA(ACameraActor::StaticClass()) );

@@ -21,11 +21,13 @@ public:
 	void Construct( const FArguments& InArgs );
 
 	// SWidget implementation
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 	// End of SWidget implementation
 
 private:
+	/** Focuses the search box post-construct */
+	EActiveTimerReturnType SetFocusPostConstruct( double InCurrentTime, float InDeltaTime );
+
 	void FolderEntered(const FString& FolderPath);
 
 	/** Called when the editable text needs to be set or cleared */
@@ -88,7 +90,7 @@ private:
 private:
 
 	/** The list of FrontendFilters currently applied to the asset view */
-	TSharedPtr<AssetFilterCollectionType> FrontendFilters;
+	TSharedPtr<FAssetFilterCollectionType> FrontendFilters;
 
 	/** The asset view widget */
 	TSharedPtr<SAssetView> AssetViewPtr;
@@ -118,7 +120,7 @@ private:
 	bool bPendingFocusNextFrame;
 
 	/** Filters needed for filtering the assets */
-	TSharedPtr< AssetFilterCollectionType > FilterCollection;
+	TSharedPtr< FAssetFilterCollectionType > FilterCollection;
 	TSharedPtr< FFrontendFilter_Text > TextFilter;
 	TSharedPtr< FFrontendFilter_ShowOtherDevelopers > OtherDevelopersFilter;
 

@@ -17,6 +17,8 @@
 #include "Engine/DebugCameraController.h"
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/GameMode.h"
+#include "GameFramework/PlayerInput.h"
+#include "GameFramework/InputSettings.h"
 #include "Components/BrushComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCheatManager, Log, All);
@@ -34,14 +36,6 @@ UCheatManager::UCheatManager(const FObjectInitializer& ObjectInitializer)
 	DebugTraceDrawNormalLength = 30.0f;
 	DebugTraceChannel = ECC_Pawn;
 	bDebugCapsuleTraceComplex = false;
-}
-
-void UCheatManager::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-#if ENABLE_VISUAL_LOG
-	DOREPLIFETIME(UCheatManager, bVisualLoggerActiveOnServer);
-#endif
 }
 
 void UCheatManager::FreezeFrame(float delay)
@@ -65,7 +59,7 @@ void UCheatManager::Teleport()
 	static FName NAME_TeleportTrace = FName(TEXT("TeleportTrace"));
 	FCollisionQueryParams TraceParams(NAME_TeleportTrace, true, AssociatedPawn);
 
-	bool bHit = GetWorld()->LineTraceSingle(Hit, ViewLocation, ViewLocation + 1000000.f * ViewRotation.Vector(), ECC_Pawn, TraceParams);
+	bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, ViewLocation, ViewLocation + 1000000.f * ViewRotation.Vector(), ECC_Pawn, TraceParams);
 	if ( bHit )
 	{
 		Hit.Location += Hit.Normal * 4.0f;
@@ -205,12 +199,12 @@ void UCheatManager::DamageTarget(float DamageAmount)
 
 	FCollisionQueryParams TraceParams(NAME_None, true, MyPC->GetPawn());
 	FHitResult Hit;
-	bool bHit = GetWorld()->LineTraceSingle(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
+	bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
 	if (bHit)
 	{
 		check(Hit.GetActor() != NULL);
 		FVector ActorForward, ActorSide, ActorUp;
-		FRotationMatrix(Hit.GetActor()->GetActorRotation()).GetScaledAxes(ActorForward, ActorSide, ActorUp);
+		FQuatRotationMatrix(Hit.GetActor()->GetActorQuat()).GetScaledAxes(ActorForward, ActorSide, ActorUp);
 
 		FPointDamageEvent DamageEvent(DamageAmount, Hit, -ActorForward, UDamageType::StaticClass());
 		Hit.GetActor()->TakeDamage(DamageAmount, DamageEvent, MyPC, MyPC->GetPawn());
@@ -231,7 +225,7 @@ void UCheatManager::DestroyTarget()
 
 	FCollisionQueryParams TraceParams(NAME_None, true, MyPC->GetPawn());
 	FHitResult Hit;
-	bool bHit = GetWorld()->LineTraceSingle(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
+	bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
 	if (bHit)
 	{
 		check(Hit.GetActor() != NULL);
@@ -270,16 +264,60 @@ void UCheatManager::DestroyAll(TSubclassOf<AActor> aClass)
 	}
 }
 
+void UCheatManager::DestroyAllPawnsExceptTarget()
+{
+	// First do the trace to find the target
+	APlayerController* const MyPC = GetOuterAPlayerController();
+	if ((MyPC == NULL) || (MyPC->PlayerCameraManager == NULL))
+	{
+		return;
+	}
+
+	check(GetWorld() != NULL);
+	FVector const CamLoc = MyPC->PlayerCameraManager->GetCameraLocation();
+	FRotator const CamRot = MyPC->PlayerCameraManager->GetCameraRotation();
+
+	FCollisionQueryParams TraceParams(NAME_None, true, MyPC->GetPawn());
+	FHitResult Hit;
+	APawn* HitPawnTarget = NULL;
+	bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
+	if (bHit)
+	{
+		check(Hit.GetActor() != NULL);
+		HitPawnTarget = Cast<APawn>(Hit.GetActor());
+	}
+
+	// if we have a pawn target, destroy all other non-players
+	if (HitPawnTarget)
+	{
+		for (TActorIterator<APawn> It(GetWorld(), APawn::StaticClass()); It; ++It)
+		{
+			APawn* Pawn = *It;
+			if (!Pawn->IsPendingKill())
+			{
+				if ((Pawn != HitPawnTarget) && Cast<APlayerController>(Pawn->Controller) == NULL)
+				{
+					if (Pawn->Controller != NULL)
+					{
+						Pawn->Controller->Destroy();
+					}
+					Pawn->Destroy();
+				}
+			}
+		}
+	}
+}
+
 void UCheatManager::DestroyPawns(TSubclassOf<APawn> aClass)
 {
 	if ( aClass == NULL )
 	{
 		 aClass = APawn::StaticClass();
 	}
-	for( FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
+	for (TActorIterator<APawn> It(GetWorld(), aClass); It; ++It)
 	{
-		APawn* Pawn = *Iterator;
-		if ( Pawn->IsA(aClass) && Cast<APlayerController>(Pawn->Controller) == NULL )
+		APawn* Pawn = *It;
+		if ( Cast<APlayerController>(Pawn->Controller) == NULL )
 		{
 			if ( Pawn->Controller != NULL )
 			{
@@ -581,7 +619,7 @@ void UCheatManager::BeginDestroy()
 		FVisualLogger::Get().SetIsRecording(false);
 		FVisualLogger::Get().SetIsRecordingToFile(false);
 		bToggleAILogging = false;
-		bVisualLoggerActiveOnServer = false;
+		FVisualLogger::Get().SetIsRecordingOnServer(false);
 	}
 #endif
 	Super::BeginDestroy();
@@ -595,7 +633,6 @@ bool UCheatManager::ServerToggleAILogging_Validate()
 void UCheatManager::ServerToggleAILogging_Implementation()
 {
 #if ENABLE_VISUAL_LOG
-	UWorld *World = GetWorld();
 	if (FVisualLogger::Get().IsRecordingToFile())
 	{
 		// stop recording and dump all remaining logs in a moment
@@ -609,8 +646,24 @@ void UCheatManager::ServerToggleAILogging_Implementation()
 		bToggleAILogging = true;
 	}
 
-	bVisualLoggerActiveOnServer = bToggleAILogging;
-	GetOuterAPlayerController()->ClientMessage(FString::Printf(TEXT("OK! VisLog recording is now %s"), FVisualLogger::Get().IsRecording() ? TEXT("Enabled") : TEXT("Disabled")));
+	FVisualLogger::Get().SetIsRecordingOnServer(bToggleAILogging);
+	UWorld *World = GetWorld();
+	if (World)
+	{
+		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* PC = *Iterator;
+			if (PC)
+			{
+				PC->OnServerStartedVisualLogger(bToggleAILogging);
+			}
+		}
+	}
+	else
+	{
+		GetOuterAPlayerController()->OnServerStartedVisualLogger(bToggleAILogging);
+		GetOuterAPlayerController()->ClientMessage(FString::Printf(TEXT("VisLog recording is now %s"), FVisualLogger::Get().IsRecording() ? TEXT("Enabled") : TEXT("Disabled")));
+	}
 #endif
 }
 
@@ -632,13 +685,6 @@ void UCheatManager::ToggleAILogging()
 	{
 		ServerToggleAILogging();
 	}
-#endif
-}
-
-void UCheatManager::OnRep_VisualLoggerActiveOnServer()
-{
-#if ENABLE_VISUAL_LOG
-	FVisualLogger::Get().SetIsRecordingOnServer(bVisualLoggerActiveOnServer);
 #endif
 }
 
@@ -669,7 +715,7 @@ void UCheatManager::TickCollisionDebug()
 			{
 				// If we get a hit, draw the capsule
 				FHitResult Result;
-				bool bHit = GetWorld()->SweepSingle(Result, ViewLoc, End, FQuat::Identity, DebugTraceChannel, FCollisionShape::MakeCapsule(DebugCapsuleRadius, DebugCapsuleHalfHeight), CapsuleParams);
+				bool bHit = GetWorld()->SweepSingleByChannel(Result, ViewLoc, End, FQuat::Identity, DebugTraceChannel, FCollisionShape::MakeCapsule(DebugCapsuleRadius, DebugCapsuleHalfHeight), CapsuleParams);
 				if(bHit)
 				{
 					AddCapsuleSweepDebugInfo(ViewLoc, End, Result.ImpactPoint, Result.Normal, Result.ImpactNormal, Result.Location, DebugCapsuleHalfHeight, DebugCapsuleRadius, false, (Result.bStartPenetrating && Result.bBlockingHit)? true: false);
@@ -1072,6 +1118,33 @@ void UCheatManager::SetWorldOrigin()
 
 	FIntVector NewOrigin = FIntVector(ViewLocation.X, ViewLocation.Y, ViewLocation.Z) + World->OriginLocation;
 	World->RequestNewWorldOrigin(NewOrigin);
+}
+
+void UCheatManager::SetMouseSensitivityToDefault()
+{
+	UPlayerInput* PlayerInput = GetOuterAPlayerController()->PlayerInput;
+	if (PlayerInput)
+	{
+		// find default sensitivity restore to that
+		for (const FInputAxisConfigEntry& AxisConfigEntry : GetDefault<UInputSettings>()->AxisConfig)
+		{
+			const FKey AxisKey = AxisConfigEntry.AxisKeyName;
+			if (AxisKey == EKeys::MouseX)
+			{
+				PlayerInput->SetMouseSensitivity(AxisConfigEntry.AxisProperties.Sensitivity);
+				break;
+			}
+		}
+	}
+}
+
+void UCheatManager::InvertMouse()
+{
+	UPlayerInput* PlayerInput = GetOuterAPlayerController()->PlayerInput;
+	if (PlayerInput)
+	{
+		PlayerInput->InvertAxisKey(EKeys::MouseY);
+	}
 }
 
 void UCheatManager::LogOutBugItGoToLogFile( const FString& InScreenShotDesc, const FString& InGoString, const FString& InLocString )

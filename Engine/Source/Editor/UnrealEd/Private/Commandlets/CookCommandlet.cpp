@@ -24,12 +24,14 @@
 #include "PhysicsPublic.h"
 #include "CookerSettings.h"
 #include "ShaderCompiler.h"
+#include "MemoryMisc.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogCookCommandlet, Log, All);
 
 UCookerSettings::UCookerSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	SectionName = TEXT("Cooker");
 	DefaultPVRTCQuality = 1;
 	DefaultASTCQualityBySize = 3;
 	DefaultASTCQualityBySpeed = 3;
@@ -67,7 +69,7 @@ UCookCommandlet::UCookCommandlet( const FObjectInitializer& ObjectInitializer )
 
 bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForceClose )
 {
-	UCookOnTheFlyServer *CookOnTheFlyServer = ConstructObject<UCookOnTheFlyServer>( UCookOnTheFlyServer::StaticClass() );
+	UCookOnTheFlyServer *CookOnTheFlyServer = NewObject<UCookOnTheFlyServer>();
 
 	struct FScopeRootObject
 	{
@@ -110,18 +112,19 @@ bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForce
 	}
 
 	// Garbage collection should happen when either
-	//	1. We have cooked a map
+	//	1. We have cooked a map (configurable asset type)
 	//	2. We have cooked non-map packages and...
-	//		a. we have accumulated 50 of these since the last GC.
-	//		b. we have been idle for 20 seconds.
+	//		a. we have accumulated 50 (configurable) of these since the last GC.
+	//		b. we have been idle for 20 (configurable) seconds.
 	bool bShouldGC = true;
 
 	// megamoth
 	uint32 NonMapPackageCountSinceLastGC = 0;
 	
-	const int32 PackagesPerGC = 50;
-	
-	const double IdleTimeToGC = 20.0;
+	const uint32 PackagesPerGC = CookOnTheFlyServer->GetPackagesPerGC();
+	const double IdleTimeToGC = CookOnTheFlyServer->GetIdleTimeToGC();
+	const uint64 MaxMemoryAllowance = CookOnTheFlyServer->GetMaxMemoryAllowance();
+
 	double LastCookActionTime = FPlatformTime::Seconds();
 
 	FDateTime LastConnectionTime = FDateTime::UtcNow();
@@ -134,49 +137,60 @@ bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForce
 		static const float CookOnTheSideTimeSlice = 10.0f;
 		TickResults = CookOnTheFlyServer->TickCookOnTheSide(CookOnTheSideTimeSlice, NonMapPackageCountSinceLastGC);
 
-		bCookedAMapSinceLastGC |= TickResults & UCookOnTheFlyServer::COSR_CookedMap;
-		if ( TickResults & (UCookOnTheFlyServer::COSR_CookedMap | UCookOnTheFlyServer::COSR_CookedPackage))
+		bCookedAMapSinceLastGC |= ((TickResults & UCookOnTheFlyServer::COSR_RequiresGC) != 0);
+		if ( TickResults & (UCookOnTheFlyServer::COSR_CookedMap | UCookOnTheFlyServer::COSR_CookedPackage | UCookOnTheFlyServer::COSR_WaitingOnCache))
 		{
 			LastCookActionTime = FPlatformTime::Seconds();
 		}
 
+		if (NonMapPackageCountSinceLastGC > 0)
+		{
+			if ((PackagesPerGC > 0) && (NonMapPackageCountSinceLastGC > PackagesPerGC))
+			{
+				UE_LOG(LogCookCommandlet, Display, TEXT("Cooker has exceeded max number of non map packages since last gc"));
+				bShouldGC |= true;
+			}
+
+			if ((IdleTimeToGC > 0) && ((FPlatformTime::Seconds() - LastCookActionTime) >= IdleTimeToGC))
+			{
+				UE_LOG(LogCookCommandlet, Display, TEXT("Cooker has been idle for long time gc"));
+				bShouldGC |= true;
+			}
+		}
+
+		if ( bCookedAMapSinceLastGC )
+		{
+			UE_LOG(LogCookCommandlet, Display, TEXT("Cooker cooked a map since last gc collecting garbage"));
+			bShouldGC |= true;
+		}
+
+		if ( !bShouldGC && HasExceededMaxMemory(MaxMemoryAllowance) )
+		{
+			UE_LOG(LogCookCommandlet, Display, TEXT("Cooker has exceeded max memory usage collecting garbage"));
+			bShouldGC |= true;
+		}
+
+		// we don't want to gc if we are waiting on cache of objects. this could clean up objects which we will need to reload next frame
+		if (bShouldGC && ((TickResults & UCookOnTheFlyServer::COSR_WaitingOnCache)==0) )
+		{
+			bShouldGC = false;
+			bCookedAMapSinceLastGC = false;
+			NonMapPackageCountSinceLastGC = 0;
+
+			UE_LOG(LogCookCommandlet, Display, TEXT("GC..."));
+
+			CollectGarbage( RF_Native );
+		}
+
+
+		// force at least a tick shader compilation even if we are requesting stuff
+		CookOnTheFlyServer->TickRecompileShaderRequests();
+		GShaderCompilingManager->ProcessAsyncResults(true, false);
+
 
 		while ( (CookOnTheFlyServer->HasCookRequests() == false) && !GIsRequestingExit)
 		{
-				
-			{
-				if (NonMapPackageCountSinceLastGC > 0)
-				{
-					// We should GC if we have packages to collect and we've been idle for some time.
-					bShouldGC = (NonMapPackageCountSinceLastGC > PackagesPerGC) || 
-						((FPlatformTime::Seconds() - LastCookActionTime) >= IdleTimeToGC);
-				}
-
-				// delay the gc until we process some unsolicited packages
-				if ( bCookedAMapSinceLastGC )
-				{
-					UE_LOG( LogCookCommandlet, Display, TEXT("Delaying map gc because we have unsolicited cook requests") );
-					bShouldGC |= bCookedAMapSinceLastGC;
-				}
-
-				if (bShouldGC)
-				{
-					bShouldGC = false;
-					bCookedAMapSinceLastGC = false;
-					NonMapPackageCountSinceLastGC = 0;
-
-					UE_LOG(LogCookCommandlet, Display, TEXT("GC..."));
-
-					CollectGarbage( RF_Native );
-				}
-				else
-				{
-					CookOnTheFlyServer->TickRecompileShaderRequests();
-
-					FPlatformProcess::Sleep(0.0f);
-				}
-			}
-
+			CookOnTheFlyServer->TickRecompileShaderRequests();
 
 			// Shaders need to be updated
 			GShaderCompilingManager->ProcessAsyncResults(true, false);
@@ -337,8 +351,8 @@ bool UCookCommandlet::SaveCookedPackage( UPackage* Package, uint32 SaveFlags, bo
 		Filename = SandboxFile->ConvertToAbsolutePathForExternalAppForWrite(*Filename);
 
 		uint32 OriginalPackageFlags = Package->PackageFlags;
- 		UWorld* World = NULL;
- 		EObjectFlags Flags = RF_NoFlags;
+		UWorld* World = NULL;
+		EObjectFlags Flags = RF_NoFlags;
 		bool bPackageFullyLoaded = false;
 
 		if (bCompressed)
@@ -440,7 +454,7 @@ bool UCookCommandlet::SaveCookedPackage( UPackage* Package, uint32 SaveFlags, bo
 					if ( !World->bIsWorldInitialized)
 					{
 						// we need to initialize the world - at least need physics scene since BP construction script runs during cooking, otherwise trace won't work
-						World->InitWorld(UWorld::InitializationValues().RequiresHitProxies(false).ShouldSimulatePhysics(false).EnableTraceCollision(false).CreateNavigation(false).AllowAudioPlayback(false).CreatePhysicsScene(true));
+						World->InitWorld(UWorld::InitializationValues().RequiresHitProxies(false).ShouldSimulatePhysics(false).EnableTraceCollision(false).CreateNavigation(false).CreateAISystem(false).AllowAudioPlayback(false).CreatePhysicsScene(true));
 					}
 				}
 
@@ -509,7 +523,8 @@ int32 UCookCommandlet::Main(const FString& CmdLineParams)
 	bCompressed = Switches.Contains(TEXT("COMPRESSED"));
 	bIterativeCooking = Switches.Contains(TEXT("ITERATE"));
 	bSkipEditorContent = Switches.Contains(TEXT("SKIPEDITORCONTENT")); // This won't save out any packages in Engine/COntent/Editor*
-
+	bErrorOnEngineContentUse = Switches.Contains(TEXT("ERRORONENGINECONTENTUSE"));
+	bUseSerializationForGeneratingPackageDependencies = Switches.Contains(TEXT("UseSerializationForGeneratingPackageDependencies"));
 	if (bLeakTest)
 	{
 		for (FObjectIterator It; It; ++It)
@@ -544,38 +559,19 @@ int32 UCookCommandlet::Main(const FString& CmdLineParams)
 	}
 	else
 	{
+		
 		ITargetPlatformManagerModule& TPM = GetTargetPlatformManagerRef();
 		const TArray<ITargetPlatform*>& Platforms = TPM.GetActiveTargetPlatforms();
-	
-		// Local sandbox file wrapper. This will be used to handle path conversions,
-		// but will not be used to actually write/read files so we can safely
-		// use [Platform] token in the sandbox directory name and then replace it
-		// with the actual platform name.
-		SandboxFile = new FSandboxPlatformFile(false);
-	
-		// Output directory override.	
-		FString OutputDirectory = GetOutputDirectoryOverride();
 
-		// Use SandboxFile to do path conversion to properly handle sandbox paths (outside of standard paths in particular).
-		SandboxFile->Initialize(&FPlatformFileManager::Get().GetPlatformFile(), *FString::Printf(TEXT("-sandbox=\"%s\""), *OutputDirectory));
-
-		CleanSandbox(Platforms);
-
-		// allow the game to fill out the asset registry, as well as get a list of objects to always cook
 		TArray<FString> FilesInPath;
-		FGameDelegates::Get().GetCookModificationDelegate().ExecuteIfBound(FilesInPath);
-
-		// always generate the asset registry before starting to cook, for either method
-		GenerateAssetRegistry(Platforms);
-
 		// new cook is better 
-		if ( Switches.Contains(TEXT("NEWCOOK")))
+		if ( Switches.Contains(TEXT("OLDCOOK")))
 		{
-			NewCook(Platforms, FilesInPath );
+			Cook(Platforms, FilesInPath);	
 		}
 		else
 		{
-			Cook(Platforms, FilesInPath);
+			NewCook(Platforms, FilesInPath );
 		}
 	}
 	
@@ -700,6 +696,7 @@ void UCookCommandlet::GenerateAssetRegistry(const TArray<ITargetPlatform*>& Plat
 		{
 			// write it out to a memory archive
 			FArrayWriter SerializedAssetRegistry;
+			SerializedAssetRegistry.SetFilterEditorOnly(true);
 			AssetRegistry.Serialize(SerializedAssetRegistry);
 			UE_LOG(LogCookCommandlet, Display, TEXT("Generated asset registry size is %5.2fkb"), (float)SerializedAssetRegistry.Num() / 1024.f);
 
@@ -1013,7 +1010,7 @@ void UCookCommandlet::GenerateLongPackageNames(TArray<FString>& FilesInPath)
 bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray<FString>& FilesInPath )
 {
 
-	UCookOnTheFlyServer *CookOnTheFlyServer = ConstructObject<UCookOnTheFlyServer>( UCookOnTheFlyServer::StaticClass() );
+	UCookOnTheFlyServer *CookOnTheFlyServer = NewObject<UCookOnTheFlyServer>();
 
 	struct FScopeRootObject
 	{
@@ -1035,11 +1032,37 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	ECookInitializationFlags CookFlags = ECookInitializationFlags::IncludeServerMaps;
 	CookFlags |= bCompressed ? ECookInitializationFlags::Compressed : ECookInitializationFlags::None;
 	CookFlags |= bIterativeCooking ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
-	CookFlags |= bSkipEditorContent ? ECookInitializationFlags::SkipEditorContent : ECookInitializationFlags::None;
-	CookFlags |= bGenerateStreamingInstallManifests ? ECookInitializationFlags::GenerateStreamingInstallManifest : ECookInitializationFlags::None;
+	CookFlags |= bSkipEditorContent ? ECookInitializationFlags::SkipEditorContent : ECookInitializationFlags::None;	
+	CookFlags |= bUseSerializationForGeneratingPackageDependencies ? ECookInitializationFlags::UseSerializationForPackageDependencies : ECookInitializationFlags::None;
+
+	TArray<UClass*> FullGCAssetClasses;
+	if ( FullGCAssetClassNames.Num() )
+	{
+		for ( const auto& ClassName : FullGCAssetClassNames )
+		{
+			UClass* ClassToForceFullGC = FindObject<UClass>(nullptr, *ClassName);
+			if ( ClassToForceFullGC )
+			{
+				FullGCAssetClasses.Add(ClassToForceFullGC);
+			}
+			else
+			{
+				UE_LOG(LogCookCommandlet, Warning, TEXT("Configured to force full GC for assets of type (%s) but that class does not exist."), *ClassName);
+			}
+		}
+	}
 
 
 	CookOnTheFlyServer->Initialize( ECookMode::CookByTheBook, CookFlags );
+
+	// for backwards compat use the FullGCAssetClasses that we got from the cook commandlet ini section
+	if ( FullGCAssetClasses.Num() > 0 )
+	{
+		CookOnTheFlyServer->SetFullGCAssetClasses( FullGCAssetClasses );
+	}
+	
+
+
 
 	//////////////////////////////////////////////////////////////////////////
 	// parse commandline options 
@@ -1053,35 +1076,39 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	FString CreateReleaseVersion;
 	FParse::Value( *Params, TEXT("CreateReleaseVersion="), CreateReleaseVersion);
 
-	/*FString AssetRegistry;
-	if (FParse::Value(*Params, TEXT("SHIPPEDASSETREGISTRY="), AssetRegistry))
-	{
-		TArray<FName> TargetPlatformNames;
-		for (const auto &Platform : Platforms)
-		{
-			FName PlatformName = FName(*Platform->PlatformName());
-			TargetPlatformNames.Add(PlatformName); // build list of all target platform names
-		}
-		CookOnTheFlyServer->WarmCookedPackages(FPaths::GameContentDir() / AssetRegistry, TargetPlatformNames);
-	}*/
+	// Add any map sections specified on command line
+	TArray<FString> AlwaysCookMapList;
 
-	TArray<FString> CmdLineIniSections;
-	FString SectionStr;
-	if (FParse::Value(*Params, TEXT("MAPINISECTION="), SectionStr))
+	// Add the default map section
+	GEditor->LoadMapListFromIni(TEXT("AlwaysCookMaps"), AlwaysCookMapList);
+
+	TArray<FString> MapList;
+	// Add any map sections specified on command line
+	GEditor->ParseMapSectionIni(*Params, MapList);
+
+	if (MapList.Num() == 0)
 	{
-		if (SectionStr.Contains(TEXT("+")))
+		// if we didn't find any maps look in the project settings for maps
+
+		UProjectPackagingSettings* PackagingSettings = Cast<UProjectPackagingSettings>(UProjectPackagingSettings::StaticClass()->GetDefaultObject());
+
+		for (const auto& MapToCook : PackagingSettings->MapsToCook)
 		{
-			SectionStr.ParseIntoArray(&CmdLineIniSections,TEXT("+"),true);
-		}
-		else
-		{
-			CmdLineIniSections.Add(SectionStr);
+			MapList.Add(MapToCook.FilePath);
 		}
 	}
 
-	// Add any map sections specified on command line
-	TArray<FString> MapList;
-	GEditor->ParseMapSectionIni(*Params, MapList);
+	// if we still don't have any mapsList check if the allmaps ini section is filled out
+	// this is for backwards compatibility
+	if (MapList.Num() == 0)
+	{
+		GEditor->ParseMapSectionIni(TEXT("-MAPINISECTION=AllMaps"), MapList);
+	}
+
+
+	// put the always cook map list at the front of the map list
+	AlwaysCookMapList.Append(MapList);
+	Swap(MapList, AlwaysCookMapList);
 
 	TArray<FString> CmdLineMapEntries;
 	TArray<FString> CmdLineDirEntries;
@@ -1098,7 +1125,7 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 				FString ValuesList = Switch.Right(Switch.Len() - (SwitchKey + TEXT("=")).Len());
 
 				// Allow support for -KEY=Value1+Value2+Value3 as well as -KEY=Value1 -KEY=Value2
-				for (int32 PlusIdx = ValuesList.Find(TEXT("+")); PlusIdx != INDEX_NONE; PlusIdx = ValuesList.Find(TEXT("+")))
+				for (int32 PlusIdx = ValuesList.Find(TEXT("+"), ESearchCase::CaseSensitive); PlusIdx != INDEX_NONE; PlusIdx = ValuesList.Find(TEXT("+"), ESearchCase::CaseSensitive))
 				{
 					const FString ValueElement = ValuesList.Left(PlusIdx);
 					ValueElements.Add(ValueElement);
@@ -1162,35 +1189,38 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	Swap( StartupOptions.BasedOnReleaseVersion, BasedOnReleaseVersion );
 	Swap( StartupOptions.CreateReleaseVersion, CreateReleaseVersion );
 	StartupOptions.CookOptions = CookOptions;
+	StartupOptions.bErrorOnEngineContentUse = bErrorOnEngineContentUse;
+	StartupOptions.bGenerateDependenciesForMaps = Switches.Contains(TEXT("GenerateDependenciesForMaps"));
+	StartupOptions.bGenerateStreamingInstallManifests = bGenerateStreamingInstallManifests;
+
 
 	CookOnTheFlyServer->StartCookByTheBook( StartupOptions );
 
 	// Garbage collection should happen when either
-	//	1. We have cooked a map
+	//	1. We have cooked a map (configurable asset type)
 	//	2. We have cooked non-map packages and...
-	//		a. we have accumulated 50 of these since the last GC.
-	//		b. we have been idle for 20 seconds.
+	//		a. we have accumulated 50 (configurable) of these since the last GC.
+	//		b. we have been idle for 20 (configurable) seconds.
 	bool bShouldGC = true;
 
 	// megamoth
 	uint32 NonMapPackageCountSinceLastGC = 0;
 
-	const int32 PackagesPerGC = 50;
+	const uint32 PackagesPerGC = CookOnTheFlyServer->GetPackagesPerGC();
+	const double IdleTimeToGC = CookOnTheFlyServer->GetIdleTimeToGC();
+	const uint64 MaxMemoryAllowance = CookOnTheFlyServer->GetMaxMemoryAllowance();
 
-	const double IdleTimeToGC = 20.0;
 	double LastCookActionTime = FPlatformTime::Seconds();
 
 	FDateTime LastConnectionTime = FDateTime::UtcNow();
 	bool bHadConnection = false;
 
-	bool bCookedAMapSinceLastGC = false;
 	while ( CookOnTheFlyServer->IsCookByTheBookRunning() )
 	{
 		uint32 TickResults = 0;
 		static const float CookOnTheSideTimeSlice = 10.0f;
 		TickResults = CookOnTheFlyServer->TickCookOnTheSide(CookOnTheSideTimeSlice, NonMapPackageCountSinceLastGC);
 
-		bCookedAMapSinceLastGC |= TickResults & UCookOnTheFlyServer::COSR_CookedMap;
 		if ( TickResults & (UCookOnTheFlyServer::COSR_CookedMap | UCookOnTheFlyServer::COSR_CookedPackage))
 		{
 			LastCookActionTime = FPlatformTime::Seconds();
@@ -1202,21 +1232,20 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 		if (NonMapPackageCountSinceLastGC > 0)
 		{
 			// We should GC if we have packages to collect and we've been idle for some time.
-			bShouldGC = (NonMapPackageCountSinceLastGC > PackagesPerGC) || 
-				((FPlatformTime::Seconds() - LastCookActionTime) >= IdleTimeToGC);
+			const bool bExceededPackagesPerGC = (PackagesPerGC > 0) && (NonMapPackageCountSinceLastGC > PackagesPerGC);
+			const bool bExceededIdleTimeToGC = (IdleTimeToGC > 0) && ((FPlatformTime::Seconds() - LastCookActionTime) >= IdleTimeToGC);
+			bShouldGC |= bExceededPackagesPerGC || bExceededIdleTimeToGC;
 		}
 
-		// delay the gc until we process some unsolicited packages
-		if ( bCookedAMapSinceLastGC )
-		{
-			UE_LOG( LogCookCommandlet, Display, TEXT("Delaying map gc because we have unsolicited cook requests") );
-			bShouldGC |= bCookedAMapSinceLastGC;
-		}
+		bShouldGC |= (TickResults & UCookOnTheFlyServer::COSR_RequiresGC)!=0;
 
-		if (bShouldGC)
+		bShouldGC |= HasExceededMaxMemory(MaxMemoryAllowance);
+
+
+		// don't clean up if we are waiting on cache of cooked data
+		if (bShouldGC && ((TickResults & UCookOnTheFlyServer::COSR_WaitingOnCache) == 0) )
 		{
 			bShouldGC = false;
-			bCookedAMapSinceLastGC = false;
 			NonMapPackageCountSinceLastGC = 0;
 
 			UE_LOG(LogCookCommandlet, Display, TEXT("GC..."));
@@ -1236,11 +1265,20 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	}
 
 	return true;
-
-
-
 }
 
+bool UCookCommandlet::HasExceededMaxMemory(uint64 MaxMemoryAllowance) const
+{
+	const FPlatformMemoryStats MemStats = FPlatformMemory::GetStats();
+
+	uint64 UsedMemory = MemStats.UsedPhysical + MemStats.UsedVirtual;
+	if ( (UsedMemory >= MaxMemoryAllowance) && 
+		(MaxMemoryAllowance > 0u) )
+	{
+		return true;
+	}
+	return false;
+}
 
 void UCookCommandlet::ProcessDeferredCommands()
 {
@@ -1263,6 +1301,27 @@ void UCookCommandlet::ProcessDeferredCommands()
 
 bool UCookCommandlet::Cook(const TArray<ITargetPlatform*>& Platforms, TArray<FString>& FilesInPath)
 {
+	// Local sandbox file wrapper. This will be used to handle path conversions,
+	// but will not be used to actually write/read files so we can safely
+	// use [Platform] token in the sandbox directory name and then replace it
+	// with the actual platform name.
+	SandboxFile = new FSandboxPlatformFile(false);
+
+	// Output directory override.	
+	FString OutputDirectory = GetOutputDirectoryOverride();
+
+	// Use SandboxFile to do path conversion to properly handle sandbox paths (outside of standard paths in particular).
+	SandboxFile->Initialize(&FPlatformFileManager::Get().GetPlatformFile(), *FString::Printf(TEXT("-sandbox=\"%s\""), *OutputDirectory));
+
+	CleanSandbox(Platforms);
+
+	// allow the game to fill out the asset registry, as well as get a list of objects to always cook
+	FGameDelegates::Get().GetCookModificationDelegate().ExecuteIfBound(FilesInPath);
+
+	// always generate the asset registry before starting to cook, for either method
+	GenerateAssetRegistry(Platforms);
+
+
 	// Subsets for parallel processing
 	uint32 SubsetMod = 0;
 	uint32 SubsetTarget = MAX_uint32;
@@ -1350,7 +1409,8 @@ bool UCookCommandlet::Cook(const TArray<ITargetPlatform*>& Platforms, TArray<FSt
 						GetObjectsWithOuter(Pkg, ObjectsInPackage, true);
 						for( int32 IndexPackage = 0; IndexPackage < ObjectsInPackage.Num(); IndexPackage++ )
 						{
-							ObjectsInPackage[IndexPackage]->CookerWillNeverCookAgain();
+							ObjectsInPackage[IndexPackage]->WillNeverCacheCookedPlatformDataAgain();
+							ObjectsInPackage[IndexPackage]->ClearAllCachedCookedPlatformData();
 						}
 					}
 				}

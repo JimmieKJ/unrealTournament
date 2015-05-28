@@ -35,6 +35,5 @@ public:
 
 private:
 	/** The sequence to drive the spinning animation */
-	FCurveSequence Sequence;
-	FCurveHandle Curve;
+	FCurveSequence SpinAnimationSequence;
 };

@@ -7,8 +7,8 @@
  *****************************************************************************/
 
 FSlateThrottleManager::FSlateThrottleManager( )
-	: CVarAllowThrottle(TEXT("Slate.bAllowThrottling"), bShouldThrottle, TEXT("Allow Slate to throttle parts of the engine to ensure the UI is responsive") )
-	, bShouldThrottle(1)
+	: bShouldThrottle(1)
+	, CVarAllowThrottle(TEXT("Slate.bAllowThrottling"), bShouldThrottle, TEXT("Allow Slate to throttle parts of the engine to ensure the UI is responsive") )
 	, ThrottleCount(0)
 { }
 
@@ -42,8 +42,8 @@ void FSlateThrottleManager::LeaveResponsiveMode( FThrottleRequest& InHandle )
 	if( InHandle.IsValid() )
 	{
 		// Decrement throttle count. If it becomes zero we are no longer throttling
+		check(ThrottleCount > 0);
 		--ThrottleCount;
-		check(ThrottleCount >= 0);
 
 		InHandle.Index = INDEX_NONE;
 	}

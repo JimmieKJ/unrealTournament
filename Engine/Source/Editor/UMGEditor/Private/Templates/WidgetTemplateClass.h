@@ -37,6 +37,10 @@ protected:
 	/** Called when objects need to be swapped out for new versions, like after a blueprint recompile. */
 	void OnObjectsReplaced(const TMap<UObject*, UObject*>& ReplacementMap);
 
+	/** Constructs the widget template with an overridden object name. */
+	UWidget* CreateNamed(class UWidgetTree* Tree, FName NameOverride);
+
+protected:
 	/** The widget class that will be created by this template */
 	TWeakObjectPtr<UClass> WidgetClass;
 };

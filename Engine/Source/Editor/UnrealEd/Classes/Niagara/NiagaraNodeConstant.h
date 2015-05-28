@@ -2,11 +2,11 @@
 
 #pragma once
 
-#include "Niagara/NiagaraCommon.h"
+#include "NiagaraCommon.h"
 #include "NiagaraNodeConstant.generated.h"
 
-UCLASS(MinimalAPI)
-class UNiagaraNodeConstant : public UNiagaraNode
+UCLASS(MinimalAPI, Deprecated)
+class UDEPRECATED_NiagaraNodeConstant : public UNiagaraNode
 {
 	GENERATED_UCLASS_BODY()
 
@@ -28,7 +28,7 @@ public:
 	bool IsExposedToEffectEditor()	{ return bExposeToEffectEditor; }
 
 	// Begin UObject interface
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent);
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 	// End UObject interface
 	
 	// Begin EdGraphNode interface
@@ -38,7 +38,7 @@ public:
 	// End EdGraphNode interface
 
 	// Begin UNiagaraNode interface
-	UNREALED_API virtual void Compile(class INiagaraCompiler* Compiler, TArray<FNiagaraNodeResult>& Outputs)override;
+	UNREALED_API virtual void Compile(class INiagaraCompiler* Compiler, TArray<FNiagaraNodeResult>& Outputs) override;
 	// End UNiagaraNode interface
 };
 

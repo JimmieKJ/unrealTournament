@@ -8,7 +8,7 @@
 /**
  * Implements the settings for the Scene Outliner.
  */
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class USceneOutlinerSettings
 	: public UObject
 {

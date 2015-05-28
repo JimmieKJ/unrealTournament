@@ -49,7 +49,7 @@ public:
 
 	static bool ShouldCache( EShaderPlatform Platform )
 	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5);
+		return RHISupportsComputeShaders(Platform);
 	}
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment )
@@ -185,7 +185,7 @@ static int32 GenerateParticleSortKeys(
 	)
 {
 	SCOPED_DRAW_EVENT(RHICmdList, ParticleSortKeyGen);
-	check(FeatureLevel == ERHIFeatureLevel::SM5);
+	check(RHISupportsComputeShaders(GShaderPlatformForFeatureLevel[FeatureLevel]));
 
 	FParticleKeyGenParameters KeyGenParameters;
 	FParticleKeyGenUniformBufferRef KeyGenUniformBuffer;
@@ -240,7 +240,7 @@ static int32 GenerateParticleSortKeys(
  */
 void FParticleSortBuffers::InitRHI()
 {
-	if (GetFeatureLevel() >= ERHIFeatureLevel::SM5)
+	if (RHISupportsComputeShaders(GShaderPlatformForFeatureLevel[GetFeatureLevel()]))
 	{
 		for (int32 BufferIndex = 0; BufferIndex < 2; ++BufferIndex)
 		{

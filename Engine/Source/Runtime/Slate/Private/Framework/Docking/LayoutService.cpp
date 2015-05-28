@@ -66,8 +66,8 @@ void FLayoutSaveRestore::MigrateConfig( const FString& OldConfigFileName, const 
 
 	// remove old configuration
 	GConfig->EmptySection(EditorLayoutsSectionName, OldConfigFileName);
-	GConfig->Flush(false, GEditorUserSettingsIni);
-	GConfig->Flush(false, GEditorLayoutIni);
+	GConfig->Flush(false, OldConfigFileName);
+	GConfig->Flush(false, NewConfigFileName);
 }
 
 

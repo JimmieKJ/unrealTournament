@@ -145,6 +145,16 @@ void FOutputDeviceMacError::HandleError()
 	FCoreDelegates::OnShutdownAfterError.Broadcast();
 }
 
+@implementation FMacConsoleWindow
+- (void)windowWillClose:(NSNotification*)Notification
+{
+	if (!MacApplication && [[NSApp orderedWindows] count] == 1)
+	{
+		_Exit(0);
+	}
+}
+@end
+
 ////////////////////////////////////////
 // FOutputDeviceConsoleMac
 ////////////////////////////////////////
@@ -201,10 +211,11 @@ void FOutputDeviceConsoleMac::CreateConsole()
 	}
 
 	MainThreadCall(^{
-		ConsoleHandle = [[NSWindow alloc] initWithContentRect: NSMakeRect(ConsolePosX, ConsolePosY, ConsoleWidth, ConsoleHeight)
+		ConsoleHandle = [[FMacConsoleWindow alloc] initWithContentRect: NSMakeRect(ConsolePosX, ConsolePosY, ConsoleWidth, ConsoleHeight)
 										styleMask: (NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask)
 										  backing: NSBackingStoreBuffered
 											defer: NO];
+		[ConsoleHandle setDelegate:ConsoleHandle];
 
 		ScrollView = [[NSScrollView alloc] initWithFrame:[[ConsoleHandle contentView] frame]];
 		NSSize ContentSize = [ScrollView contentSize];
@@ -233,7 +244,7 @@ void FOutputDeviceConsoleMac::CreateConsole()
 			[ConsoleHandle center];
 		}
 
-		[ConsoleHandle setOpaque: YES];
+		[ConsoleHandle setOpaque:YES];
 		[ConsoleHandle makeKeyAndOrderFront:nil];
 		
 		if(!MacApplication)

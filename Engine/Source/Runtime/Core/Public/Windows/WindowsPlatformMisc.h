@@ -46,7 +46,10 @@ struct CORE_API FWindowsPlatformMisc
 	{
 		if (IsDebuggerPresent())
 		{
-			::DebugBreak();
+			// Prefer __debugbreak() instead of ::DebugBreak() on Windows platform, so the code pointer isn't left
+			// inside the DebugBreak() Windows system library (which we usually won't have symbols for), and avoids
+			// us having to "step out" to get back to Unreal code.
+			__debugbreak();
 		}
 	}
 #endif
@@ -61,12 +64,28 @@ struct CORE_API FWindowsPlatformMisc
 		return false;
 	}
 
+	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
+	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse()
+	{
+#if !UE_BUILD_SHIPPING
+		if (!IsDebuggerPresent())
+		{
+			PromptForRemoteDebugging(false);
+		}
+
+		DebugBreak();
+#endif
+
+		return false;
+	}
+
 	static void PumpMessages(bool bFromMainLoop);
 	static uint32 GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings );
 	static uint32 GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings);
 	static void SetUTF8Output();
 	static void LocalPrint(const TCHAR *Message);
 	static void RequestExit(bool Force);
+	static void RequestMinimize();
 	static const TCHAR* GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error);
 	static void ClipboardCopy(const TCHAR* Str);
 	static void ClipboardPaste(class FString& Dest);
@@ -82,9 +101,7 @@ struct CORE_API FWindowsPlatformMisc
 	static void LoadStartupModules();
 
 	static uint32 GetLastError();
-
 	static void RaiseException( uint32 ExceptionCode );
-
 	static bool SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue);
 	static bool GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue);
 
@@ -103,6 +120,17 @@ struct CORE_API FWindowsPlatformMisc
 	static bool OsExecute(const TCHAR* CommandType, const TCHAR* Command, const TCHAR* CommandLine = NULL);
 
 	/**
+	 * Attempts to get the handle to a top-level window of the specified process.
+	 *
+	 * If the process has a single main window (root), its handle will be returned.
+	 * If the process has multiple top-level windows, the first one found is returned.
+	 *
+	 * @param ProcessId The identifier of the process to get the window for.
+	 * @return Window handle, or 0 if not found.
+	 */
+	static HWND GetTopLevelWindowHandle(uint32 ProcessId);
+
+	/**
 	 * Searches for a window that matches the window name or the title starts with a particular text. When
 	 * found, it returns the title text for that window
 	 *
@@ -119,14 +147,17 @@ struct CORE_API FWindowsPlatformMisc
 	/** 
 	 * Determines if we are running on the Windows version or newer
 	 *
+	 * See the 'Remarks' section of https://msdn.microsoft.com/en-us/library/windows/desktop/ms724833(v=vs.85).aspx
+	 * for a list of MajorVersion/MinorVersion version combinations for Microsoft Windows.
+	 *
 	 * @return	Returns true if the current Windows version if equal or newer than MajorVersion
 	 */
-	static bool VerifyWindowsMajorVersion(uint32 MajorVersion);
+	static bool VerifyWindowsVersion(uint32 MajorVersion, uint32 MinorVersion);
 
 	/**
 	 * Sample the displayed pixel color from anywhere on the screen using the OS
 	 *
-	 * @param	InScreenPos		The screen coords to sample for current pixel color
+	 * @param	InScreenPos		The screen coordinates to sample for current pixel color
 	 * @param	InGamma			Optional gamma correction to apply to the screen color
 	 *
 	 * @return					The color of the pixel displayed at the chosen location
@@ -229,6 +260,9 @@ struct CORE_API FWindowsPlatformMisc
 	 */
 	static FString GetOperatingSystemId();
 
+	static EConvertibleLaptopMode GetConvertibleLaptopMode();
+
+	static IPlatformChunkInstall* GetPlatformChunkInstall();
 };
 
 

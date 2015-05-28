@@ -89,14 +89,12 @@ typedef TMetalBaseShader<FRHIGeometryShader, SF_Geometry> FMetalGeometryShader;
 class FMetalComputeShader : public TMetalBaseShader<FRHIComputeShader, SF_Compute>
 {
 public:
-	FMetalComputeShader(const TArray<uint8>& InCode) :
-		TMetalBaseShader<FRHIComputeShader, SF_Compute>(InCode),
-		NumThreadsX(0),
-		NumThreadsY(0),
-		NumThreadsZ(0)
-	{
-	}
-
+	FMetalComputeShader(const TArray<uint8>& InCode);
+	
+	// the state object for a compute shader
+	id <MTLComputePipelineState> Kernel;
+	
+	// thread group counts
 	int32 NumThreadsX;
 	int32 NumThreadsY;
 	int32 NumThreadsZ;
@@ -415,6 +413,8 @@ public:
 	// Destructor
 	~FMetalStructuredBuffer();
 
+	// the actual buffer
+	id<MTLBuffer> Buffer;
 };
 
 
@@ -423,6 +423,9 @@ class FMetalUnorderedAccessView : public FRHIUnorderedAccessView
 {
 public:
 
+	/** Set it into the compute context */
+	void Set(uint32 ResourceIndex);
+	
 	// the potential resources to refer to with the UAV object
 	TRefCountPtr<FMetalStructuredBuffer> SourceStructuredBuffer;
 	TRefCountPtr<FMetalVertexBuffer> SourceVertexBuffer;
@@ -486,4 +489,125 @@ private:
 	uint8* PackedUniformsScratch[CrossCompiler::PACKED_TYPEINDEX_MAX];
 
 	int32 GlobalUniformArraySize;
+};
+
+template<class T>
+struct TMetalResourceTraits
+{
+};
+template<>
+struct TMetalResourceTraits<FRHIVertexDeclaration>
+{
+	typedef FMetalVertexDeclaration TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIVertexShader>
+{
+	typedef FMetalVertexShader TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIGeometryShader>
+{
+	typedef FMetalGeometryShader TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIHullShader>
+{
+	typedef FMetalHullShader TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIDomainShader>
+{
+	typedef FMetalDomainShader TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIPixelShader>
+{
+	typedef FMetalPixelShader TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIComputeShader>
+{
+	typedef FMetalComputeShader TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIBoundShaderState>
+{
+	typedef FMetalBoundShaderState TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHITexture3D>
+{
+	typedef FMetalTexture3D TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHITexture2D>
+{
+	typedef FMetalTexture2D TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHITexture2DArray>
+{
+	typedef FMetalTexture2DArray TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHITextureCube>
+{
+	typedef FMetalTextureCube TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIRenderQuery>
+{
+	typedef FMetalRenderQuery TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIUniformBuffer>
+{
+	typedef FMetalUniformBuffer TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIIndexBuffer>
+{
+	typedef FMetalIndexBuffer TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIStructuredBuffer>
+{
+	typedef FMetalStructuredBuffer TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIVertexBuffer>
+{
+	typedef FMetalVertexBuffer TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIShaderResourceView>
+{
+	typedef FMetalShaderResourceView TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIUnorderedAccessView>
+{
+	typedef FMetalUnorderedAccessView TConcreteType;
+};
+
+template<>
+struct TMetalResourceTraits<FRHISamplerState>
+{
+	typedef FMetalSamplerState TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIRasterizerState>
+{
+	typedef FMetalRasterizerState TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIDepthStencilState>
+{
+	typedef FMetalDepthStencilState TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIBlendState>
+{
+	typedef FMetalBlendState TConcreteType;
 };

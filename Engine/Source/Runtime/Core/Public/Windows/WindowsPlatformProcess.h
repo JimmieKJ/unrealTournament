@@ -7,11 +7,7 @@
 
 
 /** Windows implementation of the process handle. */
-#if PLATFORM_WINDOWS && defined(__clang__)	// @todo clang: Clang on Windows has a bug with non-type template arguments
-struct FProcHandle : public TProcHandle<HANDLE>
-#else
 struct FProcHandle : public TProcHandle<HANDLE, nullptr>
-#endif
 {
 public:
 	/** Default constructor. */
@@ -24,19 +20,8 @@ public:
 		: TProcHandle( Other )
 	{}
 
-	FORCEINLINE bool Close()
-	{
-		if( IsValid() )
-		{
-			::CloseHandle( Handle );
-			Reset();
-			return true;
-		}
-		else
-		{
-			return false;
-		}
-	}
+	DEPRECATED(4.8, "FProcHandle::Close() is redundant - handles created with FPlatformProcess::CreateProc() should be closed with FPlatformProcess::CloseProc().")
+	FORCEINLINE bool Close();
 };
 
 
@@ -100,6 +85,7 @@ public:
 	static FProcHandle CreateProc( const TCHAR* URL, const TCHAR* Parms, bool bLaunchDetached, bool bLaunchHidden, bool bLaunchReallyHidden, uint32* OutProcessID, int32 PriorityModifier, const TCHAR* OptionalWorkingDirectory, void* PipeWrite );
 	static bool IsProcRunning( FProcHandle & ProcessHandle );
 	static void WaitForProc( FProcHandle & ProcessHandle );
+	static void CloseProc( FProcHandle & ProcessHandle );
 	static void TerminateProc( FProcHandle & ProcessHandle, bool KillTree = false );
 	static bool GetProcReturnCode( FProcHandle & ProcHandle, int32* ReturnCode );
 	static bool GetApplicationMemoryUsage(uint32 ProcessId, SIZE_T* OutMemoryUsage);
@@ -112,7 +98,8 @@ public:
 	static void LaunchFileInDefaultExternalApplication( const TCHAR* FileName, const TCHAR* Parms = NULL, ELaunchVerb::Type Verb = ELaunchVerb::Open );
 	static void ExploreFolder( const TCHAR* FilePath );
 	static bool ResolveNetworkPath( FString InUNCPath, FString& OutPath ); 
-	static void Sleep( float Seconds );
+	static void Sleep(float Seconds);
+	static void SleepNoStats(float Seconds);
 	static void SleepInfinite();
 	static class FEvent* CreateSynchEvent(bool bIsManualReset = false);
 	static class FRunnableThread* CreateRunnableThread();
@@ -123,7 +110,7 @@ public:
 	static FSemaphore* NewInterprocessSynchObject(const FString& Name, bool bCreate, uint32 MaxLocks = 1);
 	static bool DeleteInterprocessSynchObject(FSemaphore * Object);
 	static bool Daemonize();
-
+	static FProcHandle OpenProcess(uint32 ProcessID);
 protected:
 
 	/**
@@ -146,6 +133,16 @@ private:
 
 
 typedef FWindowsPlatformProcess FPlatformProcess;
+
+inline bool FProcHandle::Close()
+{
+	if (IsValid())
+	{
+		FPlatformProcess::CloseProc(*this);
+		return true;
+	}
+	return false;
+}
 
 #include "WindowsCriticalSection.h"
 

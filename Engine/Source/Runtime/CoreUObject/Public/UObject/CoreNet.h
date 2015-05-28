@@ -1,14 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	CoreNet.h: Core networking support.
-=============================================================================*/
-
 #pragma once
 
 #include "ObjectBase.h"
 
+
 DECLARE_DELEGATE_RetVal_OneParam( bool, FNetObjectIsDynamic, const UObject*);
+
 
 //
 // Information about a field.
@@ -17,11 +15,12 @@ class COREUOBJECT_API FFieldNetCache
 {
 public:
 	UField* Field;
-	int32 FieldNetIndex;
+	int32	FieldNetIndex;
+	uint32	FieldChecksum;
 	FFieldNetCache()
 	{}
-	FFieldNetCache( UField* InField, int32 InFieldNetIndex )
-	: Field(InField), FieldNetIndex(InFieldNetIndex)
+	FFieldNetCache( UField* InField, int32 InFieldNetIndex, uint32 InFieldChecksum )
+		: Field(InField), FieldNetIndex(InFieldNetIndex), FieldChecksum(InFieldChecksum)
 	{}
 };
 
@@ -33,52 +32,88 @@ class COREUOBJECT_API FClassNetCache
 	friend class FClassNetCacheMgr;
 public:
 	FClassNetCache();
-	FClassNetCache( UClass* Class );
-	int32 GetMaxIndex()
+	FClassNetCache( const UClass* Class );
+
+	int32 GetMaxIndex() const
 	{
-		return FieldsBase+Fields.Num();
+		return FieldsBase + Fields.Num();
 	}
-	FFieldNetCache* GetFromField( UObject* Field )
+
+	const FFieldNetCache* GetFromField( const UObject* Field ) const
 	{
-		FFieldNetCache* Result=NULL;
-		for( FClassNetCache* C=this; C; C=C->Super )
+		FFieldNetCache* Result = NULL;
+
+		for ( const FClassNetCache* C= this; C; C = C->Super )
 		{
-			if( (Result=C->FieldMap.FindRef(Field))!=NULL )
+			if ( ( Result = C->FieldMap.FindRef( Field ) ) != NULL )
 			{
 				break;
 			}
 		}
 		return Result;
 	}
-	FFieldNetCache* GetFromIndex( int32 Index )
+
+	const FFieldNetCache* GetFromChecksum( const uint32 Checksum ) const
 	{
-		for( FClassNetCache* C=this; C; C=C->Super )
+		FFieldNetCache* Result = NULL;
+
+		for ( const FClassNetCache* C = this; C; C = C->Super )
 		{
-			if( Index>=C->FieldsBase && Index<C->FieldsBase+C->Fields.Num() )
+			if ( ( Result = C->FieldChecksumMap.FindRef( Checksum ) ) != NULL )
+			{
+				break;
+			}
+		}
+		return Result;
+	}
+
+	const FFieldNetCache* GetFromIndex( const int32 Index ) const
+	{
+		for ( const FClassNetCache* C = this; C; C = C->Super )
+		{
+			if ( Index >= C->FieldsBase && Index < C->FieldsBase + C->Fields.Num() )
 			{
 				return &C->Fields[Index-C->FieldsBase];
 			}
 		}
 		return NULL;
 	}
+
+	uint32 GetClassChecksum() const { return ClassChecksum; }
+
 private:
 	int32								FieldsBase;
-	FClassNetCache *					Super;
-	TWeakObjectPtr< UClass >			Class;
+	const FClassNetCache*				Super;
+	TWeakObjectPtr< const UClass >		Class;
+	uint32								ClassChecksum;
 	TArray< FFieldNetCache >			Fields;
-	TMap< UObject *, FFieldNetCache * > FieldMap;
+	TMap< UObject*, FFieldNetCache* >	FieldMap;
+	TMap< uint32, FFieldNetCache* >		FieldChecksumMap;
 };
+
 
 class COREUOBJECT_API FClassNetCacheMgr
 {
 public:
+	FClassNetCacheMgr() : bDebugChecksum( false ), DebugChecksumIndent( 0 ) { }
+
 	/** get the cached field to index mappings for the given class */
-	FClassNetCache *	GetClassNetCache( UClass * Class );
-	void				ClearClassNetCache();
+	const FClassNetCache*	GetClassNetCache( const UClass* Class );
+	void					ClearClassNetCache();
+
+	void				SortProperties( TArray< UProperty* >& Properties ) const;
+	uint32				SortedStructFieldsChecksum( const UStruct* Struct, uint32 Checksum ) const;
+	uint32				GetPropertyChecksum( const UProperty* Property, uint32 Checksum ) const;
+	uint32				GetFunctionChecksum( const UFunction* Function, uint32 Checksum ) const;
+	uint32				GetFieldChecksum( const UField* Field, uint32 Checksum ) const;
+
+	bool				bDebugChecksum;
+	int					DebugChecksumIndent;
 
 private:
-	TMap< TWeakObjectPtr< UClass >, FClassNetCache * > ClassFieldIndices;
+	TMap< TWeakObjectPtr< const UClass >, FClassNetCache* > ClassFieldIndices;
 };
+
 
 //
 // Maps objects and names to and from indices for network communication.
@@ -129,6 +164,7 @@ protected:
 	FString					DebugContextString;
 };
 
+
 /** Represents a range of PacketIDs, inclusive */
 struct FPacketIdRange
 {
@@ -143,6 +179,7 @@ struct FPacketIdRange
 		return (First <= PacketId && PacketId <= Last);
 	}
 };
+
 
 /** Information for tracking retirement and retransmission of a property. */
 struct FPropertyRetirement
@@ -166,6 +203,7 @@ struct FPropertyRetirement
 	{}
 };
 
+
 /** Secondary condition to check before considering the replication of a lifetime property. */
 enum ELifetimeCondition
 {
@@ -181,11 +219,13 @@ enum ELifetimeCondition
 	COND_Max				= 9,
 };
 
+
 enum ELifetimeRepNotifyCondition
 {
 	REPNOTIFY_OnChanged		= 0,		// Only call the property's RepNotify function if it changes from the local value
 	REPNOTIFY_Always		= 1,		// Always Call the property's RepNotify function when it is received from the server
 };
+
 
 /** FLifetimeProperty
  *	This class is used to track a property that is marked to be replicated for the lifetime of the actor channel.
@@ -219,6 +259,7 @@ public:
 
 template <> struct TIsZeroConstructType<FLifetimeProperty> { enum { Value = true }; };
 
+
 /**
  * FNetBitWriter
  *	A bit writer that serializes FNames and UObject* through
@@ -233,10 +274,11 @@ public:
 
 	class UPackageMap * PackageMap;
 
-	FArchive& operator<<( FName& Name );
-	FArchive& operator<<( UObject*& Object );
-	FArchive& operator<<(FStringAssetReference& Value) override;
+	virtual FArchive& operator<<(FName& Name) override;
+	virtual FArchive& operator<<(UObject*& Object) override;
+	virtual FArchive& operator<<(FStringAssetReference& Value) override;
 };
+
 
 /**
  * FNetBitReader
@@ -251,9 +293,9 @@ public:
 
 	class UPackageMap * PackageMap;
 
-	FArchive& operator<<( FName& Name );
-	FArchive& operator<<( UObject*& Object );
-	FArchive& operator<<(FStringAssetReference& Value) override;
+	virtual FArchive& operator<<(FName& Name) override;
+	virtual FArchive& operator<<(UObject*& Object) override;
+	virtual FArchive& operator<<(FStringAssetReference& Value) override;
 };
 
 
@@ -272,6 +314,7 @@ public:
 private:
 };
 
+
 class INetSerializeCB
 {
 public:
@@ -279,6 +322,7 @@ public:
 
 	virtual void NetSerializeStruct( UScriptStruct* Struct, FArchive& Ar, UPackageMap* Map, void* Data, bool& bHasUnmapped ) = 0;
 };
+
 
 class IRepChangedPropertyTracker
 {
@@ -288,6 +332,7 @@ public:
 	virtual void SetCustomIsActiveOverride( const uint16 RepIndex, const bool bIsActive ) = 0;
 };
 
+
 /**
  * FNetDeltaSerializeInfo
  *  This is the parameter structure for delta serialization. It is kind of a dumping ground for anything custom implementations may need.
@@ -296,45 +341,51 @@ struct FNetDeltaSerializeInfo
 {
 	FNetDeltaSerializeInfo()
 	{
-		OutBunch = NULL;
-		NewState = NULL;
-		OldState = NULL;
-		Map = NULL;
-		Data = NULL;
+		Writer		= NULL;
+		Reader		= NULL;
 
-		Struct = NULL;
-		InArchive = NULL;
+		NewState	= NULL;
+		OldState	= NULL;
+		Map			= NULL;
+		Data		= NULL;
 
-		NumPotentialBits = 0;
-		NumBytesTouched = 0;
+		Struct		= NULL;
 
 		NetSerializeCB = NULL;
+
+		bUpdateUnmappedObjects		= false;
+		bOutSomeObjectsWereMapped	= false;
+		bCalledPreNetReceive		= false;
+		bOutHasMoreUnmapped			= false;
+		Object						= NULL;
 	}
 
-	// Used for ggeneric TArray replication
-	FBitWriter * OutBunch;
-	
-	TSharedPtr<INetDeltaBaseState> *NewState;		// SharedPtr to new base state created by NetDeltaSerialize.
-	INetDeltaBaseState *  OldState;				// Pointer to the previous base state.
-	UPackageMap *	Map;
-	void* Data;
+	// Used when writing
+	FBitWriter*						Writer;
+
+	// Used for when reading
+	FBitReader*						Reader;
+
+	TSharedPtr<INetDeltaBaseState>*	NewState;		// SharedPtr to new base state created by NetDeltaSerialize.
+	INetDeltaBaseState*				OldState;				// Pointer to the previous base state.
+	UPackageMap*					Map;
+	void*							Data;
 
 	// Only used for fast TArray replication
-	UStruct *Struct;
+	UStruct*						Struct;
 
-	// Used for TArray replication reading
-	FArchive *InArchive;
+	INetSerializeCB*				NetSerializeCB;
 
-	// Number of bits touched during full state serialization
-	int32 NumPotentialBits;
-	// Number of bytes touched (will be larger usually due to forced byte alignment)
-	int32 NumBytesTouched;
-
-	INetSerializeCB * NetSerializeCB;
+	bool							bUpdateUnmappedObjects;		// If true, we are wanting to update unmapped objects
+	bool							bOutSomeObjectsWereMapped;
+	bool							bCalledPreNetReceive;
+	bool							bOutHasMoreUnmapped;
+	UObject*						Object;
 
 	// Debugging variables
-	FString DebugName;
+	FString							DebugName;
 };
+
 
 /**
  * Checksum macros for verifying archives stay in sync
@@ -342,6 +393,7 @@ struct FNetDeltaSerializeInfo
 COREUOBJECT_API void SerializeChecksum(FArchive &Ar, uint32 x, bool ErrorOK);
 
 #define NET_ENABLE_CHECKSUMS 0
+
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) && NET_ENABLE_CHECKSUMS
 
@@ -377,6 +429,7 @@ COREUOBJECT_API void SerializeChecksum(FArchive &Ar, uint32 x, bool ErrorOK);
 
 
 #endif
+
 
 /**
  * Functions to assist in detecting errors during RPC calls

@@ -30,6 +30,9 @@ public:
 	/** Option to show floor */
 	TSharedPtr< FUICommandInfo > ToggleSky;
 
+	/** Option to align floor to Mesh */
+	TSharedPtr< FUICommandInfo > AutoAlignFloorToMesh;
+
 	/** Option to mute audio in the viewport */
 	TSharedPtr< FUICommandInfo > MuteAudio;
 
@@ -47,6 +50,9 @@ public:
 
 	/** Show/hide the preview mesh */
 	TSharedPtr< FUICommandInfo > ShowPreviewMesh;
+
+	/** Show Morphtarget */
+	TSharedPtr< FUICommandInfo > ShowMorphTargets;
 
 	/** Show skeletal mesh bones */	
 	TSharedPtr< FUICommandInfo > ShowBones;

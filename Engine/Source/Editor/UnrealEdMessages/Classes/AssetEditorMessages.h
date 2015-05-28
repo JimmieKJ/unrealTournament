@@ -32,13 +32,3 @@ struct FAssetEditorRequestOpenAsset
 		: AssetName(InAssetName)
 	{ }
 };
-
-
-template<>
-struct TStructOpsTypeTraits<FAssetEditorRequestOpenAsset> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};

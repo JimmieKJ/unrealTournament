@@ -96,7 +96,7 @@ class SLATE_API SInlineEditableTextBlock: public SCompoundWidget
 
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	//virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	 
 	/** Switches the widget to editing mode */
 	void EnterEditingMode();
@@ -159,4 +159,11 @@ protected:
 	
 	/** Widget to focus when we finish editing */
 	TWeakPtr<SWidget> WidgetToFocus;
+
+private:
+	/** Active timer to trigger entry into edit mode after a delay */
+	EActiveTimerReturnType TriggerEditMode(double InCurrentTime, float InDeltaTime);
+
+	/** The handle to the active timer */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
 };

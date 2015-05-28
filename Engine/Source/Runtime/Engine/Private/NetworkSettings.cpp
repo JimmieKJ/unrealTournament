@@ -6,6 +6,7 @@
 UNetworkSettings::UNetworkSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	SectionName = TEXT("Network");
 }
 
 static FName NetworkConsoleVariableFName(TEXT("ConsoleVariable"));

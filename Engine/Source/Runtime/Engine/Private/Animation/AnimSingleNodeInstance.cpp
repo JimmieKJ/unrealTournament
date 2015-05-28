@@ -65,12 +65,13 @@ void UAnimSingleNodeInstance::SetAnimationAsset(class UAnimationAsset* NewAsset,
 	UAnimMontage* Montage = Cast<UAnimMontage>(CurrentAsset);
 	if ( Montage!=NULL )
 	{
-		ActiveSlotWeights.Empty();
+		ReinitializeSlotNodes();
 		if ( Montage->SlotAnimTracks.Num() > 0 )
 		{
-			RegisterSlotNode(Montage->SlotAnimTracks[0].SlotName);
+			RegisterSlotNodeWithAnimInstance(Montage->SlotAnimTracks[0].SlotName);
 		}
 		RestartMontage( Montage );
+		SetPlaying(bPlaying);
 	}
 	else
 	{
@@ -173,8 +174,8 @@ void UAnimSingleNodeInstance::UpdateBlendspaceSamples(FVector InBlendInput)
 {
 	if (UBlendSpaceBase* BlendSpace = Cast<UBlendSpaceBase>(CurrentAsset))
 	{
-		float CurrentTime = 0.f;
-		BlendSpaceAdvanceImmediate(BlendSpace, InBlendInput, BlendSampleData, BlendFilter, false, 1.f, 0.f, CurrentTime);
+		float OutCurrentTime = 0.f;
+		BlendSpaceAdvanceImmediate(BlendSpace, InBlendInput, BlendSampleData, BlendFilter, false, 1.f, 0.f, OutCurrentTime);
 	}
 }
 
@@ -244,7 +245,8 @@ void UAnimSingleNodeInstance::NativeUpdateAnimation(float DeltaTimeX)
 			// if it's not looping, just set play to be false when reached to end
 			if (!bLooping)
 			{
-				if ((NewPlayRate < 0.f && CurrentTime <= 0.f) || (NewPlayRate > 0.f && CurrentTime >= Sequence->SequenceLength))
+				const float CombinedPlayRate = NewPlayRate*Sequence->RateScale;
+				if ((CombinedPlayRate < 0.f && CurrentTime <= 0.f) || (CombinedPlayRate > 0.f && CurrentTime >= Sequence->SequenceLength))
 				{
 					SetPlaying(false);
 				}
@@ -257,7 +259,8 @@ void UAnimSingleNodeInstance::NativeUpdateAnimation(float DeltaTimeX)
 			// if it's not looping, just set play to be false when reached to end
 			if (!bLooping)
 			{
-				if ((NewPlayRate < 0.f && CurrentTime <= 0.f) || (NewPlayRate > 0.f && CurrentTime >= Composite->SequenceLength))
+				const float CombinedPlayRate = NewPlayRate*Composite->RateScale;
+				if ((CombinedPlayRate < 0.f && CurrentTime <= 0.f) || (CombinedPlayRate > 0.f && CurrentTime >= Composite->SequenceLength))
 				{
 					SetPlaying(false);
 				}
@@ -547,6 +550,7 @@ void UAnimSingleNodeInstance::SetPosition(float InPosition, bool bFireNotifies)
 			// since this is singlenode instance, if position changes, we can't keep old morphtarget curves
 			// we clear it and evaluate curve here with new asset. 
 			MorphTargetCurves.Empty();
+			MaterialParameterCurves.Empty();
 			// Evaluate Curve data now - even if time did not move, we still need to return curve if it exists
 			SequenceBase->EvaluateCurveData(this, CurrentTime, 1.0);
 		}

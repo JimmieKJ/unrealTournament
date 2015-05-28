@@ -11,46 +11,55 @@ UBlackboardKeyType_Rotator::UBlackboardKeyType_Rotator(const FObjectInitializer&
 	SupportedOp = EBlackboardKeyOperation::Basic;
 }
 
-FRotator UBlackboardKeyType_Rotator::GetValue(const uint8* RawData)
+FRotator UBlackboardKeyType_Rotator::GetValue(const UBlackboardKeyType_Rotator* KeyOb, const uint8* RawData)
 {
 	return GetValueFromMemory<FRotator>(RawData);
 }
 
-bool UBlackboardKeyType_Rotator::SetValue(uint8* RawData, const FRotator& Value)
+bool UBlackboardKeyType_Rotator::SetValue(UBlackboardKeyType_Rotator* KeyOb, uint8* RawData, const FRotator& Value)
 {
 	return SetValueInMemory<FRotator>(RawData, Value);
 }
 
-bool UBlackboardKeyType_Rotator::Clear(uint8* RawData) const 
+EBlackboardCompare::Type UBlackboardKeyType_Rotator::CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+	const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const
 {
-	return SetValueInMemory<FRotator>(RawData, FAISystem::InvalidRotation);
+	const FRotator MyValue = GetValue(this, MemoryBlock);
+	const FRotator OtherValue = GetValue((UBlackboardKeyType_Rotator*)OtherKeyOb, OtherMemoryBlock);
+
+	return MyValue.Equals(OtherValue) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
 }
 
-FString UBlackboardKeyType_Rotator::DescribeValue(const uint8* RawData) const
+void UBlackboardKeyType_Rotator::Clear(UBlackboardComponent& OwnerComp, uint8* RawData)
 {
-	const FRotator Rotation = GetValue(RawData);
+	SetValueInMemory<FRotator>(RawData, FAISystem::InvalidRotation);
+}
+
+bool UBlackboardKeyType_Rotator::IsEmpty(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
+{
+	const FRotator Rotation = GetValue(this, RawData);
+	return !FAISystem::IsValidRotation(Rotation);
+}
+
+FString UBlackboardKeyType_Rotator::DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
+{
+	const FRotator Rotation = GetValue(this, RawData);
 	return FAISystem::IsValidRotation(Rotation) ? Rotation.ToString() : TEXT("(invalid)");
 }
 
-bool UBlackboardKeyType_Rotator::GetRotation(const uint8* RawData, FRotator& Rotation) const
+bool UBlackboardKeyType_Rotator::GetRotation(const UBlackboardComponent& OwnerComp, const uint8* RawData, FRotator& Rotation) const
 {
-	Rotation = GetValue(RawData);
+	Rotation = GetValue(this, RawData);
 	return FAISystem::IsValidRotation(Rotation);
 }
 
-void UBlackboardKeyType_Rotator::Initialize(uint8* RawData) const
+void UBlackboardKeyType_Rotator::InitializeMemory(UBlackboardComponent& OwnerComp, uint8* RawData)
 {
-	SetValue(RawData, FAISystem::InvalidRotation);
+	SetValue(this, RawData, FAISystem::InvalidRotation);
 }
 
-EBlackboardCompare::Type UBlackboardKeyType_Rotator::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
+bool UBlackboardKeyType_Rotator::TestBasicOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
 {
-	return GetValueFromMemory<FRotator>(MemoryBlockA).Equals(GetValueFromMemory<FRotator>(MemoryBlockB))
-		? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
-}
-
-bool UBlackboardKeyType_Rotator::TestBasicOperation(const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
-{
-	const FRotator Rotation = GetValue(MemoryBlock);
+	const FRotator Rotation = GetValue(this, MemoryBlock);
 	return (Op == EBasicKeyOperation::Set) ? FAISystem::IsValidRotation(Rotation) : !FAISystem::IsValidRotation(Rotation);
 }

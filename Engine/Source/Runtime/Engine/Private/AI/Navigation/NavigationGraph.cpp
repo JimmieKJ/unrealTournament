@@ -58,7 +58,7 @@ ANavigationGraph::ANavigationGraph(const FObjectInitializer& ObjectInitializer)
 {
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
-		NavDataGenerator.Reset(new FNavGraphGenerator(this));
+		NavDataGenerator = MakeShareable(new FNavGraphGenerator(this));
 	}
 }
 

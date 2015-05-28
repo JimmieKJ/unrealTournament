@@ -17,11 +17,11 @@ class UMG_API UGridPanel : public UPanelWidget
 public:
 
 	/** The column fill rules */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Fill Rules")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Fill Rules")
 	TArray<float> ColumnFill;
 
 	/** The row fill rules */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Fill Rules")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Fill Rules")
 	TArray<float> RowFill;
 
 public:

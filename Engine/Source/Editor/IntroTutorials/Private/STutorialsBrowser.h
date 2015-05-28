@@ -4,7 +4,7 @@
 
 class UEditorTutorial;
 
-DECLARE_DELEGATE_FiveParams(FOnLaunchTutorial, UEditorTutorial* /** InTutorialToLaunch */, bool /* bRestart */, TWeakPtr<SWindow> /* InFromWindow */, FSimpleDelegate /* InOnTutorialClosed */, FSimpleDelegate /* InOnTutorialExited */);
+DECLARE_DELEGATE_FiveParams(FOnLaunchTutorial, UEditorTutorial* /** InTutorialToLaunch */, IIntroTutorials::ETutorialStartType /* InStartType */, TWeakPtr<SWindow> /* InFromWindow */, FSimpleDelegate /* InOnTutorialClosed */, FSimpleDelegate /* InOnTutorialExited */);
 
 /** Abstract base class for list entries in the tutorial menu */
 struct ITutorialListEntry
@@ -29,6 +29,9 @@ struct ITutorialListEntry
 	 * @return true if this < OtherEntry 
 	 */
 	virtual bool SortAgainst(TSharedRef<ITutorialListEntry> OtherEntry) const = 0;
+
+	/** Return true if this entry should show up as completed (currently used to hide/show green check mark) */
+	virtual EVisibility GetCompletedVisibility() const = 0;
 };
 
 class FTutorialListEntry_Category;
@@ -48,14 +51,11 @@ class STutorialsBrowser : public SCompoundWidget
 
 	void Construct(const FArguments& Args);
 
-	/** Set the current filter string. Filters are used to only show the specifed category of tutorials (e.g. only Blueprint tutorials) */
+	/** Set the current filter string. Filters are used to only show the specified category of tutorials (e.g. only Blueprint tutorials) */
 	void SetFilter(const FString& InFilter);
 
 	/** Reload all tutorials that we know about */
 	void ReloadTutorials();
-
-	/** SWidget implementation */
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 protected:
 	/** Handle generating a table row in the browser */
@@ -104,6 +104,9 @@ protected:
 	void HandleAssetAdded(const FAssetData& InAssetData);
 
 private:
+
+	/** Triggers a reload of the tutorials */
+	EActiveTimerReturnType TriggerReloadTutorials( double InCurrentTime, float InDeltaTime );
 
 	/** Root entry of the tutorials tree */
 	TSharedPtr<FTutorialListEntry_Category> RootEntry;

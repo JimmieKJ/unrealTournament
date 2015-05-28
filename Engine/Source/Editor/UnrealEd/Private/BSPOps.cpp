@@ -521,8 +521,6 @@ void FBSPOps::csgPrepMovingBrush( ABrush* Actor )
 	check(Actor->Brush);
 	check(Actor->Brush->RootOutside);
 
-	Actor->ClearNotForClientOrServer();
-
 	RebuildBrush(Actor->Brush);
 
 	// Make sure simplified collision is up to date.
@@ -549,9 +547,9 @@ void FBSPOps::csgCopyBrush( ABrush* Dest, ABrush* Src, uint32 PolyFlags, EObject
 
 	// Duplicate the brush and its polys.
 	Dest->PolyFlags		= PolyFlags;
-	Dest->Brush = NewNamedObject<UModel>(Dest, NAME_None, ResFlags);
+	Dest->Brush = NewObject<UModel>(Dest, NAME_None, ResFlags);
 	Dest->Brush->Initialize(nullptr, Src->Brush->RootOutside);
-	Dest->Brush->Polys	= NewNamedObject<UPolys>(Dest->Brush, NAME_None, ResFlags);
+	Dest->Brush->Polys	= NewObject<UPolys>(Dest->Brush, NAME_None, ResFlags);
 	check(Dest->Brush->Polys->Element.GetOwner()==Dest->Brush->Polys);
 	Dest->Brush->Polys->Element.AssignButKeepOwner(Src->Brush->Polys->Element);
 	check(Dest->Brush->Polys->Element.GetOwner()==Dest->Brush->Polys);
@@ -616,7 +614,7 @@ ABrush*	FBSPOps::csgAddOperation( ABrush* Actor, uint32 PolyFlags, EBrushType Br
 
 	if( Result->GetBrushBuilder() )
 	{
-		GEditor->SetActorLabelUnique(Result, FText::Format(NSLOCTEXT("BSPBrushOps", "BrushName", "{0} Brush"), FText::FromString(Result->GetBrushBuilder()->GetClass()->GetDescription())).ToString());
+		FActorLabelUtilities::SetActorLabelUnique(Result, FText::Format(NSLOCTEXT("BSPBrushOps", "BrushName", "{0} Brush"), FText::FromString(Result->GetBrushBuilder()->GetClass()->GetDescription())).ToString());
 	}
 	// Assign the default material to the brush's polys.
 	for( int32 i=0; i<Result->Brush->Polys->Element.Num(); i++ )
@@ -1226,15 +1224,16 @@ void FBSPOps::RotateBrushVerts(ABrush* Brush, const FRotator& Rotation, bool bCl
 			FPoly* Poly = &(Brush->GetBrushComponent()->Brush->Polys->Element[poly]);
 
 			// Rotate the vertices.
+			const FRotationMatrix RotMatrix( Rotation );
 			for( int32 vertex = 0 ; vertex < Poly->Vertices.Num() ; vertex++ )
 			{
-				Poly->Vertices[vertex] = Brush->GetPrePivot() + FRotationMatrix( Rotation ).TransformVector( Poly->Vertices[vertex] - Brush->GetPrePivot() );
+				Poly->Vertices[vertex] = Brush->GetPrePivot() + RotMatrix.TransformVector( Poly->Vertices[vertex] - Brush->GetPrePivot() );
 			}
-			Poly->Base = Brush->GetPrePivot() + FRotationMatrix( Rotation ).TransformVector( Poly->Base - Brush->GetPrePivot() );
+			Poly->Base = Brush->GetPrePivot() + RotMatrix.TransformVector( Poly->Base - Brush->GetPrePivot() );
 
 			// Rotate the texture vectors.
-			Poly->TextureU = FRotationMatrix( Rotation ).TransformVector( Poly->TextureU );
-			Poly->TextureV = FRotationMatrix( Rotation ).TransformVector( Poly->TextureV );
+			Poly->TextureU = RotMatrix.TransformVector( Poly->TextureU );
+			Poly->TextureV = RotMatrix.TransformVector( Poly->TextureV );
 
 			// Recalc the normal for the poly.
 			Poly->Normal = FVector::ZeroVector;

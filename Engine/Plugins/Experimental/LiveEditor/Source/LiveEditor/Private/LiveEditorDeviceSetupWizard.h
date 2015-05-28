@@ -17,7 +17,7 @@ public:
 	virtual FText GetAdvanceButtonText() const override;
 
 protected:
-	virtual void OnWizardFinished( struct FLiveEditorDeviceData &Data );
+	virtual void OnWizardFinished( struct FLiveEditorDeviceData &Data ) override;
 
 private:
 	struct FConfigurationState *ConfigState;

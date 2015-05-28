@@ -15,17 +15,17 @@ FGameLaunchDaemonMessageHandler GCommandSystem;
 
 void FAppEntry::Suspend()
 {
-	if (GEngine && GEngine->AudioDevice)
+	if (GEngine && GEngine->GetMainAudioDevice())
 	{
-		GEngine->AudioDevice->SuspendContext();
+		GEngine->GetMainAudioDevice()->SuspendContext();
 	}
 }
 
 void FAppEntry::Resume()
 {
-	if (GEngine && GEngine->AudioDevice)
+	if (GEngine && GEngine->GetMainAudioDevice())
 	{
-	    GEngine->AudioDevice->ResumeContext();
+		GEngine->GetMainAudioDevice()->ResumeContext();
 	}
 }
 

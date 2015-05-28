@@ -237,7 +237,7 @@ public:
 	* @param Ar - archive to serialize to
 	* @param I - data to serialize
 	*/
-	virtual void Serialize( FArchive& Ar )
+	virtual void Serialize( FArchive& Ar ) override
 	{
 			Indices.BulkSerialize( Ar );
 	}
@@ -252,44 +252,44 @@ public:
 	 * The following methods are basically just accessors that allow us
 	 * to hide the implementation by making the index array a private member
 	 */
-	virtual bool GetNeedsCPUAccess() const { return Indices.GetAllowCPUAccess(); }
+	virtual bool GetNeedsCPUAccess() const override { return Indices.GetAllowCPUAccess(); }
 
-	virtual int32 Num() const
+	virtual int32 Num() const override
 	{
 		return Indices.Num();
 	}
 
-	virtual int32 AddItem(uint32 Val)
+	virtual int32 AddItem(uint32 Val) override
 	{
 		return Indices.Add(Val);
 	}
 
-	virtual uint32 Get(uint32 Idx) const
+	virtual uint32 Get(uint32 Idx) const override
 	{
 		return (uint32)Indices[Idx];
 	}
 
-	virtual void* GetPointerTo(uint32 Idx)
+	virtual void* GetPointerTo(uint32 Idx) override
 	{
 		return (void*)(&Indices[Idx]);
 	}
 
-	virtual void Insert(int32 Idx, int32 Num)
+	virtual void Insert(int32 Idx, int32 Num) override
 	{
 		Indices.InsertUninitialized(Idx, Num);
 	}
 
-	virtual void Remove(int32 Idx, int32 Num)
+	virtual void Remove(int32 Idx, int32 Num) override
 	{
 		Indices.RemoveAt(Idx, Num);
 	}
 
-	virtual void Empty(int32 Slack)
+	virtual void Empty(int32 Slack) override
 	{
 		Indices.Empty(Slack);
 	}
 
-	virtual int32 GetResourceDataSize()
+	virtual int32 GetResourceDataSize() override
 	{
 		return Indices.GetResourceDataSize();
 	}

@@ -7,9 +7,10 @@
 #include "PreviewScene.h"
 #include "ScopedTransaction.h"
 #include "CanvasTypes.h"
+#include "PaperEditorShared/SocketEditing.h"
+#include "FlipbookEditorSettings.h"
 
 #define LOCTEXT_NAMESPACE "FlipbookEditor"
-
 
 //////////////////////////////////////////////////////////////////////////
 // FFlipbookEditorViewportClient
@@ -30,8 +31,8 @@ FFlipbookEditorViewportClient::FFlipbookEditorViewportClient(const TAttribute<UP
 	PreviewScene->AddComponent(AnimatedRenderComponent.Get(), FTransform::Identity);
 
 	bShowPivot = false;
-	bDeferZoomToSprite = true;
-	DrawHelper.bDrawGrid = false;
+	bShowSockets = true;
+	DrawHelper.bDrawGrid = GetDefault<UFlipbookEditorSettings>()->bShowGridByDefault;
 
 	EngineShowFlags.DisableAdvancedFeatures();
 	EngineShowFlags.CompositeEditorPrimitives = true;
@@ -49,7 +50,7 @@ void FFlipbookEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& 
 
 	int32 YPos = 42;
 
-	static const FText FlipbookHelpStr = LOCTEXT("FlipbookEditHelp", "Flipbook editor");
+	static const FText FlipbookHelpStr = LOCTEXT("FlipbookEditHelp", "Flipbook editor\n\nAdd keys using the toolbar or by drag-dropping sprite assets\nChange the timeline scale using Ctrl+MouseWheel\nEdit keys using the handles and right-click menu\nReorder keys by dragging and dropping");
 
 	// Display tool help
 	{
@@ -58,11 +59,11 @@ void FFlipbookEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& 
 		TextItem.Draw(&Canvas);
 		YPos += 36;
 	}
-}
 
-void FFlipbookEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
-{
-	FEditorViewportClient::Draw(Viewport, Canvas);
+	if (bShowSockets)
+	{
+		FSocketEditingHelper::DrawSocketNames(nullptr, AnimatedRenderComponent.Get(), Viewport, View, Canvas);
+	}
 }
 
 void FFlipbookEditorViewportClient::Draw(const FSceneView* View, FPrimitiveDrawInterface* PDI)
@@ -73,6 +74,16 @@ void FFlipbookEditorViewportClient::Draw(const FSceneView* View, FPrimitiveDrawI
 	{
 		FUnrealEdUtils::DrawWidget(View, PDI, AnimatedRenderComponent->ComponentToWorld.ToMatrixWithScale(), 0, 0, EAxisList::Screen, EWidgetMovementMode::WMM_Translate);
 	}
+
+	if (bShowSockets)
+	{
+		FSocketEditingHelper::DrawSockets(nullptr, AnimatedRenderComponent.Get(), View, PDI);
+	}
+}
+
+FBox FFlipbookEditorViewportClient::GetDesiredFocusBounds() const
+{
+	return AnimatedRenderComponent->Bounds.GetBox();
 }
 
 void FFlipbookEditorViewportClient::Tick(float DeltaSeconds)
@@ -85,16 +96,6 @@ void FFlipbookEditorViewportClient::Tick(float DeltaSeconds)
 			AnimatedRenderComponent->SetFlipbook(Flipbook);
 			AnimatedRenderComponent->UpdateBounds();
 			FlipbookBeingEditedLastFrame = Flipbook;
-		}
-
-		// Zoom in on the sprite
-		//@TODO: This doesn't work correctly, only partially zooming in or something
-		//@TODO: Fix this properly so it doesn't need to be deferred, or wait for the viewport to initialize
-		FIntPoint Size = Viewport->GetSizeXY();
-		if (bDeferZoomToSprite && (Size.X > 0) && (Size.Y > 0))
-		{
-			FocusViewportOnBox(AnimatedRenderComponent->Bounds.GetBox(), true);
-			bDeferZoomToSprite = false;
 		}
 	}
 
@@ -110,19 +111,13 @@ bool FFlipbookEditorViewportClient::InputKey(FViewport* Viewport, int32 Controll
 {
 	bool bHandled = false;
 
-	if ( (Event == IE_Pressed) && (Key == EKeys::F) && (AnimatedRenderComponent.IsValid()) )
-	{
-		bHandled = true;
-		FocusViewportOnBox(AnimatedRenderComponent->Bounds.GetBox());
-	}
-
 	// Pass keys to standard controls, if we didn't consume input
-	return (bHandled) ? true : FEditorViewportClient::InputKey(Viewport,  ControllerId, Key, Event, AmountDepressed, bGamepad);
+	return (bHandled) ? true : FEditorViewportClient::InputKey(Viewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
 }
 
 FLinearColor FFlipbookEditorViewportClient::GetBackgroundColor() const
 {
-	return FEditorViewportClient::GetBackgroundColor();
+	return GetDefault<UFlipbookEditorSettings>()->BackgroundColor;
 }
 
 //////////////////////////////////////////////////////////////////////////

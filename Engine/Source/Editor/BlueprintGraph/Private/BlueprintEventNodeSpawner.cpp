@@ -3,6 +3,7 @@
 #include "BlueprintGraphPrivatePCH.h"
 #include "BlueprintEventNodeSpawner.h"
 #include "EdGraphSchema_K2.h" // for GetFriendlySignatureName()
+#include "BlueprintNodeTemplateCache.h" // for IsTemplateOuter()
 
 #define LOCTEXT_NAMESPACE "BlueprintEventNodeSpawner"
 
@@ -95,12 +96,16 @@ UBlueprintEventNodeSpawner* UBlueprintEventNodeSpawner::Create(UFunction const* 
 	NodeSpawner->NodeClass = UK2Node_Event::StaticClass();
 
 	FBlueprintActionUiSpec& MenuSignature = NodeSpawner->DefaultMenuSignature;
-	FString const FuncName = UEdGraphSchema_K2::GetFriendlySignatureName(EventFunc);
-	MenuSignature.MenuName = FText::Format(LOCTEXT("EventWithSignatureName", "Event {0}"), FText::FromString(FuncName));
+	FText const FuncName = UEdGraphSchema_K2::GetFriendlySignatureName(EventFunc);
+	MenuSignature.MenuName = FText::Format(LOCTEXT("EventWithSignatureName", "Event {0}"), FuncName);
 	FString const FuncCategory = UK2Node_CallFunction::GetDefaultCategoryForFunction(EventFunc, TEXT(""));
 	MenuSignature.Category = FText::FromString(LOCTEXT("AddEventCategory", "Add Event").ToString() + TEXT("|") + FuncCategory);
 	//MenuSignature.Tooltip, will be pulled from the node template
-	MenuSignature.Keywords = UK2Node_CallFunction::GetKeywordsForFunction(EventFunc).AppendChar(TEXT(' '));
+	MenuSignature.Keywords = UK2Node_CallFunction::GetKeywordsForFunction(EventFunc);
+	if (MenuSignature.Keywords.IsEmpty())
+	{
+		MenuSignature.Keywords = FText::FromString(TEXT(" "));
+	}
 	MenuSignature.IconName = TEXT("GraphEditor.Event_16x");
 
 	return NodeSpawner;
@@ -165,11 +170,17 @@ UEdGraphNode* UBlueprintEventNodeSpawner::Invoke(UEdGraph* ParentGraph, FBinding
 {
 	check(ParentGraph != nullptr);
 	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraphChecked(ParentGraph);
-	// look to see if a node for this event already exists (only one node is
-	// allowed per event, per blueprint)
-	UK2Node_Event const* PreExistingNode = FindPreExistingEvent(Blueprint, Bindings);
-	// @TODO: casting away the const is bad form!
-	UK2Node_Event* EventNode = const_cast<UK2Node_Event*>(PreExistingNode);
+
+	UK2Node_Event* EventNode = nullptr;
+	bool const bIsTemplateNode = FBlueprintNodeTemplateCache::IsTemplateOuter(ParentGraph);
+	if (!bIsTemplateNode)
+	{
+		// look to see if a node for this event already exists (only one node is
+		// allowed per event, per blueprint)
+		UK2Node_Event const* PreExistingNode = FindPreExistingEvent(Blueprint, Bindings);
+		// @TODO: casting away the const is bad form!
+		EventNode = const_cast<UK2Node_Event*>(PreExistingNode);
+	}
 
 	bool const bIsCustomEvent = IsForCustomEvent();
 	check(bIsCustomEvent || (EventFunc != nullptr));
@@ -191,21 +202,20 @@ UEdGraphNode* UBlueprintEventNodeSpawner::Invoke(UEdGraph* ParentGraph, FBinding
 	// if there is no existing node, then we can happily spawn one into the graph
 	if (EventNode == nullptr)
 	{
-		auto PostSpawnLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, UFunction const* EventFunc, FName EventName, FCustomizeNodeDelegate UserDelegate)
+		auto PostSpawnLambda = [](UEdGraphNode* NewNode, bool bInIsTemplateNode, UFunction const* InEventFunc, FName InEventName, FCustomizeNodeDelegate UserDelegate)
 		{
-			UK2Node_Event* EventNode = CastChecked<UK2Node_Event>(NewNode);
-			if (EventFunc != nullptr)
+			UK2Node_Event* K2EventNode = CastChecked<UK2Node_Event>(NewNode);
+			if (InEventFunc != nullptr)
 			{
-				EventNode->EventSignatureName  = EventName;
-				EventNode->EventSignatureClass = EventFunc->GetOuterUClass()->GetAuthoritativeClass();
-				EventNode->bOverrideFunction   = true;
+				K2EventNode->EventReference.SetFromField<UFunction>(InEventFunc, false);
+				K2EventNode->bOverrideFunction   = true;
 			}
-			else if (!bIsTemplateNode)
+			else if (!bInIsTemplateNode)
 			{
-				EventNode->CustomFunctionName = EventName;
+				K2EventNode->CustomFunctionName = InEventName;
 			}
 
-			UserDelegate.ExecuteIfBound(NewNode, bIsTemplateNode);
+			UserDelegate.ExecuteIfBound(NewNode, bInIsTemplateNode);
 		};
 
 		FCustomizeNodeDelegate PostSpawnDelegate = FCustomizeNodeDelegate::CreateStatic(PostSpawnLambda, EventFunc, EventName, CustomizeNodeDelegate);

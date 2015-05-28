@@ -14,28 +14,31 @@ public:
 	/**
 	 * Constructor.
 	 * @param InDirectory			Content directory path to monitor. Assumed to be absolute.
-	 * @param InSupportedExtensions A string containing semi-colon separated extensions to monitor.
+	 * @param InMatchRules			Rules to select what will apply to this folder
 	 * @param InMountedContentPath	(optional) Mounted content path (eg /Engine/, /Game/) to which InDirectory maps.
 	 */
-	FContentDirectoryMonitor(const FString& InDirectory, const FString& InSupportedExtensions, const FString& InMountedContentPath = FString());
+	FContentDirectoryMonitor(const FString& InDirectory, const FMatchRules& InMatchRules, const FString& InMountedContentPath = FString());
 
 	/** Tick this monitor's cache to give it a chance to finish scanning for files */
-	void Tick(const FTimeLimit& TimeLimit);
+	void Tick();
 
 	/** Start processing any outstanding changes this monitor is aware of */
 	void StartProcessing();
 
 	/** Extract the files we need to import from our outstanding changes (happens first)*/ 
-	void ProcessAdditions(const IAssetRegistry& Registry, TArray<UPackage*>& OutPackagesToSave, const FTimeLimit& TimeLimit, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, class FReimportFeedbackContext& Context);
+	void ProcessAdditions(const IAssetRegistry& Registry, const FTimeLimit& TimeLimit, TArray<UPackage*>& OutPackagesToSave, const TMap<FString, TArray<UFactory*>>& InFactoriesByExtension, class FReimportFeedbackContext& Context);
 
 	/** Process the outstanding changes that we have cached */
-	void ProcessModifications(const IAssetRegistry& Registry, const FTimeLimit& TimeLimit, class FReimportFeedbackContext& Context);
+	void ProcessModifications(const IAssetRegistry& Registry, const FTimeLimit& TimeLimit, TArray<UPackage*>& OutPackagesToSave, class FReimportFeedbackContext& Context);
 
 	/** Extract the assets we need to delete from our outstanding changes (happens last) */ 
 	void ExtractAssetsToDelete(const IAssetRegistry& Registry, TArray<FAssetData>& OutAssetsToDelete);
 
 	/** Report an external change to the manager, such that a subsequent equal change reported by the os be ignored */
-	void ReportExternalChange(const FString& Filename, FFileChangeData::EFileChangeAction Action);
+	void IgnoreNewFile(const FString& Filename);
+	void IgnoreFileModification(const FString& Filename);
+	void IgnoreMovedFile(const FString& SrcFilename, const FString& DstFilename);
+	void IgnoreDeletedFile(const FString& Filename);
 
 	/** Destroy this monitor including its cache */
 	void Destroy();

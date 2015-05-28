@@ -5,7 +5,7 @@ Description:
 
 [EXCERPT:EditorMode.PLACEMENT]
 ###Place
-Allows the quick placement of recently placed objects, or common primitives such as lights, triggers or geometry.
+Allows the quick placement of recently placed objects, or common primitives such as lights, triggers, or geometry.
 [/EXCERPT:EditorMode.PLACEMENT]
 
 [EXCERPT:EditorMode.EM_MeshPaint]

@@ -139,7 +139,7 @@ protected:
 	// SCompoundWidget interface
 
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
-	virtual FVector2D ComputeDesiredSize( ) const override;
+	virtual FVector2D ComputeDesiredSize( float ) const override;
 	virtual FChildren* GetChildren( ) override;
 
 private:
@@ -162,6 +162,8 @@ private:
 		virtual TSharedRef<const SWidget> GetChildAt( int32 Index ) const override { check(Index == 0); return AllChildren->GetChildAt(WidgetIndex->Get()); }
 		
 	private:
+
+		virtual const FSlotBase& GetSlotAt(int32 ChildIndex) const override { return (*AllChildren)[ChildIndex]; }
 
 		TPanelChildren<FSlot>* AllChildren;
 		const TAttribute<int32>* WidgetIndex;

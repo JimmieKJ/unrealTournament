@@ -393,7 +393,7 @@ FName::FName( const TCHAR* Name, int32 InNumber, EFindName FindType )
 
 
 /**
- * Constructor used by ULinkerLoad when loading its name table; Creates an FName with an instance
+ * Constructor used by FLinkerLoad when loading its name table; Creates an FName with an instance
  * number of 0 that does not attempt to split the FName into string and number portions.
  */
 FName::FName( ELinkerNameTableConstructor, const WIDECHAR* Name )
@@ -402,7 +402,7 @@ FName::FName( ELinkerNameTableConstructor, const WIDECHAR* Name )
 }
 
 /**
- * Constructor used by ULinkerLoad when loading its name table; Creates an FName with an instance
+ * Constructor used by FLinkerLoad when loading its name table; Creates an FName with an instance
  * number of 0 that does not attempt to split the FName into string and number portions.
  */
 FName::FName( ELinkerNameTableConstructor, const ANSICHAR* Name )
@@ -455,9 +455,20 @@ int32 FName::Compare( const FName& Other ) const
 	}
 }
 
-void FName::Init(const WIDECHAR* InName, int32 InNumber, EFindName FindType, bool bSplitName, int32 HardcodeIndex )
+void FName::Init(const WIDECHAR* InName, int32 InNumber, EFindName FindType, bool bSplitName, int32 HardcodeIndex)
 {
-	check(FCString::Strlen(InName)<=NAME_SIZE);
+	InitInternal<WIDECHAR>(InName, InNumber, FindType, bSplitName, HardcodeIndex);
+}
+
+void FName::Init(const ANSICHAR* InName, int32 InNumber, EFindName FindType, bool bSplitName, int32 HardcodeIndex)
+{
+	InitInternal<ANSICHAR>(InName, InNumber, FindType, bSplitName, HardcodeIndex);
+}
+
+template <typename TCharType>
+void FName::InitInternal(const TCharType* InName, int32 InNumber, const EFindName FindType, const bool bSplitName, const int32 HardcodeIndex)
+{
+	check(TCString<TCharType>::Strlen(InName)<=NAME_SIZE);
 
 	// initialize the name subsystem if necessary
 	if (!GetIsInitialized())
@@ -465,13 +476,13 @@ void FName::Init(const WIDECHAR* InName, int32 InNumber, EFindName FindType, boo
 		StaticInit();
 	}
 
-	WIDECHAR TempBuffer[NAME_SIZE];
+	TCharType TempBuffer[NAME_SIZE];
 	int32 TempNumber;
-	// if we were passed in a number, we can't split again, other wise, a_1_2_3_4 would change everytime
+	// if we were passed in a number, we can't split again, other wise, a_1_2_3_4 would change every time
 	// it was loaded in
 	if (InNumber == NAME_NO_NUMBER_INTERNAL && bSplitName == true )
 	{
-		if (SplitNameWithCheck(InName, TempBuffer, ARRAY_COUNT(TempBuffer), TempNumber))
+		if (SplitNameWithCheckImpl<TCharType>(InName, TempBuffer, ARRAY_COUNT(TempBuffer), TempNumber))
 		{
 			InName = TempBuffer;
 			InNumber = NAME_EXTERNAL_TO_INTERNAL(TempNumber);
@@ -499,18 +510,14 @@ void FName::Init(const WIDECHAR* InName, int32 InNumber, EFindName FindType, boo
 	int32 OutComparisonIndex = HardcodeIndex;
 	int32 OutDisplayIndex = HardcodeIndex;
 
-	const bool bIsPureAnsi = FCStringWide::IsPureAnsi( InName );
+	const bool bIsPureAnsi = TCString<TCharType>::IsPureAnsi(InName);
 	if(bIsPureAnsi)
 	{
-		// Convert to an ansi display name
-		ANSICHAR AnsiDisplayName[NAME_SIZE];
-		FCStringAnsi::Strncpy(AnsiDisplayName, StringCast<ANSICHAR>(InName).Get(), ARRAY_COUNT(AnsiDisplayName));
-
-		bWasFoundOrAdded = InitInternal_FindOrAdd<ANSICHAR>(AnsiDisplayName, FindType, HardcodeIndex, OutComparisonIndex, OutDisplayIndex);
+		bWasFoundOrAdded = InitInternal_FindOrAdd<ANSICHAR>(StringCast<ANSICHAR>(InName).Get(), FindType, HardcodeIndex, OutComparisonIndex, OutDisplayIndex);
 	}
 	else
 	{
-		bWasFoundOrAdded = InitInternal_FindOrAdd<WIDECHAR>(InName, FindType, HardcodeIndex, OutComparisonIndex, OutDisplayIndex);
+		bWasFoundOrAdded = InitInternal_FindOrAdd<WIDECHAR>(StringCast<WIDECHAR>(InName).Get(), FindType, HardcodeIndex, OutComparisonIndex, OutDisplayIndex);
 	}
 
 	if(bWasFoundOrAdded)
@@ -809,10 +816,6 @@ void FName::StaticInit()
 		}
 	}
 #endif
-
-	// Initialize stats metadata.
-	// We need to do here, after all hardcoded names have been initialized.
-	GMalloc->InitializeStatsMetadata();
 }
 
 bool& FName::GetIsInitialized()
@@ -839,16 +842,22 @@ void FName::DisplayHash( FOutputDevice& Ar )
 
 bool FName::SplitNameWithCheck(const WIDECHAR* OldName, WIDECHAR* NewName, int32 NewNameLen, int32& NewNumber)
 {
+	return SplitNameWithCheckImpl<WIDECHAR>(OldName, NewName, NewNameLen, NewNumber);
+}
+
+template <typename TCharType>
+bool FName::SplitNameWithCheckImpl(const TCharType* OldName, TCharType* NewName, int32 NewNameLen, int32& NewNumber)
+{
 	bool bSucceeded = false;
-	const int32 OldNameLength = FCStringWide::Strlen(OldName);
+	const int32 OldNameLength = TCString<TCharType>::Strlen(OldName);
 
 	if(OldNameLength > 0)
 	{
 		// get string length
-		const WIDECHAR* LastChar = OldName + (OldNameLength - 1);
+		const TCharType* LastChar = OldName + (OldNameLength - 1);
 		
 		// if the last char is a number, then we will try to split
-		const WIDECHAR* Ch = LastChar;
+		const TCharType* Ch = LastChar;
 		if (*Ch >= '0' && *Ch <= '9')
 		{
 			// go backwards, looking an underscore or the start of the string
@@ -868,12 +877,12 @@ bool FName::SplitNameWithCheck(const WIDECHAR* OldName, WIDECHAR* NewName, int32
 				if (Ch[1] != '0' || LastChar - Ch == 1)
 				{
 					// attempt to convert what's following it to a number
-					uint64 TempConvert = FCStringWide::Atoi64(Ch + 1);
+					uint64 TempConvert = TCString<TCharType>::Atoi64(Ch + 1);
 					if (TempConvert <= MAX_int32)
 					{
 						NewNumber = (int32)TempConvert;
 						// copy the name portion into the buffer
-						FCStringWide::Strncpy(NewName, OldName, FMath::Min<int32>(Ch - OldName + 1, NewNameLen));
+						TCString<TCharType>::Strncpy(NewName, OldName, FMath::Min<int32>(Ch - OldName + 1, NewNameLen));
 
 						// mark successful
 						bSucceeded = true;

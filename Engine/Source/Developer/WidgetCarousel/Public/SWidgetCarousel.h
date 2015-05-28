@@ -74,7 +74,7 @@ struct FCarouselDisplayItem : public TSharedFromThis<FCarouselDisplayItem>
 		if (!bTransition)
 		{
 			SlideInCurve.JumpToEnd();
-			SlideInCurve.PlayReverse();
+			SlideInCurve.PlayReverse(FXWidget.ToSharedRef());
 			bPeak = true;
 			bFade = FadeRate != 0;
 			switch (ScrollDirection)
@@ -143,7 +143,7 @@ struct FCarouselDisplayItem : public TSharedFromThis<FCarouselDisplayItem>
 			if (FMath::Abs(BlendDif) > PeakDistance + (float)FLOAT_NORMAL_THRESH)
 			{
 				SlideInCurve.JumpToEnd();
-				SlideInCurve.PlayReverse();
+				SlideInCurve.PlayReverse(FXWidget.ToSharedRef());
 			}
 			float Lerp = FMath::Max(SlideInCurve.GetLerp(), 0.1f);
 			DesiredBlendSpeed = Speed * Lerp * DeltaTime;
@@ -555,22 +555,6 @@ public:
 protected:
 
 	/**
-	 * Tick function to tick the carousel widgets.
-	 * @param AllottedGeometry - Widget default property - just pass to the super
-	 * @param InCurrentTime - current time
-	 * @param InDeltaTime - the frame delta time
-	 */
-	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
-	{
-		SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
-		// Tick the widgets to animate them
-		LeftCarouselWidget->Tick(InDeltaTime);
-		CenterCarouselWidget->Tick(InDeltaTime);
-		RightCarouselWidget->Tick(InDeltaTime);
-	}
-
-	/**
 	 * Regenerate the widgets to display them.
 	 */
 	void GenerateWidgets( )
@@ -599,6 +583,9 @@ protected:
 	 */
 	void SwapBuffer(EWidgetCarouselScrollDirection::Type ScrollDirection, int32 OverrideWidget = INDEX_NONE)
 	{
+		// Register for an active update every 2.5 seconds
+		RegisterActiveTimer(0.0f, FWidgetActiveTimerDelegate::CreateSP(this, &SWidgetCarousel::RegisteredTick));
+
 		const TArray<ItemType>& ItemsSourceRef = (*ItemsSource);
 
 		if (ItemsSourceRef.Num() > 0)
@@ -683,6 +670,16 @@ protected:
 	bool IsInTransition()
 	{
 		return CenterCarouselWidget->IsInTransition() || LeftCarouselWidget->IsInTransition() || RightCarouselWidget->IsInTransition();
+	}
+
+	EActiveTimerReturnType RegisteredTick(double InCurrentTime, float InDeltaTime)
+	{
+		// Tick the widgets to animate them
+		LeftCarouselWidget->Tick(InDeltaTime);
+		CenterCarouselWidget->Tick(InDeltaTime);
+		RightCarouselWidget->Tick(InDeltaTime);
+	
+		return IsInTransition() ? EActiveTimerReturnType::Continue : EActiveTimerReturnType::Stop;
 	}
 
 protected:

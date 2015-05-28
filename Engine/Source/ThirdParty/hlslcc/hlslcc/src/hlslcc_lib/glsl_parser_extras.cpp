@@ -62,11 +62,6 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(
 	/* Set default language version and extensions */
 	this->language_version = glsl_version;
 	this->maxvertexcount = 0;
-	this->es_shader = false;
-	this->ARB_texture_rectangle_enable = true;
-
-	this->supported_version_string = ralloc_asprintf(mem_ctx, "%u.%20u",
-		glsl_version / 100, glsl_version % 100);
 
 	/* Reset the anonymous struct count. */
 	g_anon_struct_count = 0;
@@ -78,7 +73,6 @@ _mesa_glsl_parse_state::_mesa_glsl_parse_state(
 	bSeparateShaderObjects = false;
 	next_in_location_slot = 0;
 	next_out_location_slot = 0;
-
 }
 
 void _mesa_glsl_parse_state::FindOffsetIntoCBufferInFloats(bool bFlattenStructure, const char* CBName, const char* Member, unsigned& OffsetInCBInFloats, unsigned& SizeInFloats)
@@ -1081,80 +1075,6 @@ bool do_optimization_pass(exec_list *ir, _mesa_glsl_parse_state * state, bool bP
 	return progress;
 }
 
-/**
-* Do the set of common optimizations passes
-*
-* \param ir                          List of instructions to be optimized
-* \param linked                      Is the shader linked?  This enables
-*                                    optimizations passes that remove code at
-*                                    global scope and could cause linking to
-*                                    fail.
-* \param uniform_locations_assigned  Have locations already been assigned for
-*                                    uniforms?  This prevents the declarations
-*                                    of unused uniforms from being removed.
-*                                    The setting of this flag only matters if
-*                                    \c linked is \c true.
-* \param max_unroll_iterations       Maximum number of loop iterations to be
-*                                    unrolled.  Setting to 0 forces all loops
-*                                    to be unrolled.
-*/
-bool do_common_optimization(exec_list *ir, bool linked, bool uniform_locations_assigned,
-	unsigned max_unroll_iterations, _mesa_glsl_parse_state * state)
-{
-	bool progress = false;
-
-	progress = lower_instructions(ir, SUB_TO_ADD_NEG) || progress;
-
-	if (linked)
-	{
-		progress = do_function_inlining(ir) || progress;
-		progress = do_dead_functions(ir) || progress;
-		progress = do_structure_splitting(ir) || progress;
-	}
-	progress = do_if_simplification(ir) || progress;
-	progress = do_discard_simplification(ir) || progress;
-	progress = do_copy_propagation(ir) || progress;
-	progress = do_copy_propagation_elements(ir) || progress;
-	if (linked)
-	{
-		progress = do_dead_code(ir, uniform_locations_assigned) || progress;
-	}
-	else
-	{
-		progress = do_dead_code_unlinked(ir) || progress;
-	}
-	progress = do_dead_code_local(ir) || progress;
-	progress = do_tree_grafting(ir) || progress;
-	progress = do_constant_propagation(ir) || progress;
-	if (linked)
-	{
-		progress = do_constant_variable(ir) || progress;
-	}
-	else
-	{
-		progress = do_constant_variable_unlinked(ir) || progress;
-	}
-	progress = do_constant_folding(ir) || progress;
-	progress = do_algebraic(state, ir) || progress;
-	progress = do_lower_jumps(ir) || progress;
-	progress = do_vec_index_to_swizzle(ir) || progress;
-	progress = do_swizzle_swizzle(ir) || progress;
-	progress = do_noop_swizzle(ir) || progress;
-
-	progress = optimize_split_arrays(ir, linked) || progress;
-	progress = optimize_redundant_jumps(ir) || progress;
-
-	loop_state *ls = analyze_loop_variables(ir);
-	if (ls->loop_found)
-	{
-		progress = set_loop_controls(ir, ls) || progress;
-		progress = unroll_loops(ir, ls, max_unroll_iterations, state) || progress;
-	}
-	delete ls;
-
-	return progress;
-}
-
 void _mesa_ast_print(struct _mesa_glsl_parse_state *state)
 {
 	foreach_list_typed(ast_node, ast, link, &state->translation_unit)
@@ -1162,29 +1082,6 @@ void _mesa_ast_print(struct _mesa_glsl_parse_state *state)
 		ast->print();
 	}
 }
-
-	/**
-	* To be called at GL teardown time, this frees compiler datastructures.
-	*
-	* After calling this, any previously compiled shaders and shader
-	* programs would be invalid.  So this should happen at approximately
-	* program exit.
-	*/
-	void _mesa_destroy_shader_compiler(void)
-	{
-		_mesa_destroy_shader_compiler_caches();
-		_mesa_glsl_release_types();
-	}
-
-	/**
-	* Releases compiler caches to trade off performance for memory.
-	*
-	* Intended to be used with glReleaseShaderCompiler().
-	*/
-	void _mesa_destroy_shader_compiler_caches(void)
-	{
-		_mesa_glsl_release_functions();
-	}
 
 void SCBuffer::AddMember(const struct glsl_type * field_type, ir_variable* var)
 {

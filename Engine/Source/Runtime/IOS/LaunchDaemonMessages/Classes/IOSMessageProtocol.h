@@ -13,15 +13,6 @@ struct FIOSLaunchDaemonPing
 	//FIOSLaunchDaemonPing() {}
 };
 
-template<>
-struct TStructOpsTypeTraits<FIOSLaunchDaemonPing> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 USTRUCT()
 struct FIOSLaunchDaemonPong
@@ -62,15 +53,6 @@ struct FIOSLaunchDaemonPong
 	{}
 };
 
-template<>
-struct TStructOpsTypeTraits<FIOSLaunchDaemonPong> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 USTRUCT()
 struct FIOSLaunchDaemonLaunchApp
@@ -89,13 +71,4 @@ struct FIOSLaunchDaemonLaunchApp
 		: AppID(InAppID)
 		, Parameters(Params)
 	{}
-};
-
-template<>
-struct TStructOpsTypeTraits<FIOSLaunchDaemonLaunchApp> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };

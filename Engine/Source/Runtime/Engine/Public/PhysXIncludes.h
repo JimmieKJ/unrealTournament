@@ -8,6 +8,8 @@
 MSVC_PRAGMA(warning(push))
 MSVC_PRAGMA(warning(disable : 4946)) // reinterpret_cast used between related classes
 
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+
 #if USING_CODE_ANALYSIS
 	MSVC_PRAGMA(warning(push))
 	MSVC_PRAGMA(warning(disable : ALL_CODE_ANALYSIS_WARNINGS))
@@ -69,6 +71,8 @@ MSVC_PRAGMA(warning(disable : 4946)) // reinterpret_cast used between related cl
 #endif	// USING_CODE_ANALYSIS
 
 MSVC_PRAGMA(warning(pop))
+
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 using namespace physx;
 

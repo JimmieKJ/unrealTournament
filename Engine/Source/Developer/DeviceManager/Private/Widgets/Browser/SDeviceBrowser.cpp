@@ -105,16 +105,9 @@ void SDeviceBrowser::Construct( const FArguments& InArgs, const FDeviceManagerMo
 
 	Filter->OnFilterChanged().AddSP(this, &SDeviceBrowser::HandleFilterChanged);
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
-
-
-/* SCompoundWidget overrides
- *****************************************************************************/
-
 void SDeviceBrowser::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
+	//@TODO Passive - Only happens in response to the addition or removal of a device to the device service manager
 	if (NeedsServiceListRefresh)
 	{
 		ReloadDeviceServiceList(true);

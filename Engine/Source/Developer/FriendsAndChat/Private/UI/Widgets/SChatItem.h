@@ -6,10 +6,11 @@ class SChatItem : public SUserWidget
 {
 public:
 	SLATE_USER_ARGS(SChatItem)
+		: _ChatWidth(0)
 	{ }
 	SLATE_ARGUMENT( const FFriendsAndChatStyle*, FriendStyle )
 	SLATE_ARGUMENT(EPopupMethod, Method)
-	SLATE_ARGUMENT(float, ChatWidth)
+	SLATE_ATTRIBUTE(float, ChatWidth)
 	SLATE_END_ARGS()
 
 	/**

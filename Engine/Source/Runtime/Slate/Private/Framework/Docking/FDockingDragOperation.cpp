@@ -13,81 +13,12 @@ void FDockingDragOperation::OnDrop( bool bDropWasHandled, const FPointerEvent& M
 	check(CursorDecoratorWindow.IsValid());
 
 	const FVector2D WindowSize = CursorDecoratorWindow->GetSizeInScreen();
-	// Destroy the CursorDecoratorWindow by calling the base class implementation because we are relocating the content into a more permanent home.
-	FDragDropOperation::OnDrop(bDropWasHandled, MouseEvent);
 
 	TabBeingDragged->SetDraggedOverDockArea( NULL );
 
 	if (!bDropWasHandled)
 	{
-		// If we dropped the tab into an existing DockNode then it would have handled the DropEvent.
-		// We are here because that didn't happen, so make a new window with a new DockNode and drop the tab into that.
-
-		const FVector2D PositionToDrop = MouseEvent.GetScreenSpacePosition() - GetDecoratorOffsetFromCursor();
-
-		TSharedRef<FTabManager> MyTabManager = TabBeingDragged->GetTabManager();
-		
-		TSharedPtr<SWindow> NewWindowParent = MyTabManager->GetPrivateApi().GetParentWindow();
-
-		
-		TSharedRef<SWindow> NewWindow = SNew(SWindow)
-			.Title( FGlobalTabmanager::Get()->GetApplicationTitle() )
-			.AutoCenter(EAutoCenter::None)
-			.ScreenPosition( PositionToDrop )
-			// Make room for the title bar; otherwise windows will get progressive smaller whenver you float them.
-			.ClientSize( SWindow::ComputeWindowSizeForContent( WindowSize ) )
-			.CreateTitleBar(false);
-
-		TSharedPtr<SDockingTabStack> NewDockNode;
-
-		if ( TabBeingDragged->GetTabRole() == ETabRole::NomadTab )
-		{
-			TabBeingDragged->SetTabManager(FGlobalTabmanager::Get());
-		}
-
-		// Create a new dockarea
-		TSharedRef<SDockingArea> NewDockArea = 
-			SNew(SDockingArea, TabBeingDragged->GetTabManager(), FTabManager::NewPrimaryArea())
-			. ParentWindow( NewWindow )
-			. InitialContent
-			(
-				SAssignNew(NewDockNode, SDockingTabStack, FTabManager::NewStack())
-			);
-
-		if (TabBeingDragged->GetTabRole() == ETabRole::MajorTab || TabBeingDragged->GetTabRole() == ETabRole::NomadTab)
-		{
-			TSharedPtr<SWindow> RootWindow = FGlobalTabmanager::Get()->GetRootWindow();
-			if ( RootWindow.IsValid() )
-			{
-				// We have a root window, so all MajorTabs are nested under it.
-				FSlateApplication::Get().AddWindowAsNativeChild( NewWindow, RootWindow.ToSharedRef() )->SetContent(NewDockArea);
-			}
-			else
-			{
-				// App tabs get put in top-level windows. They show up on the taskbar.
-				FSlateApplication::Get().AddWindow( NewWindow )->SetContent(NewDockArea);
-			}
-		}
-		else
-		{
-			// Other tab types are placed in child windows. Their life is controlled by the top-level windows.
-			// They do not show up on the taskbar.
-
-			if ( NewWindowParent.IsValid() )
-			{
-				FSlateApplication::Get().AddWindowAsNativeChild( NewWindow, NewWindowParent.ToSharedRef() )->SetContent(NewDockArea);
-			}
-			else
-			{
-				FSlateApplication::Get().AddWindow( NewWindow )->SetContent(NewDockArea);
-			}
-		}
-
-		// Do this after the window parenting so that the window title is set correctly
-		NewDockNode->OpenTab(TabBeingDragged.ToSharedRef());
-
-		// Let every widget under this tab manager know that this tab has found a new home.
-		TabOwnerAreaOfOrigin->GetTabManager()->GetPrivateApi().OnTabRelocated( TabBeingDragged.ToSharedRef(), NewWindow );
+		DroppedOntoNothing();
 	}
 	else
 	{
@@ -103,6 +34,11 @@ void FDockingDragOperation::OnDrop( bool bDropWasHandled, const FPointerEvent& M
 
 		TabOwnerAreaOfOrigin->GetTabManager()->GetPrivateApi().OnTabRelocated( TabBeingDragged.ToSharedRef(), WindowDroppedInto );
 	}
+
+	// Destroy the CursorDecoratorWindow by calling the base class implementation because we are relocating the content into a more permanent home.
+	FDragDropOperation::OnDrop(bDropWasHandled, MouseEvent);
+
+	TabBeingDragged.Reset();
 }
 
 /** 
@@ -279,6 +215,10 @@ bool FDockingDragOperation::CanDockInNode(const TSharedRef<SDockingNode>& DockNo
 
 FDockingDragOperation::~FDockingDragOperation()
 {
+	if (TabBeingDragged.IsValid())
+	{
+		DroppedOntoNothing();
+	}
 }
 
 
@@ -332,7 +272,7 @@ FDockingDragOperation::FDockingDragOperation( const TSharedRef<SDockTab>& InTabT
 /** @return The offset into the tab where the user grabbed in Slate Units. */
 const FVector2D FDockingDragOperation::GetDecoratorOffsetFromCursor()
 {
-	const ETabRole RoleToUse = TabBeingDragged->IsNomadTabWithMajorTabStyle() ? ETabRole::MajorTab : TabBeingDragged->GetTabRole();
+	const ETabRole RoleToUse = TabBeingDragged->GetVisualTabRole();
 	const FVector2D TabDesiredSize = TabBeingDragged->GetDesiredSize();
 	const FVector2D MaxTabSize = FDockingConstants::GetMaxTabSizeFor(RoleToUse);
 
@@ -351,3 +291,74 @@ FVector2D FDockingDragOperation::DesiredSizeFrom( const FVector2D& InitialTabSiz
 	return InitialTabSize * SizeCoefficient;
 }
 
+void FDockingDragOperation::DroppedOntoNothing()
+{
+	// If we dropped the tab into an existing DockNode then it would have handled the DropEvent.
+	// We are here because that didn't happen, so make a new window with a new DockNode and drop the tab into that.
+
+	const FVector2D PositionToDrop = CursorDecoratorWindow->GetPositionInScreen();
+
+	TSharedRef<FTabManager> MyTabManager = TabBeingDragged->GetTabManager();
+
+	TSharedPtr<SWindow> NewWindowParent = MyTabManager->GetPrivateApi().GetParentWindow();
+
+
+	TSharedRef<SWindow> NewWindow = SNew(SWindow)
+		.Title(FGlobalTabmanager::Get()->GetApplicationTitle())
+		.AutoCenter(EAutoCenter::None)
+		.ScreenPosition(PositionToDrop)
+		// Make room for the title bar; otherwise windows will get progressive smaller whenver you float them.
+		.ClientSize(SWindow::ComputeWindowSizeForContent(CursorDecoratorWindow->GetSizeInScreen()))
+		.CreateTitleBar(false);
+
+	TSharedPtr<SDockingTabStack> NewDockNode;
+
+	if (TabBeingDragged->GetTabRole() == ETabRole::NomadTab)
+	{
+		TabBeingDragged->SetTabManager(FGlobalTabmanager::Get());
+	}
+
+	// Create a new dockarea
+	TSharedRef<SDockingArea> NewDockArea =
+		SNew(SDockingArea, TabBeingDragged->GetTabManager(), FTabManager::NewPrimaryArea())
+		.ParentWindow(NewWindow)
+		.InitialContent
+		(
+		SAssignNew(NewDockNode, SDockingTabStack, FTabManager::NewStack())
+		);
+
+	if (TabBeingDragged->GetTabRole() == ETabRole::MajorTab || TabBeingDragged->GetTabRole() == ETabRole::NomadTab)
+	{
+		TSharedPtr<SWindow> RootWindow = FGlobalTabmanager::Get()->GetRootWindow();
+		if (RootWindow.IsValid())
+		{
+			// We have a root window, so all MajorTabs are nested under it.
+			FSlateApplication::Get().AddWindowAsNativeChild(NewWindow, RootWindow.ToSharedRef())->SetContent(NewDockArea);
+		}
+		else
+		{
+			// App tabs get put in top-level windows. They show up on the taskbar.
+			FSlateApplication::Get().AddWindow(NewWindow)->SetContent(NewDockArea);
+		}
+	}
+	else
+	{
+		// Other tab types are placed in child windows. Their life is controlled by the top-level windows.
+		// They do not show up on the taskbar.
+
+		if (NewWindowParent.IsValid())
+		{
+			FSlateApplication::Get().AddWindowAsNativeChild(NewWindow, NewWindowParent.ToSharedRef())->SetContent(NewDockArea);
+		}
+		else
+		{
+			FSlateApplication::Get().AddWindow(NewWindow)->SetContent(NewDockArea);
+		}
+	}
+
+	// Do this after the window parenting so that the window title is set correctly
+	NewDockNode->OpenTab(TabBeingDragged.ToSharedRef());
+
+	// Let every widget under this tab manager know that this tab has found a new home.
+	TabOwnerAreaOfOrigin->GetTabManager()->GetPrivateApi().OnTabRelocated(TabBeingDragged.ToSharedRef(), NewWindow);
+}

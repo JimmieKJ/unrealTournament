@@ -9,6 +9,8 @@
 #include "UObject/ConstructorHelpers.h"
 #include "UObject/UObjectAnnotation.h"
 #include "UObject/TlsObjectInitializers.h"
+#include "UObject/UObjectThreadContext.h"
+#include "BlueprintSupport.h" // for FDeferredObjInitializerTracker
 
 DEFINE_LOG_CATEGORY(LogUObjectGlobals);
 
@@ -18,21 +20,6 @@ DEFINE_LOG_CATEGORY(LogUObjectGlobals);
 #endif
 
 bool						GIsSavingPackage = false;
-int32							GImportCount							= 0;
-/** Forced exports for EndLoad optimization.											*/
-int32							GForcedExportCount						= 0;
-TArray<UObject*>			GObjLoaded;
-
-/** List of linkers that we want to close the loaders for (to free file handles) - needs to be delayed until EndLoad is called with GObjBeginLoadCount of 0 */
-TArray<ULinkerLoad*>		GDelayedLinkerClosePackages;
-
-/** Count for BeginLoad multiple loads.									*/
-static int32					GObjBeginLoadCount						= 0;
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-/** Used to verify that the Super::Serialize chain is intact.			*/
-TArray<UObject*,TInlineAllocator<16> >		DebugSerialize;
-#endif
 
 /** Object annotation used by the engine to keep track of which objects are selected */
 FUObjectAnnotationSparseBool GSelectedAnnotation;
@@ -84,7 +71,16 @@ FCoreUObjectDelegates::FPackageCreatedForLoad FCoreUObjectDelegates::PackageCrea
 /** Check wehether we should report progress or not */
 bool ShouldReportProgress()
 {
-	return GIsEditor && !IsRunningCommandlet() && !GIsAsyncLoading;
+	return GIsEditor && !IsRunningCommandlet() && !IsAsyncLoading();
+}
+
+/**
+ * Returns true if code is called form the game thread while collecting garbage.
+ * We only have tp guard agains StaticFindObject on the game thread as other threads will be blocked anyway
+ */
+static FORCEINLINE bool IsGarbageCollectingOnGameThread()
+{
+	return IsInGameThread() && IsGarbageCollecting();
 }
 
 /**
@@ -101,14 +97,84 @@ bool ShouldReportProgress()
  */
 UObject* StaticFindObjectFast( UClass* ObjectClass, UObject* ObjectPackage, FName ObjectName, bool ExactClass, bool AnyPackage, EObjectFlags ExclusiveFlags )
 {
-	if (GIsSavingPackage || GIsGarbageCollecting)
+	if (GIsSavingPackage || IsGarbageCollectingOnGameThread())
 	{
 		UE_LOG(LogUObjectGlobals, Fatal,TEXT("Illegal call to StaticFindObjectFast() while serializing object data or garbage collecting!"));
 	}
 
 	// We don't want to return any objects that are currently being background loaded unless we're using FindObject during async loading.
-	ExclusiveFlags |= GIsAsyncLoading ? RF_NoFlags : RF_AsyncLoading;
+	ExclusiveFlags |= IsAsyncLoading() ? RF_NoFlags : RF_AsyncLoading;
 	return StaticFindObjectFastInternal( ObjectClass, ObjectPackage, ObjectName, ExactClass, AnyPackage, ExclusiveFlags );
+}
+
+// Anonymous namespace to not pollute global.
+namespace
+{
+	/**
+	 * Legacy static find object helper, that helps to find reflected types, that
+	 * are no longer a subobjects of UCLASS defined in the same header.
+	 *
+	 * If the class looked for is of one of the relocated types (or theirs subclass)
+	 * then it performs another search in containing package.
+	 *
+	 * If the class match wasn't exact (i.e. either nullptr or subclass of allowed
+	 * ones) and we've found an object we're revalidating it to make sure the
+	 * legacy search was valid.
+	 *
+	 * @param ObjectClass Class of the object to find.
+	 * @param ObjectPackage Package of the object to find.
+	 * @param ObjectName Name of the object to find.
+	 * @param ExactClass If the class match has to be exact. I.e. ObjectClass == FoundObjects.GetClass()
+	 * @param OrigInName Original name provided to StaticFindObject, before resolving. Used to determine if we're looking for delegate signature.
+	 *
+	 * @returns Found object.
+	 */
+	UObject* StaticFindObjectWithChangedLegacyPath(UClass* ObjectClass, UObject* ObjectPackage, FName ObjectName, bool ExactClass, const TCHAR* OrigInName)
+	{
+		UObject* MatchingObject = nullptr;
+
+		// This is another look-up for native enums, structs or delegate signatures, cause they're path changed
+		// and old packages can have invalid ones. The path now does not have a UCLASS as an outer. All mentioned
+		// types are just children of package of the file there were defined in.
+		if (!FPlatformProperties::RequiresCookedData() && // Cooked platforms will have all paths resolved.
+			ObjectPackage != nullptr &&
+			ObjectPackage->IsA<UClass>()) // Only if outer is a class.
+		{
+			bool bHasDelegateSignaturePostfix = FString(OrigInName).EndsWith(HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX);
+
+			bool bExactPathChangedClass = ObjectClass == UEnum::StaticClass() // Enums
+				|| ObjectClass == UScriptStruct::StaticClass() || ObjectClass == UStruct::StaticClass() // Structs
+				|| (ObjectClass == UFunction::StaticClass() && bHasDelegateSignaturePostfix); // Delegates
+
+			bool bSubclassOfPathChangedClass = !bExactPathChangedClass && !ExactClass
+				&& (ObjectClass == nullptr // Any class
+				|| UEnum::StaticClass()->IsChildOf(ObjectClass) // Enums
+				|| UScriptStruct::StaticClass()->IsChildOf(ObjectClass) || UStruct::StaticClass()->IsChildOf(ObjectClass) // Structs
+				|| (UFunction::StaticClass()->IsChildOf(ObjectClass) && bHasDelegateSignaturePostfix)); // Delegates
+
+			if (!bExactPathChangedClass && !bSubclassOfPathChangedClass)
+			{
+				return nullptr;
+			}
+
+			MatchingObject = StaticFindObject(ObjectClass, ObjectPackage->GetOutermost(), *ObjectName.ToString(), ExactClass);
+
+			if (MatchingObject && bSubclassOfPathChangedClass)
+			{
+				// If the class wasn't given exactly, check if found object is of class that outers were changed.
+				UClass* MatchingObjectClass = MatchingObject->GetClass();
+				if (!(MatchingObjectClass == UEnum::StaticClass()	// Enums
+					|| MatchingObjectClass == UScriptStruct::StaticClass() || MatchingObjectClass == UStruct::StaticClass() // Structs
+					|| (MatchingObjectClass == UFunction::StaticClass() && bHasDelegateSignaturePostfix)) // Delegates
+					)
+				{
+					return nullptr;
+				}
+			}
+		}
+
+		return MatchingObject;
+	}
 }
 
 //
@@ -123,7 +189,7 @@ UObject* StaticFindObject( UClass* ObjectClass, UObject* InObjectPackage, const 
 		UE_LOG(LogUObjectGlobals, Fatal,TEXT("Illegal call to StaticFindObject() while serializing object data!"));
 	}
 
-	if (GIsGarbageCollecting)
+	if (IsGarbageCollectingOnGameThread())
 	{
 		UE_LOG(LogUObjectGlobals, Fatal,TEXT("Illegal call to StaticFindObject() while collecting garbage!"));
 	}
@@ -144,9 +210,9 @@ UObject* StaticFindObject( UClass* ObjectClass, UObject* InObjectPackage, const 
 		if (s_bCurrentlyLoading == false)
 		{
 			FString NameCheck = OrigInName;
-			if (NameCheck.Contains(TEXT(".")) && 
-				!NameCheck.Contains(TEXT("'")) && 
-				!NameCheck.Contains(TEXT(":")) )
+			if (NameCheck.Contains(TEXT("."), ESearchCase::CaseSensitive) && 
+				!NameCheck.Contains(TEXT("'"), ESearchCase::CaseSensitive) && 
+				!NameCheck.Contains(TEXT(":"), ESearchCase::CaseSensitive) )
 			{
 				s_bCurrentlyLoading = true;
 				MatchingObject = StaticLoadObject(ObjectClass, NULL, OrigInName, NULL,  LOAD_NoWarn, NULL);
@@ -169,6 +235,11 @@ UObject* StaticFindObject( UClass* ObjectClass, UObject* InObjectPackage, const 
 	FName ObjectName(*InName, FNAME_Add, true);
 	MatchingObject = StaticFindObjectFast( ObjectClass, ObjectPackage, ObjectName, ExactClass, bAnyPackage );
 
+	if (!MatchingObject)
+	{
+		return StaticFindObjectWithChangedLegacyPath(ObjectClass, ObjectPackage, ObjectName, ExactClass, OrigInName);
+	}
+
 	return MatchingObject;
 }
 
@@ -188,11 +259,11 @@ UObject* StaticFindObjectChecked( UClass* ObjectClass, UObject* ObjectParent, co
 }
 
 //
-// Find an object; won't assert on GIsSavingPackage or GIsGarbageCollecting
+// Find an object; won't assert on GIsSavingPackage or IsGarbageCollecting()
 //
 UObject* StaticFindObjectSafe( UClass* ObjectClass, UObject* ObjectParent, const TCHAR* InName, bool ExactClass )
 {
-	if ( !GIsSavingPackage && !GIsGarbageCollecting )
+	if (!GIsSavingPackage && !IsGarbageCollectingOnGameThread())
 	{
 		return StaticFindObject( ObjectClass, ObjectParent, InName, ExactClass );
 	}
@@ -390,22 +461,18 @@ void StaticTick( float DeltaTime, bool bUseFullTimeLimit, float AsyncLoadingTime
 //
 // Safe load error-handling.
 //
-void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* Error, const TCHAR* Fmt, ... )
+void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* ErrorMessage)
 {
-	// Variable arguments setup.
-	TCHAR TempStr[4096];
-	GET_VARARGS( TempStr, ARRAY_COUNT(TempStr), ARRAY_COUNT(TempStr)-1, Fmt, Fmt );
-
 	if( FParse::Param( FCommandLine::Get(), TEXT("TREATLOADWARNINGSASERRORS") ) == true )
 	{
-		UE_LOG(LogUObjectGlobals, Error, TEXT("%s"), TempStr ); 
+		UE_LOG(LogUObjectGlobals, Error, TEXT("%s"), ErrorMessage);
 	}
 	else
 	{
 		// Don't warn here if either quiet or no warn are set
 		if( (LoadFlags & LOAD_Quiet) == 0 && (LoadFlags & LOAD_NoWarn) == 0)
 		{ 
-			UE_LOG(LogUObjectGlobals, Warning, TEXT("%s"), TempStr ); 
+			UE_LOG(LogUObjectGlobals, Warning, TEXT("%s"), ErrorMessage);
 		}
 	}
 }
@@ -428,7 +495,7 @@ UPackage* FindPackage( UObject* InOuter, const TCHAR* PackageName )
 	{
 		InName = MakeUniqueObjectName( InOuter, UPackage::StaticClass() ).ToString();
 	}
-	ResolveName( InOuter, InName, 1, 0 );
+	ResolveName( InOuter, InName, true, false );
 
 	UPackage* Result = NULL;
 	if ( InName != TEXT("None") )
@@ -451,12 +518,12 @@ UPackage* CreatePackage( UObject* InOuter, const TCHAR* PackageName )
 		InName = PackageName;
 	}
 
-	if (InName.Contains(TEXT("//")))
+	if (InName.Contains(TEXT("//"), ESearchCase::CaseSensitive))
 	{
 		UE_LOG(LogUObjectGlobals, Fatal, TEXT("Attempted to create a package with name containing double slashes. PackageName: %s"), PackageName);
 	}
 
-	if( InName.EndsWith( TEXT( "." ) ) )
+	if( InName.EndsWith( TEXT( "." ), ESearchCase::CaseSensitive ) )
 	{
 		FString InName2 = InName.Left( InName.Len() - 1 );
 		UE_LOG(LogUObjectGlobals, Log,  TEXT( "Invalid Package Name entered - '%s' renamed to '%s'" ), *InName, *InName2 );
@@ -468,7 +535,7 @@ UPackage* CreatePackage( UObject* InOuter, const TCHAR* PackageName )
 		InName = MakeUniqueObjectName( InOuter, UPackage::StaticClass() ).ToString();
 	}
 
-	ResolveName( InOuter, InName, 1, 0 );
+	ResolveName( InOuter, InName, true, false );
 
 	UPackage* Result = NULL;
 	if ( InName.Len() == 0 )
@@ -488,7 +555,7 @@ UPackage* CreatePackage( UObject* InOuter, const TCHAR* PackageName )
 			}
 			else
 			{
-				Result = NewNamedObject<UPackage>(InOuter, NewPackageName, RF_Public);
+				Result = NewObject<UPackage>(InOuter, NewPackageName, RF_Public);
 			}
 		}
 	}
@@ -526,7 +593,7 @@ bool ResolveName( UObject*& InPackage, FString& InOutName, bool Create, bool Thr
 	}
 
 
-	if( IniFilename && InOutName.Contains(TEXT(".")) )
+	if( IniFilename && InOutName.Contains(TEXT("."), ESearchCase::CaseSensitive) )
 	{
 		// Get .ini key and section.
 		FString Section = InOutName.Mid(1+InOutName.Find(TEXT(":"), ESearchCase::CaseSensitive));
@@ -554,9 +621,6 @@ bool ResolveName( UObject*& InPackage, FString& InOutName, bool Create, bool Thr
 	// Strip off the object class.
 	ConstructorHelpers::StripObjectClass( InOutName );
 
-	// Handle specified packages.
-	int32 i;
-
 	// if you're attempting to find an object in any package using a dotted name that isn't fully
 	// qualified (such as ObjectName.SubobjectName - notice no package name there), you normally call
 	// StaticFindObject and pass in ANY_PACKAGE as the value for InPackage.  When StaticFindObject calls ResolveName,
@@ -566,17 +630,20 @@ bool ResolveName( UObject*& InPackage, FString& InOutName, bool Create, bool Thr
 	// name couldn't be found, pass in ANY_PACKAGE as the value for InPackage to the call to FindObject<UObject>().
 	bool bSubobjectPath = false;
 
+	// Handle specified packages.
+	int32 DotIndex = INDEX_NONE;// InOutName.Find(TEXT("."), ESearchCase::CaseSensitive);
+
 	// to make parsing the name easier, replace the subobject delimiter with an extra dot
-	InOutName.ReplaceInline(SUBOBJECT_DELIMITER, TEXT(".."));
-	while( (i=InOutName.Find(TEXT("."))) != -1 )
+	InOutName.ReplaceInline(SUBOBJECT_DELIMITER, TEXT(".."), ESearchCase::CaseSensitive);
+	while ((DotIndex = InOutName.Find(TEXT("."), ESearchCase::CaseSensitive)) != INDEX_NONE)
 	{
-		FString PartialName = InOutName.Left(i);
+		FString PartialName = InOutName.Left(DotIndex);
 
 		// if the next part of InOutName ends in two dots, it indicates that the next object in the path name
 		// is not a top-level object (i.e. it's a subobject).  e.g. SomePackage.SomeGroup.SomeObject..Subobject
-		if ( InOutName.Mid(i+1,1) == TEXT(".") )
+		if (InOutName.Mid(DotIndex + 1, 1) == TEXT("."))
 		{
-			InOutName      = PartialName + InOutName.Mid(i+1);
+			InOutName = PartialName + InOutName.Mid(DotIndex + 1);
 			bSubobjectPath = true;
 			Create         = false;
 		}
@@ -616,7 +683,7 @@ bool ResolveName( UObject*& InPackage, FString& InOutName, bool Create, bool Thr
 
 			check(InPackage);
 		}
-		InOutName = InOutName.Mid(i+1);
+		InOutName = InOutName.Mid(DotIndex + 1);
 	}
 
 	return true;
@@ -682,71 +749,95 @@ bool ParseObject( const TCHAR* Stream, const TCHAR* Match, UClass* Class, UObjec
  *
  * @return The object that was loaded or found. NULL for a failure.
  */
-UObject* StaticLoadObject(UClass* ObjectClass, UObject* InOuter, const TCHAR* InName, const TCHAR* Filename, uint32 LoadFlags, UPackageMap* Sandbox, bool bAllowObjectReconciliation )
+UObject* StaticLoadObjectInternal(UClass* ObjectClass, UObject* InOuter, const TCHAR* InName, const TCHAR* Filename, uint32 LoadFlags, UPackageMap* Sandbox, bool bAllowObjectReconciliation)
 {
-	//UE_CLOG(GIsRoutingPostLoad, LogUObjectGlobals, Fatal, TEXT("Calling StaticLoadObject during PostLoad is forbidden."));
-
 	SCOPE_CYCLE_COUNTER(STAT_LoadObject);
 	check(ObjectClass);
 	check(InName);
 
 	FString StrName = InName;
+	UObject* Result = nullptr;
+	const bool bContainsObjectName = !!FCString::Strstr(InName, TEXT("."));
 
 	// break up the name into packages, returning the innermost name and its outer
 	ResolveName(InOuter, StrName, true, true);
 	if (InOuter)
 	{
-		if( bAllowObjectReconciliation && ((FApp::IsGame() && !GIsEditor && !IsRunningCommandlet()) 
+		if (bAllowObjectReconciliation && ((FApp::IsGame() && !GIsEditor && !IsRunningCommandlet())
 #if WITH_EDITOR
 			|| GIsImportingT3D
 #endif
 			))
 		{
-			if (UObject* Result = StaticFindObjectFast(ObjectClass, InOuter, *StrName))
-			{
-				return Result;
-			}
+			Result = StaticFindObjectFast(ObjectClass, InOuter, *StrName);
 		}
 
-		if( (FPlatformProperties::RequiresCookedData() || FPlatformProperties::IsServerOnly()) && GUseSeekFreeLoading )
+		if (!Result)
 		{
-			if ( (LoadFlags&LOAD_NoWarn) == 0 )
+			if ((FPlatformProperties::RequiresCookedData() || FPlatformProperties::IsServerOnly()) && GUseSeekFreeLoading)
 			{
-				UE_LOG(LogUObjectGlobals, Warning ,TEXT("StaticLoadObject for %s %s %s couldn't find object in memory!"),
-					*ObjectClass->GetName(),
-					*InOuter->GetName(),
-					*StrName);
+				// Warn only if we allow it and we're sure we're not going to re-try searching with the object name
+				if (bContainsObjectName && (LoadFlags&LOAD_NoWarn) == 0)
+				{
+					UE_LOG(LogUObjectGlobals, Warning, TEXT("StaticLoadObject for %s %s %s couldn't find object in memory!"),
+						*ObjectClass->GetName(),
+						*InOuter->GetName(),
+						*StrName);
+				}
 			}
-		}
-		else
-		{
-			// now that we have one asset per package, we load the entire package whenever a single object is requested
-			LoadPackage(NULL, *InOuter->GetOutermost()->GetName(), LoadFlags & ~LOAD_Verify);
-
-			// now, find the object in the package
-			if (UObject* Result = Result = StaticFindObjectFast(ObjectClass, InOuter, *StrName))
+			else
 			{
-				return Result;
-			}
+				// now that we have one asset per package, we load the entire package whenever a single object is requested
+				LoadPackage(NULL, *InOuter->GetOutermost()->GetName(), LoadFlags & ~LOAD_Verify);
 
-			// If the object was not found, check for a redirector and follow it if the class matches
-			UObjectRedirector* Redirector = FindObjectFast<UObjectRedirector>(InOuter, *StrName);
-			if ( Redirector && Redirector->DestinationObject && Redirector->DestinationObject->IsA(ObjectClass) )
-			{
-				return Redirector->DestinationObject;
+				// now, find the object in the package
+				Result = StaticFindObjectFast(ObjectClass, InOuter, *StrName);
+
+				// If the object was not found, check for a redirector and follow it if the class matches
+				if (!Result)
+				{
+					UObjectRedirector* Redirector = FindObjectFast<UObjectRedirector>(InOuter, *StrName);
+					if (Redirector && Redirector->DestinationObject && Redirector->DestinationObject->IsA(ObjectClass))
+					{
+						return Redirector->DestinationObject;
+					}
+				}
 			}
 		}
 	}
 
-	// we haven't created or found the object, error
-	FFormatNamedArguments Arguments;
-	Arguments.Add(TEXT("ClassName"), FText::FromString( ObjectClass->GetName() ));
-	Arguments.Add(TEXT("OuterName"), InOuter ? FText::FromString( InOuter->GetPathName() ) : NSLOCTEXT( "Core", "None", "None" ));
-	Arguments.Add(TEXT("ObjectName"), FText::FromString( StrName ));
-	const FString Error = FText::Format( NSLOCTEXT( "Core", "ObjectNotFound", "Failed to find object '{ClassName} {OuterName}.{ObjectName}'" ), Arguments ).ToString();
-	SafeLoadError(InOuter, LoadFlags, *Error, *Error);
+	if (!Result && !bContainsObjectName)
+	{
+		// Assume that the object we're trying to load is the main asset inside of the package 
+		// which usually has the same name as the short package name.
+		StrName = InName;
+		StrName += TEXT(".");
+		StrName += FPackageName::GetShortName(InName);
+		Result = StaticLoadObjectInternal(ObjectClass, InOuter, *StrName, Filename, LoadFlags, Sandbox, bAllowObjectReconciliation);
+	}
 
-	return nullptr;
+	return Result;
+}
+
+UObject* StaticLoadObject(UClass* ObjectClass, UObject* InOuter, const TCHAR* InName, const TCHAR* Filename, uint32 LoadFlags, UPackageMap* Sandbox, bool bAllowObjectReconciliation )
+{
+	UE_CLOG(FUObjectThreadContext::Get().IsRoutingPostLoad && IsInAsyncLoadingThread(), LogUObjectGlobals, Warning, TEXT("Calling StaticLoadObject during PostLoad may result in hitches during streaming."));
+
+	UObject* Result = StaticLoadObjectInternal(ObjectClass, InOuter, InName, Filename, LoadFlags, Sandbox, bAllowObjectReconciliation);
+	if (!Result)
+	{
+		FString ObjectName = InName;
+		ResolveName(InOuter, ObjectName, true, true);
+
+		// we haven't created or found the object, error
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("ClassName"), FText::FromString(ObjectClass->GetName()));
+		Arguments.Add(TEXT("OuterName"), InOuter ? FText::FromString(InOuter->GetPathName()) : NSLOCTEXT("Core", "None", "None"));
+		Arguments.Add(TEXT("ObjectName"), FText::FromString(ObjectName));
+		const FString Error = FText::Format(NSLOCTEXT("Core", "ObjectNotFound", "Failed to find object '{ClassName} {OuterName}.{ObjectName}'"), Arguments).ToString();
+		SafeLoadError(InOuter, LoadFlags, *Error);
+	}
+	return Result;
 }
 
 //
@@ -763,7 +854,7 @@ UClass* StaticLoadClass( UClass* BaseClass, UObject* InOuter, const TCHAR* InNam
 		Arguments.Add(TEXT("ClassName"), FText::FromString( Class->GetFullName() ));
 		Arguments.Add(TEXT("BaseClassName"), FText::FromString( BaseClass->GetFullName() ));
 		const FString Error = FText::Format( NSLOCTEXT( "Core", "LoadClassMismatch", "{ClassName} is not a child class of {BaseClassName}" ), Arguments ).ToString();
-		SafeLoadError(InOuter, LoadFlags,*Error, *Error);
+		SafeLoadError(InOuter, LoadFlags, *Error);
 
 		// return NULL class due to error
 		Class = NULL;
@@ -780,8 +871,10 @@ UClass* StaticLoadClass( UClass* BaseClass, UObject* InOuter, const TCHAR* InNam
 * @param	ImportLinker	Linker that requests this package through one of its imports
 * @return	Loaded package if successful, NULL otherwise
 */
-UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, ULinkerLoad* ImportLinker)
+UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags, FLinkerLoad* ImportLinker)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("LoadPackageInternal"), STAT_LoadPackageInternal, STATGROUP_ObjectVerbose);
+
 	UPackage* Result = NULL;
 
 	FString FileToLoad;
@@ -824,28 +917,40 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 	// Try to load.
 	BeginLoad();
 
+	bool bFullyLoadSkipped = false;
+
 	SlowTask.EnterProgressFrame(30);
+
+	// Declare here so that the linker does not get destroyed before ResetLoaders is called
+	FLinkerLoad* Linker = nullptr;
 	{
 		// Keep track of start time.
 		const double StartTime = FPlatformTime::Seconds();
 
 		// Create a new linker object which goes off and tries load the file.
-		ULinkerLoad* Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr);
+		Linker = GetPackageLinker(InOuter, *FileToLoad, LoadFlags, nullptr, nullptr);
 		if (!Linker)
 		{
 			EndLoad();
 			return nullptr;
 		}
 
-		if (Linker->LinkerRoot && Linker->LinkerRoot->HasAnyFlags(RF_WasLoaded))
+		Result = Linker->LinkerRoot;
+
+		auto EndLoadAndCopyLocalizationGatherFlag = [&]
+		{
+			EndLoad();
+			// Set package-requires-localization flags from archive after loading. This reinforces flagging of packages that haven't yet been resaved.
+			Result->ThisRequiresLocalizationGather(Linker->RequiresLocalizationGather());
+		};
+
+		if (Result && Result->HasAnyFlags(RF_WasLoaded))
 		{
 			// The linker is associated with a package that has already been loaded.
 			// Loading packages that have already been loaded is unsupported.
-			EndLoad();
-			return Linker->LinkerRoot;
+			EndLoadAndCopyLocalizationGatherFlag();
+			return Result;
 		}
-
-		Result = Linker->LinkerRoot;
 
 		// If we are loading a package for diff'ing, set the package flag
 		if(LoadFlags & LOAD_ForDiff)
@@ -874,18 +979,14 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 		// if this linker already has the DeferDependencyLoads flag, then we're
 		// already loading it earlier up the load chain (don't let it invoke any
 		// deeper loads that may introduce a circular dependency)
-		if ((Linker->LoadFlags & LOAD_DeferDependencyLoads))
-		{
-			DoNotLoadExportsFlags |= LOAD_DeferDependencyLoads;
-		}
-		// @TODO: what of cases where DeferDependencyLoads was specified, but not already set on the Linker?
+		DoNotLoadExportsFlags |= LOAD_DeferDependencyLoads;
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
 		if ((LoadFlags & DoNotLoadExportsFlags) == 0)
 		{
 			// Make sure we pass the property that's currently being serialized by the linker that owns the import 
 			// that triggered this LoadPackage call
-			auto OldSerialziedProperty = Linker->GetSerializedProperty();
+			UProperty* OldSerializedProperty = Linker->GetSerializedProperty();
 			if (ImportLinker)
 			{
 				Linker->SetSerializedProperty(ImportLinker->GetSerializedProperty());
@@ -893,19 +994,20 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 
 			Linker->LoadAllObjects();
 
-			Linker->SetSerializedProperty(OldSerialziedProperty);
+			Linker->SetSerializedProperty(OldSerializedProperty);
+		}
+		else
+		{
+			bFullyLoadSkipped = true;
 		}
 
 		SlowTask.EnterProgressFrame(30);
 
-		EndLoad();
+		EndLoadAndCopyLocalizationGatherFlag();
 
 #if WITH_EDITOR
 		GIsEditorLoadingPackage = *IsEditorLoadingPackage;
 #endif
-
-		// Set package-requires-localization flags from archive after loading. This reinforces flagging of packages that haven't yet been resaved.
-		Result->ThisRequiresLocalizationGather(Linker->RequiresLocalizationGather());
 
 #if WITH_ENGINE
 		// Cancel all texture allocations that haven't been claimed yet.
@@ -939,23 +1041,34 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 			FIOSystem::Get().HintDoneWithFile(*Linker->Filename);
 		}
 
-		// with UE4 and single asset per package, we load so many packages that some platforms will run out
+		// With UE4 and single asset per package, we load so many packages that some platforms will run out
 		// of file handles. So, this will close the package, but just things like bulk data loading will
-		// fail, so we only currently do this when loading on consoles
-		if (FPlatformProperties::RequiresCookedData())
+		// fail, so we only currently do this when loading on consoles.
+		// The only exception here is when we're in the middle of async loading where we can't reset loaders yet. This should only happen when
+		// doing synchronous load in the middle of streaming.
+		if (FPlatformProperties::RequiresCookedData() && !IsInAsyncLoadingThread())
 		{
-			if (GObjBeginLoadCount == 0)
+			if (FUObjectThreadContext::Get().ObjBeginLoadCount == 0)
 			{
+				// Sanity check to make sure that Linker is the linker that loaded our Result package
+				check(!Result || Result->LinkerLoad == Linker);
 				if (Result && Linker->Loader)
 				{
 					ResetLoaders(Result);
 				}
-				delete Linker->Loader;
-				Linker->Loader = NULL;
+				// Reset loaders could have already deleted Linker so guard against deleting stale pointers
+				if (Result && Result->LinkerLoad)
+				{
+					delete Linker->Loader;
+					Linker->Loader = nullptr;
+				}
+				// And make sure no one can use it after it's been deleted
+				Linker = nullptr;
 			}
+			// Async loading removes delayed linkers on the game thread after streaming has finished
 			else
 			{
-				GDelayedLinkerClosePackages.Add(Linker);
+				FUObjectThreadContext::Get().DelayedLinkerClosePackages.Add(Linker);
 			}
 		}
 	}
@@ -965,14 +1078,25 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 		// We no longer need the linker. Passing in NULL would reset all loaders so we need to check for that.
 		ResetLoaders( Result );
 	}
-	// Mark package as loaded.
-	Result->SetFlags(RF_WasLoaded);
+	if (!bFullyLoadSkipped)
+	{
+		// Mark package as loaded.
+		Result->SetFlags(RF_WasLoaded);
+	}
 
 	return Result;
 }
 
 UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags)
 {
+	// Change to 1 if you want more detailed stats for loading packages, but at the cost of adding dynamic stats.
+#if	STATS && 0
+	static FString Package = TEXT( "Package" );
+	const FString LongName = Package / InLongPackageName;
+	const TStatId StatId = FDynamicStats::CreateStatId<FStatGroup_STATGROUP_UObjects>( LongName );
+	FScopeCycleCounter CycleCounter( StatId );
+#endif // STATS
+
 	return LoadPackageInternal(InOuter, InLongPackageName, LoadFlags, /*ImportLinker =*/ nullptr);
 }
 
@@ -983,8 +1107,8 @@ UPackage* LoadPackage(UPackage* InOuter, const TCHAR* InLongPackageName, uint32 
  */
 bool IsLoading()
 {
-	check(GObjBeginLoadCount>=0);
-	return GObjBeginLoadCount > 0;
+	check(FUObjectThreadContext::Get().ObjBeginLoadCount >= 0);
+	return FUObjectThreadContext::Get().ObjBeginLoadCount > 0;
 }
 
 //
@@ -993,14 +1117,17 @@ bool IsLoading()
 //
 void BeginLoad()
 {
-	if( ++GObjBeginLoadCount == 1 && !GIsAsyncLoading )
+	auto& ThreadContext = FUObjectThreadContext::Get();
+	if (ThreadContext.ObjBeginLoadCount == 0 && !IsInAsyncLoadingThread())
 	{
 		// Make sure we're finishing up all pending async loads, and trigger texture streaming next tick if necessary.
 		FlushAsyncLoading( NAME_None );
 
 		// Validate clean load state.
-		check(GObjLoaded.Num()==0);
+		check(ThreadContext.ObjLoaded.Num() == 0);
 	}
+
+	++ThreadContext.ObjBeginLoadCount;
 }
 
 // Sort objects by linker name and file offset
@@ -1008,8 +1135,8 @@ struct FCompareUObjectByLinkerAndOffset
 {
 	FORCEINLINE bool operator()( const UObject& A, const UObject &B ) const
 	{
-		ULinker* LinkerA = A.GetLinker();
-		ULinker* LinkerB = B.GetLinker();
+		FLinker* LinkerA = A.GetLinker();
+		FLinker* LinkerB = B.GetLinker();
 
 		// Both objects have linkers.
 		if( LinkerA && LinkerB )
@@ -1021,10 +1148,10 @@ struct FCompareUObjectByLinkerAndOffset
 				FObjectExport& ExportB = LinkerB->ExportMap[ B.GetLinkerIndex() ];
 				return ExportA.SerialOffset < ExportB.SerialOffset;
 			}
-			// Sort by linker name.
+			// Sort by pointer address.
 			else
 			{
-				return LinkerA->GetFName().GetComparisonIndex() < LinkerB->GetFName().GetComparisonIndex();
+				return LinkerA < LinkerB;
 			}
 		}
 		// Neither objects have a linker, don't do anything.
@@ -1045,10 +1172,12 @@ struct FCompareUObjectByLinkerAndOffset
 //
 void EndLoad()
 {
-	check(GObjBeginLoadCount>0);
-	if (GIsAsyncLoading)
+	auto& ThreadContext = FUObjectThreadContext::Get();
+
+	check(ThreadContext.ObjBeginLoadCount > 0);
+	if (IsInAsyncLoadingThread())
 	{
-		GObjBeginLoadCount--;
+		ThreadContext.ObjBeginLoadCount--;
 		return;
 	}
 
@@ -1058,20 +1187,20 @@ void EndLoad()
 	int32 NumObjectsLoaded = 0, NumObjectsFound = 0;
 #endif
 
-	while( --GObjBeginLoadCount == 0 && (GObjLoaded.Num() || GImportCount || GForcedExportCount) )
+	while (--ThreadContext.ObjBeginLoadCount == 0 && (ThreadContext.ObjLoaded.Num() || ThreadContext.ImportCount || ThreadContext.ForcedExportCount))
 	{
 		// Make sure we're not recursively calling EndLoad as e.g. loading a config file could cause
 		// BeginLoad/EndLoad to be called.
-		GObjBeginLoadCount++;
+		ThreadContext.ObjBeginLoadCount++;
 
 		// Temporary list of loaded objects as GObjLoaded might expand during iteration.
 		TArray<UObject*> ObjLoaded;
-		TSet<ULinkerLoad*> LoadedLinkers;
-		while( GObjLoaded.Num() )
+		TSet<FLinkerLoad*> LoadedLinkers;
+		while (ThreadContext.ObjLoaded.Num())
 		{
 			// Accumulate till GObjLoaded no longer increases.
-			ObjLoaded += GObjLoaded;
-			GObjLoaded.Empty();
+			ObjLoaded += ThreadContext.ObjLoaded;
+			ThreadContext.ObjLoaded.Empty();
 
 			// Sort by Filename and Offset.
 			ObjLoaded.Sort( FCompareUObjectByLinkerAndOffset() );
@@ -1090,7 +1219,7 @@ void EndLoad()
 
 			// Start over again as new objects have been loaded that need to have "Preload" called on them before
 			// we can safely PostLoad them.
-			if(GObjLoaded.Num())
+			if (ThreadContext.ObjLoaded.Num())
 			{
 				continue;
 			}
@@ -1115,7 +1244,7 @@ void EndLoad()
 
 			{
 				// set this so that we can perform certain operations in which are only safe once all objects have been de-serialized.
-				TGuardValue<bool> GuardIsRoutingPostLoad(GIsRoutingPostLoad, true);
+				TGuardValue<bool> GuardIsRoutingPostLoad(FUObjectThreadContext::Get().IsRoutingPostLoad, true);
 
 				// Postload objects.
 				for(int32 i = 0; i < ObjLoaded.Num(); i++)
@@ -1147,23 +1276,22 @@ void EndLoad()
 #endif	// WITH_EDITOR
 
 			// Empty array before next iteration as we finished postloading all objects.
-			ObjLoaded.Empty( GObjLoaded.Num() );
+			ObjLoaded.Empty(ThreadContext.ObjLoaded.Num());
 		}
 
 		if ( GIsEditor && LoadedLinkers.Num() > 0 )
 		{
-			for ( TSet<ULinkerLoad*>::TIterator It(LoadedLinkers); It; ++It )
+			for (auto LoadedLinker : LoadedLinkers)
 			{
-				ULinkerLoad* LoadedLinker = *It;
-				check(LoadedLinker);
+				check(LoadedLinker != nullptr);
 
-				if ( LoadedLinker->LinkerRoot != NULL && !LoadedLinker->LinkerRoot->IsFullyLoaded() )
+				if (LoadedLinker->LinkerRoot != nullptr && !LoadedLinker->LinkerRoot->IsFullyLoaded())
 				{
 					bool bAllExportsCreated = true;
 					for ( int32 ExportIndex = 0; ExportIndex < LoadedLinker->ExportMap.Num(); ExportIndex++ )
 					{
 						FObjectExport& Export = LoadedLinker->ExportMap[ExportIndex];
-						if ( !Export.bForcedExport && Export.Object == NULL )
+						if ( !Export.bForcedExport && Export.Object == nullptr )
 						{
 							bAllExportsCreated = false;
 							break;
@@ -1183,20 +1311,18 @@ void EndLoad()
 		DissociateImportsAndForcedExports();
 
 		// close any linkers' loaders that were requested to be closed once GObjBeginLoadCount goes to 0
-		for (int32 Index = 0; Index < GDelayedLinkerClosePackages.Num(); Index++)
+		auto PackagesToClose = MoveTemp(ThreadContext.DelayedLinkerClosePackages);
+		for (auto Linker: PackagesToClose)
 		{
-			ULinkerLoad* Linker = GDelayedLinkerClosePackages[Index];
 			if (Linker)
 			{
 				if (Linker->Loader && Linker->LinkerRoot)
 				{
 					ResetLoaders(Linker->LinkerRoot);
 				}
-				delete Linker->Loader;
-				Linker->Loader = NULL;
+				check(Linker->Loader == nullptr);
 			}
 		}
-		GDelayedLinkerClosePackages.Empty();
 	}
 }
 
@@ -1419,7 +1545,7 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 	UObject* DupRootObject = Parameters.DuplicationSeed.FindRef(Parameters.SourceObject);
 	if ( DupRootObject == NULL )
 	{
-		DupRootObject = StaticConstructObject(	Parameters.DestClass,
+		DupRootObject = StaticConstructObject_Internal(	Parameters.DestClass,
 														Parameters.DestOuter,
 														Parameters.DestName,
 														Parameters.ApplyFlags|Parameters.SourceObject->GetMaskedFlags(Parameters.FlagMask),
@@ -1669,6 +1795,9 @@ void NotifyConstructedDuringAsyncLoading(UObject* Object, bool bSubObject);
 //@todo UE4 this is clunky
 static FRestoreForUObjectOverwrite* ObjectRestoreAfterInitProps = NULL;  
 
+COREUOBJECT_API bool GOutputCookingWarnings = false;
+
+
 UObject* StaticAllocateObject
 (
 	UClass*			InClass,
@@ -1679,7 +1808,7 @@ UObject* StaticAllocateObject
 	bool* bOutRecycledSubobject
 )
 {
-//	SCOPE_CYCLE_COUNTER(STAT_AllocateObject);
+	SCOPE_CYCLE_COUNTER(STAT_AllocateObject);
 	checkSlow(InOuter != INVALID_OBJECT); // not legal
 	check(!InClass || (InClass->ClassWithin && InClass->ClassConstructor));
 #if WITH_EDITOR
@@ -1713,7 +1842,16 @@ UObject* StaticAllocateObject
 	UObject* Obj = NULL;
 	if(InName == NAME_None)
 	{
-		InName = MakeUniqueObjectName( InOuter, InClass );
+#if WITH_EDITOR
+		static FName NAME_UniqueObjectNameForCooking(TEXT("UniqueObjectNameForCooking"));
+		if ( GOutputCookingWarnings && GetTransientPackage() != InOuter->GetOutermost() )
+		{
+			InName = MakeUniqueObjectName(InOuter, InClass, NAME_UniqueObjectNameForCooking);
+		}
+		else
+#endif
+		InName = MakeUniqueObjectName(InOuter, InClass);
+
 	}
 	else
 	{
@@ -1733,7 +1871,7 @@ UObject* StaticAllocateObject
 		}
 	}
 
-	ULinkerLoad*	Linker						= NULL;
+	FLinkerLoad*	Linker						= NULL;
 	int32				LinkerIndex					= INDEX_NONE;
 	bool			bWasConstructedOnOldObject	= false;
 	// True when the object to be allocated already exists and is a subobject.
@@ -1817,8 +1955,8 @@ UObject* StaticAllocateObject
 
 	if (!bSubObject)
 	{
-	FMemory::Memzero((void *)Obj, TotalSize);
-	new ((void *)Obj) UObjectBase(InClass,InFlags,InOuter,InName);
+		FMemory::Memzero((void *)Obj, TotalSize);
+		new ((void *)Obj) UObjectBase(InClass,InFlags,InOuter,InName);
 	}
 	else
 	{
@@ -1837,10 +1975,25 @@ UObject* StaticAllocateObject
 		}
 	}
 
-	if (GIsAsyncLoading)
+	if (IsInAsyncLoadingThread())
 	{
 		NotifyConstructedDuringAsyncLoading(Obj, bSubObject);
 	}
+	else
+	{
+		// Sanity checks for async flags.
+		// It's possible to duplicate an object on the game thread that is still being referenced 
+		// by async loading code or has been created on a different thread than the main thread.
+		if (Obj->HasAnyFlags(RF_AsyncLoading))
+		{
+			Obj->ClearFlags(RF_AsyncLoading);
+		}
+		if (Obj->HasAnyFlags(RF_Async) && IsInGameThread())
+		{
+			Obj->ClearFlags(RF_Async);
+		}
+	}
+
 
 	// Let the caller know if a subobject has just been recycled.
 	if (bOutRecycledSubobject)
@@ -1852,88 +2005,123 @@ UObject* StaticAllocateObject
 }
 
 //@todo UE4 - move this stuff to UnObj.cpp or something
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-/** Stack to ensure that PostInitProperties is routed through Super:: calls. **/
-TArray<UObject*> PostInitPropertiesCheck;
-#endif
+
 
 
 void UObject::PostInitProperties()
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	PostInitPropertiesCheck.Push(this);
+	FUObjectThreadContext::Get().PostInitPropertiesCheck.Push(this);
 #endif
 #if USE_UBER_GRAPH_PERSISTENT_FRAME
-	GetClass()->CreatePersistentUberGraphFrame(this);
+	GetClass()->CreatePersistentUberGraphFrame(this, true);
 #endif
 }
 
 UObject::UObject()
 {
+#if WITH_HOT_RELOAD_CTORS
+	EnsureNotRetrievingVTablePtr();
+#endif // WITH_HOT_RELOAD_CTORS
+
 	FObjectInitializer* ObjectInitializerPtr = FTlsObjectInitializers::Top();
 	UE_CLOG(!ObjectInitializerPtr, LogUObjectGlobals, Fatal, TEXT("%s is not being constructed with either NewObject, NewNamedObject or ConstructObject."), *GetName());
 	FObjectInitializer& ObjectInitializer = *ObjectInitializerPtr;
-	check(!ObjectInitializer.Obj || ObjectInitializer.Obj == this);
+	UE_CLOG(ObjectInitializer.Obj != nullptr && ObjectInitializer.Obj != this, LogUObjectGlobals, Fatal, TEXT("UObject() constructor called but it's not the object that's currently being constructed with NewObject. Maybe you trying to construct it on the stack which is not supported."));
 	const_cast<FObjectInitializer&>(ObjectInitializer).Obj = this;
 	const_cast<FObjectInitializer&>(ObjectInitializer).FinalizeSubobjectClassInitialization();
 }
 
 UObject::UObject(const FObjectInitializer& ObjectInitializer)
 {
-	check(!ObjectInitializer.Obj || ObjectInitializer.Obj == this);
+#if WITH_HOT_RELOAD_CTORS
+	EnsureNotRetrievingVTablePtr();
+#endif // WITH_HOT_RELOAD_CTORS
+
+	UE_CLOG(ObjectInitializer.Obj != nullptr && ObjectInitializer.Obj != this, LogUObjectGlobals, Fatal, TEXT("UObject(const FObjectInitializer&) constructor called but it's not the object that's currently being constructed with NewObject. Maybe you trying to construct it on the stack which is not supported."));
 	const_cast<FObjectInitializer&>(ObjectInitializer).Obj = this;
 	const_cast<FObjectInitializer&>(ObjectInitializer).FinalizeSubobjectClassInitialization();
 }
 
-/* Global flag so that FObjectFinders know if they are called from inside the UObject constructors or not. */
-int32 GIsInConstructor = 0;
-/* Object that is currently being constructed with ObjectInitializer */
-static UObject* GConstructedObject = NULL;
 
-FObjectInitializer::FObjectInitializer() :
-	Obj(NULL),
-	ObjectArchetype(NULL),
-	bCopyTransientsFromClassDefaults(false),
-	bShouldIntializePropsFromArchetype(true),
-	bSubobjectClassInitializationAllowed(true),
-	InstanceGraph(NULL),
-	LastConstructedObject(GConstructedObject)
+
+FObjectInitializer::FObjectInitializer()
+	: Obj(nullptr)
+	, ObjectArchetype(nullptr)
+	, bCopyTransientsFromClassDefaults(false)
+	, bShouldIntializePropsFromArchetype(false)
+	, bSubobjectClassInitializationAllowed(true)
+	, InstanceGraph(nullptr)
+	, LastConstructedObject(nullptr)
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	, bIsDeferredInitializer(false)
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 {
+	auto& ThreadContext = FUObjectThreadContext::Get();
 	// Mark we're in the constructor now.	
-	GIsInConstructor++;
-	GConstructedObject = Obj;
+	ThreadContext.IsInConstructor++;
+	LastConstructedObject = ThreadContext.ConstructedObject;
+	ThreadContext.ConstructedObject = Obj;
 	FTlsObjectInitializers::Push(this);
 }	
 
-FObjectInitializer::FObjectInitializer(UObject* InObj, UObject* InObjectArchetype, bool bInCopyTransientsFromClassDefaults, bool bInShouldIntializeProps, struct FObjectInstancingGraph* InInstanceGraph) :
-	Obj(InObj),
-	ObjectArchetype(InObjectArchetype),
+FObjectInitializer::FObjectInitializer(UObject* InObj, UObject* InObjectArchetype, bool bInCopyTransientsFromClassDefaults, bool bInShouldIntializeProps, struct FObjectInstancingGraph* InInstanceGraph)
+	: Obj(InObj)
+	, ObjectArchetype(InObjectArchetype)
 	// if the SubobjectRoot NULL, then we want to copy the transients from the template, otherwise we are doing a duplicate and we want to copy the transients from the class defaults
-	bCopyTransientsFromClassDefaults(bInCopyTransientsFromClassDefaults),
-	bShouldIntializePropsFromArchetype(bInShouldIntializeProps),
-	bSubobjectClassInitializationAllowed(true),
-	InstanceGraph(InInstanceGraph),
-	LastConstructedObject(GConstructedObject)
+	, bCopyTransientsFromClassDefaults(bInCopyTransientsFromClassDefaults)
+	, bShouldIntializePropsFromArchetype(bInShouldIntializeProps)
+	, bSubobjectClassInitializationAllowed(true)
+	, InstanceGraph(InInstanceGraph)
+	, LastConstructedObject(nullptr)
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	, bIsDeferredInitializer(false)
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 {
+	auto& ThreadContext = FUObjectThreadContext::Get();
 	// Mark we're in the constructor now.
-	GIsInConstructor++;
-	GConstructedObject = Obj;
+	ThreadContext.IsInConstructor++;
+	LastConstructedObject = ThreadContext.ConstructedObject;
+	ThreadContext.ConstructedObject = Obj;
 	FTlsObjectInitializers::Push(this);
 }
+
+COREUOBJECT_API bool IgnoreFObjectInitializer = false;
 
 /**
  * Destructor for internal class to finalize UObject creation (initialize properties) after the real C++ constructor is called.
  **/
 FObjectInitializer::~FObjectInitializer()
 {
-	FTlsObjectInitializers::Pop();
-	// Let the FObjectFinders know we left the constructor.
-	GIsInConstructor--;
-	check(GIsInConstructor >= 0);
-	GConstructedObject = LastConstructedObject;
 
-//	SCOPE_CYCLE_COUNTER(STAT_PostConstructInitializeProperties);
-	check(Obj);
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	// if we're not at the top of FTlsObjectInitializers, then this is most 
+	// likely a deferred FObjectInitializer that's a copy of one that was used 
+	// in a constructor (that has already been popped)
+	if (!bIsDeferredInitializer)
+	{
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+		check(FTlsObjectInitializers::Top() == this);
+
+		FTlsObjectInitializers::Pop();
+		auto& ThreadContext = FUObjectThreadContext::Get();
+		// Let the FObjectFinders know we left the constructor.
+		ThreadContext.IsInConstructor--;
+		check(ThreadContext.IsInConstructor >= 0);
+		ThreadContext.ConstructedObject = LastConstructedObject;
+
+		check(Obj != nullptr);
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	}
+	else if (Obj == nullptr)
+	{
+		// the deferred initialization has already been ran, we clear Obj once 
+		// PostConstructInit() has been executed
+		return;
+	}
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+
 	const bool bIsCDO = Obj->HasAnyFlags(RF_ClassDefaultObject);
 	UClass* Class = Obj->GetClass();
 
@@ -1948,11 +2136,117 @@ FObjectInitializer::~FObjectInitializer()
 	else if (bIsCDO)
 	{
 		// for the Object CDO, make sure that we do not use an archetype
-		check(!ObjectArchetype);
+		check(ObjectArchetype == nullptr);
 	}
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	bool bIsPostConstructInitDeferred = false;
+	if (bIsCDO && (ObjectArchetype != nullptr) && !FBlueprintSupport::IsDeferredCDOInitializationDisabled())
+	{
+		UClass* ArchetypeClass = ObjectArchetype->GetClass();
+		// if this is a blueprint CDO that derives from another blueprint, and 
+		// that parent (archetype) CDO isn't fully serialized
+		if ( !Class->HasAnyFlags(RF_Native) && !ArchetypeClass->HasAnyFlags(RF_Native) && (ObjectArchetype->HasAnyFlags(RF_NeedLoad) ||
+			 !ObjectArchetype->HasAnyFlags(RF_LoadCompleted) || FDeferredObjInitializerTracker::IsCdoDeferred(ArchetypeClass)) )
+		{
+			FLinkerLoad* ClassLinker = Class->GetLinker();
+			if ((ClassLinker != nullptr) && (ClassLinker->LoadFlags & LOAD_DeferDependencyLoads) != 0x00)
+			{
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+				// make sure we haven't already deferred this once, if we have
+				// then something is destroying this one prematurely 
+				check(bIsDeferredInitializer == false);
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+				// makes a copy of this and saves it off, to be ran later
+				if (FObjectInitializer* DeferredCopy = FDeferredObjInitializerTracker::Add(*this))
+				{
+					bIsPostConstructInitDeferred = true;
+					DeferredCopy->bIsDeferredInitializer = true;
+
+					// make sure this wasn't mistakenly pushed into FTlsObjectInitializers
+					// (the copy constructor should have been what was invoked, 
+					// which doesn't push to FTlsObjectInitializers)
+					check(FTlsObjectInitializers::Top() != DeferredCopy);
+				}
+			}
+		}
+	}
+
+	if (!bIsPostConstructInitDeferred)
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	{
+		PostConstructInit();
+	}
+}
+
+void FObjectInitializer::PostConstructInit()
+{
+	// we clear the Obj pointer at the end of this function, so if it is null 
+	// then it most likely means that this is being ran for a second time
+	if (Obj == nullptr)
+	{
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+		checkf(Obj != nullptr, TEXT("Looks like you're attempting to run FObjectInitializer::PostConstructInit() twice, and that should never happen."));
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+		return;
+	}
+
+	SCOPE_CYCLE_COUNTER(STAT_PostConstructInitializeProperties);
+	const bool bIsCDO = Obj->HasAnyFlags(RF_ClassDefaultObject);
+	UClass* Class = Obj->GetClass();
+	UClass* SuperClass = Class->GetSuperClass();
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	// if this is a deferred initializer (implying that it's for a CDO), and the 
+	// ObjectArchetype (super CDO) has since been regenerated, then we cannot
+	// reliably initialize and instance properties (if we were to use the 
+	// regenerated ObjectArchetype, the property layouts could differ and that's
+	// not viable for InitProperties())
+	// 
+	// However, this case is handled in FLinkerLoad::ResolveDeferredExports(), 
+	// where we forcefully recreate and separately init this CDO (hence it being 
+	// moved to the transient package) 
+	if (bIsDeferredInitializer)
+	{
+		const bool bSuperHasBeenRegenerated = SuperClass->HasAnyClassFlags(CLASS_NewerVersionExists);
+#if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+		check(bIsCDO);
+		check(ObjectArchetype->GetOutermost() != GetTransientPackage());
+		check(ObjectArchetype->GetClass() == SuperClass && !bSuperHasBeenRegenerated);
+#endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
+
+		if ( !ensureMsgf(!bSuperHasBeenRegenerated, TEXT("The super class for %s has been regenerated, we cannot properly initialize inherited properties, as the class layout may have changed."), *Obj->GetName()) )
+		{
+			// attempt to complete initialization/instancing as best we can, but
+			// it would not be surprising if our CDO was improperly initialized 
+			// as a result...
+
+			// iterate backwards, so we can remove elements as we go
+			for (int32 SubObjIndex = ComponentInits.SubobjectInits.Num() - 1; SubObjIndex >= 0; --SubObjIndex)
+			{
+				FSubobjectsToInit::FSubobjectInit& SubObjInitInfo = ComponentInits.SubobjectInits[SubObjIndex];
+				const FName SubObjName = SubObjInitInfo.Subobject->GetFName();
+
+				UObject* OuterArchetype = SubObjInitInfo.Subobject->GetOuter()->GetArchetype();
+				UObject* NewTemplate = OuterArchetype->GetClass()->GetDefaultSubobjectByName(SubObjName);
+
+				if (ensure(NewTemplate != nullptr))
+				{
+					SubObjInitInfo.Template = NewTemplate;
+				}
+				else
+				{
+					ComponentInits.SubobjectInits.RemoveAtSwap(SubObjIndex);
+				}
+			}
+		}
+	}
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+
 	if (bShouldIntializePropsFromArchetype)
 	{
-		UClass* BaseClass = (bIsCDO && !GIsDuplicatingClassForReinstancing) ? Obj->GetClass()->GetSuperClass() : Class;
+		UClass* BaseClass = (bIsCDO && !GIsDuplicatingClassForReinstancing) ? SuperClass : Class;
 		if (BaseClass == NULL)
 		{
 			check(Class==UObject::StaticClass());
@@ -2003,7 +2297,7 @@ FObjectInitializer::~FObjectInitializer()
 	Obj->PostInitProperties();
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if (!PostInitPropertiesCheck.Num() || (PostInitPropertiesCheck.Pop() != Obj))
+	if (!FUObjectThreadContext::Get().PostInitPropertiesCheck.Num() || (FUObjectThreadContext::Get().PostInitPropertiesCheck.Pop() != Obj))
 	{
 		UE_LOG(LogUObjectGlobals, Fatal, TEXT("%s failed to route PostInitProperties"), *Obj->GetClass()->GetName() );
 	}
@@ -2040,6 +2334,9 @@ FObjectInitializer::~FObjectInitializer()
 	{
 		Obj->CheckDefaultSubobjects();
 	}
+
+	// clear the object pointer so we can guard against runing this function again
+	Obj = nullptr;
 }
 
 bool FObjectInitializer::IsInstancingAllowed() const
@@ -2069,15 +2366,17 @@ void FObjectInitializer::InstanceSubobjects(UClass* Class, bool bNeedInstancing,
 {
 	FObjectInstancingGraph TempInstancingGraph;
 	FObjectInstancingGraph* UseInstancingGraph = InstanceGraph ? InstanceGraph : &TempInstancingGraph;
-	UseInstancingGraph->AddNewObject(Obj);
-	// Add any default subobjects
-	for (int32 Index = 0; Index < ComponentInits.SubobjectInits.Num(); Index++)
 	{
-		UseInstancingGraph->AddNewObject(ComponentInits.SubobjectInits[Index].Subobject);
+		UseInstancingGraph->AddNewObject(Obj, ObjectArchetype);
+	}
+	// Add any default subobjects
+	for (auto& SubobjectInit : ComponentInits.SubobjectInits)
+	{
+		UseInstancingGraph->AddNewObject(SubobjectInit.Subobject, SubobjectInit.Template);
 	}
 	if (bNeedInstancing)
 	{
-		UObject* Archetype = Obj->GetArchetype();
+		UObject* Archetype = ObjectArchetype ? ObjectArchetype : Obj->GetArchetype();
 		Class->InstanceSubobjectTemplates(Obj, Archetype, Archetype ? Archetype->GetClass() : NULL, Obj, UseInstancingGraph);
 	}
 	if (bNeedSubobjectInstancing)
@@ -2144,7 +2443,7 @@ void FObjectInitializer::InitProperties(UObject* Obj, UClass* DefaultsClass, UOb
 			}
 			else
 			{
-				// Copy all properties that require additional initialization (CPF_Config, CPF_Localized).
+				// Copy all properties that require additional initialization (e.g. CPF_Config).
 				for (UProperty* P = Class->PostConstructLink; P; P = P->PostConstructLinkNext)
 				{
 					P->CopyCompleteValue_InContainer(Obj, DefaultData);
@@ -2193,7 +2492,12 @@ void FObjectInitializer::AssertIfSubobjectSetupIsNotAllowed(const TCHAR* Subobje
 		TEXT("%s.%s: Subobject class setup is only allowed in base class constructor call (in the initialization list)"), Obj ? *Obj->GetFullName() : TEXT("NULL"), SubobjectName);
 }
 
-UObject* StaticConstructObject
+bool DebugIsClassChildOf_Internal(UClass* Parent, UClass* Child)
+{
+	return Child->IsChildOf(Parent);
+}
+
+UObject* StaticConstructObject_Internal
 (
 	UClass*			InClass,
 	UObject*		InOuter								/*=GetTransientPackage()*/,
@@ -2228,7 +2532,7 @@ UObject* StaticConstructObject
 	// Don't call the constructor on recycled subobjects, they haven't been destroyed.
 	if (!bRecycledSubobject)
 	{		
-		FScopeCycleCounterUObject ConstructorScope(Result);
+		FScopeCycleCounterUObject ConstructorScope(Result, GET_STATID(STAT_ConstructObject));
 		(*InClass->ClassConstructor)( FObjectInitializer(Result, InTemplate, bCopyTransientsFromClassDefaults, true, InInstanceGraph) );
 	}
 	
@@ -2242,14 +2546,30 @@ UObject* StaticConstructObject
 	return Result;
 }
 
+UObject* StaticConstructObject
+(
+	UClass*			InClass,
+	UObject*		InOuter								/*=GetTransientPackage()*/,
+	FName			InName								/*=NAME_None*/,
+	EObjectFlags	InFlags								/*=0*/,
+	UObject*		InTemplate							/*=NULL*/,
+	bool			bCopyTransientsFromClassDefaults	/*=false*/, 
+	FObjectInstancingGraph* InInstanceGraph				/*=NULL*/
+)
+{
+	return StaticConstructObject_Internal(InClass, InOuter, InName, InFlags, InTemplate, bCopyTransientsFromClassDefaults, InInstanceGraph);
+}
+
 void FObjectInitializer::AssertIfInConstructor(UObject* Outer, const TCHAR* ErrorMessage)
 {
-	UE_CLOG(GIsInConstructor && Outer == GConstructedObject, LogUObjectGlobals, Fatal, TEXT("%s"), ErrorMessage);
+	auto& ThreadContext = FUObjectThreadContext::Get();
+	UE_CLOG(ThreadContext.IsInConstructor && Outer == ThreadContext.ConstructedObject, LogUObjectGlobals, Fatal, TEXT("%s"), ErrorMessage);
 }
 
 FObjectInitializer& FObjectInitializer::Get()
 {
-	UE_CLOG(!GIsInConstructor, LogUObjectGlobals, Fatal, TEXT("FObjectInitializer::Get() can only be used inside of UObject-derived class constructor."));
+	auto& ThreadContext = FUObjectThreadContext::Get();
+	UE_CLOG(!ThreadContext.IsInConstructor, LogUObjectGlobals, Fatal, TEXT("FObjectInitializer::Get() can only be used inside of UObject-derived class constructor."));
 	return FTlsObjectInitializers::TopChecked();
 }
 
@@ -2300,7 +2620,7 @@ void ConstructorHelpers::CheckFoundViaRedirect(UObject *Object, const FString& P
 	if (Redir && Redir->DestinationObject == Object)
 	{
 		FString NewString = Object->GetFullName();
-		NewString.ReplaceInline(TEXT(" "), TEXT("'"));
+		NewString.ReplaceInline(TEXT(" "), TEXT("'"), ESearchCase::CaseSensitive);
 		NewString += TEXT("'");
 
 		auto CurrentInitializer = FTlsObjectInitializers::Top();
@@ -2315,7 +2635,8 @@ void ConstructorHelpers::CheckFoundViaRedirect(UObject *Object, const FString& P
 
 void ConstructorHelpers::CheckIfIsInConstructor(const TCHAR* ObjectToFind)
 {
-	UE_CLOG(!GIsInConstructor, LogUObjectGlobals, Fatal, TEXT("FObjectFinders can't be used outside of constructors to find %s"), ObjectToFind);
+	auto& ThreadContext = FUObjectThreadContext::Get();
+	UE_CLOG(!ThreadContext.IsInConstructor, LogUObjectGlobals, Fatal, TEXT("FObjectFinders can't be used outside of constructors to find %s"), ObjectToFind);
 }
 
 void ConstructorHelpers::StripObjectClass( FString& PathName, bool bAssertOnBadPath /*= false */ )
@@ -2381,7 +2702,6 @@ public:
 		ReferenceSearchFlags = SearchFlags;
 		FoundReferencesList = FoundReferences;
 
-		checkSlow(!DebugSerialize.Num()); // should only be filled int he scope of this function
 		// Iterate over all objects.
 		for( FObjectIterator It; It; ++It )
 		{
@@ -2424,7 +2744,6 @@ public:
 			// Serialize object.
 			FindReferences( CurrentObject );
 		}
-		checkSlow(!DebugSerialize.Num()); // everyone should have been removed, or we should have errored
 	}
 
 private:
@@ -2466,15 +2785,12 @@ private:
 		ObjectsToSerialize.Add( Object );
 	}
 
-	virtual void HandleObjectReference( UObject*& InObject, const UObject* InReferencingObject, const UObject* InReferencingProperty ) override
+	virtual void HandleObjectReference(UObject*& InObject, const UObject* InReferencingObject, const UProperty* InReferencingProperty) override
 	{
-		checkSlow( !InObject || InObject->IsValidLowLevel() );		
-		if( InObject )
+		checkSlow(!InObject || InObject->IsValidLowLevel());
+		if (InObject)
 		{
-			UObject* Object = const_cast<UObject*>(InObject);
-			// Remove references to pending kill objects if we're allowed to do so.
-			UObject* ObjectToAdd = Object->HasAnyFlags( RF_Unreachable ) ? Object : NULL;
-			if (Object && Object->HasAnyFlags(ReferenceSearchFlags))
+			if (InObject->HasAnyFlags(ReferenceSearchFlags))
 			{
 				// Stop recursing, and add to the list of references
 				if (FoundReferencesList)
@@ -2483,24 +2799,20 @@ private:
 					{
 						CurrentReferenceInfo = new(FoundReferencesList->ExternalReferences) FReferencerInformation(CurrentObject);
 					}
-					if ( InReferencingObject != NULL )
+					if (InReferencingProperty)
 					{
-						CurrentReferenceInfo->ReferencingProperties.AddUnique(dynamic_cast<const UProperty*>(InReferencingObject));
+						CurrentReferenceInfo->ReferencingProperties.AddUnique(InReferencingProperty);
 					}
 					CurrentReferenceInfo->TotalReferences++;
 				}
-				if (ObjectToAdd)
-				{
-					// Mark it as reachable.
-					Object->ClearFlags( RF_Unreachable );
-				}
+				// Mark it as reachable.
+				InObject->ClearFlags(RF_Unreachable);
 			}
-			else if (ObjectToAdd)
+			else if (InObject->HasAnyFlags(RF_Unreachable))
 			{
 				// Add encountered object reference to list of to be serialized objects if it hasn't already been added.
-				AddToObjectList(InReferencingObject, InReferencingProperty, ObjectToAdd);
+				AddToObjectList(InReferencingObject, InReferencingProperty, InObject);
 			}
-
 		}
 	}
 
@@ -2616,7 +2928,7 @@ FArchive& FScriptInterface::Serialize(FArchive& Ar, UClass* InterfaceType)
 /** A struct used as stub for deleted ones. */
 UScriptStruct* GetFallbackStruct()
 {
-	static UScriptStruct* FallbackStruct = FindObjectChecked<UScriptStruct>(UObject::StaticClass(), TEXT("FallbackStruct"));
+	static UScriptStruct* FallbackStruct = GetBaseStructure(TEXT("FallbackStruct"));
 	return FallbackStruct;
 }
 
@@ -2643,11 +2955,22 @@ UObject* FObjectInitializer::CreateDefaultSubobject(UObject* Outer, FName Subobj
 		{
 			UObject* Template = OverrideClass->GetDefaultObject(); // force the CDO to be created if it hasn't already
 			const EObjectFlags SubobjectFlags = Outer->GetMaskedFlags(RF_PropagateToSubObjects);
-			Result = StaticConstructObject(OverrideClass, Outer, SubobjectFName, SubobjectFlags);
-			if (!bIsTransient && !Outer->GetArchetype()->GetClass()->HasAnyClassFlags(CLASS_Native | CLASS_Intrinsic))
+			const bool bOwnerArchetypeIsNotNative = !Outer->GetArchetype()->GetClass()->HasAnyClassFlags(CLASS_Native | CLASS_Intrinsic);
+			const bool bOwnerTemplateIsNotCDO = ObjectArchetype != nullptr && ObjectArchetype != Outer->GetClass()->GetDefaultObject(false) && !Outer->HasAnyFlags(RF_ClassDefaultObject);
+			Result = StaticConstructObject_Internal(OverrideClass, Outer, SubobjectFName, SubobjectFlags);
+			if (!bIsTransient && (bOwnerArchetypeIsNotNative || bOwnerTemplateIsNotCDO))
 			{
-				// The archetype of the outer is not native, so we need to copy properties to the subobjects after the C++ constructor chain for the outer has run (because those sets properties on the subobjects)
-				UObject* MaybeTemplate = Outer->GetArchetype()->GetClass()->GetDefaultSubobjectByName(SubobjectFName);
+				UObject* MaybeTemplate = nullptr;
+				if (bOwnerTemplateIsNotCDO)
+				{
+					// Try to get the subobject template from the specified object template
+					MaybeTemplate = ObjectArchetype->GetDefaultSubobjectByName(SubobjectFName);
+				}
+				if (!MaybeTemplate)
+				{
+					// The archetype of the outer is not native, so we need to copy properties to the subobjects after the C++ constructor chain for the outer has run (because those sets properties on the subobjects)
+					MaybeTemplate = Outer->GetArchetype()->GetClass()->GetDefaultSubobjectByName(SubobjectFName);
+				}
 				if (MaybeTemplate && MaybeTemplate->IsA(ReturnType) && Template != MaybeTemplate)
 				{
 					ComponentInits.Add(Result, MaybeTemplate);
@@ -2655,6 +2978,11 @@ UObject* FObjectInitializer::CreateDefaultSubobject(UObject* Outer, FName Subobj
 			}
 			if (Outer->HasAnyFlags(RF_ClassDefaultObject) && Outer->GetClass()->GetSuperClass())
 			{
+#if WITH_EDITOR
+				// Default subobjects on the CDO should be transactional, so that we can undo/redo changes made to those objects.
+				// One current example of this is editing natively defined components in the Blueprint Editor.
+				Result->SetFlags(RF_Transactional);
+#endif
 				Outer->GetClass()->AddDefaultSubobject(Result, ReturnType);
 			}
 			Result->SetFlags(RF_DefaultSubObject);
@@ -2662,7 +2990,6 @@ UObject* FObjectInitializer::CreateDefaultSubobject(UObject* Outer, FName Subobj
 	}
 	return Result;
 }
-
 UObject* FObjectInitializer::CreateEditorOnlyDefaultSubobject(UObject* Outer, FName SubobjectName, UClass* ReturnType, bool bTransient /*= false*/) const
 {
 #if WITH_EDITOR
@@ -2676,5 +3003,17 @@ UObject* FObjectInitializer::CreateEditorOnlyDefaultSubobject(UObject* Outer, FN
 		return EditorSubobject;
 	}
 #endif
+	return nullptr;
+}
+
+COREUOBJECT_API UFunction* FindDelegateSignature(FName DelegateSignatureName)
+{
+	FString StringName = DelegateSignatureName.ToString();
+
+	if (StringName.EndsWith(HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX))
+	{
+		return FindObject<UFunction>(ANY_PACKAGE, *StringName);
+	}
+
 	return nullptr;
 }

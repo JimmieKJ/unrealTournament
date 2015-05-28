@@ -62,6 +62,10 @@ class UWorldTileDetails : public UObject
 	// Tile sorting order
 	UPROPERTY(Category=Tile, EditAnywhere, meta=(ClampMin = "-1000", ClampMax = "1000", UIMin = "-1000", UIMax = "1000"))
 	int32							ZOrder;
+
+	// Whether to hide tile in the world composition tile view
+	UPROPERTY(Category=Tile, EditAnywhere)
+	bool							bHideInTileView;
 	
 	// LOD entries number
 	UPROPERTY(Category=LODSettings, EditAnywhere, meta=(ClampMin = "0", ClampMax = "4", UIMin = "0", UIMax = "4"))
@@ -95,6 +99,7 @@ class UWorldTileDetails : public UObject
 	FTilePropertyChanged			ParentPackageNameChangedEvent;
 	FTilePropertyChanged			LODSettingsChangedEvent;
 	FTilePropertyChanged			ZOrderChangedEvent;
+	FTilePropertyChanged			HideInTileViewChangedEvent;
 	
 	// UObject interface
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;

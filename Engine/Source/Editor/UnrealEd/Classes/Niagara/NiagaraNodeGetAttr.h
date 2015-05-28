@@ -3,8 +3,8 @@
 #pragma once
 #include "NiagaraNodeGetAttr.generated.h"
 
-UCLASS(MinimalAPI)
-class UNiagaraNodeGetAttr : public UNiagaraNode
+UCLASS(MinimalAPI, Deprecated)
+class UDEPRECATED_NiagaraNodeGetAttr : public UNiagaraNode
 {
 	GENERATED_UCLASS_BODY()
 

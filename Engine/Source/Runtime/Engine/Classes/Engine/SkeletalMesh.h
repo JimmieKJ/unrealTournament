@@ -627,8 +627,9 @@ public:
 	/**
 	 * Allows artists to adjust the distance where textures using UV 0 are streamed in/out.
 	 * 1.0 is the default, whereas a higher value increases the streamed-in resolution.
+	 * Value can be < 0 (from legcay content, or code changes)
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=TextureStreaming)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=TextureStreaming, meta=(ClampMin = 0))
 	float StreamingDistanceMultiplier;
 
 	UPROPERTY(Category=Mesh, BlueprintReadWrite)
@@ -726,6 +727,7 @@ public:
 	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
+	virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const override;
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
@@ -750,7 +752,8 @@ public:
 	 *	Find a socket object in this SkeletalMesh by name. 
 	 *	Entering NAME_None will return NULL. If there are multiple sockets with the same name, will return the first one.
 	 */
-	ENGINE_API class USkeletalMeshSocket const* FindSocket(FName InSocketName) const;
+	UFUNCTION(BlueprintCallable, Category="Animation")
+	ENGINE_API USkeletalMeshSocket* FindSocket(FName InSocketName) const;
 
 	// @todo document
 	ENGINE_API FMatrix GetRefPoseMatrix( int32 BoneIndex ) const;
@@ -759,6 +762,7 @@ public:
 	 *	Get the component orientation of a bone or socket. Transforms by parent bones.
 	 */
 	ENGINE_API FMatrix GetComposedRefPoseMatrix( FName InBoneName ) const;
+	ENGINE_API FMatrix GetComposedRefPoseMatrix( int32 InBoneIndex ) const;
 
 	/** Allocate and initialise bone mirroring table for this skeletal mesh. Default is source = destination for each bone. */
 	void InitBoneMirrorInfo();
@@ -781,6 +785,12 @@ public:
 	 */
 	ENGINE_API TArray<USkeletalMeshSocket*>& GetMeshOnlySocketList();
 
+	/**
+	* Returns the "active" socket list - all sockets from this mesh plus all non-duplicates from the skeleton
+	* Const ref return value as this cannot be modified externally
+	*/
+	ENGINE_API TArray<USkeletalMeshSocket*> GetActiveSocketList() const;
+
 #if WITH_EDITOR
 	/** Retrieves the source model for this skeletal mesh. */
 	ENGINE_API FStaticLODModel& GetSourceModel();
@@ -790,12 +800,6 @@ public:
 	 * making destructive changes to the mesh's geometry, e.g. simplification.
 	 */
 	ENGINE_API FStaticLODModel& PreModifyMesh();
-
-	/**
-	 * Returns the "active" socket list - all sockets from this mesh plus all non-duplicates from the skeleton
-	 * Const ref return value as this cannot be modified externally
-	 */
-	ENGINE_API const TArray<USkeletalMeshSocket*>& GetActiveSocketList() const;
 
 	/**
 	* Makes sure all attached objects are valid and removes any that aren't.
@@ -868,10 +872,8 @@ public:
 
 private:
 
-#if WITH_EDITOR
 	/** Utility function to help with building the combined socket list */
 	bool IsSocketOnMesh( const FName& InSocketName ) const;
-#endif
 
 	/**
 	* Flush current render state

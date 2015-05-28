@@ -12,10 +12,12 @@ public class Kismet : ModuleRules
 			new string[] { 
 				"AssetRegistry", 
 				"AssetTools",
+				"ClassViewer",
 				"EditorWidgets",
 				"Analytics",
                 "DerivedDataCache",
                 "LevelEditor",
+				"GameProjectGeneration",
 			}
 			);
 
@@ -45,7 +47,6 @@ public class Kismet : ModuleRules
                 "DerivedDataCache",
 				"DesktopPlatform",
 				"HotReload",
-				"GameProjectGeneration",
 			}
 			);
 
@@ -53,7 +54,9 @@ public class Kismet : ModuleRules
             new string[] {
 				"ClassViewer",
 				"Documentation",
-				"EditorWidgets"
+				"EditorWidgets",
+				"GameProjectGeneration",
+                "BlueprintCompilerCppBackend",
 			}
             );
 	}

@@ -18,9 +18,11 @@ const TCHAR* FAndroidPlatformProcess::ComputerName()
 
 void FAndroidPlatformProcess::SetThreadAffinityMask( uint64 InAffinityMask )
 {
+	/* Skip setting mask for now due to issues with Big/Little CPUs
 	pid_t ThreadId = gettid();
 	int AffinityMask = (int)InAffinityMask;
 	syscall(__NR_sched_setaffinity, ThreadId, sizeof(AffinityMask), &AffinityMask);
+	*/
 }
 
 const TCHAR* FAndroidPlatformProcess::BaseDir()
@@ -30,19 +32,8 @@ const TCHAR* FAndroidPlatformProcess::BaseDir()
 
 const TCHAR* FAndroidPlatformProcess::ExecutableName(bool bRemoveExtension)
 {
-	static FString CachedExeName;
-	if (CachedExeName.Len() == 0)
-	{
-		extern FString GPackageName;
-		int32 LastDot;
-		GPackageName.FindLastChar('.', LastDot);
-
-		// get just the last bit after all dots
-		CachedExeName = GPackageName.Mid(LastDot + 1);
-	}
-
-	// the string is static, so we can return the characters directly
-	return *CachedExeName;
+	extern FString GAndroidProjectName;
+	return *GAndroidProjectName;
 }
 
 FRunnableThread* FAndroidPlatformProcess::CreateRunnableThread()

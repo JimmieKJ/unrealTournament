@@ -38,7 +38,6 @@
 #include "NotifyHook.h"
 #include "RedirectCollector.h"
 #include "ScriptStackTracker.h"
-#include "MessageTypeMap.h"
 #include "WorldCompositionUtility.h"
 #include "StringClassReference.h"
 

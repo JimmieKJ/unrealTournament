@@ -39,7 +39,9 @@ public class PropertyEditor : ModuleRules
 				"MainFrame",
                 "AssetRegistry",
                 "AssetTools",
-                "ContentBrowser"
+				"ClassViewer",
+                "ContentBrowser",
+				"ConfigEditor",
 			}
 		);
 
@@ -56,6 +58,7 @@ public class PropertyEditor : ModuleRules
 				"EditorWidgets",
 				"Documentation",
                 "RHI",
+				"ConfigEditor",
 			}
 		);
 
@@ -63,6 +66,7 @@ public class PropertyEditor : ModuleRules
 			new string[] {
                 "AssetRegistry",
                 "AssetTools",
+				"ClassViewer",
 				"ContentBrowser",
 				"Documentation",
 				"MainFrame",

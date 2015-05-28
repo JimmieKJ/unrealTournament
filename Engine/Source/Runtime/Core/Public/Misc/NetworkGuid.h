@@ -39,7 +39,8 @@ public:
 	
 	friend FArchive& operator<<( FArchive& Ar, FNetworkGUID& G )
 	{
-		return Ar << G.Value;
+		Ar.SerializeIntPacked(G.Value);
+		return Ar;
 	}
 
 public:

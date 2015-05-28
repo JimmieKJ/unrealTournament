@@ -105,7 +105,11 @@ public:
 		Offset += sizeof(float) * 4;
 
 		/** The per-particle dynamic parameter stream */
-		Offset = 0;
+
+		// The -V519 disables a warning from PVS-Studio's static analyzer. It noticed that offset is assigned
+		// twice before being read. It is probably safer to leave the redundant assignments here to reduce
+		// the chance of an error being introduced if this code is modified.
+		Offset = 0;  //-V519
 		Stride = sizeof(float) * 4;
 		Elements.Add(FVertexElement(bInstanced ? 2 : 1, Offset, VET_Float4, 5, Stride, bInstanced));
 		Offset += sizeof(float) * 4;
@@ -138,9 +142,9 @@ private:
 static TGlobalResource<FParticleSpriteVertexDeclaration> GParticleSpriteVertexDeclarationInstanced(true);
 static TGlobalResource<FParticleSpriteVertexDeclaration> GParticleSpriteVertexDeclarationNonInstanced(false);
 
-inline TGlobalResource<FParticleSpriteVertexDeclaration>& GetParticleSpriteVertexDeclaration(ERHIFeatureLevel::Type InFeatureLevel)
+inline TGlobalResource<FParticleSpriteVertexDeclaration>& GetParticleSpriteVertexDeclaration(bool SupportsInstancing)
 {
-	if (InFeatureLevel >= ERHIFeatureLevel::SM4)
+	if (SupportsInstancing)
 	{
 		return GParticleSpriteVertexDeclarationInstanced;
 	}
@@ -172,12 +176,12 @@ void FParticleSpriteVertexFactory::ModifyCompilationEnvironment(EShaderPlatform 
 void FParticleSpriteVertexFactory::InitRHI()
 {
 	InitStreams();
-	SetDeclaration(GetParticleSpriteVertexDeclaration(GetFeatureLevel()).VertexDeclarationRHI);
+	SetDeclaration(GetParticleSpriteVertexDeclaration(RHISupportsInstancing(GetFeatureLevelShaderPlatform(GetFeatureLevel()))).VertexDeclarationRHI);
 }
 
 void FParticleSpriteVertexFactory::InitStreams()
 {
-	const bool bInstanced = GetFeatureLevel() >= ERHIFeatureLevel::SM4;
+    const bool bInstanced = RHISupportsInstancing(GetFeatureLevelShaderPlatform(GetFeatureLevel()));
 
 	check(Streams.Num() == 0);
 	if(bInstanced) 

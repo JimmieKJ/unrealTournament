@@ -3,18 +3,16 @@
 #include "CoreUObjectPrivate.h"
 
 /*----------------------------------------------------------------------------
-	ULinkerSave.
+	FLinkerSave.
 ----------------------------------------------------------------------------*/
 
 /** A mapping of package name to generated script SHA keys */
-TMap<FString, TArray<uint8> > ULinkerSave::PackagesToScriptSHAMap;
+TMap<FString, TArray<uint8> > FLinkerSave::PackagesToScriptSHAMap;
 
-ULinkerSave::ULinkerSave( const FObjectInitializer& ObjectInitializer, UPackage* InParent, const TCHAR* InFilename, bool bForceByteSwapping, bool bInSaveUnversioned )
-:	ULinker(ObjectInitializer, InParent, InFilename )
-,	Saver( NULL )
+FLinkerSave::FLinkerSave(UPackage* InParent, const TCHAR* InFilename, bool bForceByteSwapping, bool bInSaveUnversioned)
+:	FLinker(ELinkerType::Save, InParent, InFilename )
+,	Saver(nullptr)
 {
-	check(!HasAnyFlags(RF_ClassDefaultObject));
-
 	if (FPlatformProperties::HasEditorOnlyData())
 	{
 		// Create file saver.
@@ -29,8 +27,9 @@ ULinkerSave::ULinkerSave( const FObjectInitializer& ObjectInitializer, UPackage*
 		// Set main summary info.
 		Summary.Tag           = PACKAGE_FILE_TAG;
 		Summary.SetFileVersions( GPackageFileUE4Version, GPackageFileLicenseeUE4Version, bInSaveUnversioned );
-		Summary.EngineVersion =	GEngineVersion;
-		Summary.PackageFlags  = Package ? Package->PackageFlags : 0;
+		Summary.SavedByEngineVersion = GEngineVersion;
+		Summary.CompatibleWithEngineVersion = GCompatibleWithEngineVersion;
+		Summary.PackageFlags = Package ? (Package->PackageFlags & ~PKG_NewlyCreated) : 0;
 
 		if (Package)
 		{
@@ -45,12 +44,10 @@ ULinkerSave::ULinkerSave( const FObjectInitializer& ObjectInitializer, UPackage*
 	}
 }
 
-ULinkerSave::ULinkerSave(const FObjectInitializer& ObjectInitializer, UPackage* InParent, bool bForceByteSwapping, bool bInSaveUnversioned )
-:	ULinker( ObjectInitializer, InParent,TEXT("$$Memory$$") )
-,	Saver( NULL )
+FLinkerSave::FLinkerSave(UPackage* InParent, bool bForceByteSwapping, bool bInSaveUnversioned )
+:	FLinker(ELinkerType::Save, InParent,TEXT("$$Memory$$"))
+,	Saver(nullptr)
 {
-	check(!HasAnyFlags(RF_ClassDefaultObject));
-
 	if (FPlatformProperties::HasEditorOnlyData())
 	{
 		// Create file saver.
@@ -62,8 +59,9 @@ ULinkerSave::ULinkerSave(const FObjectInitializer& ObjectInitializer, UPackage* 
 		// Set main summary info.
 		Summary.Tag           = PACKAGE_FILE_TAG;
 		Summary.SetFileVersions( GPackageFileUE4Version, GPackageFileLicenseeUE4Version, bInSaveUnversioned );
-		Summary.EngineVersion =	GEngineVersion;
-		Summary.PackageFlags  = Package ? Package->PackageFlags : 0;
+		Summary.SavedByEngineVersion = GEngineVersion;
+		Summary.CompatibleWithEngineVersion = GCompatibleWithEngineVersion;
+		Summary.PackageFlags = Package ? (Package->PackageFlags & ~PKG_NewlyCreated) : 0;
 
 		if (Package)
 		{
@@ -80,23 +78,22 @@ ULinkerSave::ULinkerSave(const FObjectInitializer& ObjectInitializer, UPackage* 
 /**
  * Detaches file saver and hence file handle.
  */
-void ULinkerSave::Detach()
+void FLinkerSave::Detach()
 {
-	if( Saver )
+	if (Saver)
 	{
 		delete Saver;
 	}
-	Saver = NULL;
+	Saver = nullptr;
 }
 
-void ULinkerSave::BeginDestroy()
+FLinkerSave::~FLinkerSave()
 {
 	// Detach file saver/ handle.
 	Detach();
-	Super::BeginDestroy();
 }
 
-int32 ULinkerSave::MapName(const FName& Name) const
+int32 FLinkerSave::MapName(const FName& Name) const
 {
 	const int32* IndexPtr = NameIndices.Find(Name);
 
@@ -108,7 +105,7 @@ int32 ULinkerSave::MapName(const FName& Name) const
 	return INDEX_NONE;
 }
 
-FPackageIndex ULinkerSave::MapObject( const UObject* Object ) const
+FPackageIndex FLinkerSave::MapObject( const UObject* Object ) const
 {
 	if (Object)
 	{
@@ -121,22 +118,22 @@ FPackageIndex ULinkerSave::MapObject( const UObject* Object ) const
 	return FPackageIndex();
 }
 
-void ULinkerSave::Seek( int64 InPos )
+void FLinkerSave::Seek( int64 InPos )
 {
 	Saver->Seek( InPos );
 }
 
-int64 ULinkerSave::Tell()
+int64 FLinkerSave::Tell()
 {
 	return Saver->Tell();
 }
 
-void ULinkerSave::Serialize( void* V, int64 Length )
+void FLinkerSave::Serialize( void* V, int64 Length )
 {
 	Saver->Serialize( V, Length );
 }
 	
-FArchive& ULinkerSave::operator<<( FName& InName )
+FArchive& FLinkerSave::operator<<( FName& InName )
 {
 	int32 Save = MapName(InName);
 	int32 Number = InName.GetNumber();
@@ -144,7 +141,7 @@ FArchive& ULinkerSave::operator<<( FName& InName )
 	return Ar << Save << Number;
 }
 
-FArchive& ULinkerSave::operator<<( UObject*& Obj )
+FArchive& FLinkerSave::operator<<( UObject*& Obj )
 {
 	FPackageIndex Save;
 	if (Obj)
@@ -154,14 +151,14 @@ FArchive& ULinkerSave::operator<<( UObject*& Obj )
 	return *this << Save;
 }
 
-FArchive& ULinkerSave::operator<<( FLazyObjectPtr& LazyObjectPtr)
+FArchive& FLinkerSave::operator<<( FLazyObjectPtr& LazyObjectPtr)
 {
 	FUniqueObjectGuid ID;
 	ID = LazyObjectPtr.GetUniqueID();
 	return *this << ID;
 }
 
-FArchive& ULinkerSave::operator<<( FAssetPtr& AssetPtr)
+FArchive& FLinkerSave::operator<<( FAssetPtr& AssetPtr)
 {
 	FStringAssetReference ID;
 	UObject *Object = AssetPtr.Get();
@@ -179,8 +176,3 @@ FArchive& ULinkerSave::operator<<( FAssetPtr& AssetPtr)
 	ID.Serialize(*this);
 	return *this;
 }
-
-IMPLEMENT_CORE_INTRINSIC_CLASS(ULinkerSave, ULinker,
-	{
-	}
-);

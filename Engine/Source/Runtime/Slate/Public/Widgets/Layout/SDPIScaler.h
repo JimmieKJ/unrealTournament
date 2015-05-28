@@ -32,7 +32,7 @@ public:
 
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
 	
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 
 	virtual FChildren* GetChildren() override;
 
@@ -43,6 +43,8 @@ public:
 	void SetDPIScale(TAttribute<float> InDPIScale);
 
 protected:
+
+	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const override;
 
 	/**
 	 * The scaling factor from 1:1 pixel to slate unit (SU) ratio.

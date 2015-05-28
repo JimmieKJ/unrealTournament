@@ -6,7 +6,13 @@
 
 FLocalTitleFile::FLocalTitleFile(const FString& InRootDirectory)
 : RootDirectory(InRootDirectory)
-{ }
+{
+	RootDirectory.Replace(TEXT("\\"), TEXT("/"));
+	if (!RootDirectory.EndsWith(TEXT("/")))
+	{
+		RootDirectory.Append(TEXT("/"));
+	}
+}
 
 
 bool FLocalTitleFile::GetFileContents(const FString& DLName, TArray<uint8>& FileContents)
@@ -52,6 +58,10 @@ bool FLocalTitleFile::ClearFile(const FString& DLName)
 	return ClearedFile;
 }
 
+void FLocalTitleFile::DeleteCachedFiles(bool bSkipEnumerated)
+{
+	// not implemented
+}
 
 bool FLocalTitleFile::EnumerateFiles(const FPagedQuery& Page)
 {

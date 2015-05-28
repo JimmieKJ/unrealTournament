@@ -1,8 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
-#ifndef __AssetEditorManager_h__
-#define __AssetEditorManager_h__
+#pragma once
 
 #include "IToolkit.h"	// For EToolkitMode
 #include "Ticker.h" 	// For automation to request assets to load
@@ -21,6 +19,8 @@ public:
 	virtual bool CloseWindow() = 0;
 	virtual bool IsPrimaryEditor() const = 0;
 	virtual void InvokeTab(const struct FTabId& TabId) = 0;
+	virtual TSharedPtr<class FTabManager> GetAssociatedTabManager() = 0;
+	virtual double GetLastActivationTime() = 0;
 };
 
 
@@ -29,8 +29,7 @@ public:
  *
  * @todo toolkit: Merge this functionality into FToolkitManager
  */
-class UNREALED_API FAssetEditorManager
-	: public FGCObject
+class UNREALED_API FAssetEditorManager : public FGCObject
 {
 public:
 
@@ -44,14 +43,14 @@ public:
 	* Tries to open an editor for the specified asset.  Returns true if the asset is open in an editor.
 	* If the file is already open in an editor, it will not create another editor window but instead bring it to front
 	*/
-	bool OpenEditorForAsset( UObject* Asset, const EToolkitMode::Type ToolkitMode = EToolkitMode::Standalone, TSharedPtr< class IToolkitHost > OpenedFromLevelEditor = TSharedPtr< IToolkitHost >() );
+	bool OpenEditorForAsset(UObject* Asset, const EToolkitMode::Type ToolkitMode = EToolkitMode::Standalone, TSharedPtr< class IToolkitHost > OpenedFromLevelEditor = TSharedPtr< IToolkitHost >());
 
 	/** 
 	* Tries to open an editor for all of the specified assets. 
 	* If any of the assets are already open, it will not create a new editor for them.
 	* If all assets are of the same type, the supporting AssetTypeAction (if it exists) is responsible for the details of how to handle opening multiple assets at once.
 	*/
-	bool OpenEditorForAssets( const TArray< UObject* >& Assets, const EToolkitMode::Type ToolkitMode = EToolkitMode::Standalone, TSharedPtr< class IToolkitHost > OpenedFromLevelEditor = TSharedPtr< IToolkitHost >() );
+	bool OpenEditorForAssets(const TArray< UObject* >& Assets, const EToolkitMode::Type ToolkitMode = EToolkitMode::Standalone, TSharedPtr< class IToolkitHost > OpenedFromLevelEditor = TSharedPtr< IToolkitHost >());
 
 	/** Opens editors for the supplied assets (via OpenEditorForAsset) */
 	void OpenEditorsForAssets(const TArray<FString>& AssetsToOpen);
@@ -84,7 +83,7 @@ public:
 	void NotifyEditorClosed(IAssetEditorInstance* Instance);
 
 	// FGCObject interface
-	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	/** Close all open asset editors */
 	bool CloseAllAssetEditors();
@@ -109,7 +108,7 @@ private:
 private:
 
 	/** Handles FAssetEditorRequestOpenAsset messages. */
-	void HandleRequestOpenAssetMessage( const FAssetEditorRequestOpenAsset& Message, const IMessageContextRef& Context );
+	void HandleRequestOpenAssetMessage(const FAssetEditorRequestOpenAsset& Message, const IMessageContextRef& Context);
 
 	/** Opens an asset by path */
 	void OpenEditorForAsset(const FString& AssetPathName);
@@ -141,6 +140,19 @@ private:
 		FDateTime OpenedTime;
 	};
 
+	/** struct used to track total time and # of invocations during an overall UnrealEd session */
+	struct FAssetEditorAnalyticInfo
+	{
+		FTimespan SumDuration;
+		int32 NumTimesOpened;
+
+		FAssetEditorAnalyticInfo()
+			: SumDuration(0)
+			, NumTimesOpened(0)
+		{
+		}
+	};
+
 	/**
 	 * Holds the opened assets.
 	 */
@@ -159,7 +171,7 @@ private:
 	/**
 	 * Holds the cumulative time editors have been open by type.
 	 */
-	TMap<FName, FTimespan> EditorDurations;
+	TMap<FName, FAssetEditorAnalyticInfo> EditorUsageAnalytics;
 
 private:
 
@@ -187,6 +199,3 @@ private:
 	/** A pointer to the notification used by RestorePreviouslyOpenAssets */
 	TWeakPtr<SNotificationItem> RestorePreviouslyOpenAssetsNotificationPtr;
 };
-
-
-#endif

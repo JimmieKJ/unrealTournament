@@ -84,9 +84,6 @@ public:
 
 	/** FGCObject interface */
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-	
-	/** Cycles through transform modes. */
-	void CycleTransformMode();
 
 	/** Returns whether a PIE session is running. */
 	static bool IsPIERunning();
@@ -163,10 +160,6 @@ private:
 	void OnApplyPhysicalMaterial();
 	void OnEditingMode(int32 Mode);
 	bool IsEditingMode(int32 Mode) const;
-	void OnMovementSpace(int32 Mode);
-	bool IsMovementSpace(int32 Mode) const;
-	void OnTransformMode(int32 Mode);
-	bool IsTransformMode(int32 Mode) const;
 	void OnCopyProperties();
 	bool IsCopyProperties() const;
 	bool CanCopyProperties() const;
@@ -311,4 +304,5 @@ private:
 	FText GetRecordStatusTooltip() const;
 	FText GetRecordStatusLabel() const;
 	FText GetRecordMenuLabel() const;
+	FWidget::EWidgetMode BeforeSimulationWidgetMode;
 };

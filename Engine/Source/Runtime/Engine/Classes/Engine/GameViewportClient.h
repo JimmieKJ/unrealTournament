@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
 
 #include "ShowFlags.h"
@@ -9,6 +8,7 @@
 #include "DebugDisplayProperty.h"
 #include "TitleSafeZone.h"
 #include "GameViewportDelegates.h"
+
 #include "GameViewportClient.generated.h"
 
 
@@ -19,6 +19,7 @@ class FSceneViewport;
 class SViewport;
 class SWindow;
 class SOverlay;
+class IGameLayerManager;
 class UCanvas;
 
 
@@ -126,7 +127,7 @@ public:
 	/* Returns the relevant game instance for this viewport */
 	UGameInstance* GetGameInstance() const;
 
-	virtual void Init(struct FWorldContext& WorldContext, UGameInstance* OwningGameInstance);
+	virtual void Init(struct FWorldContext& WorldContext, UGameInstance* OwningGameInstance, bool bCreateNewAudioDevice = true);
 
 public:
 	// Begin UObject Interface
@@ -179,7 +180,7 @@ public:
 	bool HandleShowMouseCursorCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 #endif // WITH_EDITOR
 	bool HandlePreCacheCommand( const TCHAR* Cmd, FOutputDevice& Ar );
-	bool HandleToggleFullscreenCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleToggleFullscreenCommand();
 	bool HandleSetResCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleHighresScreenshotCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleHighresScreenshotUICommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -212,6 +213,23 @@ public:
 	 */
 	virtual void RemoveViewportWidgetContent( TSharedRef<class SWidget> ViewportContent );
 
+	/**
+	 * Adds a widget to the Slate viewport's overlay (i.e for in game UI or tools) at the specified Z-order.
+	 * associates it with a specific player and keeps it in their sub-rect.
+	 * 
+	 * @param  Player The player to add the widget to.
+	 * @param  ViewportContent	The widget to add.  Must be valid.
+	 * @param  ZOrder  The Z-order index for this widget.  Larger values will cause the widget to appear on top of widgets with lower values.
+	 */
+	virtual void AddViewportWidgetForPlayer(ULocalPlayer* Player, TSharedRef<SWidget> ViewportContent, const int32 ZOrder);
+
+	/**
+	 * Removes a previously-added widget from the Slate viewport, in the player's section.
+	 *
+	 * @param	Player The player to remove the widget's viewport from.
+	 * @param	ViewportContent  The widget to remove.  Must be valid.
+	 */
+	virtual void RemoveViewportWidgetForPlayer(ULocalPlayer* Player, TSharedRef<SWidget> ViewportContent);
 
 	/**
 	 * This function removes all widgets from the viewport overlay
@@ -234,8 +252,7 @@ public:
 	 * Determines whether this viewport client should receive calls to InputAxis() if the game's window is not currently capturing the mouse.
 	 * Used by the UI system to easily receive calls to InputAxis while the viewport's mouse capture is disabled.
 	 */
-	virtual bool RequiresUncapturedAxisInput() const;
-
+	virtual bool RequiresUncapturedAxisInput() const override;
 
 	/**
 	 * Set this GameViewportClient's viewport and viewport frame to the viewport specified
@@ -254,6 +271,12 @@ public:
 	{
 		Window = InWindow;
 		ViewportOverlayWidget = InViewportOverlayWidget;
+	}
+
+	/** Assigns the viewport game layer manager for this viewport client.  Should only be called when first created. */
+	void SetGameLayerManager(TSharedPtr< IGameLayerManager > LayerManager)
+	{
+		GameLayerManagerPtr = LayerManager;
 	}
 
 	/** Returns access to this viewport's Slate window */
@@ -416,7 +439,7 @@ public:
 	 * @param	PlayerIndex		the index [into the GamePlayers array] where the player was located
 	 * @param	RemovedPlayer	the player that was removed
 	 */
-	void NotifyPlayerRemoved( int32 PlayerIndex, class ULocalPlayer* RemovedPlayer );
+	virtual void NotifyPlayerRemoved( int32 PlayerIndex, class ULocalPlayer* RemovedPlayer );
 
 	/**
 	 * Notification of server travel error messages, generally network connection related (package verification, client server handshaking, etc) 
@@ -431,20 +454,15 @@ public:
 	 * Notification of network error messages
 	 * generally not expected to handle the failure here, but provide notification to the user
 	 *
+	 * @param	World associated with failure
+	 * @param	NetDriver associated with failure
 	 * @param	FailureType	the type of error
-	 * @param	NetDriverName name of the network driver generating the error
 	 * @param	ErrorString	additional string detailing the error
 	 */
 	virtual void PeekNetworkFailureMessages(UWorld *World, UNetDriver *NetDriver, enum ENetworkFailure::Type FailureType, const FString& ErrorString);
 
 	/** Make sure all navigation objects have appropriate path rendering components set.  Called when EngineShowFlags.Navigation is set. */
 	virtual void VerifyPathRenderingComponents();
-
-	/** Accessor for delegate called when a png screenshot is captured */
-	FOnPNGScreenshotCaptured& OnPNGScreenshotCaptured()
-	{
-		return PNGScreenshotCapturedDelegate;
-	}
 
 	/** Accessor for delegate called when a screenshot is captured */
 	static FOnScreenshotCaptured& OnScreenshotCaptured()
@@ -458,8 +476,50 @@ public:
 		return CloseRequestedDelegate;
 	}
 
+	/** Accessor for the delegate called when the game viewport is created. */
+	static FSimpleMulticastDelegate& OnViewportCreated()
+	{
+		return CreatedDelegate;
+	}
+
+	// Accessor for the delegate called when a player is added to the game viewport
+	FOnGameViewportClientPlayerAction& OnPlayerAdded()
+	{
+		return PlayerAddedDelegate;
+	}
+
+	// Accessor for the delegate called when a player is removed from the game viewport
+	FOnGameViewportClientPlayerAction& OnPlayerRemoved()
+	{
+		return PlayerRemovedDelegate;
+	}
+
+	// Accessor for the delegate called when the engine starts drawing a game viewport
+	FSimpleMulticastDelegate& OnBeginDraw()
+	{
+		return BeginDrawDelegate;
+	}
+
+	// Accessor for the delegate called when the game viewport is drawn, before drawing the console
+	FSimpleMulticastDelegate& OnDrawn()
+	{
+		return DrawnDelegate;
+	}
+
+	// Accessor for the delegate called when the engine finishes drawing a game viewport
+	FSimpleMulticastDelegate& OnEndDraw()
+	{
+		return EndDrawDelegate;
+	}
+
+	// Accessor for the delegate called when ticking the game viewport
+	FOnGameViewportTick& OnTick()
+	{
+		return TickDelegate;
+	}
+
 	/** Return the engine show flags for this viewport */
-	virtual FEngineShowFlags* GetEngineShowFlags() 
+	virtual FEngineShowFlags* GetEngineShowFlags() override
 	{ 
 		return &EngineShowFlags; 
 	}
@@ -523,7 +583,7 @@ public:
 	 *
 	 * @param	InName	Name of the stat to check
 	 */
-	virtual bool IsStatEnabled(const TCHAR* InName) const override
+	virtual bool IsStatEnabled(const FString& InName) const override
 	{
 		return EnabledStats.Contains(InName);
 	}
@@ -619,6 +679,9 @@ private:
 		return EnabledStats.Num();
 	}
 
+	/** Process the 'show volumes' console command */
+	void ToggleShowVolumes();
+
 	/** Process the 'show collision' console command */
 	void ToggleShowCollision();
 
@@ -647,6 +710,9 @@ private:
 	/** Overlay widget that contains widgets to draw on top of the game viewport */
 	TWeakPtr<SOverlay> ViewportOverlayWidget;
 
+	/** The game layer manager allows management of widgets for different player areas of the screen. */
+	TWeakPtr<IGameLayerManager> GameLayerManagerPtr;
+
 	/** Current buffer visualization mode for this game viewport */
 	FName CurrentBufferVisualizationMode;
 
@@ -661,19 +727,37 @@ private:
 
 	/** 
 	 * Applies requested changes to display configuration 
-	 * @param	Dimensions - Pointer to new dimensions of the display. NULL for no change.
-	 * @param	WindowMode - What window mode do we want to st the display to.
+	 * @param Dimensions Pointer to new dimensions of the display. nullptr for no change.
+	 * @param WindowMode What window mode do we want to st the display to.
 	 */
 	bool SetDisplayConfiguration( const FIntPoint* Dimensions, EWindowMode::Type WindowMode);
-
-	/** Delegate called at the end of the frame when a screenshot is captured and a .png is requested */
-	FOnPNGScreenshotCaptured PNGScreenshotCapturedDelegate;
 
 	/** Delegate called at the end of the frame when a screenshot is captured */
 	static FOnScreenshotCaptured ScreenshotCapturedDelegate;
 
 	/** Delegate called when a request to close the viewport is received */
 	FOnCloseRequested CloseRequestedDelegate;
+
+	/** Delegate called when the game viewport is created. */
+	static FSimpleMulticastDelegate CreatedDelegate;
+
+	/** Delegate called when a player is added to the game viewport */
+	FOnGameViewportClientPlayerAction PlayerAddedDelegate;
+
+	/** Delegate called when a player is removed from the game viewport */
+	FOnGameViewportClientPlayerAction PlayerRemovedDelegate;
+
+	/** Delegate called when the engine starts drawing a game viewport */
+	FSimpleMulticastDelegate BeginDrawDelegate;
+
+	/** Delegate called when the game viewport is drawn, before drawing the console */
+	FSimpleMulticastDelegate DrawnDelegate;
+
+	/** Delegate called when the engine finishes drawing a game viewport */
+	FSimpleMulticastDelegate EndDrawDelegate;
+
+	/** Delegate called when ticking the game viewport */
+	FOnGameViewportTick TickDelegate;
 
 	/** Data needed to display perframe stat tracking when STAT UNIT is enabled */
 	FStatUnitData* StatUnitData;
@@ -704,6 +788,12 @@ private:
 
 	/** Handle to the registered ShowCollisionOnSpawnedActors delegate */
 	FDelegateHandle ShowCollisionOnSpawnedActorsDelegateHandle;
+
+	/** Handle to the audio device created for this viewport. Each viewport (for multiple PIE) will have its own audio device. */
+	uint32 AudioDeviceHandle;
+
+	/** Whether or not this audio device is in audio-focus */
+	bool bHasAudioFocus;
 };
 
 

@@ -44,8 +44,8 @@ void ALogVisualizerHUD::PostRender()
 
 			FCollisionQueryParams TraceParams(NAME_None, true, this);
 			FHitResult Hit;
-			bool bHit = GetWorld()->LineTraceSingle(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
-			if( bHit )
+			bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, CamRot.Vector() * 100000.f + CamLoc, ECC_Pawn, TraceParams);
+			if (bHit && Hit.GetActor() != nullptr)
 			{
 				TextItem.Text = FText::FromString(FString::Printf(TEXT("Under cursor: '%s'"), *Hit.GetActor()->GetName()));
 				Canvas->DrawItem( TextItem, X, Y );

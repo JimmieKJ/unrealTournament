@@ -86,6 +86,9 @@ private:
 	/** Adds common menu options to a menu builder. Returns true if any options were added. */
 	bool AddCommonMenuOptions(FMenuBuilder& MenuBuilder);
 
+	/** Adds explore menu options to a menu builder. */
+	void AddExploreMenuOptions(FMenuBuilder& MenuBuilder);
+
 	/** Adds Asset Actions sub-menu to a menu builder. */
 	void MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder);
 
@@ -154,6 +157,9 @@ private:
 
 	/** Handler for ShowReferenceViewer */
 	void ExecuteShowReferenceViewer();
+
+	/** Handler for ShowSizeMap */
+	void ExecuteShowSizeMap();
 
 	/** Handler for GoToAssetCode */
 	void ExecuteGoToCodeForAsset(UClass* SelectedClass);
@@ -331,7 +337,6 @@ private:
 	bool bCanExecuteSCCHistory;
 	bool bCanExecuteSCCRevert;
 	bool bCanExecuteSCCSync;
-	bool bCurrentWorldSelected;
 	/** */
 	int32 ChunkIDSelected;
 };

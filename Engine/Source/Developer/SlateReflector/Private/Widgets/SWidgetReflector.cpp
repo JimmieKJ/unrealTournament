@@ -2,17 +2,23 @@
 
 #include "SlateReflectorPrivatePCH.h"
 #include "ISlateReflectorModule.h"
-
-#if STATS
-#include "StatsData.h"
-#endif
-
+#include "SlateStats.h"
 
 #define LOCTEXT_NAMESPACE "SWidgetReflector"
 #define WITH_EVENT_LOGGING 0
 
+extern SLATECORE_API int32 bFoldTick;
+#if SLATE_STATS
+extern SLATECORE_API int32 GSlateStatsFlatEnable;
+extern SLATECORE_API int32 GSlateStatsFlatLogOutput;
+extern SLATECORE_API int32 GSlateStatsHierarchyTrigger;
+extern SLATECORE_API float GSlateStatsFlatIntervalWindowSec;
+#endif
 static const int32 MaxLoggedEvents = 100;
 
+/**
+ * Widget reflector user widget.
+ */
 
 /* Local helpers
  *****************************************************************************/
@@ -37,20 +43,215 @@ struct FLoggedEvent
 	FText HandlerText;
 };
 
-
-/* SWidgetReflector interface
- *****************************************************************************/
-
-static FReply ToggleSlateStats()
+namespace WidgetReflectorImpl
 {
-	#if STATS
-	FSelfRegisteringExec::StaticExec(nullptr, TEXT("stat slate"), *GLog);
-	#endif
 
-	return FReply::Handled();
-}
+/**
+ * Widget reflector implementation
+ */
+class SWidgetReflector : public ::SWidgetReflector
+{
+	// The reflector uses a tree that observes FReflectorNodes.
+	typedef STreeView<TSharedPtr<FReflectorNode>> SReflectorTree;
 
-extern SLATECORE_API int32 bFoldTick;
+private:
+
+	virtual void Construct( const FArguments& InArgs ) override;
+
+	// SCompoundWidget overrides
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+
+	// IWidgetReflector interface
+
+	virtual void OnEventProcessed( const FInputEvent& Event, const FReplyBase& InReply ) override;
+
+	virtual bool IsInPickingMode() const override
+	{
+		return bIsPicking;
+	}
+
+	virtual bool IsShowingFocus() const override
+	{
+		return bShowFocus;
+	}
+
+	virtual bool IsVisualizingLayoutUnderCursor() const override
+	{
+		return bIsPicking;
+	}
+
+	virtual void OnWidgetPicked() override
+	{
+		bIsPicking = false;
+	}
+
+	virtual bool ReflectorNeedsToDrawIn( TSharedRef<SWindow> ThisWindow ) const override;
+
+	virtual void SetSourceAccessDelegate( FAccessSourceCode InDelegate ) override
+	{
+		SourceAccessDelegate = InDelegate;
+	}
+
+	virtual void SetAssetAccessDelegate(FAccessAsset InDelegate) override
+	{
+		AsseetAccessDelegate = InDelegate;
+	}
+
+	virtual void SetWidgetsToVisualize( const FWidgetPath& InWidgetsToVisualize ) override;
+	virtual int32 Visualize( const FWidgetPath& InWidgetsToVisualize, FSlateWindowElementList& OutDrawElements, int32 LayerId ) override;
+	virtual int32 VisualizeCursorAndKeys(FSlateWindowElementList& OutDrawElements, int32 LayerId) const override;
+
+	/**
+	 * Generates a tool tip for the given reflector tree node.
+	 *
+	 * @param InReflectorNode The node to generate the tool tip for.
+	 * @return The tool tip widget.
+	 */
+	TSharedRef<SToolTip> GenerateToolTipForReflectorNode( TSharedPtr<FReflectorNode> InReflectorNode );
+
+	/**
+	 * Mark the provided reflector nodes such that they stand out in the tree and are visible.
+	 *
+	 * @param WidgetPathToObserve The nodes to mark.
+	 */
+	void VisualizeAsTree( const TArray< TSharedPtr<FReflectorNode> >& WidgetPathToVisualize );
+
+	/**
+	 * Draw the widget path to the picked widget as the widgets' outlines.
+	 *
+	 * @param InWidgetsToVisualize A widget path whose widgets' outlines to draw.
+	 * @param OutDrawElements A list of draw elements; we will add the output outlines into it.
+	 * @param LayerId The maximum layer achieved in OutDrawElements so far.
+	 * @return The maximum layer ID we achieved while painting.
+	 */
+	int32 VisualizePickAsRectangles( const FWidgetPath& InWidgetsToVisualize, FSlateWindowElementList& OutDrawElements, int32 LayerId );
+
+	/**
+	 * Draw an outline for the specified nodes.
+	 *
+	 * @param InNodesToDraw A widget path whose widgets' outlines to draw.
+	 * @param WindowGeometry The geometry of the window in which to draw.
+	 * @param OutDrawElements A list of draw elements; we will add the output outlines into it.
+	 * @param LayerId the maximum layer achieved in OutDrawElements so far.
+	 * @return The maximum layer ID we achieved while painting.
+	 */
+	int32 VisualizeSelectedNodesAsRectangles( const TArray<TSharedPtr<FReflectorNode>>& InNodesToDraw, const TSharedRef<SWindow>& VisualizeInWindow, FSlateWindowElementList& OutDrawElements, int32 LayerId );
+
+	/** Callback for changing the application scale slider. */
+	void HandleAppScaleSliderChanged( float NewValue )
+	{
+		FSlateApplication::Get().SetApplicationScale(NewValue);
+	}
+
+	FReply HandleDisplayTextureAtlases();
+	FReply HandleDisplayFontAtlases();
+
+	/** Callback for getting the value of the application scale slider. */
+	float HandleAppScaleSliderValue() const
+	{
+		return FSlateApplication::Get().GetApplicationScale();
+	}
+
+	/** Callback for checked state changes of the focus check box. */
+	void HandleFocusCheckBoxCheckedStateChanged( ECheckBoxState NewValue );
+
+	/** Callback for getting the checked state of the focus check box. */
+	ECheckBoxState HandleFocusCheckBoxIsChecked() const
+	{
+		return bShowFocus ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
+	/** Callback for getting the text of the frame rate text block. */
+	FString HandleFrameRateText() const;
+
+	/** Callback for clicking the pick button. */
+	FReply HandlePickButtonClicked()
+	{
+		bIsPicking = !bIsPicking;
+
+		if (bIsPicking)
+		{
+			bShowFocus = false;
+		}
+
+		return FReply::Handled();
+	}
+
+	/** Callback for getting the color of the pick button text. */
+	FSlateColor HandlePickButtonColorAndOpacity() const
+	{
+		static const FName SelectionColor("SelectionColor");
+		static const FName DefaultForeground("DefaultForeground");
+
+		return bIsPicking
+			? FCoreStyle::Get().GetSlateColor(SelectionColor)
+			: FCoreStyle::Get().GetSlateColor(DefaultForeground);
+	}
+
+	/** Callback for getting the text of the pick button. */
+	FText HandlePickButtonText() const;
+
+	/** Callback for generating a row in the reflector tree view. */
+	TSharedRef<ITableRow> HandleReflectorTreeGenerateRow( TSharedPtr<FReflectorNode> InReflectorNode, const TSharedRef<STableViewBase>& OwnerTable );
+
+	/** Callback for getting the child items of the given reflector tree node. */
+	void HandleReflectorTreeGetChildren( TSharedPtr<FReflectorNode> InWidgetGeometry, TArray<TSharedPtr<FReflectorNode>>& OutChildren );
+
+	/** Callback for when the selection in the reflector tree has changed. */
+	void HandleReflectorTreeSelectionChanged( TSharedPtr< FReflectorNode >, ESelectInfo::Type /*SelectInfo*/ )
+	{
+		SelectedNodes = ReflectorTree->GetSelectedItems();
+	}
+
+	TSharedRef<ITableRow> GenerateEventLogRow( TSharedRef<FLoggedEvent> InReflectorNode, const TSharedRef<STableViewBase>& OwnerTable );
+
+	TArray< TSharedRef<FLoggedEvent> > LoggedEvents;
+	TSharedPtr< SListView< TSharedRef< FLoggedEvent > > > EventListView;
+	TSharedPtr< SHorizontalBox > StatsToolsBox;
+	TSharedPtr<SReflectorTree> ReflectorTree;
+
+	TArray<TSharedPtr<FReflectorNode>> SelectedNodes;
+	TArray<TSharedPtr<FReflectorNode>> ReflectorTreeRoot;
+	TArray<TSharedPtr<FReflectorNode>> PickedPath;
+
+	SSplitter::FSlot* WidgetInfoLocation;
+
+	FAccessSourceCode SourceAccessDelegate;
+	FAccessAsset AsseetAccessDelegate;
+
+	bool bShowFocus;
+	bool bIsPicking;
+
+#if SLATE_STATS
+	// STATS
+	TSharedPtr<SBorder> StatsBorder;
+	TArray< TSharedRef<class FStatItem> > StatsItems;
+	TSharedPtr< SListView< TSharedRef<FStatItem> > > StatsList;
+
+	TSharedRef<SWidget> MakeStatViewer();
+	void UpdateStats();
+	TSharedRef<ITableRow> GenerateStatRow(TSharedRef<FStatItem> StatItem, const TSharedRef<STableViewBase>& OwnerTable);
+#endif
+private:
+	// DEMO MODE
+	bool bEnableDemoMode;
+	double LastMouseClickTime;
+	FVector2D CursorPingPosition;
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 void SWidgetReflector::Construct( const FArguments& InArgs )
@@ -77,34 +278,34 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 						SNew(SHorizontalBox)
 					
 						+ SHorizontalBox::Slot()
-							.AutoWidth()
-							.VAlign(VAlign_Center)
-							[
-								SNew(STextBlock)
-									.Text(LOCTEXT("AppScale", "Application Scale: ").ToString())
-							]
+						.AutoWidth()
+						.VAlign(VAlign_Center)
+						[
+							SNew(STextBlock)
+								.Text(LOCTEXT("AppScale", "Application Scale: "))
+						]
 
 						+ SHorizontalBox::Slot()
-							.AutoWidth()
+						.AutoWidth()
+						[
+							SNew(SBox)
+							.MinDesiredWidth(100)
+							.MaxDesiredWidth(250)
 							[
-								SNew(SBox)
-								.MinDesiredWidth(100)
-								.MaxDesiredWidth(250)
-								[
-									SNew(SSpinBox<float>)
-										.Value(this, &SWidgetReflector::HandleAppScaleSliderValue)
-										.MinValue(0.1f)
-										.MaxValue(3.0f)
-										.Delta(0.01f)
-										.OnValueChanged(this, &SWidgetReflector::HandleAppScaleSliderChanged)
-								]
+								SNew(SSpinBox<float>)
+									.Value(this, &SWidgetReflector::HandleAppScaleSliderValue)
+									.MinValue(0.1f)
+									.MaxValue(3.0f)
+									.Delta(0.01f)
+									.OnValueChanged(this, &SWidgetReflector::HandleAppScaleSliderChanged)
 							]
+						]
 						+ SHorizontalBox::Slot()
 						.FillWidth(1.0f)
 						[
 							SNew(SSpacer)
 						]
-						+SHorizontalBox::Slot()
+						+ SHorizontalBox::Slot()
 						.AutoWidth()
 						.Padding(FMargin(5.0f, 0.0f))
 						[
@@ -112,7 +313,8 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 							.Text(LOCTEXT("DisplayTextureAtlases", "Display Texture Atlases"))
 							.OnClicked(this, &SWidgetReflector::HandleDisplayTextureAtlases)
 						]
-						+SHorizontalBox::Slot()
+
+						+ SHorizontalBox::Slot()
 						.AutoWidth()
 						.Padding(FMargin(5.0f, 0.0f))
 						[
@@ -123,67 +325,36 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 					]
 
 				+ SVerticalBox::Slot()
-					.AutoHeight()
-					[
-						SNew(SHorizontalBox)
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
 
-						+ SHorizontalBox::Slot()
-							.AutoWidth()
-							.Padding(5.0f)
-							[
-								// Check box that controls LIVE MODE
-								SNew(SCheckBox)
-									.IsChecked(this, &SWidgetReflector::HandleFocusCheckBoxIsChecked)
-									.OnCheckStateChanged(this, &SWidgetReflector::HandleFocusCheckBoxCheckedStateChanged)
-									[
-										SNew(STextBlock)
-											.Text(LOCTEXT("ShowFocus", "Show Focus").ToString())
-									]
-							]
-
-						+ SHorizontalBox::Slot()
-							.AutoWidth()
-							.Padding(5.0f)
-							[
-								// Check box that controls PICKING A WIDGET TO INSPECT
-								SNew(SButton)
-									.OnClicked(this, &SWidgetReflector::HandlePickButtonClicked)
-									.ButtonColorAndOpacity(this, &SWidgetReflector::HandlePickButtonColorAndOpacity)
-									[
-										SNew(STextBlock)
-											.Text(this, &SWidgetReflector::HandlePickButtonText)
-									]
-							]
-
-					+SHorizontalBox::Slot()
+					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					.Padding(5.0f)
 					[
+						// Check box that controls LIVE MODE
+						SNew(SCheckBox)
+						.IsChecked(this, &SWidgetReflector::HandleFocusCheckBoxIsChecked)
+						.OnCheckStateChanged(this, &SWidgetReflector::HandleFocusCheckBoxCheckedStateChanged)
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("ShowFocus", "Show Focus"))
+						]
+					]
+
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(5.0f)
+					[
+						// Check box that controls PICKING A WIDGET TO INSPECT
 						SNew(SButton)
-						#if STATS
-						.Text( LOCTEXT("ToggleStats", "Toggle Stats") )
-						#else
-						.Text( LOCTEXT("ToggleStatsUnavailable", "Toggle Stats [see tooltip]") )
-						.ToolTip
-						(
-							SNew(SToolTip)
+							.OnClicked(this, &SWidgetReflector::HandlePickButtonClicked)
+							.ButtonColorAndOpacity(this, &SWidgetReflector::HandlePickButtonColorAndOpacity)
 							[
 								SNew(STextBlock)
-								.WrapTextAt(200.0f)
-								.Text( LOCTEXT("ToggleStatsUnavailableTooltip", "To enable STATS in standalone applications turn on <bCompileWithStatsWithoutEngine>false</bCompileWithStatsWithoutEngine> in BuildConfiguration.xml") )
+									.Text(this, &SWidgetReflector::HandlePickButtonText)
 							]
-						)
-						.IsEnabled(false)
-						#endif
-						.OnClicked_Static( &ToggleSlateStats )
-					]
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0f)
-					[
-						SNew(SButton)
-						.OnClicked( this, &SWidgetReflector::CopyStatsToClipboard )
-						.Text( LOCTEXT("CopyStatsToClipboard", "Copy Stats") )
 					]
 					+SHorizontalBox::Slot()
 					.AutoWidth()
@@ -208,7 +379,7 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 								.Text( LOCTEXT("ToggleTickFolding", "Fold Tick") )
 							]
 						]
-					]					
+					]
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					.Padding(5.0f)
@@ -233,8 +404,175 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 							]
 						]
 					]
+#if SLATE_STATS
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(5.0f)
+					[
+						SNew(SCheckBox)
+						.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
+						.IsChecked_Static([]
+						{
+							return GSlateStatsFlatEnable == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
+						})
+						.OnCheckStateChanged_Lambda( [=]( const ECheckBoxState NewState )
+						{
+							GSlateStatsFlatEnable = (NewState == ECheckBoxState::Checked) ? 1 : 0;
+							StatsToolsBox->SetVisibility(GSlateStatsFlatEnable != 0 ? EVisibility::Visible : EVisibility::Collapsed);
+						})
+						.ToolTip
+						(
+							SNew(SToolTip)
+							[
+								SNew(STextBlock)
+								.WrapTextAt(200.0f)
+								.Text( LOCTEXT("ToggleStatsTooltip", "Enables flat stats view.") )
+							]
+						)
+						[
+							SNew(SBox)
+							.VAlign( VAlign_Center )
+							.HAlign( HAlign_Center )
+							[
+								SNew(STextBlock)	
+								.Text( LOCTEXT("ToggleStats", "Toggle Stats") )
+							]
+						]
+					]
+#else
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(5.0f)
+					[
+						SNew(SCheckBox)
+						.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
+						.ToolTip
+						(
+							SNew(SToolTip)
+							[
+								SNew(STextBlock)
+								.WrapTextAt(200.0f)
+								.Text( LOCTEXT("ToggleStatsUnavailableTooltip", "To enable slate stats, compile with SLATE_STATS defined to one (see SlateStats.h).") )
+							]
+						)
+						[
+							SNew(SBox)
+							.VAlign( VAlign_Center )
+							.HAlign( HAlign_Center )
+							[
+								SNew(STextBlock)	
+								.Text( LOCTEXT("ToggleStatsUnavailable", "Toggle Stats [see toolip]") )
+							]
+						]
+						.IsEnabled(false)
+					]
+#endif
 				]
-
+#if SLATE_STATS
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SAssignNew(StatsToolsBox, SHorizontalBox)
+					.Visibility(EVisibility::Collapsed)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(5.0f)
+					[
+						SNew(SCheckBox)
+						.Style( FCoreStyle::Get(), "ToggleButtonCheckbox" )
+						.IsChecked_Static([]
+						{
+							return GSlateStatsFlatLogOutput == 0 ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
+						})
+						.OnCheckStateChanged_Static([]( const ECheckBoxState NewState )
+						{
+							GSlateStatsFlatLogOutput = (NewState == ECheckBoxState::Checked) ? 1 : 0;
+						})
+						.ToolTip
+						(
+							SNew(SToolTip)
+							[
+								SNew(STextBlock)
+								.WrapTextAt(200.0f)
+								.Text( LOCTEXT("LogStatsTooltip", "Enables outputting stats to the log at the given interval.") )
+							]
+						)
+						[
+							SNew(SBox)
+							.VAlign( VAlign_Center )
+							.HAlign( HAlign_Center )
+							[
+								SNew(STextBlock)	
+								.Text( LOCTEXT("ToggleLogStats", "Log Stats") )
+							]
+						]
+					]
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.Padding(5.0f)
+					[
+						SNew(SButton)
+						.OnClicked_Static([]
+						{
+							GSlateStatsHierarchyTrigger = 1;
+							return FReply::Handled();
+						})
+						.ToolTip
+						(
+							SNew(SToolTip)
+							[
+								SNew(STextBlock)
+								.WrapTextAt(200.0f)
+								.Text( LOCTEXT("CaptureStatsHierarchyTooltip", "When clicked, the next rendered frame will capture hierarchical stats and save them to file in the Saved/ folder with the following name: SlateHierarchyStats-<timestamp>.csv") )
+							]
+						)
+						[
+							SNew(STextBlock)
+								.Text(LOCTEXT("CaptureHierarchy", "Capture Hierarchy"))
+						]
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.ToolTip
+						(
+							SNew(SToolTip)
+							[
+								SNew(STextBlock)
+								.WrapTextAt(200.0f)
+								.Text( LOCTEXT("StatsSamplingIntervalTooltip", "the interval (in seconds) to integrate stats before updating the averages.") )
+							]
+						)
+						.Text(LOCTEXT("StatsSampleWindow", "Sampling Interval: "))
+					]
+					+ SHorizontalBox::Slot()
+					[
+						SNew(SSpinBox<float>)
+						.ToolTip
+						(
+							SNew(SToolTip)
+							[
+								SNew(STextBlock)
+								.WrapTextAt(200.0f)
+								.Text( LOCTEXT("StatsSamplingIntervalTooltip", "the interval (in seconds) to integrate stats before updating the stats.") )
+							]
+						)
+						.Value_Static([]
+						{
+							return GSlateStatsFlatIntervalWindowSec;
+						})
+						.MinValue(0.1f)
+						.MaxValue(15.0f)
+						.Delta(0.1f)
+						.OnValueChanged_Static([](float NewValue)
+						{
+							GSlateStatsFlatIntervalWindowSec = NewValue;
+						})
+					]
+				]
+#endif
 				+ SVerticalBox::Slot()
 					.FillHeight(1.0f)
 					[
@@ -286,15 +624,22 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 							.OnGenerateRow(this, &SWidgetReflector::GenerateEventLogRow)
 					]
 				#endif //WITH_EVENT_LOGGING
-			
+#if SLATE_STATS			
 				+ SVerticalBox::Slot()
 					.AutoHeight()
 					[
-					MakeStatViewer()
+						MakeStatViewer()
 					]
-				
+#endif
 			]
 	];
+
+#if SLATE_STATS			
+	if (StatsToolsBox.IsValid())
+	{
+		StatsToolsBox->SetVisibility(GSlateStatsFlatEnable != 0 ? EVisibility::Visible : EVisibility::Collapsed);
+	}
+#endif
 }
 
 /* SCompoundWidget overrides
@@ -302,13 +647,15 @@ void SWidgetReflector::Construct( const FArguments& InArgs )
 
 void SWidgetReflector::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
+#if SLATE_STATS
 	UpdateStats();
+#endif
 }
 
 
 void SWidgetReflector::OnEventProcessed( const FInputEvent& Event, const FReplyBase& InReply )
 {
-	if (Event.IsPointerEvent())
+	if ( Event.IsPointerEvent() )
 	{
 		const FPointerEvent& PtrEvent = static_cast<const FPointerEvent&>(Event);
 		if (PtrEvent.GetEffectingButton() == EKeys::LeftMouseButton)
@@ -379,7 +726,6 @@ int32 SWidgetReflector::Visualize( const FWidgetPath& InWidgetsToVisualize, FSla
 	return LayerId;
 }
 
-
 int32 SWidgetReflector::VisualizeCursorAndKeys(FSlateWindowElementList& OutDrawElements, int32 LayerId) const
 {
 	if (bEnableDemoMode)
@@ -413,9 +759,10 @@ int32 SWidgetReflector::VisualizeCursorAndKeys(FSlateWindowElementList& OutDrawE
 				);
 		}
 	}
-
+	
 	return LayerId;
 }
+
 
 /* SWidgetReflector implementation
  *****************************************************************************/
@@ -555,10 +902,10 @@ FString SWidgetReflector::HandleFrameRateText() const
 }
 
 
-FString SWidgetReflector::HandlePickButtonText() const
+FText SWidgetReflector::HandlePickButtonText() const
 {
-	static const FString NotPicking = LOCTEXT("PickWidget", "Pick Widget").ToString();
-	static const FString Picking = LOCTEXT("PickingWidget", "Picking (Esc to Stop)").ToString();
+	static const FText NotPicking = LOCTEXT("PickWidget", "Pick Widget");
+	static const FText Picking = LOCTEXT("PickingWidget", "Picking (Esc to Stop)");
 
 	return bIsPicking ? Picking : NotPicking;
 }
@@ -589,52 +936,36 @@ TSharedRef<ITableRow> SWidgetReflector::GenerateEventLogRow( TSharedRef<FLoggedE
 	];
 }
 
+#if SLATE_STATS
 
 //
 // STATS
 //
 
-/**
- * Holds the stat data for visualation. StatItems have an immutable
- * identity and a mutable value that changes from frame to frame.
- */
 class FStatItem
 {
 public:
 	
-	FStatItem( FName InName, FText InDisplayText )
-	: StatName( InName )
-	, DisplayText( InDisplayText )
-	, InclusiveAvgMs( 0.0f )
+	FStatItem(FSlateStatCycleCounter* InCounter)
+	: Counter(InCounter)
 	{
+		UpdateValues();
 	}
 
-	FName GetStatName() const { return StatName; }
-	FText GetDisplayName() const { return DisplayText; }	
-	FText GetInclusiveAvgMsText() const
-	{
-		return InclusiveAvgMsText;
-	}
+	FText GetStatName() const { return StatName; }
+	FText GetInclusiveAvgMsText() const { return InclusiveAvgMsText; }
 	float GetInclusiveAvgMs() const { return InclusiveAvgMs; }
-	void UpdateInclusiveAvgMs( float InMs )
+	void UpdateValues()
 	{
-		static const auto FormattingOptions = FNumberFormattingOptions()
-			.SetMinimumIntegralDigits(1)
-			.SetMinimumFractionalDigits(3)
-			.SetMaximumFractionalDigits(3);
-
-		InclusiveAvgMs = InMs;
-		InclusiveAvgMsText = FText::AsNumber(InMs, &FormattingOptions);
+		StatName = FText::FromName(Counter->GetName());
+		InclusiveAvgMsText = FText::AsNumber(Counter->GetLastComputedAverageInclusiveTime(), &FNumberFormattingOptions().SetMinimumIntegralDigits(1).SetMinimumFractionalDigits(3).SetMaximumFractionalDigits(3));
+		InclusiveAvgMs = (float)(Counter->GetLastComputedAverageInclusiveTime());
 	}
-
 private:
-
-	const FName StatName;
-	const FText DisplayText;
-
+	FSlateStatCycleCounter* Counter;
+	FText StatName;
 	FText InclusiveAvgMsText;
 	float InclusiveAvgMs;
-	
 };
 
 static const FName ColumnId_StatName("StatName");
@@ -643,12 +974,23 @@ static const FName ColumnId_InclusiveAvgMsGraph("InclusiveAvgMsGraph");
 
 TSharedRef<SWidget> SWidgetReflector::MakeStatViewer()
 {
+	// the list of registered counters must remain constant throughout program execution.
+	// As long as all counters are declared globally this will be true.
+	for (auto Stat : FSlateStatCycleCounter::GetRegisteredCounters())
+	{
+		StatsItems.Add(MakeShareable(new FStatItem(Stat)));
+	}
+
 	return
 		SAssignNew(StatsBorder, SBorder)
 		.BorderImage( FCoreStyle::Get().GetBrush("NoBrush") )
+		.Visibility_Lambda([]
+		{
+			return GSlateStatsFlatEnable > 0 ? EVisibility::Visible : EVisibility::Collapsed;
+		})
 		[
 			// STATS LIST
-			SAssignNew( StatsList, SListView< TSharedRef< FStatItem > > )
+			SAssignNew( StatsList, SListView< TSharedRef<FStatItem> > )
 			.OnGenerateRow( this, &SWidgetReflector::GenerateStatRow )
 			.ListItemsSource( &StatsItems )
 			.HeaderRow
@@ -675,188 +1017,96 @@ TSharedRef<SWidget> SWidgetReflector::MakeStatViewer()
 
 void SWidgetReflector::UpdateStats()
 {
-	#if STATS
-
-	const FGameThreadHudData* ViewDataPtr = FHUDGroupGameThreadRenderer::Get().Latest;
-	if (ViewDataPtr != nullptr)
+	if (FSlateStatCycleCounter::AverageInclusiveTimesWereUpdatedThisFrame())
 	{
-		// Stats are up to date; make sure the UI is full bright.
-		StatsBorder->SetColorAndOpacity(FLinearColor::White);
-
-		// If we don't get a report about a stat this frame, assume its value is 0;
-		for (auto& StatItem : StatsItems)
+		for (auto& StatsItem : StatsItems)
 		{
-			StatItem->UpdateInclusiveAvgMs(0.0f);
+			StatsItem->UpdateValues();
 		}
+		//StatsList->RequestListRefresh();
+	}
+}
 
-		// Update stats with latest values; add any stats if they are missing
-		bool bNeedsRefresh = false;
-		const FGameThreadHudData &ViewData = *ViewDataPtr;
-		for (int32 GroupIndex = 0; GroupIndex < ViewData.HudGroups.Num(); ++GroupIndex)
-		{
-			const FHudGroup& HudGroup = ViewData.HudGroups[GroupIndex];
-			const bool bHasHierarchy = !!HudGroup.HierAggregate.Num();
-			const bool bHasFlat = !!HudGroup.FlatAggregate.Num();
 
-			int32 Row = 0;
-			for (const FComplexStatMessage& StatItem : HudGroup.FlatAggregate)
-			{
-				const TSharedRef<FStatItem>* ExistingItemPtr = StatsItems.FindByPredicate( [&StatItem]( const TSharedRef<FStatItem>& ItemRef )
-				{
-					return ItemRef->GetStatName() == StatItem.GetShortName();
-				});
+class SStatTableRow : public SMultiColumnTableRow< TSharedRef<FSlateStatCycleCounter> >
+{
+	
+public:
+	SLATE_BEGIN_ARGS( SStatTableRow )
+	{}
+	SLATE_END_ARGS();
 
-				const float InMs = FPlatformTime::ToMilliseconds(StatItem.GetValue_Duration(EComplexStatField::IncAve));
+	void Construct( const FArguments& InArgs, const TSharedRef<STableViewBase>& OwnerTable, const TSharedPtr<FStatItem>& InStatItem )
+	{
+		StatItem = InStatItem;
+		FSuperRowType::Construct( FTableRowArgs(), OwnerTable );
+	}
 
-				// If stat does not exist...
-				if (ExistingItemPtr == nullptr)
-				{
-					// ... add it.
-					const TSharedRef<FStatItem> NewStatItem( new FStatItem( StatItem.GetShortName(), FText::FromString(StatItem.GetDescription() ) ) );
-					StatsItems.Add( NewStatItem );
-					ExistingItemPtr = &StatsItems.Last();
+	float GetValue() const { return 6.0f; }
 
-					// We have added items to the list, and it needs to be refreshed.
-					bNeedsRefresh = true;
-				}
+	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override;
 
-				// Update stat values.
-				(*ExistingItemPtr)->UpdateInclusiveAvgMs( InMs );
-			}
-		}
+private:
+	TSharedPtr<FStatItem> StatItem;
+};
 
-		// If we add widgets in tick, we must refresh the list.
-		if (bNeedsRefresh)
-		{
-			StatsList->RequestListRefresh();
-		}		
-		else
-		{
-			int32 a = 5;
-			if (a == 10){  }
-		}
+TSharedRef<SWidget> SStatTableRow::GenerateWidgetForColumn(const FName& ColumnName)
+{
+	if (ColumnName == ColumnId_StatName)
+	{
+		// STAT NAME
+		return
+			SNew(STextBlock)
+			.Text_Lambda([=] { return StatItem->GetStatName(); });
+	}
+	else if (ColumnName == ColumnId_InclusiveAvgMs)
+	{
+		// STAT NUMBER
+		return
+			SNew(SBox)
+			.Padding(FMargin(5, 0))
+			[
+				SNew(STextBlock)
+				.TextStyle(FCoreStyle::Get(), "MonospacedText")
+				.Text_Lambda([=] { return StatItem->GetInclusiveAvgMsText(); })
+			];
+	}
+	else if (ColumnName == ColumnId_InclusiveAvgMsGraph)
+	{
+		// BAR GRAPH
+		return
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(0, 1)
+			.FillWidth(TAttribute<float>::Create(TAttribute<float>::FGetter::CreateLambda([=] { return StatItem->GetInclusiveAvgMs(); })))
+			[
+				SNew(SImage)
+				.Image(FCoreStyle::Get().GetBrush("WhiteBrush"))
+				.ColorAndOpacity_Lambda([=] { return FMath::Lerp(FLinearColor::Green, FLinearColor::Red, StatItem->GetInclusiveAvgMs() / 30.0f); })
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(0, 1)
+			.FillWidth(TAttribute<float>::Create(TAttribute<float>::FGetter::CreateLambda([=] { return 60.0f - StatItem->GetInclusiveAvgMs(); })))
+			;
 	}
 	else
 	{
-		// We are now showing stale stats; provide visual hint.
-		StatsBorder->SetColorAndOpacity(FLinearColor(1,1,1,0.75f));
-		
-		// If we don't get a report about a stat this frame, assume its value is 0;
-		for (auto& StatItem : StatsItems)
-		{
-			StatItem->UpdateInclusiveAvgMs(0.0f);
-		}
+		return SNew(SSpacer);
 	}
-
-	#endif
 }
 
 TSharedRef<ITableRow> SWidgetReflector::GenerateStatRow( TSharedRef<FStatItem> StatItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
-	class SStatTableRow : public SMultiColumnTableRow< TSharedRef<FStatItem> >
-	{
-	
-	public:
-		typedef SMultiColumnTableRow< TSharedRef<FStatItem> > Super;
-		
-		SLATE_BEGIN_ARGS( SStatTableRow )
-		{}
-		SLATE_END_ARGS();
-
-		void Construct( const FArguments& InArgs, const TSharedRef<STableViewBase>& OwnerTable, const TSharedRef<FStatItem>& InStatItem )
-		{
-			StatItem = InStatItem;
-			FSuperRowType::Construct( FTableRowArgs(), OwnerTable );
-		}
-
-		virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override
-		{
-			if (ColumnName == ColumnId_StatName)
-			{
-				// STAT NAME
-				return
-				SNew(STextBlock)
-				.Text( StatItem->GetDisplayName() );
-			}
-			else if (ColumnName == ColumnId_InclusiveAvgMs)
-			{
-				// STAT NUMBER
-				return
-				SNew(SBox)
-				.Padding(FMargin(5,0))
-				[
-					SNew(STextBlock)
-					.TextStyle(FCoreStyle::Get(), "MonospacedText")
-					.Text( this, &SStatTableRow::GetInclusiveAvgMsText )
-				];
-			}
-			else if ( ColumnName == ColumnId_InclusiveAvgMsGraph )
-			{
-				// BAR GRAPH
-				return
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.Padding(0,1)
-				.FillWidth( TAttribute<float>(SharedThis(this), &SStatTableRow::BarGraph_GetFilledWidth) )
-				[
-					SNew(SImage)
-					.Image( FCoreStyle::Get().GetBrush("WhiteBrush") )
-					.ColorAndOpacity( this, &SStatTableRow::BarGraph_GetBarColor )
-				]
-				+SHorizontalBox::Slot()
-				.Padding(0,1)
-				.FillWidth( TAttribute<float>(SharedThis(this), &SStatTableRow::BarGraph_GetEmptyWidth) );
-			}
-			else
-			{
-				return SNew(SSpacer);
-			}
-		}
-
-		private:
-
-		FText GetInclusiveAvgMsText() const
-		{
-			return StatItem->GetInclusiveAvgMsText();
-		}
-
-		float BarGraph_GetFilledWidth() const
-		{
-			return StatItem->GetInclusiveAvgMs();
-		}
-
-		float BarGraph_GetEmptyWidth()  const
-		{
-			static const float MaxMs = 60.0f;
-			return MaxMs - StatItem->GetInclusiveAvgMs();
-		}
-
-		FSlateColor BarGraph_GetBarColor() const
-		{
-			static const float RedlineMs = 30.0f;
-			return FMath::Lerp( FLinearColor::Green, FLinearColor::Red, StatItem->GetInclusiveAvgMs()/RedlineMs );
-		}
-
-		TSharedPtr<FStatItem> StatItem;
-	};
-
 	return SNew(SStatTableRow, OwnerTable, StatItem);
 }
 
-FReply SWidgetReflector::CopyStatsToClipboard()
+#endif // SLATE_STATS
+
+} // namespace WidgetReflectorImpl
+
+TSharedRef<SWidgetReflector> SWidgetReflector::New()
 {
-	FString ClipboardString;
-
-	for (const TSharedRef<FStatItem>& StatItem : StatsItems)
-	{
-		ClipboardString += StatItem->GetDisplayName().ToString();
-		ClipboardString += TEXT(", ");
-		ClipboardString += StatItem->GetInclusiveAvgMsText().ToString();
-		ClipboardString += TEXT("\r\n");
-	}
-
-	FPlatformMisc::ClipboardCopy( *ClipboardString );
-	return FReply::Handled();
+  return MakeShareable( new WidgetReflectorImpl::SWidgetReflector() );
 }
 
 #undef LOCTEXT_NAMESPACE

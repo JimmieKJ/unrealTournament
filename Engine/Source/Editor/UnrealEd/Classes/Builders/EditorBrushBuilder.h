@@ -7,9 +7,11 @@
 UCLASS(abstract, MinimalAPI)
 class UEditorBrushBuilder : public UBrushBuilder
 {
-	GENERATED_UCLASS_BODY()
-
 public:
+	GENERATED_BODY()
+public:
+
+	UEditorBrushBuilder(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	/** UBrushBuilder interface */
 	virtual void BeginBrush( bool InMergeCoplanars, FName InLayer ) override;

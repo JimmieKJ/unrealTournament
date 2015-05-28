@@ -203,6 +203,9 @@ class UMaterialGraphSchema : public UEdGraphSchema
 	virtual void DroppedAssetsOnGraph(const TArray<class FAssetData>& Assets, const FVector2D& GraphPosition, UEdGraph* Graph) const override;
 	virtual int32 GetNodeSelectionCount(const UEdGraph* Graph) const override;
 	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateCommentAction() const override;
+	virtual bool IsCacheVisualizationOutOfDate(int32 InVisualizationCacheID) const override;
+	virtual int32 GetCurrentVisualizationCacheID() const override;
+	virtual void ForceVisualizationCacheClear() const override;
 	// End UEdGraphSchema interface
 
 private:
@@ -219,4 +222,7 @@ private:
 	*/
 	bool HasCompatibleConnection(const FAssetData& FunctionAssetData, uint32 TestType, EEdGraphPinDirection TestDirection) const;
 
+private:
+	// ID for checking dirty status of node titles against, increases whenever 
+	static int32 CurrentCacheRefreshID;
 };

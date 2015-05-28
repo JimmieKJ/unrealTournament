@@ -42,8 +42,12 @@ STDMETHODIMP FWmfMediaByteStream::Invoke( IMFAsyncResult* AsyncResult )
 	check(SUCCEEDED(Result));
 
 	IUnknown* Unknown = NULL;
-	Result = CallerResult->GetObject(&Unknown);
-	check(SUCCEEDED(Result));
+	
+	if (CallerResult != NULL)
+	{
+		Result = CallerResult->GetObject(&Unknown);
+		check(SUCCEEDED(Result));
+	}
 
 	FWmfMediaReadState* ReadState = static_cast<FWmfMediaReadState*>(Unknown);
 

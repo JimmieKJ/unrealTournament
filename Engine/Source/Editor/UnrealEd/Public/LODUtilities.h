@@ -35,7 +35,7 @@ public:
 	 * @param UpdateContext - The skeletal mesh and actor components to operate on.
 	 * @param InSettings   - The user settings passed from the Simplification tool.
 	 */
-	static void SimplifySkeletalMesh( FSkeletalMeshUpdateContext& UpdateContext, TArray<FSkeletalMeshOptimizationSettings> &InSettings );
+	static void SimplifySkeletalMesh( FSkeletalMeshUpdateContext& UpdateContext, TArray<FSkeletalMeshOptimizationSettings> &InSettings, bool bForceRegenerate = false );
 
 	/**
 	 * Refresh LOD Change
@@ -49,4 +49,14 @@ public:
 
 private:
 	FLODUtilities() {}
+
+	/**
+	 *	Simplifies the static mesh based upon various user settings for DesiredLOD
+	 *  This is private function that gets called by SimplifySkeletalMesh
+	 *
+	 * @param SkeletalMesh - The skeletal mesh and actor components to operate on.
+	 * @param InSetting   - The user settings passed from the Simplification tool.
+	 * @param DesiredLOD - Desired LOD
+	 */
+	static void SimplifySkeletalMeshLOD( USkeletalMesh* SkeletalMesh, const FSkeletalMeshOptimizationSettings& InSetting, int32 DesiredLOD );
 };

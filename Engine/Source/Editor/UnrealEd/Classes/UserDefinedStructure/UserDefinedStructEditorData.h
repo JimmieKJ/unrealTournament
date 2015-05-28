@@ -62,6 +62,19 @@ struct FStructVariableDescription
 	{ }
 };
 
+class FStructOnScopeMember : public FStructOnScope
+{
+public:
+	FStructOnScopeMember() : FStructOnScope() {}
+
+	void Recreate(const UStruct* InScriptStruct)
+	{
+		Destroy();
+		ScriptStruct = InScriptStruct;
+		Initialize();
+	}
+};
+
 UCLASS()
 class UNREALED_API UUserDefinedStructEditorData : public UObject
 {
@@ -79,8 +92,15 @@ public:
 	UPROPERTY()
 	FString ToolTip;
 
+	// optional super struct
 	UPROPERTY()
 	UScriptStruct* NativeBase;
+
+protected:
+	FStructOnScopeMember DefaultStructInstance;
+
+public:
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
 	// UObject interface.
 	virtual void PostEditUndo() override;
@@ -89,4 +109,8 @@ public:
 
 	uint32 GenerateUniqueNameIdForMemberVariable();
 	class UUserDefinedStruct* GetOwnerStruct() const;
+
+	const uint8* GetDefaultInstance() const;
+	void RecreateDefaultInstance(FString* OutLog = nullptr);
+	void CleanDefaultInstance();
 };

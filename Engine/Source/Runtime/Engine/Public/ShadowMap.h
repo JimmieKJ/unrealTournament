@@ -215,8 +215,8 @@ public:
 	{
 	}
 
-	FShadowMap(TArray<FGuid> LightGuids)
-		: LightGuids(MoveTemp(LightGuids))
+	FShadowMap(TArray<FGuid> InLightGuids)
+		: LightGuids(MoveTemp(InLightGuids))
 		, NumRefs(0)
 	{
 	}
@@ -246,12 +246,12 @@ public:
 	// Reference counting.
 	void AddRef()
 	{
-		check(IsInGameThread());
+		check(IsInGameThread() || IsInAsyncLoadingThread());
 		NumRefs++;
 	}
 	void Release()
 	{
-		check(IsInGameThread());
+		check(IsInGameThread() || IsInAsyncLoadingThread());
 		checkSlow(NumRefs > 0);
 		if (--NumRefs == 0)
 		{
@@ -360,6 +360,8 @@ private:
 
 
 
-
-/** Shadowmap reference serializer */
+/**
+ * Shadowmap reference serializer
+ * Intended to be used by TRefCountPtr's serializer, not called directly
+ */
 extern ENGINE_API FArchive& operator<<(FArchive& Ar, FShadowMap*& R);

@@ -62,7 +62,7 @@ public:
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	// [DebugName of the RT] = ReuseCount this frame
-	TMap<FString, uint32> VisualizeTextureCheckpoints;
+	TMap<const TCHAR*, uint32> VisualizeTextureCheckpoints;
 #endif
 
 	// render target DebugName that is observed, "" if the feature is deactivated

@@ -33,6 +33,9 @@ class UMaterialExpressionFontSampleParameter : public UMaterialExpressionFontSam
 #endif
 	// End UMaterialExpression Interface
 	
+	/** Return whether this is the named parameter, and fill in its value */
+	bool IsNamedParameter(FName InParameterName, UFont*& OutFontValue, int32& OutFontPage) const;
+
 	/**
 	*	Sets the default Font if none is set
 	*/
@@ -43,7 +46,7 @@ class UMaterialExpressionFontSampleParameter : public UMaterialExpressionFontSam
 		return ExpressionGUID;
 	}
 
-	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds);
+	void GetAllParameterNames(TArray<FName> &OutParameterNames, TArray<FGuid> &OutParameterIds) const;
 };
 
 

@@ -30,9 +30,35 @@ FOnlineSubsystemImpl::~FOnlineSubsystemImpl()
 	}
 }
 
+void FOnlineSubsystemImpl::ExecuteDelegateNextTick(const FNextTickDelegate& Callback)
+{
+	NextTickQueue.Enqueue(Callback);
+}
+
+bool FOnlineSubsystemImpl::Tick(float DeltaTime)
+{
+	if (!NextTickQueue.IsEmpty())
+	{
+		// unload the next-tick queue into our buffer. Any further executes (from within callbacks) will happen NEXT frame (as intended)
+		FNextTickDelegate Temp;
+		while (NextTickQueue.Dequeue(Temp))
+		{
+			CurrentTickBuffer.Add(Temp);
+		}
+
+		// execute any functions in the current tick array
+		for (const auto& Callback : CurrentTickBuffer)
+		{
+			Callback.ExecuteIfBound();
+		}
+		CurrentTickBuffer.SetNum(0, false); // keep the memory around
+	}
+	return true;
+}
+
 void FOnlineSubsystemImpl::InitNamedInterfaces()
 {
-	NamedInterfaces = ConstructObject<UNamedInterfaces>(UNamedInterfaces::StaticClass());
+	NamedInterfaces = NewObject<UNamedInterfaces>();
 	if (NamedInterfaces)
 	{
 		NamedInterfaces->Initialize();

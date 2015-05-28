@@ -23,11 +23,6 @@ struct FIOSPlatformProperties
 		return false;
 	}
 
-	static FORCEINLINE uint32 MaxGpuSkinBones( )
-	{
-		return 20;
-	}
-
 	static FORCEINLINE const char* PlatformName( )
 	{
 		return "IOS";
@@ -50,7 +45,7 @@ struct FIOSPlatformProperties
 
 	static FORCEINLINE bool SupportsHighQualityLightmaps()
 	{
-		return false;
+		return true;
 	}
 
 	static FORCEINLINE bool SupportsTextureStreaming()

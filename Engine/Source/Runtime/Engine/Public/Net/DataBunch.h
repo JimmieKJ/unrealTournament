@@ -54,7 +54,7 @@ public:
 #endif
 
 	// Functions.
-	FOutBunch();
+	ENGINE_API FOutBunch();
 	ENGINE_API FOutBunch( class UChannel* InChannel, bool bClose );
 	ENGINE_API FOutBunch( UPackageMap * PackageMap, int64 InMaxBits = 1024 );
 

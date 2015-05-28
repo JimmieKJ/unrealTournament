@@ -36,7 +36,7 @@ FString FHTML5TargetDevice::GetName( ) const
 
 FString FHTML5TargetDevice::GetOperatingSystemName( )
 {
-	return OperatingSystemName;
+	return TEXT("HTML5 Browser");
 }
 
 

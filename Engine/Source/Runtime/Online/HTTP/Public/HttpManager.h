@@ -30,15 +30,15 @@ public:
 	 *
 	 * @param Request - the request object to add
 	 */
-	virtual void AddRequest(TSharedRef<class IHttpRequest> Request);
+	virtual void AddRequest(const TSharedRef<IHttpRequest>& Request);
 
 	/**
-	 * Removes an Http request intance from the manager
+	 * Removes an Http request instance from the manager
 	 * Presumably it is done being processed
 	 *
 	 * @param Request - the request object to remove
 	 */
-	virtual void RemoveRequest(TSharedRef<class IHttpRequest> Request);
+	virtual void RemoveRequest(const TSharedRef<IHttpRequest>& Request);
 
 	/**
 	* Find an Http request in the lists of current valid requests
@@ -47,7 +47,7 @@ public:
 	*
 	* @return shared ptr to the request or invalid shared ptr
 	*/
-	virtual bool IsValidRequest(class IHttpRequest* RequestPtr);
+	virtual bool IsValidRequest(const IHttpRequest* RequestPtr) const;
 
 	/**
 	 * FTicker callback
@@ -63,30 +63,42 @@ public:
 	 *
 	 * @param Ar - output device to log with
 	 */
-	virtual void DumpRequests(FOutputDevice& Ar);
+	virtual void DumpRequests(FOutputDevice& Ar) const;
 
 protected:
+	
+	/** Keep track of an http request while it is being processed */
+	class FActiveHttpRequest
+	{
+	public:
+		FActiveHttpRequest(double InStartTime, const TSharedRef<IHttpRequest>& InHttpRequest)
+			: StartTime(InStartTime)
+			, HttpRequest(InHttpRequest)
+		{}
+
+		double StartTime;
+		TSharedRef<IHttpRequest> HttpRequest;
+	};
 
 	/** List of Http requests that are actively being processed */
-	TArray<TSharedRef<class IHttpRequest> > Requests;
+	TArray<TSharedRef<IHttpRequest>> Requests;
 
 	/** Keep track of a request that should be deleted later */
-	struct FRequestPendingDestroy
+	class FRequestPendingDestroy
 	{
-		FRequestPendingDestroy(float InTimeLeft, TSharedPtr<class IHttpRequest> InHttpRequest)
+	public:
+		FRequestPendingDestroy(float InTimeLeft, const TSharedPtr<IHttpRequest>& InHttpRequest)
 			: TimeLeft(InTimeLeft)
 			, HttpRequest(InHttpRequest)
-		{
+		{}
 
-		}
-
-		FORCEINLINE bool operator==( const FRequestPendingDestroy& Other ) const
+		FORCEINLINE bool operator==(const FRequestPendingDestroy& Other) const
 		{
 			return Other.HttpRequest == HttpRequest;
 		}
 
 		float TimeLeft;
-		TSharedPtr<class IHttpRequest> HttpRequest;
+		TSharedPtr<IHttpRequest> HttpRequest;
 	};
 
 	/** Dead requests that need to be destroyed */

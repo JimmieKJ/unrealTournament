@@ -7,6 +7,7 @@
 #include "ISlateMetaData.h"
 #include "TutorialMetaData.h"
 #include "SDockTab.h"
+#include "PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "TutorialStructCustomization"
 

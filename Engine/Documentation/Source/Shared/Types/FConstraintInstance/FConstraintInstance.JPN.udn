@@ -1,0 +1,412 @@
+﻿INTSourceChangelist:2308605
+Availability:NoPublish
+Title:FConstraintInstance RTTs
+Crumbs:
+
+[EXCERPT:JointName]
+
+Physics Asset （物理アセット）ツールで作業する間は、Physical Constraints（物理コンストレイント）はスキンジョイントと関係し、このフィールドにはこれらジョイント名が表示されます。
+[/EXCERPT:JointName]
+
+
+[EXCERPT:ConstraintBone1]
+
+物理アセットツールの、Physics Constraint で制約中の最初の Physics Body （物理ボディ）の名前です。これは Physics Body の生成または再生成中に自動投入されます。
+
+Physics Constraint Actor （物理コンストレイントアクタ）またはPhysics Constraint Component では、これはユーザーが制約を行うSkeletalMeshのPhysics Asset 内の Physics Body の名前です。このフィールドはBone （Physics Body）名と一緒に手動で投入しなくてはいけません。
+
+探しているボーン名が分からない時にボーン名を見つける一番簡単な方法は、物理アセットツール内のSkeletalMeshの Physics Asset を開いて、Physics Body の Bone Name （ボーン名）を調べます。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#actorconstraint
+[/VAR]
+
+[/EXCERPT:ConstraintBone1]
+
+
+[EXCERPT:ConstraintBone2]
+
+物理アセットツールの、Physics Constraint で制約中の2番目のPhysics Body の名前です。これは Physics Body の生成または再生成中に自動投入されます。
+
+Physics Constraint Actor （物理コンストレイントアクタ）またはPhysics Constraint Component では、これはユーザーが制約を行うSkeletalMeshのPhysics Asset 内の Physics Body の名前です。このフィールドはBone （Physics Body）名と一緒に手動で投入しなくてはいけません。
+
+探しているボーン名が分からない時にボーン名を見つける一番簡単な方法は、物理アセットツール内のSkeletalMeshの Physics Asset を開いて、Physics Body の Bone Name （ボーン名）を調べます。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#actorconstraint
+[/VAR]
+
+[/EXCERPT:ConstraintBone2]
+
+
+[EXCERPT:bDisableCollision]
+
+Physics Constraint が影響を及ぼす物理ボディ間のコリジョンを無効にします。
+
+SkeletalMesh とできるだけ一致した物理ボディを得る際に物理アセットツールで最もよく使用しますが、多少オーバーラップさせたいジョイント箇所が互いに衝突しません。
+[/EXCERPT:bDisableCollision]
+
+[EXCERPT:LinearXMotion]
+
+X軸に沿って Physics Constraint に自由なリニアを設定します。設定出来る3つのステートは LCM_Locked、LCM_Limited、と LCM_Freeです。
+
+* LCM_Locked -  Physics Constraint がこの軸に沿って動かないようにします。
+* LCM_Limited - この軸に沿った Physics Constraint の移動を Linear Limit Size の値に制限します。
+* LCM_Free - Physics Constraint をこの軸に沿って自由に動かします。
+
+すべてのモーション（リニアまたは角度）を Physics Constraint の配向に合わせます。
+
+[/EXCERPT:LinearXMotion]
+
+[EXCERPT:LinearYMotion]
+
+Y軸に沿って Physics Constraint に自由なリニアを設定します。設定出来る3つのステートは LCM_Locked、LCM_Limited、と LCM_Freeです。
+
+* LCM_Locked -  Physics Constraint がこの軸に沿って動かないようにします。
+* LCM_Limited - この軸に沿った Physics Constraint の移動を Linear Limit Size の値に制限します。
+* LCM_Free - Physics Constraint をこの軸に沿って自由に動かします。
+
+すべてのモーション（リニアまたは角度）を Physics Constraint の配向に合わせます。
+
+[/EXCERPT:LinearYMotion]
+
+[EXCERPT:LinearZMotion]
+
+Z軸に沿って Physics Constraint に自由なリニアを設定します。設定出来る3つのステートは LCM_Locked、LCM_Limited、と LCM_Freeです。
+
+* LCM_Locked -  Physics Constraint がこの軸に沿って動かないようにします。
+* LCM_Limited - この軸に沿った Physics Constraint の移動を Linear Limit Size の値に制限します。
+* LCM_Free - Physics Constraint をこの軸に沿って自由に動かします。
+
+すべてのモーション（リニアまたは角度）を Physics Constraint の配向に合わせます。
+
+[/EXCERPT:LinearZMotion]
+
+[EXCERPT:LinearLimitSize]
+
+この値1つで、制約された物理ボディが Limited に設定した全ての軸に沿って移動するリニア距離の合計を設定します。
+
+または、Linear Limit Soft が true に設定されている場合は、 Spring と Damping プロパティに影響を受ける前に制約された物理ボディが移動する距離を設定します。
+
+![](PhysConRTT_LinearDistance.png)
+
+この場合、 Physics Constraint の軸を回転しても、2つの制限軸に沿って移動した合計距離が100単位のみであることがわかります。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:LinearLimitSize]
+
+[EXCERPT:bLinearLimitSoft]
+
+有効にすると、リニア制限をヒットした時に何が起こるかを判断するために Linear Limit Stiffness と Linear Limit Damping を使用します。
+
+Stiffness と Damping を0に設定した場合、制約した物理ボディを Linear limit Size の向こうにプッシュするにはかなりの力が必要となり、プッシュしたとしても Damping の欠如が原因でかなりすぐに返ることは注目に値することです。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:bLinearLimitSoft]
+
+[EXCERPT:LinearLimitStiffness]
+
+Linear Limit Size を上回ることに対し抵抗する制限軸の度合いを定義します。力や反発（バウンス力）の基準ではないものの、値が低いほど非常に少ない抵抗となる一方で、値が高くなるとよりバウンスした表示となります。
+
+高設定の Linear Limit Damping mと使用すると、「バウンス（弾性）」が吸収されて、減衰エフェクトに対抗して引き寄せる力がないため制限を超える可能性があります。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:LinearLimitStiffness]
+
+[EXCERPT:LinearLimitDamping]
+
+Soft Limit の範囲外にある間にコンストレイントのモーションから取り除くベロシティの量を定義します。引き戻す力がなく物理ボディがスリープステートに入るため、高い値は物理コンストレイントが制限の範囲外で停止する要因となります。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:LinearLimitDamping]
+
+[EXCERPT:bLinearBreakable]
+
+コンストレイントを分解するリニア力を適用できるかどうかを判断します。詳細は Linear Break Threshold を参照してください。
+
+[/EXCERPT:bLinearBreakable]
+
+[EXCERPT:LinearBreakThreshold]
+
+この分解のタイプはせん断または引張のようなものです。問題のコンストレイントは屈曲しないけれども、引き伸ばし過ぎた後に紙が引き裂かれたり輪ゴムがパチンと跳ね返るのと同じで、構造上の制限を超えてしまいます。
+
+使用する値の計算は、Physics Constraint を重力で適用される引張力に対抗させます。Physics Body の質量を「重力*100」で乗算処理します。標準重力 (9.8m/s^2) で 242kg の質量を保持する Physics Constraint は、初速度が無いと仮定した上で、分解を回避するには少なくとも 237160 の値が必要です。
+
+注記：どんなものでも軸から切断するために LCM_Limited または LCM_Locked に設定、LCM_Free は分解できない設定です。
+
+[/EXCERPT:LinearBreakThreshold]
+
+[EXCERPT:bEnableProjection]
+
+活動的または多数のレイヤーがあるシミュレーションの場合は、物理ボディを互いに分離させることができます。以下で設定したリニアまたは角度のどちらかの許容範囲を超えた場合は、Projection（投影）は物理ボディの描画可能な部分を再び範囲内に戻します。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:bEnableProjection]
+
+[EXCERPT:ProjectionLinearTolerance]
+
+Projection が開始する前に物理コンストレイントが直線から外れる量を表す単位です。
+
+[/EXCERPT:ProjectionLinearTolerance]
+
+[EXCERPT:ProjectionAngularTolerance]
+
+Projection が開始する前に物理コンストレイントに角度をつけて外転できる量です。
+
+[/EXCERPT:ProjectionAngularTolerance]
+
+[EXCERPT:AngularSwing1Motion]
+
+Angular Swing1 Motion は物理コンストレイントのZ軸と一致させます。この3つのステートは ACM_Locked、ACM_Limited、と ACM_Freeです。
+
+* ACM_Locked - Physics Constraint をこの軸に沿って回転させません。
+* ACM_Limited - この軸に沿った Physics Constraint の回転を制限します。Swing Motion とTwist Motion は個別に制限を設定することができます。
+* ACM_Free - Physics Constraint はこの軸に沿って自由に回転します。
+
+すべてのモーション（リニアまたは角度）を Physics Constraint の配向に合わせます。
+
+[/EXCERPT:AngularSwing1Motion]
+
+[EXCERPT:AngularSwing2Motion]
+
+Angular Swing1 Motion は物理コンストレイントのY軸と一致させますこの3つのステートは ACM_Locked、ACM_Limited、と ACM_Freeです。
+
+* ACM_Locked - Physics Constraint をこの軸に沿って回転させません。
+* ACM_Limited - この軸に沿った Physics Constraint の回転を制限します。Swing Motion とTwist Motion は個別に制限を設定することができます。
+* ACM_Free - Physics Constraint はこの軸に沿って自由に回転します。
+
+すべてのモーション（リニアまたは角度）を Physics Constraint の配向に合わせます。
+
+[/EXCERPT:AngularSwing2Motion]
+
+[EXCERPT:AngularTwistMotion]
+
+Angular Twist Motion は物理コンストレイントのX軸と一致させます。この3つのステートは ACM_Locked、ACM_Limited、と ACM_Freeです。
+
+* ACM_Locked - Physics Constraint をこの軸に沿って回転させません。
+* ACM_Limited - この軸に沿った Physics Constraint の回転を制限します。Swing Motion とTwist Motion は個別に制限を設定することができます。
+* ACM_Free - Physics Constraint はこの軸に沿って自由に回転します。
+
+すべてのモーション（リニアまたは角度）を Physics Constraint の配向に合わせます。
+
+[/EXCERPT:AngularTwistMotion]
+
+[EXCERPT:Swing1LimitAngle]
+
+Angular Swing1 Motion を許容、またはSwing Limit Soft で継承する前の制限（度）
+
+[/EXCERPT:Swing1LimitAngle]
+
+[EXCERPT:Swing2LimitAngle]
+
+Angular Swing2 Motion を許容、またはSwing Limit Soft で継承する前の制限（度）
+
+[/EXCERPT:Intro]
+
+[EXCERPT:TwistLimitAngle]
+
+Angular Twist Motion を許容、またはSwing Limit Soft で継承する前の制限（度）
+
+[/EXCERPT:Intro]
+
+[EXCERPT:bSwingLimitSoft]
+
+Swing Motion 両方に Soft Limit を有効にしますSwings に制限を超えたプッシュを許容しますが、再び制限内に戻して（Twist Limit Stiffness と Twist Limit Damping の値に基づいて）、ハードなバウンスエフェクトを回避します。
+
+[/EXCERPT:bSwingLimitSoft]
+
+[EXCERPT:SwingLimitStiffness]
+
+Soft Limit で Angular Swing Motion をブロックする強さを定義する値です。低い値は全く効果がない一方で、値を高く設定すると物理コンストレイントに高い弾性値を設定したかのようによく弾んで表示されます。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:SwingLimitStiffness]
+
+[EXCERPT:SwingLimitDamping]
+
+一度制限範囲外にプッシュされると、物理コンストレイントに適用する減衰力と「ドラッグ」する量を定義します。小さな値は効果がない一方で、大きな値はコンストレイントの Angular Swing モーションを制限外で完全に停止させることができます。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:SwingLimitDamping]
+
+[EXCERPT:bTwistLimitSoft]
+
+Twist motion の Soft Limit を有効にします。Twist Motion に制限を超えたプッシュを可能にしますが、再度制限内に戻して（Twist Limit Stiffness と Twist Limit Damping の値に基づいて）、ハードなバウンスエフェクトを回避します。
+
+[/EXCERPT:bTwistLimitSoft]
+
+[EXCERPT:TwistLimitStiffness]
+
+Soft Limit で Angular Swing Motion をブロックする強さを定義する値です。低い値は全く効果がない一方で、値を高く設定すると物理コンストレイントに高い弾性の値を設定したかのようによく弾んで表示されます。実際に物理コンストレイントに AMC_Free を設定したかのような表示になります。
+
+[/EXCERPT:TwistLimitStiffness]
+
+[EXCERPT:TwistLimitDamping]
+
+一度制限範囲外にプッシュされると、物理コンストレイントに適用する減衰力と「ドラッグ」する量を定義します。小さな値は全く効果がない一方で、大きな値はコンストレイントの Angular Twist モーションを制限外で完全に停止することができます。
+
+[/EXCERPT:TwistLimitDamping]
+
+[EXCERPT:bAngularBreakable]
+
+物理コンストレイントに角速度が過度に適用された場合に、物理コンストレイントの分解を有効にします。
+
+注記：どんなものでも軸から切断するために LCM_Limited または LCM_Locked に設定、LCM_Free は分解できない設定です。
+[/EXCERPT:bAngularBreakable]
+
+[EXCERPT:AngularBreakThreshold]
+
+Physics Constraint を分解するには Angular force が必要です。物理コンストレイントの分解を防ぐには、この値を大きく設定します。5億やそれ以上の値を設定します。
+
+注記：どんなものでも軸から分解するように LCM_Limited または LCM_Locked に設定、軸を壊さないために LCM_Free は分解できない設定です。
+[/EXCERPT:AngularBreakThreshold]
+
+[EXCERPT:bLinearPositionDrive]
+
+Linear Position Drive は制約したアクタを Physics Constraint Actor または Physics Constraint Component と相対的な位置に配置します。
+
+このプロパティは Linear Position Drive を有効にします。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:bLinearPositionDrive]
+
+[EXCERPT:bLinearXPositionDrive]
+
+コンストレイントのX 軸で機能するように Linear Position Drive を有効にします。別の軸を有効にしない限り、場合によってはコンストレイントを回転しても動かないX軸に変更します。
+
+[/EXCERPT:bLinearXPositionDrive]
+
+[EXCERPT:bLinearYPositionDrive]
+
+コンストレイントのY 軸で関数に Linear Position Drive を有効にします。別の軸を有効にしない限り、場合によってはコンストレイントを回転しても動かないY軸に変更します。
+
+[/EXCERPT:bLinearYPositionDrive]
+
+[EXCERPT:bLinearZPositionDrive]
+
+コンストレイントのZ 軸で関数に Linear Position Drive を有効にします。別の軸を有効にしない限り、場合によってはコンストレイントを回転しても動かないZ軸に変更します。
+
+[/EXCERPT:bLinearZPositionDrive]
+
+[EXCERPT:LinearPositionTarget]
+
+Linear Position Drive を目的の位置に配置するには、 Physics Constraint Actor または Physics Constraint Component に相対的にします。
+
+[/EXCERPT:LinearPositionTarget]
+
+[EXCERPT:bLinearVelocityDrive]
+
+リニア速度の操作を有効あるいは無効にします。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:bLinearVelocityDrive]
+
+[EXCERPT:LinearVelocityTarget]
+
+Linear Velocity Drive のベロシティターゲットを設定します。 
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:LinearVelocityTarget]
+
+[EXCERPT:LinearDriveSpring]
+
+Linear Position Drive の基本的な張力を設定、またはゴールへ到達する速さを設定します。高いLinear Drive Force Limit 値と一緒に大きな値を設定すると物理ボディはすぐにゴールへ到達します。
+
+Linear Velocity Drive には影響しません。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:LinearDriveSpring]
+
+[EXCERPT:LinearDriveDamping]
+
+これはリニア駆動に適用する減衰です。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:LinearDriveDamping]
+
+[EXCERPT:LinearDriveForceLimit]
+
+大きなスプリングの値と小さい減衰値は、Linear Position  と Linear Velocity Drive ゴールに到達しようとしながらPhysics Bodies に相当な力が適用されてしまいます。この値はシミュレーションにエラーが生じるようなとてつもないレートを避けて時間と共に加速を付けるために Physics Bodies に適用できる力量を制限します。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:LinearDriveForceLimit]
+
+[EXCERPT:bAngularOrientationDrive]
+
+Angular Orientation Drive を有効にします。Linear Position Drive のように、 Angular Orientation Drive は Physics Constraint と関連して理想的な回転を実現します。
+[VAR:ToolTipFullLink]
+Engine/Physics/PhAT/Properties#physicsconstraintproperties
+[/VAR]
+
+[/EXCERPT:bAngularOrientationDrive]
+
+[EXCERPT:AngularOrientationTarget]
+
+これは Angular Orientation Drive の理想的な回転です。
+
+[/EXCERPT:AngularOrientationTarget]
+
+[EXCERPT:bAngularVelocityDrive]
+
+角度操作をターゲットベロシティへ向けて有効にします。
+[VAR:ToolTipFullLink]
+Engine/Physics/PhAT/Properties#physicsconstraintproperties
+[/VAR]
+
+[/EXCERPT:bAngularVelocityDrive]
+
+[EXCERPT:AngularVelocityTarget]
+
+
+[/EXCERPT:AngularVelocityTarget]
+
+[EXCERPT:AngularDriveForceLimit]
+
+これは角度操作で適用できる力の制限です。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:AngularDriveForceLimit]
+
+[EXCERPT:AngularDriveSpring]
+
+Angular Drive に適用するスプリングの値です。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:AngularDriveSpring]
+
+[EXCERPT:AngularDriveDamping]
+
+これは Angular Drive に適用する減衰です。
+[VAR:ToolTipFullLink]
+Engine/Physics/Constraints/ConstraintsReference#sharedproperties
+[/VAR]
+
+[/EXCERPT:AngularDriveDamping]

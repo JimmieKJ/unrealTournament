@@ -234,6 +234,13 @@ bool FDefaultValueHelper::IsStringValidInteger(const TCHAR* Start, const TCHAR* 
 }
 
 
+bool FDefaultValueHelper::IsStringValidInteger(const TCHAR* Start, const TCHAR* End)
+{
+	int32 Base;
+	return IsStringValidInteger(Start, End, /*out*/ Base);
+}
+	
+	
 bool FDefaultValueHelper::IsStringValidInteger(const FString& Source)
 {
 	if(!Source.IsEmpty())
@@ -660,6 +667,53 @@ bool FDefaultValueHelper::ParseLinearColor(const FString& Source, FLinearColor& 
 		FCString::Atof( Start ), 
 		FCString::Atof( FirstComma + 1 ), 
 		FCString::Atof( SecondComma + 1 ),
+		Alpha );
+	
+	return true;
+}
+
+bool FDefaultValueHelper::ParseColor(const FString& Source, FColor& OutVal)
+{
+	const bool bHasWhitespace = HasWhitespaces(Source);
+	const FString NoWhitespace = bHasWhitespace ? RemoveWhitespaces(Source) : FString();
+	const FString& ProperSource = bHasWhitespace ? NoWhitespace : Source;
+	if(ProperSource.IsEmpty())
+	{
+		return false;
+	}
+
+	const TCHAR* Start = StartOf(ProperSource);
+	const TCHAR* FirstComma = FCString::Strstr( Start, TEXT(",") );
+	if(!FirstComma)
+	{
+		return false;
+	}
+
+	const TCHAR* SecondComma = FCString::Strstr( FirstComma + 1,  TEXT(",") );
+	if(!SecondComma)
+	{
+		return false;
+	}
+
+	const TCHAR* ThirdComma = FCString::Strstr( SecondComma + 1,  TEXT(",") );
+	const TCHAR* End = EndOf(ProperSource);
+	if( ( NULL != ThirdComma ) && !IsStringValidInteger( ThirdComma + 1, End ) )
+	{
+		return false;
+	}
+	
+	if(	!IsStringValidInteger( Start, FirstComma ) ||
+		!IsStringValidInteger( FirstComma + 1, SecondComma ) ||
+		!IsStringValidInteger( SecondComma + 1, ( NULL != ThirdComma ) ? ThirdComma : End ) )
+	{
+		return false;
+	}
+
+	const float Alpha = ( NULL != ThirdComma ) ? FCString::Atoi( ThirdComma + 1 ) : 1.0f;
+	OutVal = FColor( 
+		FCString::Atoi( Start ), 
+		FCString::Atoi( FirstComma + 1 ), 
+		FCString::Atoi( SecondComma + 1 ),
 		Alpha );
 	
 	return true;

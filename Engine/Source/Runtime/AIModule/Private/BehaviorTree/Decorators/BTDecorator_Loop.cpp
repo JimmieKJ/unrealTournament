@@ -2,6 +2,7 @@
 
 #include "AIModulePrivate.h"
 #include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
 #include "BehaviorTree/Decorators/BTDecorator_Loop.h"
 
 UBTDecorator_Loop::UBTDecorator_Loop(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -19,7 +20,10 @@ void UBTDecorator_Loop::OnNodeActivation(FBehaviorTreeSearchData& SearchData)
 {
 	FBTLoopDecoratorMemory* DecoratorMemory = GetNodeMemory<FBTLoopDecoratorMemory>(SearchData);
 	FBTCompositeMemory* ParentMemory = GetParentNode()->GetNodeMemory<FBTCompositeMemory>(SearchData);
-	if (ParentMemory->CurrentChild != ChildIndex)
+	const bool bIsSpecialNode = GetParentNode()->IsA(UBTComposite_SimpleParallel::StaticClass());
+
+	if ((bIsSpecialNode && ParentMemory->CurrentChild == BTSpecialChild::NotInitialized) ||
+		(!bIsSpecialNode && ParentMemory->CurrentChild != ChildIndex))
 	{
 		// initialize counter if it's first activation
 		DecoratorMemory->RemainingExecutions = NumLoops;

@@ -58,7 +58,7 @@ void ALevelScriptActor::PreInitializeComponents()
 	if(BGClass != NULL)
 	{
 		// create an InputComponent object so that the level script actor can bind key events
-		InputComponent = ConstructObject<UInputComponent>(UInputComponent::StaticClass(), this);
+		InputComponent = NewObject<UInputComponent>(this);
 		InputComponent->RegisterComponent();
 
 		UInputDelegateBinding::BindInputDelegates(BGClass, InputComponent);

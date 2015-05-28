@@ -355,7 +355,13 @@ void FKSphylElem::DrawElemSolid(FPrimitiveDrawInterface* PDI, const FTransform& 
 // FKConvexElem
 /////////////////////////////////////////////////////////////////////////////////////
 
+
 void FKConvexElem::DrawElemWire(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const FColor Color) const
+{
+	DrawElemWire(PDI, ElemTM, 1.f, Color);
+}
+
+void FKConvexElem::DrawElemWire(FPrimitiveDrawInterface* PDI, const FTransform& ElemTM, const float Scale, const FColor Color) const
 {
 #if WITH_PHYSX
 
@@ -371,7 +377,7 @@ void FKConvexElem::DrawElemWire(FPrimitiveDrawInterface* PDI, const FTransform& 
 		TransformedVerts.AddUninitialized(NbVerts);
 		for(PxU32 i=0; i<NbVerts; i++)
 		{
-			TransformedVerts[i] = ElemTM.TransformPosition(P2UVector(Vertices[i]));
+			TransformedVerts[i] = ElemTM.TransformPosition(P2UVector(Vertices[i]) * Scale);
 		}
 						
 		const PxU8* PIndexBuffer = Mesh->getIndexBuffer();
@@ -408,7 +414,7 @@ void FKConvexElem::DrawElemWire(FPrimitiveDrawInterface* PDI, const FTransform& 
 #endif // WITH_PHYSX
 }
 
-void FKConvexElem::AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBuffer, TArray<int32>& IndexBuffer, const FColor VertexColor) const
+void FKConvexElem::AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBuffer, TArray<int32>& IndexBuffer, const float Scale, const FColor VertexColor) const
 {
 #if WITH_PHYSX
 	if(ConvexMesh)
@@ -439,7 +445,7 @@ void FKConvexElem::AddCachedSolidConvexGeom(TArray<FDynamicMeshVertex>& VertexBu
 				int32 VertIndex = indices[j];
 
 				FDynamicMeshVertex Vert1;
-				Vert1.Position = Transform.TransformPosition( P2UVector(PVertices[VertIndex]) ); // Apply element transform to get geom in component space
+				Vert1.Position = Transform.TransformPosition( P2UVector(PVertices[VertIndex]) * Scale); // Apply element transform to get geom in component space
 				Vert1.Color = VertexColor;
 				Vert1.SetTangents(
 					TangentX,
@@ -590,7 +596,7 @@ void FKAggregateGeom::GetAggGeom(const FTransform& Transform, const FColor Color
 				for(int32 i=0; i<ConvexElems.Num(); i++)
 				{
 					// Get vertices/triangles from this hull.
-					ConvexElems[i].AddCachedSolidConvexGeom(ThisGeom.RenderInfo->VertexBuffer->Vertices, ThisGeom.RenderInfo->IndexBuffer->Indices, FColor::White);
+					ConvexElems[i].AddCachedSolidConvexGeom(ThisGeom.RenderInfo->VertexBuffer->Vertices, ThisGeom.RenderInfo->IndexBuffer->Indices, 1.0f, FColor::White);
 				}
 
 				// Only continue if we actually got some valid geometry
@@ -640,7 +646,7 @@ void FKAggregateGeom::GetAggGeom(const FTransform& Transform, const FColor Color
 				FColor ConvexColor = bPerHullColor ? DebugUtilColor[i%NUM_DEBUG_UTIL_COLORS] : Color;
 				FTransform ElemTM = ConvexElems[i].GetTransform();
 				ElemTM *= Transform;
-				ConvexElems[i].DrawElemWire(Collector.GetPDI(ViewIndex), ElemTM, ConvexColor);
+				ConvexElems[i].DrawElemWire(Collector.GetPDI(ViewIndex), ElemTM, 1.f, ConvexColor);	//we pass in 1 for scale because the ElemTM already has the scale baked into it
 			}
 		}
 	}

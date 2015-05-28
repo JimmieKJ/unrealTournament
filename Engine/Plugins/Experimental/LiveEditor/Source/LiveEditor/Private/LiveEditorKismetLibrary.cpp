@@ -3,6 +3,7 @@
 #include "LiveEditorPrivatePCH.h"
 #include "LiveEditorKismetLibrary.h"
 #include "DefaultValueHelper.h"
+#include "Engine/Selection.h"
 
 namespace nLiveEditorKismetLibrary
 {

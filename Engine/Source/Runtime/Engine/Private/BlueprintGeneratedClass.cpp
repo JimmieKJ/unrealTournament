@@ -81,6 +81,15 @@ void UBlueprintGeneratedClass::PostLoad()
 		}
 	}
 #endif // WITH_EDITORONLY_DATA
+
+#if UE_BLUEPRINT_EVENTGRAPH_FASTCALLS
+	// Patch the fast calls (needed as we can't bump engine version to serialize it directly in UFunction right now)
+	for (const FEventGraphFastCallPair& Pair : FastCallPairs_DEPRECATED)
+	{
+		Pair.FunctionToPatch->EventGraphFunction = UberGraphFunction;
+		Pair.FunctionToPatch->EventGraphCallOffset = Pair.EventGraphCallOffset;
+	}
+#endif
 }
 
 void UBlueprintGeneratedClass::GetRequiredPreloadDependencies(TArray<UObject*>& DependenciesOut)
@@ -88,7 +97,7 @@ void UBlueprintGeneratedClass::GetRequiredPreloadDependencies(TArray<UObject*>& 
 	Super::GetRequiredPreloadDependencies(DependenciesOut);
 
 	// the component templates are no longer needed as Preload() dependencies 
-	// (ULinkerLoad now handles these with placeholder export objects instead)...
+	// (FLinkerLoad now handles these with placeholder export objects instead)...
 	// this change was prompted by a cyclic case, where creating the first
 	// component-template tripped the serialization of its class outer, before 
 	// another second component-template could be created (even though the 
@@ -115,65 +124,16 @@ void UBlueprintGeneratedClass::GetRequiredPreloadDependencies(TArray<UObject*>& 
 
 UClass* UBlueprintGeneratedClass::GetAuthoritativeClass()
 {
+	if (nullptr == ClassGeneratedBy) // to track UE-11597 and UE-11595
+	{
+		UE_LOG(LogBlueprint, Fatal, TEXT("UBlueprintGeneratedClass::GetAuthoritativeClass: ClassGeneratedBy is null. class '%s'"), *GetPathName());
+	}
+
 	UBlueprint* GeneratingBP = CastChecked<UBlueprint>(ClassGeneratedBy);
 
 	check(GeneratingBP);
 
 	return (GeneratingBP->GeneratedClass != NULL) ? GeneratingBP->GeneratedClass : this;
-}
-
-bool FStructUtils::ArePropertiesTheSame(const UProperty* A, const UProperty* B, bool bCheckPropertiesNames)
-{
-	if (A == B)
-	{
-		return true;
-	}
-
-	if (!A != !B) //one of properties is null
-	{
-		return false;
-	}
-
-	if (bCheckPropertiesNames && (A->GetFName() != B->GetFName()))
-	{
-		return false;
-	}
-
-	if (A->GetSize() != B->GetSize())
-	{
-		return false;
-	}
-
-	if (A->GetOffset_ForGC() != B->GetOffset_ForGC())
-	{
-		return false;
-	}
-
-	if (!A->SameType(B))
-	{
-		return false;
-	}
-
-	return true;
-}
-
-bool FStructUtils::TheSameLayout(const UStruct* StructA, const UStruct* StructB, bool bCheckPropertiesNames)
-{
-	bool bResult = false;
-	if (StructA && StructB)
-	{
-		const UProperty* PropertyA = StructA->PropertyLink;
-		const UProperty* PropertyB = StructB->PropertyLink;
-
-		bResult = true;
-		while (bResult && (PropertyA != PropertyB))
-		{
-			bResult = ArePropertiesTheSame(PropertyA, PropertyB, bCheckPropertiesNames);
-			PropertyA = PropertyA ? PropertyA->PropertyLinkNext : NULL;
-			PropertyB = PropertyB ? PropertyB->PropertyLinkNext : NULL;
-		}
-	}
-	return bResult;
 }
 
 struct FConditionalRecompileClassHepler
@@ -237,9 +197,18 @@ void UBlueprintGeneratedClass::ConditionalRecompileClass(TArray<UObject*>* ObjLo
 			const bool bWasRegenerating = GeneratingBP->bIsRegeneratingOnLoad;
 			GeneratingBP->bIsRegeneratingOnLoad = true;
 
-			// Make sure that nodes are up to date, so that we get any updated blueprint signatures
-			FBlueprintEditorUtils::RefreshExternalBlueprintDependencyNodes(GeneratingBP);
+			{
+				UPackage* const Package = Cast<UPackage>(GeneratingBP->GetOutermost());
+				const bool bStartedWithUnsavedChanges = Package != nullptr ? Package->IsDirty() : true;
 
+				// Make sure that nodes are up to date, so that we get any updated blueprint signatures
+				FBlueprintEditorUtils::RefreshExternalBlueprintDependencyNodes(GeneratingBP);
+
+				if (Package != nullptr && Package->IsDirty() && !bStartedWithUnsavedChanges)
+				{
+					Package->SetDirtyFlag(false);
+				}
+			}
 			if ((GeneratingBP->Status != BS_Error) && (GeneratingBP->BlueprintType != EBlueprintType::BPTYPE_MacroLibrary))
 			{
 				FKismetEditorUtilities::RecompileBlueprintBytecode(GeneratingBP, ObjLoaded);
@@ -257,6 +226,17 @@ void UBlueprintGeneratedClass::ConditionalRecompileClass(TArray<UObject*>* ObjLo
 		}
 	}
 }
+
+UObject* UBlueprintGeneratedClass::GetArchetypeForCDO() const
+{
+	if (OverridenArchetypeForCDO)
+	{
+		ensure(OverridenArchetypeForCDO->IsA(GetSuperClass()));
+		return OverridenArchetypeForCDO;
+	}
+
+	return Super::GetArchetypeForCDO();
+}
 #endif //WITH_EDITOR
 
 bool UBlueprintGeneratedClass::IsFunctionImplementedInBlueprint(FName InFunctionName) const
@@ -272,7 +252,7 @@ UInheritableComponentHandler* UBlueprintGeneratedClass::GetInheritableComponentH
 	{
 		return nullptr;
 	}
-
+	
 	if (InheritableComponentHandler)
 	{
 		InheritableComponentHandler->PreloadAll();
@@ -280,7 +260,7 @@ UInheritableComponentHandler* UBlueprintGeneratedClass::GetInheritableComponentH
 
 	if (!InheritableComponentHandler && bCreateIfNecessary)
 	{
-		InheritableComponentHandler = NewNamedObject<UInheritableComponentHandler>(this, FName(TEXT("InheritableComponentHandler")));
+		InheritableComponentHandler = NewObject<UInheritableComponentHandler>(this, FName(TEXT("InheritableComponentHandler")));
 	}
 
 	return InheritableComponentHandler;
@@ -299,12 +279,17 @@ UObject* UBlueprintGeneratedClass::FindArchetype(UClass* ArchetypeClass, const F
 		while (Class)
 		{
 			USimpleConstructionScript* ClassSCS = Class->SimpleConstructionScript;
-			if (ClassSCS->HasAnyFlags(RF_NeedLoad))
+			USCS_Node* SCSNode = nullptr;
+			if (ClassSCS)
 			{
-				ClassSCS->PreloadChain();
+				if (ClassSCS->HasAnyFlags(RF_NeedLoad))
+				{
+					ClassSCS->PreloadChain();
+				}
+
+				SCSNode = ClassSCS->FindSCSNode(ArchetypeName);
 			}
 
-			USCS_Node* SCSNode = ClassSCS->FindSCSNode(ArchetypeName);
 			if (SCSNode)
 			{
 				Archetype = SCSNode->ComponentTemplate;
@@ -361,10 +346,21 @@ void UBlueprintGeneratedClass::BindDynamicDelegates(UObject* InInstance) const
 	}
 
 	// call on super class, if it's a BlueprintGeneratedClass
-	UBlueprintGeneratedClass* BGClass = Cast<UBlueprintGeneratedClass>(SuperStruct);
+	UBlueprintGeneratedClass* BGClass = Cast<UBlueprintGeneratedClass>(GetSuperStruct());
 	if(BGClass != NULL)
 	{
 		BGClass->BindDynamicDelegates(InInstance);
+	}
+}
+
+void UBlueprintGeneratedClass::UnbindDynamicDelegatesForProperty(UObject* InInstance, const UObjectProperty* InObjectProperty)
+{
+	for (int32 Index = 0; Index < DynamicBindingObjects.Num(); ++Index)
+	{
+		if ( ensure(DynamicBindingObjects[Index] != NULL) )
+		{
+			DynamicBindingObjects[Index]->UnbindDynamicDelegatesForProperty(InInstance, InObjectProperty);
+		}
 	}
 }
 
@@ -415,8 +411,8 @@ void UBlueprintGeneratedClass::CreateComponentsForActor(AActor* Actor) const
 			continue;
 		}
 
-		FName NewName = *(FString::Printf(TEXT("TimelineComp__%d"), Actor->BlueprintCreatedComponents.Num() ) );
-		UTimelineComponent* NewTimeline = NewNamedObject<UTimelineComponent>(Actor, NewName);
+		FName NewName( *UTimelineTemplate::TimelineTemplateNameToVariableName( TimelineTemplate->GetFName() ));
+		UTimelineComponent* NewTimeline = NewObject<UTimelineComponent>(Actor, NewName);
 		NewTimeline->CreationMethod = EComponentCreationMethod::UserConstructionScript; // Indicate it comes from a blueprint so it gets cleared when we rerun construction scripts
 		Actor->BlueprintCreatedComponents.Add(NewTimeline); // Add to array so it gets saved
 		NewTimeline->SetNetAddressable();	// This component has a stable name that can be referenced for replication
@@ -559,7 +555,7 @@ void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool
 			}
 			else
 			{
-				UE_LOG(LogBlueprint, Warning, TEXT("Function '%s' is not ready to create frame for '%s'"),
+				UE_LOG(LogBlueprint, Verbose, TEXT("Function '%s' is not ready to create frame for '%s'"),
 					*GetPathNameSafe(UberGraphFunction), *GetPathNameSafe(Obj));
 			}
 			PointerToUberGraphFrame->RawPointer = FrameMemory;
@@ -627,6 +623,8 @@ void UBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProperties
 
 	if (UsePersistentUberGraphFrame() && UberGraphFunction)
 	{
+		Ar.Preload(UberGraphFunction);
+
 		for (auto Property : TFieldRange<UStructProperty>(this, EFieldIteratorFlags::ExcludeSuper))
 		{
 			if (Property->GetFName() == GetUberGraphFrameName())
@@ -645,6 +643,13 @@ void UBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
 
 	UberGraphFramePointerProperty = NULL;
 	UberGraphFunction = NULL;
+#if WITH_EDITORONLY_DATA
+	OverridenArchetypeForCDO = NULL;
+#endif //WITH_EDITOR
+
+#if UE_BLUEPRINT_EVENTGRAPH_FASTCALLS
+	FastCallPairs_DEPRECATED.Empty();
+#endif
 }
 
 void UBlueprintGeneratedClass::Bind()
@@ -672,7 +677,7 @@ void UBlueprintGeneratedClass::AddReferencedObjectsInUbergraphFrame(UObject* InT
 				if (PointerToUberGraphFrame->RawPointer)
 				{
 					FSimpleObjectReferenceCollectorArchive ObjectReferenceCollector(InThis, Collector);
-					BPGC->UberGraphFunction->SerializeBin(ObjectReferenceCollector, PointerToUberGraphFrame->RawPointer, 0);
+					BPGC->UberGraphFunction->SerializeBin(ObjectReferenceCollector, PointerToUberGraphFrame->RawPointer);
 				}
 			}
 		}
@@ -702,12 +707,6 @@ bool UBlueprintGeneratedClass::UsePersistentUberGraphFrame()
 #else
 	return false;
 #endif
-}
-
-bool UBlueprintGeneratedClass::CompileSkeletonClassesInheritSkeletonClasses()
-{
-	static const FBoolConfigValueHelper SkeletonClassesInheritSkeletonClasses(TEXT("Kismet"), TEXT("bSkeletonInheritSkeletonClasses"), GEngineIni);
-	return SkeletonClassesInheritSkeletonClasses;
 }
 
 void UBlueprintGeneratedClass::Serialize(FArchive& Ar)

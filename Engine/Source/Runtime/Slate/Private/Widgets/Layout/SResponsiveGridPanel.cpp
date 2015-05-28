@@ -36,9 +36,9 @@ void SResponsiveGridPanel::ClearChildren()
 	Slots.Empty();
 }
 
-void SResponsiveGridPanel::Construct(const FArguments& InArgs, int32 TotalColumns)
+void SResponsiveGridPanel::Construct(const FArguments& InArgs, int32 InTotalColumns)
 {
-	this->TotalColumns = TotalColumns;
+	TotalColumns = InTotalColumns;
 	ColumnGutter = InArgs._ColumnGutter;
 	RowGutter = InArgs._RowGutter;
 
@@ -94,6 +94,12 @@ int32 SResponsiveGridPanel::OnPaint( const FPaintArgs& Args, const FGeometry& Al
 
 void SResponsiveGridPanel::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
+	// Don't attempt to array anything if we don't have any slots allocated.
+	if ( Slots.Num() == 0 )
+	{
+		return;
+	}
+
 	// PREPARE PHASE
 	// Prepare some data for arranging children.
 	// FinalColumns will be populated with column sizes that include the stretched column sizes.
@@ -265,7 +271,7 @@ void SResponsiveGridPanel::OnArrangeChildren( const FGeometry& AllottedGeometry,
 	}
 }
 
-void SResponsiveGridPanel::CacheDesiredSize()
+void SResponsiveGridPanel::CacheDesiredSize(float LayoutScaleMultiplier)
 {
 	// The desired size of the grid is the sum of the desires sizes for every row and column.
 	TArray<float> Columns;
@@ -274,22 +280,26 @@ void SResponsiveGridPanel::CacheDesiredSize()
 	ComputeDesiredCellSizes(PreviousWidth, Columns, Rows, RowToSlot);
 
 	TotalDesiredSizes = FVector2D::ZeroVector;
-	for (int ColId = 0; ColId < Columns.Num(); ++ColId)
-	{
-		TotalDesiredSizes.X += Columns[ColId];
-	}
-	TotalDesiredSizes.X += (ColumnGutter * 2) * (TotalColumns - 1);
 
-	for (int RowId = 0; RowId < Rows.Num(); ++RowId)
+	if ( Slots.Num() > 0 )
 	{
-		TotalDesiredSizes.Y += Rows[RowId];
-	}
-	TotalDesiredSizes.Y += (RowGutter * 2)  * (Slots[Slots.Num() - 1].RowParam);
+		for ( int ColId = 0; ColId < Columns.Num(); ++ColId )
+		{
+			TotalDesiredSizes.X += Columns[ColId];
+		}
+		TotalDesiredSizes.X += ( ColumnGutter * 2 ) * ( TotalColumns - 1 );
 
-	SPanel::CacheDesiredSize();
+		for ( int RowId = 0; RowId < Rows.Num(); ++RowId )
+		{
+			TotalDesiredSizes.Y += Rows[RowId];
+		}
+		TotalDesiredSizes.Y += ( RowGutter * 2 )  * ( Slots[Slots.Num() - 1].RowParam );
+	}
+
+	SPanel::CacheDesiredSize(LayoutScaleMultiplier);
 }
 
-FVector2D SResponsiveGridPanel::ComputeDesiredSize() const
+FVector2D SResponsiveGridPanel::ComputeDesiredSize( float ) const
 {
 	return TotalDesiredSizes;
 }

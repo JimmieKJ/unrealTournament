@@ -46,12 +46,12 @@ void UParticleModuleVelocity::InitializeDefaults()
 {
 	if (!StartVelocity.Distribution)
 	{
-		StartVelocity.Distribution = NewNamedObject<UDistributionVectorUniform>(this, TEXT("DistributionStartVelocity"));
+		StartVelocity.Distribution = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartVelocity"));
 	}
 
 	if (!StartVelocityRadial.Distribution)
 	{
-		StartVelocityRadial.Distribution = NewNamedObject<UDistributionFloatUniform>(this, TEXT("DistributionStartVelocityRadial"));
+		StartVelocityRadial.Distribution = NewObject<UDistributionFloatUniform>(this, TEXT("DistributionStartVelocityRadial"));
 	}
 }
 
@@ -85,7 +85,7 @@ void UParticleModuleVelocity::SpawnEx(FParticleEmitterInstance* Owner, int32 Off
 		FVector FromOrigin = (Particle.Location - Owner->EmitterToSimulation.GetOrigin()).GetSafeNormal();
 
 		FVector OwnerScale(1.0f);
-		if ((bApplyOwnerScale == true) && Owner && Owner->Component)
+		if ((bApplyOwnerScale == true) && Owner->Component)
 		{
 			OwnerScale = Owner->Component->ComponentToWorld.GetScale3D();
 		}
@@ -163,7 +163,7 @@ void UParticleModuleVelocityInheritParent::InitializeDefaults()
 {
 	if (!Scale.Distribution)
 	{
-		UDistributionVectorConstant* DistributionScale = NewNamedObject<UDistributionVectorConstant>(this, TEXT("DistributionScale"));
+		UDistributionVectorConstant* DistributionScale = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionScale"));
 		DistributionScale->Constant = FVector(1.0f, 1.0f, 1.0f);
 		Scale.Distribution = DistributionScale;
 	}
@@ -227,7 +227,7 @@ void UParticleModuleVelocityOverLifetime::InitializeDefaults()
 {
 	if (!VelOverLife.Distribution)
 	{
-		VelOverLife.Distribution = NewNamedObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionVelOverLife"));
+		VelOverLife.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionVelOverLife"));
 	}
 }
 
@@ -270,7 +270,7 @@ void UParticleModuleVelocityOverLifetime::Update(FParticleEmitterInstance* Owner
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);
 	FVector OwnerScale(1.0f);
-	if ((bApplyOwnerScale == true) && Owner && Owner->Component)
+	if ((bApplyOwnerScale == true) && Owner->Component)
 	{
 		OwnerScale = Owner->Component->ComponentToWorld.GetScale3D();
 	}
@@ -387,12 +387,12 @@ void UParticleModuleVelocityCone::InitializeDefaults()
 {
 	if (!Angle.Distribution)
 	{
-		Angle.Distribution = NewNamedObject<UDistributionFloatUniform>(this, TEXT("DistributionAngle"));
+		Angle.Distribution = NewObject<UDistributionFloatUniform>(this, TEXT("DistributionAngle"));
 	}
 
 	if (!Velocity.Distribution)
 	{
-		Velocity.Distribution = NewNamedObject<UDistributionFloatUniform>(this, TEXT("DistributionVelocity"));
+		Velocity.Distribution = NewObject<UDistributionFloatUniform>(this, TEXT("DistributionVelocity"));
 	}
 }
 
@@ -429,7 +429,7 @@ void UParticleModuleVelocityCone::SpawnEx(FParticleEmitterInstance* Owner, int32
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);
 	FVector OwnerScale(1.0f);
-	if ((bApplyOwnerScale == true) && Owner && Owner->Component)
+	if ((bApplyOwnerScale == true) && Owner->Component)
 	{
 		OwnerScale = Owner->Component->ComponentToWorld.GetScale3D();
 	}
@@ -538,10 +538,10 @@ void UParticleModuleVelocityCone::Render3DPreview(FParticleEmitterInstance* Owne
 	UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 	check(LODLevel);
 	FVector OwnerScale(1.0f);
-	FRotationMatrix OwnerRotation(FRotator::ZeroRotator);
+	FMatrix OwnerRotation(FMatrix::Identity);
 	FVector LocalToWorldOrigin(0.0f);
 	FMatrix LocalToWorld(FMatrix::Identity);
-	if (Owner && Owner->Component)
+	if (Owner->Component)
 	{
 		AActor* Actor = Owner->Component->GetOwner();
 		if (Actor)
@@ -551,7 +551,7 @@ void UParticleModuleVelocityCone::Render3DPreview(FParticleEmitterInstance* Owne
 				OwnerScale = Owner->Component->ComponentToWorld.GetScale3D();
 			}
 
-			OwnerRotation = FRotationMatrix(Actor->GetActorRotation());
+			OwnerRotation = FQuatRotationMatrix(Actor->GetActorQuat());
 		}
 	  LocalToWorldOrigin = Owner->Component->ComponentToWorld.GetLocation();
 	  LocalToWorld = Owner->Component->ComponentToWorld.ToMatrixWithScale().RemoveTranslation();

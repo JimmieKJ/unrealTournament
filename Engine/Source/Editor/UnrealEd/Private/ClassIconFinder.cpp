@@ -4,6 +4,7 @@
 #include "UnrealEd.h"
 #include "SlateBasics.h"
 #include "ClassIconFinder.h"
+#include "AssetData.h"
 
 TArray < const ISlateStyle* > FClassIconFinder::Styles;
 
@@ -19,7 +20,7 @@ void FClassIconFinder::UnregisterIconSource(const ISlateStyle* StyleSet)
 
 const FSlateBrush* FClassIconFinder::LookupBrush(FName IconName)
 {
-	const FSlateBrush* IconBrush = NULL;
+	const FSlateBrush* IconBrush = nullptr;
 
 	for ( const ISlateStyle* Style : Styles )
 	{
@@ -36,7 +37,7 @@ const FSlateBrush* FClassIconFinder::LookupBrush(FName IconName)
 const FSlateBrush* FClassIconFinder::FindIconForActors(const TArray< TWeakObjectPtr<AActor> >& InActors, UClass*& CommonBaseClass)
 {
 	// Get the common base class of the selected actors
-	const FSlateBrush* CommonIcon = NULL;
+	const FSlateBrush* CommonIcon = nullptr;
 	for( int32 ActorIdx = 0; ActorIdx < InActors.Num(); ++ActorIdx )
 	{
 		TWeakObjectPtr<AActor> Actor = InActors[ActorIdx];
@@ -77,7 +78,7 @@ FName FClassIconFinder::FindIconNameForActor( const TWeakObjectPtr<AActor>& InAc
 	AActor* Actor = InActor.Get();
 	FName BrushName = NAME_None;
 
-	if ( Actor != NULL )
+	if ( Actor )
 	{
 		ABrush* Brush = Cast< ABrush >( Actor );
 		if ( Brush )
@@ -93,7 +94,7 @@ FName FClassIconFinder::FindIconNameForActor( const TWeakObjectPtr<AActor>& InAc
 		}
 
 		// Actor didn't specify an icon - fallback on the class icon
-		if ( BrushName == NAME_None )
+		if ( BrushName.IsNone() )
 		{
 			BrushName = FindIconNameForClass( Actor->GetClass() );
 		}
@@ -127,16 +128,85 @@ FName FClassIconFinder::FindThumbnailNameForClass(const UClass* InClass, const F
 	return FindIconNameImpl( InClass, InDefaultName, TEXT("ClassThumbnail") );
 }
 
+const UClass* FClassIconFinder::GetIconClassForBlueprint(const UBlueprint* InBlueprint)
+{
+	if ( !InBlueprint )
+	{
+		return nullptr;
+	}
+
+	// If we're loaded and have a generated class, just use that
+	if ( const UClass* GeneratedClass = Cast<UClass>(InBlueprint->GeneratedClass) )
+	{
+		return GeneratedClass;
+	}
+
+	// We don't have a generated class, so instead try and use the parent class from our meta-data
+	return GetIconClassForAssetData(FAssetData(InBlueprint));
+}
+
+const UClass* FClassIconFinder::GetIconClassForAssetData(const FAssetData& InAssetData, bool* bOutIsClassType)
+{
+	if ( bOutIsClassType )
+	{
+		*bOutIsClassType = false;
+	}
+
+	UClass* AssetClass = FindObject<UClass>(ANY_PACKAGE, *InAssetData.AssetClass.ToString());
+	if ( !AssetClass )
+	{
+		return nullptr;
+	}
+
+	if ( AssetClass == UClass::StaticClass() )
+	{
+		if ( bOutIsClassType )
+		{
+			*bOutIsClassType = true;
+		}
+
+		return FindObject<UClass>(ANY_PACKAGE, *InAssetData.AssetName.ToString());
+	}
+	
+	if ( AssetClass == UBlueprint::StaticClass() )
+	{
+		static const FName NativeParentClassTag = "NativeParentClass";
+		static const FName ParentClassTag = "ParentClass";
+
+		if ( bOutIsClassType )
+		{
+			*bOutIsClassType = true;
+		}
+
+		// We need to use the asset data to get the parent class as the blueprint may not be loaded
+		const FString* ParentClassNamePtr = InAssetData.TagsAndValues.Find(NativeParentClassTag);
+		if ( !ParentClassNamePtr )
+		{
+			ParentClassNamePtr = InAssetData.TagsAndValues.Find(ParentClassTag);
+		}
+		if ( ParentClassNamePtr && !ParentClassNamePtr->IsEmpty() )
+		{
+			UObject* Outer = nullptr;
+			FString ParentClassName = *ParentClassNamePtr;
+			ResolveName(Outer, ParentClassName, false, false);
+			return FindObject<UClass>(ANY_PACKAGE, *ParentClassName);
+		}
+	}
+
+	// Default to using the class for the asset type
+	return AssetClass;
+}
+
 FName FClassIconFinder::FindIconNameImpl(const UClass* InClass, const FName& InDefaultName, const TCHAR* StyleRoot )
 {
 	FName BrushName;
-	const FSlateBrush* Brush = NULL;
+	const FSlateBrush* Brush = nullptr;
 
-	if ( InClass != NULL )
+	if ( InClass )
 	{
 		// walk up class hierarchy until we find an icon
 		const UClass* CurrentClass = InClass;
-		while( Brush == NULL && CurrentClass )
+		while( !Brush && CurrentClass )
 		{
 			BrushName = *FString::Printf( TEXT( "%s.%s" ), StyleRoot, *CurrentClass->GetName() );
 			Brush = FClassIconFinder::LookupBrush( BrushName );
@@ -144,10 +214,10 @@ FName FClassIconFinder::FindIconNameImpl(const UClass* InClass, const FName& InD
 		}
 	}
 
-	if( Brush == NULL )
+	if( !Brush )
 	{
 		// If we didn't supply an override name for the default icon use default class icon.
-		if( InDefaultName == NAME_None )
+		if( InDefaultName.IsNone() )
 		{
 			BrushName = *FString::Printf( TEXT( "%s.Default" ), StyleRoot);
 		}

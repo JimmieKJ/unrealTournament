@@ -14,12 +14,12 @@ class SFriendsStatusImpl : public SFriendsStatus
 {
 public:
 
-	void Construct(const FArguments& InArgs, const TSharedRef<FFriendsStatusViewModel>& ViewModel)
+	void Construct(const FArguments& InArgs, const TSharedRef<FFriendsStatusViewModel>& InViewModel)
 	{
 		FriendStyle = *InArgs._FriendStyle;
-		this->ViewModel = ViewModel;
+		ViewModel = InViewModel;
 
-		FFriendsStatusViewModel* ViewModelPtr = &ViewModel.Get();
+		FFriendsStatusViewModel* ViewModelPtr = &InViewModel.Get();
 
 		const TArray<FFriendsStatusViewModel::FOnlineState>& StatusOptions = ViewModelPtr->GetStatusList();
 		SFriendsAndChatCombo::FItemsArray ComboMenuItems;
@@ -33,20 +33,26 @@ public:
 
 		SUserWidget::Construct(SUserWidget::FArguments()
 		[
-			SNew(SFriendsAndChatCombo)
+			SNew(SFriendsAndChatCombo)			
 			.FriendStyle(&FriendStyle)
 			.ButtonText(ViewModelPtr, &FFriendsStatusViewModel::GetStatusText)
 			.bShowIcon(true)
-			.IconBrush(this, &SFriendsStatusImpl::GetCurrentStatusBrush)
 			.DropdownItems(ComboMenuItems)
 			.bSetButtonTextToSelectedItem(false)
 			.bAutoCloseWhenClicked(true)
 			.ButtonSize(FriendStyle.StatusButtonSize)
 			.OnDropdownItemClicked(this, &SFriendsStatusImpl::HandleStatusChanged)
+			.IsEnabled(this, &SFriendsStatusImpl::IsStatusEnabled)
 		]);
 	}
 
 private:
+
+	bool IsStatusEnabled() const
+	{
+		return true;
+	}
+
 	void HandleStatusChanged(FName ItemTag)
 	{
 		if (ViewModel.IsValid())

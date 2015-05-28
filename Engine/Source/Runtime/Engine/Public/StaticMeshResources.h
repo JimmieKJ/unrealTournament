@@ -27,7 +27,7 @@ public:
 		, BasePercentTrianglesMult(1.0f)
 		, DisplayName( NSLOCTEXT( "UnrealEd", "None", "None" ) )
 	{
-		FMemory::MemZero(SettingsBias);
+		FMemory::Memzero(SettingsBias);
 		SettingsBias.PercentTriangles = 1.0f;
 	}
 
@@ -324,7 +324,7 @@ public:
 
 	// FRenderResource interface.
 	virtual void InitRHI() override;
-	virtual FString GetFriendlyName() const { return TEXT("PositionOnly Static-mesh vertices"); }
+	virtual FString GetFriendlyName() const override { return TEXT("PositionOnly Static-mesh vertices"); }
 
 private:
 
@@ -501,7 +501,7 @@ public:
 
 	// FRenderResource interface.
 	virtual void InitRHI() override;
-	virtual FString GetFriendlyName() const { return TEXT("Static-mesh vertices"); }
+	virtual FString GetFriendlyName() const override { return TEXT("Static-mesh vertices"); }
 
 private:
 
@@ -732,7 +732,7 @@ private:
 /**
  * A static mesh component scene proxy.
  */
-class FStaticMeshSceneProxy : public FPrimitiveSceneProxy
+class ENGINE_API FStaticMeshSceneProxy : public FPrimitiveSceneProxy
 {
 public:
 
@@ -776,6 +776,7 @@ public:
 	virtual bool CanBeOccluded() const override;
 	virtual void GetLightRelevance(const FLightSceneProxy* LightSceneProxy, bool& bDynamic, bool& bRelevant, bool& bLightMapped, bool& bShadowMapped) const override;
 	virtual void GetDistancefieldAtlasData(FBox& LocalVolumeBounds, FIntVector& OutBlockMin, FIntVector& OutBlockSize, bool& bOutBuiltAsIfTwoSided, bool& bMeshWasPlane, TArray<FMatrix>& ObjectLocalToWorldTransforms) const override;
+	virtual void GetDistanceFieldInstanceInfo(int32& NumInstances, float& BoundsSurfaceArea) const override;
 	virtual bool HasDistanceFieldRepresentation() const override;
 	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 	uint32 GetAllocatedSize( void ) const { return( FPrimitiveSceneProxy::GetAllocatedSize() + LODs.GetAllocatedSize() ); }
@@ -873,6 +874,9 @@ protected:
 	 */
 	int32 ForcedLodModel;
 
+	/** Minimum LOD index to use.  Clamped to valid range [0, NumLODs - 1]. */
+	int32 ClampedMinLOD;
+
 	FVector TotalScale3D;
 
 	uint32 bCastShadow : 1;
@@ -891,6 +895,270 @@ protected:
 	 */
 	float GetScreenSize(int32 LODIndex) const;
 };
+
+/*-----------------------------------------------------------------------------
+	FStaticMeshInstanceData
+-----------------------------------------------------------------------------*/
+
+struct FInstanceStream
+{
+	FVector4 InstanceOrigin;  // per-instance random in w 
+	FFloat16 InstanceTransform1[4];  // hitproxy.r + 256 * selected in .w
+	FFloat16 InstanceTransform2[4]; // hitproxy.g in .w
+	FFloat16 InstanceTransform3[4]; // hitproxy.b in .w
+	int16 InstanceLightmapAndShadowMapUVBias[4]; 
+
+	FORCEINLINE void SetInstance(const FMatrix& Transform, float RandomInstanceID)
+	{
+		const FMatrix* RESTRICT rTransform = (const FMatrix* RESTRICT)&Transform;
+		FInstanceStream* RESTRICT Me = (FInstanceStream* RESTRICT)this;
+
+		Me->InstanceOrigin.X = rTransform->M[3][0];
+		Me->InstanceOrigin.Y = rTransform->M[3][1];
+		Me->InstanceOrigin.Z = rTransform->M[3][2];
+		Me->InstanceOrigin.W = RandomInstanceID;
+
+		Me->InstanceTransform1[0] = Transform.M[0][0];
+		Me->InstanceTransform1[1] = Transform.M[1][0];
+		Me->InstanceTransform1[2] = Transform.M[2][0];
+		Me->InstanceTransform1[3] = FFloat16();
+
+		Me->InstanceTransform2[0] = Transform.M[0][1];
+		Me->InstanceTransform2[1] = Transform.M[1][1];
+		Me->InstanceTransform2[2] = Transform.M[2][1];
+		Me->InstanceTransform2[3] = FFloat16();
+
+		Me->InstanceTransform3[0] = Transform.M[0][2];
+		Me->InstanceTransform3[1] = Transform.M[1][2];
+		Me->InstanceTransform3[2] = Transform.M[2][2];
+		Me->InstanceTransform3[3] = FFloat16();
+
+		Me->InstanceLightmapAndShadowMapUVBias[0] = 0;
+		Me->InstanceLightmapAndShadowMapUVBias[1] = 0;
+		Me->InstanceLightmapAndShadowMapUVBias[2] = 0;
+		Me->InstanceLightmapAndShadowMapUVBias[3] = 0;
+	}
+
+	FORCEINLINE void GetInstanceTransform(FMatrix& Transform) const
+	{
+		Transform.M[3][0] = InstanceOrigin.X;
+		Transform.M[3][1] = InstanceOrigin.Y;
+		Transform.M[3][2] = InstanceOrigin.Z;
+
+		Transform.M[0][0] = InstanceTransform1[0];
+		Transform.M[1][0] = InstanceTransform1[1];
+		Transform.M[2][0] = InstanceTransform1[2];
+
+		Transform.M[0][1] = InstanceTransform2[0];
+		Transform.M[1][1] = InstanceTransform2[1];
+		Transform.M[2][1] = InstanceTransform2[2];
+
+		Transform.M[0][2] = InstanceTransform3[0];
+		Transform.M[1][2] = InstanceTransform3[1];
+		Transform.M[2][2] = InstanceTransform3[2];
+
+		Transform.M[0][3] = 0.f;
+		Transform.M[1][3] = 0.f;
+		Transform.M[2][3] = 0.f;
+		Transform.M[3][3] = 0.f;
+	}
+
+	FORCEINLINE void SetInstance(const FMatrix& Transform, float RandomInstanceID, const FVector2D& LightmapUVBias, const FVector2D& ShadowmapUVBias, FColor HitProxyColor, bool bSelected)
+	{
+		const FMatrix* RESTRICT rTransform = (const FMatrix* RESTRICT)&Transform;
+		FInstanceStream* RESTRICT Me = (FInstanceStream* RESTRICT)this;
+		const FVector2D* RESTRICT rLightmapUVBias = (const FVector2D* RESTRICT)&LightmapUVBias;
+		const FVector2D* RESTRICT rShadowmapUVBias = (const FVector2D* RESTRICT)&ShadowmapUVBias;
+
+		Me->InstanceOrigin.X = rTransform->M[3][0];
+		Me->InstanceOrigin.Y = rTransform->M[3][1];
+		Me->InstanceOrigin.Z = rTransform->M[3][2];
+		Me->InstanceOrigin.W = RandomInstanceID;
+
+		Me->InstanceTransform1[0] = Transform.M[0][0];
+		Me->InstanceTransform1[1] = Transform.M[1][0];
+		Me->InstanceTransform1[2] = Transform.M[2][0];
+		Me->InstanceTransform1[3] = ((float)HitProxyColor.R) + (bSelected ? 256.f : 0.0f);
+
+		Me->InstanceTransform2[0] = Transform.M[0][1];
+		Me->InstanceTransform2[1] = Transform.M[1][1];
+		Me->InstanceTransform2[2] = Transform.M[2][1];
+		Me->InstanceTransform2[3] = (float)HitProxyColor.G;
+
+		Me->InstanceTransform3[0] = Transform.M[0][2];
+		Me->InstanceTransform3[1] = Transform.M[1][2];
+		Me->InstanceTransform3[2] = Transform.M[2][2];
+		Me->InstanceTransform3[3] = (float)HitProxyColor.B;
+
+		Me->InstanceLightmapAndShadowMapUVBias[0] = FMath::Clamp<int32>(FMath::TruncToInt(rLightmapUVBias->X  * 32767.0f), MIN_int16, MAX_int16);
+		Me->InstanceLightmapAndShadowMapUVBias[1] = FMath::Clamp<int32>(FMath::TruncToInt(rLightmapUVBias->Y  * 32767.0f), MIN_int16, MAX_int16);
+		Me->InstanceLightmapAndShadowMapUVBias[2] = FMath::Clamp<int32>(FMath::TruncToInt(rShadowmapUVBias->X * 32767.0f), MIN_int16, MAX_int16);
+		Me->InstanceLightmapAndShadowMapUVBias[3] = FMath::Clamp<int32>(FMath::TruncToInt(rShadowmapUVBias->Y * 32767.0f), MIN_int16, MAX_int16);
+	}
+
+	FORCEINLINE void SetInstance(const FMatrix& Transform, float RandomInstanceID, const FVector2D& LightmapUVBias, const FVector2D& ShadowmapUVBias)
+	{
+		const FMatrix* RESTRICT rTransform = (const FMatrix* RESTRICT)&Transform;
+		FInstanceStream* RESTRICT Me = (FInstanceStream* RESTRICT)this;
+		const FVector2D* RESTRICT rLightmapUVBias = (const FVector2D* RESTRICT)&LightmapUVBias;
+		const FVector2D* RESTRICT rShadowmapUVBias = (const FVector2D* RESTRICT)&ShadowmapUVBias;
+
+		Me->InstanceOrigin.X = rTransform->M[3][0];
+		Me->InstanceOrigin.Y = rTransform->M[3][1];
+		Me->InstanceOrigin.Z = rTransform->M[3][2];
+		Me->InstanceOrigin.W = RandomInstanceID;
+
+		Me->InstanceTransform1[0] = Transform.M[0][0];
+		Me->InstanceTransform1[1] = Transform.M[1][0];
+		Me->InstanceTransform1[2] = Transform.M[2][0];
+		Me->InstanceTransform1[3] = FFloat16();
+
+		Me->InstanceTransform2[0] = Transform.M[0][1];
+		Me->InstanceTransform2[1] = Transform.M[1][1];
+		Me->InstanceTransform2[2] = Transform.M[2][1];
+		Me->InstanceTransform2[3] = FFloat16();
+
+		Me->InstanceTransform3[0] = Transform.M[0][2];
+		Me->InstanceTransform3[1] = Transform.M[1][2];
+		Me->InstanceTransform3[2] = Transform.M[2][2];
+		Me->InstanceTransform3[3] = FFloat16();
+
+		Me->InstanceLightmapAndShadowMapUVBias[0] = FMath::Clamp<int32>(FMath::TruncToInt(rLightmapUVBias->X  * 32767.0f), MIN_int16, MAX_int16);
+		Me->InstanceLightmapAndShadowMapUVBias[1] = FMath::Clamp<int32>(FMath::TruncToInt(rLightmapUVBias->Y  * 32767.0f), MIN_int16, MAX_int16);
+		Me->InstanceLightmapAndShadowMapUVBias[2] = FMath::Clamp<int32>(FMath::TruncToInt(rShadowmapUVBias->X * 32767.0f), MIN_int16, MAX_int16);
+		Me->InstanceLightmapAndShadowMapUVBias[3] = FMath::Clamp<int32>(FMath::TruncToInt(rShadowmapUVBias->Y * 32767.0f), MIN_int16, MAX_int16);
+	}
+
+	FORCEINLINE void NullifyInstance()
+	{
+		FInstanceStream* RESTRICT Me = (FInstanceStream* RESTRICT)this;
+		Me->InstanceTransform1[0] = FFloat16();
+		Me->InstanceTransform1[1] = FFloat16();
+		Me->InstanceTransform1[2] = FFloat16();
+
+		Me->InstanceTransform2[0] = FFloat16();
+		Me->InstanceTransform2[1] = FFloat16();
+		Me->InstanceTransform2[2] = FFloat16();
+
+		Me->InstanceTransform3[0] = FFloat16();
+		Me->InstanceTransform3[1] = FFloat16();
+		Me->InstanceTransform3[2] = FFloat16();
+	}
+
+	FORCEINLINE void SetInstanceEditorData(FColor HitProxyColor, bool bSelected)
+	{
+		FInstanceStream* RESTRICT Me = (FInstanceStream* RESTRICT)this;
+		
+		Me->InstanceTransform1[3] = ((float)HitProxyColor.R) + (bSelected ? 256.f : 0.0f);
+		Me->InstanceTransform2[3] = (float)HitProxyColor.G;
+		Me->InstanceTransform3[3] = (float)HitProxyColor.B;
+	}
+	
+	friend FArchive& operator<<( FArchive& Ar, FInstanceStream& V )
+	{
+		return Ar 
+			<< V.InstanceOrigin.X 
+			<< V.InstanceOrigin.Y
+			<< V.InstanceOrigin.Z
+			<< V.InstanceOrigin.W
+
+			<< V.InstanceTransform1[0]
+			<< V.InstanceTransform1[1]
+			<< V.InstanceTransform1[2]
+			<< V.InstanceTransform1[3]
+
+			<< V.InstanceTransform2[0]
+			<< V.InstanceTransform2[1]
+			<< V.InstanceTransform2[2]
+			<< V.InstanceTransform2[3]
+
+			<< V.InstanceTransform3[0]
+			<< V.InstanceTransform3[1]
+			<< V.InstanceTransform3[2]
+			<< V.InstanceTransform3[3]
+
+			<< V.InstanceLightmapAndShadowMapUVBias[0]
+			<< V.InstanceLightmapAndShadowMapUVBias[1]
+			<< V.InstanceLightmapAndShadowMapUVBias[2]
+			<< V.InstanceLightmapAndShadowMapUVBias[3];
+	}
+};
+
+
+/** The implementation of the static mesh instance data storage type. */
+class FStaticMeshInstanceData :
+	public FStaticMeshVertexDataInterface,
+	public TResourceArray<FInstanceStream, VERTEXBUFFER_ALIGNMENT>
+{
+public:
+
+	typedef TResourceArray<FInstanceStream, VERTEXBUFFER_ALIGNMENT> ArrayType;
+
+	/**
+	 * Constructor
+	 * @param InNeedsCPUAccess - true if resource array data should be CPU accessible
+	 */
+	FStaticMeshInstanceData(bool InNeedsCPUAccess=false)
+		:	TResourceArray<FInstanceStream, VERTEXBUFFER_ALIGNMENT>(InNeedsCPUAccess)
+	{
+	}
+
+	static uint32 StaticGetStride()
+	{
+		return sizeof(FInstanceStream);
+	}
+
+	static SIZE_T GetResourceSize(uint32 NumInstances)
+	{
+		return SIZE_T(NumInstances) * SIZE_T(StaticGetStride());
+	}
+
+	/**
+	 * Resizes the vertex data buffer, discarding any data which no longer fits.
+	 * @param NumVertices - The number of vertices to allocate the buffer for.
+	 */
+	virtual void ResizeBuffer(uint32 NumInstances) override
+	{
+		checkf(0, TEXT("ArrayType::Add is not supported on all platforms"));
+	}
+
+	virtual uint32 GetStride() const override
+	{
+		return StaticGetStride();
+	}
+	virtual uint8* GetDataPointer() override
+	{
+		return (uint8*)&(*this)[0];
+	}
+	virtual FResourceArrayInterface* GetResourceArray() override
+	{
+		return this;
+	}
+	virtual void Serialize(FArchive& Ar) override
+	{
+		TResourceArray<FInstanceStream,VERTEXBUFFER_ALIGNMENT>::BulkSerialize(Ar);
+	}
+
+#if 0
+	void Set(const TArray<FInstanceStream>& RawData)
+	{
+		*((ArrayType*)this) = TArray<FInstanceStream, TAlignedHeapAllocator<VERTEXBUFFER_ALIGNMENT> >(RawData);
+	}
+#endif
+
+	void AllocateInstances(int32 NumInstances)
+	{
+		// We cannot write directly to the data on all platforms,
+		// so we make a TArray of the right type, then assign it
+		Empty(NumInstances);
+		AddUninitialized(NumInstances);
+	}
+	FORCEINLINE FInstanceStream* GetInstanceWriteAddress(int32 InstanceIndex)
+	{
+		return GetData() + InstanceIndex;
+	}
+};
+
 
 #if WITH_EDITOR
 /**

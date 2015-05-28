@@ -2,8 +2,6 @@
 
 #include "SlateCorePrivatePCH.h"
 
-DECLARE_CYCLE_STAT( TEXT("OnPaint SPanel"), STAT_SlateOnPaint_SPanel, STATGROUP_Slate );
-
 /* SWidget overrides
  *****************************************************************************/
 
@@ -13,9 +11,6 @@ int32 SPanel::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry
 	// OutDrawElements.AddItem( FSlateDrawElement::MakeQuad( AllottedGeometry.AbsolutePosition, AllottedGeometry.Size ) );	
 	FArrangedChildren ArrangedChildren(EVisibility::Visible);
 	{
-#if SLATE_HD_STATS
-		SCOPE_CYCLE_COUNTER( STAT_SlateOnPaint_SPanel );
-#endif
 		// The box panel has no visualization of its own; it just visualizes its children.
 		
 		this->ArrangeChildren(AllottedGeometry, ArrangedChildren);

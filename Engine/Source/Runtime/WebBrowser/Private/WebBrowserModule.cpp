@@ -17,7 +17,7 @@ private:
 	virtual void ShutdownModule() override;
 
 public:
-	virtual IWebBrowserSingleton* GetSingleton();
+	virtual IWebBrowserSingleton* GetSingleton() override;
 };
 
 IMPLEMENT_MODULE( FWebBrowserModule, WebBrowser );

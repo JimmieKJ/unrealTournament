@@ -19,8 +19,7 @@ class FRunnableThread;
  * OnlineSubsystemGooglePlay - Implementation of the online subsystem for Google Play services
  */
 class ONLINESUBSYSTEMGOOGLEPLAY_API FOnlineSubsystemGooglePlay : 
-	public FOnlineSubsystemImpl,
-	public FTickerObjectBase
+	public FOnlineSubsystemImpl
 {
 public:
 	FOnlineSubsystemGooglePlay();
@@ -29,14 +28,16 @@ public:
 	// Begin IOnlineSubsystem Interface
 	virtual IOnlineSessionPtr GetSessionInterface() const override;
 	virtual IOnlineFriendsPtr GetFriendsInterface() const override;
+	virtual IOnlinePartyPtr GetPartyInterface() const override;
+	virtual IOnlineGroupsPtr GetGroupsInterface() const override;
 	virtual IOnlineSharedCloudPtr GetSharedCloudInterface() const override;
 	virtual IOnlineUserCloudPtr GetUserCloudInterface() const override;
+	virtual IOnlineUserCloudPtr GetUserCloudInterface(const FString& Key) const override;
 	virtual IOnlineLeaderboardsPtr GetLeaderboardsInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const  override;
 	virtual IOnlineExternalUIPtr GetExternalUIInterface() const override;
 	virtual IOnlineTimePtr GetTimeInterface() const override;
 	virtual IOnlineIdentityPtr GetIdentityInterface() const override;
-	virtual IOnlinePartyPtr GetPartyInterface() const override;
 	virtual IOnlineTitleFilePtr GetTitleFileInterface() const override;
 	virtual IOnlineEntitlementsPtr GetEntitlementsInterface() const override;
 	virtual IOnlineStorePtr GetStoreInterface() const override;
@@ -47,6 +48,7 @@ public:
 	virtual IOnlineAchievementsPtr GetAchievementsInterface() const override;
 	virtual IOnlinePresencePtr GetPresenceInterface() const override { return NULL; }
 	virtual IOnlineChatPtr GetChatInterface() const override { return NULL; }
+	virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override { return NULL; }
 
 	virtual class UObject* GetNamedInterface(FName InterfaceName) override { return NULL; }
 	virtual void SetNamedInterface(FName InterfaceName, class UObject* NewInterface) override {}
@@ -131,6 +133,9 @@ private:
 
 	/** Track the current login task (if any) so callbacks can notify it */
 	FOnlineAsyncTaskGooglePlayLogin* CurrentLoginTask;
+
+	/** Handle of registered delegate for onActivityResult */
+	FDelegateHandle OnActivityResultDelegateHandle;
 };
 
 typedef TSharedPtr<FOnlineSubsystemGooglePlay, ESPMode::ThreadSafe> FOnlineSubsystemGooglePlayPtr;

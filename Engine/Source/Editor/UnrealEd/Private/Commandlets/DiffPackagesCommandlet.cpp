@@ -355,12 +355,12 @@ UObject* CopyObjectToPackage(UPackage* Package, UObject* Object)
 	FObjectWriter(Object, Bytes);
 
 	// make a new object
-	UObject* NewObject = StaticConstructObject(Object->GetClass(), NewOuter, Object->GetFName(), Object->GetFlags(), Object->GetArchetype(), true);
+	UObject* NewUObject = NewObject<UObject>(NewOuter, Object->GetClass(), Object->GetFName(), Object->GetFlags(), Object->GetArchetype(), true);
 
 	// serialize old objects on top of the new object
-	FObjectReader Reader(NewObject, Bytes);
+	FObjectReader Reader(NewUObject, Bytes);
 
-	return NewObject;
+	return NewUObject;
 }
 
 
@@ -965,7 +965,9 @@ EObjectDiff UDiffPackagesCommandlet::DiffObjects(UObject* ObjA, UObject* ObjB, U
 		return OD_None;
 	}
 
-	UClass* ComparisonClass = (ObjA ? ObjA->GetClass() : (ObjB ? ObjB->GetClass() : ObjAncestor->GetClass()));
+	// PVS-Studio does not understand the assumption that we must have an ancestor if we have an ObjA or an ObjB, and is
+	// warning about usage of ObjAncestor pointer:
+	UClass* ComparisonClass = (ObjA ? ObjA->GetClass() : (ObjB ? ObjB->GetClass() : ObjAncestor->GetClass())); //-V595
 
 	// complex logic for what kind of differnce this is, if at all
 
@@ -1123,7 +1125,7 @@ EObjectDiff UDiffPackagesCommandlet::DiffObjects(UObject* ObjA, UObject* ObjB, U
 				{
 					check(ObjB);
 					PropDiff.DiffType = OD_ABConflict;
-					FString FullPath = ObjA ? ObjA->GetFullName(Packages[0]) : ObjB->GetFullName(Packages[1]);
+					FString FullPath = ObjA ? ObjA->GetFullName(Packages[0]) : ObjB->GetFullName(Packages[1]); //-V595 PVS-Studio does not understand the check(objB) above, and is warning about usage of the objB pointer
 
 					// recompose the text relative to each other so that when showing differences of structs,
 					// only properties within the struct that actually changed are shown
@@ -1298,7 +1300,7 @@ void UDiffPackagesCommandlet::LoadNativePropertyData( UObject* Object, TArray<ui
 	// first, validate our input parameters
 	check(Object);
 
-	ULinkerLoad* ObjectLinker = Object->GetLinker();
+	auto ObjectLinker = Object->GetLinker();
 	check(ObjectLinker);
 
 	int32 ObjectLinkerIndex = Object->GetLinkerIndex();

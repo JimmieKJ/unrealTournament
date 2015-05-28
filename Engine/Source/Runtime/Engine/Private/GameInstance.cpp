@@ -8,6 +8,10 @@
 #include "EnginePrivate.h"
 #include "Engine/GameInstance.h"
 #include "Engine/Engine.h"
+#include "Engine/DemoNetDriver.h"
+#include "OnlineSubsystem.h"
+#include "OnlineSessionInterface.h"
+#include "GameFramework/OnlineSession.h"
 
 #if WITH_EDITOR
 #include "UnrealEd.h"
@@ -17,7 +21,19 @@
 
 UGameInstance::UGameInstance(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
+, TimerManager(new FTimerManager())
 {
+}
+
+void UGameInstance::FinishDestroy()
+{
+	if (TimerManager)
+	{
+		delete TimerManager;
+		TimerManager = nullptr;
+	}
+
+	Super::FinishDestroy();
 }
 
 UWorld* UGameInstance::GetWorld() const
@@ -33,11 +49,31 @@ UEngine* UGameInstance::GetEngine() const
 void UGameInstance::Init()
 {
 	ReceiveInit();
+
+	const auto OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub != nullptr)
+	{
+		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+		if (SessionInt.IsValid())
+		{
+			SessionInt->AddOnSessionUserInviteAcceptedDelegate_Handle(FOnSessionUserInviteAcceptedDelegate::CreateUObject(this, &UGameInstance::HandleSessionUserInviteAccepted));
+		}
+	}
 }
 
 void UGameInstance::Shutdown()
 {
 	ReceiveShutdown();
+
+	const auto OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub != nullptr)
+	{
+		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
+		if (SessionInt.IsValid())
+		{
+			SessionInt->ClearOnSessionUserInviteAcceptedDelegate_Handle(OnSessionUserInviteAcceptedDelegateHandle);
+		}
+	}
 
 	// Clear the world context pointer to prevent further access.
 	WorldContext = nullptr;
@@ -50,6 +86,11 @@ void UGameInstance::InitializeStandalone()
 	// Creates the world context. This should be the only WorldContext that ever gets created for this GameInstance.
 	WorldContext = &Engine->CreateNewWorldContext(EWorldType::Game);
 	WorldContext->OwningGameInstance = this;
+
+	// In standalone create a dummy world from the beginning to avoid issues of not having a world until LoadMap gets us our real world
+	UWorld* DummyWorld = UWorld::CreateWorld(EWorldType::Game, false);
+	DummyWorld->SetGameInstance(this);
+	WorldContext->SetCurrentWorld(DummyWorld);
 
 	Init();
 }
@@ -82,6 +123,7 @@ bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance)
 	// We always need to create a new PIE world unless we're using the editor world for SIE
 	UWorld* NewWorld = nullptr;
 
+	bool bNeedsGarbageCollection = false;
 	const EPlayNetMode PlayNetMode = [&PlayInSettings]{ EPlayNetMode NetMode(PIE_Standalone); return (PlayInSettings->GetPlayNetMode(NetMode) ? NetMode : PIE_Standalone); }();
 	const bool CanRunUnderOneProcess = [&PlayInSettings]{ bool RunUnderOneProcess(false); return (PlayInSettings->GetRunUnderOneProcess(RunUnderOneProcess) && RunUnderOneProcess); }();
 	if (PlayNetMode == PIE_Client)
@@ -99,6 +141,9 @@ bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance)
 	{
 		// Standard PIE path: just duplicate the EditorWorld
 		NewWorld = EditorEngine->CreatePIEWorldByDuplication(*WorldContext, EditorEngine->EditorWorld, PIEMapName);
+
+		// Duplication can result in unreferenced objects, so indicate that we should do a GC pass after initializing the world context
+		bNeedsGarbageCollection = true;
 	}
 
 	// failed to create the world!
@@ -115,6 +160,12 @@ bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance)
 	// make sure we can clean up this world!
 	NewWorld->ClearFlags(RF_Standalone);
 	NewWorld->bKismetScriptError = bAnyBlueprintErrors;
+
+	// Do a GC pass if necessary to remove any potentially unreferenced objects
+	if(bNeedsGarbageCollection)
+	{
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+	}
 
 	Init();
 
@@ -198,7 +249,7 @@ bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimu
 			if (!LocalPlayer->SpawnPlayActor(URL.ToString(1), Error, PlayWorld))
 			{
 				FMessageDialog::Open(EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "Error_CouldntSpawnPlayer", "Couldn't spawn player: {0}"), FText::FromString(Error)));
-				return nullptr;
+				return false;
 			}
 		}
 
@@ -329,7 +380,7 @@ ULocalPlayer* UGameInstance::CreateInitialPlayer(FString& OutError)
 
 ULocalPlayer* UGameInstance::CreateLocalPlayer(int32 ControllerId, FString& OutError, bool bSpawnActor)
 {
-	checkf(GetEngine()->LocalPlayerClass != NULL);
+	check(GetEngine()->LocalPlayerClass != NULL);
 
 	ULocalPlayer* NewPlayer = NULL;
 	int32 InsertIndex = INDEX_NONE;
@@ -359,7 +410,7 @@ ULocalPlayer* UGameInstance::CreateLocalPlayer(int32 ControllerId, FString& OutE
 			UE_LOG(LogPlayerManagement, Warning, TEXT("Controller ID (%d) is unlikely to map to any physical device, so this player will not receive input"), ControllerId);
 		}
 
-		NewPlayer = CastChecked<ULocalPlayer>(StaticConstructObject(GetEngine()->LocalPlayerClass, GetEngine()));
+		NewPlayer = NewObject<ULocalPlayer>(GetEngine(), GetEngine()->LocalPlayerClass);
 		InsertIndex = AddLocalPlayer(NewPlayer, ControllerId);
 		if (bSpawnActor && InsertIndex != INDEX_NONE && GetWorld() != NULL)
 		{
@@ -592,4 +643,154 @@ void UGameInstance::AddReferencedObjects(UObject* InThis, FReferenceCollector& C
 	}
 
 	Super::AddReferencedObjects(This, Collector);
+}
+
+void UGameInstance::HandleSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult &	InviteResult)
+{
+	OnSessionUserInviteAccepted(bWasSuccess, ControllerId, UserId, InviteResult);
+}
+
+void UGameInstance::OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult &	InviteResult)
+{
+	UE_LOG(LogPlayerManagement, Verbose, TEXT("OnSessionUserInviteAccepted LocalUserNum: %d bSuccess: %d"), ControllerId, bWasSuccess);
+	// Don't clear invite accept delegate
+
+	if (bWasSuccess)
+	{
+		if (InviteResult.IsValid())
+		{
+			for (ULocalPlayer* LocalPlayer : LocalPlayers)
+			{
+				// Route the call to the actual user that accepted the invite
+				if (LocalPlayer->GetCachedUniqueNetId() == UserId)
+				{
+					LocalPlayer->GetOnlineSession()->OnSessionUserInviteAccepted(bWasSuccess, ControllerId, UserId, InviteResult);
+					return;
+				}
+			}
+
+			// Go ahead and have the active local player handle accepting the invite. A game can detect that the user id is different and handle
+			// it how it needs to.
+			ULocalPlayer* LocalPlayer = GetFirstGamePlayer();
+			if (LocalPlayer)
+			{
+				LocalPlayer->GetOnlineSession()->OnSessionUserInviteAccepted(bWasSuccess, ControllerId, UserId, InviteResult);
+			}
+		}
+		else
+		{
+			UE_LOG(LogPlayerManagement, Warning, TEXT("Invite accept returned invalid search result."));
+		}
+	}
+}
+
+void UGameInstance::StartRecordingReplay(const FString& Name, const FString& FriendlyName)
+{
+	if ( FParse::Param( FCommandLine::Get(),TEXT( "NOREPLAYS" ) ) )
+	{
+		UE_LOG( LogDemo, Warning, TEXT( "UGameInstance::StartRecordingReplay: Rejected due to -noreplays option" ) );
+		return;
+	}
+
+	UWorld* CurrentWorld = GetWorld();
+
+	if ( CurrentWorld == nullptr )
+	{
+		UE_LOG( LogDemo, Warning, TEXT( "UGameInstance::StartRecordingReplay: GetWorld() is null" ) );
+		return;
+	}
+
+	FURL DemoURL;
+	FString DemoName = Name;
+	
+	DemoName.ReplaceInline( TEXT( "%m" ), *CurrentWorld->GetMapName() );
+
+	// replace the current URL's map with a demo extension
+	DemoURL.Map = DemoName;
+	DemoURL.AddOption( *FString::Printf( TEXT( "DemoFriendlyName=%s" ), *FriendlyName ) );
+
+	CurrentWorld->DestroyDemoNetDriver();
+
+	const FName NAME_DemoNetDriver( TEXT( "DemoNetDriver" ) );
+
+	if ( !GEngine->CreateNamedNetDriver( CurrentWorld, NAME_DemoNetDriver, NAME_DemoNetDriver ) )
+	{
+		UE_LOG( LogDemo, Warning, TEXT( "RecordReplay: failed to create demo net driver!" ) );
+		return;
+	}
+
+	CurrentWorld->DemoNetDriver = Cast< UDemoNetDriver >( GEngine->FindNamedNetDriver( CurrentWorld, NAME_DemoNetDriver ) );
+
+	check( CurrentWorld->DemoNetDriver != NULL );
+
+	CurrentWorld->DemoNetDriver->SetWorld( CurrentWorld );
+
+	FString Error;
+
+	if ( !CurrentWorld->DemoNetDriver->InitListen( CurrentWorld, DemoURL, false, Error ) )
+	{
+		UE_LOG( LogDemo, Warning, TEXT( "Demo recording failed: %s" ), *Error );
+		CurrentWorld->DemoNetDriver = NULL;
+	}
+	else
+	{
+		UE_LOG(LogDemo, Log, TEXT( "Num Network Actors: %i" ), CurrentWorld->NetworkActors.Num() );
+	}
+}
+
+void UGameInstance::StopRecordingReplay()
+{
+	UWorld* CurrentWorld = GetWorld();
+
+	if ( CurrentWorld == nullptr )
+	{
+		UE_LOG( LogDemo, Warning, TEXT( "UGameInstance::StopRecordingReplay: GetWorld() is null" ) );
+		return;
+	}
+
+	CurrentWorld->DestroyDemoNetDriver();
+}
+
+void UGameInstance::PlayReplay(const FString& Name)
+{
+	UWorld* CurrentWorld = GetWorld();
+
+	if ( CurrentWorld == nullptr )
+	{
+		UE_LOG( LogDemo, Warning, TEXT( "UGameInstance::PlayReplay: GetWorld() is null" ) );
+		return;
+	}
+
+	CurrentWorld->DestroyDemoNetDriver();
+
+	FURL DemoURL;
+	UE_LOG( LogDemo, Log, TEXT( "PlayReplay: Attempting to play demo %s" ), *Name );
+
+	DemoURL.Map = Name;
+
+	const FName NAME_DemoNetDriver( TEXT( "DemoNetDriver" ) );
+
+	if ( !GEngine->CreateNamedNetDriver( CurrentWorld, NAME_DemoNetDriver, NAME_DemoNetDriver ) )
+	{
+		UE_LOG(LogDemo, Warning, TEXT( "PlayReplay: failed to create demo net driver!" ) );
+		return;
+	}
+
+	CurrentWorld->DemoNetDriver = Cast< UDemoNetDriver >( GEngine->FindNamedNetDriver( CurrentWorld, NAME_DemoNetDriver ) );
+
+	check( CurrentWorld->DemoNetDriver != NULL );
+
+	CurrentWorld->DemoNetDriver->SetWorld( CurrentWorld );
+
+	FString Error;
+
+	if ( !CurrentWorld->DemoNetDriver->InitConnect( CurrentWorld, DemoURL, Error ) )
+	{
+		UE_LOG(LogDemo, Warning, TEXT( "Demo playback failed: %s" ), *Error );
+		CurrentWorld->DestroyDemoNetDriver();
+	}
+	else
+	{
+		FCoreUObjectDelegates::PostDemoPlay.Broadcast();
+	}
 }

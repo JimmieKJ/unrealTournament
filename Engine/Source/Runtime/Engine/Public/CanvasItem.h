@@ -15,6 +15,7 @@ class FBatchedElementParameters;
 class FBatchedElements;
 class FMaterialRenderProxy;
 class FTexture;
+class UMaterial;
 
 class FCanvasItem
 {
@@ -26,9 +27,10 @@ public:
 	 */
 	FCanvasItem( const FVector2D& InPosition )
 		: Position( InPosition )
+		, StereoDepth( 0 )
 		, BlendMode( SE_BLEND_Opaque )
 		, bFreezeTime( false )
-		, BatchedElementParameters( NULL )
+		, BatchedElementParameters( nullptr )
 		, Color( FLinearColor::White ) {};
 
 	virtual void Draw( FCanvas* InCanvas ) = 0;
@@ -67,6 +69,9 @@ public:
 	
 	/* The position to draw the item. */
 	FVector2D Position;
+
+	/* Stereo projection depth in game units.  Default value 0 draws at canvas property StereoDepth. */
+	uint32 StereoDepth;
 
 		/* Blend mode. */
 	ESimpleElementBlendMode BlendMode;
@@ -358,7 +363,8 @@ public:
 	void EnableShadow( const FLinearColor& InColor, const FVector2D& InOffset = FVector2D( 1.0f, 1.0f ) )
 	{
 		ShadowOffset = InOffset;
-		ShadowColor = InColor;		
+		ShadowColor = InColor;
+		FontRenderInfo.bEnableShadow = ShadowOffset.Size() != 0.0f;
 	}
 	
 	/** 
@@ -367,6 +373,7 @@ public:
 	void DisableShadow() 
 	{
 		ShadowOffset = FVector2D::ZeroVector;
+		FontRenderInfo.bEnableShadow = false;
 	}
 
 	/** 
@@ -631,7 +638,8 @@ public:
 	FCanvasTriangleItem( const FVector2D& InPointA, const FVector2D& InPointB, const FVector2D& InPointC, const FTexture* InTexture )
 		: FCanvasItem( InPointA )
 		, Texture( InTexture )
-		, BatchedElementParameters( NULL )
+		, MaterialRenderProxy( nullptr )
+		, BatchedElementParameters( nullptr )
 	{
 		FCanvasUVTri SingleTri;
 		SingleTri.V0_Pos = InPointA;
@@ -663,7 +671,8 @@ public:
 	FCanvasTriangleItem( const FVector2D& InPointA, const FVector2D& InPointB, const FVector2D& InPointC, const FVector2D& InTexCoordPointA, const FVector2D& InTexCoordPointB, const FVector2D& InTexCoordPointC, const FTexture* InTexture )
 		:FCanvasItem( InPointA )
 		, Texture( InTexture )
-		, BatchedElementParameters( NULL )
+		, MaterialRenderProxy( nullptr )
+		, BatchedElementParameters( nullptr )
 	{
 		FCanvasUVTri SingleTri;
 		SingleTri.V0_Pos = InPointA;
@@ -689,7 +698,8 @@ public:
 	FCanvasTriangleItem( FCanvasUVTri InSingleTri, const FTexture* InTexture )
 		:FCanvasItem( InSingleTri.V0_Pos )
 		, Texture( InTexture )
-		, BatchedElementParameters( NULL )
+		, MaterialRenderProxy( nullptr )
+		, BatchedElementParameters( nullptr )
 	{
 		TriangleList.Add( InSingleTri );
 	};
@@ -703,7 +713,8 @@ public:
 	FCanvasTriangleItem( const TArray< FCanvasUVTri >&	InTriangleList, const FTexture* InTexture )
 		:FCanvasItem( FVector2D::ZeroVector )
 		, Texture( InTexture )
-		, BatchedElementParameters( NULL )
+		, MaterialRenderProxy( nullptr )
+		, BatchedElementParameters( nullptr )
 	{
 		check( InTriangleList.Num() >= 1 );
 		
@@ -733,6 +744,9 @@ public:
 	/* texture to use for triangle(s). */
 	const FTexture* Texture;
 
+	/* Material proxy for rendering. */
+	const FMaterialRenderProxy* MaterialRenderProxy;
+
 	FBatchedElementParameters* BatchedElementParameters;
 
 	/* List of triangles. */
@@ -754,7 +768,7 @@ public:
 	 */
 	 FCanvasNGonItem( const FVector2D& InPosition, const FVector2D& InRadius, int32 InNumSides, const FTexture* InTexture, const FLinearColor& InColor )
 	  : FCanvasItem( InPosition )
-		, TriListItem( NULL )
+		, TriListItem( nullptr )
 		, Texture( InTexture )
 	 {
 		 Color = InColor;
@@ -824,7 +838,7 @@ private:
 class ENGINE_API FCanvasItemTestbed
 {
 public:
-	FCanvasItemTestbed(){};
+	FCanvasItemTestbed();
 	void  Draw( class FViewport* Viewport, FCanvas* Canvas );
 	struct LineVars
 	{
@@ -847,6 +861,14 @@ public:
 	static LineVars TestLine;
 	static bool	bTestState;
 	static bool	bShowTestbed;
+	static bool bShowLines;
+	static bool bShowBoxes;
+	static bool bShowTris;
+	static bool bShowText;
+	static bool bShowTiles;
+
+	UMaterial* TestMaterial;
+	
 };
 #endif // WITH_EDITOR
 

@@ -18,7 +18,6 @@ class UGameplayTagsK2Node_LiteralGameplayTag : public UK2Node
 	virtual bool CanDuplicateNode() const override { return false; }
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
 	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* Schema) const override;
-	virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	// End UEdGraphNode interface
 
 	// Begin UK2Node interface

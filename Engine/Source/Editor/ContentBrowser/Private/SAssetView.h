@@ -63,6 +63,9 @@ public:
 		/** Called when an asset item is about to show a tooltip */
 		SLATE_EVENT( FOnVisualizeAssetToolTip, OnVisualizeAssetToolTip )
 
+		/** Called when an asset item's tooltip is closing */
+		SLATE_EVENT(FOnAssetToolTipClosing, OnAssetToolTipClosing)
+
 		/** The warning text to display when there are no assets to show */
 		SLATE_ATTRIBUTE( FText, AssetShowWarningText )
 
@@ -79,7 +82,7 @@ public:
 		SLATE_ARGUMENT( bool, AllowThumbnailHintLabel )
 
 		/** The filter collection used to further filter down assets returned from the backend */
-		SLATE_ARGUMENT( TSharedPtr<AssetFilterCollectionType>, FrontendFilters )
+		SLATE_ARGUMENT( TSharedPtr<FAssetFilterCollectionType>, FrontendFilters )
 
 		/** The initial base sources filter */
 		SLATE_ARGUMENT( FSourcesData, InitialSourcesData )
@@ -522,7 +525,7 @@ private:
 	/** Handler for when a column header is clicked */
 	void OnSortColumnHeader(const EColumnSortPriority::Type SortPriority, const FName& ColumnId, const EColumnSortMode::Type NewSortMode);
 
-	/** Returns the state of the is working progress bar */
+	/** @return The state of the is working progress bar */
 	TOptional< float > GetIsWorkingProgressBarState() const;
 
 	/** Creates an asset from a temporary asset
@@ -629,7 +632,7 @@ private:
 	/** The current base source filter for the view */
 	FSourcesData SourcesData;
 	FARFilter BackendFilter;
-	TSharedPtr<AssetFilterCollectionType> FrontendFilters;
+	TSharedPtr<FAssetFilterCollectionType> FrontendFilters;
 
 	/** If true, the source items will be refreshed next frame. Very slow. */
 	bool bSlowFullListRefreshRequested;
@@ -678,12 +681,18 @@ private:
 
 	/** Called when a custom asset item is about to show a tooltip */
 	FOnVisualizeAssetToolTip OnVisualizeAssetToolTip;
-	
+
+	/** Called when a custom asset item's tooltip is closing */
+	FOnAssetToolTipClosing OnAssetToolTipClosing;
+
 	/** When true, filtered list items will be sorted next tick. Provided another sort hasn't happened recently or we are renaming an asset */
 	bool bPendingSortFilteredItems;
 	double CurrentTime;
 	double LastSortTime;
 	double SortDelaySeconds;
+
+	/** Weak ptr to the asset that is waiting to be renamed when scrolled into view, and the window is active */
+	TWeakPtr<struct FAssetViewItem> AwaitingRename;
 
 	/** Set when the user is in the process of naming an asset */
 	TWeakPtr<struct FAssetViewItem> RenamingAsset;
@@ -731,9 +740,6 @@ private:
 	/** When in columns view, this is the name of the asset type which is most commonly found in the recent results */
 	FName MajorityAssetType;
 
-	/** The map of Tag names to display names in column headers. If a tag is not found in this map, it will use the string version of the name, which is fine most of the time */
-	TMap<FName, FString> TagColumnRenames;
-
 	/** The manager responsible for sorting assets in the view */
 	FAssetViewSortManager SortManager;
 
@@ -777,7 +783,7 @@ private:
 	double TotalAmortizeTime;
 
 	/** Whether the asset view is currently working on something and should display a cue to the user */
-	bool IsWorking;
+	bool bIsWorking;
 
 	/** The text to highlight on the assets */
 	TAttribute< FText > HighlightedText;
@@ -870,10 +876,4 @@ private:
 
 	/** Data for the asset quick-jump */
 	FQuickJumpData QuickJumpData;
-
-	/** Cached warning text that is checked against each tick when the warning block is visible. */
-	FText CachedWarningText;
-
-	/** The Warning text widget. */
-	TSharedPtr<SRichTextBlock> WarningTextWidget;
 };

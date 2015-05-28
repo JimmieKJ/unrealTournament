@@ -87,7 +87,7 @@ class UDistributionFloat : public UDistribution
 	virtual float GetFloatValue(float F = 0);
 
 
-	UDistributionFloat(const FObjectInitializer& ObjectInitializer)
+	UDistributionFloat(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
 	:	Super(ObjectInitializer)
 	,   bCanBeBaked(true)
 	,   bIsDirty(true) // make sure the FRawDistribution is initialized

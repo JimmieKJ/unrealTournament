@@ -10,6 +10,5 @@ class UBehaviorTreeGraphNode_Service : public UBehaviorTreeGraphNode
 
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual void AllocateDefaultPins() override;
-	virtual bool IsSubNode() const override;
 };
 

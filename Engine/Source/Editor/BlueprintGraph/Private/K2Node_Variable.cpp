@@ -103,14 +103,14 @@ void UK2Node_Variable::CreatePinForSelf()
 		if( !VariableReference.IsLocalScope() )
 		{
 			bool bSelfTarget = VariableReference.IsSelfContext() && (ESelfContextInfo::NotSelfContext != SelfContextInfo);
-			UClass* MemberParentClass = VariableReference.GetMemberParentClass(this);
+			UClass* MemberParentClass = VariableReference.GetMemberParentClass(GetBlueprintClassFromNode());
 			UClass* TargetClass = MemberParentClass;
 			
 			// Self Target pins should always make the class be the owning class of the property,
 			// so if the node is from a Macro Blueprint, it will hook up as self in any placed Blueprint
 			if(bSelfTarget)
 			{
-				if(UProperty* Property = VariableReference.ResolveMember<UProperty>(this))
+				if(UProperty* Property = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode()))
 				{
 					TargetClass = Property->GetOwnerClass()->GetAuthoritativeClass();
 				}
@@ -202,11 +202,27 @@ UK2Node::ERedirectType UK2Node_Variable::DoPinsMatchForReconstruction( const UEd
 		return Super::DoPinsMatchForReconstruction(NewPin, NewPinIndex, OldPin, OldPinIndex);
 	}
 
-	const bool bCanMatchSelfs = ((OldPin->PinName == K2Schema->PN_Self) == (NewPin->PinName == K2Schema->PN_Self));
+	const bool bPinNamesMatch = (OldPin->PinName == NewPin->PinName);
+	const bool bCanMatchSelfs = bPinNamesMatch || ((OldPin->PinName == K2Schema->PN_Self) == (NewPin->PinName == K2Schema->PN_Self));
 	const bool bTheSameDirection = (NewPin->Direction == OldPin->Direction);
+
 	if (bCanMatchSelfs && bTheSameDirection)
 	{
-		if (K2Schema->ArePinTypesCompatible(NewPin->PinType, OldPin->PinType))
+		// the order that the PinTypes are passed to ArePinTypesCompatible() 
+		// matters; object pin types are seen as compatible when the output-
+		// pin's type is a subclass of the input-pin's type, so we want to keep 
+		// that in mind here (should the pins "MatchForReconstruction" if the 
+		// variable has been changed to a super class of the original? what 
+		// about a subclass?
+		// 
+		// if these are output nodes, then it is perfectly acceptable that the 
+		// variable has been altered to be a sub-class ref (meaning we should 
+		// treat the NewPin as an output)... the opposite applies if the pins 
+		// are inputs
+		const FEdGraphPinType& InputType  = (OldPin->Direction == EGPD_Output) ? OldPin->PinType : NewPin->PinType;
+		const FEdGraphPinType& OutputType = (OldPin->Direction == EGPD_Output) ? NewPin->PinType : OldPin->PinType;
+
+		if (K2Schema->ArePinTypesCompatible(OutputType, InputType))
 		{
 			// If these are split pins, we need to do some name checking logic
 			if (NewPin->ParentPin)
@@ -249,30 +265,65 @@ UK2Node::ERedirectType UK2Node_Variable::DoPinsMatchForReconstruction( const UEd
 
 			return ERedirectType_Name;
 		}
-		else if ((OldPin->PinName == NewPin->PinName) && ((NewPin->PinType.PinCategory == K2Schema->PC_Object) ||
-			(NewPin->PinType.PinCategory == K2Schema->PC_Interface)) && (NewPin->PinType.PinSubCategoryObject == NULL))
-		{
-			// Special Case:  If we had a pin match, and the class isn't loaded yet because of a cyclic dependency, temporarily cast away the const, and fix up.
-			// @TODO:  Fix this up to be less hacky
-			UBlueprintGeneratedClass* TypeClass = Cast<UBlueprintGeneratedClass>(OldPin->PinType.PinSubCategoryObject.Get());
-			if (TypeClass && TypeClass->ClassGeneratedBy && TypeClass->ClassGeneratedBy->HasAnyFlags(RF_BeingRegenerated))
-			{
-				UEdGraphPin* NonConstNewPin = (UEdGraphPin*)NewPin;
-				NonConstNewPin->PinType.PinSubCategoryObject = OldPin->PinType.PinSubCategoryObject.Get();
-				return ERedirectType_Name;
-			}
-		}
 		else
 		{
-			// Special Case:  If we're migrating from old blueprint references to class references, allow pins to be reconnected if coerced
-			const UClass* PSCOClass = Cast<UClass>(OldPin->PinType.PinSubCategoryObject.Get());
-			const bool bOldIsBlueprint = PSCOClass && PSCOClass->IsChildOf(UBlueprint::StaticClass());
-			const bool bNewIsClass = (NewPin->PinType.PinCategory == K2Schema->PC_Class);
-			if (bNewIsClass && bOldIsBlueprint)
+			const bool bNewPinIsObject = (NewPin->PinType.PinCategory == K2Schema->PC_Object);
+
+			// Special Case: If we had a pin match, and the class isn't loaded 
+			//               yet because of a cyclic dependency, temporarily 
+			//               cast away the const, and fix up.
+			if ( bPinNamesMatch &&
+				(bNewPinIsObject || (NewPin->PinType.PinCategory == K2Schema->PC_Interface)) &&
+				(NewPin->PinType.PinSubCategoryObject == NULL) )
 			{
-				UEdGraphPin* OldPinNonConst = (UEdGraphPin*)OldPin;
-				OldPinNonConst->PinName = NewPin->PinName;
-				return ERedirectType_Name;
+				// @TODO:  Fix this up to be less hacky
+				UBlueprintGeneratedClass* TypeClass = Cast<UBlueprintGeneratedClass>(OldPin->PinType.PinSubCategoryObject.Get());
+				if (TypeClass && TypeClass->ClassGeneratedBy && TypeClass->ClassGeneratedBy->HasAnyFlags(RF_BeingRegenerated))
+				{
+					UEdGraphPin* NonConstNewPin = (UEdGraphPin*)NewPin;
+					NonConstNewPin->PinType.PinSubCategoryObject = OldPin->PinType.PinSubCategoryObject.Get();
+					return ERedirectType_Name;
+				}
+			}
+			// Special Case: if we have object pins that are "compatible" in the
+			//               reverse order (meaning one's type is a sub-class of 
+			//               the other's), then they could still be acceptable 
+			//               if all their connections are still valid (for 
+			//               example: if the OldPin was an output only connected 
+			//               to super-class pins)
+			else if (bNewPinIsObject && K2Schema->ArePinTypesCompatible(InputType, OutputType))
+			{
+				bool bLinksCompatible = (OldPin->LinkedTo.Num() > 0) && (OldPin->DefaultObject == nullptr);
+				for (UEdGraphPin* OldLink : OldPin->LinkedTo)
+				{
+					const FEdGraphPinType& LinkInputType  = (OldPin->Direction == EGPD_Input) ? NewPin->PinType : OldLink->PinType;
+					const FEdGraphPinType& LinkOutputType = (OldPin->Direction == EGPD_Input) ? OldLink->PinType : NewPin->PinType;
+				
+					if (!K2Schema->ArePinTypesCompatible(LinkOutputType, LinkInputType))
+					{
+						bLinksCompatible = false;
+						break;
+					}
+				}
+
+				if (bLinksCompatible)
+				{
+					return ERedirectType_Name;
+				}
+			}
+			else
+			{
+				const UClass* PSCOClass = Cast<UClass>(OldPin->PinType.PinSubCategoryObject.Get());
+				const bool bOldIsBlueprint = PSCOClass && PSCOClass->IsChildOf(UBlueprint::StaticClass());
+				const bool bNewIsClass     = (NewPin->PinType.PinCategory == K2Schema->PC_Class);
+				// Special Case: If we're migrating from old blueprint references 
+				//               to class references, allow pins to be reconnected if coerced
+				if (bNewIsClass && bOldIsBlueprint)
+				{
+					UEdGraphPin* OldPinNonConst = (UEdGraphPin*)OldPin;
+					OldPinNonConst->PinName = NewPin->PinName;
+					return ERedirectType_Name;
+				}
 			}
 		}
 	}
@@ -282,7 +333,7 @@ UK2Node::ERedirectType UK2Node_Variable::DoPinsMatchForReconstruction( const UEd
 
 UClass* UK2Node_Variable::GetVariableSourceClass() const
 {
-	UClass* Result = VariableReference.GetMemberParentClass(this);
+	UClass* Result = VariableReference.GetMemberParentClass(GetBlueprintClassFromNode());
 	return Result;
 }
 
@@ -291,22 +342,7 @@ UProperty* UK2Node_Variable::GetPropertyForVariable() const
 	const FName VarName = GetVarName();
 	UEdGraphPin* VariablePin = FindPin(GetVarNameString());
 
-	UProperty* VariableProperty = nullptr;
-
-	// Need to look at parent Blueprint's skeleton classes to see if the variable property can resolve there.
-	UClass* CurrentGeneratedClass = GetBlueprint()->GeneratedClass;
-	while(CurrentGeneratedClass && VariableProperty == nullptr)
-	{
-		if(UBlueprint* CurrentBlueprint = Cast<UBlueprint>(CurrentGeneratedClass->ClassGeneratedBy))
-		{
-			VariableProperty = VariableReference.ResolveMember<UProperty>(CurrentBlueprint->SkeletonGeneratedClass);
-			CurrentGeneratedClass = CurrentBlueprint->ParentClass;
-		}
-		else
-		{
-			break;
-		}
-	}
+	UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
 
 	// if the variable has been deprecated, don't use it
 	if(VariableProperty != NULL)
@@ -377,7 +413,7 @@ FName UK2Node_Variable::GetPaletteIcon(FLinearColor& ColorOut) const
 
 	if(VariableReference.IsLocalScope())
 	{
-		ReturnIconName = GetVariableIconAndColor(VariableReference.GetMemberScope(this), GetVarName(), ColorOut);
+		ReturnIconName = GetVariableIconAndColor(VariableReference.GetMemberScope(GetBlueprintClassFromNode()), GetVarName(), ColorOut);
 	}
 	else
 	{
@@ -413,7 +449,7 @@ FText UK2Node_Variable::GetToolTipHeading() const
 {
 	FText Heading = Super::GetToolTipHeading();
 
-	UProperty const* VariableProperty = VariableReference.ResolveMember<UProperty>(this);
+	UProperty const* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
 	if (VariableProperty && VariableProperty->HasAllPropertyFlags(CPF_Net))
 	{
 		FText ReplicatedTag = LOCTEXT("ReplicatedVar", "Replicated");
@@ -464,7 +500,7 @@ FName UK2Node_Variable::GetVariableIconAndColor(const UStruct* VarScope, FName V
 
 void UK2Node_Variable::CheckForErrors(const UEdGraphSchema_K2* Schema, FCompilerResultsLog& MessageLog)
 {
-	if(!VariableReference.IsSelfContext() && VariableReference.GetMemberParentClass(this) != NULL)
+	if(!VariableReference.IsSelfContext() && VariableReference.GetMemberParentClass(GetBlueprintClassFromNode()) != NULL)
 	{
 		// Check to see if we're not a self context, if we have a valid context.  It may have been purged because of a dead execution chain
 		UEdGraphPin* ContextPin = Schema->FindSelfPin(*this, EGPD_Input);
@@ -591,7 +627,7 @@ bool UK2Node_Variable::RemapRestrictedLinkReference(FName OldVariableName, FName
 
 FName UK2Node_Variable::GetCornerIcon() const
 {
-	const UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(this);
+	const UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
 	if (VariableProperty && VariableProperty->HasAllPropertyFlags(CPF_Net))
 	{
 		return TEXT("Graph.Replication.Replicated");
@@ -647,9 +683,9 @@ void UK2Node_Variable::AutowireNewNode(UEdGraphPin* FromPin)
 		if(FromPin->Direction == EGPD_Output)
 		{
 			// If the source pin has a valid PinSubCategoryObject, we might be doing BP Comms, so check if it is a class
-			if ((FromPin->PinType.PinSubCategoryObject.IsValid() && FromPin->PinType.PinSubCategoryObject->IsA(UClass::StaticClass())) || FromPin->PinType.PinSubCategory == K2Schema->PSC_Self)
+			if(FromPin->PinType.PinSubCategoryObject.IsValid() && FromPin->PinType.PinSubCategoryObject->IsA(UClass::StaticClass()))
 			{
-				UProperty* VariableProperty = GetPropertyForVariable();
+				UProperty* VariableProperty = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode());
 				if(VariableProperty)
 				{
 					UClass* PropertyOwner = VariableProperty->GetOwnerClass();
@@ -658,24 +694,24 @@ void UK2Node_Variable::AutowireNewNode(UEdGraphPin* FromPin)
 						PropertyOwner = PropertyOwner->GetAuthoritativeClass();
 					}
 
-					// If the pin is a self reference, check if the UProperty is valid for the current Blueprint.
-					const bool bIsSelfReferenceValid = (FromPin->PinType.PinSubCategory == K2Schema->PSC_Self)? GetBlueprint()->GeneratedClass->IsChildOf(PropertyOwner) : false;
-
 					// BP Comms is highly likely at this point, if the source pin's type is a child of the variable's owner class, let's conform the "Target" pin
-					if(FromPin->PinType.PinSubCategoryObject == PropertyOwner || dynamic_cast<UClass*>(FromPin->PinType.PinSubCategoryObject.Get())->IsChildOf(PropertyOwner) || bIsSelfReferenceValid)
+					if(FromPin->PinType.PinSubCategoryObject == PropertyOwner || dynamic_cast<UClass*>(FromPin->PinType.PinSubCategoryObject.Get())->IsChildOf(PropertyOwner))
 					{
 						UEdGraphPin* TargetPin = FindPin(K2Schema->PN_Self);
-						TargetPin->PinType.PinSubCategoryObject = PropertyOwner;
-
-						if(K2Schema->TryCreateConnection(FromPin, TargetPin))
+						if (TargetPin)
 						{
-							bConnected = true;
+							TargetPin->PinType.PinSubCategoryObject = PropertyOwner;
 
-							// Setup the VariableReference correctly since it may no longer be a self member
-							VariableReference.SetFromField<UProperty>(GetPropertyForVariable(), false);
-							TargetPin->bHidden = false;
-							FromPin->GetOwningNode()->NodeConnectionListChanged();
-							this->NodeConnectionListChanged();
+							if(K2Schema->TryCreateConnection(FromPin, TargetPin))
+							{
+								bConnected = true;
+
+								// Setup the VariableReference correctly since it may no longer be a self member
+								VariableReference.SetFromField<UProperty>(GetPropertyForVariable(), false);
+								TargetPin->bHidden = false;
+								FromPin->GetOwningNode()->NodeConnectionListChanged();
+								this->NodeConnectionListChanged();
+							}
 						}
 					}
 				}
@@ -692,7 +728,7 @@ void UK2Node_Variable::AutowireNewNode(UEdGraphPin* FromPin)
 FBPVariableDescription const* UK2Node_Variable::GetBlueprintVarDescription() const
 {
 	FName const& VarName = VariableReference.GetMemberName();
-	UStruct const* VariableScope = VariableReference.GetMemberScope(this);
+	UStruct const* VariableScope = VariableReference.GetMemberScope(GetBlueprintClassFromNode());
 
 	bool const bIsLocalVariable = (VariableScope != nullptr);
 	if (bIsLocalVariable)
@@ -719,7 +755,7 @@ bool UK2Node_Variable::CanPasteHere(const UEdGraph* TargetGraph) const
 	if ( FBlueprintEditorUtils::FindBlueprintForGraph(TargetGraph)->BlueprintType == BPTYPE_MacroLibrary && VariableReference.IsSelfContext() )
 	{
 		// Self variables must be from a parent class to the macro BP
-		if(UProperty* Property = VariableReference.ResolveMember<UProperty>(this))
+		if(UProperty* Property = VariableReference.ResolveMember<UProperty>(GetBlueprintClassFromNode()))
 		{
 			const UClass* CurrentClass = GetBlueprint()->SkeletonGeneratedClass->GetAuthoritativeClass();
 			const UClass* PropertyClass = Property->GetOwnerClass()->GetAuthoritativeClass();
@@ -729,6 +765,46 @@ bool UK2Node_Variable::CanPasteHere(const UEdGraph* TargetGraph) const
 		return false;
 	}
 	return true;
+}
+
+void UK2Node_Variable::PostPasteNode()
+{
+	Super::PostPasteNode();
+
+	UBlueprint* Blueprint = GetBlueprint();
+	bool bInvalidateVariable = false;
+
+	if (VariableReference.ResolveMember<UProperty>(Blueprint) == nullptr)
+	{
+		bInvalidateVariable = true;
+	}
+	else if (VariableReference.IsLocalScope())
+	{
+		// Local scoped variables should always validate whether they are being placed in the same graph as their scope
+		// ResolveMember will not return nullptr when the graph changes but the Blueprint remains the same.
+		UEdGraph* ScopeGraph = FBlueprintEditorUtils::FindScopeGraph(Blueprint, VariableReference.GetMemberScope(GetBlueprintClassFromNode()));
+		if(ScopeGraph != GetGraph())
+		{
+			bInvalidateVariable = true;
+		}
+	}
+		
+	if (bInvalidateVariable)
+	{
+		// This invalidates the local scope
+		VariableReference.InvalidateScope();
+
+		// If the current graph is a Function graph, look to see if there is a compatible local variable (same name)
+		if (GetGraph()->GetSchema()->GetGraphType(GetGraph()) == GT_Function)
+		{
+			FBPVariableDescription* VariableDescription = FBlueprintEditorUtils::FindLocalVariable(Blueprint, GetGraph(), VariableReference.GetMemberName());
+			if(VariableDescription)
+			{
+				VariableReference.SetLocalMember(VariableReference.GetMemberName(), GetGraph()->GetName(), VariableReference.GetMemberGuid());
+			}
+		}
+		// If no variable was found, ResolveMember should automatically find a member variable with the same name in the current Blueprint and hook up to it as expected
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -219,7 +219,7 @@ void FSystemTextures::InitializeTextures(FRHICommandListImmediate& RHICmdList, E
 			int32 Reorder[16] = { 0, 11, 7, 3, 10, 4, 15, 12, 6, 8, 1, 14, 13, 2, 9, 5 };
 			int32 w = Reorder[Pos];
 
-			// ordered sampling of the rotation basis
+			// ordered sampling of the rotation basis (*2 is missing as we use mirrored samples)
 			float ww = w / 16.0f * PI;
 
 			// randomize base scale
@@ -227,24 +227,27 @@ void FSystemTextures::InitializeTextures(FRHICommandListImmediate& RHICmdList, E
 			float s = FMath::Sin(ww) * lenm;
 			float c = FMath::Cos(ww) * lenm;
 
+			// .zw is redundant and could be constructed in the shader but it adds 2 more instructions (likely to be unnoticed)
 			Bases[Pos] = FColor(FMath::Quantize8SignedByte(c), FMath::Quantize8SignedByte(s), FMath::Quantize8SignedByte(-s), FMath::Quantize8SignedByte(c));
 		}
 
-		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(64, 64), PF_B8G8R8A8, TexCreate_HideInVisualizeTexture, TexCreate_None, false));
-		GRenderTargetPool.FindFreeElement(Desc, SSAORandomization, TEXT("SSAORandomization"));
-		// Write the contents of the texture.
-		uint32 DestStride;
-		uint8* DestBuffer = (uint8*)RHICmdList.LockTexture2D((FTexture2DRHIRef&)SSAORandomization->GetRenderTargetItem().ShaderResourceTexture, 0, RLM_WriteOnly, DestStride, false);
-
-		for(int32 y = 0; y < Desc.Extent.Y; ++y)
 		{
-			for(int32 x = 0; x < Desc.Extent.X; ++x)
+			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(64, 64), PF_B8G8R8A8, TexCreate_HideInVisualizeTexture, TexCreate_None, false));
+			GRenderTargetPool.FindFreeElement(Desc, SSAORandomization, TEXT("SSAORandomization"));
+			// Write the contents of the texture.
+			uint32 DestStride;
+			uint8* DestBuffer = (uint8*)RHICmdList.LockTexture2D((FTexture2DRHIRef&)SSAORandomization->GetRenderTargetItem().ShaderResourceTexture, 0, RLM_WriteOnly, DestStride, false);
+
+			for(int32 y = 0; y < Desc.Extent.Y; ++y)
 			{
-				FColor* Dest = (FColor*)(DestBuffer + x * sizeof(uint32) + y * DestStride);
+				for(int32 x = 0; x < Desc.Extent.X; ++x)
+				{
+					FColor* Dest = (FColor*)(DestBuffer + x * sizeof(uint32) + y * DestStride);
 
-				uint32 Index = (x % 4) + (y % 4) * 4; 
+					uint32 Index = (x % 4) + (y % 4) * 4; 
 
-				*Dest = Bases[Index];
+					*Dest = Bases[Index];
+				}
 			}
 		}
 		RHICmdList.UnlockTexture2D((FTexture2DRHIRef&)SSAORandomization->GetRenderTargetItem().ShaderResourceTexture, 0, false);
@@ -255,11 +258,12 @@ void FSystemTextures::InitializeTextures(FRHICommandListImmediate& RHICmdList, E
 
 			EPixelFormat Format = PF_R8G8;
 			// for low roughness we would get banding with PF_R8G8 but for low spec it could be used, for now we don't do this optimization
-			if (GPixelFormats[PF_G16R16].Supported)
+			if (GPixelFormats[PF_A16B16G16R16].Supported)
 			{
-				Format = PF_G16R16;
+				// 3rd channel required for diffuse
+				// TODO try 11:11:10
+				Format = PF_A16B16G16R16;
 			}
-			//Format = PF_A16B16G16R16;
 
 			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(128, 32), Format, TexCreate_FastVRAM, TexCreate_None, false));
 
@@ -342,10 +346,10 @@ void FSystemTextures::InitializeTextures(FRHICommandListImmediate& RHICmdList, E
 							float NoH = FMath::Max(H.Z, 0.0f);
 							float VoH = FMath::Max(V | H, 0.0f);
 
-							float FD90 = 0.5f + 2.0f * VoH * VoH * Roughness;
+							float FD90 = ( 0.5f + 2.0f * VoH * VoH ) * Roughness;
 							float FdV = 1.0f + (FD90 - 1.0f) * pow( 1.0f - NoV, 5 );
 							float FdL = 1.0f + (FD90 - 1.0f) * pow( 1.0f - NoL, 5 );
-							C += FdV * FdL;// * ( 1.0f - 0.3333f * Roughness );
+							C += FdV * FdL * ( 1.0f - 0.3333f * Roughness );
 						}
 					}
 					A /= NumSamples;

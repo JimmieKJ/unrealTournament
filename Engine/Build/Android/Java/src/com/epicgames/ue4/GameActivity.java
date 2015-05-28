@@ -66,6 +66,8 @@ import com.epicgames.ue4.GooglePlayLicensing;
 // TODO: use the resources from the UE4 lib project once we've got the packager up and running
 //import com.epicgames.ue4.R;
 
+import com.epicgames.ue4.DownloadShim;
+
 //Extending NativeActivity so that this Java class is instantiated
 //from the beginning of the program.  This will allow the user
 //to instantiate other Java libraries from here, that the user
@@ -79,6 +81,16 @@ import com.epicgames.ue4.GooglePlayLicensing;
 public class GameActivity extends NativeActivity
 {
 	public static Logger Log = new Logger("UE4");
+	
+	public static final int DOWNLOAD_ACTIVITY_ID = 80001; // so we can identify the activity later
+	public static final int DOWNLOAD_NO_RETURN_CODE = 0; // we didn't get a return code - will need to log and debug as this shouldn't happen
+	public static final int DOWNLOAD_FILES_PRESENT = 1;  // we already had the files we needed
+	public static final int DOWNLOAD_COMPLETED_OK = 2; // downloaded ok (practically the same as above)
+	public static final int DOWNLOAD_USER_QUIT = 3;    // user aborted the download
+	public static final int DOWNLOAD_FAILED = 4;
+	public static final int DOWNLOAD_INVALID = 5;
+	public static final int DOWNLOAD_NO_PLAY_KEY = 6;
+	public static final String DOWNLOAD_RETURN_NAME = "Result";
 	
 	static GameActivity _activity;
 
@@ -96,6 +108,7 @@ public class GameActivity extends NativeActivity
 
 	// default the PackageDataInsideApk to an invalid value to make sure we don't get it too early
 	private static int PackageDataInsideApkValue = -1;
+	private static int HasOBBFiles = -1;
 	
 	/** AssetManger reference - populated on start up and used when the OBB is packed into the APK */
 	private AssetManager			AssetManagerReference;
@@ -128,6 +141,20 @@ public class GameActivity extends NativeActivity
 	/** Unique ID to identify Google Play Services error dialog */
 	private static final int PLAY_SERVICES_DIALOG_ID = 1;
 
+	/** Check to see if we have all the files */
+	private boolean HasAllFiles = false;
+	
+	/** Check to see if we should be verifying the files once we have them */
+	public boolean VerifyOBBOnStartUp = false;
+
+	/** Whether this application was packaged for GearVR or not */
+	public boolean PackagedForGearVR = false;
+	
+	/** Flag to ensure we have finished startup before allowing nativeOnActivityResult to get called */
+	private boolean InitCompletedOK = false;
+	
+	private boolean ShouldHideUI = false;
+	
 	/** Access singleton activity for game. **/
 	public static GameActivity Get()
 	{
@@ -266,11 +293,15 @@ public class GameActivity extends NativeActivity
 		// Grab a reference to the asset manager
 		AssetManagerReference = this.getAssets();
 
-		// Get the preferred depth buffer size from AndroidManifest.xml
+		// Read metadata from AndroidManifest.xml
 		int DepthBufferPreference = 0;
+		String ProjectName = getPackageName();
+		ProjectName = ProjectName.substring(ProjectName.lastIndexOf('.') + 1);
 		try {
 			ApplicationInfo ai = getPackageManager().getApplicationInfo(getPackageName(), PackageManager.GET_META_DATA);
 			Bundle bundle = ai.metaData;
+
+			// Get the preferred depth buffer size from AndroidManifest.xml
 			if (bundle.containsKey("com.epicgames.ue4.GameActivity.DepthBufferPreference"))
 			{
 				DepthBufferPreference = bundle.getInt("com.epicgames.ue4.GameActivity.DepthBufferPreference");
@@ -281,6 +312,7 @@ public class GameActivity extends NativeActivity
 				Log.debug( "Did not find DepthBufferPreference, using default.");
 			}
 
+			// Determine if data is embedded in APK from AndroidManifest.xml
 			if (bundle.containsKey("com.epicgames.ue4.GameActivity.bPackageDataInsideApk"))
 			{
 				PackageDataInsideApkValue = bundle.getBoolean("com.epicgames.ue4.GameActivity.bPackageDataInsideApk") ? 1 : 0;
@@ -290,6 +322,61 @@ public class GameActivity extends NativeActivity
 			{
 				PackageDataInsideApkValue = 0;
 				Log.debug( "Did not find bPackageDataInsideApk, using default.");
+			}
+
+			// Get the project name from AndroidManifest.xml
+			if (bundle.containsKey("com.epicgames.ue4.GameActivity.ProjectName"))
+			{
+				ProjectName = bundle.getString("com.epicgames.ue4.GameActivity.ProjectName");
+				Log.debug( "Found ProjectName = " + ProjectName);
+			}
+			else
+			{
+				Log.debug( "Did not find ProjectName, using package name = " + ProjectName);
+			}
+			
+			if (bundle.containsKey("com.epicgames.ue4.GameActivity.bHasOBBFiles"))
+			{
+				HasOBBFiles = bundle.getBoolean("com.epicgames.ue4.GameActivity.bHasOBBFiles") ? 1 : 0;
+				Log.debug( "Found bHasOBBFiles = " + HasOBBFiles);
+			}
+			else
+			{
+				HasOBBFiles = 0;
+				Log.debug( "Did not find bHasOBBFiles, using default.");
+			}
+			
+			if (bundle.containsKey("com.epicgames.ue4.GameActivity.bVerifyOBBOnStartUp"))
+			{
+				VerifyOBBOnStartUp = bundle.getBoolean("com.epicgames.ue4.GameActivity.bVerifyOBBOnStartUp");
+				Log.debug( "Found bVerifyOBBOnStartUp = " + VerifyOBBOnStartUp);
+			}
+			else
+			{
+				VerifyOBBOnStartUp = false;
+				Log.debug( "Did not find bVerifyOBBOnStartUp, using default.");
+			}
+				
+			if(bundle.containsKey("com.epicgames.ue4.GameActivity.bShouldHideUI"))
+			{
+				ShouldHideUI = bundle.getBoolean("com.epicgames.ue4.GameActivity.bShouldHideUI");
+				Log.debug( "UI hiding set to " + ShouldHideUI);
+			}
+			else
+			{
+				Log.debug( "UI hiding not found. Leaving as " + ShouldHideUI);
+			}
+			
+			if(bundle.containsKey("com.samsung.android.vr.application.mode"))
+			{
+				PackagedForGearVR = true;
+				String VRMode = bundle.getString("com.samsung.android.vr.application.mode");
+				Log.debug("Found GearVR mode = " + VRMode);
+			}
+			else
+			{
+				PackagedForGearVR = false;
+				Log.debug("No GearVR mode detected.");
 			}
 		}
 		catch (NameNotFoundException e)
@@ -320,7 +407,7 @@ public class GameActivity extends NativeActivity
 		{
 			int Version = getPackageManager().getPackageInfo(getPackageName(), 0).versionCode;
 			int PatchVersion = 0;
-			nativeSetObbInfo(getApplicationContext().getPackageName(), Version, PatchVersion);
+			nativeSetObbInfo(ProjectName, getApplicationContext().getPackageName(), Version, PatchVersion);
 		}
 		catch (Exception e)
 		{
@@ -440,14 +527,54 @@ public class GameActivity extends NativeActivity
 
 		GooglePlayLicensing.GoogleLicensing = new GooglePlayLicensing();
 		GooglePlayLicensing.GoogleLicensing.Init(this, Log);
-
+	
 		// Now okay for event handler to be set up on native side
-		nativeResumeMainInit();
-		
+		//	nativeResumeMainInit();
+				
 		// Try to establish a connection to Google Play
 		// AndroidThunkJava_GooglePlayConnect();
 
+		// If we have data in the apk or just loose then carry on init as normal
+		/*Log.debug(this.getObbDir().getAbsolutePath());
+		String path = this.getObbDir().getAbsolutePath() + "/main.1.com.epicgames.StrategyGame.obb";
+		File obb = new File(path);
+		Log.debug("=+=+=+=+=+=+=> File exists: " + (obb.exists() ? "True" : "False"));
+		*/
+		if(PackageDataInsideApkValue == 1 || HasOBBFiles == 0)
+		{
+			HasAllFiles = true;
+		}
+		
 		Log.debug("==============> GameActive.onCreate complete!");
+	}
+	
+	@Override
+	public void onResume()
+	{
+		super.onResume();
+		
+		// only do this on KitKat and above
+		if (android.os.Build.VERSION.SDK_INT >= 19 && ShouldHideUI)
+		{ 
+			View decorView = getWindow().getDecorView(); 
+			decorView.setSystemUiVisibility(View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY); 
+		}
+		
+		if(HasAllFiles)
+		{
+			Log.debug("==============> Resuming main init");
+			nativeResumeMainInit();
+			InitCompletedOK = true;
+		}
+		else
+		{
+			// Start the check activity here
+			Log.debug("==============> Starting activity to check files and download if required");			
+			Intent intent = new Intent(this, DownloadShim.GetDownloaderType());
+			startActivityForResult(intent, DOWNLOAD_ACTIVITY_ID);
+		}
+		
+		Log.debug("==============> GameActive.onResume complete!");
 	}
 
 	@Override
@@ -829,6 +956,12 @@ public class GameActivity extends NativeActivity
 		});
 	}
 
+	// check the manifest to determine if we are a GearVR application
+	public boolean AndroidThunkJava_IsGearVRApplication()
+	{
+		return PackagedForGearVR;
+	}
+
 	public static String AndroidThunkJava_GetFontDirectory()
 	{
 		// Parse and find the first known fonts directory on the device
@@ -838,7 +971,6 @@ public class GameActivity extends NativeActivity
 
 		for ( String fontdir : fontdirs )
         {
-//			Log.debug(fontdir);
             File dir = new File( fontdir );
 
 			if(dir.exists())
@@ -901,7 +1033,51 @@ public class GameActivity extends NativeActivity
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data)
 	{
-		if( IapStoreHelper != null )
+		if( requestCode == DOWNLOAD_ACTIVITY_ID)
+		{
+			int errorCode = data.getIntExtra(DOWNLOAD_RETURN_NAME, DOWNLOAD_NO_RETURN_CODE);
+			
+			String logMsg = "DownloadActivity Returned with ";
+			switch(errorCode)
+			{
+			case DOWNLOAD_FILES_PRESENT:
+				logMsg += "Download Files Present";
+				break;
+			case DOWNLOAD_COMPLETED_OK:
+				logMsg += "Download Completed OK";
+				break;
+			case DOWNLOAD_NO_RETURN_CODE:
+				logMsg += "Download No Return Code";
+				break;
+			case DOWNLOAD_USER_QUIT:
+				logMsg += "Download User Quit";
+				break;
+			case DOWNLOAD_FAILED:
+				logMsg += "Download Failed";
+				break;
+			case DOWNLOAD_INVALID:
+				logMsg += "Download Invalid";
+				break;
+			case DOWNLOAD_NO_PLAY_KEY:
+				logMsg +="Download No Play Key";
+				break;
+			default:
+				logMsg += "Unknown message!";
+				break;
+			}
+			
+			Log.debug(logMsg);
+			
+			HasAllFiles = (errorCode == DOWNLOAD_FILES_PRESENT || errorCode == DOWNLOAD_COMPLETED_OK);
+			
+			if(errorCode == DOWNLOAD_NO_RETURN_CODE 
+			|| errorCode == DOWNLOAD_USER_QUIT 
+			|| errorCode == DOWNLOAD_FAILED 
+			|| errorCode == DOWNLOAD_INVALID
+			|| errorCode == DOWNLOAD_NO_PLAY_KEY)
+				finish();
+		}
+		else if( IapStoreHelper != null )
 		{
 			if(!IapStoreHelper.onActivityResult(requestCode, resultCode, data))
 			{
@@ -916,7 +1092,11 @@ public class GameActivity extends NativeActivity
 		{
 			super.onActivityResult(requestCode, resultCode, data);
 		}
-		nativeOnActivityResult(this, requestCode, resultCode, data);
+		
+		if(InitCompletedOK)
+		{
+			nativeOnActivityResult(this, requestCode, resultCode, data);
+		}
 	}
 	
 	public boolean AndroidThunkJava_IapBeginPurchase(String ProductId, boolean bConsumable)
@@ -952,7 +1132,7 @@ public class GameActivity extends NativeActivity
 	public native boolean nativeIsShippingBuild();
 	public native void nativeSetGlobalActivity();
 	public native void nativeSetWindowInfo(boolean bIsPortrait, int DepthBufferPreference);
-	public native void nativeSetObbInfo(String PackageName, int Version, int PatchVersion);
+	public native void nativeSetObbInfo(String ProjectName, String PackageName, int Version, int PatchVersion);
 	public native void nativeSetAndroidVersionInformation( String AndroidVersion, String PhoneMake, String PhoneModel, String OSLanguage );
 
 	public native void nativeConsoleCommand(String commandString);
@@ -963,7 +1143,7 @@ public class GameActivity extends NativeActivity
 	public native void nativeResumeMainInit();
 
 	public native void nativeOnActivityResult(GameActivity activity, int requestCode, int resultCode, Intent data);
-	
+		
 	static
 	{
 		System.loadLibrary("gnustl_shared");

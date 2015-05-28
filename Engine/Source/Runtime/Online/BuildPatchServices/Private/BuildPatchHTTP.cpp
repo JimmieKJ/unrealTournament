@@ -32,7 +32,7 @@ bool FBuildPatchHTTP::Tick( float Delta )
 			{
 				FHttpRequestInfo HttpRequestInfo = HttpRequestQueue.Pop();
 				TSharedRef< IHttpRequest > HttpRequest = FHttpModule::Get().CreateRequest();
-				HttpRequest->OnProcessRequestComplete() = HttpRequestInfo.OnCompleteDelegate;
+				HttpRequest->OnProcessRequestComplete().BindSP(this, &FBuildPatchHTTP::HttpRequestComplete, HttpRequestInfo);
 				HttpRequest->OnRequestProgress() = HttpRequestInfo.OnProgressDelegate;
 				HttpRequest->SetURL( HttpRequestInfo.UrlRequest );
 				HttpRequest->ProcessRequest();
@@ -64,6 +64,13 @@ bool FBuildPatchHTTP::Tick( float Delta )
 	}
 
 	return true;
+}
+
+void FBuildPatchHTTP::HttpRequestComplete(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bSucceeded, FHttpRequestInfo HttpRequestInfo)
+{
+	// Remove this request from our map
+	HttpRequestMap.Remove(HttpRequestInfo.RequestID);
+	HttpRequestInfo.OnCompleteDelegate.ExecuteIfBound(Request, Response, bSucceeded);
 }
 
 int32 FBuildPatchHTTP::QueueHttpRequest( const FString& UrlRequest, const FHttpRequestCompleteDelegate& OnCompleteDelegate, const FHttpRequestProgressDelegate& OnProgressDelegate )
@@ -128,24 +135,29 @@ void FBuildPatchHTTP::QueueAnalyticsEvent( const FString& EventName, const TArra
 
 /* Static initialization
  *****************************************************************************/
-FBuildPatchHTTP* FBuildPatchHTTP::SingletonInstance = NULL;
+TSharedPtr<FBuildPatchHTTP> FBuildPatchHTTP::SingletonInstance = NULL;
 FBuildPatchHTTP& FBuildPatchHTTP::Get()
 {
-	if( SingletonInstance == NULL )
+	if (SingletonInstance.IsValid() == false)
 	{
-		SingletonInstance = new FBuildPatchHTTP();
-		TickDelegateHandle = FTicker::GetCoreTicker().AddTicker( FTickerDelegate::CreateRaw( SingletonInstance, &FBuildPatchHTTP::Tick ) );
+		checkf(IsInGameThread(), TEXT("FBuildPatchHTTP::Get() called for first time from secondary thread."));
+		SingletonInstance = MakeShareable(new FBuildPatchHTTP());
+		TickDelegateHandle = FTicker::GetCoreTicker().AddTicker( FTickerDelegate::CreateSP( SingletonInstance.Get(), &FBuildPatchHTTP::Tick ) );
 	}
-	return *SingletonInstance;
+	return *SingletonInstance.Get();
+}
+void FBuildPatchHTTP::Initialize()
+{
+	FBuildPatchHTTP::Get();
 }
 void FBuildPatchHTTP::OnShutdown()
 {
-	if( SingletonInstance != NULL )
+	checkf(IsInGameThread(), TEXT("FBuildPatchHTTP::OnShutdown() called from secondary thread."));
+	if (SingletonInstance.IsValid())
 	{
 		SingletonInstance->Tick( 0.0f );
 		FTicker::GetCoreTicker().RemoveTicker( TickDelegateHandle );
-		delete SingletonInstance;
-		SingletonInstance = NULL;
+		SingletonInstance.Reset();
 	}
 }
 FDelegateHandle FBuildPatchHTTP::TickDelegateHandle;

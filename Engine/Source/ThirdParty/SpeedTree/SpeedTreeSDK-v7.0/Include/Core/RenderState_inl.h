@@ -49,7 +49,6 @@ ST_INLINE SRenderState::SRenderState( ) :
 	m_bFadeToBillboard(true),
 	m_bVertBillboard(false),
 	m_bHorzBillboard(false),
-	m_eHueVariation(EFFECT_OFF),
 	// render states
 	m_eShaderGenerationMode(SHADER_GEN_MODE_STANDARD),
 	m_bUsedAsGrass(false),
@@ -57,6 +56,7 @@ ST_INLINE SRenderState::SRenderState( ) :
 	m_bBlending(false),
 	// image-based ambient lighting
 	m_eAmbientImageLighting(EFFECT_OFF),
+	m_eHueVariation(EFFECT_OFF),
 	// fog
 	m_eFogCurve(FOG_CURVE_NONE),
 	m_eFogColorStyle(FOG_COLOR_TYPE_CONSTANT),

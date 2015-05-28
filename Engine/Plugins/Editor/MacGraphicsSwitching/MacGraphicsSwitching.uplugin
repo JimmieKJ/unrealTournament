@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.5.0",
 	"Description" : "Provides support for Mac OS X's automatic graphic switching and multiple graphics device configuration.",
-	"Category" : "Editor.Mac.Graphics",
+	"Category" : "Misc",
 	"EnabledByDefault" : true,
 	
 	"Modules" :

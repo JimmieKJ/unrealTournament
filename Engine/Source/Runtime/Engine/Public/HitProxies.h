@@ -42,11 +42,14 @@ private:
  * (Doxygen cannot match this, and a different version is given explicitly when building documentation).
  */
 #if !UE_BUILD_DOCS
-#define DECLARE_HIT_PROXY( ... /* APIDecl */) \
+#define DECLARE_HIT_PROXY_STATIC( ... /* APIDecl */) \
 	public: \
 	/* NOTE: This static method must NOT be inlined as it will not work across DLL boundaries if so */ \
-	static __VA_ARGS__ HHitProxyType* StaticGetType(); \
-	virtual HHitProxyType* GetType() const \
+	static __VA_ARGS__ HHitProxyType* StaticGetType();
+
+#define DECLARE_HIT_PROXY( ... /* APIDecl */) \
+	DECLARE_HIT_PROXY_STATIC( __VA_ARGS__ ) \
+	virtual HHitProxyType* GetType() const override \
 	{ \
 		return StaticGetType(); \
 	}
@@ -110,7 +113,14 @@ private:
  */
 class HHitProxy : public FRefCountedObject
 {
-	DECLARE_HIT_PROXY( ENGINE_API )
+	//DECLARE_HIT_PROXY( ENGINE_API )
+	//We separate the GetType function implementation here because this is the base class/
+	//The base class function should not have the override keyword here.
+	DECLARE_HIT_PROXY_STATIC( ENGINE_API )
+	virtual HHitProxyType* GetType() const
+	{
+		return StaticGetType();
+	}
 public:
 
 	/** The priority a hit proxy has when choosing between several hit proxies near the point the user clicked. */

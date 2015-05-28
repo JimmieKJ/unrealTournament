@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "BehaviorTreeEditorTypes.h"
 #include "BehaviorTreeDecoratorGraphNode_Decorator.generated.h"
 
@@ -12,7 +13,8 @@ class UBehaviorTreeDecoratorGraphNode_Decorator : public UBehaviorTreeDecoratorG
 	UPROPERTY()
 	UObject* NodeInstance;
 
-	struct FClassData ClassData;
+	UPROPERTY()
+	struct FGraphNodeClassData ClassData;
 
 	virtual void PostPlacedNewNode() override;
 	virtual void AllocateDefaultPins() override;
@@ -24,6 +26,7 @@ class UBehaviorTreeDecoratorGraphNode_Decorator : public UBehaviorTreeDecoratorG
 	virtual void PrepareForCopying() override;
 	void PostCopyNode();
 	bool RefreshNodeClass();
+	void UpdateNodeClassData();
 
 private:
 

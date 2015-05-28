@@ -92,7 +92,7 @@ public:
 		OutputDesc += TEXT("Description:\n");
 		{
 			TArray<FString> DescLines;
-			Description.ToString().ParseIntoArray(&DescLines, TEXT("\n"), false);
+			Description.ToString().ParseIntoArray(DescLines, TEXT("\n"), false);
 			for (const FString& DescLine : DescLines)
 			{
 				OutputDesc += TEXT("\t");
@@ -750,6 +750,9 @@ void FPerforceConnection::EstablishConnection(const FPerforceConnectionInfo& InC
 			{
 				UE_LOG(LogSourceControl, Verbose, TEXT(" ... getting clientroot" ));
 				ClientRoot = Records[0](TEXT("clientRoot"));
+
+				//make sure all slashes point the same way
+				ClientRoot = ClientRoot.Replace(TEXT("\\"), TEXT("/"));
 			}
 		}
 	}

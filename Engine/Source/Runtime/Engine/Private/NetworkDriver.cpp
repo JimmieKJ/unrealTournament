@@ -19,6 +19,10 @@
 #include "GameFramework/PlayerState.h"
 #include "GameFramework/GameMode.h"
 
+#if UE_SERVER
+#include "PerfCountersModule.h"
+#endif
+
 // Default net driver stats
 DEFINE_STAT(STAT_Ping);
 DEFINE_STAT(STAT_Channels);
@@ -119,6 +123,7 @@ UNetDriver::UNetDriver(const FObjectInitializer& ObjectInitializer)
 ,	StatPeriod(1.f)
 ,	NetTag(0)
 ,	DebugRelevantActors(false)
+,	ProcessQueuedBunchesCurrentFrameMilliseconds(0.0f)
 {
 }
 
@@ -166,9 +171,13 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 #endif // WITH_SERVER_CODE
 	}
 
+	// Reset queued bunch amortization timer
+	ProcessQueuedBunchesCurrentFrameMilliseconds = 0.0f;
+
 #if STATS
-	// Update network stats
-	if ( Time - StatUpdateTime > StatPeriod && ( ClientConnections.Num() > 0 || ServerConnection != NULL ) )
+	// Update network stats (only main game net driver for now)
+	if (NetDriverName == NAME_GameNetDriver && 
+		Time - StatUpdateTime > StatPeriod && ( ClientConnections.Num() > 0 || ServerConnection != NULL ))
 	{
 		int32 Ping = 0;
 		int32 NumOpenChannels = 0;
@@ -257,6 +266,61 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 			}
 		}
 
+#if UE_SERVER
+		IPerfCounters* PerfCounters = IPerfCountersModule::Get().GetPerformanceCounters();
+		if (PerfCounters)
+		{
+			// Update total connections
+			PerfCounters->Set(TEXT("NumConnections"), ClientConnections.Num());
+
+			if (ClientConnections.Num() > 0)
+			{
+				// Update per connection statistics
+				float MinPing = MAX_FLT;
+				float AvgPing = 0;
+				float MaxPing = -MAX_FLT;
+				float PingCount = 0;
+
+				for (int32 i = 0; i < ClientConnections.Num(); i++)
+				{
+					UNetConnection* Connection = ClientConnections[i];
+
+					if (Connection != nullptr)
+					{
+						if (Connection->PlayerController != nullptr && Connection->PlayerController->PlayerState != nullptr)
+						{
+							// Ping value calculated per client
+							float ConnPing = Connection->PlayerController->PlayerState->ExactPing;
+
+							if (ConnPing < MinPing)
+							{
+								MinPing = ConnPing;
+							}
+
+							if (ConnPing > MaxPing)
+							{
+								MaxPing = ConnPing;
+							}
+
+							AvgPing += ConnPing;
+							PingCount++;
+						}
+					}
+				}
+
+				PerfCounters->Set(TEXT("AvgPing"), AvgPing / PingCount);
+				PerfCounters->Set(TEXT("MaxPing"), MaxPing);
+				PerfCounters->Set(TEXT("MinPing"), MinPing);
+			}
+			else
+			{
+				PerfCounters->Set(TEXT("AvgPing"), 0.0f);
+				PerfCounters->Set(TEXT("MaxPing"), 0);
+				PerfCounters->Set(TEXT("MinPing"), 0);
+			}
+		}
+#endif // UE_SERVER
+
 		// Copy the net status values over
 		SET_DWORD_STAT(STAT_Ping, Ping);
 		SET_DWORD_STAT(STAT_Channels, NumOpenChannels);
@@ -309,7 +373,7 @@ void UNetDriver::TickFlush(float DeltaSeconds)
 		VoiceOutPercent = 0;
 		StatUpdateTime = Time;
 	}
-#endif
+#endif // STATS
 
 	// Poll all sockets.
 	if( ServerConnection )
@@ -599,9 +663,8 @@ void UNetDriver::TickDispatch( float DeltaTime )
 bool UNetDriver::IsLevelInitializedForActor(const AActor* InActor, const UNetConnection* InConnection) const
 {
 	check(InActor);
-    check(InConnection);
-	UWorld* World = InActor->GetWorld();
-	check(World);
+	check(InConnection);
+	check(World == InActor->GetWorld());
 
 	// we can't create channels while the client is in the wrong world
 	const bool bCorrectWorld = (InConnection->ClientWorldPackageName == World->GetOutermost()->GetFName() && InConnection->ClientHasInitializedLevelFor(InActor));
@@ -631,8 +694,8 @@ void UNetDriver::InternalProcessRemoteFunction
 		Function = Function->GetSuperFunction();
 	}
 
-	// If saturated and function is unimportant, skip it.
-	if( !(Function->FunctionFlags & FUNC_NetReliable) && !Connection->IsNetReady(0) )
+	// If saturated and function is unimportant, skip it. Note unreliable multicasts are queued at the actor channel level so they are not gated here.
+	if( !(Function->FunctionFlags & FUNC_NetReliable) && (!(Function->FunctionFlags & FUNC_NetMulticast)) && !Connection->IsNetReady(0) )
 	{
 		DEBUG_REMOTEFUNCTION(TEXT("Network saturated, not calling %s::%s"), *Actor->GetName(), *Function->GetName());
 		return;
@@ -648,15 +711,16 @@ void UNetDriver::InternalProcessRemoteFunction
 	UObject* TargetObj = SubObject ? SubObject : Actor;
 
 	// Make sure this function exists for both parties.
-	FClassNetCache* ClassCache = NetCache->GetClassNetCache( TargetObj->GetClass() );
+	const FClassNetCache* ClassCache = NetCache->GetClassNetCache( TargetObj->GetClass() );
 	if (!ClassCache)
 	{
 		DEBUG_REMOTEFUNCTION(TEXT("ClassNetCache empty, not calling %s::%s"), *Actor->GetName(), *Function->GetName());
 		return;
 	}
 		
-	FFieldNetCache* FieldCache = ClassCache->GetFromField( Function );
-	if (!FieldCache)
+	const FFieldNetCache* FieldCache = ClassCache->GetFromField( Function );
+
+	if ( !FieldCache )
 	{
 		DEBUG_REMOTEFUNCTION(TEXT("FieldCache empty, not calling %s::%s"), *Actor->GetName(), *Function->GetName());
 		return;
@@ -735,10 +799,22 @@ void UNetDriver::InternalProcessRemoteFunction
 	{
 		Ch->BeginContentBlock(TargetObj, Bunch);
 	}
-		
+	
+	const int NumStartingHeaderBits = Bunch.GetNumBits();
+
 	//UE_LOG(LogScript, Log, TEXT("   Call %s"),Function->GetFullName());
-	check( FieldCache->FieldNetIndex <= ClassCache->GetMaxIndex() );
-	Bunch.WriteIntWrapped(FieldCache->FieldNetIndex, ClassCache->GetMaxIndex()+1);
+	if ( Connection->InternalAck )
+	{
+		uint32 Checksum = FieldCache->FieldChecksum;
+		Bunch << Checksum;
+	}
+	else
+	{
+		check( FieldCache->FieldNetIndex <= ClassCache->GetMaxIndex() );
+		Bunch.WriteIntWrapped(FieldCache->FieldNetIndex, ClassCache->GetMaxIndex()+1);
+	}
+
+	const int HeaderBits = Bunch.GetNumBits() - NumStartingHeaderBits;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	Bunch.DebugString = FString::Printf(TEXT("%.2f RPC: %s - %s"), Connection->Driver->Time, *Actor->GetName(), *Function->GetName());
@@ -746,35 +822,7 @@ void UNetDriver::InternalProcessRemoteFunction
 
 	TArray< UProperty * > LocalOutParms;
 
-	// Form the RPC parameters.
-	if( Stack )
-	{
-		// this only happens for native replicated functions called from script
-		// because in that case, the C++ function itself handles evaluating the parameters
-		// so we cannot do that before calling CallRemoteFunction() as we do with all other cases
-		FMemory::Memzero( Parms, Function->ParmsSize );
-
-		for( TFieldIterator<UProperty> It(Function); It && (It->PropertyFlags & (CPF_Parm|CPF_ReturnParm))==CPF_Parm; ++It )
-		{
-			uint8* CurrentPropAddr = It->ContainerPtrToValuePtr<uint8>(Parms);
-			if ( Cast<UBoolProperty>(*It) && It->ArrayDim == 1 )
-			{
-				// we're going to get '1' returned for bools that are set, so we need to manually mask it in to the proper place
-				bool bValue = false;
-				Stack->Step(Stack->Object, &bValue);
-				if (bValue)
-				{
-					((UBoolProperty*)*It)->SetPropertyValue( CurrentPropAddr, true );
-				}
-			}
-			else
-			{
-				Stack->Step(Stack->Object, CurrentPropAddr);
-			}
-		}
-		checkSlow(*Stack->Code==EX_EndFunctionParms);
-	}
-	else
+	if( Stack == nullptr )
 	{
 		// Look for CPF_OutParm's, we'll need to copy these into the local parameter memory manually
 		// The receiving side will pull these back out when needed
@@ -837,6 +885,8 @@ void UNetDriver::InternalProcessRemoteFunction
 	TSharedPtr<FRepLayout> RepLayout = GetFunctionRepLayout( Function );
 	RepLayout->SendPropertiesForRPC( Actor, Function, Ch, Bunch, Parms );
 
+	const int ParameterBits = Bunch.GetNumBits() - HeaderBits;
+
 	// Destroy the memory used for the copied out parameters
 	for ( int32 i = 0; i < LocalOutParms.Num(); i++ )
 	{
@@ -849,6 +899,8 @@ void UNetDriver::InternalProcessRemoteFunction
 	{
 		Ch->EndContentBlock( TargetObj, Bunch );
 	}
+
+	const int FooterBits = Bunch.GetNumBits() - HeaderBits - ParameterBits;
 
 	static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("net.RPC.Debug"));
 	bool LogAsWarning = (CVar && CVar->GetValueOnGameThread() == 1);
@@ -863,33 +915,40 @@ void UNetDriver::InternalProcessRemoteFunction
 	{
 		UE_LOG(LogNetTraffic, Log, TEXT("RPC bunch on closing channel") );
 	}
-	else if (QueueBunch)
-	{
-		// Unreliable multicast functions are queued and sent out during property replication
-		if (LogAsWarning)
-		{
-			UE_LOG(LogNetTraffic, Warning,	TEXT("      Queing unreliable multicast RPC: %s::%s [%.1f bytes]"), *Actor->GetName(), *Function->GetName(), Bunch.GetNumBits() / 8.f );
-		}
-		else
-		{
-			UE_LOG(LogNetTraffic, Log,		TEXT("      Queing unreliable multicast RPC: %s::%s [%.1f bytes]"), *Actor->GetName(), *Function->GetName(), Bunch.GetNumBits() / 8.f );
-		}
-
-		Ch->QueueRemoteFunctionBunch(TargetObj, Function, Bunch);
-	}
 	else
 	{
-		if (LogAsWarning)
+		// Make sure we're tracking all the bits in the bunch
+		check(Bunch.GetNumBits() == HeaderBits + ParameterBits + FooterBits);
+
+		if (QueueBunch)
 		{
-			UE_LOG(LogNetTraffic, Warning,	TEXT("      Sent RPC: %s::%s [%.1f bytes]"), *Actor->GetName(), *Function->GetName(), Bunch.GetNumBits() / 8.f );
+			// Unreliable multicast functions are queued and sent out during property replication
+			if (LogAsWarning)
+			{
+				UE_LOG(LogNetTraffic, Warning,	TEXT("      Queing unreliable multicast RPC: %s::%s [%.1f bytes]"), *Actor->GetName(), *Function->GetName(), Bunch.GetNumBits() / 8.f );
+			}
+			else
+			{
+				UE_LOG(LogNetTraffic, Log,		TEXT("      Queing unreliable multicast RPC: %s::%s [%.1f bytes]"), *Actor->GetName(), *Function->GetName(), Bunch.GetNumBits() / 8.f );
+			}
+
+			NETWORK_PROFILER(GNetworkProfiler.TrackQueuedRPC(Connection, TargetObj, Actor, Function, HeaderBits, ParameterBits, FooterBits));
+			Ch->QueueRemoteFunctionBunch(TargetObj, Function, Bunch);
 		}
 		else
 		{
-			UE_LOG(LogNetTraffic, Log,		TEXT("      Sent RPC: %s::%s [%.1f bytes]"), *Actor->GetName(), *Function->GetName(), Bunch.GetNumBits() / 8.f );
-		}
+			if (LogAsWarning)
+			{
+				UE_LOG(LogNetTraffic, Warning,	TEXT("      Sent RPC: %s::%s [%.1f bytes]"), *Actor->GetName(), *Function->GetName(), Bunch.GetNumBits() / 8.f );
+			}
+			else
+			{
+				UE_LOG(LogNetTraffic, Log,		TEXT("      Sent RPC: %s::%s [%.1f bytes]"), *Actor->GetName(), *Function->GetName(), Bunch.GetNumBits() / 8.f );
+			}
 
-		NETWORK_PROFILER(GNetworkProfiler.TrackSendRPC(Actor,Function,Bunch.GetNumBits()));
-		Ch->SendBunch( &Bunch, 1 );
+			NETWORK_PROFILER(GNetworkProfiler.TrackSendRPC(Actor, Function, HeaderBits, ParameterBits, FooterBits));
+			Ch->SendBunch( &Bunch, 1 );
+		}
 	}
 }
 
@@ -1202,9 +1261,9 @@ bool UNetDriver::HandleNetDumpServerRPCCommand( const TCHAR* Cmd, FOutputDevice&
 
 			if ( Function != NULL && Function->FunctionFlags & FUNC_NetServer )
 			{
-				FClassNetCache * ClassCache = NetCache->GetClassNetCache( *ClassIt );
+				const FClassNetCache * ClassCache = NetCache->GetClassNetCache( *ClassIt );
 
-				FFieldNetCache * FieldCache = ClassCache->GetFromField( Function );
+				const FFieldNetCache * FieldCache = ClassCache->GetFromField( Function );
 
 				TArray< UProperty * > Parms;
 
@@ -1638,17 +1697,22 @@ bool FPacketSimulationSettings::ParseSettings(const TCHAR* Cmd)
 #endif
 
 FNetViewer::FNetViewer(UNetConnection* InConnection, float DeltaSeconds) :
-	InViewer(InConnection->PlayerController),
-	Viewer(InConnection->Viewer),
+	InViewer(InConnection->PlayerController ? InConnection->PlayerController : InConnection->OwningActor),
+	ViewTarget(InConnection->ViewTarget),
 	ViewLocation(ForceInit),
 	ViewDir(ForceInit)
 {
+	check(InConnection->OwningActor);
+	check(!InConnection->PlayerController || (InConnection->PlayerController == InConnection->OwningActor));
+
+	APlayerController* ViewingController = InConnection->PlayerController;
+
 	// Get viewer coordinates.
-	ViewLocation = Viewer->GetActorLocation();
-	if (InViewer)
+	ViewLocation = ViewTarget->GetActorLocation();
+	if (ViewingController)
 	{
-		FRotator ViewRotation = InViewer->GetControlRotation();
-		InViewer->GetPlayerViewPoint(ViewLocation, ViewRotation);
+		FRotator ViewRotation = ViewingController->GetControlRotation();
+		ViewingController->GetPlayerViewPoint(ViewLocation, ViewRotation);
 		ViewDir = ViewRotation.Vector();
 	}
 
@@ -1657,8 +1721,8 @@ FNetViewer::FNetViewer(UNetConnection* InConnection, float DeltaSeconds) :
 	if (InConnection->TickCount & 1)
 	{
 		float PredictSeconds = (InConnection->TickCount & 2) ? 0.4f : 0.9f;
-		Ahead = PredictSeconds * Viewer->GetVelocity();
-		APawn* ViewerPawn = Cast<APawn>(Viewer);
+		Ahead = PredictSeconds * ViewTarget->GetVelocity();
+		APawn* ViewerPawn = Cast<APawn>(ViewTarget);
 		if( ViewerPawn && ViewerPawn->GetMovementBase() && ViewerPawn->GetMovementBase()->GetOwner() )
 		{
 			Ahead += PredictSeconds * ViewerPawn->GetMovementBase()->GetOwner()->GetVelocity();
@@ -1679,7 +1743,7 @@ FNetViewer::FNetViewer(UNetConnection* InConnection, float DeltaSeconds) :
 				World = ViewerPawn->GetWorld();
 			}
 			check( World );
-			World->LineTraceSingle(Hit, ViewLocation, Hit.Location, FCollisionQueryParams(NAME_ServerForwardView, true, Viewer), FCollisionObjectQueryParams(ECC_WorldStatic));
+			World->LineTraceSingleByObjectType(Hit, ViewLocation, Hit.Location, FCollisionObjectQueryParams(ECC_WorldStatic), FCollisionQueryParams(NAME_ServerForwardView, true, ViewTarget));
 			ViewLocation = Hit.Location;
 		}
 	}
@@ -1693,7 +1757,7 @@ FActorPriority::FActorPriority(UNetConnection* InConnection, UActorChannel* InCh
 	Priority = 0;
 	for (int32 i = 0; i < Viewers.Num(); i++)
 	{
-		Priority = FMath::Max<int32>(Priority, FMath::RoundToInt(65536.0f * Actor->GetNetPriority(Viewers[i].ViewLocation, Viewers[i].ViewDir, Viewers[i].InViewer, InChannel, Time, bLowBandwidth)));
+		Priority = FMath::Max<int32>(Priority, FMath::RoundToInt(65536.0f * Actor->GetNetPriority(Viewers[i].ViewLocation, Viewers[i].ViewDir, Viewers[i].InViewer, Viewers[i].ViewTarget, InChannel, Time, bLowBandwidth)));
 	}
 }
 
@@ -1767,8 +1831,9 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 	bool bNetRelevantActorCount = false;
 	int32 NetRelevantActorCount = 0;
 
+	check( World );
+
 	FMemMark Mark(FMemStack::Get());
-	UWorld* World = NULL;
 	// initialize connections
 	bool bFoundReadyConnection = false; // whether we have at least one connection ready for property replication
 	for( int32 ConnIdx = 0; ConnIdx < ClientConnections.Num(); ConnIdx++ )
@@ -1784,16 +1849,7 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 		AActor* OwningActor = Connection->OwningActor;
 		if (OwningActor != NULL && Connection->State == USOCK_Open && (Connection->Driver->Time - Connection->LastReceiveTime < 1.5f))
 		{
-			if( !World )
-			{
-				World = OwningActor->GetWorld();
-			}
-			else
-			{
-				check( World == OwningActor->GetWorld() );
-			}
-
-			check( World );
+			check( World == OwningActor->GetWorld() );
 			if( !bNetRelevantActorCount )
 			{
 				NetRelevantActorCount = World->GetNetRelevantActorCount() + 2;
@@ -1801,7 +1857,8 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 			}
 			bFoundReadyConnection = true;
 			
-			Connection->Viewer = Connection->PlayerController ? Connection->PlayerController->GetViewTarget() : OwningActor->GetOwner();
+			// the view target is what the player controller is looking at OR the owning actor itself when using beacons
+			Connection->ViewTarget = Connection->PlayerController ? Connection->PlayerController->GetViewTarget() : OwningActor;
 			//@todo - eliminate this mallocs if the connection isn't going to actually be updated this frame (currently needed to verify owner relevancy below)
 			Connection->OwnedConsiderList.Empty(NetRelevantActorCount);
 
@@ -1811,21 +1868,21 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 				APlayerController* ChildPlayerController = Child->PlayerController;
 				if (ChildPlayerController != NULL)
 				{
-					Child->Viewer = ChildPlayerController->GetViewTarget();
+					Child->ViewTarget = ChildPlayerController->GetViewTarget();
 					Child->OwnedConsiderList.Empty(NetRelevantActorCount);
 				}
 				else
 				{
-					Child->Viewer = NULL;
+					Child->ViewTarget = NULL;
 				}
 			}
 		}
 		else
 		{
-			Connection->Viewer = NULL;
+			Connection->ViewTarget = NULL;
 			for (int32 ChildIdx = 0; ChildIdx < Connection->Children.Num(); ChildIdx++)
 			{
-				Connection->Children[ChildIdx]->Viewer = NULL;
+				Connection->Children[ChildIdx]->ViewTarget = NULL;
 			}
 		}
 	}
@@ -1954,11 +2011,7 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 				}
 				else
 				{
-					AActor* ActorOwner = Actor->GetOwner();
-					if ( !ActorOwner && (Cast<APlayerController>(Actor) || Cast<APawn>(Actor) ) ) 
-					{
-						ActorOwner = Actor;
-					}
+					const AActor* ActorOwner = Actor->GetNetOwner();
 					if ( ActorOwner )
 					{
 						// iterate through each connection (and child connections) looking for an owner for this actor
@@ -1970,11 +2023,11 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 							bool bCloseChannel = true;
 							while (Connection != NULL)
 							{
-								if (Connection->Viewer != NULL)
+								if (Connection->ViewTarget != NULL)
 								{
 									if (ActorOwner == Connection->PlayerController || 
 										(Connection->PlayerController && ActorOwner == Connection->PlayerController->GetPawn()) ||
-										Connection->Viewer->IsRelevancyOwnerFor(Actor, ActorOwner, Connection->OwningActor))
+										Connection->ViewTarget->IsRelevancyOwnerFor(Actor, ActorOwner, Connection->OwningActor))
 									{
 										// For performance reasons, make sure we don't resize the array. It should already be appropriately sized above!
 										ensure(Connection->OwnedConsiderList.Num() < Connection->OwnedConsiderList.Max());
@@ -2066,7 +2119,7 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 				}
 			}
 		}
-		else if (Connection->Viewer)
+		else if (Connection->ViewTarget)
 		{
 			int32 j;
 			int32 ConsiderCount	= 0;
@@ -2117,7 +2170,7 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 				new(ConnectionViewers) FNetViewer(Connection, DeltaSeconds);
 				for (j = 0; j < Connection->Children.Num(); j++)
 				{
-					if (Connection->Children[j]->Viewer != NULL)
+					if (Connection->Children[j]->ViewTarget != NULL)
 					{
 						new(ConnectionViewers) FNetViewer(Connection->Children[j], DeltaSeconds);
 					}
@@ -2132,13 +2185,12 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 
 				// determine whether we should priority sort the list of relevant actors based on the saturation/bandwidth of the current connection
 				//@note - if the server is currently CPU saturated then do not sort until framerate improves
-				check(World == Connection->Viewer->GetWorld());
+				check(World == Connection->ViewTarget->GetWorld());
 				AGameMode const* const GameMode = World->GetAuthGameMode();
 				bool bLowNetBandwidth = !bCPUSaturated && (Connection->CurrentNetSpeed / float(GameMode->NumPlayers + GameMode->NumBots) < 500.f );
 
-				for( j=0; j<ConsiderList.Num(); j++ )
+				for( AActor* Actor : ConsiderList )
 				{
-					AActor* Actor = ConsiderList[j];
 					UActorChannel* Channel = Connection->ActorChannels.FindRef(Actor);
 
 					// Skip Actor if dormant
@@ -2168,10 +2220,10 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 							bool ShouldGoDormant = true;
 							if (Actor->NetDormancy == DORM_DormantPartial)
 							{
-								float Time  = Channel ? (Connection->Driver->Time - Channel->LastUpdateTime) : Connection->Driver->SpawnPrioritySeconds;
+								float LastReplicationTime  = Channel ? (Connection->Driver->Time - Channel->LastUpdateTime) : Connection->Driver->SpawnPrioritySeconds;
 								for (int32 viewerIdx = 0; viewerIdx < ConnectionViewers.Num(); viewerIdx++)
 								{
-									if (!Actor->GetNetDormancy(ConnectionViewers[viewerIdx].ViewLocation, ConnectionViewers[viewerIdx].ViewDir, ConnectionViewers[viewerIdx].InViewer, Channel, Time, bLowNetBandwidth))
+									if (!Actor->GetNetDormancy(ConnectionViewers[viewerIdx].ViewLocation, ConnectionViewers[viewerIdx].ViewDir, ConnectionViewers[viewerIdx].InViewer, ConnectionViewers[viewerIdx].ViewTarget, Channel, Time, bLowNetBandwidth))
 									{
 										ShouldGoDormant = false;
 										break;
@@ -2202,7 +2254,7 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 						bool Relevant = false;
 						for (int32 viewerIdx = 0; viewerIdx < ConnectionViewers.Num(); viewerIdx++)
 						{
-							if(Actor->IsNetRelevantFor(ConnectionViewers[viewerIdx].InViewer, ConnectionViewers[viewerIdx].Viewer, ConnectionViewers[viewerIdx].ViewLocation))
+							if(Actor->IsNetRelevantFor(ConnectionViewers[viewerIdx].InViewer, ConnectionViewers[viewerIdx].ViewTarget, ConnectionViewers[viewerIdx].ViewLocation))
 							{
 								Relevant = true;
 								break;
@@ -2243,9 +2295,8 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 				int32 ChildIndex = 0;
 				while (NextConnection != NULL)
 				{
-					for (int32 j = 0; j < NextConnection->OwnedConsiderList.Num(); j++)
+					for (AActor* Actor : NextConnection->OwnedConsiderList)
 					{
-						AActor* Actor = NextConnection->OwnedConsiderList[j];
 						UE_LOG(LogNetTraffic, Log, TEXT("Consider owned %s always relevant %d frequency %f  "),*Actor->GetName(), Actor->bAlwaysRelevant,Actor->NetUpdateFrequency);
 						if (Actor->NetTag != NetTag)
 						{
@@ -2341,7 +2392,7 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 							{
 								for (int32 k = 0; k < ConnectionViewers.Num(); k++)
 								{
-									if (Actor->IsNetRelevantFor(ConnectionViewers[k].InViewer, ConnectionViewers[k].Viewer, ConnectionViewers[k].ViewLocation))
+									if (Actor->IsNetRelevantFor(ConnectionViewers[k].InViewer, ConnectionViewers[k].ViewTarget, ConnectionViewers[k].ViewLocation))
 									{
 										bIsRelevant = true;
 										break;
@@ -2365,7 +2416,9 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 						}
 						
 						// if the actor is now relevant or was recently relevant
-						if( bIsRelevant || (Channel && Time - Channel->RelevantTime < RelevantTimeout) )
+						const bool bIsRecentlyRelevant = bIsRelevant || (Channel && Time - Channel->RelevantTime < RelevantTimeout);
+
+						if( bIsRecentlyRelevant )
 						{	
 							FinalRelevantCount++;
 
@@ -2435,8 +2488,10 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 								}
 							}
 						}
-						// otherwise close the actor channel if it exists for this connection
-						else if ( Channel != NULL )
+						
+						// If the actor wasn't recently relevant, or if it was torn off,
+						// close the actor channel if it exists for this connection
+						if ((!bIsRecentlyRelevant || Actor->bTearOff) && Channel != NULL)
 						{
 							// Non startup (map) actors have their channels closed immediately, which destroys them.
 							// Startup actors get to keep their channels open.
@@ -2476,7 +2531,7 @@ int32 UNetDriver::ServerReplicateActors(float DeltaSeconds)
 				{
 					for (int32 h = 0; h < ConnectionViewers.Num(); h++)
 					{
-						if (Actor->IsNetRelevantFor(ConnectionViewers[h].InViewer, ConnectionViewers[h].Viewer, ConnectionViewers[h].ViewLocation))
+						if (Actor->IsNetRelevantFor(ConnectionViewers[h].InViewer, ConnectionViewers[h].ViewTarget, ConnectionViewers[h].ViewLocation))
 						{
 							UE_LOG(LogNetTraffic, Log, TEXT(" Saturated. Mark %s NetUpdateTime to be checked for next tick"), *Actor->GetName());
 							Actor->bPendingNetUpdate = true;

@@ -6,6 +6,8 @@
 #include "Editor/UnrealEd/Public/Kismet2/StructureEditorUtils.h"
 #include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
 #include "Editor/UnrealEd/Public/EditorModes.h"
+#include "Engine/UserDefinedStruct.h"
+#include "UserDefinedStructure/UserDefinedStructEditorData.h"
 
 #define LOCTEXT_NAMESPACE "StructureCompiler"
 
@@ -26,12 +28,15 @@ struct FUserDefinedStructureCompilerInner
 				TGuardValue<bool> IsDuplicatingClassForReinstancing(GIsDuplicatingClassForReinstancing, true);
 				DuplicatedStruct = (UUserDefinedStruct*)StaticDuplicateObject(StructureToReinstance, GetTransientPackage(), *UniqueName.ToString(), ~RF_Transactional); 
 			}
+
+			DuplicatedStruct->Guid = StructureToReinstance->Guid;
 			DuplicatedStruct->Bind();
 			DuplicatedStruct->StaticLink(true);
 			DuplicatedStruct->PrimaryStruct = StructureToReinstance;
 			DuplicatedStruct->Status = EUserDefinedStructureStatus::UDSS_Duplicate;
 			DuplicatedStruct->SetFlags(RF_Transient);
 			DuplicatedStruct->AddToRoot();
+			CastChecked<UUserDefinedStructEditorData>(DuplicatedStruct->EditorData)->RecreateDefaultInstance();
 
 			for (auto StructProperty : TObjectRange<UStructProperty>(RF_ClassDefaultObject | RF_PendingKill))
 			{
@@ -73,9 +78,14 @@ struct FUserDefinedStructureCompilerInner
 	{
 		check(StructToClean);
 
+		if (auto EditorData = Cast<UUserDefinedStructEditorData>(StructToClean->EditorData))
+		{
+			EditorData->CleanDefaultInstance();
+		}
+
 		const FString TransientString = FString::Printf(TEXT("TRASHSTRUCT_%s"), *StructToClean->GetName());
 		const FName TransientName = MakeUniqueObjectName(GetTransientPackage(), UUserDefinedStruct::StaticClass(), FName(*TransientString));
-		UUserDefinedStruct* TransientStruct = NewNamedObject<UUserDefinedStruct>(GetTransientPackage(), TransientName, RF_Public|RF_Transient);
+		UUserDefinedStruct* TransientStruct = NewObject<UUserDefinedStruct>(GetTransientPackage(), TransientName, RF_Public | RF_Transient);
 
 		TArray<UObject*> SubObjects;
 		GetObjectsWithOuter(StructToClean, SubObjects, true);
@@ -90,7 +100,7 @@ struct FUserDefinedStructureCompilerInner
 			}
 			else
 			{
-				ULinkerLoad::InvalidateExport(CurrSubObj);
+				FLinkerLoad::InvalidateExport(CurrSubObj);
 			}
 		}
 
@@ -188,6 +198,13 @@ struct FUserDefinedStructureCompilerInner
 		if (Struct->GetStructureSize() <= 0)
 		{
 			LogError(Struct, MessageLog, FString::Printf(*LOCTEXT("StructurEmpty_Error", "Structure '%s' is empty ").ToString(), *Struct->GetFullName()));
+		}
+
+		FString DefaultInstanceError;
+		EditorData->RecreateDefaultInstance(&DefaultInstanceError);
+		if (!DefaultInstanceError.IsEmpty())
+		{
+			LogError(Struct, MessageLog, DefaultInstanceError);
 		}
 
 		const bool bNoErrorsDuringCompilation = (ErrorNum == MessageLog.NumErrors);

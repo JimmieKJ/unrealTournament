@@ -14,6 +14,7 @@
 #include "SourceCodeNavigation.h"
 #include "ClassIconFinder.h"
 #include "AssetEditorManager.h"
+#include "Components/DecalComponent.h"
 
 #define LOCTEXT_NAMESPACE "ComponentEditorUtils"
 
@@ -62,7 +63,7 @@ struct FComponentObjectTextFactory : public FCustomizableTextObjectFactory
 			EObjectFlags ObjectFlags = RF_Transactional;
 			if (bPasteAsArchetypes)
 			{
-				ObjectFlags |= RF_ArchetypeObject;
+				ObjectFlags |= RF_ArchetypeObject | RF_Public;
 			}
 
 			// Use the transient package initially for creating the objects, since the variable name is used when copying
@@ -110,6 +111,55 @@ protected:
 
 	// FCustomizableTextObjectFactory (end)
 };
+
+bool FComponentEditorUtils::CanEditNativeComponent(const UActorComponent* NativeComponent)
+{
+	// A native component can be edited if it is bound to a member variable and that variable is marked as visible in the editor
+	// Note: We aren't concerned with whether the component is marked editable - the component itself is responsible for determining which of its properties are editable
+
+	bool bCanEdit = false;
+	
+	UClass* OwnerClass = (NativeComponent && NativeComponent->GetOwner()) ? NativeComponent->GetOwner()->GetClass() : nullptr;
+	if (OwnerClass != nullptr)
+	{
+		// If the owner is a blueprint generated class, use the BP parent class
+		UBlueprint* Blueprint = UBlueprint::GetBlueprintFromClass(OwnerClass);
+		if (Blueprint != nullptr && Blueprint->ParentClass != nullptr)
+		{
+			OwnerClass = Blueprint->ParentClass;
+		}
+
+		for (TFieldIterator<UProperty> It(OwnerClass); It; ++It)
+		{
+			UProperty* Property = *It;
+			if (UObjectProperty* ObjectProp = Cast<UObjectProperty>(Property))
+			{
+				// Must be visible - note CPF_Edit is set for all properties that should be visible, not just those that are editable
+				if (( Property->PropertyFlags & ( CPF_Edit ) ) == 0)
+				{
+					continue;
+				}
+
+				UObject* ParentCDO = OwnerClass->GetDefaultObject();
+
+				if (!NativeComponent->GetClass()->IsChildOf(ObjectProp->PropertyClass))
+				{
+					continue;
+				}
+
+				UObject* Object = ObjectProp->GetObjectPropertyValue(ObjectProp->ContainerPtrToValuePtr<void>(ParentCDO));
+				bCanEdit = Object != nullptr && Object->GetFName() == NativeComponent->GetFName();
+
+				if (bCanEdit)
+				{
+					break;
+				}
+			}
+		}
+	}
+
+	return bCanEdit;
+}
 
 bool FComponentEditorUtils::IsValidVariableNameString(const UActorComponent* InComponent, const FString& InString)
 {
@@ -208,8 +258,8 @@ USceneComponent* FComponentEditorUtils::FindClosestParentInList(UActorComponent*
 	USceneComponent* ClosestParentComponent = nullptr;
 	for (auto Component : ComponentList)
 	{
-		auto ChildAsScene = CastChecked<USceneComponent>(ChildComponent);
-		auto SceneComponent = CastChecked<USceneComponent>(Component);
+		auto ChildAsScene = Cast<USceneComponent>(ChildComponent);
+		auto SceneComponent = Cast<USceneComponent>(Component);
 		if (ChildAsScene && SceneComponent)
 		{
 			// Check to see if any parent is also in the list
@@ -266,12 +316,18 @@ void FComponentEditorUtils::CopyComponents(const TArray<UActorComponent*>& Compo
 	// Duplicate the selected component templates into temporary objects that we can modify
 	TMap<FName, FName> ParentMap;
 	TMap<FName, UActorComponent*> ObjectMap;
-	for (auto Component : ComponentsToCopy)
+	for (UActorComponent* Component : ComponentsToCopy)
 	{
 		// Duplicate the component into a temporary object
 		UObject* DuplicatedComponent = StaticDuplicateObject(Component, GetTransientPackage(), *Component->GetName(), RF_AllFlags & ~RF_ArchetypeObject);
 		if (DuplicatedComponent)
 		{
+			// If the duplicated component is a scene component, wipe its attach parent (to prevent log warnings for referencing a private object in an external package)
+			if (auto DuplicatedCompAsSceneComp = Cast<USceneComponent>(DuplicatedComponent))
+			{
+				DuplicatedCompAsSceneComp->AttachParent = nullptr;
+			}
+
 			// Find the closest parent component of the current component within the list of components to copy
 			USceneComponent* ClosestSelectedParent = FindClosestParentInList(Component, ComponentsToCopy);
 			if (ClosestSelectedParent)
@@ -318,13 +374,13 @@ void FComponentEditorUtils::CopyComponents(const TArray<UActorComponent*>& Compo
 	FPlatformMisc::ClipboardCopy(*ExportedText);
 }
 
-bool FComponentEditorUtils::CanPasteComponents(USceneComponent* RootComponent, bool bOverrideCanAttach)
+bool FComponentEditorUtils::CanPasteComponents(USceneComponent* RootComponent, bool bOverrideCanAttach, bool bPasteAsArchetypes)
 {
 	FString ClipboardContent;
 	FPlatformMisc::ClipboardPaste(ClipboardContent);
 
 	// Obtain the component object text factory for the clipboard content and return whether or not we can use it
-	TSharedRef<FComponentObjectTextFactory> Factory = FComponentObjectTextFactory::Get(ClipboardContent);
+	TSharedRef<FComponentObjectTextFactory> Factory = FComponentObjectTextFactory::Get(ClipboardContent, bPasteAsArchetypes);
 	return Factory->NewObjectMap.Num() > 0 && ( bOverrideCanAttach || Factory->CanAttachComponentsTo(RootComponent) );
 }
 
@@ -388,6 +444,9 @@ void FComponentEditorUtils::PasteComponents(TArray<UActorComponent*>& OutPastedC
 
 		OutPastedComponents.Add(NewActorComponent);
 	}
+
+	// Rerun construction scripts
+	TargetActor->RerunConstructionScripts();
 }
 
 void FComponentEditorUtils::GetComponentsFromClipboard(TMap<FName, FName>& OutParentMap, TMap<FName, UActorComponent*>& OutNewObjectMap, bool bGetComponentsAsArchetypes)
@@ -425,6 +484,8 @@ int32 FComponentEditorUtils::DeleteComponents(const TArray<UActorComponent*>& Co
 {
 	int32 NumDeletedComponents = 0;
 
+	TArray<AActor*> ActorsToReconstruct;
+
 	for (auto ComponentToDelete : ComponentsToDelete)
 	{
 		if (ComponentToDelete->CreationMethod != EComponentCreationMethod::Instance)
@@ -434,10 +495,13 @@ int32 FComponentEditorUtils::DeleteComponents(const TArray<UActorComponent*>& Co
 			continue;
 		}
 
+		AActor* Owner = ComponentToDelete->GetOwner();
+		check(Owner != nullptr);
+
 		// If necessary, determine the component that should be selected following the deletion of the indicated component
 		if (!OutComponentToSelect || ComponentToDelete == OutComponentToSelect)
 		{
-			USceneComponent* RootComponent = ComponentToDelete->GetOwner()->GetRootComponent();
+			USceneComponent* RootComponent = Owner->GetRootComponent();
 			if (RootComponent != ComponentToDelete)
 			{
 				// Worst-case, the root can be selected
@@ -466,7 +530,7 @@ int32 FComponentEditorUtils::DeleteComponents(const TArray<UActorComponent*>& Co
 				{
 					// For a non-scene component, try to select the preceding non-scene component
 					TInlineComponentArray<UActorComponent*> ActorComponents;
-					ComponentToDelete->GetOwner()->GetComponents(ActorComponents);
+					Owner->GetComponents(ActorComponents);
 					for (int32 i = 0; i < ActorComponents.Num() && ComponentToDelete != ActorComponents[i]; ++i)
 					{
 						if (!ActorComponents[i]->IsA(USceneComponent::StaticClass()))
@@ -482,10 +546,19 @@ int32 FComponentEditorUtils::DeleteComponents(const TArray<UActorComponent*>& Co
 			}
 		}
 
+		// Defer reconstruction
+		ActorsToReconstruct.AddUnique(Owner);
+
 		// Actually delete the component
 		ComponentToDelete->Modify();
 		ComponentToDelete->DestroyComponent(true);
 		NumDeletedComponents++;
+	}
+
+	// Reconstruct owner instance(s) after deletion
+	for(auto ActorToReconstruct : ActorsToReconstruct)
+	{
+		ActorToReconstruct->RerunConstructionScripts();
 	}
 
 	return NumDeletedComponents;
@@ -541,6 +614,9 @@ UActorComponent* FComponentEditorUtils::DuplicateComponent(UActorComponent* Temp
 		
 		// Register the new component
 		NewCloneComponent->RegisterComponent();
+
+		// Rerun construction scripts
+		Actor->RerunConstructionScripts();
 	}
 
 	return NewCloneComponent;
@@ -690,6 +766,28 @@ FName FComponentEditorUtils::FindVariableNameGivenComponentInstance(UActorCompon
 					if (ObjectPointedToByProperty == Archetype)
 					{
 						// This property points to the component archetype, so it's an anchor even if it was named wrong
+						return TestProperty->GetFName();
+					}
+				}
+			}
+
+			for (TFieldIterator<UArrayProperty> PropIt(OwnerClass, EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
+			{
+				UArrayProperty* TestProperty = *PropIt;
+				void* ArrayPropInstAddress = TestProperty->ContainerPtrToValuePtr<void>(OwnerCDO);
+
+				UObjectProperty* ArrayEntryProp = Cast<UObjectProperty>(TestProperty->Inner);
+				if ((ArrayEntryProp == nullptr) || !ArrayEntryProp->PropertyClass->IsChildOf<UActorComponent>())
+				{
+					continue;
+				}
+
+				FScriptArrayHelper ArrayHelper(TestProperty, ArrayPropInstAddress);
+				for (int32 ComponentIndex = 0; ComponentIndex < ArrayHelper.Num(); ++ComponentIndex)
+				{
+					UObject* ArrayElement = ArrayEntryProp->GetObjectPropertyValue(ArrayHelper.GetRawPtr(ComponentIndex));
+					if (ArrayElement == Archetype)
+					{
 						return TestProperty->GetFName();
 					}
 				}

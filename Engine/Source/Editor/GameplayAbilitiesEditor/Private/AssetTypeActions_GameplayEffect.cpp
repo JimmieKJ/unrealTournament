@@ -13,8 +13,8 @@ DEFINE_LOG_CATEGORY(LogAssetTypeActions_GameplayEffect);
 
 void CopyInfoFromDataGE(const UGameplayEffect& InGE, UGameplayEffect& OutGE)
 {
+	OutGE.DurationPolicy = InGE.DurationPolicy;
 	OutGE.DurationMagnitude = InGE.DurationMagnitude;
-	OutGE.Duration = InGE.Duration;
 	OutGE.Period = InGE.Period;
 
 	for (FGameplayModifierInfo InModifier : InGE.Modifiers)
@@ -24,7 +24,6 @@ void CopyInfoFromDataGE(const UGameplayEffect& InGE, UGameplayEffect& OutGE)
 	}
 
 	OutGE.ChanceToApplyToTarget = InGE.ChanceToApplyToTarget;
-	OutGE.ChanceToExecuteOnGameplayEffect = InGE.ChanceToExecuteOnGameplayEffect;
 
 	// Don't copy over TargetEffects. These will need to get fixed up later
 	// TArray<UDataGameplayEffect*> TargetEffects;
@@ -45,12 +44,6 @@ void CopyInfoFromDataGE(const UGameplayEffect& InGE, UGameplayEffect& OutGE)
 	{
 		OutGE.GameplayCues.Add(InCue);
 	}
-
-	OutGE.Description = InGE.Description;
-
-	OutGE.StackingPolicy = InGE.StackingPolicy;
-	OutGE.StackedAttribName = InGE.StackedAttribName;
-	OutGE.StackingExtension = InGE.StackingExtension;
 
 	OutGE.UpdateInheritedTagProperties();
 }
@@ -100,7 +93,7 @@ uint32 FAssetTypeActions_GameplayEffect::GetCategories()
 
 void FAssetTypeActions_GameplayEffect::ExecuteConvertToBlueprint(FWeakGameplayEffectPointerArray Objects)
 {
-	UBlueprintFactory* BlueprintFactory = ConstructObject<UBlueprintFactory>(UBlueprintFactory::StaticClass());
+	UBlueprintFactory* BlueprintFactory = NewObject<UBlueprintFactory>();
 	BlueprintFactory->ParentClass = UGameplayEffect::StaticClass();
 	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
 

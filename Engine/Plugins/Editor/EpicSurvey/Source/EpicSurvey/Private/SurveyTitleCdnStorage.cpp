@@ -72,6 +72,11 @@ bool FSurveyTitleCdnStorage::ClearFile(const FString& FileName)
 	return false;
 }
 
+void FSurveyTitleCdnStorage::DeleteCachedFiles(bool bSkipEnumerated)
+{
+	// not implemented
+}
+
 bool FSurveyTitleCdnStorage::EnumerateFiles(const FPagedQuery& Page)
 {
 	// Make sure an enumeration request  is not currently pending

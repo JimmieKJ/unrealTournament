@@ -27,7 +27,9 @@ Pawn
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_pawn]
-A **Pawn** is a subclass of Actor that serves as an in-game avatar or persona, such as characters in a game. Pawns can be controlled by a player or by the game's AI, such as in the case of non-player characters (NPCs).
+**Pawns** are a subclass of Actor and serve as an in-game avatar or persona, for example the characters in a game. Pawns can be controlled by a player or by the game's AI, in the form of non-player characters (NPCs). 
+
+When a Pawn is controlled by a human or AI player, it is considered as _Possessed_. Conversely, when a Pawn is not controlled by a human or AI player it is considered as _Unpossessed_. 
 [/EXCERPT:Glossary_pawn]
 
 	[/PARAM]
@@ -96,7 +98,6 @@ A **pin** is part of a visual scripting node. Pins connect to other nodes via wi
 [/OBJECT]
 
 
-
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
 pivot point
@@ -109,8 +110,6 @@ The **pivot point** (or origin point) indicates the location on a Static Mesh Ac
 
 	[/PARAM]
 [/OBJECT]
-
-
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
@@ -126,6 +125,41 @@ Play In Editor (PIE)
 [/OBJECT]
 
 
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+PlayerController
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_PlayerController]
+The **PlayerController** Class is used to take player input and translate that into interactions in the game and every game has at least one PlayerController in it. A PlayerController often possesses a Pawn or Character as a representation of the player in a game. 
+
+The PlayerController is also the primary network interaction point for multiplayer games. During multiplayer play, the server has one instance of a PlayerController for every player in the game since it must be able to make network function calls to each player. Each client only has the PlayerController that corresponds to their player and can only use their PlayerController to communicate with the server.
+[/EXCERPT:Glossary_PlayerController]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+PlayerState
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_PlayerState]
+A **PlayerState** is the state of a participant in the game, such as a human player or a bot that is simulating a player. Non-player AI that exists as part of the game world would not have a PlayerState. 
+
+Example data that would be appropriate in a PlayerState include player name or score, their current level or health, or whether they are currently carrying the flag in a Capture the Flag game. 
+
+For multiplayer games, PlayerStates for all players exist on all machines (unlike PlayerControllers) and can replicate data from the server to the client to keep things in sync.
+
+[/EXCERPT:Glossary_PlayerState]
+
+	[/PARAM]
+[/OBJECT]
+
+
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
@@ -134,11 +168,16 @@ project
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_project]
-In Unreal Engine, each game you create is a **project**. Projects are self-contained units that hold all of 
-the content and code that make up an individual game. You can create, maintain, and develop any number of 
-projects in parallel, and the Engine and Editor can easily switch between projects. This makes it easy for 
-developers to work on multiple games at once or have several test projects in addition to their main game 
-project. 
+A **Project** is a self-contained unit that holds all the content and code that make up an individual game and coincides with a set of directories on your disk. For example, in the image below the Hierarchy Tree of the **Content Browser** contains the same directory structure found inside your Project folder on your disk. 
+[REGION:lightbox]
+[![](ProjectHierarchy.png)(w:440)](ProjectHierarchy.png)
+[/REGION:lightbox]
+
+_Click image for full view._
+
+ Although a Project is often referenced by the .uproject file associated with it, they are two separate files that exist alongside each other. The .uproject is a reference file used to create, open, or save a file, whereas the Project contains all of the files and folders associated with it.
+
+You can create any number of different Projects which can all be maintained and developed in parallel. Both the Engine (and Editor) can easily switch between them which will allow you to work on multiple games at once or have several test projects in addition to your main game Project.
 [/EXCERPT:Glossary_project]
 
 	[/PARAM]

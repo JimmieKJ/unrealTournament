@@ -11,7 +11,7 @@ UPhysicsCollisionHandler::UPhysicsCollisionHandler(const FObjectInitializer& Obj
 	ImpactReFireDelay = 0.1f;
 }
 
-void UPhysicsCollisionHandler::DefaultHandleCollision(const FRigidBodyCollisionInfo& MyInfo, const FRigidBodyCollisionInfo& OtherInfo, const FCollisionImpactData& RigidCollisionData)
+void UPhysicsCollisionHandler::DefaultHandleCollision_AssumesLocked(const FRigidBodyCollisionInfo& MyInfo, const FRigidBodyCollisionInfo& OtherInfo, const FCollisionImpactData& RigidCollisionData)
 {
 	FRigidBodyContactInfo ContactInfo = RigidCollisionData.ContactInfos[0];
 
@@ -21,11 +21,11 @@ void UPhysicsCollisionHandler::DefaultHandleCollision(const FRigidBodyCollisionI
 	if(BodyInst0 && BodyInst1)
 	{
 		// Find relative velocity.
-		FVector Velocity0 = BodyInst0->GetUnrealWorldVelocityAtPoint(ContactInfo.ContactPosition);
-		FVector AngularVel0 = BodyInst0->GetUnrealWorldAngularVelocity();
+		FVector Velocity0 = BodyInst0->GetUnrealWorldVelocityAtPoint_AssumesLocked(ContactInfo.ContactPosition);
+		FVector AngularVel0 = BodyInst0->GetUnrealWorldAngularVelocity_AssumesLocked();
 
-		FVector Velocity1 = BodyInst1->GetUnrealWorldVelocityAtPoint(ContactInfo.ContactPosition);
-		FVector AngularVel1 = BodyInst1->GetUnrealWorldAngularVelocity();
+		FVector Velocity1 = BodyInst1->GetUnrealWorldVelocityAtPoint_AssumesLocked(ContactInfo.ContactPosition);
+		FVector AngularVel1 = BodyInst1->GetUnrealWorldAngularVelocity_AssumesLocked();
 
 		const FVector RelVel = Velocity1 - Velocity0;
 
@@ -52,7 +52,7 @@ void UPhysicsCollisionHandler::DefaultHandleCollision(const FRigidBodyCollisionI
 	}
 }
 
-void UPhysicsCollisionHandler::HandlePhysicsCollisions(const TArray<FCollisionNotifyInfo>& PendingCollisionNotifies)
+void UPhysicsCollisionHandler::HandlePhysicsCollisions_AssumesLocked(const TArray<FCollisionNotifyInfo>& PendingCollisionNotifies)
 {
 	// Fire any collision notifies in the queue.
 	for(int32 i=0; i<PendingCollisionNotifies.Num(); i++)
@@ -69,7 +69,7 @@ void UPhysicsCollisionHandler::HandlePhysicsCollisions(const TArray<FCollisionNo
 		if( NotifyInfo.IsValidForNotify() &&
 			NotifyInfo.RigidCollisionData.ContactInfos.Num() > 0 )
 		{
-			DefaultHandleCollision(NotifyInfo.Info0, NotifyInfo.Info1, NotifyInfo.RigidCollisionData);
+			DefaultHandleCollision_AssumesLocked(NotifyInfo.Info0, NotifyInfo.Info1, NotifyInfo.RigidCollisionData);
 		}
 	}
 }

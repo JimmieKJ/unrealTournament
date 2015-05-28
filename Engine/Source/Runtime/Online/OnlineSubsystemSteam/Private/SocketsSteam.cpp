@@ -176,8 +176,16 @@ bool FSocketSteam::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FIn
 	}
 	else
 	{
-		SocketSubsystem->P2PTouch(SteamNetworkingPtr, SteamAddr.SteamId);
-		SocketSubsystem->LastSocketError = SE_NO_ERROR;
+		if (SocketSubsystem->P2PTouch( SteamNetworkingPtr, SteamAddr.SteamId))
+		{
+			SocketSubsystem->LastSocketError = SE_NO_ERROR;
+		}
+		else
+		{
+			MessageSize = 0;
+			SocketSubsystem->LastSocketError = SE_UDP_ERR_PORT_UNREACH;
+			bSuccess = false;
+		}
 	}
 
 	// Steam always sends/receives on the same channel both sides
@@ -226,6 +234,12 @@ void FSocketSteam::GetAddress(FInternetAddr& OutAddr)
 	FInternetAddrSteam& SteamAddr = (FInternetAddrSteam&)OutAddr;
 	SteamAddr.SteamId = LocalSteamId;
 	SteamAddr.SteamChannel = SteamChannel;
+}
+
+bool FSocketSteam::GetPeerAddress(FInternetAddr& OutAddr)
+{
+	// don't support this	
+	return false;
 }
 
 /**

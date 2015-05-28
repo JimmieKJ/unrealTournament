@@ -5,6 +5,7 @@
 #include "ObjectBase.h"
 #include "WorldCompositionUtility.h"
 
+
 /**
  * Structure to hold information about an external packages objects used in cross-level references
  */
@@ -77,6 +78,18 @@ public:
 	/** The name of the file that this package was loaded from */
 	FName	FileName;
 
+	/** Linker load associated with this package */
+	class FLinkerLoad* LinkerLoad;
+
+	/** Linker package version this package has been serialized with. This is mostly used by PostLoad **/
+	int32 LinkerPackageVersion;
+
+	/** Linker licensee version this package has been serialized with. This is mostly used by PostLoad **/
+	int32 LinkerLicenseeVersion;
+
+	/** Linker custom version container this package has been serialized with. This is mostly used by PostLoad **/
+	FCustomVersionContainer LinkerCustomVersion;
+
 	/** size of the file for this package; if the package was not loaded from a file or was a forced export in another package, this will be zero */
 	int64 FileSize;
 	
@@ -98,10 +111,13 @@ public:
 	 * Called after the C++ constructor and after the properties have been initialized, but before the config has been loaded, etc.
 	 * mainly this is to emulate some behavior of when the constructor was called after the properties were intialized.
 	 */
-	virtual void PostInitProperties();
+	virtual void PostInitProperties() override;
+
+	virtual void BeginDestroy() override;
 
 	/** Serializer */
-	virtual void Serialize( FArchive& Ar );
+	virtual void Serialize( FArchive& Ar ) override;
+
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 
 	/** Packages are never assets */
@@ -182,7 +198,7 @@ public:
 	/**
 	 * Tags the Package's metadata
 	 */
-	virtual void TagSubobjects(EObjectFlags NewFlags);
+	virtual void TagSubobjects(EObjectFlags NewFlags) override;
 
 	/**
 	 * Sets whether exports should be found in memory first or  not.
@@ -340,7 +356,7 @@ public:
 	 * @return	true if the package was saved successfully.
 	 */
 	static bool SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename, 
-		FOutputDevice* Error=GError, ULinkerLoad* Conform=NULL, bool bForceByteSwapping=false, bool bWarnOfLongFilename=true, 
+		FOutputDevice* Error=GError, FLinkerLoad* Conform=NULL, bool bForceByteSwapping=false, bool bWarnOfLongFilename=true, 
 		uint32 SaveFlags=SAVE_None, const class ITargetPlatform* TargetPlatform = NULL, const FDateTime& FinalTimeStamp = FDateTime::MinValue(), bool bSlowTask = true );
 
 	/** Wait for any SAVE_Async file writes to complete **/
@@ -352,7 +368,7 @@ public:
 	 * @param	InOuter							the outer to use for the new package
 	 * @param	Linker							linker we're currently saving with
 	 */
-	static void SaveThumbnails( UPackage* InOuter, ULinkerSave* Linker );
+	static void SaveThumbnails( UPackage* InOuter, FLinkerSave* Linker );
 
 	/**
 	 * Static: Saves asset registry data for the specified package outer and linker
@@ -360,7 +376,7 @@ public:
 	 * @param	InOuter							the outer to use for the new package
 	 * @param	Linker							linker we're currently saving with
 	 */
-	static void SaveAssetRegistryData( UPackage* InOuter, ULinkerSave* Linker );
+	static void SaveAssetRegistryData( UPackage* InOuter, FLinkerSave* Linker );
 
 	/**
 	 * Static: Saves the level information used by the World browser
@@ -368,7 +384,7 @@ public:
 	 * @param	InOuter							the outer to use for the new package
 	 * @param	Linker							linker we're currently saving with
 	 */
-	static void SaveWorldLevelInfo( UPackage* InOuter, ULinkerSave* Linker );
+	static void SaveWorldLevelInfo( UPackage* InOuter, FLinkerSave* Linker );
 
 	/**
 	  * Determines if a package contains no more assets.
@@ -568,4 +584,3 @@ private:
 };
 
 #endif //WITH_EDITOR
-

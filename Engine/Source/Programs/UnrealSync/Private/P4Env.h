@@ -8,17 +8,87 @@
 /**
  * Enum describing P4 param type.
  */
-namespace EP4ParamType
+enum class EP4ParamType
 {
-	enum Type
+	Path = 0,
+	Port = 1,
+	User = 2,
+	Client = 3,
+	Branch = 4
+};
+
+/**
+ * P4 settings tab.
+ */
+class SP4EnvTabWidget : public SCompoundWidget
+{
+public:
+	SLATE_BEGIN_ARGS(SP4EnvTabWidget){}
+	SLATE_END_ARGS()
+
+	/**
+	 * Slate constructor
+	 *
+	 * @param InArgs Slate args.
+	 */
+	void Construct(const FArguments& InArgs);
+
+	/**
+	 * Function that is called on when Close button is clicked.
+	 * It tells the app to close.
+	 *
+	 * @returns Tells that this event was handled.
+	 */
+	FReply OnCloseButtonClick();
+
+	/**
+	 * Function that is called on when Close button is clicked.
+	 * It tells the app to close.
+	 *
+	 * @returns Tells that this event was handled.
+	 */
+	FReply OnSaveAndRestartButtonClick();
+
+private:
+	/**
+	 * P4 option container.
+	 */
+	class FP4Option
 	{
-		Path	= 0,
-		Port	= 1,
-		User	= 2,
-		Client	= 3,
-		Branch	= 4
+	public:
+		/**
+		 * Constructor
+		 *
+		 * @param Type The type for this option.
+		 */
+		FP4Option(EP4ParamType Type);
+
+		/**
+		 * Gets the type of this option.
+		 */
+		EP4ParamType GetType() const { return Type; }
+
+		/**
+		 * Gets the text of this option.
+		 */
+		FText GetText() const { return Text; }
+
+		/**
+		 * Gets the reference to text of this option.
+		 */
+		FText& GetText() { return Text; }
+
+	private:
+		/** This option's type. */
+		EP4ParamType Type;
+
+		/** This option's text. */
+		FText Text;
 	};
-}
+
+	/** Collection of options maintained by this widget. */
+	TArray<TSharedRef<FP4Option> > Options;
+};
 
 /**
  * P4 environment class to connect with P4 executable.
@@ -56,6 +126,13 @@ public:
 	 * @returns P4 environment object.
 	 */
 	static FP4Env& Get();
+
+	/**
+	 * Tells if P4 environment is valid.
+	 *
+	 * @returns True if P4 environment is valid. False otherwise.
+	 */
+	static bool IsValid();
 
 	/**
 	 * Runs P4 process and allows communication through progress delegate.
@@ -137,11 +214,29 @@ public:
 	 *
 	 * @returns Param type name.
 	 */
-	static FString GetParamName(EP4ParamType::Type Type);
+	static FString GetParamName(EP4ParamType Type);
+
+	/**
+	 * Gets param value using type.
+	 *
+	 * @param Type Param type enum id.
+	 *
+	 * @returns Param value.
+	 */
+	const FString& GetParamByType(EP4ParamType Type) const;
+
+	/**
+	 * Checks if given file needs update, i.e. is not at head revision.
+	 *
+	 * @param FilePath
+	 *
+	 * @returns True if needs update. False otherwise.
+	 */
+	static bool CheckIfFileNeedsUpdate(const FString& FilePath);
 
 private:
 	/* Param serialization delegate. */
-	DECLARE_DELEGATE_TwoParams(FSerializationTask, FString&, EP4ParamType::Type);
+	DECLARE_DELEGATE_TwoParams(FSerializationTask, FString&, EP4ParamType);
 
 	/**
 	 * Constructor
@@ -170,7 +265,7 @@ private:
 	 * @param Type Type of param to set.
 	 * @param Value Value to set.
 	 */
-	void SetParam(EP4ParamType::Type Type, const FString& Value);
+	void SetParam(EP4ParamType Type, const FString& Value);
 
 	/* Singleton instance pointer. */
 	static TSharedPtr<FP4Env> Env;

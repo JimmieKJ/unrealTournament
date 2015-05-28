@@ -11,7 +11,7 @@ public:
 	void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj);
 
 protected:
-	// Begin SGraphPinText interface
+	// SGraphPinString interface
 	virtual void SetTypeInValue(const FText& NewTypeInValue, ETextCommit::Type CommitInfo) override;
-	// End SGraphPinText interface
+	// End of SGraphPinString interface
 };

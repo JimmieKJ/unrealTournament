@@ -34,9 +34,7 @@ void FDragConnection::HoverTargetChanged()
 {
 	TArray<FPinConnectionResponse> UniqueMessages;
 
-	UEdGraphPin* TargetPinObj = GetHoveredPin();
-
-	if (TargetPinObj != NULL)
+	if (UEdGraphPin* TargetPinObj = GetHoveredPin())
 	{
 		TArray<UEdGraphPin*> ValidSourcePins;
 		ValidateGraphPinList(/*out*/ ValidSourcePins);
@@ -61,6 +59,33 @@ void FDragConnection::HoverTargetChanged()
 					 }
 				}
 
+				UniqueMessages.AddUnique(Response);
+			}
+		}
+	}
+	else if(UEdGraphNode* TargetNodeObj = GetHoveredNode())
+	{
+		TArray<UEdGraphPin*> ValidSourcePins;
+		ValidateGraphPinList(/*out*/ ValidSourcePins);
+
+		// Check the schema for connection responses
+		for (UEdGraphPin* StartingPinObj : ValidSourcePins)
+		{
+			FPinConnectionResponse Response;
+			FText ResponseText;
+			if (StartingPinObj->GetOwningNode() != TargetNodeObj && StartingPinObj->GetSchema()->SupportsDropPinOnNode(TargetNodeObj, StartingPinObj->PinType, StartingPinObj->Direction, ResponseText))
+			{
+				Response.Response = ECanCreateConnectionResponse::CONNECT_RESPONSE_MAKE;
+			}
+			else
+			{
+				Response.Response = ECanCreateConnectionResponse::CONNECT_RESPONSE_DISALLOW;
+			}
+			
+			// Do not display an error if there is no message
+			if (!ResponseText.IsEmpty())
+			{
+				Response.Message = ResponseText;
 				UniqueMessages.AddUnique(Response);
 			}
 		}
@@ -192,6 +217,54 @@ FReply FDragConnection::DroppedOnPin(FVector2D ScreenPosition, FVector2D GraphPo
 	}
 
 	return FReply::Handled();
+}
+
+FReply FDragConnection::DroppedOnNode(FVector2D ScreenPosition, FVector2D GraphPosition)
+{
+	bool bHandledPinDropOnNode = false;
+	UEdGraphNode* HoveredNode = GetHoveredNode();
+
+	if (HoveredNode)
+	{
+		// Gather any source drag pins
+		TArray<UEdGraphPin*> ValidSourcePins;
+		ValidateGraphPinList(/*out*/ ValidSourcePins);
+
+
+		if (ValidSourcePins.Num())
+		{
+			for (UEdGraphPin* SourcePin : ValidSourcePins)
+			{
+				// Check for pin drop support
+				FText ResponseText;
+				if (SourcePin->GetOwningNode() != HoveredNode && SourcePin->GetSchema()->SupportsDropPinOnNode(HoveredNode, SourcePin->PinType, SourcePin->Direction, ResponseText))
+				{
+					bHandledPinDropOnNode = true;
+
+					// Find which pin name to use and drop the pin on the node
+					FString PinName = SourcePin->PinFriendlyName.IsEmpty()? SourcePin->PinName : SourcePin->PinFriendlyName.ToString();
+
+					const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "AddInParam", "Add In Parameter" ) );
+
+					UEdGraphPin* EdGraphPin = HoveredNode->GetSchema()->DropPinOnNode(GetHoveredNode(), PinName, SourcePin->PinType, SourcePin->Direction);
+
+					if(EdGraphPin)
+					{
+						SourcePin->Modify();
+						EdGraphPin->Modify();
+						SourcePin->GetSchema()->TryCreateConnection(SourcePin, EdGraphPin);
+					}
+				}
+
+				// If we have not handled the pin drop on node and there is an error message, do not let other actions occur.
+				if(!bHandledPinDropOnNode && !ResponseText.IsEmpty())
+				{
+					bHandledPinDropOnNode = true;
+				}
+			}
+		}
+	}
+	return bHandledPinDropOnNode? FReply::Handled() : FReply::Unhandled();
 }
 
 FReply FDragConnection::DroppedOnPanel( const TSharedRef< SWidget >& Panel, FVector2D ScreenPosition, FVector2D GraphPosition, UEdGraph& Graph)

@@ -211,7 +211,7 @@ public:
 		if (NavTestActor && NavTestActor->DebugSteps.Num() && NavTestActor->ShowStepIndex >= 0)
 		{
 			const int32 ShowIdx = FMath::Min(NavTestActor->ShowStepIndex, NavTestActor->DebugSteps.Num() - 1);
-			const FRecastDebugPathfindingStep& DebugStep = NavTestActor->DebugSteps[ShowIdx];
+			const FRecastDebugPathfindingData& DebugStep = NavTestActor->DebugSteps[ShowIdx];
 			int32 BaseOpen = 0;
 			int32 BaseClosed = 0;
 
@@ -319,7 +319,7 @@ public:
 		return View->ViewFrustum.IntersectBox(Location, FVector::ZeroVector);
 	}
 
-	void DrawDebugLabels(UCanvas* Canvas, APlayerController*)
+	void DrawDebugLabels(UCanvas* Canvas, APlayerController*) override
 	{
 		if (NavTestActor == NULL)
 		{
@@ -376,7 +376,7 @@ public:
 		Canvas->SetDrawColor(OldDrawColor);
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View);
@@ -451,7 +451,7 @@ FBoxSphereBounds UNavTestRenderingComponent::CalcBounds(const FTransform& LocalT
 		if (TestActor->DebugSteps.Num() && TestActor->ShowStepIndex >= 0)
 		{
 			const int32 ShowIdx = FMath::Min(TestActor->ShowStepIndex, TestActor->DebugSteps.Num() - 1);
-			const FRecastDebugPathfindingStep& DebugStep = TestActor->DebugSteps[ShowIdx];
+			const FRecastDebugPathfindingData& DebugStep = TestActor->DebugSteps[ShowIdx];
 			for (TSet<FRecastDebugPathfindingNode>::TConstIterator It(DebugStep.Nodes); It; ++It)
 			{
 				const FRecastDebugPathfindingNode& DebugNode = *It;

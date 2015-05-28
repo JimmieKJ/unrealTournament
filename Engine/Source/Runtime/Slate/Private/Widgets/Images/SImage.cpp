@@ -2,8 +2,6 @@
 
 #include "SlatePrivatePCH.h"
 
-DECLARE_CYCLE_STAT( TEXT("OnPaint SImage"), STAT_SlateOnPaint_SImage, STATGROUP_Slate );
-
 /**
  * Construct this widget
  *
@@ -19,9 +17,6 @@ void SImage::Construct( const FArguments& InArgs )
 
 int32 SImage::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-#if SLATE_HD_STATS
-	SCOPE_CYCLE_COUNTER( STAT_SlateOnPaint_SImage );
-#endif
 	const FSlateBrush* ImageBrush = Image.Get();
 
 	if ((ImageBrush != nullptr) && (ImageBrush->DrawAs != ESlateBrushDrawType::NoDrawType))
@@ -61,7 +56,7 @@ FReply SImage::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEve
 /**
  * An Image's desired size is whatever the image looks best as. This is decided on a case by case basis via the Width and Height properties.
  */
-FVector2D SImage::ComputeDesiredSize() const
+FVector2D SImage::ComputeDesiredSize( float ) const
 {
 	const FSlateBrush* ImageBrush = Image.Get();
 	if (ImageBrush != nullptr)

@@ -51,7 +51,7 @@ public:
 		check(IsInRenderingThread());
 		UniformBufferRHI = RHICreateUniformBuffer(Contents,TBufferStruct::StaticStruct.GetLayout(),BufferUsage);
 	}
-	virtual void ReleaseDynamicRHI()
+	virtual void ReleaseDynamicRHI() override
 	{
 		UniformBufferRHI.SafeRelease();
 	}
@@ -222,12 +222,17 @@ public:
 		if (bRegisterForAutoBinding)
 		{
 			GlobalListLink.Link(GetStructList());
+			FName StrutTypeFName(StructTypeName);
+			// Verify that during FName creation there's no case conversion
+			checkSlow(FCString::Strcmp(StructTypeName, *StrutTypeFName.GetPlainNameString()) == 0);
+			GetNameStructMap().Add(FName(StructTypeName), this);
 		}
 	}
 
 	virtual ~FUniformBufferStruct()
 	{
 		GlobalListLink.Unlink();
+		GetNameStructMap().Remove(FName(StructTypeName, FNAME_Find));
 	}
 
 	void AddResourceTableEntries(TMap<FString,FResourceTableEntry>& ResourceTableMap, TMap<FString,uint32>& ResourceTableLayoutHashes) const
@@ -258,6 +263,8 @@ public:
 	FShaderUniformBufferParameter* ConstructTypedParameter() const { return (*ConstructUniformBufferParameterRef)(); }
 
 	static TLinkedList<FUniformBufferStruct*>*& GetStructList();
+	/** Speed up finding the uniform buffer by its name */
+	static TMap<FName, FUniformBufferStruct*>& GetNameStructMap();
 
 private:
 	const TCHAR* StructTypeName;

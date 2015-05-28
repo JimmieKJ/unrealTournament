@@ -1,19 +1,26 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/** represents a secondary splitscreen connection that reroutes calls to the parent connection */
-
 #pragma once
+
 #include "ChildConnection.generated.h"
 
+
+/**
+ * Represents a secondary split screen connection that reroutes calls to the parent connection.
+ */
 UCLASS(MinimalAPI,transient,config=Engine)
-class UChildConnection : public UNetConnection
+class UChildConnection
+	: public UNetConnection
 {
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(transient)
 	class UNetConnection* Parent;
 
-	// Begin UNetConnection interface.
+public:
+
+	// UNetConnection interface.
+
 	virtual UChildConnection* GetUChildConnection() override
 	{
 		return this;
@@ -29,7 +36,7 @@ class UChildConnection : public UNetConnection
 		return Parent->LowLevelDescribe();
 	}
 
-		virtual void LowLevelSend( void* Data, int32 Count ) override
+	virtual void LowLevelSend( void* Data, int32 Count ) override
 	{
 	}
 
@@ -63,9 +70,5 @@ class UChildConnection : public UNetConnection
 	}
 
 	virtual void HandleClientPlayer(class APlayerController* PC, class UNetConnection* NetConnection) override;
-	
 	virtual void CleanUp() override;
-
-	// End UNetConnection interface.
-
 };

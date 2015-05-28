@@ -16,6 +16,12 @@
 #include "TargetPlatform.h"
 #include "PlatformInfo.h"
 
+// SessionServices
+#include "ISessionInfo.h"
+#include "ISessionInstanceInfo.h"
+#include "ISessionManager.h"
+#include "SessionLogMessage.h"
+
 // @todo gmp: remove these dependencies by making the session front-end extensible
 #include "AutomationWindow.h"
 #include "ScreenShotComparison.h"

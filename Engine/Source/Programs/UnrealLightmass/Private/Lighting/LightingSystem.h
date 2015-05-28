@@ -2612,7 +2612,7 @@ private:
 	 * Each array was generated on a separate thread, so these are stored as an array of irradiance photon arrays,
 	 * Which avoids copying to one large array, since that can take a while due to the large irradiance photon memory size.
 	 */
-	TArray<TArray<FIrradiancePhoton>> IrradiancePhotons;
+	TArray<TArray<FIrradiancePhoton>> mIrradiancePhotons;
 
 	/** Maximum distance to trace a ray through the scene. */
 	float MaxRayDistance;

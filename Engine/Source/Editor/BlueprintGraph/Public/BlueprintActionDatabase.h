@@ -71,6 +71,11 @@ public:
 	void RefreshAll();
 
 	/**
+	 * Populates the action database with all level script actions from all active editor worlds.
+	 */
+	void RefreshWorlds();
+
+	/**
 	 * Finds the database entry for the specified class and wipes it, 
 	 * repopulating it with a fresh set of associated node-spawners. 
 	 *
@@ -96,8 +101,9 @@ public:
 	 * won't be rebuilt, unless RefreshAssetActions() is explicitly called after.
 	 * 
 	 * @param  AssetObject	
+	 * @return True if an entry was found and removed.
 	 */
-	void ClearAssetActions(UObject* const AssetObject);
+	bool ClearAssetActions(UObject* const AssetObject);
 	
 	/**
 	 * Finds the database entry for the specified unloaded asset and wipes it.

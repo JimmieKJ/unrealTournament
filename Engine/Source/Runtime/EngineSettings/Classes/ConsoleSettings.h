@@ -18,6 +18,12 @@ struct FAutoCompleteCommand
 
 	UPROPERTY(config, EditAnywhere, Category=Command)
 	FString Desc;
+
+	bool operator<(const FAutoCompleteCommand& rhs) const
+	{
+		// sort them in opposite order for game console UI rendering (bottom up)
+		return Command >= rhs.Command;
+	}
 };
 
 

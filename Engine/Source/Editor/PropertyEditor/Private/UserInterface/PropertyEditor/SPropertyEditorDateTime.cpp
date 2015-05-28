@@ -40,8 +40,8 @@ bool SPropertyEditorDateTime::Supports( const TSharedRef< FPropertyEditor >& InP
 	if (Property->IsA(UStructProperty::StaticClass()))
 	{
 		const UStructProperty* StructProp = Cast<const UStructProperty>(Property);
-		extern UScriptStruct* Z_Construct_UScriptStruct_UObject_FDateTime();	// It'd be really nice if StaticStruct() worked on types declared in Object.h
-		if (Z_Construct_UScriptStruct_UObject_FDateTime() == StructProp->Struct)
+		extern UScriptStruct* Z_Construct_UScriptStruct_FDateTime();	// It'd be really nice if StaticStruct() worked on types declared in Object.h
+		if (Z_Construct_UScriptStruct_FDateTime() == StructProp->Struct)
 		{
 			return true;
 		}

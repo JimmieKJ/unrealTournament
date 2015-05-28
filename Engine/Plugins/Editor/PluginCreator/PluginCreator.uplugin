@@ -1,0 +1,22 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Plugin Creator",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Karol Szyszka and Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"Description" : "Plugin Creator Wizard to aid making new Unreal Engine plugins.",
+	"Category" : "Editor",
+	"IsBetaVersion" : true,
+	"EnabledByDefault" : false,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "PluginCreator",
+            "Type": "Editor",
+            "LoadingPhase": "PostEngineInit"
+		}
+	]
+}

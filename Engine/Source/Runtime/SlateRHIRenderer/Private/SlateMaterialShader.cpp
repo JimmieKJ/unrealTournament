@@ -22,7 +22,7 @@ FSlateMaterialShaderPS::FSlateMaterialShaderPS(const FMaterialShaderType::Compil
 	: FMaterialShader(Initializer)
 {
 	ShaderParams.Bind(Initializer.ParameterMap, TEXT("ShaderParams"));
-	DisplayGamma.Bind(Initializer.ParameterMap, TEXT("InvDisplayGamma"));
+	GammaValues.Bind(Initializer.ParameterMap, TEXT("GammaValues"));
 }
 
 void FSlateMaterialShaderPS::SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FMaterialRenderProxy* MaterialRenderProxy, const FMaterial* Material, float InDisplayGamma, const FVector4& InShaderParams )
@@ -41,7 +41,7 @@ void FSlateMaterialShaderPS::SetParameters(FRHICommandList& RHICmdList, const FS
 		RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
 		break;
 	case BLEND_Translucent:
-		RHICmdList.SetBlendState(TStaticBlendState<CW_RGB, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_Zero, BF_InverseSourceAlpha>::GetRHI());
+		RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_SourceAlpha, BF_InverseSourceAlpha, BO_Add, BF_InverseDestAlpha, BF_One>::GetRHI());
 		break;
 	case BLEND_Additive:
 		// Add to the existing scene color
@@ -53,7 +53,6 @@ void FSlateMaterialShaderPS::SetParameters(FRHICommandList& RHICmdList, const FS
 		break;
 	};
 
-	SetShaderValue( RHICmdList, ShaderRHI, DisplayGamma, InDisplayGamma );
 	SetShaderValue( RHICmdList, ShaderRHI, ShaderParams, InShaderParams );
 
 	const bool bDeferredPass = false;
@@ -62,10 +61,17 @@ void FSlateMaterialShaderPS::SetParameters(FRHICommandList& RHICmdList, const FS
 }
 
 
+void FSlateMaterialShaderPS::SetDisplayGamma(FRHICommandList& RHICmdList, float InDisplayGamma)
+{
+	FVector2D InGammaValues(2.2f / InDisplayGamma, 1.0f/InDisplayGamma);
+
+	SetShaderValue(RHICmdList, GetPixelShader(), GammaValues, InGammaValues);
+}
+
 bool FSlateMaterialShaderPS::Serialize(FArchive& Ar)
 {
 	bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
-	Ar << DisplayGamma;
+	Ar << GammaValues;
 	Ar << ShaderParams;
 	return bShaderHasOutdatedParameters;
 }

@@ -27,6 +27,9 @@ class UStaticMeshSocket : public UObject
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=StaticMeshSocket)
 	FVector RelativeScale;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=StaticMeshSocket)
+	FString Tag;
+
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere, Category=StaticMeshSocket)
 	class UStaticMesh* PreviewStaticMesh;

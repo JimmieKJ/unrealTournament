@@ -623,3 +623,289 @@ void MainRecombinePS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV
 	OutColor.rgb = FullResSceneColor * (1 - Mask) + MotionBlurOutput.rgb;
 	OutColor.a = 0;
 }
+
+
+
+
+uint2 TileCount;
+
+void VelocityScatterVS(
+	uint VId : SV_VertexID,
+	uint IId : SV_InstanceID,
+	out nointerpolation float2 OutColor : TEXCOORD0,
+	out float4 OutPosition : SV_POSITION
+	)
+{
+	OutPosition =  float4(0, 0, 0, 1);
+
+	// needs to be the same on C++ side (faster on NVIDIA and AMD)
+	uint QuadsPerInstance = 8;
+#if MAC
+	// remap the indices to get vertexid to VId and quadid into IId
+	IId = IId * QuadsPerInstance + (VId / 6);
+	VId = VId % 6;
+
+	// triangle A: 0:left top, 1:right top, 2: left bottom
+	// triangle B: 3:right bottom, 4:left bottom, 5: right top
+	float2 CornerOffset = float2(VId % 2, VId > 1 && VId < 5) * 2 - 1;
+#else
+	// remap the indices to get vertexid to VId and quadid into IId
+	IId = IId * QuadsPerInstance + (VId / 4);
+	VId = VId % 4;
+
+	// triangle A: 0:left top, 1:right top, 2: left bottom
+	// triangle B: 3:right bottom, 4:left bottom, 5: right top
+	float2 CornerOffset = float2(VId % 2, VId / 2) * 2 - 1;
+#endif
+
+	uint2 TilePos = uint2( IId % TileCount.x, IId / TileCount.x );
+
+	float2 ScreenPos = ( TilePos - ScreenPosToPixel.zw ) / ScreenPosToPixel.xy;
+
+	float2 Velocity = PostprocessInput0[ TilePos ].xy;
+	OutColor = Velocity.xyxy;
+
+	Velocity *= VelocityScale.xy;
+	
+	BRANCH
+	if( length( Velocity * float2(1920,1080) ) <= 0.5 )
+	{
+		return;
+	}
+
+	float  VelocityLengthSqr = dot( Velocity, Velocity );
+	float  VelocityLengthInv = rsqrt( VelocityLengthSqr );
+	float  VelocityLength = VelocityLengthSqr * VelocityLengthInv;
+	float2 VelocityDir = Velocity * VelocityLengthInv;
+
+	// +1 pixel radius because shape is swept tile, approx as capsule
+	// +1 pixel radius for conservative rasterization
+	const float TwoPixelRadius = sqrt( 2.0 );
+	CornerOffset *= float2( VelocityLength, 0 ) + TwoPixelRadius.xx / ScreenPosToPixel.xy;
+
+	// Orient along velocity direction
+	float2 AxisX = VelocityDir;
+	float2 AxisY = float2( -VelocityDir.y, VelocityDir.x );
+	CornerOffset = AxisX * CornerOffset.x + AxisY * CornerOffset.y;
+		
+	OutPosition.xy = ScreenPos + CornerOffset;
+
+	// Depth ordered by velocity length
+	OutPosition.z = saturate( VelocityLength * 0.5 );
+}
+
+void VelocityScatterPS(
+	nointerpolation float4 InColor : TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	OutColor = InColor;
+}
+
+
+
+
+float2 MaxLength( float2 v0, float2 v1 )
+{
+	float LengthSqr0 = dot( v0, v0 );
+	float LengthSqr1 = dot( v1, v1 );
+	return LengthSqr0 > LengthSqr1 ? v0 : v1;
+}
+
+float2 MaxLength( float2 v0, float2 v1, float2 v2 )
+{
+	float LengthSqr0 = dot( v0, v0 );
+	float LengthSqr1 = dot( v1, v1 );
+	float LengthSqr2 = dot( v2, v2 );
+	return LengthSqr0 > LengthSqr1 ? ( LengthSqr0 > LengthSqr2 ? v0 : v2 ) : ( LengthSqr1 > LengthSqr2 ? v1 : v2 );
+}
+
+void VelocityDilatePS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+{
+	float2 UV = UVAndScreenPos.xy;
+
+	float2 Neighbor0 = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0, int2(-1, -1) ).xy;
+	float2 Neighbor1 = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0, int2( 0, -1) ).xy;
+	float2 Neighbor2 = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0, int2( 1, -1) ).xy;
+	float2 Neighbor3 = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0, int2(-1,  0) ).xy;
+	float2 Neighbor4 = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0				).xy;
+	float2 Neighbor5 = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0, int2( 1,  0) ).xy;
+	float2 Neighbor6 = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0, int2(-1,  1) ).xy;
+	float2 Neighbor7 = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0, int2( 0,  1) ).xy;
+	float2 Neighbor8 = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0, int2( 1,  1) ).xy;
+
+	float2 Max012 = MaxLength( Neighbor0, Neighbor1, Neighbor2 );
+	float2 Max345 = MaxLength( Neighbor3, Neighbor4, Neighbor5 );
+	float2 Max678 = MaxLength( Neighbor6, Neighbor7, Neighbor8 );
+
+	OutColor.xy = MaxLength( Max012, Max345, Max678 );
+	OutColor.zw = 0;
+}
+
+
+
+
+
+float2 DepthCmp( float CenterDepth, float SampleDepth, float DepthScale )
+{
+	return saturate( 0.5 + float2( DepthScale, -DepthScale ) * (SampleDepth - CenterDepth) );
+	//return SampleDepth > CenterDepth ? float2(1,0) : float2(0,1);
+}
+
+float2 SpreadCmp( float OffsetLength, float2 SpreadLength, float PixelToSampleScale )
+{
+	return saturate( PixelToSampleScale * SpreadLength - max( OffsetLength - 1, 0 ) );
+	//return PixelToSampleScale * SpreadLength > OffsetLength ? 1 : 0;
+	//return SpreadLength > SearchLengthPixels * OffsetLength / ( StepCount - 0.5 ) ? 1 : 0;
+}
+
+float SampleWeight( float CenterDepth, float SampleDepth, float OffsetLength, float CenterSpreadLength, float SampleSpreadLength, float PixelToSampleScale, float DepthScale )
+{
+	float2 DepthWeights = DepthCmp( CenterDepth, SampleDepth, DepthScale );
+	float2 SpreadWeights = SpreadCmp( OffsetLength, float2( CenterSpreadLength, SampleSpreadLength ), PixelToSampleScale );
+	return dot( DepthWeights, SpreadWeights );
+}
+
+// [0, 1]
+float RandFast( uint2 PixelPos, float Magic = 3571.0 )
+{
+	float2 Random = ( 1.0 / 4320.0 ) * PixelPos + float2( 0.25, 0.0 );
+	Random = frac( dot( Random * Random, Magic ) );
+	Random = frac( dot( Random * Random, Magic ) );
+	return Random.x;
+}
+
+
+void MainNewPS( float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0 )
+{
+	// Screen Quad UV 0..1
+	float2 UV = UVAndScreenPos.xy;
+	// screen position in [-1, 1] screen space
+	float2 ScreenSpacePos = UVAndScreenPos.zw;
+
+	OutColor = 0;
+
+	float VelocityScale = MotionBlurParameters.x;
+
+	const uint StepCount = GetStepCountFromQuality() / 2;
+
+#if 1
+	uint2 PixelPos = uint2(UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f);
+	float2 PosMod = float2( PixelPos & 1 );
+	float Dither = ( PosMod.x * 2 - 1 ) * ( PosMod.y * 2 - 1 );
+	float Random = RandFast( PixelPos );
+	float Random2 = RandFast( PixelPos, 5521 );
+#endif
+	
+	float2 TileJitter = ( float2( Random, Random2 ) - 0.5 ) * 0.5;
+	
+	float2 MaxVelocity = PostprocessInput3.SampleLevel( PostprocessInput3Sampler, UV + TileJitter * PostprocessInput3Size.zw, 0 ).xy;
+	//float2 MaxVelocity = PostprocessInput3[ PixelPos / 16 ].xy;
+
+	float2 MaxVelocityScreen = MaxVelocity.xy * VelocityScale;
+	float2 MaxVelocityPixels = MaxVelocityScreen * ScreenPosToPixel.xy;
+
+	float3 CenterColor = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0 ).rgb;
+	float  CenterDepth = PostprocessInput1.SampleLevel( PostprocessInput1Sampler, UV, 0 ).r;
+
+	CenterDepth = ConvertFromDeviceZ( CenterDepth );
+	
+	BRANCH
+	if( length( MaxVelocityPixels ) <= 0.5 )
+	{
+		OutColor.rgb = CenterColor;
+		return;
+	}
+	
+	// in pixels
+	float2 CenterVelocity = PostprocessInput2.SampleLevel( PostprocessInput2Sampler, UV, 0 ).xy;
+	CenterVelocity = DecodeVelocityFromTexture( CenterVelocity ) * VelocityScale * ScreenPosToPixel.xy;
+	float CenterVelocityLength = length( CenterVelocity );
+
+	
+	// Clip MaxVelocity to screen rect
+	float2 InvVelocityScreen = rcp( MaxVelocityScreen );
+	float2 MinIntersect = -InvVelocityScreen - ScreenSpacePos * InvVelocityScreen;
+	float2 MaxIntersect =  InvVelocityScreen - ScreenSpacePos * InvVelocityScreen;
+	float4 FarIntersect = float4( max( MinIntersect, MaxIntersect ), max( -MinIntersect, -MaxIntersect ) );
+	float2 Intersect = saturate( min( FarIntersect.xz, FarIntersect.yw ) );
+
+	// +/-
+	float4 SearchVectorPixels = MaxVelocityPixels.xyxy * float4( Intersect.xx, -Intersect.yy );
+	float2 SearchLengthPixels = { length( SearchVectorPixels.xy ), length( SearchVectorPixels.zw ) };
+
+	// converts pixel length to sample steps
+	float2 PixelToSampleScale = ( StepCount - 0.5 ) / SearchLengthPixels;
+
+	float4 ColorAccum = 0;
+
+	UNROLL
+	for( uint i = 0; i < StepCount; i++ )
+	{
+		float2 SampleUV[2];
+		float3 SampleColor[2];
+		float  SampleDepth[2];
+		float  SampleVelocityLength[2];
+		float  Weight[2];
+
+		float OffsetLength = (float)i + 0.5 + (Random - 0.5);
+		float OffsetFraction = OffsetLength / ( StepCount - 0.5 );
+
+		//float2 TestVector = (i & 1) > 0 ? CenterVelocity : SearchVectorPixels;
+		//float2 PixelToSampleScale = ( StepCount - 0.5 ) / length( TestVector );
+
+		// can be optimized
+		SampleUV[0] = UV + OffsetFraction * SearchVectorPixels.xy * PostprocessInput0Size.zw;
+		SampleUV[1] = UV + OffsetFraction * SearchVectorPixels.zw * PostprocessInput0Size.zw;
+
+		UNROLL
+		for( uint j = 0; j < 2; j++ )
+		{
+			SampleColor[j] = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, SampleUV[j], 0 ).rgb;
+			SampleDepth[j] = PostprocessInput1.SampleLevel( PostprocessInput1Sampler, SampleUV[j], 0 ).r;
+
+			SampleDepth[j] = ConvertFromDeviceZ( SampleDepth[j] );
+
+			// in pixels
+			float2 SampleVelocity = PostprocessInput2.SampleLevel( PostprocessInput2Sampler, SampleUV[j], 0 ).xy;
+			SampleVelocity = DecodeVelocityFromTexture( SampleVelocity ) * VelocityScale * ScreenPosToPixel.xy;
+			SampleVelocityLength[j] = length( SampleVelocity );
+
+			Weight[j] = SampleWeight( CenterDepth, SampleDepth[j], OffsetLength, CenterVelocityLength, SampleVelocityLength[j], PixelToSampleScale[j], SOFT_Z_EXTENT );
+
+#if 0
+			float TestLengthPixels = OffsetFraction * SearchLengthPixels[j];
+
+			float2 DepthWeights = DepthCmp( CenterDepth, SampleDepth[j], SOFT_Z_EXTENT );
+			
+			//Weight[j]  = DepthWeights.x * saturate( 1 - TestLengthPixels / CenterVelocityLength );
+			//Weight[j] += DepthWeights.y * saturate( 1 - TestLengthPixels / SampleVelocityLength[j] );
+			//Weight[j] += ( 1 - smoothstep(0.95f * CenterVelocityLength, 1.05f * CenterVelocityLength, TestLengthPixels ) ) *
+			//			( 1 - smoothstep(0.95f * SampleVelocityLength[j], 1.05f * SampleVelocityLength[j], TestLengthPixels ) ) * 2;
+#endif
+		}
+		
+		bool2 Mirror = bool2( SampleDepth[0] > SampleDepth[1], SampleVelocityLength[1] > SampleVelocityLength[0] );
+		Weight[0] = all( Mirror ) ? Weight[1] : Weight[0];
+		Weight[1] = any( Mirror ) ? Weight[1] : Weight[0];
+
+		ColorAccum += Weight[0] * float4( SampleColor[0].rgb, 1 );
+		ColorAccum += Weight[1] * float4( SampleColor[1].rgb, 1 );
+	}
+
+	//ColorAccum += float4( CenterColor, 1 ) / CenterVelocityLength;
+	
+	ColorAccum *= 0.5 / StepCount;
+	OutColor.rgb = ColorAccum.rgb + ( 1 - ColorAccum.a ) * CenterColor;
+	
+#if 0
+	// Fudge factor to increase alpha
+	ColorAccum.rgb /= ColorAccum.a;
+	ColorAccum.a = saturate( ColorAccum.a * 1.2 );
+	OutColor.rgb = lerp( CenterColor, ColorAccum.rgb, ColorAccum.a );
+#endif
+	
+	OutColor.a = 1;
+
+	//OutColor.rgb = ColorAccum.a * 0.2;
+}

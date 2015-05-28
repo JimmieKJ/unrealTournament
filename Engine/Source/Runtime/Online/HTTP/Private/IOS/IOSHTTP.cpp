@@ -13,6 +13,8 @@
 
 FIOSHttpRequest::FIOSHttpRequest()
 :	CompletionStatus(EHttpRequestStatus::NotStarted)
+,	StartRequestTime(0.0)
+,	ElapsedTime(0.0f)
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FIOSHttpRequest::FIOSHttpRequest()"));
 	Request = [[NSMutableURLRequest alloc] init];
@@ -242,6 +244,9 @@ bool FIOSHttpRequest::StartRequest()
 		UE_LOG(LogHttp, Warning, TEXT("ProcessRequest failed. Could not initialize Internet connection."));
 		CompletionStatus = EHttpRequestStatus::Failed;
 	}
+	StartRequestTime = FPlatformTime::Seconds();
+	// reset the elapsed time.
+	ElapsedTime = 0.0f;
 
 	return bStarted;
 }
@@ -249,6 +254,7 @@ bool FIOSHttpRequest::StartRequest()
 void FIOSHttpRequest::FinishedRequest()
 {
 	UE_LOG(LogHttp, Verbose, TEXT("FIOSHttpRequest::FinishedRequest()"));
+	ElapsedTime = (float)(FPlatformTime::Seconds() - StartRequestTime);
 	if( Response.IsValid() && !Response->HadError())
 	{
 		UE_LOG(LogHttp, Verbose, TEXT("Request succeeded"));
@@ -320,6 +326,11 @@ void FIOSHttpRequest::Tick(float DeltaSeconds)
 			FinishedRequest();
 		}
 	}
+}
+
+float FIOSHttpRequest::GetElapsedTime()
+{
+	return ElapsedTime;
 }
 
 

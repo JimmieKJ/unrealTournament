@@ -75,6 +75,7 @@
 	Required arguments:
 	-ManifestFile=""	Specifies in quotes the file path to the manifest to enumerate from
 	-OutputFile=""		Specifies in quotes the file path to a file where the list will be saved out, \r\n separated cloud relative paths.
+	-includesizes		When specified, the size of each file (in bytes) will be output following the filename and a tab.  I.e. /path/to/chunk\t1233
 	-dataenumerate		Must be specified to launch the tool in cloud seeder mode
 
 =============================================================================*/
@@ -97,8 +98,8 @@ struct FCommandLineMatcher
 {
 	const FString Command;
 
-	FCommandLineMatcher(FString Command)
-		: Command(MoveTemp(Command))
+	FCommandLineMatcher(FString InCommand)
+		: Command(MoveTemp(InCommand))
 	{}
 
 	FORCEINLINE bool operator()(const FString& ToMatch) const
@@ -157,6 +158,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 	GLog->Logf(TEXT("BuildPatchToolMain ran with: %s"), CommandLine);
 
 	FPlatformProcess::SetCurrentWorkingDirectoryToBaseDir();
+
 	bool bSuccess = false;
 
 	FString RootDirectory;
@@ -183,6 +185,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 	bool bPreview = false;
 	bool bNoPatchDelete = false;
 	bool bPatchWithReuseAgeThreshold = true;
+	bool bIncludeSizes = false;
 
 	// Collect all the info from the CommandLine
 	TArray< FString > Tokens, Switches;
@@ -222,6 +225,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		}
 		bPreview = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("preview"))) != INDEX_NONE;
 		bNoPatchDelete = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("nopatchdelete"))) != INDEX_NONE;
+		bIncludeSizes = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("includesizes"))) != INDEX_NONE;
 		BuildRootIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("BuildRoot")));
 		CloudDirIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("CloudDir")));
 		AppIDIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("AppID")));
@@ -244,7 +248,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		switch (ToolMode)
 		{
 		case EBuildPatchToolMode::PatchGeneration:
-			bSuccess = bSuccess && CloudDirIdx != INDEX_NONE;
+		bSuccess = bSuccess && CloudDirIdx != INDEX_NONE;
 			bSuccess = bSuccess && BuildRootIdx != INDEX_NONE;
 			bSuccess = bSuccess && AppIDIdx != INDEX_NONE;
 			bSuccess = bSuccess && AppNameIdx != INDEX_NONE;
@@ -265,7 +269,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		switch (ToolMode)
 		{
 		case EBuildPatchToolMode::PatchGeneration:
-			bSuccess = bSuccess && FParse::Value(*Switches[CloudDirIdx], TEXT("CloudDir="), CloudDirectory);
+		bSuccess = bSuccess && FParse::Value( *Switches[CloudDirIdx], TEXT( "CloudDir=" ), CloudDirectory );
 			bSuccess = bSuccess && FParse::Value(*Switches[BuildRootIdx], TEXT("BuildRoot="), RootDirectory);
 			bSuccess = bSuccess && FParse::Value(*Switches[AppIDIdx], TEXT("AppID="), AppID);
 			bSuccess = bSuccess && FParse::Value(*Switches[AppNameIdx], TEXT("AppName="), AppName);
@@ -413,7 +417,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 	IFileManager::Get().ProcessCommandLineOptions();
 
 	// Check for argument error
-	if (!bSuccess)
+	if( !bSuccess )
 	{
 		GLog->Log(ELogVerbosity::Error, TEXT("An error occurred processing arguments"));
 		return 1;
@@ -451,88 +455,88 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 	// Run the mode!
 	switch (ToolMode)
 	{
-		case EBuildPatchToolMode::Compactify:
+	case EBuildPatchToolMode::Compactify:
+	{
+		// Split out our manifests to keep arg (if any) into an array of manifest filenames
+		TArray<FString> ManifestsArr;
+		if (ManifestsList.Len() > 0)
 		{
-			// Split out our manifests to keep arg (if any) into an array of manifest filenames
-			TArray<FString> ManifestsArr;
-			if (ManifestsList.Len() > 0)
-			{
-				ManifestsList.ParseIntoArray(&ManifestsArr, TEXT(","), true);
-			}
-			else if (ManifestsFile.Len() > 0)
-			{
-				FString ManifestsFilePath = CloudDirectory / ManifestsFile;
-				FString Temp;
-				if (FFileHelper::LoadFileToString(Temp, *ManifestsFilePath))
-				{
-					Temp.ReplaceInline(TEXT("\r"), TEXT("\n"));
-					Temp.ParseIntoArray(&ManifestsArr, TEXT("\n"), true);
-				}
-				else
-				{
-					GLog->Log(ELogVerbosity::Error, TEXT("Could not open specified manifests to keep file"));
-					BuildPatchServicesModule.Reset();
-					FCoreDelegates::OnExit.Broadcast();
-					return 2;
-				}
-			}
-
-			// Determine our mode of operation
-			ECompactifyMode::Type CompactifyMode = ECompactifyMode::Full;
-			if (bPreview)
-			{
-				CompactifyMode = ECompactifyMode::Preview;
-			}
-			else if (bNoPatchDelete)
-			{
-				CompactifyMode = ECompactifyMode::NoPatchDelete;
-			}
-
-			// Run the compactify routine
-			bSuccess = BuildPatchServicesModule->CompactifyCloudDirectory(ManifestsArr, DataAgeThreshold, CompactifyMode);
+			ManifestsList.ParseIntoArray(ManifestsArr, TEXT(","), true);
 		}
-		break;
-		case EBuildPatchToolMode::PatchGeneration:
+		else if (ManifestsFile.Len() > 0)
 		{
-			FBuildPatchSettings Settings;
-			Settings.RootDirectory = RootDirectory + TEXT("/");
-			Settings.AppID = AppID;
-			Settings.AppName = AppName;
-			Settings.BuildVersion = BuildVersion;
-			Settings.LaunchExe = LaunchExe;
-			Settings.LaunchCommand = LaunchCommand;
-			Settings.IgnoreListFile = IgnoreListFile;
-			Settings.AttributeListFile = AttributeListFile;
-			Settings.PrereqName = PrereqName;
-			Settings.PrereqPath = PrereqPath;
-			Settings.PrereqArgs = PrereqArgs;
-			Settings.DataAgeThreshold = DataAgeThreshold;
-			Settings.bShouldHonorReuseThreshold = bPatchWithReuseAgeThreshold;
-			Settings.CustomFields = CustomFields;
-
-			// Run the build generation
-			if (FParse::Param(FCommandLine::Get(), TEXT("nochunks")))
+			FString ManifestsFilePath = CloudDirectory / ManifestsFile;
+			FString Temp;
+			if (FFileHelper::LoadFileToString(Temp, *ManifestsFilePath))
 			{
-				bSuccess = BuildPatchServicesModule->GenerateFilesManifestFromDirectory(Settings);
+				Temp.ReplaceInline(TEXT("\r"), TEXT("\n"));
+				Temp.ParseIntoArray(ManifestsArr, TEXT("\n"), true);
 			}
 			else
 			{
-				bSuccess = BuildPatchServicesModule->GenerateChunksManifestFromDirectory(Settings);
+				GLog->Log(ELogVerbosity::Error, TEXT("Could not open specified manifests to keep file"));
+				BuildPatchServicesModule.Reset();
+				FCoreDelegates::OnExit.Broadcast();
+				return 2;
 			}
 		}
-		break;
-		case EBuildPatchToolMode::DataEnumeration:
+
+		// Determine our mode of operation
+		ECompactifyMode::Type CompactifyMode = ECompactifyMode::Full;
+		if (bPreview)
 		{
-			// Run the data enumeration routine
-			bSuccess = BuildPatchServicesModule->EnumerateManifestData(MoveTemp(ManifestFile), MoveTemp(OutputFile));
+			CompactifyMode = ECompactifyMode::Preview;
 		}
-		break;
-		default:
+		else if (bNoPatchDelete)
 		{
-			GLog->Log(ELogVerbosity::Error, TEXT("Unknown tool mode"));
-			BuildPatchServicesModule.Reset();
-			FCoreDelegates::OnExit.Broadcast();
+			CompactifyMode = ECompactifyMode::NoPatchDelete;
 		}
+
+		// Run the compactify routine
+		bSuccess = BuildPatchServicesModule->CompactifyCloudDirectory(ManifestsArr, DataAgeThreshold, CompactifyMode);
+	}
+		break;
+	case EBuildPatchToolMode::PatchGeneration:
+	{
+		FBuildPatchSettings Settings;
+		Settings.RootDirectory = RootDirectory + TEXT("/");
+		Settings.AppID = AppID;
+		Settings.AppName = AppName;
+		Settings.BuildVersion = BuildVersion;
+		Settings.LaunchExe = LaunchExe;
+		Settings.LaunchCommand = LaunchCommand;
+		Settings.IgnoreListFile = IgnoreListFile;
+		Settings.AttributeListFile = AttributeListFile;
+		Settings.PrereqName = PrereqName;
+		Settings.PrereqPath = PrereqPath;
+		Settings.PrereqArgs = PrereqArgs;
+		Settings.DataAgeThreshold = DataAgeThreshold;
+		Settings.bShouldHonorReuseThreshold = bPatchWithReuseAgeThreshold;
+		Settings.CustomFields = CustomFields;
+
+		// Run the build generation
+		if (FParse::Param(FCommandLine::Get(), TEXT("nochunks")))
+		{
+			bSuccess = BuildPatchServicesModule->GenerateFilesManifestFromDirectory(Settings);
+		}
+		else
+		{
+			bSuccess = BuildPatchServicesModule->GenerateChunksManifestFromDirectory(Settings);
+		}
+	}
+		break;
+	case EBuildPatchToolMode::DataEnumeration:
+	{
+		// Run the data enumeration routine
+		bSuccess = BuildPatchServicesModule->EnumerateManifestData(MoveTemp(ManifestFile), MoveTemp(OutputFile), bIncludeSizes);
+	}
+		break;
+	default:
+	{
+		GLog->Log(ELogVerbosity::Error, TEXT("Unknown tool mode"));
+		BuildPatchServicesModule.Reset();
+		FCoreDelegates::OnExit.Broadcast();
+	}
 		return 3;
 	}
 

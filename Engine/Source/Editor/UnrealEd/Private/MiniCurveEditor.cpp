@@ -32,8 +32,7 @@ void SMiniCurveEditor::Construct(const FArguments& InArgs)
 
 	WidgetWindow = InArgs._ParentWindow;
 
-	UObject* SelectedCurve = InArgs._CurveOwner->GetOwner();
-	FAssetEditorManager::Get().NotifyAssetOpened(SelectedCurve, this);	
+	FAssetEditorManager::Get().NotifyAssetOpened(InArgs._OwnerObject, this);
 }
 
 SMiniCurveEditor::~SMiniCurveEditor()
@@ -77,3 +76,14 @@ bool SMiniCurveEditor::CloseWindow()
 	return true;
 }
 
+TSharedPtr<class FTabManager> SMiniCurveEditor::GetAssociatedTabManager()
+{
+	//@TODO: This editor should probably derive from FAssetEditorToolkit instead!
+	return TSharedPtr<class FTabManager>();
+}
+
+double SMiniCurveEditor::GetLastActivationTime()
+{
+	//@TODO: This editor should probably derive from FAssetEditorToolkit instead!
+	return 0.0;
+}

@@ -8,7 +8,7 @@
 // Event for a non-looping flipbook finishing play
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FFlipbookFinishedPlaySignature);
 
-UCLASS(ShowCategories=(Mobility, ComponentReplication), ClassGroup=Paper2D, EarlyAccessPreview, meta=(BlueprintSpawnableComponent))
+UCLASS(ShowCategories=(Mobility, ComponentReplication), ClassGroup=Paper2D, meta=(BlueprintSpawnableComponent))
 class PAPER2D_API UPaperFlipbookComponent : public UMeshComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -69,7 +69,7 @@ public:
 	virtual UPaperFlipbook* GetFlipbook();
 
 	/** DEPRECATED! Use GetMaterial() instead.  Gets the material used by this instance */
-	//@TODO: DEPRECATED(4.5, "GetSpriteMaterial has been replaced by GetMaterial")
+	DEPRECATED(4.5, "GetSpriteMaterial has been replaced by GetMaterial")
 	UFUNCTION(BlueprintCallable, Category="Sprite", meta=(DeprecatedFunction, DeprecationMessage="Use GetMaterial instead"))
 	UMaterialInterface* GetSpriteMaterial() const;
 
@@ -105,11 +105,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|Flipbook")
 	bool IsReversing() const;
 
-	/** Jump to a position in the flipbook. If bFireEvents is true, event functions will fire, otherwise will not. */
+	/** Jump to a position in the flipbook (expressed in frames). If bFireEvents is true, event functions will fire, otherwise they will not. */
+	UFUNCTION(BlueprintCallable, Category="Components|Flipbook")
+	void SetPlaybackPositionInFrames(int32 NewFramePosition, bool bFireEvents);
+
+	/** Get the current playback position (in frames) of the flipbook */
+	UFUNCTION(BlueprintCallable, Category="Components|Flipbook")
+	int32 GetPlaybackPositionInFrames() const;
+
+	/** Jump to a position in the flipbook (expressed in seconds). If bFireEvents is true, event functions will fire, otherwise they will not. */
 	UFUNCTION(BlueprintCallable, Category="Components|Flipbook")
 	void SetPlaybackPosition(float NewPosition, bool bFireEvents);
 
-	/** Get the current playback position of the flipbook */
+	/** Get the current playback position (in seconds) of the flipbook */
 	UFUNCTION(BlueprintCallable, Category="Components|Flipbook")
 	float GetPlaybackPosition() const;
 
@@ -157,10 +165,8 @@ protected:
 
 public:
 	// UObject interface
-#if WITH_EDITORONLY_DATA
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
-#endif
 	// End of UObject interface
 
 	// UActorComponent interface

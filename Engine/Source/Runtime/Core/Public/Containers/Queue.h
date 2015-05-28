@@ -32,25 +32,21 @@ namespace EQueueMode
  *
  * @param ItemType The type of items stored in the queue.
  * @param Mode The queue mode (single-producer, single-consumer by default).
-  * @todo gmp: Implement node pooling.
+ * @todo gmp: Implement node pooling.
  */
 template<typename ItemType, EQueueMode::Type Mode = EQueueMode::Spsc>
 class TQueue
 {
 public:
 
-	/**
-	 * Default constructor.
-	 */
-	TQueue( )
+	/** Default constructor. */
+	TQueue()
 	{
 		Head = Tail = new TNode();
 	}
 
-	/**
-	 * Destructor.
-	 */
-	~TQueue( )
+	/** Destructor. */
+	~TQueue()
 	{
 		while (Tail != nullptr)
 		{
@@ -68,6 +64,7 @@ public:
 	 *
 	 * @param OutValue Will hold the returned value.
 	 * @return true if a value was returned, false if the queue was empty.
+	 * @see Enqueue, IsEmpty, Peek
 	 */
 	bool Dequeue( ItemType& OutItem )
 	{
@@ -95,6 +92,7 @@ public:
 	 *
 	 * @param Item The item to add.
 	 * @return true if the item was added, false otherwise.
+	 * @see Dequeue, IsEmpty, Peek
 	 */
 	bool Enqueue( const ItemType& Item )
 	{
@@ -126,8 +124,9 @@ public:
 	 * Checks whether the queue is empty.
 	 *
 	 * @return true if the queue is empty, false otherwise.
+	 * @see Dequeue, Enqueue, Peek
 	 */
-	bool IsEmpty( ) const
+	bool IsEmpty() const
 	{
 		return (Tail->NextNode == nullptr);
 	}
@@ -137,6 +136,7 @@ public:
 	 *
 	 * @param OutItem Will hold the peeked at item.
 	 * @return true if an item was returned, false if the queue was empty.
+	 * @see Dequeue, Enqueue, IsEmpty
 	 */
 	bool Peek( ItemType& OutItem )
 	{
@@ -152,22 +152,22 @@ public:
 
 private:
 
-	// Structure for the internal linked list.
+	/** Structure for the internal linked list. */
 	struct TNode
 	{
-		// Holds a pointer to the next node in the list.
+		/** Holds a pointer to the next node in the list. */
 		TNode* volatile NextNode;
 
-		// Holds the node's item.
+		/** Holds the node's item. */
 		ItemType Item;
 
 
-		// Default constructor.
-		TNode( )
+		/** Default constructor. */
+		TNode()
 			: NextNode(nullptr)
 		{ }
 
-		// Creates and initializes a new node.
+		/** Creates and initializes a new node. */
 		TNode( const ItemType& InItem )
 			: NextNode(nullptr)
 			, Item(InItem)
@@ -175,9 +175,9 @@ private:
 	};
 
 
-	// Holds a pointer to the head of the list.
+	/** Holds a pointer to the head of the list. */
 	MS_ALIGN(16) TNode* volatile Head GCC_ALIGN(16);
 
-	// Holds a pointer to the tail of the list.
+	/** Holds a pointer to the tail of the list. */
 	TNode* Tail;
 };

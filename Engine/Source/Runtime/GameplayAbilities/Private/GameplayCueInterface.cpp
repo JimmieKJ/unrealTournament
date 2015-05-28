@@ -4,6 +4,7 @@
 #include "AbilitySystemComponent.h"
 #include "GameplayCueInterface.h"
 #include "GameplayTagsModule.h"
+#include "GameplayCueSet.h"
 
 UGameplayCueInterface::UGameplayCueInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -82,6 +83,20 @@ void IGameplayCueInterface::HandleGameplayCue(AActor *Self, FGameplayTag Gamepla
 
 	if (bShouldContinue)
 	{
+		TArray<UGameplayCueSet*> Sets;
+		GetGameplayCueSets(Sets);
+		for (UGameplayCueSet* Set : Sets)
+		{
+			bShouldContinue = Set->HandleGameplayCue(Self, GameplayCueTag, EventType, Parameters);
+			if (!bShouldContinue)
+			{
+				break;
+			}
+		}
+	}
+
+	if (bShouldContinue)
+	{
 		Parameters.MatchedTagName = GameplayCueTag.GetTagName();
 		GameplayCueDefaultHandler(EventType, Parameters);
 	}
@@ -100,24 +115,32 @@ void IGameplayCueInterface::ForwardGameplayCueToParent()
 
 void FActiveGameplayCue::PreReplicatedRemove(const struct FActiveGameplayCueContainer &InArray)
 {
-	// FIXME: Prediction key check is missing here
-	InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::Removed);
-	InArray.Owner->UpdateTagMap(GameplayCueTag, -1);
+	if (PredictionKey.IsLocalClientKey() == false)
+	{
+		// If predicted ignore the add/remove
+		InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::Removed);
+		InArray.Owner->UpdateTagMap(GameplayCueTag, -1);
+	}
 }
 
 void FActiveGameplayCue::PostReplicatedAdd(const struct FActiveGameplayCueContainer &InArray)
 {
-	// FIXME: Prediction key check is missing here
-	InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::WhileActive);
-	InArray.Owner->UpdateTagMap(GameplayCueTag, 1);
+	if (PredictionKey.IsLocalClientKey() == false)
+	{
+		// If predicted ignore the add/remove
+		InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::WhileActive);
+		InArray.Owner->UpdateTagMap(GameplayCueTag, 1);
+	}
 }
 
-void FActiveGameplayCueContainer::AddCue(const FGameplayTag& Tag)
+void FActiveGameplayCueContainer::AddCue(const FGameplayTag& Tag, const FPredictionKey& PredictionKey)
 {
 	UWorld* World = Owner->GetWorld();
 
+	// Store the prediction key so the client can investigate it
 	FActiveGameplayCue	NewCue;
-	NewCue.GameplayCueTag =Tag;
+	NewCue.GameplayCueTag = Tag;
+	NewCue.PredictionKey = PredictionKey;
 	MarkItemDirty(NewCue);
 
 	GameplayCues.Add(NewCue);
@@ -134,7 +157,7 @@ void FActiveGameplayCueContainer::RemoveCue(const FGameplayTag& Tag)
 		{
 			GameplayCues.RemoveAt(idx);
 			MarkArrayDirty();
-			Owner->UpdateTagMap(Tag, -11);
+			Owner->UpdateTagMap(Tag, -1);
 			return;
 		}
 	}

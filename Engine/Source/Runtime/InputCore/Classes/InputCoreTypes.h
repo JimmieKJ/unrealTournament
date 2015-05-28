@@ -4,6 +4,8 @@
 
 #include "InputCoreTypes.generated.h"
 
+INPUTCORE_API DECLARE_LOG_CATEGORY_EXTERN(LogInput, Log, All);
+
 USTRUCT(BlueprintType)
 struct INPUTCORE_API FKey
 {
@@ -38,6 +40,7 @@ struct INPUTCORE_API FKey
 	FText GetDisplayName() const;
 	FString ToString() const;
 	FName GetFName() const;
+	FName GetMenuCategory() const;
 
 	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar);
 	bool ExportTextItem(FString& ValueStr, FKey const& DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const;
@@ -71,6 +74,7 @@ struct TStructOpsTypeTraits<FKey> : public TStructOpsTypeTraitsBase
 		WithExportTextItem = true,
 		WithImportTextItem = true,
 		WithPostSerialize = true,
+		WithCopy = true,		// Necessary so that TSharedPtr<FKeyDetails> Data is copied around
 	};
 };
 
@@ -90,25 +94,7 @@ struct INPUTCORE_API FKeyDetails
 		NoFlags                 = 0,
 	};
 
-	FKeyDetails(const FKey InKey, const TAttribute<FText>& InDisplayName, const uint8 InKeyFlags = 0)
-		: Key(InKey)
-		, DisplayName(InDisplayName)
-		, bIsModifierKey((InKeyFlags & EKeyFlags::ModifierKey) != 0)
-		, bIsGamepadKey((InKeyFlags & EKeyFlags::GamepadKey) != 0)
-		, bIsMouseButton((InKeyFlags & EKeyFlags::MouseButton) != 0)
-		, bIsBindableInBlueprints((~InKeyFlags & EKeyFlags::NotBlueprintBindableKey) != 0)
-		, AxisType(EInputAxisType::None)
-	{
-		if ((InKeyFlags & EKeyFlags::FloatAxis) != 0)
-		{
-			ensure((InKeyFlags & EKeyFlags::VectorAxis) == 0);
-			AxisType = EInputAxisType::Float;
-		}
-		else if ((InKeyFlags & EKeyFlags::VectorAxis) != 0)
-		{
-			AxisType = EInputAxisType::Vector;
-		}
-	}
+	FKeyDetails(const FKey InKey, const TAttribute<FText>& InDisplayName, const uint8 InKeyFlags = 0, const FName InMenuCategory = NAME_None);
 
 	bool IsModifierKey() const { return bIsModifierKey != 0; }
 	bool IsGamepadKey() const { return bIsGamepadKey != 0; }
@@ -116,6 +102,7 @@ struct INPUTCORE_API FKeyDetails
 	bool IsFloatAxis() const { return AxisType == EInputAxisType::Float; }
 	bool IsVectorAxis() const { return AxisType == EInputAxisType::Vector; }
 	bool IsBindableInBlueprints() const { return bIsBindableInBlueprints != 0; }
+	FName GetMenuCategory() const { return MenuCategory; }
 	FText GetDisplayName() const;
 	const FKey& GetKey() const { return Key; }
 
@@ -131,6 +118,8 @@ private:
 	FKey  Key;
 	
 	TAttribute<FText> DisplayName;
+
+	FName MenuCategory;
 
 	int32 bIsModifierKey:1;
 	int32 bIsGamepadKey:1;
@@ -360,17 +349,13 @@ struct INPUTCORE_API EKeys
 	static const FKey Acceleration;
 
 	// Gestures
-	static const FKey Gesture_SwipeLeftRight;
-	static const FKey Gesture_SwipeUpDown;
-	static const FKey Gesture_TwoFingerSwipeLeftRight;
-	static const FKey Gesture_TwoFingerSwipeUpDown;
 	static const FKey Gesture_Pinch;
 	static const FKey Gesture_Flick;
 
 	// PS4-specific
 	static const FKey PS4_Special;
 
-	// Steam Controller Specifit;
+	// Steam Controller Specific
 	static const FKey Steam_Touch_0;
 	static const FKey Steam_Touch_1;
 	static const FKey Steam_Touch_2;
@@ -385,7 +370,11 @@ struct INPUTCORE_API EKeys
 	static const FKey Global_Play;
 	static const FKey Global_Back;
 
+	// Android-specific
 	static const FKey Android_Back;
+	static const FKey Android_Volume_Up;
+	static const FKey Android_Volume_Down;
+	static const FKey Android_Menu;
 
 	static const FKey Invalid;
 
@@ -393,6 +382,10 @@ struct INPUTCORE_API EKeys
 	static const FKey TouchKeys[NUM_TOUCH_KEYS];
 
 	static EConsoleForGamepadLabels::Type ConsoleForGamepadLabels;
+
+	static const FName NAME_KeyboardCategory;
+	static const FName NAME_GamepadCategory;
+	static const FName NAME_MouseCategory;
 
 	static void Initialize();
 	static void AddKey(const FKeyDetails& KeyDetails);
@@ -409,9 +402,19 @@ struct INPUTCORE_API EKeys
 	// Function that provides remapping for some gamepad keys in display windows
 	static FText GetGamepadDisplayName(const FKey Key);
 
+	static void AddMenuCategoryDisplayInfo(const FName CategoryName, const FText DisplayName, const FName PaletteIcon);
+	static FText GetMenuCategoryDisplayName(const FName CategoryName);
+	static FName GetMenuCategoryPaletteIcon(const FName CategoryName);
 private:
 
+	struct FCategoryDisplayInfo
+	{
+		FText DisplayName;
+		FName PaletteIcon;
+	};
+
 	static TMap<FKey, TSharedPtr<FKeyDetails> > InputKeys;
+	static TMap<FName, FCategoryDisplayInfo> MenuCategoryDisplayInfo;
 	static bool bInitialized;
 
 };
@@ -459,7 +462,6 @@ private:
 UCLASS(abstract)
 class UInputCoreTypes : public UObject
 {
-	GENERATED_UCLASS_BODY()
-
+	GENERATED_BODY()
 
 };

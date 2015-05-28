@@ -28,13 +28,17 @@ public:
 
 	/** Default constructor. */
 	FTargetPlatformManagerModule()
-		: bRestrictFormatsToRuntimeOnly(false), bForceCacheUpdate(true)
+		: bRestrictFormatsToRuntimeOnly(false)
+		, bForceCacheUpdate(true)
+		, bIgnoreFirstDelegateCall(true)
 	{
 #if AUTOSDKS_ENABLED		
 		
 		// AutoSDKs only enabled if UE_SDKS_ROOT is set.
 		if (IsAutoSDKsEnabled())
 		{					
+			DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FTargetPlatformManagerModule.StartAutoSDK" ), STAT_FTargetPlatformManagerModule_StartAutoSDK, STATGROUP_TargetPlatform );
+
 			// amortize UBT cost by calling it once for all platforms, rather than once per platform.
 			FString UBTParams(TEXT("-autosdkonly"));
 			int32 UBTReturnCode = -1;
@@ -60,7 +64,7 @@ public:
 #endif
 
 		SetupSDKStatus();
-		GetTargetPlatforms();
+		//GetTargetPlatforms(); redudant with next call
 		GetActiveTargetPlatforms();
 		GetAudioFormats();
 		GetTextureFormats();
@@ -81,12 +85,12 @@ public:
 
 	// ITargetPlatformManagerModule interface
 
-	virtual void Invalidate()
+	virtual void Invalidate() override
 	{
 		bForceCacheUpdate = true;
 
 		SetupSDKStatus();
-		GetTargetPlatforms();
+		//GetTargetPlatforms(); redudant with next call
 		GetActiveTargetPlatforms();
 		GetAudioFormats();
 		GetTextureFormats();
@@ -186,7 +190,7 @@ public:
 				{
 					TArray<FString> PlatformNames;
 
-					PlatformStr.ParseIntoArray(&PlatformNames, TEXT("+"), true);
+					PlatformStr.ParseIntoArray(PlatformNames, TEXT("+"), true);
 
 					// for nicer user response
 					FString AvailablePlatforms;
@@ -209,6 +213,7 @@ public:
 					{
 						// An invalid platform was specified...
 						// Inform the user and exit.
+						UE_LOG(LogTargetPlatformManager, Error, TEXT("Invalid target platform specified (%s). Available = { %s } "), *PlatformStr, *AvailablePlatforms);
 						UE_LOG(LogTargetPlatformManager, Fatal, TEXT("Invalid target platform specified (%s). Available = { %s } "), *PlatformStr, *AvailablePlatforms);
 					}
 				}
@@ -555,6 +560,8 @@ protected:
 	/** Discovers the available target platforms. */
 	void DiscoverAvailablePlatforms()
 	{
+		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FTargetPlatformManagerModule::DiscoverAvailablePlatforms" ), STAT_FTargetPlatformManagerModule_DiscoverAvailablePlatforms, STATGROUP_TargetPlatform );
+
 		Platforms.Empty(Platforms.Num());
 
 		TArray<FName> Modules;
@@ -583,6 +590,7 @@ protected:
 					// this setup will become faster after TTP 341897 is complete.					
 					if (SetupAndValidateAutoSDK(Platform->GetPlatformInfo().AutoSDKPath))
 					{
+						UE_LOG(LogTemp, Display, TEXT("Loaded TP %s"), *Modules[Index].ToString());
 						Platforms.Add(Platform);
 					}
 				}
@@ -590,7 +598,7 @@ protected:
 		}
 	}
 
-	bool UpdatePlatformEnvironment(FString PlatformName, TArray<FString> &Keys, TArray<FString> &Values)
+	bool UpdatePlatformEnvironment(FString PlatformName, TArray<FString> &Keys, TArray<FString> &Values) override
 	{
 		SetupEnvironmentVariables(Keys, Values);
 		return SetupSDKStatus(PlatformName);	
@@ -665,7 +673,7 @@ protected:
 			InstallManifestFile->Serialize(FileMem, FileSize);
 
 			FString FileAsString(ANSI_TO_TCHAR(FileMem));
-			FileAsString.ParseIntoArrayLines(&FileLines);
+			FileAsString.ParseIntoArrayLines(FileLines);
 
 			FMemory::Free(FileMem);
 			InstallManifestFile->Close();
@@ -707,7 +715,7 @@ protected:
 				EnvVarFile->Serialize(FileMem, FileSize);
 
 				FString FileAsString(ANSI_TO_TCHAR(FileMem));
-				FileAsString.ParseIntoArrayLines(&FileLines);
+				FileAsString.ParseIntoArrayLines(FileLines);
 
 				FMemory::Free(FileMem);
 				EnvVarFile->Close();				
@@ -758,7 +766,7 @@ protected:
 
 			const TCHAR* PathDelimiter = FPlatformMisc::GetPathVarDelimiter();
 			TArray<FString> PathVars;
-			OrigPathVar.ParseIntoArray(&PathVars, PathDelimiter, true);
+			OrigPathVar.ParseIntoArray(PathVars, PathDelimiter, true);
 
 			TArray<FString> ModifiedPathVars;
 			ModifiedPathVars = PathVars;
@@ -826,20 +834,36 @@ protected:
 		return SetupSDKStatus(TEXT(""));
 	}
 
-	bool SetupSDKStatus(FString targetPlatforms)
+	bool SetupSDKStatus(FString TargetPlatforms)
 	{
+		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FTargetPlatformManagerModule::SetupSDKStatus" ), STAT_FTargetPlatformManagerModule_SetupSDKStatus, STATGROUP_TargetPlatform );
+
 		// run UBT with -validate -allplatforms and read the output
-#if PLATFORM_MAC
-		FString CmdExe = TEXT("/bin/sh");
-        FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
-		FString CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/UnrealBuildTool.exe")) + TEXT("\" -validateplatform");
-#else
-		FString CmdExe = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/UnrealBuildTool.exe"));
-		FString CommandLine = TEXT("-validateplatform");
-#endif
+		FString CmdExe, CommandLine;
+		
+		if (PLATFORM_MAC)
+		{
+			CmdExe = TEXT("/bin/sh");
+			FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
+			CommandLine = TEXT("\"") + ScriptPath + TEXT("\" \"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -validateplatform");
+		}
+		else if (PLATFORM_WINDOWS)
+		{
+			CmdExe = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNet/UnrealBuildTool.exe"));
+			CommandLine = TEXT("-validateplatform");
+		}
+		else if (PLATFORM_LINUX)
+		{
+			CmdExe = TEXT("/usr/bin/mono");
+			CommandLine = TEXT("\"") + FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/DotNET/UnrealBuildTool.exe")) + TEXT("\" -validateplatform");
+		}
+		else
+		{
+			checkf(false, TEXT("FTargetPlatformManagerModule::SetupSDKStatus(): Unsupported platform!"));
+		}
 
 		// Allow for only a subset of platforms to be reparsed - needed when kicking a change from the UI
-		CommandLine += targetPlatforms.IsEmpty() ? TEXT(" -allplatforms") : (TEXT(" -platforms=") + targetPlatforms);
+		CommandLine += TargetPlatforms.IsEmpty() ? TEXT(" -allplatforms") : (TEXT(" -platforms=") + TargetPlatforms);
 
 		TSharedPtr<FMonitoredProcess> UBTProcess = MakeShareable(new FMonitoredProcess(CmdExe, CommandLine, true));
 		UBTProcess->OnOutput().BindStatic(&FTargetPlatformManagerModule::OnStatusOutput);
@@ -851,7 +875,7 @@ protected:
 		}
 
 		TArray<FString> PlatArray;
-		SDKStatusMessage.ParseIntoArrayWS(&PlatArray);
+		SDKStatusMessage.ParseIntoArrayWS(PlatArray);
 		for (int Index = 0; Index < PlatArray.Num()-2; ++Index)
 		{
             FString Item = PlatArray[Index];
@@ -890,6 +914,11 @@ protected:
 					PlatformName = TEXT("LinuxServer");
 					PlatformInfo::UpdatePlatformSDKStatus(PlatformName, Status);
 				}
+				else if (PlatformName == TEXT("Desktop"))
+				{
+					// since Desktop is just packaging, we don't need an SDK, and UBT will return INVALID, since it doesn't build for it
+					PlatformInfo::UpdatePlatformSDKStatus(PlatformName, PlatformInfo::EPlatformSDKStatus::Installed);
+				}
 				else
 				{
 					PlatformInfo::UpdatePlatformSDKStatus(PlatformName, Status);
@@ -914,10 +943,11 @@ private:
 
 	void ModulesChangesCallback(FName ModuleName, EModuleChangeReason ReasonForChange)
 	{
-		if (ModuleName.ToString().Contains(TEXT("TargetPlatform")) )
+		if (!bIgnoreFirstDelegateCall && ModuleName.ToString().Contains(TEXT("TargetPlatform")) && !ModuleName.ToString().Contains(TEXT("ProjectTargetPlatformEditor")))
 		{
 			Invalidate();
 		}
+		bIgnoreFirstDelegateCall = false;
 	}
 	
 	static FString SDKStatusMessage;
@@ -934,6 +964,9 @@ private:
 	// Flag to force reinitialization of all cached data. This is needed to have up-to-date caches
 	// in case of a module reload of a TargetPlatform-Module.
 	bool bForceCacheUpdate;
+
+	// Flag to avoid redunant reloads
+	bool bIgnoreFirstDelegateCall;
 
 	// Holds the list of discovered platforms.
 	TArray<ITargetPlatform*> Platforms;

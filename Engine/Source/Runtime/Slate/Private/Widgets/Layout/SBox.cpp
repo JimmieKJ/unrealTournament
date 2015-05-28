@@ -3,8 +3,6 @@
 #include "SlatePrivatePCH.h"
 #include "LayoutUtils.h"
 
-DECLARE_CYCLE_STAT( TEXT("OnPaint SBox"), STAT_SlateOnPaint_SBox, STATGROUP_Slate );
-
 SBox::SBox()
 : ChildSlot()
 {
@@ -82,7 +80,7 @@ void SBox::SetMaxDesiredHeight(TAttribute<FOptionalSize> InMaxDesiredHeight)
 	MaxDesiredHeight = InMaxDesiredHeight;
 }
 
-FVector2D SBox::ComputeDesiredSize() const
+FVector2D SBox::ComputeDesiredSize( float ) const
 {
 	EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
 
@@ -158,12 +156,7 @@ int32 SBox::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, 
 {
 	// An SBox just draws its only child
 	FArrangedChildren ArrangedChildren(EVisibility::Visible);
-	{
-#if SLATE_HD_STATS
-		SCOPE_CYCLE_COUNTER( STAT_SlateOnPaint_SBox );
-#endif
-		this->ArrangeChildren(AllottedGeometry, ArrangedChildren);
-	}
+	this->ArrangeChildren(AllottedGeometry, ArrangedChildren);
 
 	// Maybe none of our children are visible
 	if( ArrangedChildren.Num() > 0 )

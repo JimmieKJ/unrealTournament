@@ -25,36 +25,6 @@ protected:
 	pthread_t Thread;
 
 	/**
-	 * The runnable object to execute on this thread
-	 */
-	FRunnable* Runnable;
-
-	/** 
-	 * Sync event to make sure that Init() has been completed before allowing the main thread to continue
-	 */
-	FEvent* ThreadInitSyncEvent;
-
-	/**
-	 * The priority to run the thread at
-	 */
-	EThreadPriority ThreadPriority;
-
-	/**
-	 * The CPU Mask to indicate which CPUs the thread will run on.
-	 */
-	uint64 ThreadAffinityMask;
-
-	/**
-	* ID set during thread creation
-	*/
-	uint32 ThreadID;
-
-	/**
-	 * The name of this thread
-	 */
-	FString ThreadName;
-
-	/**
 	 * If true, the thread is ready to be joined.
 	 */
 	volatile bool ThreadIsRunning;
@@ -229,11 +199,6 @@ protected:
 public:
 	FRunnableThreadPThread()
 		: Thread(PTHREAD_NULL)
-		, Runnable(NULL)
-		, ThreadInitSyncEvent(NULL)
-		, ThreadPriority(TPri_Normal)
-		, ThreadAffinityMask(FPlatformAffinity::GetNoAffinityMask())
-		, ThreadID(0)
 		, ThreadIsRunning(false)
 	{
 	}
@@ -245,7 +210,6 @@ public:
 		{
 			Kill(true);
 		}
-		FRunnableThread::GetThreadRegistry().Remove(ThreadID);
 		ThreadID = 0;
 	}
 
@@ -300,16 +264,6 @@ public:
 		}
 	}
 
-	virtual uint32 GetThreadID() override
-	{
-		return ThreadID;
-	}
-
-	virtual FString GetThreadName() override
-	{
-		return ThreadName;
-	}
-
 protected:
 
 	virtual bool CreateInternal(FRunnable* InRunnable, const TCHAR* InThreadName,
@@ -320,13 +274,13 @@ protected:
 		Runnable = InRunnable;
 
 		// Create a sync event to guarantee the Init() function is called first
-		ThreadInitSyncEvent	= FPlatformProcess::CreateSynchEvent(true);
+		ThreadInitSyncEvent	= FPlatformProcess::GetSynchEventFromPool(true);
 		// A name for the thread in for debug purposes. _ThreadProc will set it.
 		ThreadName = InThreadName ? InThreadName : TEXT("Unnamed UE4");
 		ThreadAffinityMask = InThreadAffinityMask;
 
 		// Create the new thread
-		bool ThreadCreated = SpinPthread(&Thread, GetThreadEntryPoint(), InStackSize, this);
+		const bool ThreadCreated = SpinPthread(&Thread, GetThreadEntryPoint(), InStackSize, this);
 		// If it fails, clear all the vars
 		if (ThreadCreated)
 		{
@@ -336,7 +290,7 @@ protected:
 			ThreadInitSyncEvent->Wait((uint32)-1); // infinite wait
 
 			// set the priority
-			SetThreadPriority(InThreadPri);			
+			SetThreadPriority(InThreadPri);
 		}
 		else // If it fails, clear all the vars
 		{
@@ -344,8 +298,8 @@ protected:
 		}
 
 		// Cleanup the sync event
-		delete ThreadInitSyncEvent;
-		ThreadInitSyncEvent = NULL;
+		FPlatformProcess::ReturnSynchEventToPool( ThreadInitSyncEvent );
+		ThreadInitSyncEvent = nullptr;
 		return Thread != PTHREAD_NULL;
 	}
 };

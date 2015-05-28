@@ -4,13 +4,14 @@
 
 #include "DetailCustomizations/EnvDirectionCustomization.h"
 #include "DetailCustomizations/EnvTraceDataCustomization.h"
-#include "DetailCustomizations/EnvQueryParamSetupCustomization.h"
 #include "DetailCustomizations/EnvQueryTestDetails.h"
 
 #include "ModuleManager.h"
 #include "Toolkits/ToolkitManager.h"
 #include "SGraphNode_EnvironmentQuery.h"
 #include "EdGraphUtilities.h"
+
+#include "EnvironmentQuery/Generators/EnvQueryGenerator_BlueprintBase.h"
 
 
 IMPLEMENT_MODULE( FEnvironmentQueryEditorModule, EnvironmentQueryEditor );
@@ -46,9 +47,6 @@ void FEnvironmentQueryEditorModule::StartupModule()
 
 	// Register the details customizer
 	FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-	PropertyModule.RegisterCustomPropertyTypeLayout( "EnvFloatParam", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FEnvQueryParamSetupCustomization::MakeInstance ) );
-	PropertyModule.RegisterCustomPropertyTypeLayout( "EnvIntParam", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FEnvQueryParamSetupCustomization::MakeInstance ) );
-	PropertyModule.RegisterCustomPropertyTypeLayout( "EnvBoolParam", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FEnvQueryParamSetupCustomization::MakeInstance ) );
 	PropertyModule.RegisterCustomPropertyTypeLayout( "EnvDirection", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FEnvDirectionCustomization::MakeInstance ) );
 	PropertyModule.RegisterCustomPropertyTypeLayout( "EnvTraceData", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FEnvTraceDataCustomization::MakeInstance ) );
 	PropertyModule.RegisterCustomClassLayout( "EnvQueryTest", FOnGetDetailCustomizationInstance::CreateStatic( &FEnvQueryTestDetails::MakeInstance ) );
@@ -63,6 +61,7 @@ void FEnvironmentQueryEditorModule::ShutdownModule()
 		return;
 	}
 
+	ClassCache.Reset();
 	MenuExtensibilityManager.Reset();
 	ToolBarExtensibilityManager.Reset();
 
@@ -86,9 +85,6 @@ void FEnvironmentQueryEditorModule::ShutdownModule()
 	if (FModuleManager::Get().IsModuleLoaded("PropertyEditor"))
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
-		PropertyModule.UnregisterCustomPropertyTypeLayout( "EnvFloatParam" );
-		PropertyModule.UnregisterCustomPropertyTypeLayout( "EnvIntParam" );
-		PropertyModule.UnregisterCustomPropertyTypeLayout( "EnvBoolParam" );
 		PropertyModule.UnregisterCustomPropertyTypeLayout( "EnvDirection" );
 		PropertyModule.UnregisterCustomPropertyTypeLayout( "EnvTraceData" );
 
@@ -98,10 +94,16 @@ void FEnvironmentQueryEditorModule::ShutdownModule()
 }
 
 
-TSharedRef<IEnvironmentQueryEditor> FEnvironmentQueryEditorModule::CreateEnvironmentQueryEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UEnvQuery* Script )
+TSharedRef<IEnvironmentQueryEditor> FEnvironmentQueryEditorModule::CreateEnvironmentQueryEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UEnvQuery* Query)
 {
+	if (!ClassCache.IsValid())
+	{
+		ClassCache = MakeShareable(new FGraphNodeClassHelper(UEnvQueryNode::StaticClass()));
+		FGraphNodeClassHelper::AddObservedBlueprintClasses(UEnvQueryGenerator_BlueprintBase::StaticClass());
+		ClassCache->UpdateAvailableBlueprintClasses();
+	}
+
 	TSharedRef< FEnvironmentQueryEditor > NewEnvironmentQueryEditor( new FEnvironmentQueryEditor() );
-	NewEnvironmentQueryEditor->InitEnvironmentQueryEditor( Mode, InitToolkitHost, Script );
+	NewEnvironmentQueryEditor->InitEnvironmentQueryEditor(Mode, InitToolkitHost, Query);
 	return NewEnvironmentQueryEditor;
 }
-

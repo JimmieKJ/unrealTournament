@@ -10,14 +10,9 @@
 #include "AllowWindowsPlatformTypes.h"
 #include <dwmapi.h>
 
-int32 FD3D11Viewport::GetBackBufferFormat()
-{
-	return DXGI_FORMAT_R10G10B10A2_UNORM;
-}
+extern FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI, EPixelFormat PixelFormat, IDXGISwapChain* SwapChain);
 
-extern FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI,IDXGISwapChain* SwapChain);
-
-FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen):
+FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen, EPixelFormat InPreferredPixelFormat):
 	D3DRHI(InD3DRHI),
 	LastFlipTime(0),
 	LastFrameComplete(0),
@@ -29,6 +24,7 @@ FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,ui
 	SizeX(InSizeX),
 	SizeY(InSizeY),
 	bIsFullscreen(bInIsFullscreen),
+	PixelFormat(InPreferredPixelFormat),
 	bIsValid(true),
 	FrameSyncEvent(InD3DRHI)
 {
@@ -64,7 +60,7 @@ FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,ui
 	D3DRHI->GetFactory()->MakeWindowAssociation(WindowHandle,DXGI_MWA_NO_WINDOW_CHANGES);
 
 	// Create a RHI surface to represent the viewport's back buffer.
-	BackBuffer = GetSwapChainSurface(D3DRHI,SwapChain);
+	BackBuffer = GetSwapChainSurface(D3DRHI, PixelFormat, SwapChain);
 
 	// Tell the window to redraw when they can.
 	// @todo: For Slate viewports, it doesn't make sense to post WM_PAINT messages (we swallow those.)

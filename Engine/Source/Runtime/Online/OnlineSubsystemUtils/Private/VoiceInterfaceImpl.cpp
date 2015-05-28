@@ -114,6 +114,11 @@ void FOnlineVoiceImpl::StartNetworkedVoice(uint8 LocalUserNum)
 	if (LocalUserNum >= 0 && LocalUserNum < MaxLocalTalkers)
 	{
 		LocalTalkers[LocalUserNum].bHasNetworkedVoice = true;
+		if (VoiceEngine.IsValid())
+		{
+			uint32 Return = VoiceEngine->StartLocalVoiceProcessing(LocalUserNum);
+			UE_LOG(LogVoice, Log, TEXT("StartLocalProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
+		}
 		UE_LOG(LogVoice, Log, TEXT("Starting networked voice for user: %d"), LocalUserNum);
 	}
 	else
@@ -128,6 +133,11 @@ void FOnlineVoiceImpl::StopNetworkedVoice(uint8 LocalUserNum)
 	// Validate the range of the entry
 	if (LocalUserNum >= 0 && LocalUserNum < MaxLocalTalkers)
 	{
+		if (VoiceEngine.IsValid())
+		{
+			uint32 Return = VoiceEngine->StopLocalVoiceProcessing(LocalUserNum);
+			UE_LOG(LogVoice, Log, TEXT("StopLocalVoiceProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
+		}
 		LocalTalkers[LocalUserNum].bHasNetworkedVoice = false;
 		UE_LOG(LogVoice, Log, TEXT("Stopping networked voice for user: %d"), LocalUserNum);
 	}
@@ -158,9 +168,13 @@ bool FOnlineVoiceImpl::RegisterLocalTalker(uint32 LocalUserNum)
 				if (Return == S_OK)
 				{
 					Talker.bIsRegistered = true;
-					// Kick off the processing mode
-					Return = VoiceEngine->StartLocalVoiceProcessing(LocalUserNum);
-					UE_LOG(LogVoice, Log, TEXT("StartLocalProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
+					if (0)
+					{	
+						// If enabled, voice capture is continuous and "push to talk" merely sends packets
+						// Kick off the processing mode
+						Return = VoiceEngine->StartLocalVoiceProcessing(LocalUserNum);
+						UE_LOG(LogVoice, Log, TEXT("StartLocalProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
+					}
 				}
 			}
 			else
@@ -221,7 +235,8 @@ bool FOnlineVoiceImpl::UnregisterLocalTalker(uint32 LocalUserNum)
 			}
 
 			// Remove them from engine too
-			VoiceEngine->StopLocalVoiceProcessing(LocalUserNum);
+			Return = VoiceEngine->StopLocalVoiceProcessing(LocalUserNum);
+			UE_LOG(LogVoice, Log, TEXT("StopLocalVoiceProcessing(%d) returned 0x%08X"), LocalUserNum, Return);
 			Return = VoiceEngine->UnregisterLocalTalker(LocalUserNum);
 			UE_LOG(LogVoice, Log, TEXT("UnregisterLocalTalker(%d) returned 0x%08X"), LocalUserNum, Return);
 			Talker.bIsTalking = false;

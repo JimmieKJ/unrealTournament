@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CrashDebugHelper.h"
+
 class FCrashDebugHelperLinux : public ICrashDebugHelper
 {
 public:
@@ -17,8 +19,6 @@ public:
 	 *	@return	bool				true if successful, false if not
 	 */
 	virtual bool ParseCrashDump(const FString& InCrashDumpName, FCrashDebugInfo& OutCrashDebugInfo) override;
-
-	virtual bool SyncAndDebugCrashDump(const FString& InCrashDumpName) override;
 
 	/**
 	 *	Parse the given crash dump, and generate a report. 

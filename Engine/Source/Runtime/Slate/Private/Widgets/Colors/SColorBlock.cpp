@@ -93,7 +93,7 @@ FReply SColorBlock::OnMouseButtonDown( const FGeometry& MyGeometry, const FPoint
 	}
 }
 
-FVector2D SColorBlock::ComputeDesiredSize() const
+FVector2D SColorBlock::ComputeDesiredSize( float ) const
 {
 	return ColorBlockSize.Get();
 }

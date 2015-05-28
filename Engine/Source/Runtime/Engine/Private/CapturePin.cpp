@@ -18,7 +18,7 @@ FCapturePin::FCapturePin(HRESULT *phr, CSource *pFilter)
         : CSourceStream(NAME("Push Source"), phr, pFilter, L"Out"),
 		FramesWritten(0),
 		bZeroMemory(0),
-		FrameLength(UNITS/GEngine->MatineeCaptureFPS),
+		FrameLength(UNITS/GEngine->MatineeScreenshotOptions.MatineeCaptureFPS),
 		CurrentBitDepth(32)
 {
 	// Get the dimensions of the window

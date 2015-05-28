@@ -37,15 +37,11 @@ FRenderQueryRHIRef FEmptyDynamicRHI::RHICreateRenderQuery(ERenderQueryType Query
 	return new FEmptyRenderQuery(QueryType);
 }
 
-void FEmptyDynamicRHI::RHIResetRenderQuery(FRenderQueryRHIParamRef QueryRHI)
-{
-	DYNAMIC_CAST_EMPTYRESOURCE(RenderQuery,Query);
-
-}
-
 bool FEmptyDynamicRHI::RHIGetRenderQueryResult(FRenderQueryRHIParamRef QueryRHI,uint64& OutNumPixels,bool bWait)
 {
-	DYNAMIC_CAST_EMPTYRESOURCE(RenderQuery,Query);
+	check(IsInRenderingThread());
+
+	FEmptyRenderQuery* Query = ResourceCast(QueryRHI);
 
 	return false;
 }

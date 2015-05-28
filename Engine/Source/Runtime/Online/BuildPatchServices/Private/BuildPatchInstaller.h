@@ -55,7 +55,10 @@ private:
 	const bool bIsChunkData;
 
 	// A flag to store if we are performing a repair
-	const bool bIsRepairing;
+	bool bIsRepairing;
+
+	// A flag to store if we should only be staging, and not moving to install location
+	bool bShouldStageOnly;
 
 	// A flag storing whether the process was a success
 	bool bSuccess;
@@ -105,8 +108,9 @@ public:
 	 * @param InstallDirectory		The directory where the build will be installed
 	 * @param StagingDirectory		The directory for storing the intermediate files
 	 * @param InstallationInfoRef	Reference to the module's installation info that keeps record of locally installed apps for use as chunk sources
+	 * @param ShouldStageOnly		Whether the installer should only stage the required files, and skip moving them to the install directory
 	 */
-	FBuildPatchInstaller( FBuildPatchBoolManifestDelegate OnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InstallDirectory, const FString& StagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef );
+	FBuildPatchInstaller(FBuildPatchBoolManifestDelegate OnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InstallDirectory, const FString& StagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef, bool ShouldStageOnly);
 
 	/**
 	 * Default Destructor, will delete the allocated Thread
@@ -165,6 +169,13 @@ private:
 	bool RunBackupAndMove();
 
 	/**
+	 * Runs the process to setup all file attributes required
+	 * @param bForce		Set true if also removing attributes to force the api calls to be made
+	 * @return    Returns true if there were no errors
+	 */
+	bool RunFileAttributes( bool bForce = false );
+
+	/**
 	 * Runs the verification process
 	 * @param CorruptFiles  OUT     Receives the list of files that failed verification
 	 * @return    Returns true if there were no corrupt files
@@ -220,4 +231,10 @@ private:
 	 * @param Percent	The current process percentage
 	 */
 	void UpdateVerificationProgress( float Percent );
+
+	/**
+	 * Delete empty directories from an installation
+	 * @param RootDirectory	 Root Directory for search
+	 */
+	void CleanupEmptyDirectories( const FString& RootDirectory );
 };

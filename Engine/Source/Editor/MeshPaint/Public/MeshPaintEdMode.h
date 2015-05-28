@@ -6,6 +6,7 @@
 #include "GenericOctreePublic.h"
 #include "Engine/StaticMesh.h"
 
+class IMeshPaintGeometryAdapter;
 
 /** Mesh paint resource types */
 namespace EMeshPaintResource
@@ -20,6 +21,32 @@ namespace EMeshPaintResource
 	};
 }
 
+
+struct FTexturePaintTriangleInfo
+{
+	FVector TriVertices[3];
+	FVector2D TrianglePoints[3];
+	FVector2D TriUVs[3];
+};
+
+/** Structure used to house and compare Texture and UV channel pairs */
+struct FPaintableTexture
+{	
+	UTexture*	Texture;
+	int32		UVChannelIndex;
+
+	FPaintableTexture(UTexture* InTexture = NULL, uint32 InUVChannelIndex = 0)
+		: Texture(InTexture)
+		, UVChannelIndex(InUVChannelIndex)
+	{}
+	
+	/** Overloaded equality operator for use with TArrays Contains method. */
+	bool operator==(const FPaintableTexture& rhs) const
+	{
+		return (Texture == rhs.Texture);
+		/* && (UVChannelIndex == rhs.UVChannelIndex);*/// if we compare UVChannel we would have to duplicate the texture
+	}
+};
 
 /** Mesh paint mode */
 namespace EMeshPaintMode
@@ -341,13 +368,6 @@ public:
 		}
 	};
 
-	struct FTexturePaintTriangleInfo
-	{
-		FVector TriVertices[ 3 ];
-		FVector2D TrianglePoints[ 3 ];
-		FVector2D TriUVs[ 3 ];
-	};
-
 	/** Constructor */
 	FEdModeMeshPaint();
 
@@ -385,8 +405,8 @@ public:
 	/** Saves out cached mesh settings for the given actor */
 	void SaveSettingsForActor( AActor* InActor );
 
-	/** Updates static Mesh with settings for updated textures*/
-	void UpdateSettingsForStaticMeshComponent( UStaticMeshComponent* InStaticMeshComponent, UTexture2D* InOldTexture, UTexture2D* InNewTexture );
+	/** Updates settings for the specified component with updated textures */
+	void UpdateSettingsForMeshComponent( UMeshComponent* InMeshComponent, UTexture2D* InOldTexture, UTexture2D* InNewTexture );
 
 	/** Helper function to get the current paint action for use in DoPaint */
 	EMeshPaintAction::Type GetPaintAction(FViewport* InViewport);
@@ -415,20 +435,14 @@ public:
 	/** Applies vertex color painting on LOD0 to all lower LODs. */
 	void ApplyVertexColorsToAllLODs();
 
-	/** Forces all selected meshes to their best LOD. */
-	void ForceBestLOD();
+	/** Forces all selected meshes to their best LOD, or removes the forcing. */
+	void ApplyOrRemoveForceBestLOD(bool bApply);
 
-	/** Forces the passed static mesh component to it's best LOD. */
-	void ForceBestLOD(UStaticMeshComponent* StaticMeshComponent);
-
-	/** Stops forcing selected meshes to their best lod. */
-	void ClearForcedLOD();
-
-	/** Stops the passed static mesh component to it's best lod. */
-	void ClearForcedLOD(UStaticMeshComponent* StaticMeshComponent);
+	/** Forces the static mesh component to it's best LOD, or removes the forcing. */
+	void ApplyOrRemoveForceBestLOD(const IMeshPaintGeometryAdapter& GeometryInfo, UMeshComponent* InMeshComponent, bool bApply);
 
 	/** Applies vertex color painting on LOD0 to all lower LODs. */
-	void ApplyVertexColorsToAllLODs(UStaticMeshComponent* StaticMeshComponent);
+	void ApplyVertexColorsToAllLODs(const IMeshPaintGeometryAdapter& GeometryInfo, UMeshComponent* InMeshComponent);
 
 	/** Fills the vertex colors associated with the currently selected mesh*/
 	void FillInstanceVertexColors();
@@ -485,15 +499,15 @@ public:
 	 */	
 	void CommitAllPaintedTextures();
 
-	/** Clears all texture overrides for this static mesh. */
-	void ClearStaticMeshTextureOverrides(UStaticMeshComponent* InStaticMeshComponent);
+	/** Clears all texture overrides for this component. */
+	void ClearMeshTextureOverrides(const IMeshPaintGeometryAdapter& GeometryInfo, UMeshComponent* InMeshComponent);
 
 	/** Clears all texture overrides, removing any pending texture paint changes */
 	void ClearAllTextureOverrides();
 
-	void SetAllTextureOverrides(UStaticMeshComponent* InStaticMeshComponent);
+	void SetAllTextureOverrides(const IMeshPaintGeometryAdapter& GeometryInfo, UMeshComponent* InMeshComponent);
 
-	void SetSpecificTextureOverrideForMesh(UStaticMeshComponent* InStaticMeshComponent, UTexture* Texture);
+	void SetSpecificTextureOverrideForMesh(const IMeshPaintGeometryAdapter& GeometryInfo, UTexture2D* Texture);
 
 	/** Used to tell the texture paint system that we will need to restore the rendertargets */
 	void RestoreRenderTargets();
@@ -557,7 +571,7 @@ private:
 		}
 	};
 
-	/** Triangle for use in Octree for mesh paint optimisation */
+	/** Triangle for use in Octree for mesh paint optimization */
 	struct FMeshTriangle
 	{
 		uint32 Index;
@@ -633,8 +647,8 @@ private:
 	void PaintMeshVertices( UStaticMeshComponent* StaticMeshComponent, const FMeshPaintParameters& Params, const bool bShouldApplyPaint, FStaticMeshLODResources& LODModel, const FVector& ActorSpaceCameraPosition, const FMatrix& ActorToWorldMatrix, FPrimitiveDrawInterface* PDI, const float VisualBiasDistance );
 
 	/** Paints mesh texture */
-	void PaintMeshTexture( UStaticMeshComponent* StaticMeshComponent, const FMeshPaintParameters& Params, const bool bShouldApplyPaint, FStaticMeshLODResources& LODModel, const FVector& ActorSpaceCameraPosition, const FMatrix& ActorToWorldMatrix, const float ActorSpaceSquaredBrushRadius, const FVector& ActorSpaceBrushPosition );
-	
+	void PaintMeshTexture( UMeshComponent* MeshComponent, const FMeshPaintParameters& Params, const bool bShouldApplyPaint, const FVector& ActorSpaceCameraPosition, const FMatrix& ActorToWorldMatrix, const float ActorSpaceSquaredBrushRadius, const FVector& ActorSpaceBrushPosition, const IMeshPaintGeometryAdapter& GeometryInfo );
+
 	/** Forces real-time perspective viewports */
 	void ForceRealTimeViewports( const bool bEnable, const bool bStoreCurrentState );
 
@@ -642,12 +656,13 @@ private:
 	void SetViewportShowFlags( const bool bAllowColorViewModes, FEditorViewportClient& Viewport );
 
 	/** Starts painting a texture */
-	void StartPaintingTexture( UStaticMeshComponent* InStaticMeshComponent );
+	void StartPaintingTexture(UMeshComponent* InMeshComponent, const IMeshPaintGeometryAdapter& GeometryInfo);
 
 	/** Paints on a texture */
 	void PaintTexture( const FMeshPaintParameters& InParams,
 					   const TArray< int32 >& InInfluencedTriangles,
-					   const FMatrix& InActorToWorldMatrix );
+					   const FMatrix& InActorToWorldMatrix,
+					   const IMeshPaintGeometryAdapter& GeometryInfo);
 
 	/** Finishes painting a texture */
 	void FinishPaintingTexture();
@@ -659,7 +674,7 @@ private:
 	static void CopyTextureToRenderTargetTexture(UTexture* SourceTexture, UTextureRenderTarget2D* RenderTargetTexture, ERHIFeatureLevel::Type FeatureLevel);
 
 	/** Will generate a mask texture, used for texture dilation, and store it in the passed in rendertarget */
-	bool GenerateSeamMask(UStaticMeshComponent* StaticMeshComponent, int32 UVSet, UTextureRenderTarget2D* RenderTargetTexture);
+	bool GenerateSeamMask(UMeshComponent* MeshComponent, int32 UVSet, UTextureRenderTarget2D* RenderTargetTexture);
 
 	/** Static: Creates a temporary texture used to transfer data to a render target in memory */
 	UTexture2D* CreateTempUncompressedTexture( UTexture2D* SourceTexture );
@@ -726,6 +741,8 @@ private:
 	/** Caches the currently selected actors info into CurrentlySelectedActorsMaterialInfo */
 	void CacheActorInfo();
 
+	/** Returns valid MeshComponents in the current selection */
+	TArray<UMeshComponent*> GetSelectedMeshComponents() const;
 private:
 
 	/** Whether we're currently painting */
@@ -752,15 +769,12 @@ private:
 	/** Array of static meshes that we've modified */
 	TArray< UStaticMesh* > ModifiedStaticMeshes;
 
-	/** A mapping of static meshes to body setups that were built for static meshes */
-	TMap<TWeakObjectPtr<UStaticMesh>, TWeakObjectPtr<UBodySetup>> StaticMeshToTempBodySetup;
-
 	/** Which mesh LOD index we're painting */
 	// @todo MeshPaint: Allow painting on other LODs?
 	static const uint32 PaintingMeshLODIndex = 0;
 
-	/** Texture paint: The static mesh components that we're currently painting */
-	UStaticMeshComponent* TexturePaintingStaticMeshComponent;
+	/** Texture paint: The mesh components that we're currently painting */
+	UMeshComponent* TexturePaintingCurrentMeshComponent;
 
 	/** Texture paint: An octree for the current static mesh & LOD to speed up triangle selection */
 	FMeshTriOctree* TexturePaintingStaticMeshOctree;
@@ -783,13 +797,13 @@ private:
 	 * @param	StaticMeshComponent		The SMC to remove vertex colors from.
 	 * @param	InstanceMeshLODInfo		The instance's LODInfo which stores the painted information to be cleared.
 	 */
-	void RemoveInstanceVertexColorsWorker(UStaticMeshComponent *StaticMeshComponent, FStaticMeshComponentLODInfo *InstanceMeshLODInfo) const;
+	void RemoveInstanceVertexColorsWorker(UStaticMeshComponent* StaticMeshComponent, FStaticMeshComponentLODInfo *InstanceMeshLODInfo) const;
 
 	/** Texture paint: Will hold a list of texture items that we can paint on */
 	TArray<FTextureTargetListInfo> TexturePaintTargetList;
 
 	/** Map of settings for each StaticMeshComponent */
-	TMap< UStaticMeshComponent*, StaticMeshSettings > StaticMeshSettingsMap;
+	TMap< UMeshComponent*, StaticMeshSettings > StaticMeshSettingsMap;
 
 	/** Used to store a flag that will tell the tick function to restore data to our rendertargets after they have been invalidated by a viewport resize. */
 	bool bDoRestoreRenTargets;
@@ -853,11 +867,12 @@ public:
 	/**
 	 * Imports Vertex Color data from texture scanning thought uv vertex coordinates for selected actors.  
 	 *
+	 * @param ModeTools the mode tools for the current editor
 	 * @param Filename path for loading TGA file.
 	 * @param UVIndex Coordinate index.
 	 * @param ImportLOD LOD level to work with.
 	 * @param Tex Texture info.
 	 * @param ColorMask Mask for filtering which colors to use.
 	 */
-	void ImportVertexColors(const FString& Filename, int32 UVIndex, int32 ImportLOD, uint8 ColorMask);
+	void ImportVertexColors(FEditorModeTools* ModeTools, const FString& Filename, int32 UVIndex, int32 ImportLOD, uint8 ColorMask);
 };

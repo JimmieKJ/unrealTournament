@@ -26,14 +26,9 @@ using namespace Windows::UI::Core;
 
 extern FD3D11Texture2D* GetSwapChainSurface(FD3D11DynamicRHI* D3DRHI,IDXGISwapChain* SwapChain);
 
-int32 FD3D11Viewport::GetBackBufferFormat()
-{
-	return DXGI_FORMAT_R10G10B10A2_UNORM;
-}
-
 extern void D3D11TextureAllocated2D( FD3D11Texture2D& Texture );
 
-FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen):
+FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen,EPixelFormat InPreferredPixelFormat):
 	D3DRHI(InD3DRHI),
 	LastFlipTime(0),
 	LastFrameComplete(0),
@@ -44,6 +39,7 @@ FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,ui
 	SizeX(InSizeX),
 	SizeY(InSizeY),
 	bIsFullscreen(bInIsFullscreen),
+	PixelFormat(InPreferredPixelFormat),
 	bIsValid(true),
 	FrameSyncEvent(InD3DRHI)
 {
@@ -67,7 +63,7 @@ FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,ui
 	DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {0};
 	swapChainDesc.Width = SizeX;
 	swapChainDesc.Height = SizeY;
-	swapChainDesc.Format = (DXGI_FORMAT)FD3D11Viewport::GetBackBufferFormat();
+	swapChainDesc.Format = GetRenderTargetFormat(PixelFormat);
 	swapChainDesc.Stereo = false; 
 	swapChainDesc.SampleDesc.Count = 1;                          // don't use multi-sampling
 	swapChainDesc.SampleDesc.Quality = 0;

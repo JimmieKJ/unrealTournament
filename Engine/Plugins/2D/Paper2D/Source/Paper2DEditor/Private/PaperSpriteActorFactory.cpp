@@ -3,6 +3,9 @@
 #include "Paper2DEditorPrivatePCH.h"
 #include "AssetData.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PaperSpriteActorFactory.h"
+#include "PaperSpriteActor.h"
+
 //////////////////////////////////////////////////////////////////////////
 // UPaperSpriteActorFactory
 
@@ -15,10 +18,10 @@ UPaperSpriteActorFactory::UPaperSpriteActorFactory(const FObjectInitializer& Obj
 
 void UPaperSpriteActorFactory::PostSpawnActor(UObject* Asset, AActor* NewActor)
 {
+	Super::PostSpawnActor(Asset, NewActor);
+
 	if (UPaperSprite* Sprite = Cast<UPaperSprite>(Asset))
 	{
-		GEditor->SetActorLabelUnique(NewActor, Sprite->GetName());
-
 		APaperSpriteActor* TypedActor = CastChecked<APaperSpriteActor>(NewActor);
 		UPaperSpriteComponent* RenderComponent = TypedActor->GetRenderComponent();
 		check(RenderComponent);

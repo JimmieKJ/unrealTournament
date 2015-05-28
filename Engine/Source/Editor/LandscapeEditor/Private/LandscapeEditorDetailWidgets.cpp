@@ -14,7 +14,7 @@ public:
 protected:
 	virtual void CreateMenuEntry(class FMenuBuilder& MenuBuilder) const override;
 
-	virtual TSharedRef<class IMultiBlockBaseWidget> ConstructWidget() const;
+	virtual TSharedRef<class IMultiBlockBaseWidget> ConstructWidget() const override;
 
 	// Friend our corresponding widget class
 	friend class SToolSelector;

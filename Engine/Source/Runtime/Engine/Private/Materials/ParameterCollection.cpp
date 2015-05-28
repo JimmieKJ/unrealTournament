@@ -516,11 +516,11 @@ void UMaterialParameterCollectionInstance::FinishDestroy()
 	Super::FinishDestroy();
 }
 
-void FMaterialParameterCollectionInstanceResource::GameThread_UpdateContents(const FGuid& InId, const TArray<FVector4>& Data)
+void FMaterialParameterCollectionInstanceResource::GameThread_UpdateContents(const FGuid& InGuid, const TArray<FVector4>& Data)
 {
 	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
 		FUpdateCollectionCommand,
-		FGuid,Id,InId,
+		FGuid,Id,InGuid,
 		TArray<FVector4>,Data,Data,
 		FMaterialParameterCollectionInstanceResource*,Resource,this,
 	{

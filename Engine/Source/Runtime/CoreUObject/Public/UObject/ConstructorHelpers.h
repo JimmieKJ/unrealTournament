@@ -29,6 +29,10 @@ namespace ConstructorHelpersInternal
 		UClass* Class = T::StaticClass();
 		Class->GetDefaultObject(); // force the CDO to be created if it hasn't already
 		T* ObjectPtr = LoadObject<T>(NULL, *PathName);
+		if (ObjectPtr)
+		{
+			ObjectPtr->AddToRoot();
+		}
 		return ObjectPtr;
 	}
 
@@ -49,6 +53,10 @@ namespace ConstructorHelpersInternal
 		{
 			// If it is not in memory, try to load it.
 			PackagePtr = LoadPackage( nullptr, *PathName, LOAD_None );
+		}
+		if (PackagePtr)
+		{
+			PackagePtr->AddToRoot();
 		}
 		return PackagePtr;
 	}

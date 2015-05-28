@@ -200,8 +200,6 @@ void SSpeakerDropDown::Tick( const FGeometry& AllottedGeometry, const double InC
 		ComboBox->ClearSelection();
 		ComboBox->RefreshOptions();
 	}
-
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 }
 
 struct FSpeakerMatcher
@@ -439,8 +437,6 @@ void STargetSetDropDown::Tick( const FGeometry& AllottedGeometry, const double I
 		ComboBox->ClearSelection();
 		ComboBox->RefreshOptions();
 	}
-
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 }
 
 void STargetSetDropDown::OnSelectionChanged(TSharedPtr<FTargetSet> TargetSet, ESelectInfo::Type SelectInfo)
@@ -599,7 +595,7 @@ public:
 	SLATE_END_ARGS()
 
 	void Construct( const FArguments& InArgs, const TSharedRef<IPropertyHandle>& InPropertyHandle, const TSharedRef<FAssetThumbnailPool>& InAssetThumbnailPool );
-	virtual void Tick(  const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 private:
 	bool IsDialogueWaveValid() const;
@@ -786,12 +782,8 @@ void SValidatedDialogueContextHeaderWidget::Construct( const FArguments& InArgs,
 		];
 	}
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
-
-void SValidatedDialogueContextHeaderWidget::Tick(  const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+void SValidatedDialogueContextHeaderWidget::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
 	if( DialogueWaveParameterPropertyHandle.IsValid() && DialogueWaveParameterPropertyHandle->IsValidHandle() )
 	{
 		// Get dialogue wave.

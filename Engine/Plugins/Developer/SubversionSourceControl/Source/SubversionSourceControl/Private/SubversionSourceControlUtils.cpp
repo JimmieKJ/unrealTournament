@@ -73,17 +73,17 @@ static bool RunCommandInternal(const FString& InCommand, const TArray<FString>& 
 	// always trust server cert
 	FullCommand += TEXT(" --trust-server-cert");
 
-	if(UserName.Len() > 0)
+	if (UserName.Len() > 0)
 	{
 		FullCommand += FString::Printf(TEXT(" --username %s"), *UserName);
 	}
 
 	// note: dont mirror passwords to the output log
-	UE_LOG( LogSourceControl, Log, TEXT("Attempting 'svn %s --password ********'"), *FullCommand );
+	UE_LOG(LogSourceControl, Log, TEXT("Attempting \"svn %s --password ********\""), *FullCommand);
 
-	if(Password.Len() > 0)
+	if (Password.Len() > 0)
 	{
-		FullCommand += FString::Printf(TEXT(" --password %s"), *Password);
+		FullCommand += FString::Printf(TEXT(" --password \"%s\""), *Password);
 	}
 	
 #if PLATFORM_WINDOWS
@@ -97,7 +97,7 @@ static bool RunCommandInternal(const FString& InCommand, const TArray<FString>& 
 
 	// parse output & errors
 	TArray<FString> Errors;
-	StdError.ParseIntoArray(&Errors, TEXT("\r\n"), true);
+	StdError.ParseIntoArray(Errors, TEXT("\r\n"), true);
 	OutErrorMessages.Append(MoveTemp(Errors));
 
 	return ReturnCode == 0;
@@ -154,7 +154,7 @@ bool RunAtomicCommand(const FString& InCommand, const TArray<FString>& InFiles, 
 	FString Results;
 	if( RunCommandInternal(InCommand, InFiles, InParameters, Results, OutErrorMessages, UserName, Password) )
 	{
-		Results.ParseIntoArray(&OutResults, TEXT("\r\n"), true);
+		Results.ParseIntoArray(OutResults, TEXT("\r\n"), true);
 		return true;
 	}
 	return false;
@@ -178,14 +178,14 @@ bool RunCommand(const FString& InCommand, const TArray<FString>& InFiles, const 
 
 			FString Results;
 			bResult &= RunCommandInternal(InCommand, FilesInBatch, InParameters, Results, OutErrorMessages, UserName, Password);
-			Results.ParseIntoArray(&OutResults, TEXT("\r\n"), true);
+			Results.ParseIntoArray(OutResults, TEXT("\r\n"), true);
 		}
 	}
 	else
 	{
 		FString Results;
 		bResult &= RunCommandInternal(InCommand, InFiles, InParameters, Results, OutErrorMessages, UserName, Password);
-		Results.ParseIntoArray(&OutResults, TEXT("\r\n"), true);
+		Results.ParseIntoArray(OutResults, TEXT("\r\n"), true);
 	}
 
 	return bResult;
@@ -256,7 +256,7 @@ FDateTime GetDate(const FString& InDateString)
 	TrimmedDate = TrimmedDate.Replace(TEXT("."), TEXT(" "));
 
 	TArray<FString> Tokens;
-	TrimmedDate.ParseIntoArray(&Tokens, TEXT(" "), true);
+	TrimmedDate.ParseIntoArray(Tokens, TEXT(" "), true);
 
 	int32 Year = FMath::Clamp(Tokens.Num() > 0 ? FCString::Atoi(*Tokens[0]) : 0, 0, 9999);
 	int32 Month = FMath::Clamp(Tokens.Num() > 1 ? FCString::Atoi(*Tokens[1]) : 0, 1, 12);

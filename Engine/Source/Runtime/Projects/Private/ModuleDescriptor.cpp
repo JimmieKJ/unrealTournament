@@ -154,6 +154,17 @@ bool FModuleDescriptor::Read(const FJsonObject& Object, FText& OutFailReason)
 		}
 	}
 
+	// Read the additional dependencies
+	TSharedPtr<FJsonValue> AdditionalDependenciesValue = Object.TryGetField(TEXT("AdditionalDependencies"));
+	if (AdditionalDependenciesValue.IsValid() && AdditionalDependenciesValue->Type == EJson::Array)
+	{
+		const TArray< TSharedPtr< FJsonValue > >& DepArray = AdditionalDependenciesValue->AsArray();
+		for (int Idx = 0; Idx < DepArray.Num(); Idx++)
+		{
+			AdditionalDependencies.Add(DepArray[Idx]->AsString());
+		}
+	}
+
 	return true;
 }
 
@@ -212,6 +223,15 @@ void FModuleDescriptor::Write(TJsonWriter<>& Writer) const
 		for(int Idx = 0; Idx < BlacklistPlatforms.Num(); Idx++)
 		{
 			Writer.WriteValue(BlacklistPlatforms[Idx]);
+		}
+		Writer.WriteArrayEnd();
+	}
+	if (AdditionalDependencies.Num() > 0)
+	{
+		Writer.WriteArrayStart(TEXT("AdditionalDependencies"));
+		for (int Idx = 0; Idx < AdditionalDependencies.Num(); Idx++)
+		{
+			Writer.WriteValue(AdditionalDependencies[Idx]);
 		}
 		Writer.WriteArrayEnd();
 	}

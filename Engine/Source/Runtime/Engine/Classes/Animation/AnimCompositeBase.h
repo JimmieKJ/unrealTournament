@@ -98,7 +98,7 @@ struct FAnimSegment
 
 	float GetLength() const
 	{
-		return (float(LoopingCount) * (AnimEndTime - AnimStartTime)) / GetValidPlayRate();
+		return (float(LoopingCount) * (AnimEndTime - AnimStartTime)) / FMath::Abs(GetValidPlayRate());
 	}
 
 	bool IsInRange(float CurPos) const

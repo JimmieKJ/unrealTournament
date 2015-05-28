@@ -19,10 +19,11 @@ void* FMacPlatformProcess::GetDllHandle( const TCHAR* Filename )
 
 	NSFileManager* FileManager = [NSFileManager defaultManager];
 	NSString* DylibPath = [NSString stringWithUTF8String:TCHAR_TO_UTF8(Filename)];
+	NSString* ExecutableFolder = [[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent];
 	if (![FileManager fileExistsAtPath:DylibPath])
 	{
 		// If it's not a absolute or relative path, try to find the file in the app bundle
-		DylibPath = [[[[NSBundle mainBundle] executablePath] stringByDeletingLastPathComponent] stringByAppendingPathComponent:FString(Filename).GetNSString()];
+		DylibPath = [ExecutableFolder stringByAppendingPathComponent:FString(Filename).GetNSString()];
 	}
 
 	// Check if dylib is already loaded
@@ -30,7 +31,16 @@ void* FMacPlatformProcess::GetDllHandle( const TCHAR* Filename )
 	if (!Handle)
 	{
 		// Maybe it was loaded using RPATH
-		Handle = dlopen([[@"@rpath" stringByAppendingPathComponent:[DylibPath lastPathComponent]] fileSystemRepresentation], RTLD_NOLOAD | RTLD_LAZY | RTLD_LOCAL);
+		NSString* DylibName;
+		if ([DylibPath hasPrefix:ExecutableFolder])
+		{
+			DylibName = [DylibPath substringFromIndex:[ExecutableFolder length] + 1];
+		}
+		else
+		{
+			DylibName = [DylibPath lastPathComponent];
+		}
+		Handle = dlopen([[@"@rpath" stringByAppendingPathComponent:DylibName] fileSystemRepresentation], RTLD_NOLOAD | RTLD_LAZY | RTLD_LOCAL);
 	}
 	if (!Handle)
 	{
@@ -183,7 +193,11 @@ void FMacPlatformProcess::LaunchURL( const TCHAR* URL, const TCHAR* Parms, FStri
 
 	UE_LOG(LogMac, Log,  TEXT("LaunchURL %s %s"), URL, Parms?Parms:TEXT("") );
 	NSString* Url = (NSString*)FPlatformString::TCHARToCFString( URL );
-	NSURL* UrlToOpen = [NSURL URLWithString: ([Url hasPrefix: @"http://"] || [Url hasPrefix: @"https://"] || [Url hasPrefix: @"file://"] || [Url hasPrefix: @"mailto:"]) ? Url : [NSString stringWithFormat: @"http://%@", Url]];
+	
+	FString SchemeName;
+	bool bHasSchemeName = FParse::SchemeNameFromURI(URL, SchemeName);
+		
+	NSURL* UrlToOpen = [NSURL URLWithString: bHasSchemeName ? Url : [NSString stringWithFormat: @"http://%@", Url]];
 	[[NSWorkspace sharedWorkspace] openURL: UrlToOpen];
 	CFRelease( (CFStringRef)Url );
 	if( Error )
@@ -220,8 +234,14 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 	
 	if(LaunchPath == NULL)
 	{
-		*OutReturnCode = ENOENT;
-		*OutStdErr = TEXT("No such executable");
+		if(OutReturnCode)
+		{
+			*OutReturnCode = ENOENT;
+		}
+		if(OutStdErr)
+		{
+			*OutStdErr = TEXT("No such executable");
+		}
 		return false;
 	}
 	
@@ -231,7 +251,7 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 		[ProcessHandle setLaunchPath: LaunchPath];
 		
 		TArray<FString> ArgsArray;
-		FString(Params).ParseIntoArray(&ArgsArray, TEXT(" "), true);
+		FString(Params).ParseIntoArray(ArgsArray, TEXT(" "), true);
 		
 		NSMutableArray *Arguments = [[NSMutableArray new] autorelease];
 		
@@ -240,13 +260,25 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 		{
 			if (MultiPartArg.IsEmpty())
 			{
-				if (ArgsArray[Index].StartsWith(TEXT("\"")) && !ArgsArray[Index].EndsWith(TEXT("\"")))
+				if ((ArgsArray[Index].StartsWith(TEXT("\"")) && !ArgsArray[Index].EndsWith(TEXT("\""))) // check for a starting quote but no ending quote, excludes quoted single arguments
+					|| (ArgsArray[Index].Contains(TEXT("=\"")) && !ArgsArray[Index].EndsWith(TEXT("\""))) // check for quote after =, but no ending quote, this gets arguments of the type -blah="string string string"
+					|| ArgsArray[Index].EndsWith(TEXT("=\""))) // check for ending quote after =, this gets arguments of the type -blah=" string string string "
 				{
 					MultiPartArg = ArgsArray[Index];
 				}
 				else
 				{
-					NSString* Arg = (NSString*)FPlatformString::TCHARToCFString(*ArgsArray[Index].TrimQuotes(NULL));
+					NSString* Arg;
+					if (ArgsArray[Index].Contains(TEXT("=\"")))
+					{
+						FString SingleArg = ArgsArray[Index];
+						SingleArg = SingleArg.Replace(TEXT("=\""), TEXT("="));
+						Arg = (NSString*)FPlatformString::TCHARToCFString(*SingleArg.TrimQuotes(NULL));
+					}
+					else
+					{
+						Arg = (NSString*)FPlatformString::TCHARToCFString(*ArgsArray[Index].TrimQuotes(NULL));
+					}
 					[Arguments addObject: Arg];
 					CFRelease((CFStringRef)Arg);
 				}
@@ -257,7 +289,15 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 				MultiPartArg += ArgsArray[Index];
 				if (ArgsArray[Index].EndsWith(TEXT("\"")))
 				{
-					NSString* Arg = (NSString*)FPlatformString::TCHARToCFString(*MultiPartArg.TrimQuotes(NULL));
+					NSString* Arg;
+					if (MultiPartArg.StartsWith(TEXT("\"")))
+					{
+						Arg = (NSString*)FPlatformString::TCHARToCFString(*MultiPartArg.TrimQuotes(NULL));
+					}
+					else
+					{
+						Arg = (NSString*)FPlatformString::TCHARToCFString(*MultiPartArg.Replace(TEXT("\""), TEXT("")));
+					}
 					[Arguments addObject: Arg];
 					CFRelease((CFStringRef)Arg);
 					MultiPartArg.Empty();
@@ -311,8 +351,14 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 		}
 		@catch (NSException* Exc)
 		{
-			*OutReturnCode = ENOENT;
-			*OutStdErr = FString([Exc reason]);
+			if(OutReturnCode)
+			{
+				*OutReturnCode = ENOENT;
+			}
+			if(OutStdErr)
+			{
+				*OutStdErr = FString([Exc reason]);
+			}
 			return false;
 		}
 	}
@@ -355,11 +401,10 @@ FProcHandle FMacPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parm
 	
 	if(LaunchPath == NULL)
 	{
-		return FProcHandle(NULL, false);
+		return FProcHandle(NULL);
 	}
 
 	NSTask* ProcessHandle = [[NSTask alloc] init];
-	bool bIsShellScript = false;
 
 	if (ProcessHandle)
 	{
@@ -373,12 +418,11 @@ FProcHandle FMacPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parm
 			[Arguments addObject: @"-c"];
 			[Arguments addObject: Arg];
 			CFRelease((CFStringRef)Arg);
-			bIsShellScript = true;
 		}
 		else
 		{
 			TArray<FString> ArgsArray;
-			FString(Parms).ParseIntoArray(&ArgsArray, TEXT(" "), true);
+			FString(Parms).ParseIntoArray(ArgsArray, TEXT(" "), true);
 
 			FString MultiPartArg;
 			for (int32 Index = 0; Index < ArgsArray.Num(); Index++)
@@ -462,7 +506,6 @@ FProcHandle FMacPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parm
 		{
 			[ProcessHandle release];
 			ProcessHandle = nil;
-			bIsShellScript = false;
 		}
 
 		[Arguments release];
@@ -475,7 +518,7 @@ FProcHandle FMacPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parm
 
 	CFRelease((CFStringRef)LaunchPath);
 
-	return FProcHandle(ProcessHandle, bIsShellScript);
+	return FProcHandle(ProcessHandle);
 }
 
 bool FMacPlatformProcess::IsProcRunning( FProcHandle& ProcessHandle )
@@ -488,6 +531,13 @@ void FMacPlatformProcess::WaitForProc( FProcHandle& ProcessHandle )
 {
 	SCOPED_AUTORELEASE_POOL;
 	[(NSTask*)ProcessHandle.Get() waitUntilExit];
+}
+
+void FMacPlatformProcess::CloseProc( FProcHandle & ProcessHandle )
+{
+	SCOPED_AUTORELEASE_POOL;
+	[(NSTask*)ProcessHandle.Get() release];
+	ProcessHandle.Reset();
 }
 
 void FMacPlatformProcess::TerminateProc( FProcHandle& ProcessHandle, bool KillTree )
@@ -520,7 +570,6 @@ void FMacPlatformProcess::TerminateProc( FProcHandle& ProcessHandle, bool KillTr
 	}
 
 	[(NSTask*)ProcessHandle.Get() terminate];
-	[(NSTask*)ProcessHandle.Get() release];
 }
 
 uint32 FMacPlatformProcess::GetCurrentProcessId()
@@ -538,17 +587,12 @@ bool FMacPlatformProcess::GetProcReturnCode( FProcHandle& ProcessHandle, int32* 
 	}
 
 	*ReturnCode = [(NSTask*)ProcessHandle.Get() terminationStatus];
-	if (ProcessHandle.IsShellScript && *ReturnCode > 128)
-	{
-		*ReturnCode = *ReturnCode - 256;
-	}
 	return true;
 }
 
 bool FMacPlatformProcess::IsApplicationRunning( const TCHAR* ProcName )
 {
-    CFStringRef ProcessName = FPlatformString::TCHARToCFString( ProcName );
-    check(ProcessName);
+	const FString ProcString = FPaths::GetBaseFilename(ProcName);
 	uint32 ThisProcessID = getpid();
 	bool bFound = false;
 	
@@ -564,7 +608,8 @@ bool FMacPlatformProcess::IsApplicationRunning( const TCHAR* ProcName )
 			for (uint32 Index = 0; Index < ProcCount; Index++)
 			{
 				proc_pidpath(Processes[Index].kp_proc.p_pid, Buffer, sizeof(Buffer));
-				if (Processes[Index].kp_proc.p_pid != ThisProcessID && [(NSString*)ProcessName isEqualToString: [[NSString stringWithUTF8String: Buffer] lastPathComponent]])
+				const FString TestProcString = FPaths::GetBaseFilename(Buffer);
+				if (Processes[Index].kp_proc.p_pid != ThisProcessID && TestProcString == ProcString)
 				{
 					bFound = true;
 				}
@@ -573,7 +618,6 @@ bool FMacPlatformProcess::IsApplicationRunning( const TCHAR* ProcName )
 		
 		FMemory::Free(Processes);
 	}
-    CFRelease(ProcessName);
     
 	return bFound;
 }
@@ -602,6 +646,33 @@ bool FMacPlatformProcess::IsThisApplicationForeground()
 {
 	SCOPED_AUTORELEASE_POOL;
 	return [NSApp isActive] && MacApplication && MacApplication->IsWorkspaceSessionActive();
+}
+
+bool FMacPlatformProcess::IsSandboxedApplication()
+{
+	SCOPED_AUTORELEASE_POOL;
+	
+	bool bIsSandboxedApplication = false;
+
+	SecStaticCodeRef SecCodeObj = nullptr;
+	NSURL* BundleURL = [[NSBundle mainBundle] bundleURL];
+    OSStatus Err = SecStaticCodeCreateWithPath((CFURLRef)BundleURL, kSecCSDefaultFlags, &SecCodeObj);
+	if (SecCodeObj)
+	{
+		check(Err == errSecSuccess);
+		
+		SecRequirementRef SandboxRequirement = nullptr;
+		Err = SecRequirementCreateWithString(CFSTR("entitlement[\"com.apple.security.app-sandbox\"] exists"), kSecCSDefaultFlags, &SandboxRequirement);
+		check(Err == errSecSuccess && SandboxRequirement);
+		
+		Err = SecStaticCodeCheckValidityWithErrors(SecCodeObj, kSecCSDefaultFlags, SandboxRequirement, nullptr);
+		
+		bIsSandboxedApplication = (Err == errSecSuccess);
+		
+		CFRelease(SecCodeObj);
+	}
+	
+	return bIsSandboxedApplication;
 }
 
 void FMacPlatformProcess::CleanFileCache()
@@ -917,7 +988,7 @@ bool FMacPlatformProcess::ReadPipeToArray(void* ReadPipe, TArray<uint8>& Output)
 
 	if (ReadPipe)
 	{
-		Output.Init(READ_SIZE);
+		Output.SetNumUninitialized(READ_SIZE);
 		int32 BytesRead = 0;
 		BytesRead = read([(NSFileHandle*)ReadPipe fileDescriptor], Output.GetData(), READ_SIZE);
 		if (BytesRead > 0)

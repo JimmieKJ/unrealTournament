@@ -30,6 +30,39 @@ struct TCString
 	 * @param Str - string that will be checked
 	 **/
 	static FORCEINLINE bool IsPureAnsi(const CharType* Str);
+
+	/**
+	 * Returns whether this string contains only numeric characters 
+	 * @param Str - string that will be checked
+	 **/
+	static bool IsNumeric(const CharType* Str)
+	{
+		if (*Str == '-' || *Str == '+')
+		{
+			Str++;
+		}
+
+		bool bHasDot = false;
+		while (*Str != '\0')
+		{
+			if (*Str == '.')
+			{
+				if (bHasDot)
+				{
+					return false;
+				}
+				bHasDot = true;
+			}
+			else if (!FChar::IsDigit(*Str))
+			{
+				return false;
+			}
+			
+			++Str;
+		}
+
+		return true;
+	}
 	
 	/**
 	 * strcpy wrapper
@@ -209,6 +242,12 @@ struct TCString
 	 */
 	static FORCEINLINE const CharType* Strrchr( const CharType* String, CharType c );
 	static FORCEINLINE CharType* Strrchr( CharType* String, CharType c );
+
+	/**
+	 * strrstr wrapper
+	 */
+	static FORCEINLINE const CharType* Strrstr( const CharType* String, const CharType* Find );
+	static FORCEINLINE CharType* Strrstr( CharType* String, const CharType* Find );
 
 	/**
 	 * atoi wrapper
@@ -554,6 +593,34 @@ template <typename T> FORCEINLINE
 typename TCString<T>::CharType* TCString<T>::Strrchr( CharType* String, CharType c )
 { 
 	return (CharType*)FPlatformString::Strrchr(String, c);
+}
+
+template <typename T> FORCEINLINE
+const typename TCString<T>::CharType* TCString<T>::Strrstr( const CharType* String, const CharType* Find )
+{
+	return Strrstr((CharType*)String, Find);
+}
+
+template <typename T> FORCEINLINE
+typename TCString<T>::CharType* TCString<T>::Strrstr( CharType* String, const CharType* Find )
+{
+	if (*Find == (CharType)0)
+	{
+		return String + Strlen(String);
+	}
+
+	CharType* Result = nullptr;
+	for (;;)
+	{
+		CharType* Found = Strstr(String, Find);
+		if (!Found)
+		{
+			return Result;
+		}
+
+		Result = Found;
+		String = Found + 1;
+	}
 }
 
 template <typename T> FORCEINLINE 

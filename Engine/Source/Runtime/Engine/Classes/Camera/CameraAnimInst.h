@@ -5,6 +5,9 @@
  */
 
 #pragma once
+
+#include "Camera/CameraTypes.h"
+
 #include "CameraAnimInst.generated.h"
 
 UCLASS(notplaceable, BlueprintType, transient)

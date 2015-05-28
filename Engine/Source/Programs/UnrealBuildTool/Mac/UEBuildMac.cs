@@ -89,7 +89,7 @@ namespace UnrealBuildTool
 		 */
 		public override string GetDebugInfoExtension(UEBuildBinaryType InBinaryType)
 		{
-			return BuildConfiguration.bGeneratedSYMFile ? ".dsym" : "";
+			return BuildConfiguration.bGeneratedSYMFile || BuildConfiguration.bUsePDBFiles ? ".dsym" : "";
 		}
 
 		public override void ModifyNewlyLoadedModule(UEBuildModule InModule, TargetInfo Target)
@@ -113,10 +113,12 @@ namespace UnrealBuildTool
 					InModule.AddDynamicallyLoadedModule("MacNoEditorTargetPlatform");
 					InModule.AddDynamicallyLoadedModule("MacClientTargetPlatform");
 					InModule.AddDynamicallyLoadedModule("MacServerTargetPlatform");
+					InModule.AddDynamicallyLoadedModule("DesktopTargetPlatform");
 				}
 
                 if (bBuildShaderFormats)
                 {
+					// InModule.AddDynamicallyLoadedModule("ShaderFormatD3D");
                     InModule.AddDynamicallyLoadedModule("ShaderFormatOpenGL");
                 }
 			}
@@ -134,7 +136,10 @@ namespace UnrealBuildTool
 
 			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("WITH_TTS=0");
 			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("WITH_SPEECH_RECOGNITION=0");
-			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("WITH_DATABASE_SUPPORT=0");
+			if(!InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Contains("WITH_DATABASE_SUPPORT=0") && !InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Contains("WITH_DATABASE_SUPPORT=1"))
+			{
+				InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("WITH_DATABASE_SUPPORT=0");
+			}
 		}
 
 		/**
@@ -167,6 +172,9 @@ namespace UnrealBuildTool
 			BuildConfiguration.bCheckSystemHeadersForModification = BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac;
 			BuildConfiguration.ProcessorCountMultiplier = MacToolChain.GetAdjustedProcessorCountMultiplier();
 			BuildConfiguration.bUseSharedPCHs = false;
+
+			// Disabled as we hit the Windows build machine's MAX_PATH limit for various projects
+			// BuildConfiguration.bUsePDBFiles = bCreateDebugInfo && Configuration != CPPTargetConfiguration.Debug && Platform == CPPTargetPlatform.Mac;
 
 			// we always deploy - the build machines need to be able to copy the files back, which needs the full bundle
 			BuildConfiguration.bDeployAfterCompile = true;

@@ -20,7 +20,7 @@ class UInAppPurchaseQueryCallbackProxy : public UObject
 	FInAppPurchaseQueryResult OnFailure;
 
 	// Queries a InAppPurchase for an integer value
-	UFUNCTION(BlueprintCallable, meta = (FriendlyName="Read In App Purchase Information"), Category="Online|InAppPurchase")
+	UFUNCTION(BlueprintCallable, meta = (DisplayName="Read In App Purchase Information"), Category="Online|InAppPurchase")
 	static UInAppPurchaseQueryCallbackProxy* CreateProxyObjectForInAppPurchaseQuery(class APlayerController* PlayerController, const TArray<FString>& ProductIdentifiers);
 
 public:

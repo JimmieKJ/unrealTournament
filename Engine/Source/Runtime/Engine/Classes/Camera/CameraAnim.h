@@ -12,6 +12,7 @@ class UCameraAnim : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
+public:
 	/** The UInterpGroup that holds our actual interpolation data. */
 	UPROPERTY()
 	class UInterpGroup* CameraInterpGroup;
@@ -20,8 +21,8 @@ class UCameraAnim : public UObject
 	/** This is to preview and they only exists in editor */
 	UPROPERTY(transient)
 	class UInterpGroup* PreviewInterpGroup;
-
 #endif // WITH_EDITORONLY_DATA
+
 	/** Length, in seconds. */
 	UPROPERTY()
 	float AnimLength;
@@ -30,7 +31,14 @@ class UCameraAnim : public UObject
 	UPROPERTY()
 	FBox BoundingBox;
 
-	/** The */
+	/** 
+	 * If true, assume all transform keys are intended be offsets from the start of the animation. This allows the animation to be authored at any world location and be applied as a delta to the camera. 
+	 * If false, assume all transform keys are authored relative to the world origin. Positions will be directly applied as deltas to the camera.
+	*/
+	UPROPERTY(EditDefaultsOnly, Category=CameraAnim)
+	uint8 bRelativeToInitialTransform : 1;
+
+	/** The FOV  */
 	UPROPERTY()
 	float BaseFOV;
 
@@ -42,11 +50,6 @@ class UCameraAnim : public UObject
 	UPROPERTY()
 	float BasePostProcessBlendWeight;
 
-protected:
-	/** Internal. Computes and stores the local AABB of the camera's motion. */
-	void CalcLocalAABB();
-
-public:
 	// Begin UObject Interface
 	virtual void PreSave() override;
 	virtual void PostLoad() override;
@@ -65,6 +68,10 @@ public:
 	 * @return Returns the local-space axis-aligned bounding box of the entire motion of this animation. 
 	 */
 	ENGINE_API FBox GetAABB(FVector const& BaseLoc, FRotator const& BaseRot, float Scale) const;
+
+protected:
+	/** Internal. Computes and stores the local AABB of the camera's motion. */
+	void CalcLocalAABB();
 };
 
 

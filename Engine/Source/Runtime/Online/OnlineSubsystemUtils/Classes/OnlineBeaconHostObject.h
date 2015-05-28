@@ -1,8 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//
-// Basic beacon
-//
 #pragma once
 #include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeacon.h"
 #include "OnlineBeaconHostObject.generated.h"
@@ -11,10 +8,10 @@ class AOnlineBeaconClient;
 class UNetConnection;
 
 /**
- * Base class for any unique beacon connectivity 
+ * Base class for any unique beacon connectivity, paired with an AOnlineBeaconClient implementation 
  *
  * By defining a beacon type and implementing the ability to spawn unique AOnlineBeaconClients, any two instances of the engine
- * can communicate with each other without be officially connecting through normal Unreal networking
+ * can communicate with each other without officially connecting through normal Unreal networking
  */
 UCLASS(transient, config=Engine, notplaceable)
 class ONLINESUBSYSTEMUTILS_API AOnlineBeaconHostObject : public AActor
@@ -36,7 +33,7 @@ class ONLINESUBSYSTEMUTILS_API AOnlineBeaconHostObject : public AActor
 	 *
 	 * @return new client beacon actor that this beacon host knows how to communicate with
 	 */
-	virtual class AOnlineBeaconClient* SpawnBeaconActor(UNetConnection* ClientConnection) PURE_VIRTUAL(AOnlineBeaconHostObject::SpawnBeaconActor, return NULL;);
+	virtual AOnlineBeaconClient* SpawnBeaconActor(UNetConnection* ClientConnection) PURE_VIRTUAL(AOnlineBeaconHostObject::SpawnBeaconActor, return NULL;);
 
 	/**
 	 * Delegate triggered when a new client connection is made

@@ -56,6 +56,52 @@ bool FOnlineUserFacebook::QueryUserInfo(int32 LocalUserNum, const TArray<TShared
 
 		dispatch_async(dispatch_get_main_queue(),^ 
 			{
+				// We only ever have a single user in the facebook OSS.
+				FString ErrorStr;
+				bool bGatheredUserInfo = false;
+				if([FBSDKAccessToken currentAccessToken])
+				{
+					CachedUsers.Empty();
+					
+					bool bValidUserRequested = false;
+					const FString UserName([FBSDKProfile currentProfile].userID);
+					for(auto& NextUser : UserIds)
+					{
+						if(NextUser->ToString() == UserName)
+						{
+							bValidUserRequested = true;
+							break;
+						}
+					}
+					if(bValidUserRequested)
+					{
+						const FString RealName([FBSDKProfile currentProfile].name);
+						
+						TSharedRef<FOnlineUserInfoFacebook> FBUserInfo = MakeShareable(new FOnlineUserInfoFacebook(UserIds[0]->ToString()));
+						FBUserInfo->AccountData.Add(TEXT("name"), RealName);
+						FBUserInfo->AccountData.Add(TEXT("username"), UserName);
+						
+						UE_LOG(LogOnline, Display, TEXT("User Found: u:%s r:%s"), *UserName, *RealName);
+						CachedUsers.Add( FBUserInfo );
+						bGatheredUserInfo = true;
+					}
+					else
+					{
+						ErrorStr = TEXT("No user ids matched those of the single facebook user.");
+						UE_LOG(LogOnline, Display, TEXT("Failed to gather user information: %s"), *ErrorStr);
+					}
+
+				}
+				else
+				{
+					ErrorStr = TEXT("No valid login.");
+					UE_LOG(LogOnline, Display, TEXT("Failed to gather user information: %s"), *ErrorStr);
+				}
+				
+				TriggerOnQueryUserInfoCompleteDelegates(LocalUserNum, bGatheredUserInfo, UserIds, *ErrorStr);
+
+				
+/*
 				// A full list of all attainable data is here:
 				// https://developers.facebook.com/docs/reference/fql/user/
 
@@ -78,15 +124,14 @@ bool FOnlineUserFacebook::QueryUserInfo(int32 LocalUserNum, const TArray<TShared
 					}
 				}
 
-				UE_LOG(LogOnline, Verbose, TEXT("RunningFQL Query: %s"), *FString(fqlQuery));
-
+				UE_LOG(LogOnline, Display, TEXT("RunningFQL Query: %s"), *FString(fqlQuery));
 
 				// Kick off the FB Request
-				[FBRequestConnection
-					startWithGraphPath:@"/fql"
+				[[[FBSDKGraphRequest alloc]
+					initWithGraphPath:@"/fql"
 					parameters:[NSDictionary dictionaryWithObjectsAndKeys: fqlQuery, @"q", nil]
-					HTTPMethod:@"GET"
-					completionHandler:^(FBRequestConnection *connection, id result, NSError *error)
+					HTTPMethod:@"GET"]
+					startWithCompletionHandler:^(FBSDKGraphRequestConnection *connection, id result, NSError *error)
 					{
 						FString ErrorStr;
 						if( error )
@@ -117,6 +162,7 @@ bool FOnlineUserFacebook::QueryUserInfo(int32 LocalUserNum, const TArray<TShared
 						TriggerOnQueryUserInfoCompleteDelegates(LocalUserNum, error == nil, UserIds, ErrorStr);
 					}
 				];
+ */
 			}
 		);
 	}

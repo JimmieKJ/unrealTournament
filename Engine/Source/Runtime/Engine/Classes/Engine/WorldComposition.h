@@ -73,6 +73,15 @@ class ENGINE_API UWorldComposition : public UObject
 	
 	/** Adds or removes level streaming objects to world based on distance settings from current view point */
 	void UpdateStreamingState(const FVector& InLocation);
+	void UpdateStreamingState(const FVector* InLocation, int32 Num);
+	void UpdateStreamingStateCinematic(const FVector* InLocation, int32 Num);
+
+#if WITH_EDITOR
+	/** Simulates streaming in editor world, only visibility, no loading/unloading, no LOD sub-levels 
+	 *  @returns Whether streaming levels state was updated by this call
+	 */
+	bool UpdateEditorStreamingState(const FVector& InLocation);
+#endif// WITH_EDITOR
 
 	/**
 	 * Evaluates current world origin location against provided view location
@@ -82,6 +91,7 @@ class ENGINE_API UWorldComposition : public UObject
 
 	/** Returns currently visible and hidden levels based on distance based streaming */
 	void GetDistanceVisibleLevels(const FVector& InLocation, TArray<FDistanceVisibleLevel>& OutVisibleLevels, TArray<FDistanceVisibleLevel>& OutHiddenLevels) const;
+	void GetDistanceVisibleLevels(const FVector* InLocations, int32 Num, TArray<FDistanceVisibleLevel>& OutVisibleLevels, TArray<FDistanceVisibleLevel>& OutHiddenLevels) const;
 
 	/** @returns Whether specified streaming level is distance dependent */
 	bool IsDistanceDependentLevel(FName PackageName) const;
@@ -90,7 +100,7 @@ class ENGINE_API UWorldComposition : public UObject
 	FString GetWorldRoot() const;
 	
 	/** @returns Currently managed world obejct */
-	UWorld* GetWorld() const;
+	UWorld* GetWorld() const override;
 	
 	/** Handles level OnPostLoad event*/
 	static void OnLevelPostLoad(ULevel* InLevel);
@@ -118,6 +128,9 @@ class ENGINE_API UWorldComposition : public UObject
 
 	/**  */
 	void ReinitializeForPIE();
+
+	/** @returns Whether specified tile package name is managed by world composition */
+	bool DoesTileExists(const FName& TilePackageName) const;
 
 #if WITH_EDITOR
 	/** @returns FWorldTileInfo associated with specified package */
@@ -172,10 +185,14 @@ private:
 	 * Finds tile by package name 
 	 * @return Pointer to a found tile 
 	 */
+	int32 FindTileIndexByName(const FName& InPackageName) const;
 	FWorldCompositionTile* FindTileByName(const FName& InPackageName) const;
+	
+	/** @returns Whether specified streaming level is distance dependent */
+	bool IsDistanceDependentLevel(int32 TileIdx) const;
 
 	/** Attempts to set new streaming state for a particular tile, could be rejected if state change on 'cooldown' */
-	void CommitTileStreamingState(UWorld* PersistenWorld, int32 TileIdx, bool bShouldBeLoaded, bool bShouldBeVisible, int32 LODIdx);
+	bool CommitTileStreamingState(UWorld* PersistenWorld, int32 TileIdx, bool bShouldBeLoaded, bool bShouldBeVisible, bool bShouldBlock, int32 LODIdx);
 
 public:
 #if WITH_EDITOR
@@ -199,4 +216,16 @@ public:
 	// Time threshold between tile streaming state changes
 	UPROPERTY(config)
 	double						TilesStreamingTimeThreshold;
+
+	// Whether all distance dependent tiles should be loaded and visible during cinematic
+	UPROPERTY(config)
+	bool						bLoadAllTilesDuringCinematic;
+
+	// Whether to rebase origin in 3D space, otherwise only on XY plane
+	UPROPERTY(config)
+	bool						bRebaseOriginIn3DSpace;
+
+	// Maximum distance to current view point where we should initiate origin rebasing
+	UPROPERTY(config)
+	float						RebaseOriginDistance;
 };

@@ -72,7 +72,7 @@ UObject* USkeletonFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FN
 		return NULL;
 	}
 
-	USkeleton* NewAsset = ConstructObject<USkeleton>( Class, InParent, Name, Flags );
+	USkeleton* NewAsset = NewObject<USkeleton>(InParent, Class, Name, Flags);
 	if(NewAsset)
 	{
 		// this should not fail. If so there is problem.

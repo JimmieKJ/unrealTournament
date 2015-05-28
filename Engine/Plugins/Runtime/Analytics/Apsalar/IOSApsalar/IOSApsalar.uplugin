@@ -9,7 +9,7 @@
 	"DocsURL" : "https://docs.unrealengine.com/latest/INT/Gameplay/Analytics/index.html",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Apsalar Analytics Provider for iOS",
-	"Category" : "Analytics.Provider",
+	"Category" : "Analytics",
 	
 	"Modules" :
 	[

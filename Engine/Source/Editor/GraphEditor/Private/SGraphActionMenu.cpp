@@ -637,7 +637,7 @@ void SGraphActionMenu::GenerateFilteredItems(bool bPreserveExpansion)
 
 	// Tokenize the search box text into a set of terms; all of them must be present to pass the filter
 	TArray<FString> FilterTerms;
-	TrimmedFilterString.ParseIntoArray(/*out*/ &FilterTerms, TEXT(" "), true);
+	TrimmedFilterString.ParseIntoArray(FilterTerms, TEXT(" "), true);
 	
 	// Generate a list of sanitized versions of the strings
 	TArray<FString> SanitizedFilterTerms;
@@ -664,15 +664,21 @@ void SGraphActionMenu::GenerateFilteredItems(bool bPreserveExpansion)
 			// Combine the actions string, separate with \n so terms don't run into each other, and remove the spaces (incase the user is searching for a variable)
 			// In the case of groups containing multiple actions, they will have been created and added at the same place in the code, using the same description
 			// and keywords, so we only need to use the first one for filtering.
-			FString SearchText = CurrentAction.Actions[0]->MenuDescription.ToString() + LINE_TERMINATOR + CurrentAction.Actions[0]->GetSearchTitle().ToString() + LINE_TERMINATOR + CurrentAction.Actions[0]->Keywords + LINE_TERMINATOR +CurrentAction.Actions[0]->Category;
+			FString SearchText = CurrentAction.Actions[0]->GetSearchTitle().ToString() + LINE_TERMINATOR + CurrentAction.Actions[0]->GetSearchKeywords().ToString() + LINE_TERMINATOR +CurrentAction.Actions[0]->Category;
 			SearchText = SearchText.Replace( TEXT( " " ), TEXT( "" ) );
-			// Get the 'weight' of this in relation to the filter
-			EachWeight = GetActionFilteredWeight( CurrentAction, FilterTerms, SanitizedFilterTerms );
+
 			FString EachTermSanitized;
 			for (int32 FilterIndex = 0; (FilterIndex < FilterTerms.Num()) && bShowAction; ++FilterIndex)
 			{
 				const bool bMatchesTerm = ( SearchText.Contains( FilterTerms[FilterIndex] ) || ( SearchText.Contains( SanitizedFilterTerms[FilterIndex] ) == true ) );
 				bShowAction = bShowAction && bMatchesTerm;
+			}
+
+			// Only if we are going to show the action do we want to generate the weight of the filter text
+			if (bShowAction)
+			{
+				// Get the 'weight' of this in relation to the filter
+				EachWeight = GetActionFilteredWeight( CurrentAction, FilterTerms, SanitizedFilterTerms );
 			}
 		}
 
@@ -768,26 +774,26 @@ int32 SGraphActionMenu::GetActionFilteredWeight( const FGraphActionListBuilderBa
 		// Combine the actions string, separate with \n so terms don't run into each other, and remove the spaces (incase the user is searching for a variable)
 		// In the case of groups containing multiple actions, they will have been created and added at the same place in the code, using the same description
 		// and keywords, so we only need to use the first one for filtering.
-		FString SearchText = InCurrentAction.Actions[0]->MenuDescription.ToString() + LINE_TERMINATOR + InCurrentAction.Actions[Action]->GetSearchTitle().ToString() + LINE_TERMINATOR + InCurrentAction.Actions[Action]->Keywords + LINE_TERMINATOR +InCurrentAction.Actions[Action]->Category;
+		FString SearchText = InCurrentAction.Actions[Action]->GetSearchTitle().ToString() + LINE_TERMINATOR + InCurrentAction.Actions[Action]->GetSearchKeywords().ToString() + LINE_TERMINATOR +InCurrentAction.Actions[Action]->Category;
 		SearchText = SearchText.Replace( TEXT( " " ), TEXT( "" ) );
 
 		// First the keywords
-		InCurrentAction.Actions[Action]->Keywords.ParseIntoArray( &EachEntry.Array, TEXT(" "), true );
+		InCurrentAction.Actions[Action]->GetSearchKeywords().ToString().ParseIntoArray( EachEntry.Array, TEXT(" "), true );
 		EachEntry.Weight = 10;
 		WeightedArrayList.Add( EachEntry );
 
 		// The description
-		InCurrentAction.Actions[Action]->MenuDescription.ToString().ParseIntoArray( &EachEntry.Array, TEXT(" "), true );
+		InCurrentAction.Actions[Action]->MenuDescription.ToString().ParseIntoArray( EachEntry.Array, TEXT(" "), true );
 		EachEntry.Weight = DescriptionWeight;
 		WeightedArrayList.Add( EachEntry );
 
 		// The node search title weight
-		InCurrentAction.Actions[Action]->GetSearchTitle().ToString().ParseIntoArray( &EachEntry.Array, TEXT(" "), true );
+		InCurrentAction.Actions[Action]->GetSearchTitle().ToString().ParseIntoArray( EachEntry.Array, TEXT(" "), true );
 		EachEntry.Weight = NodeTitleWeight;
 		WeightedArrayList.Add( EachEntry );
 
 		// The category
-		InCurrentAction.Actions[Action]->Category.ParseIntoArray( &EachEntry.Array, TEXT(" "), true );
+		InCurrentAction.Actions[Action]->Category.ParseIntoArray( EachEntry.Array, TEXT(" "), true );
 		EachEntry.Weight = CategoryWeight;
 		WeightedArrayList.Add( EachEntry );
 
@@ -926,16 +932,10 @@ void SGraphActionMenu::OnItemScrolledIntoView( TSharedPtr<FGraphActionNode> InAc
 
 TSharedRef<ITableRow> SGraphActionMenu::MakeWidget( TSharedPtr<FGraphActionNode> InItem, const TSharedRef<STableViewBase>& OwnerTable, bool bIsReadOnly )
 {
-	FText SectionTitle;
 	TSharedPtr<IToolTip> SectionToolTip;
 
 	if ( InItem->IsSectionHeadingNode() )
 	{
-		if ( OnGetSectionTitle.IsBound() )
-		{
-			SectionTitle = OnGetSectionTitle.Execute(InItem->SectionID);
-		}
-
 		if ( OnGetSectionToolTip.IsBound() )
 		{
 			SectionToolTip = OnGetSectionToolTip.Execute(InItem->SectionID);
@@ -1132,11 +1132,7 @@ void SGraphActionMenu::OnItemSelected( TSharedPtr< FGraphActionNode > InSelected
 {
 	if (!bIgnoreUIUpdate)
 	{
-		// Filter out selection changes that should not trigger execution
-		if( ( SelectInfo == ESelectInfo::OnMouseClick )  || ( SelectInfo == ESelectInfo::OnKeyPress ) || !InSelectedItem.IsValid())		
-		{
-			HandleSelection(InSelectedItem);
-		}
+		HandleSelection(InSelectedItem, SelectInfo);
 	}
 }
 
@@ -1207,7 +1203,7 @@ bool SGraphActionMenu::OnMouseButtonDownEvent( TWeakPtr<FEdGraphSchemaAction> In
 		{
 			if( SelectedNode->GetPrimaryAction().Get() == InAction.Pin().Get() )
 			{				
-				bResult = HandleSelection( SelectedNode );
+				bResult = HandleSelection( SelectedNode, ESelectInfo::OnMouseClick );
 			}
 		}
 	}
@@ -1294,19 +1290,19 @@ void SGraphActionMenu::AddReferencedObjects( FReferenceCollector& Collector )
 	}
 }
 
-bool SGraphActionMenu::HandleSelection( TSharedPtr< FGraphActionNode > &InSelectedItem )
+bool SGraphActionMenu::HandleSelection( TSharedPtr< FGraphActionNode > &InSelectedItem, ESelectInfo::Type InSelectionType )
 {
 	bool bResult = false;
 	if( OnActionSelected.IsBound() )
 	{
 		if ( InSelectedItem.IsValid() && InSelectedItem->IsActionNode() )
 		{
-			OnActionSelected.Execute(InSelectedItem->Actions);
+			OnActionSelected.Execute(InSelectedItem->Actions, InSelectionType);
 			bResult = true;
 		}
 		else
 		{
-			OnActionSelected.Execute(TArray< TSharedPtr<FEdGraphSchemaAction> >());
+			OnActionSelected.Execute(TArray< TSharedPtr<FEdGraphSchemaAction> >(), InSelectionType);
 			bResult = true;
 		}
 	}

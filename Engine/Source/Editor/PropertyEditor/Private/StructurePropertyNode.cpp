@@ -11,26 +11,36 @@
 void FStructurePropertyNode::InitChildNodes()
 {
 	const bool bShouldShowHiddenProperties = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowHiddenProperties);
+	const bool bShouldShowDisableEditOnInstance = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowDisableEditOnInstance);
+
 	const UStruct* Struct = StructData.IsValid() ? StructData->GetStruct() : NULL;
 
 	for (TFieldIterator<UProperty> It(Struct); It; ++It)
 	{
 		UProperty* StructMember = *It;
-		if (StructMember && (bShouldShowHiddenProperties || (StructMember->PropertyFlags & CPF_Edit)))
+
+		if (StructMember)
 		{
-			TSharedPtr<FItemPropertyNode> NewItemNode(new FItemPropertyNode);//;//CreatePropertyItem(StructMember,INDEX_NONE,this);
+			const bool bShowIfEditableProperty = StructMember->HasAnyPropertyFlags(CPF_Edit);
+			const bool bShowIfDisableEditOnInstance = !StructMember->HasAnyPropertyFlags(CPF_DisableEditOnInstance) || bShouldShowDisableEditOnInstance;
 
-			FPropertyNodeInitParams InitParams;
-			InitParams.ParentNode = SharedThis(this);
-			InitParams.Property = StructMember;
-			InitParams.ArrayOffset = 0;
-			InitParams.ArrayIndex = INDEX_NONE;
-			InitParams.bAllowChildren = true;
-			InitParams.bForceHiddenPropertyVisibility = !!HasNodeFlags(EPropertyNodeFlags::ShouldShowHiddenProperties);
-			InitParams.bCreateCategoryNodes = false;
+			if (bShouldShowHiddenProperties || (bShowIfEditableProperty && bShowIfDisableEditOnInstance))
+			{
+				TSharedPtr<FItemPropertyNode> NewItemNode(new FItemPropertyNode);//;//CreatePropertyItem(StructMember,INDEX_NONE,this);
 
-			NewItemNode->InitNode(InitParams);
-			AddChildNode(NewItemNode);
+				FPropertyNodeInitParams InitParams;
+				InitParams.ParentNode = SharedThis(this);
+				InitParams.Property = StructMember;
+				InitParams.ArrayOffset = 0;
+				InitParams.ArrayIndex = INDEX_NONE;
+				InitParams.bAllowChildren = true;
+				InitParams.bForceHiddenPropertyVisibility = bShouldShowHiddenProperties;
+				InitParams.bCreateDisableEditOnInstanceNodes = bShouldShowDisableEditOnInstance;
+				InitParams.bCreateCategoryNodes = false;
+
+				NewItemNode->InitNode(InitParams);
+				AddChildNode(NewItemNode);
+			}
 		}
 	}
 }

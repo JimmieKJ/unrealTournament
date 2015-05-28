@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "HlslUtils.h"
+
 namespace CrossCompiler
 {
 	enum class EHlslToken
@@ -219,14 +221,13 @@ namespace CrossCompiler
 		RWTexture2DArray,
 		RWTexture3D,
 		StructuredBuffer,
-		InputPatch,
-		OutputPatch,
 
 		// Modifiers
 		In,
 		Out,
 		InOut,
 		Static,
+		Uniform,
 
 		// Misc
 		LeftSquareBracket,
@@ -238,7 +239,6 @@ namespace CrossCompiler
 		Struct,
 		CBuffer,
 		GroupShared,
-		NoInterpolation,
 		RowMajor,
 
 		Identifier,
@@ -246,15 +246,6 @@ namespace CrossCompiler
 		FloatConstant,
 		BoolConstant,
 		StringConstant,	// C-style "string"
-	};
-
-	struct FSourceInfo
-	{
-		FString* Filename;
-		int32 Line;
-		int32 Column;
-
-		FSourceInfo() : Filename(nullptr), Line(0), Column(0) {}
 	};
 
 	struct FHlslToken

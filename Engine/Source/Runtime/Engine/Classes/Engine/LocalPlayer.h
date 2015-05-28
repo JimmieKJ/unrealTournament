@@ -5,6 +5,8 @@
 //=============================================================================
 
 #pragma once
+#include "SlateCore.h"
+#include "Reply.h"
 #include "Player.h"
 #include "LocalPlayer.generated.h"
 
@@ -21,6 +23,10 @@ struct ENGINE_API FLocalPlayerContext
 
 	/** Is this context initialized */
 	bool IsInitialized() const;
+
+	/** This function tests if the given Actor is connected to the Local Player in any way. 
+		It tests against the APlayerController, APlayerState, and APawn. */
+	bool IsFromLocalPlayer(const AActor* ActorToTest) const;
 
 	/* Returns the world context. */
 	UWorld* GetWorld() const;
@@ -134,6 +140,11 @@ class ENGINE_API ULocalPlayer : public UPlayer
 {
 	GENERATED_UCLASS_BODY()
 
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	ULocalPlayer(FVTableHelper& Helper) : Super(Helper), SlateOperations(FReply::Unhandled()) {}
+#endif // WITH_HOT_RELOAD_CTORS
+
 	/** The FUniqueNetId which this player is associated with. */
 	TSharedPtr<class FUniqueNetId> CachedUniqueNetId;
 
@@ -229,14 +240,23 @@ protected:
 	 */
 	void HandleControllerConnectionChange(bool bConnected, int32 InUserId, int32 InControllerId);
 
+	/** FReply used to defer some slate operations. */
+	FReply SlateOperations;
+
 public:
+
+	/**
+	 *  Getter for slate operations.
+	 */
+	FReply& GetSlateOperations() { return SlateOperations; }
+	const FReply& GetSlateOperations() const { return SlateOperations; }
 
 	/**
 	 * Get the world the players actor belongs to
 	 *
 	 * @return  Returns the world of the LocalPlayer's PlayerController. NULL if the LocalPlayer does not have a PlayerController
 	 */
-	UWorld* GetWorld() const;
+	UWorld* GetWorld() const override;
 
 	/**
 	 * Get the game instance associated with this local player

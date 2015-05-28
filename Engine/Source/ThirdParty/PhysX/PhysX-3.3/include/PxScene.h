@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -306,7 +289,7 @@ class PxScene
 	/**
 	\brief Adds an articulation to this scene.
 
-	\note If the articulation is already assigned to a scene (see #PxArticulation::getScene), the call is ignored and a error is issued.
+	\note If the articulation is already assigned to a scene (see #PxArticulation::getScene), the call is ignored and an error is issued.
 
 	\param[in] articulation Articulation to add to scene. See #PxArticulation
 
@@ -317,7 +300,7 @@ class PxScene
 	/**
 	\brief Removes an articulation from this scene.
 
-	\note If the articulation is not part of this scene (see #PxArticulation::getScene), the call is ignored and a error is issued. 
+	\note If the articulation is not part of this scene (see #PxArticulation::getScene), the call is ignored and an error is issued. 
 	
 	\note If the articulation is in an aggregate it will be removed from the aggregate.
 
@@ -331,26 +314,28 @@ class PxScene
 	/**
 	\brief Adds an actor to this scene.
 	
-	\note If the actor is already assigned to a scene (see #PxActor::getScene), the call is ignored and a error is issued.
+	\note If the actor is already assigned to a scene (see #PxActor::getScene), the call is ignored and an error is issued.
+	\note If the actor has an invalid constraint, in checked builds the call is ignored and an error is issued.
 
 	\note You can not add individual articulation links (see #PxArticulationLink) to the scene. Use #addArticulation() instead.
 
 	\note If the actor is a PxRigidActor then each assigned PxConstraint object will get added to the scene automatically if
-	it connects to another actor that is part of the scene already.
+	it connects to another actor that is part of the scene already. 
 
 	\param[in] actor Actor to add to scene.
 
-	@see PxActor
+	@see PxActor, PxConstraint::isValid()
 	*/
 	virtual	void				addActor(PxActor& actor) = 0;
 
 	/**
 	\brief Adds actors to this scene.	
 
-	\note If one of the actors is already assigned to a scene (see #PxActor::getScene), the call is ignored and a error is issued.
+	\note If one of the actors is already assigned to a scene (see #PxActor::getScene), the call is ignored and an error is issued.
 
 	\note You can not add individual articulation links (see #PxArticulationLink) to the scene. Use #addArticulation() instead.
 
+	\note If an actor in the array contains an invalid constraint, in checked builds the call is ignored and an error is issued.
 	\note If an actor in the array is a PxRigidActor then each assigned PxConstraint object will get added to the scene automatically if
 	it connects to another actor that is part of the scene already.
 
@@ -359,7 +344,7 @@ class PxScene
 	\param[in] actors Array of actors to add to scene.
 	\param[in] nbActors Number of actors in the array.
 
-	@see PxActor
+	@see PxActor, PxConstraint::isValid()
 	*/
 	virtual	void				addActors(PxActor*const* actors, PxU32 nbActors) = 0;
 
@@ -367,7 +352,7 @@ class PxScene
 	/**
 	\brief Removes an actor from this scene.
 
-	\note If the actor is not part of this scene (see #PxActor::getScene), the call is ignored and a error is issued.
+	\note If the actor is not part of this scene (see #PxActor::getScene), the call is ignored and an error is issued.
 
 	\note You can not remove individual articulation links (see #PxArticulationLink) from the scene. Use #removeArticulation() instead.
 
@@ -385,7 +370,7 @@ class PxScene
 	/**
 	\brief Removes actors from this scene.
 
-	\note If some actor is not part of this scene (see #PxActor::getScene), the actor remove is ignored and a error is issued.
+	\note If some actor is not part of this scene (see #PxActor::getScene), the actor remove is ignored and an error is issued.
 
 	\note You can not remove individual articulation links (see #PxArticulationLink) from the scene. Use #removeArticulation() instead.
 
@@ -402,20 +387,21 @@ class PxScene
 	/**
 	\brief Adds an aggregate to this scene.
 	
-	\note If the aggregate is already assigned to a scene (see #PxAggregate::getScene), the call is ignored and a error is issued.
+	\note If the aggregate is already assigned to a scene (see #PxAggregate::getScene), the call is ignored and an error is issued.
+	\note If the aggregate contains an actor with an invalid constraint, in checked builds the call is ignored and an error is issued.
 
 	\note If the aggregate already contains actors, those actors are added to the scene as well.
 
 	\param[in] aggregate Aggregate to add to scene.
 	
-	@see PxAggregate
+	@see PxAggregate, PxConstraint::isValid()
 	*/
     virtual	void				addAggregate(PxAggregate& aggregate)	= 0;
 
 	/**
 	\brief Removes an aggregate from this scene.
 
-	\note If the aggregate is not part of this scene (see #PxAggregate::getScene), the call is ignored and a error is issued.
+	\note If the aggregate is not part of this scene (see #PxAggregate::getScene), the call is ignored and an error is issued.
 
 	\note If the aggregate contains actors, those actors are removed from the scene as well.
 
@@ -427,15 +413,16 @@ class PxScene
 	virtual	void				removeAggregate(PxAggregate& aggregate, bool wakeOnLostTouch = true)	= 0;
 
 	/**
-	\brief Adds collected objects to this scene.
+	\brief Adds objects in the collection to this scene.
 
-	This function adds all objects contained in the input collection to this scene. This is
-	typically used after deserializing the collection, to populate the scene with deserialized
-	objects. Non-scene level objects are ignored.
+	This function adds the following types of objects to this scene: PxActor, PxAggregate, PxArticulation. 
+	This method is typically used after deserializing the collection in order to populate the scene with deserialized objects.
+
+	\note If the collection contains an actor with an invalid constraint, in checked builds the call is ignored and an error is issued.
 
 	\param[in] collection Objects to add to this scene. See #PxCollection
 
-	@see PxCollection
+	@see PxCollection, PxConstraint::isValid()
 	*/
 	virtual	void				addCollection(const PxCollection& collection) = 0;
 	//@}
@@ -1308,7 +1295,7 @@ class PxScene
 
 	\param[in] origin		Origin of the ray.
 	\param[in] unitDir		Normalized direction of the ray.
-	\param[in] distance		Length of the ray. Needs to be larger than 0.
+	\param[in] distance		Length of the ray. Has to be in the [0, inf) range.
 	\param[out] hitCall		Raycast hit buffer or callback object used to report raycast hits.
 	\param[in] hitFlags		Specifies which properties per hit should be computed and returned via the hit callback.
 	\param[in] filterData	Filtering data passed to the filer shader. See #PxQueryFilterData #PxBatchQueryPreFilterShader, #PxBatchQueryPostFilterShader
@@ -1338,7 +1325,7 @@ class PxScene
 	\param[in] geometry		Geometry of object to sweep (supported types are: box, sphere, capsule, convex).
 	\param[in] pose			Pose of the sweep object.
 	\param[in] unitDir		Normalized direction of the sweep.
-	\param[in] distance		Sweep distance. Needs to be larger than 0. Will be clamped to PX_MAX_SWEEP_DISTANCE.
+	\param[in] distance		Sweep distance. Needs to be in [0, inf) range and >0 if eASSUME_NO_INITIAL_OVERLAP was specified. Will be clamped to PX_MAX_SWEEP_DISTANCE.
 	\param[out] hitCall		Sweep hit buffer or callback object used to report sweep hits.
 	\param[in] hitFlags		Specifies which properties per hit should be computed and returned via the hit callback.
 	\param[in] filterData	Filtering data and simple logic.

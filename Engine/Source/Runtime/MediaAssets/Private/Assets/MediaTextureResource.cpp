@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaAssetsPrivatePCH.h"
+#include "DeviceProfiles/DeviceProfile.h"
 
 
 /* FMediaTextureResource structors
@@ -23,6 +24,7 @@ void FMediaTextureResource::InitDynamicRHI()
 	{
 		// Create the RHI texture. Only one mip is used and the texture is targetable or resolve.
 		uint32 TexCreateFlags = Owner->SRGB ? TexCreate_SRGB : 0;
+		TexCreateFlags |= TexCreate_Dynamic | TexCreate_NoTiling;
 		FRHIResourceCreateInfo CreateInfo;
 
 		RHICreateTargetableShaderResource2D(
@@ -48,7 +50,7 @@ void FMediaTextureResource::InitDynamicRHI()
 
 	// Create the sampler state RHI resource.
 	FSamplerStateInitializerRHI SamplerStateInitializer(
-		GSystemSettings.TextureLODSettings.GetSamplerFilter(Owner),
+		(ESamplerFilter)UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetSamplerFilter(Owner),
 		Owner->AddressX == TA_Wrap ? AM_Wrap : (Owner->AddressX == TA_Clamp ? AM_Clamp : AM_Mirror),
 		Owner->AddressY == TA_Wrap ? AM_Wrap : (Owner->AddressY == TA_Clamp ? AM_Clamp : AM_Mirror),
 		AM_Wrap
@@ -86,11 +88,18 @@ FIntPoint FMediaTextureResource::GetSizeXY() const
 
 void FMediaTextureResource::UpdateDeferredResource(FRHICommandListImmediate& RHICmdList, bool bClearRenderTarget/*=true*/)
 {
-	FTimespan CurrentFrameTime = VideoBuffer->GetCurrentSampleTime();
-	TSharedPtr<TArray<uint8>, ESPMode::ThreadSafe> CurrentFrame = VideoBuffer->GetCurrentSample();
+	TSharedPtr<TArray<uint8>, ESPMode::ThreadSafe> CurrentFrame;
+	TSharedPtr<IMediaPlayer> Player = Owner->GetPlayer();
+
+	if (Player.IsValid() && (Player->IsPlaying() || Player->IsPaused()))
+	{
+		CurrentFrame = VideoBuffer->GetCurrentSample();
+	}
 
 	if (CurrentFrame.IsValid())
 	{
+		FTimespan CurrentFrameTime = VideoBuffer->GetCurrentSampleTime();
+
 		// draw the latest video frame
 		if (CurrentFrameTime != LastFrameTime)
 		{

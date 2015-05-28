@@ -7,6 +7,7 @@
 #include "ModuleBoilerplate.h"
 #include "CallbackDevice.h"
 #include "IOSView.h"
+#include "TaskGraphInterfaces.h"
 
 #include <AudioToolbox/AudioToolbox.h>
 #include <AVFoundation/AVAudioSession.h>
@@ -18,6 +19,8 @@ DEFINE_LOG_CATEGORY(LogIOSAudioSession);
 DECLARE_LOG_CATEGORY_EXTERN(LogEngine, Log, All);
 
 extern bool GShowSplashScreen;
+
+FIOSCoreDelegates::FOnOpenURL FIOSCoreDelegates::OnOpenURL;
 
 static void SignalHandler(int32 Signal, struct __siginfo* Info, void* Context)
 {
@@ -60,6 +63,9 @@ void InstallSignalHandlers()
 
 #if !UE_BUILD_SHIPPING
 	@synthesize ConsoleAlert;
+#ifdef __IPHONE_8_0
+    @synthesize ConsoleAlertController;
+#endif
 	@synthesize ConsoleHistoryValues;
 	@synthesize ConsoleHistoryValuesIndex;
 #endif
@@ -119,7 +125,7 @@ void InstallSignalHandlers()
 
 	while(!self.bCommandLineReady)
 	{
-		FPlatformProcess::Sleep(.01f);
+		usleep(100);
 	}
 
 
@@ -375,6 +381,9 @@ void InstallSignalHandlers()
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary*)launchOptions
 {
+	// save launch options
+	self.launchOptions = launchOptions;
+
 	// use the status bar orientation to properly determine landscape vs portrait
 	self.bDeviceInPortraitMode = UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]);
 	printf("========= This app is in %s mode\n", self.bDeviceInPortraitMode ? "PORTRAIT" : "LANDSCAPE");
@@ -529,6 +538,8 @@ void InstallSignalHandlers()
 	[self.CommandLineParseTimer invalidate];
 	self.CommandLineParseTimer = nil;
 	
+	FIOSCoreDelegates::OnOpenURL.Broadcast(application, url, sourceApplication, annotation);
+	
 	return YES;
 }
 
@@ -538,10 +549,17 @@ void InstallSignalHandlers()
 	 Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
 	 Use this method to pause ongoing tasks, disable timers, and throttle down OpenGL ES frame rates. Games should use this method to pause the game.
 	 */
-
-	FCoreDelegates::ApplicationWillDeactivateDelegate.Broadcast();
+    if (bEngineInit)
+    {
+        FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([&]()
+        {
+            FCoreDelegates::ApplicationWillDeactivateDelegate.Broadcast();
+        }, TStatId(), NULL, ENamedThreads::GameThread);
+        FTaskGraphInterface::Get().WaitUntilTaskCompletes(ResignTask);
+    }
+    
+	[self ToggleSuspend:true];
 	[self ToggleAudioSession:false];
-    [self ToggleSuspend:true];
 }
 
 - (void)applicationDidEnterBackground:(UIApplication *)application
@@ -550,7 +568,7 @@ void InstallSignalHandlers()
 	 Use this method to release shared resources, save user data, invalidate timers, and store enough application state information to restore your application to its current state in case it is terminated later. 
 	 If your application supports background execution, this method is called instead of applicationWillTerminate: when the user quits.
 	 */
-	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Broadcast();
+    FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Broadcast();
 }
 
 - (void)applicationWillEnterForeground:(UIApplication *)application
@@ -558,7 +576,7 @@ void InstallSignalHandlers()
 	/*
 	 Called as part of the transition from the background to the inactive state; here you can undo many of the changes made on entering the background.
 	 */
-	FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Broadcast();
+    FCoreDelegates::ApplicationHasEnteredForegroundDelegate.Broadcast();
 }
 
 - (void)applicationDidBecomeActive:(UIApplication *)application
@@ -566,10 +584,17 @@ void InstallSignalHandlers()
 	/*
 	 Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
 	 */
-
     [self ToggleSuspend:false];
 	[self ToggleAudioSession:true];
-	FCoreDelegates::ApplicationHasReactivatedDelegate.Broadcast();
+
+    if (bEngineInit)
+    {
+        FGraphEventRef ResignTask = FFunctionGraphTask::CreateAndDispatchWhenReady([&]()
+        {
+            FCoreDelegates::ApplicationHasReactivatedDelegate.Broadcast();
+        }, TStatId(), NULL, ENamedThreads::GameThread);
+        FTaskGraphInterface::Get().WaitUntilTaskCompletes(ResignTask);
+    }
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application
@@ -620,10 +645,10 @@ void InstallSignalHandlers()
  * @param Controller The Controller object to animate off the screen
  * @param bShouldAnimate YES to slide down, NO to hide immediately
  */
--(void)HideController:(UIViewController*)Controller Animated : (BOOL)bShouldAnimate
+-(void)HideController:(UIViewController*)Controller Animated:(BOOL)bShouldAnimate
 {
-	// slide it off
-	[Controller dismissViewControllerAnimated : bShouldAnimate completion : nil];
+    // slide it off
+    [Controller dismissViewControllerAnimated : bShouldAnimate completion : nil];
 
 	// stop drawing the 3D world for faster UI speed
 	//FViewport::SetGameRenderingEnabled(true);
@@ -654,7 +679,18 @@ void InstallSignalHandlers()
 	// create the leaderboard display object 
 	GKGameCenterViewController* GameCenterDisplay = [[[GKGameCenterViewController alloc] init] autorelease];
 	GameCenterDisplay.viewState = GKGameCenterViewControllerStateLeaderboards;
-	GameCenterDisplay.leaderboardCategory = Category;
+#ifdef __IPHONE_7_0
+    if ([GameCenterDisplay respondsToSelector:@selector(leaderboardIdentifier)] == YES)
+    {
+        GameCenterDisplay.leaderboardIdentifier = Category;
+    }
+    else
+#endif
+    {
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+        GameCenterDisplay.leaderboardCategory = Category;
+#endif
+    }
 	GameCenterDisplay.gameCenterDelegate = self;
 
 	// show it 

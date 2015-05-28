@@ -123,25 +123,28 @@ public:
 	bool getCustomSamplingPattern(int idx, float* angles, float* radii, int* nsamples);
 
 	// [UE4] sample velocity using custom patterns
-	int sampleVelocityCustom(const float* pos, const float rad, const float vmax,
+	int sampleVelocityCustom(const float* pos, const float rad,
+					 		 const float vmax, const float vmult,
 							 const float* vel, const float* dvel, float* nvel,
 							 const dtObstacleAvoidanceParams* params,
 							 dtObstacleAvoidanceDebugData* debug = 0);
 
-	int sampleVelocityAdaptive(const float* pos, const float rad, const float vmax,
+	int sampleVelocityAdaptive(const float* pos, const float rad,
+							   const float vmax, const float vmult,
 							   const float* vel, const float* dvel, float* nvel,
 							   const dtObstacleAvoidanceParams* params, 
 							   dtObstacleAvoidanceDebugData* debug = 0);
 	
 	// [UE4] main sampling function
-	inline int sampleVelocity(const float* pos, const float rad, const float vmax,
+	inline int sampleVelocity(const float* pos, const float rad,
+		const float vmax, const float vmult,
 		const float* vel, const float* dvel, float* nvel,
 		const dtObstacleAvoidanceParams* params,
 		dtObstacleAvoidanceDebugData* debug = 0)
 	{
 		return (params->patternIdx == 0xff) ?
-			sampleVelocityAdaptive(pos, rad, vmax, vel, dvel, nvel, params, debug) :
-			sampleVelocityCustom(pos, rad, vmax, vel, dvel, nvel, params, debug);
+			sampleVelocityAdaptive(pos, rad, vmax, vmult, vel, dvel, nvel, params, debug) :
+			sampleVelocityCustom(pos, rad, vmax, vmult, vel, dvel, nvel, params, debug);
 	}
 
 	inline int getObstacleCircleCount() const { return m_ncircles; }

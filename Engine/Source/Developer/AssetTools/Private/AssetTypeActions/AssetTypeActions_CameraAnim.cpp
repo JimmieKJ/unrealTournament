@@ -24,7 +24,7 @@ void FAssetTypeActions_CameraAnim::CreateMatineeActorForCameraAnim(UCameraAnim* 
 	ActorSpawnParameters.Name = InCameraAnim->GetFName();
 	PreviewMatineeActor = GEditor->GetEditorWorldContext().World()->SpawnActor<AMatineeActorCameraAnim>(ActorSpawnParameters);
 	check(PreviewMatineeActor.IsValid());
-	UInterpData* NewData = ConstructObject<UInterpData>( UInterpData::StaticClass(), GetTransientPackage(), NAME_None, RF_Transactional);
+	UInterpData* NewData = NewObject<UInterpData>(GetTransientPackage(), NAME_None, RF_Transactional);
 	PreviewMatineeActor.Get()->MatineeData = NewData;
 	PreviewMatineeActor.Get()->CameraAnim = InCameraAnim;
 }
@@ -114,14 +114,14 @@ UInterpGroup* FAssetTypeActions_CameraAnim::CreateInterpGroup(UCameraAnim* InCam
 	{
 		// create InterpGroup so that we can play animation to this pawn
 		check(PreviewMatineeActor.Get()->MatineeData);
-		UInterpGroup* NewGroup = ConstructObject<UInterpGroup>(UInterpGroup::StaticClass(), PreviewMatineeActor.Get()->MatineeData, NAME_None, RF_Transient);
+		UInterpGroup* NewGroup = NewObject<UInterpGroup>(PreviewMatineeActor.Get()->MatineeData, NAME_None, RF_Transient);
 		NewGroup->GroupName = FName(TEXT("Preview Pawn"));
 		NewGroup->EnsureUniqueName();
 
 		PreviewMatineeActor.Get()->MatineeData->InterpGroups.Add(NewGroup);
 
 		// now add group inst
-		UInterpGroupInst* NewGroupInst = ConstructObject<UInterpGroupInst>(UInterpGroupInst::StaticClass(), PreviewMatineeActor.Get(), NAME_None, RF_Transient);
+		UInterpGroupInst* NewGroupInst = NewObject<UInterpGroupInst>(PreviewMatineeActor.Get(), NAME_None, RF_Transient);
 		// Initialise group instance, saving ref to actor it works on.
 		NewGroupInst->InitGroupInst(NewGroup, PreviewInfo.PawnInst);
 		const int32 NewGroupInstIndex = PreviewMatineeActor.Get()->GroupInst.Add(NewGroupInst);
@@ -133,14 +133,14 @@ UInterpGroup* FAssetTypeActions_CameraAnim::CreateInterpGroup(UCameraAnim* InCam
 		int32 AnimTrackIndex = INDEX_NONE;
 		// add anim track but do not use addtotrack function that does too many things 
 		// Construct track and track instance objects.
-		UInterpTrackAnimControl* AnimTrack = ConstructObject<UInterpTrackAnimControl>( UInterpTrackAnimControl::StaticClass(), NewGroup, NAME_None, RF_Transient );
+		UInterpTrackAnimControl* AnimTrack = NewObject<UInterpTrackAnimControl>(NewGroup, NAME_None, RF_Transient);
 		check(AnimTrack);
 
 		NewGroup->InterpTracks.Add(AnimTrack);
 		
 		// use config anim slot
 		AnimTrack->SlotName = FName(*GConfig->GetStr(TEXT("MatineePreview"), TEXT("DefaultAnimSlotName"), GEditorIni));
-		UInterpTrackInst* NewTrackInst = ConstructObject<UInterpTrackInst>( AnimTrack->TrackInstClass, NewGroupInst, NAME_None, RF_Transient );
+		UInterpTrackInst* NewTrackInst = NewObject<UInterpTrackInst>(NewGroupInst, AnimTrack->TrackInstClass, NAME_None, RF_Transient);
 		check(NewTrackInst);
 
 		NewGroupInst->TrackInst.Add(NewTrackInst);

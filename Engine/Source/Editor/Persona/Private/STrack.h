@@ -38,7 +38,7 @@ public:
 	static TSharedRef<FTrackNodeDragDropOp> New(TSharedRef<STrackNode> TrackNode, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfNode);
 
 	/** Gets the widget that will serve as the decorator unless overriden. If you do not override, you will have no decorator */
-	virtual TSharedPtr<SWidget> GetDefaultDecorator() const
+	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override
 	{
 		return OriginalTrackNode.Pin();
 	}
@@ -117,7 +117,7 @@ public:
 	virtual FVector2D GetOffsetRelativeToParent(const FGeometry& ParentAllottedGeometry) const;
 	virtual FVector2D GetSizeRelativeToParent(const FGeometry& ParentAllottedGeometry) const;
 	
-	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const;
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 
 	// drag drop relationship
 	virtual FReply OnDragDetected( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
@@ -132,7 +132,7 @@ public:
 	bool HitTest(const FGeometry& AllottedGeometry, FVector2D MouseLocalPose) const;
 
 	virtual FVector2D GetSize() const;
-	virtual FVector2D ComputeDesiredSize() const;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 
 	float GetDataStartPos() const;
 
@@ -237,8 +237,8 @@ public:
 
 	void			Construct( const FArguments& InArgs );
 
-	virtual void	OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const;
-	virtual int32	OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const;
+	virtual void	OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
+	virtual int32	OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 
 	virtual FReply	OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;	
 	virtual FReply	OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
@@ -255,7 +255,7 @@ public:
 	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
 
 	void				AddTrackNode( TSharedRef<STrackNode> Node );
-	FVector2D			ComputeDesiredSize() const override;
+	FVector2D			ComputeDesiredSize(float) const override;
 	virtual FChildren*	GetChildren() override;
 
 protected:

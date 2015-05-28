@@ -1595,7 +1595,7 @@ struct FDynamicSpriteEmitterData : public FDynamicSpriteEmitterDataBase
 	/**
 	 *	Get the source replay data for this emitter
 	 */
-	virtual const FDynamicSpriteEmitterReplayDataBase* GetSourceData() const
+	virtual const FDynamicSpriteEmitterReplayDataBase* GetSourceData() const override
 	{
 		return &Source;
 	}
@@ -1641,12 +1641,12 @@ struct FDynamicSpriteEmitterData : public FDynamicSpriteEmitterDataBase
 	 *
 	 *	@return	bool			true if successful, false if failed
 	 */
-	virtual void UpdateRenderThreadResourcesEmitter(const FParticleSystemSceneProxy* InOwnerProxy);
+	virtual void UpdateRenderThreadResourcesEmitter(const FParticleSystemSceneProxy* InOwnerProxy) override;
 
-	virtual FParticleVertexFactoryBase* BuildVertexFactory(const FParticleSystemSceneProxy* InOwnerProxy);
+	virtual FParticleVertexFactoryBase* BuildVertexFactory(const FParticleSystemSceneProxy* InOwnerProxy) override;
 
 	/** Returns the source data for this particle system */
-	virtual const FDynamicEmitterReplayDataBase& GetSource() const
+	virtual const FDynamicEmitterReplayDataBase& GetSource() const override
 	{
 		return Source;
 	}
@@ -1727,9 +1727,9 @@ struct FDynamicMeshEmitterData : public FDynamicSpriteEmitterDataBase
 	 *
 	 *	@return	bool			true if successful, false if failed
 	 */
-	virtual void UpdateRenderThreadResourcesEmitter(const FParticleSystemSceneProxy* InOwnerProxy);
+	virtual void UpdateRenderThreadResourcesEmitter(const FParticleSystemSceneProxy* InOwnerProxy) override;
 
-	virtual FParticleVertexFactoryBase* BuildVertexFactory(const FParticleSystemSceneProxy* InOwnerProxy);
+	virtual FParticleVertexFactoryBase* BuildVertexFactory(const FParticleSystemSceneProxy* InOwnerProxy) override;
 
 	/**
 	 *	Release the render thread resources for this emitter data
@@ -1738,7 +1738,7 @@ struct FDynamicMeshEmitterData : public FDynamicSpriteEmitterDataBase
 	 *
 	 *	@return	bool			true if successful, false if failed
 	 */
-	virtual void ReleaseRenderThreadResources(const FParticleSystemSceneProxy* InOwnerProxy);
+	virtual void ReleaseRenderThreadResources(const FParticleSystemSceneProxy* InOwnerProxy) override;
 
 	virtual void GetDynamicMeshElementsEmitter(const FParticleSystemSceneProxy* Proxy, const FSceneView* View, const FSceneViewFamily& ViewFamily, int32 ViewIndex, FMeshElementCollector& Collector) const override;
 
@@ -1798,7 +1798,7 @@ struct FDynamicMeshEmitterData : public FDynamicSpriteEmitterDataBase
 	void SetupVertexFactory( FMeshParticleVertexFactory* VertexFactory, FStaticMeshLODResources& LODResources) const;
 
 	/** Returns the source data for this particle system */
-	virtual const FDynamicEmitterReplayDataBase& GetSource() const
+	virtual const FDynamicEmitterReplayDataBase& GetSource() const override
 	{
 		return Source;
 	}
@@ -2004,13 +2004,13 @@ struct FDynamicBeam2EmitterData : public FDynamicSpriteEmitterDataBase
 
 	virtual void GetDynamicMeshElementsEmitter(const FParticleSystemSceneProxy* Proxy, const FSceneView* View, const FSceneViewFamily& ViewFamily, int32 ViewIndex, FMeshElementCollector& Collector) const override;
 	
-	virtual FParticleVertexFactoryBase* BuildVertexFactory(const FParticleSystemSceneProxy* InOwnerProxy);
+	virtual FParticleVertexFactoryBase* BuildVertexFactory(const FParticleSystemSceneProxy* InOwnerProxy) override;
 
 	// Debugging functions
 	virtual void RenderDirectLine(const FParticleSystemSceneProxy* Proxy, FPrimitiveDrawInterface* PDI,const FSceneView* View) const;
 	virtual void RenderLines(const FParticleSystemSceneProxy* Proxy, FPrimitiveDrawInterface* PDI,const FSceneView* View) const;
 
-	virtual void RenderDebug(const FParticleSystemSceneProxy* Proxy, FPrimitiveDrawInterface* PDI, const FSceneView* View, bool bCrosses) const;
+	virtual void RenderDebug(const FParticleSystemSceneProxy* Proxy, FPrimitiveDrawInterface* PDI, const FSceneView* View, bool bCrosses) const override;
 
 	// Data fill functions
 	int32 FillIndexData(struct FAsyncBufferFillData& Data) const;
@@ -2019,13 +2019,13 @@ struct FDynamicBeam2EmitterData : public FDynamicSpriteEmitterDataBase
 	int32 FillData_InterpolatedNoise(struct FAsyncBufferFillData& Data) const;
 
 	/** Returns the source data for this particle system */
-	virtual const FDynamicEmitterReplayDataBase& GetSource() const
+	virtual const FDynamicEmitterReplayDataBase& GetSource() const override
 	{
 		return Source;
 	}
 
 	/** Perform the actual work of filling the buffer */
-	virtual void DoBufferFill(FAsyncBufferFillData& Me) const;
+	virtual void DoBufferFill(FAsyncBufferFillData& Me) const override;
 
 	/**
 	 *	Get the vertex stride for the dynamic rendering data
@@ -2046,7 +2046,7 @@ struct FDynamicBeam2EmitterData : public FDynamicSpriteEmitterDataBase
 	/**
 	 *	Gets the information required for allocating this emitters indices from the global index array.
 	 */
-	virtual void GetIndexAllocInfo(int32& OutNumIndices, int32& OutStride ) const;
+	virtual void GetIndexAllocInfo(int32& OutNumIndices, int32& OutStride ) const override;
 
 	/** The frame source data for this particle system.  This is everything needed to represent this
 		this particle system frame.  It does not include any transient rendering thread data.  Also, for
@@ -2146,30 +2146,30 @@ struct FDynamicTrailsEmitterData : public FDynamicSpriteEmitterDataBase
 	/** Initialize this emitter's dynamic rendering data, called after source data has been filled in */
 	virtual void Init(bool bInSelected);
 
-	virtual FParticleVertexFactoryBase* BuildVertexFactory(const FParticleSystemSceneProxy* InOwnerProxy);
+	virtual FParticleVertexFactoryBase* BuildVertexFactory(const FParticleSystemSceneProxy* InOwnerProxy) override;
 
 	virtual void GetDynamicMeshElementsEmitter(const FParticleSystemSceneProxy* Proxy, const FSceneView* View, const FSceneViewFamily& ViewFamily, int32 ViewIndex, FMeshElementCollector& Collector) const override;
 
-	virtual void RenderDebug(const FParticleSystemSceneProxy* Proxy, FPrimitiveDrawInterface* PDI, const FSceneView* View, bool bCrosses) const;
+	virtual void RenderDebug(const FParticleSystemSceneProxy* Proxy, FPrimitiveDrawInterface* PDI, const FSceneView* View, bool bCrosses) const override;
 
 	// Data fill functions
 	virtual int32 FillIndexData(struct FAsyncBufferFillData& Data) const;
 	virtual int32 FillVertexData(struct FAsyncBufferFillData& Data) const;
 
 	/** Returns the source data for this particle system */
-	virtual const FDynamicEmitterReplayDataBase& GetSource() const
+	virtual const FDynamicEmitterReplayDataBase& GetSource() const override
 	{
 		check(SourcePointer);
 		return *SourcePointer;
 	}
 
-	virtual const FDynamicTrailsEmitterReplayData* GetSourceData() const
+	virtual const FDynamicTrailsEmitterReplayData* GetSourceData() const override
 	{
 		check(SourcePointer);
 		return SourcePointer;
 	}
 
-	virtual void DoBufferFill(FAsyncBufferFillData& Me) const
+	virtual void DoBufferFill(FAsyncBufferFillData& Me) const override
 	{
 		if( Me.VertexCount <= 0 || Me.IndexCount <= 0 || Me.VertexData == NULL || Me.IndexData == NULL )
 		{
@@ -2199,7 +2199,7 @@ struct FDynamicTrailsEmitterData : public FDynamicSpriteEmitterDataBase
 	/**
 	 *	Gets the number of indices to be allocated for this emitter.
 	 */
-	virtual void GetIndexAllocInfo(int32& OutNumIndices, int32& OutStride ) const;
+	virtual void GetIndexAllocInfo(int32& OutNumIndices, int32& OutStride ) const override;
 
 	FDynamicTrailsEmitterReplayData*	SourcePointer;
 	/**	The sprite particle data.										*/
@@ -2356,7 +2356,7 @@ public:
 	 *	Called when the rendering thread adds the proxy to the scene.
 	 *	This function allows for generating renderer-side resources.
 	 */
-	virtual void CreateRenderThreadResources();
+	virtual void CreateRenderThreadResources() override;
 
 	/**
 	 *	Called when the rendering thread removes the dynamic data from the scene.
@@ -2381,7 +2381,7 @@ public:
 		LastDynamicData  = InLastDynamicData;
 	}
 
-	virtual uint32 GetMemoryFootprint( void ) const { return( sizeof( *this ) + GetAllocatedSize() ); }
+	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 	uint32 GetAllocatedSize( void ) const 
 	{ 
 		uint32 AdditionalSize = FPrimitiveSceneProxy::GetAllocatedSize();
@@ -2479,7 +2479,7 @@ public:
 	 *
 	 *	@return	bool		true if custom occlusion bounds are used, false if not;
 	 */
-	virtual bool HasCustomOcclusionBounds() const
+	virtual bool HasCustomOcclusionBounds() const override
 	{
 		return bHasCustomOcclusionBounds;
 	}
@@ -2489,7 +2489,7 @@ public:
 	 *	
 	 *	@return	FBoxSphereBounds		The custom occlusion bounds.
 	 */
-	virtual FBoxSphereBounds GetCustomOcclusionBounds() const
+	virtual FBoxSphereBounds GetCustomOcclusionBounds() const override
 	{
 		return OcclusionBounds.TransformBy(GetLocalToWorld());
 	}

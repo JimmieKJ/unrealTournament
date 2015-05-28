@@ -1,9 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
-// Console - A quick little command line console that accepts most commands.
-//=============================================================================
 #pragma once
+
 #include "ConsoleSettings.h"
 #include "Console.generated.h"
 
@@ -49,6 +47,9 @@ struct FAutoCompleteNode
 };
 
 
+/**
+ * A basic command line console that accepts most commands.
+ */
 UCLASS(Within=GameViewportClient, config=Input, transient)
 class ENGINE_API UConsole
 	: public UObject
@@ -56,7 +57,7 @@ class ENGINE_API UConsole
 {
 	GENERATED_UCLASS_BODY()
 
-	/** The player which the next console command should be executed in the context of.  If NULL, execute in the viewport. */
+	/** The player which the next console command should be executed in the context of.  If nullptr, execute in the viewport. */
 	UPROPERTY()
 	class ULocalPlayer* ConsoleTargetPlayer;
 
@@ -131,7 +132,7 @@ class ENGINE_API UConsole
 	
 	/**
 	 * Executes a console command.
-	 * @param Command - The command to execute.
+	 * @param Command The command to execute.
 	 */
 	virtual void ConsoleCommand(const FString& Command);
 	
@@ -143,13 +144,15 @@ class ENGINE_API UConsole
 	/**
 	 * Prints a (potentially multi-line) FString of text to the console.
 	 * The text is split into separate lines and passed to OutputTextLine.
-	 * @param Text - Text to display on the console.
+	 *
+	 * @param Text Text to display on the console.
 	 */
 	virtual void OutputText(const FString& Text);
 	
 	/**
 	 * Opens the typing bar with text already entered.
-	 * @param Text - The text to enter in the typing bar.
+	 *
+	 * @param Text The text to enter in the typing bar.
 	 */
 	virtual void StartTyping(const FString& Text);
 	
@@ -236,7 +239,7 @@ private:
 	bool InputKey_InputLine( int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed = 1.f, bool bGamepad = false );
 
 	// interface FOutputDevice
-	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category );
+	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override;
 	// expose the base class other Serialize function (clang will give "error : 'UConsole::Serialize' hides overloaded virtual function" without this)
 	using UObject::Serialize; 
 
@@ -245,7 +248,7 @@ private:
 	 * @param Text - A line of text to display on the console.
 	 */
 	void OutputTextLine(const FString& Text);
-	
+
 	void PostRender_InputLine(class UCanvas* Canvas, FIntPoint UserInputLinePos);
 
 	void SetAutoCompleteFromHistory();

@@ -34,6 +34,7 @@
 #include "../../events/SDL_mouse_c.h"
 #include "../../events/SDL_touch_c.h"
 #include "../../events/SDL_windowevents_c.h"
+#include "../../events/SDL_dropevents_c.h"
 #include "SDL_cocoavideo.h"
 #include "SDL_cocoashape.h"
 #include "SDL_cocoamouse.h"
@@ -49,14 +50,24 @@
 #endif
 
 
-@interface SDLWindow : NSWindow
+#define FULLSCREEN_MASK (SDL_WINDOW_FULLSCREEN_DESKTOP | SDL_WINDOW_FULLSCREEN)
+
+
+@interface SDLWindow : NSWindow <NSDraggingDestination>
 /* These are needed for borderless/fullscreen windows */
 - (BOOL)canBecomeKeyWindow;
 - (BOOL)canBecomeMainWindow;
 - (void)sendEvent:(NSEvent *)event;
+- (void)doCommandBySelector:(SEL)aSelector;
+
+/* Handle drag-and-drop of files onto the SDL window. */
+- (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender;
+- (BOOL)performDragOperation:(id <NSDraggingInfo>)sender;
+- (BOOL)wantsPeriodicDraggingUpdates;
 @end
 
 @implementation SDLWindow
+
 - (BOOL)canBecomeKeyWindow
 {
     return YES;
@@ -84,15 +95,79 @@
       [delegate windowDidFinishMoving];
   }
 }
+
+/* We'll respond to selectors by doing nothing so we don't beep.
+ * The escape key gets converted to a "cancel" selector, etc.
+ */
+- (void)doCommandBySelector:(SEL)aSelector
+{
+    /*NSLog(@"doCommandBySelector: %@\n", NSStringFromSelector(aSelector));*/
+}
+
+- (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)sender
+{
+    return NSDragOperationGeneric;
+}
+
+- (BOOL)performDragOperation:(id <NSDraggingInfo>)sender
+{
+    SDL_VideoDevice *_this = SDL_GetVideoDevice();
+    NSURL *fileURL = [NSURL URLFromPasteboard:[sender draggingPasteboard]];
+    NSNumber *isAlias = nil;
+    SDL_Window *sdlwindow = nil;
+
+    if (fileURL == nil) {
+        return NO;
+    }
+
+    /* Functionality for resolving URL aliases was added with OS X 10.6. */
+    if ([fileURL respondsToSelector:@selector(getResourceValue:forKey:error:)]) {
+        [fileURL getResourceValue:&isAlias forKey:NSURLIsAliasFileKey error:nil];
+    }
+
+    /* If the URL is an alias, resolve it. */
+    if ([isAlias boolValue]) {
+        NSURLBookmarkResolutionOptions opts = NSURLBookmarkResolutionWithoutMounting | NSURLBookmarkResolutionWithoutUI;
+        NSData *bookmark = [NSURL bookmarkDataWithContentsOfURL:fileURL error:nil];
+        if (bookmark != nil) {
+            NSURL *resolvedURL = [NSURL URLByResolvingBookmarkData:bookmark
+                                                           options:opts
+                                                     relativeToURL:nil
+                                               bookmarkDataIsStale:nil
+                                                             error:nil];
+
+            if (resolvedURL != nil) {
+                fileURL = resolvedURL;
+            }
+        }
+    }
+
+    /* !!! FIXME: is there a better way to do this? */
+    if (_this) {
+        for (sdlwindow = _this->windows; sdlwindow; sdlwindow = sdlwindow->next) {
+            NSWindow *nswindow = ((SDL_WindowData *) window->driverdata)->nswindow;
+            if (nswindow == self) {
+                break;
+            }
+        }
+    }
+
+    return (BOOL) SDL_SendDropFile(sdlwindow, [[fileURL path] UTF8String]) && SDL_SendDropComplete(sdlwindow);
+}
+
+- (BOOL)wantsPeriodicDraggingUpdates
+{
+    return NO;
+}
+
 @end
 
 
 static Uint32 s_moveHack;
 
-static void ConvertNSRect(NSScreen *screen, NSRect *r)
+static void ConvertNSRect(NSScreen *screen, BOOL fullscreen, NSRect *r)
 {
-    NSRect visibleScreen = [screen visibleFrame];
-    r->origin.y = (visibleScreen.origin.y + visibleScreen.size.height) - r->origin.y - r->size.height;
+    r->origin.y = CGDisplayPixelsHigh(kCGDirectMainDisplay) - r->origin.y - r->size.height;
 }
 
 static void
@@ -111,6 +186,7 @@ ScheduleContextUpdates(SDL_WindowData *data)
     }
 }
 
+/* !!! FIXME: this should use a hint callback. */
 static int
 GetHintCtrlClickEmulateRightClick()
 {
@@ -269,6 +345,8 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
         return NO;  /* Spaces are forcibly disabled. */
     } else if (state && ((window->flags & SDL_WINDOW_FULLSCREEN_DESKTOP) != SDL_WINDOW_FULLSCREEN_DESKTOP)) {
         return NO;  /* we only allow you to make a Space on FULLSCREEN_DESKTOP windows. */
+    } else if (!state && ((window->last_fullscreen_flags & SDL_WINDOW_FULLSCREEN_DESKTOP) != SDL_WINDOW_FULLSCREEN_DESKTOP)) {
+        return NO;  /* we only handle leaving the Space on windows that were previously FULLSCREEN_DESKTOP. */
     } else if (state == isFullscreenSpace) {
         return YES;  /* already there. */
     }
@@ -309,7 +387,6 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
     NSNotificationCenter *center;
     NSWindow *window = _data->nswindow;
     NSView *view = [window contentView];
-    NSArray *windows = nil;
 
     center = [NSNotificationCenter defaultCenter];
 
@@ -337,26 +414,6 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
     if ([view nextResponder] == self) {
         [view setNextResponder:nil];
     }
-
-    /* Make the next window in the z-order Key. If we weren't the foreground
-       when closed, this is a no-op.
-       !!! FIXME: Note that this is a hack, and there are corner cases where
-       !!! FIXME:  this fails (such as the About box). The typical nib+RunLoop
-       !!! FIXME:  handles this for Cocoa apps, but we bypass all that in SDL.
-       !!! FIXME:  We should remove this code when we find a better way to
-       !!! FIXME:  have the system do this for us. See discussion in
-       !!! FIXME:   http://bugzilla.libsdl.org/show_bug.cgi?id=1825
-    */
-    windows = [NSApp orderedWindows];
-    for (NSWindow *win in windows)
-    {
-        if (win == window) {
-            continue;
-        }
-
-        [win makeKeyAndOrderFront:self];
-        break;
-    }
 }
 
 - (BOOL)isMoving
@@ -372,16 +429,15 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
 
 - (void)windowDidFinishMoving
 {
-    if ([self isMoving])
-    {
+    if ([self isMoving]) {
         isMoving = NO;
 
         SDL_Mouse *mouse = SDL_GetMouse();
-        if (pendingWindowWarpX >= 0 && pendingWindowWarpY >= 0) {
-            mouse->WarpMouse(_data->window, pendingWindowWarpX, pendingWindowWarpY);
-            pendingWindowWarpX = pendingWindowWarpY = -1;
+        if (pendingWindowWarpX != INT_MAX && pendingWindowWarpY != INT_MAX) {
+            mouse->WarpMouseGlobal(pendingWindowWarpX, pendingWindowWarpY);
+            pendingWindowWarpX = pendingWindowWarpY = INT_MAX;
         }
-        if (mouse->relative_mode && SDL_GetMouseFocus() == _data->window) {
+        if (mouse->relative_mode && !mouse->relative_mode_warp && mouse->focus == _data->window) {
             mouse->SetRelativeMouseMode(SDL_TRUE);
         }
     }
@@ -401,7 +457,7 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
 - (void)windowWillMove:(NSNotification *)aNotification
 {
     if ([_data->nswindow isKindOfClass:[SDLWindow class]]) {
-        pendingWindowWarpX = pendingWindowWarpY = -1;
+        pendingWindowWarpX = pendingWindowWarpY = INT_MAX;
         isMoving = YES;
     }
 }
@@ -411,8 +467,9 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
     int x, y;
     SDL_Window *window = _data->window;
     NSWindow *nswindow = _data->nswindow;
+    BOOL fullscreen = window->flags & FULLSCREEN_MASK;
     NSRect rect = [nswindow contentRectForFrameRect:[nswindow frame]];
-    ConvertNSRect([nswindow screen], &rect);
+    ConvertNSRect([nswindow screen], fullscreen, &rect);
 
     if (s_moveHack) {
         SDL_bool blockMove = ((SDL_GetTicks() - s_moveHack) < 500);
@@ -423,7 +480,7 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
             /* Cocoa is adjusting the window in response to a mode change */
             rect.origin.x = window->x;
             rect.origin.y = window->y;
-            ConvertNSRect([nswindow screen], &rect);
+            ConvertNSRect([nswindow screen], fullscreen, &rect);
             [nswindow setFrameOrigin:rect.origin];
             return;
         }
@@ -448,7 +505,7 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
     NSWindow *nswindow = _data->nswindow;
     int x, y, w, h;
     NSRect rect = [nswindow contentRectForFrameRect:[nswindow frame]];
-    ConvertNSRect([nswindow screen], &rect);
+    ConvertNSRect([nswindow screen], (window->flags & FULLSCREEN_MASK), &rect);
     x = (int)rect.origin.x;
     y = (int)rect.origin.y;
     w = (int)rect.size.width;
@@ -487,7 +544,7 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
 {
     SDL_Window *window = _data->window;
     SDL_Mouse *mouse = SDL_GetMouse();
-    if (mouse->relative_mode && ![self isMoving]) {
+    if (mouse->relative_mode && !mouse->relative_mode_warp && ![self isMoving]) {
         mouse->SetRelativeMouseMode(SDL_TRUE);
     }
 
@@ -519,7 +576,7 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
 - (void)windowDidResignKey:(NSNotification *)aNotification
 {
     SDL_Mouse *mouse = SDL_GetMouse();
-    if (mouse->relative_mode) {
+    if (mouse->relative_mode && !mouse->relative_mode_warp) {
         mouse->SetRelativeMouseMode(SDL_FALSE);
     }
 
@@ -688,6 +745,7 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
     int button;
 
     if ([self processHitTest:theEvent]) {
+        SDL_SendWindowEvent(_data->window, SDL_WINDOWEVENT_HIT_TEST, 0, 0);
         return;  /* dragging, drop event. */
     }
 
@@ -730,6 +788,7 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
     int button;
 
     if ([self processHitTest:theEvent]) {
+        SDL_SendWindowEvent(_data->window, SDL_WINDOWEVENT_HIT_TEST, 0, 0);
         return;  /* stopped dragging, drop event. */
     }
 
@@ -773,6 +832,7 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
     int x, y;
 
     if ([self processHitTest:theEvent]) {
+        SDL_SendWindowEvent(window, SDL_WINDOWEVENT_HIT_TEST, 0, 0);
         return;  /* dragging, drop event. */
     }
 
@@ -844,48 +904,48 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
 
 - (void)touchesBeganWithEvent:(NSEvent *) theEvent
 {
-    [self handleTouches:COCOA_TOUCH_DOWN withEvent:theEvent];
+    NSSet *touches = [theEvent touchesMatchingPhase:NSTouchPhaseAny inView:nil];
+    int existingTouchCount = 0;
+
+    for (NSTouch* touch in touches) {
+        if ([touch phase] != NSTouchPhaseBegan) {
+            existingTouchCount++;
+        }
+    }
+    if (existingTouchCount == 0) {
+        SDL_TouchID touchID = (SDL_TouchID)(intptr_t)[[touches anyObject] device];
+        int numFingers = SDL_GetNumTouchFingers(touchID);
+        DLog("Reset Lost Fingers: %d", numFingers);
+        for (--numFingers; numFingers >= 0; --numFingers) {
+            SDL_Finger* finger = SDL_GetTouchFinger(touchID, numFingers);
+            SDL_SendTouch(touchID, finger->id, SDL_FALSE, 0, 0, 0);
+        }
+    }
+
+    DLog("Began Fingers: %lu .. existing: %d", (unsigned long)[touches count], existingTouchCount);
+    [self handleTouches:NSTouchPhaseBegan withEvent:theEvent];
 }
 
 - (void)touchesMovedWithEvent:(NSEvent *) theEvent
 {
-    [self handleTouches:COCOA_TOUCH_MOVE withEvent:theEvent];
+    [self handleTouches:NSTouchPhaseMoved withEvent:theEvent];
 }
 
 - (void)touchesEndedWithEvent:(NSEvent *) theEvent
 {
-    [self handleTouches:COCOA_TOUCH_UP withEvent:theEvent];
+    [self handleTouches:NSTouchPhaseEnded withEvent:theEvent];
 }
 
 - (void)touchesCancelledWithEvent:(NSEvent *) theEvent
 {
-    [self handleTouches:COCOA_TOUCH_CANCELLED withEvent:theEvent];
+    [self handleTouches:NSTouchPhaseCancelled withEvent:theEvent];
 }
 
-- (void)handleTouches:(cocoaTouchType)type withEvent:(NSEvent *)event
+- (void)handleTouches:(NSTouchPhase) phase withEvent:(NSEvent *) theEvent
 {
-    NSSet *touches = 0;
-    NSEnumerator *enumerator;
-    NSTouch *touch;
+    NSSet *touches = [theEvent touchesMatchingPhase:phase inView:nil];
 
-    switch (type) {
-        case COCOA_TOUCH_DOWN:
-            touches = [event touchesMatchingPhase:NSTouchPhaseBegan inView:nil];
-            break;
-        case COCOA_TOUCH_UP:
-            touches = [event touchesMatchingPhase:NSTouchPhaseEnded inView:nil];
-            break;
-        case COCOA_TOUCH_CANCELLED:
-            touches = [event touchesMatchingPhase:NSTouchPhaseCancelled inView:nil];
-            break;
-        case COCOA_TOUCH_MOVE:
-            touches = [event touchesMatchingPhase:NSTouchPhaseMoved inView:nil];
-            break;
-    }
-
-    enumerator = [touches objectEnumerator];
-    touch = (NSTouch*)[enumerator nextObject];
-    while (touch) {
+    for (NSTouch *touch in touches) {
         const SDL_TouchID touchId = (SDL_TouchID)(intptr_t)[touch device];
         if (!SDL_GetTouch(touchId)) {
             if (SDL_AddTouch(touchId, "") < 0) {
@@ -899,20 +959,20 @@ SetWindowStyle(SDL_Window * window, unsigned int style)
         /* Make the origin the upper left instead of the lower left */
         y = 1.0f - y;
 
-        switch (type) {
-        case COCOA_TOUCH_DOWN:
+        switch (phase) {
+        case NSTouchPhaseBegan:
             SDL_SendTouch(touchId, fingerId, SDL_TRUE, x, y, 1.0f);
             break;
-        case COCOA_TOUCH_UP:
-        case COCOA_TOUCH_CANCELLED:
+        case NSTouchPhaseEnded:
+        case NSTouchPhaseCancelled:
             SDL_SendTouch(touchId, fingerId, SDL_FALSE, x, y, 1.0f);
             break;
-        case COCOA_TOUCH_MOVE:
+        case NSTouchPhaseMoved:
             SDL_SendTouchMotion(touchId, fingerId, x, y, 1.0f);
             break;
+        default:
+            break;
         }
-
-        touch = (NSTouch*)[enumerator nextObject];
     }
 }
 
@@ -962,7 +1022,7 @@ SetupWindowData(_THIS, SDL_Window * window, NSWindow *nswindow, SDL_bool created
     SDL_WindowData *data;
 
     /* Allocate the window data */
-    data = (SDL_WindowData *) SDL_calloc(1, sizeof(*data));
+    window->driverdata = data = (SDL_WindowData *) SDL_calloc(1, sizeof(*data));
     if (!data) {
         return SDL_OutOfMemory();
     }
@@ -980,7 +1040,7 @@ SetupWindowData(_THIS, SDL_Window * window, NSWindow *nswindow, SDL_bool created
     /* Fill in the SDL window with the window data */
     {
         NSRect rect = [nswindow contentRectForFrameRect:[nswindow frame]];
-        ConvertNSRect([nswindow screen], &rect);
+        ConvertNSRect([nswindow screen], (window->flags & FULLSCREEN_MASK), &rect);
         window->x = (int)rect.origin.x;
         window->y = (int)rect.origin.y;
         window->w = (int)rect.size.width;
@@ -1050,23 +1110,20 @@ Cocoa_CreateWindow(_THIS, SDL_Window * window)
     NSRect rect;
     SDL_Rect bounds;
     unsigned int style;
+    NSArray *screens = [NSScreen screens];
 
     Cocoa_GetDisplayBounds(_this, display, &bounds);
     rect.origin.x = window->x;
     rect.origin.y = window->y;
     rect.size.width = window->w;
     rect.size.height = window->h;
-    ConvertNSRect([[NSScreen screens] objectAtIndex:0], &rect);
+    ConvertNSRect([screens objectAtIndex:0], (window->flags & FULLSCREEN_MASK), &rect);
 
     style = GetWindowStyle(window);
 
     /* Figure out which screen to place this window */
-    NSArray *screens = [NSScreen screens];
     NSScreen *screen = nil;
-    NSScreen *candidate;
-    int i, count = [screens count];
-    for (i = 0; i < count; ++i) {
-        candidate = [screens objectAtIndex:i];
+    for (NSScreen *candidate in screens) {
         NSRect screenRect = [candidate frame];
         if (rect.origin.x >= screenRect.origin.x &&
             rect.origin.x < screenRect.origin.x + screenRect.size.width &&
@@ -1089,7 +1146,7 @@ Cocoa_CreateWindow(_THIS, SDL_Window * window)
     [nswindow setBackgroundColor:[NSColor blackColor]];
 
     if (videodata->allow_spaces) {
-        SDL_assert(videodata->osversion >= 0x1070);
+        SDL_assert(floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6);
         SDL_assert([nswindow respondsToSelector:@selector(toggleFullScreen:)]);
         /* we put FULLSCREEN_DESKTOP windows in their own Space, without a toggle button or menubar, later */
         if (window->flags & SDL_WINDOW_RESIZABLE) {
@@ -1110,6 +1167,9 @@ Cocoa_CreateWindow(_THIS, SDL_Window * window)
 
     [nswindow setContentView: contentView];
     [contentView release];
+
+    /* Allow files and folders to be dragged onto the window by users */
+    [nswindow registerForDraggedTypes:[NSArray arrayWithObject:(NSString *)kUTTypeFileURL]];
 
     [pool release];
 
@@ -1145,16 +1205,9 @@ Cocoa_SetWindowTitle(_THIS, SDL_Window * window)
 {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     NSWindow *nswindow = ((SDL_WindowData *) window->driverdata)->nswindow;
-    NSString *string;
-
-    if(window->title) {
-        string = [[NSString alloc] initWithUTF8String:window->title];
-    } else {
-        string = [[NSString alloc] init];
-    }
+    NSString *string = [[NSString alloc] initWithUTF8String:window->title];
     [nswindow setTitle:string];
     [string release];
-
     [pool release];
 }
 
@@ -1184,7 +1237,7 @@ Cocoa_SetWindowPosition(_THIS, SDL_Window * window)
     rect.origin.y = window->y;
     rect.size.width = window->w;
     rect.size.height = window->h;
-    ConvertNSRect([nswindow screen], &rect);
+    ConvertNSRect([nswindow screen], (window->flags & FULLSCREEN_MASK), &rect);
 
     moveHack = s_moveHack;
     s_moveHack = 0;
@@ -1280,6 +1333,7 @@ Cocoa_RaiseWindow(_THIS, SDL_Window * window)
      */
     [windowData->listener pauseVisibleObservation];
     if (![nswindow isMiniaturized] && [nswindow isVisible]) {
+        [NSApp activateIgnoringOtherApps:YES];
         [nswindow makeKeyAndOrderFront:nil];
     }
     [windowData->listener resumeVisibleObservation];
@@ -1341,6 +1395,7 @@ Cocoa_RebuildWindow(SDL_WindowData * data, NSWindow * nswindow, unsigned style)
     [data->listener close];
     data->nswindow = [[SDLWindow alloc] initWithContentRect:[[nswindow contentView] frame] styleMask:style backing:NSBackingStoreBuffered defer:NO screen:[nswindow screen]];
     [data->nswindow setContentView:[nswindow contentView]];
+    [data->nswindow registerForDraggedTypes:[NSArray arrayWithObject:(NSString *)kUTTypeFileURL]];
     /* See comment in SetupWindowData. */
     [data->nswindow setOneShot:NO];
     [data->listener listen:data];
@@ -1384,7 +1439,7 @@ Cocoa_SetWindowFullscreen(_THIS, SDL_Window * window, SDL_VideoDisplay * display
         rect.origin.y = bounds.y;
         rect.size.width = bounds.w;
         rect.size.height = bounds.h;
-        ConvertNSRect([nswindow screen], &rect);
+        ConvertNSRect([nswindow screen], fullscreen, &rect);
 
         /* Hack to fix origin on Mac OS X 10.4 */
         NSRect screenRect = [[nswindow screen] frame];
@@ -1402,7 +1457,7 @@ Cocoa_SetWindowFullscreen(_THIS, SDL_Window * window, SDL_VideoDisplay * display
         rect.origin.y = window->windowed.y;
         rect.size.width = window->windowed.w;
         rect.size.height = window->windowed.h;
-        ConvertNSRect([nswindow screen], &rect);
+        ConvertNSRect([nswindow screen], fullscreen, &rect);
 
         if ([nswindow respondsToSelector: @selector(setStyleMask:)]) {
             [nswindow performSelector: @selector(setStyleMask:) withObject: (id)(uintptr_t)GetWindowStyle(window)];
@@ -1545,6 +1600,8 @@ Cocoa_DestroyWindow(_THIS, SDL_Window * window)
 
         SDL_free(data);
     }
+    window->driverdata = NULL;
+
     [pool release];
 }
 
@@ -1585,6 +1642,20 @@ Cocoa_SetWindowFullscreenSpace(SDL_Window * window, SDL_bool state)
 
     if ([data->listener setFullscreenSpace:(state ? YES : NO)]) {
         succeeded = SDL_TRUE;
+
+        /* Wait for the transition to complete, so application changes
+           take effect properly (e.g. setting the window size, etc.)
+         */
+        const int limit = 10000;
+        int count = 0;
+        while ([data->listener isInFullscreenSpaceTransition]) {
+            if ( ++count == limit ) {
+                /* Uh oh, transition isn't completing. Should we assert? */
+                break;
+            }
+            SDL_Delay(1);
+            SDL_PumpEvents();
+        }
     }
 
     [pool release];

@@ -9,7 +9,7 @@
 	"DocsURL" : "https://docs.unrealengine.com/latest/INT/Gameplay/Analytics/Blueprints/index.html",
     "EngineVersion": "4.2.0",
     "Description": "Blueprint Library for using an analytic event provider",
-    "Category": "Analytics.BlueprintLibrary",
+    "Category": "Analytics",
 
     "Modules": [
         {

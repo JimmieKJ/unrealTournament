@@ -3,6 +3,7 @@
 #pragma once
 
 #include "AISenseConfig.h"
+#include "AISense_Damage.h"
 #include "AISenseConfig_Damage.generated.h"
 
 class UAISense_Damage;
@@ -16,5 +17,5 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sense", NoClear, config)
 	TSubclassOf<UAISense_Damage> Implementation;
 
-	virtual TSubclassOf<UAISense> GetSenseImplementation() const;
+	virtual TSubclassOf<UAISense> GetSenseImplementation() const override;
 };

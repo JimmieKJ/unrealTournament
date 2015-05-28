@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ComponentAssetBroker.h"
+#include "PaperFlipbookComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperFlipbookAssetBroker

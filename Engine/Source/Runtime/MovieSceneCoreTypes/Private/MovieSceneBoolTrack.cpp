@@ -14,7 +14,7 @@ UMovieSceneBoolTrack::UMovieSceneBoolTrack( const FObjectInitializer& ObjectInit
 
 UMovieSceneSection* UMovieSceneBoolTrack::CreateNewSection()
 {
-	return ConstructObject<UMovieSceneSection>( UMovieSceneBoolSection::StaticClass(), this, NAME_None, RF_Transactional );
+	return NewObject<UMovieSceneSection>(this, UMovieSceneBoolSection::StaticClass(), NAME_None, RF_Transactional);
 }
 
 TSharedPtr<IMovieSceneTrackInstance> UMovieSceneBoolTrack::CreateInstance()

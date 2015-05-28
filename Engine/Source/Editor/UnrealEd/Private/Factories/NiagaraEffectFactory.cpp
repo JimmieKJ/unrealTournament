@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
-#include "Engine/NiagaraEffect.h"
+#include "NiagaraEffect.h"
 #include "NiagaraEditorModule.h"
 
 #define LOCTEXT_NAMESPACE "NiagaraEffectFactory"
@@ -25,7 +25,7 @@ UObject* UNiagaraEffectFactoryNew::FactoryCreateNew(UClass* Class, UObject* InPa
 	check(Class->IsChildOf(UNiagaraEffect::StaticClass()));
 
 	// First allocate runtime script 
-	UNiagaraEffect* NewEffect = ConstructObject<UNiagaraEffect>(Class, InParent, Name, Flags);
+	UNiagaraEffect* NewEffect = NewObject<UNiagaraEffect>(InParent, Class, Name, Flags);
 	if (NewEffect != NULL)
 	{
 		// Then allocate editor-only objects

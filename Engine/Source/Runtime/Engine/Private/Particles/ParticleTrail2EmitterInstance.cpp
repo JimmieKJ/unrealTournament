@@ -2333,8 +2333,7 @@ bool FParticleRibbonEmitterInstance::ResolveSourcePoint(int32 InTrailIdx,
 				OutPosition += SourceOffsetValue;
 			}
 		}
-		FRotator TempRotator = Component->GetComponentRotation();
-		OutRotation = FQuat(TempRotator);
+		OutRotation = Component->GetComponentQuat();
 		OutTangent = Component->PartSysVelocity;
 		OutTangentStrength = OutTangent.SizeSquared();
 		OutUp = Component->ComponentToWorld.GetScaledAxis( EAxis::Z );

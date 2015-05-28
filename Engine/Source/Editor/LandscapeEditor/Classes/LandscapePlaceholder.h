@@ -12,5 +12,5 @@ class ALandscapePlaceholder : public AActor
 	//virtual void PostEditMove(bool bFinished) override;
 	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
 
-	void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent);
+	void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 };

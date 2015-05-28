@@ -9,7 +9,7 @@ public class BehaviorTreeEditor : ModuleRules
         PrivateIncludePaths.AddRange(
             new string[] {
 				"Editor/GraphEditor/Private",
-				"Editor/Kismet/Private",
+				"Editor/AIGraph/Private",
 				"Editor/BehaviorTreeEditor/Private",
 			}
 		);
@@ -40,6 +40,7 @@ public class BehaviorTreeEditor : ModuleRules
                 "PropertyEditor",
 				"AnimGraph",
 				"BlueprintGraph",
+                "AIGraph",
                 "AIModule",
                 "GameplayDebugger",
 				"ClassViewer"

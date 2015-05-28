@@ -17,8 +17,8 @@ FArchiveObjectGraph::FArchiveObjectGraph(bool IncludeTransients, EObjectFlags	Ke
 	TArray<UObject*> RootObjects;
 
 	// allocate enough memory for all objects
-	ObjectGraph.Empty(GUObjectArray.GetObjectArrayNum());
-	RootObjects.Empty(GUObjectArray.GetObjectArrayNum());
+	ObjectGraph.Empty(GetUObjectArray().GetObjectArrayNum());
+	RootObjects.Empty(GetUObjectArray().GetObjectArrayNum());
 
 	// search for objects that have the right flags and add them to the list of objects that we're going to start with
 	// all other objects need to be tagged so that we can tell whether they've been serialized or not.

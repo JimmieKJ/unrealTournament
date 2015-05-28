@@ -47,7 +47,6 @@ public class UnrealFrontendTarget : TargetRules
 		UEBuildConfiguration.bCompileWithStatsWithoutEngine = true;
 		UEBuildConfiguration.bCompileWithPluginSupport = true;
 
-        OutLinkEnvironmentConfiguration.bBuildAdditionalConsoleApplication = false;
 		OutLinkEnvironmentConfiguration.bHasExports = false;
 	}
     public override bool GUBP_AlwaysBuildWithBaseEditor()

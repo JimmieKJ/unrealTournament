@@ -11,15 +11,15 @@
 class FFloatCurveKeyArea : public IKeyArea
 {
 public:
-	FFloatCurveKeyArea( FRichCurve& InCurve )
-		: Curve( InCurve )
+	FFloatCurveKeyArea( FRichCurve* InCurve, UMovieSceneSection* InOwningSection )
+		: CurveInfo( InCurve, InOwningSection )
 	{}
 
 	/** IKeyArea interface */
 	virtual TArray<FKeyHandle> GetUnsortedKeyHandles() const override
 	{
 		TArray<FKeyHandle> OutKeyHandles;
-		for (auto It(Curve.GetKeyHandleIterator()); It; ++It)
+		for (auto It(CurveInfo.Curve->GetKeyHandleIterator()); It; ++It)
 		{
 			OutKeyHandles.Add(It.Key());
 		}
@@ -28,24 +28,25 @@ public:
 
 	virtual float GetKeyTime( FKeyHandle KeyHandle ) const override
 	{
-		return Curve.GetKeyTime( KeyHandle );
+		return CurveInfo.Curve->GetKeyTime( KeyHandle );
 	}
 
 	virtual FKeyHandle MoveKey( FKeyHandle KeyHandle, float DeltaPosition ) override
 	{
-		return Curve.SetKeyTime( KeyHandle, Curve.GetKeyTime( KeyHandle ) + DeltaPosition );
+		return CurveInfo.Curve->SetKeyTime( KeyHandle, CurveInfo.Curve->GetKeyTime( KeyHandle ) + DeltaPosition );
 	}
 
 	virtual void DeleteKey(FKeyHandle KeyHandle) override
 	{
-		if( Curve.IsKeyHandleValid(KeyHandle) )
+		if ( CurveInfo.Curve->IsKeyHandleValid( KeyHandle ) )
 		{
-			Curve.DeleteKey(KeyHandle);
+			CurveInfo.Curve->DeleteKey( KeyHandle );
 		}
 	}
+
+	virtual FCurveInfo* GetCurveInfo() override { return &CurveInfo; }
 private:
-	/** Curve with keys in this area */
-	FRichCurve& Curve;
+	IKeyArea::FCurveInfo CurveInfo;
 };
 
 
@@ -83,6 +84,8 @@ public:
 	{
 		Curve.DeleteKey(KeyHandle);
 	}
+
+	virtual IKeyArea::FCurveInfo* GetCurveInfo() override { return nullptr; };
 private:
 	/** Curve with keys in this area */
 	FIntegralCurve& Curve;

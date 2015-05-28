@@ -10,6 +10,7 @@ float NormalizedComplexity;
 
 void Main(out float4 OutColor : SV_Target0)
 {
-	//use the maximum range allowed for scene color
-	OutColor = RETURN_COLOR(float4(NormalizedComplexity.xxx, 0));
+	// use the maximum range allowed for scene color
+	// alpha channel needs to be 1 to have decals working where the framebuffer blend is setup to multiply with alpha
+	OutColor = RETURN_COLOR(float4(NormalizedComplexity.xxx, 1));
 }

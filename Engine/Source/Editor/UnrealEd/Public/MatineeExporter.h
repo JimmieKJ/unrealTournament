@@ -39,6 +39,11 @@ public:
 		bBakeKeys = bBakeTransforms;
 	}
 
+	void SetKeepHierarchy(bool bInKeepHierarchy)
+	{
+		bKeepHierarchy = bInKeepHierarchy;
+	}
+
 	/**
 	 * Exports the basic scene information to a file.
 	 */
@@ -52,7 +57,7 @@ public:
 	/**
 	 * Exports the camera-specific information for a camera actor.
 	 */
-	virtual void ExportCamera( ACameraActor* Actor, AMatineeActor* InMatineeActor ) = 0;
+	virtual void ExportCamera( ACameraActor* Actor, AMatineeActor* InMatineeActor, bool bExportComponents ) = 0;
 
 	/**
 	 * Exports the mesh and the actor information for a brush actor.
@@ -106,6 +111,8 @@ protected:
 
 	/** When true, a key will exported per frame at the set frames-per-second (FPS). */
 	bool bBakeKeys;
+	/** When true, we'll export with hierarchical relation of attachment with relative transform */
+	bool bKeepHierarchy;
 };
 
 #endif // __MATINEEEXPORTER_H__

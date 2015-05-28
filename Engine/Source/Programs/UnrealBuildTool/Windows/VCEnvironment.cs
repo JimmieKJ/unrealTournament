@@ -149,7 +149,17 @@ namespace UnrealBuildTool
 			// If we were asked to use Clang, then we'll redirect the path to the compiler to the LLVM installation directory
 			if (WindowsPlatform.bCompileWithClang)
 			{
-				var Result = Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ProgramFilesX86 ), "LLVM", "msbuild-bin", "cl.exe" );
+				string Result;
+				if( WindowsPlatform.bUseVCCompilerArgs )
+				{ 
+					// Use regular Clang compiler on Windows
+					Result = Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ProgramFilesX86 ), "LLVM", "msbuild-bin", "cl.exe" );
+				}
+				else
+				{
+					// Use 'clang-cl', a wrapper around Clang that supports Visual C++ compiler command-line arguments
+					Result = Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ProgramFilesX86 ), "LLVM", "bin", "clang.exe" );
+				}
 				if (!File.Exists(Result))
 				{
 					throw new BuildException( "Clang was selected as the Windows compiler, but LLVM/Clang does not appear to be installed.  Could not find: " + Result );

@@ -55,7 +55,7 @@ UEdGraphNode* FEdGraphSchemaAction_NewStateNode::PerformAction(class UEdGraph* P
 
 		// set outer to be the graph so it doesn't go away
 		NodeTemplate->Rename(NULL, ParentGraph);
-		ParentGraph->AddNode(NodeTemplate, false, bSelectNewNode);
+		ParentGraph->AddNode(NodeTemplate, true, bSelectNewNode);
 
 		NodeTemplate->CreateNewGuid();
 		NodeTemplate->PostPlacedNewNode();

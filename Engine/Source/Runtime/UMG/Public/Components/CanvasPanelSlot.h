@@ -23,7 +23,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=AnchorData)
 	FAnchors Anchors;
 
-	/** Alignment. */
+	/**
+	 * Alignment is the pivot point of the widget.  Starting in the upper left at (0,0),
+	 * ending in the lower right at (1,1).  Moving the alignment point allows you to move
+	 * the origin of the widget.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=AnchorData)
 	FVector2D Alignment;
 };
@@ -36,80 +40,80 @@ class UMG_API UCanvasPanelSlot : public UPanelSlot
 public:
 
 	/** The anchoring information for the slot */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Canvas Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Canvas Slot")
 	FAnchorData LayoutData;
 
 	/** When AutoSize is true we use the widget's desired size */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Canvas Slot)", AdvancedDisplay, meta=( DisplayName="Size To Content" ))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Canvas Slot", AdvancedDisplay, meta=( DisplayName="Size To Content" ))
 	bool bAutoSize;
 
 	/** The order priority this widget is rendered in.  Higher values are rendered last (and so they will appear to be on top). */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Layout (Canvas Slot)")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Canvas Slot")
 	int32 ZOrder;
 
 public:
 	/** Sets the layout data of the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	void SetLayout(const FAnchorData& InLayoutData);
 
 	/** Gets the layout data of the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	FAnchorData GetLayout() const;
 
 	/** Sets the position of the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	void SetPosition(FVector2D InPosition);
 
 	/** Gets the position of the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	FVector2D GetPosition() const;
 
 	/** Sets the size of the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	void SetSize(FVector2D InSize);
 
 	/** Gets the size of the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	FVector2D GetSize() const;
 
 	/** Sets the offset data of the slot, which could be position and size, or margins depending on the anchor points */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	void SetOffsets(FMargin InOffset);
 
 	/** Gets the offset data of the slot, which could be position and size, or margins depending on the anchor points */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	FMargin GetOffsets() const;
 	
 	/** Sets the anchors on the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	void SetAnchors(FAnchors InAnchors);
 
 	/** Gets the anchors on the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	FAnchors GetAnchors() const;
 
 	/** Sets the alignment on the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	void SetAlignment(FVector2D InAlignment);
 
 	/** Gets the alignment on the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	FVector2D GetAlignment() const;
 
 	/** Sets if the slot to be auto-sized */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	void SetAutoSize(bool InbAutoSize);
 
 	/** Gets if the slot to be auto-sized */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	bool GetAutoSize() const;
 
 	/** Sets the z-order on the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	void SetZOrder(int32 InZOrder);
 
 	/** Gets the z-order on the slot */
-	UFUNCTION(BlueprintCallable, Category="Layout (Canvas Slot)")
+	UFUNCTION(BlueprintCallable, Category="Layout|Canvas Slot")
 	int32 GetZOrder() const;
 
 public:
@@ -134,8 +138,8 @@ public:
 
 #if WITH_EDITOR
 	// UObject interface
-	virtual void PreEditChange(class FEditPropertyChain& PropertyAboutToChange);
-	virtual void PostEditChangeChainProperty(struct FPropertyChangedChainEvent& PropertyChangedEvent);
+	virtual void PreEditChange(class FEditPropertyChain& PropertyAboutToChange) override;
+	virtual void PostEditChangeChainProperty(struct FPropertyChangedChainEvent& PropertyChangedEvent) override;
 	// End of UObject interface
 
 	/** Stores the current layout information about the slot and parent canvas. */

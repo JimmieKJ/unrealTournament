@@ -8,6 +8,7 @@
 #include "LaunchCommand.h"
 #include "PackageCommand.h"
 #include "StatsConvertCommand.h"
+#include "StatsDumpMemoryCommand.h"
 #include "UserInterfaceCommand.h"
 
 
@@ -19,6 +20,8 @@ IMPLEMENT_APPLICATION(UnrealFrontend, "UnrealFrontend");
  */
 int32 UnrealFrontendMain( const TCHAR* CommandLine )
 {
+	FCommandLine::Set(CommandLine);
+
 	FString Command;
 	FString Params;
 	FString NewCommandLine = CommandLine;
@@ -68,6 +71,10 @@ int32 UnrealFrontendMain( const TCHAR* CommandLine )
 		else if (Command.Equals(TEXT("CONVERT"), ESearchCase::IgnoreCase))
 		{
 			FStatsConvertCommand::Run();
+		}
+		else if( Command.Equals( TEXT("MEMORYDUMP"), ESearchCase::IgnoreCase ) )
+		{
+			FStatsMemoryDumpCommand::Run();
 		}
 	}
 	else

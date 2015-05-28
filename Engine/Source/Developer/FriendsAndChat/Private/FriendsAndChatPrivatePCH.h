@@ -18,6 +18,7 @@
 #include "Online.h"
 #include "OnlineSubsystem.h"
 #include "OnlineFriendsInterface.h"
+#include "OnlineGroupsInterface.h"
 #include "OnlineUserInterface.h"
 #include "OnlineMessageInterface.h"
 #include "OnlinePresenceInterface.h"

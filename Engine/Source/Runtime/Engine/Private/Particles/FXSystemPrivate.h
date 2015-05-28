@@ -48,7 +48,7 @@ class FFXSystem : public FFXSystemInterface
 public:
 
 	/** Default constructoer. */
-	FFXSystem(ERHIFeatureLevel::Type InFeatureLevel);
+	FFXSystem(ERHIFeatureLevel::Type InFeatureLevel, EShaderPlatform InShaderPlatform);
 
 	/** Destructor. */
 	virtual ~FFXSystem();
@@ -76,6 +76,11 @@ public:
 	 * Retrieve feature level that this FXSystem was created for
 	 */
 	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel; }
+
+	/**
+	 * Retrieve shaderplatform that this FXSystem was created for
+	 */
+	EShaderPlatform GetShaderPlatform() const { return ShaderPlatform; }
 
 	/**
 	 * Add a new GPU simulation to the system.
@@ -177,6 +182,8 @@ private:
 	FParticleSimulationResources* ParticleSimulationResources;
 	/** Feature level of this effects system */
 	ERHIFeatureLevel::Type FeatureLevel;
+	/** Shader platform that will be rendering this effects system */
+	EShaderPlatform ShaderPlatform;
 
 #if WITH_EDITOR
 	/** true if the system has been suspended. */

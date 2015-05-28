@@ -312,7 +312,7 @@ public:
 	virtual void Undo() override;
 	virtual void Redo() override;
 	virtual TSharedRef< SWidget > GetWidget() override;
-	virtual void SummonContextMenu( const FVector2D& InLocation ) override;
+	virtual void SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow = TSharedPtr<SWindow>()) override;
 	virtual void LoadText() override;
 	// END ITextEditorWidget interface
 
@@ -344,7 +344,7 @@ public:
 protected:
 	// BEGIN SWidget interface
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 	virtual FReply OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
 	virtual FReply OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
@@ -463,6 +463,12 @@ protected:
 	void OnWindowClosed(const TSharedRef<SWindow>&);
 
 private:
+	/** Animates the caret and highlight selection springs */
+	EActiveTimerReturnType AnimateSpringsWhileFocused(double InCurrentTime, float InDeltaTime);
+	
+	/** @return Whether the editable text should appear focused */
+	bool ShouldAppearFocused() const;
+
 	/** 
 	 * @return whether there is anything in the clipboard
 	 */
@@ -607,6 +613,10 @@ private:
 	/** The type of virtual keyboard to use for editing this text on mobile */
 	TAttribute<EKeyboardType> VirtualKeyboardType;
 
-	/** Whether the text has been changed by a virtual keyboard */
+	/** True if the text has been changed by a virtual keyboard */
 	bool bTextChangedByVirtualKeyboard;
+
+	/** True if a spring animation is currently in progress */
+	bool bIsSpringing;
+
 };

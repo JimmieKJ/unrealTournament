@@ -284,37 +284,6 @@ FVertexElement FVertexFactory::AccessPositionStreamComponent(const FVertexStream
 	return FVertexElement(PositionStream.AddUnique(VertexStream),Component.Offset,Component.Type,AttributeIndex,VertexStream.Stride,Component.bUseInstanceIndex);
 }
 
-//TTP:51684
-/**
- *	GetVertexElementSize returns the size of data based on its type
- *	it's needed for FixFXCardDeclarator function
- */
-static uint8 GetVertexElementSize( uint8 Type )
-{
-	switch( Type )
-	{
-		case VET_Float1:
-			return 4;
-		case VET_Float2:
-			return 8;
-		case VET_Float3:
-			return 12;
-		case VET_Float4:
-			return 16;
-		case VET_PackedNormal:
-		case VET_UByte4:
-		case VET_UByte4N:
-		case VET_Color:
-		case VET_Short2:
-		case VET_Short2N:
-		case VET_Short4:
-		case VET_Half2:
-		case VET_Half4:
-		default:
-			return 0;
-	}
-}
-
 void FVertexFactory::InitDeclaration(
 	FVertexDeclarationElementList& Elements, 
 	const DataType& InData)

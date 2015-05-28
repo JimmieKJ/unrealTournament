@@ -98,17 +98,17 @@ public:
 	FStaticMeshStaticLightingTextureMapping(UStaticMeshComponent* InPrimitive,int32 InLODIndex,FStaticLightingMesh* InMesh,int32 InSizeX,int32 InSizeY,int32 InTextureCoordinateIndex,bool bPerformFullQualityRebuild);
 
 	// FStaticLightingTextureMapping interface
-	virtual void Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData);
+	virtual void Apply(FQuantizedLightmapData* QuantizedData, const TMap<ULightComponent*,FShadowMapData2D*>& ShadowMapData) override;
 
 #if WITH_EDITOR
 	/** 
 	 * Export static lighting mapping instance data to an exporter 
 	 * @param Exporter - export interface to process static lighting data
 	 */
-	UNREALED_API virtual void ExportMapping(class FLightmassExporter* Exporter);
+	UNREALED_API virtual void ExportMapping(class FLightmassExporter* Exporter) override;
 #endif	//WITH_EDITOR
 
-	virtual FString GetDescription() const
+	virtual FString GetDescription() const override
 	{
 		return FString(TEXT("SMTextureMapping"));
 	}

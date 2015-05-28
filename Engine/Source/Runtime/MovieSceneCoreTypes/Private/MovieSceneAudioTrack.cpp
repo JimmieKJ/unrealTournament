@@ -81,7 +81,7 @@ void UMovieSceneAudioTrack::AddNewSound(USoundBase* Sound, float Time)
 	}
 
 	// add the section
-	UMovieSceneAudioSection* NewSection = ConstructObject<UMovieSceneAudioSection>( UMovieSceneAudioSection::StaticClass(), this );
+	UMovieSceneAudioSection* NewSection = NewObject<UMovieSceneAudioSection>(this);
 	NewSection->InitialPlacement( AudioSections, Time, Time + DurationToUse, SupportsMultipleRows() );
 	NewSection->SetAudioStartTime(Time);
 	NewSection->SetSound(Sound);

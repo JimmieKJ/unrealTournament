@@ -295,6 +295,9 @@ namespace UnrealBuildTool
 				ToolElement.SetAttribute("Name", string.Format("Tool{0}", ActionIndex));
 				ToolElement.SetAttribute("AllowRemote", Action.bCanExecuteRemotely.ToString());
 
+				// The XGE documentation says that 'AllowIntercept' must be set to 'true' for all tools where 'AllowRemote' is enabled
+				ToolElement.SetAttribute("AllowIntercept", Action.bCanExecuteRemotely.ToString());
+
 				string OutputPrefix = "";
 				if (bProgressMarkup)
 				{
@@ -335,7 +338,6 @@ namespace UnrealBuildTool
 
 				ToolElement.SetAttribute("Params", CommandArguments);
 				ToolElement.SetAttribute("Path", CommandPath);
-				ToolElement.SetAttribute("VCCompiler", Action.bIsVCCompiler.ToString());
 				ToolElement.SetAttribute("SkipIfProjectFailed", "true");
 				if (Action.bIsGCCCompiler)
 				{

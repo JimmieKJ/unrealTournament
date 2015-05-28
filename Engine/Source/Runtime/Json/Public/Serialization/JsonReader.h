@@ -234,6 +234,12 @@ private:
 				--ScopeCount;
 				break;
 
+			case EJsonNotation::Boolean:
+			case EJsonNotation::Null:
+			case EJsonNotation::Number:
+			case EJsonNotation::String:
+				break;
+
 			case EJsonNotation::Error:
 				return false;
 				break;

@@ -87,7 +87,7 @@ public:
 	virtual UMaterialInterface* GetMaterialInterface() const = 0;
 
 	/** Allows editor to veto the setting of a preview mesh */
-	virtual bool ApproveSetPreviewMesh(UStaticMesh* InStaticMesh, USkeletalMesh* InSkeletalMesh) = 0;
+	virtual bool ApproveSetPreviewAsset(UObject* InAsset) = 0;
 
 	/** Draws messages on the specified viewport and canvas. */
 	virtual void DrawMessages( FViewport* Viewport, FCanvas* Canvas ) = 0;

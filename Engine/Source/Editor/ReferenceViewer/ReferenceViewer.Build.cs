@@ -26,13 +26,15 @@ namespace UnrealBuildTool.Rules
 				    "AssetRegistry",
 					"EditorWidgets",
 					"CollectionManager",
+					"SizeMap",
 			    }
             );
 
             DynamicallyLoadedModuleNames.AddRange(
                 new string[] {
 				    "AssetRegistry",
-					"EditorWidgets"
+					"EditorWidgets",
+					"SizeMap",
 			    }
             );
 		}

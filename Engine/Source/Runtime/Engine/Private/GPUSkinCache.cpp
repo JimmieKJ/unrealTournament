@@ -118,7 +118,7 @@ public:
 		RHICmdList.SetUAVParameter( ComputeShaderRHI, SkinCacheBufferRW.GetBaseIndex(), FUnorderedAccessViewRHIParamRef() );
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{		
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar  << SkinMeshOriginParameter << SkinMeshExtensionParameter << SkinInputStreamStride

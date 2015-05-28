@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2308326
+﻿INTSourceChangelist:2438071
 Availability:NoPublish
 Title:レベルエディタのアクション
 Crumbs:
@@ -49,7 +49,7 @@ Gameplay/Framework/Controller/PlayerController
 [/EXCERPT:OpenPlayerControllerBlueprint]
 
 [EXCERPT:CreateClassBlueprint]
-Class ブループリントは、省略してブループリントと呼ばれることが多く、コンテンツ クリエーターが既存のゲームプレイ クラスに機能性を簡単に追加できるようにするアセットです。ブループリントはコード入力ではなく、アンリアル エディタで作成して視覚的に表示されます。コンテンツ パッケージにアセットとして保存されます。実質的に新規のクラスまたはアクタの種類を定義し、その後他種のアクタと同じ動作をするインスタンスとしてマップへ配置することができます。
+_ブループリントのクラス_ は、しばしばブループリントの省略形で呼ばれ、コンテンツ クリエーターが既存のゲームプレイ クラスに機能性を簡単に追加できるようにするアセットです。ブループリントはコード入力ではなく、アンリアル エディタで作成して視覚的に表示されます。コンテンツ パッケージにアセットとして保存されます。実質的に新規のクラスまたはアクタの種類を定義し、その後他種のアクタと同じ動作をするインスタンスとしてマップへ配置することができます。
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Types/ClassBlueprint
 [/VAR]
@@ -57,7 +57,7 @@ Engine/Blueprints/UserGuide/Types/ClassBlueprint
 
 [EXCERPT:DetailsTab]
 ###詳細
-[詳細] パネルは、現在のビューポート内の選択内容に関連する情報、ユーティリティ、そして関数を表示します。パネルにはアクタを移動、回転、スケーリングするための変換用の編集ボックスがあり、選択したアクタの編集可能なプロパティを全て表示します。また、ビューポートで選択されたアクタの種類次第では、付加的な編集機能へすぐにアクセスすることができます。
+[Details] パネルは、現在のビューポート内の選択内容に関連する情報、ユーティリティ、そして関数を表示します。パネルにはアクタを移動、回転、スケーリングするための変換用の編集ボックスがあり、選択したアクタの編集可能なプロパティを全て表示します。また、ビューポートで選択されたアクタの種類次第では、付加的な編集機能へすぐにアクセスすることができます。
 
 [VAR:ToolTipFullLink]
 Engine/UI/LevelEditor/Details
@@ -65,8 +65,8 @@ Engine/UI/LevelEditor/Details
 [/EXCERPT:DetailsTab]
 
 [EXCERPT:SceneOutlinerTab]
-###シーン アウトライナー
-[シーン アウトライナー] パネルは、シーン内の全アクタを階層ツリービューで表示します。シーンアウトライナー から直接アクタを選択および修正することができます。レベル、レイヤー、または ID 名を表示する追加のコラムを表示するために Info ドロップダウンメニューを使用することもできます。
+### ワールド アウトライナー
+[World Outliner] パネルは、シーン内の全アクタを階層ツリービューで表示します。ワールド アウトライナー から直接アクタを選択および修正できます。レベル、レイヤー、または ID 名を表示する追加のコラムを表示するために Info ドロップダウンメニューを使用することもできます。
 
 [VAR:ToolTipFullLink]
 Engine/UI/LevelEditor/SceneOutliner
@@ -90,7 +90,7 @@ Engine/UI/LevelEditor/InEditorTesting/KeepSimulationChanges
 [/EXCERPT:KeepSimulationChanges]
 
 [EXCERPT:PushToBlueprintDefaults]
-シミュレーション ワールドで選択したアクタに対して行ったプロパティ変更は、このクラスのブループリント デフォルトにプッシュされるので、 1 つのインスタンスの設定を調整してから、それをこれから全てのインスタンスへ適用できます。
+シミュレーション ワールドで選択したアクタに対して行ったプロパティ変更は、このクラスのクラス デフォルトにプッシュされるので、 1 つのインスタンスの設定を調整してから、それをこれから全てのインスタンスへ適用できます。
 [/EXCERPT:PushToBlueprintDefaults]
 
 [EXCERPT:ResetToBlueprintDefaults]

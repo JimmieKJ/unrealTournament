@@ -5,7 +5,6 @@
 #include "ModuleInterface.h"
 
 
-// forward declarations
 struct FMessageAddress;
 class IAuthorizeMessageRecipients;
 class IMessageBus;

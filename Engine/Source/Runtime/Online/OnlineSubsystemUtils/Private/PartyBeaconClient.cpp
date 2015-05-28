@@ -81,13 +81,6 @@ void APartyBeaconClient::OnConnected()
 	}
 }
 
-void APartyBeaconClient::OnFailure()
-{
-	UE_LOG(LogBeacon, Verbose, TEXT("Party beacon connection failure, handling connection timeout."));
-	HostConnectionFailure.ExecuteIfBound();
-	Super::OnFailure();
-}
-
 bool APartyBeaconClient::ServerReservationRequest_Validate(const FString& SessionId, FPartyReservation Reservation)
 {
 	return !SessionId.IsEmpty() && Reservation.PartyLeader.IsValid() && Reservation.PartyMembers.Num() > 0;

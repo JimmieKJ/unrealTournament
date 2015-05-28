@@ -6,6 +6,7 @@
 #include "PreviewScene.h"
 #include "ImageUtils.h"
 #include "CascadePreviewViewportClient.h"
+#include "SCascadePreviewViewport.h"
 #include "Particles/Spawn/ParticleModuleSpawn.h"
 #include "Particles/TypeData/ParticleModuleTypeDataGpu.h"
 #include "Particles/VectorField/ParticleModuleVectorFieldLocal.h"
@@ -21,10 +22,9 @@
 
 #define LOCTEXT_NAMESPACE "CascadeViewportClient"
 
-FCascadeEdPreviewViewportClient::FCascadeEdPreviewViewportClient(TWeakPtr<FCascade> InCascade, TWeakPtr<SCascadePreviewViewport> InCascadeViewport)
-	: FEditorViewportClient(nullptr)
+FCascadeEdPreviewViewportClient::FCascadeEdPreviewViewportClient(TWeakPtr<FCascade> InCascade, const TSharedRef<SCascadePreviewViewport>& InCascadeViewport)
+	: FEditorViewportClient(nullptr, nullptr, StaticCastSharedRef<SEditorViewport>(InCascadeViewport))
 	, CascadePtr(InCascade)
-	, CascadeViewportPtr(InCascadeViewport)
 	, CascadePreviewScene(FPreviewScene::ConstructionValues()
 						.SetLightRotation(FRotator(-45.f, 180.f, 0.f))
 						.SetSkyBrightness(0.25f)
@@ -32,8 +32,8 @@ FCascadeEdPreviewViewportClient::FCascadeEdPreviewViewportClient(TWeakPtr<FCasca
 	, VectorFieldHitproxyInfo(0)
 	, LightRotSpeed(0.22f)
 {
-
-	check(CascadePtr.IsValid() && CascadeViewportPtr.IsValid());
+	PreviewScene = &CascadePreviewScene;
+	check(CascadePtr.IsValid() && EditorViewportWidget.IsValid());
 
 	UParticleSystem* ParticleSystem = CascadePtr.Pin()->GetParticleSystem();
 	UCascadeParticleSystemComponent* ParticleSystemComponent = CascadePtr.Pin()->GetParticleSystemComponent();
@@ -147,7 +147,7 @@ FCascadeEdPreviewViewportClient::FCascadeEdPreviewViewportClient(TWeakPtr<FCasca
 
 	if (Mesh)
 	{
-		FloorComponent = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
+		FloorComponent = NewObject<UStaticMeshComponent>(GetTransientPackage(), TEXT("FloorComponent"));
 		check(FloorComponent);
 		FloorComponent->StaticMesh = Mesh;
 		FloorComponent->DepthPriorityGroup = SDPG_World;
@@ -449,7 +449,7 @@ void FCascadeEdPreviewViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 		Canvas->DrawItem( TextItem,  5.0f, Viewport->GetSizeXY().Y - 105.0f );		
 	}
 
-	if (Viewport && bCaptureScreenShot)
+	if (bCaptureScreenShot)
 	{
 		UParticleSystem* ParticleSystem = CascadePtr.Pin()->GetParticleSystem();
 		int32 SrcWidth = Viewport->GetSizeXY().X;
@@ -528,6 +528,9 @@ void FCascadeEdPreviewViewportClient::Draw(const FSceneView* View, FPrimitiveDra
 			}
 		}
 	}
+
+	// Draw the preview scene light visualization
+	DrawPreviewLightVisualization(View, PDI);
 }
 
 bool FCascadeEdPreviewViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool Gamepad)
@@ -600,23 +603,8 @@ static TAutoConsoleVariable<float> CVarCascadeScaleSpeed(TEXT("CascadeScaleSpeed
 bool FCascadeEdPreviewViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
 {
 	bool bHandled = false;
-	const bool bLightMoveDown = Viewport->KeyState(EKeys::L);
-	if(bLightMoveDown)
-	{
-		FRotator LightDir = CascadePreviewScene.GetLightDirection();
-		// Look at which axis is being dragged and by how much
-		const float DragDeltaX = (Key == EKeys::MouseX) ? Delta : 0.f;
-		const float DragDeltaY = (Key == EKeys::MouseY) ? Delta : 0.f;
 
-		LightDir.Yaw += -DragDeltaX * LightRotSpeed;
-		LightDir.Pitch += -DragDeltaY * LightRotSpeed;
-
-		CascadePreviewScene.SetLightDirection(LightDir);
-
-		Viewport->Invalidate();
-		bHandled = true;
-	}
-	else if(bManipulatingVectorField)
+	if (bManipulatingVectorField)
 	{
 		UParticleModuleVectorFieldLocal* VectorFieldModule = Cast<UParticleModuleVectorFieldLocal>(CascadePtr.Pin()->GetSelectedModule());
 		if (VectorFieldModule)

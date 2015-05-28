@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ComponentAssetBroker.h"
+#include "PaperTileMapComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperTileMapAssetBroker

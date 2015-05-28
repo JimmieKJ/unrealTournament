@@ -4,7 +4,7 @@
 
 #include "Editor/Kismet/Public/BlueprintEditor.h"
 
-#include "PreviewScene.h"
+#include "AnimationEditorPreviewScene.h"
 
 #include "PersonaModule.h"
 #include "PersonaCommands.h"
@@ -162,7 +162,7 @@ public:
 	void CleanupComponent(USceneComponent* Component);
 
 	/** Returns the editors preview scene */
-	FPreviewScene& GetPreviewScene() { return PreviewScene; }
+	FAnimationEditorPreviewScene& GetPreviewScene() { return PreviewScene; }
 
 	/** Gets called when it's clicked via mode tab - Reinitialize the mode **/
 	void ReinitMode();
@@ -226,7 +226,7 @@ protected:
 	virtual void OnOpenRelatedAsset() override;
 	virtual void GetCustomDebugObjects(TArray<FCustomDebugObject>& DebugList) const override;
 	virtual void CreateDefaultTabContents(const TArray<UBlueprint*>& InBlueprints) override;
-	virtual FGraphAppearanceInfo GetGraphAppearance() const override;
+	virtual FGraphAppearanceInfo GetGraphAppearance(class UEdGraph* InGraph) const override;
 	virtual bool IsEditable(UEdGraph* InGraph) const override;
 	virtual FText GetGraphDecorationString(UEdGraph* InGraph) const override;
 	// End of FBlueprintEditor interface
@@ -626,7 +626,7 @@ private:
 	TSharedPtr<FExtender> ToolbarExtender;
 
 	/** Preview scene for the editor */
-	FPreviewScene PreviewScene;
+	FAnimationEditorPreviewScene PreviewScene;
 
 	/** Brush to use as a dirty marker for assets */
 	const FSlateBrush* AssetDirtyBrush;

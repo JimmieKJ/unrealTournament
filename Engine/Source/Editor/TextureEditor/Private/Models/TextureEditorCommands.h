@@ -39,7 +39,7 @@ public:
 	TSharedPtr<FUICommandInfo> AlphaChannel;
 
 	/** Toggles color saturation */
-	TSharedPtr<FUICommandInfo> Saturation;
+	TSharedPtr<FUICommandInfo> Desaturation;
 
 	/** If enabled, the texture will be scaled to fit the viewport */
 	TSharedPtr<FUICommandInfo> FitToViewport;

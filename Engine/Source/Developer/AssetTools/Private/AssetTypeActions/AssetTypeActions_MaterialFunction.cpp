@@ -12,7 +12,7 @@ void FAssetTypeActions_MaterialFunction::GetActions( const TArray<UObject*>& InO
 	MenuBuilder.AddMenuEntry(
 		LOCTEXT("MaterialFunction_FindMaterials", "Find Materials Using This"),
 		LOCTEXT("MaterialFunction_FindMaterialsTooltip", "Finds the materials that reference this material function in the content browser."),
-		FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Tabs.FindResults"),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.GenericFind"),
 		FUIAction(
 			FExecuteAction::CreateSP( this, &FAssetTypeActions_MaterialFunction::ExecuteFindMaterials, Materials ),
 			FCanExecuteAction()
@@ -76,7 +76,7 @@ UThumbnailInfo* FAssetTypeActions_MaterialFunction::GetThumbnailInfo(UObject* As
 		ThumbnailInfo = MaterialFunc->ThumbnailInfo;
 		if ( ThumbnailInfo == NULL )
 		{
-			ThumbnailInfo = ConstructObject<USceneThumbnailInfoWithPrimitive>(USceneThumbnailInfoWithPrimitive::StaticClass(), MaterialFunc);
+			ThumbnailInfo = NewObject<USceneThumbnailInfoWithPrimitive>(MaterialFunc);
 			MaterialFunc->ThumbnailInfo = ThumbnailInfo;
 		}
 	}

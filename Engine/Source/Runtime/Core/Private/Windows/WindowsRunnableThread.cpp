@@ -12,7 +12,7 @@ uint32 FRunnableThreadWin::GuardedRun()
 {
 	uint32 ExitCode = 1;
 
-	FPlatformProcess::SetThreadAffinityMask(ThreadAffintyMask);
+	FPlatformProcess::SetThreadAffinityMask(ThreadAffinityMask);
 
 #if PLATFORM_XBOXONE
 	UE_LOG(LogThreadingWindows, Log, TEXT("Runnable thread %s is on Process %d."), *ThreadName  , static_cast<uint32>(::GetCurrentProcessorNumber()) );
@@ -48,10 +48,6 @@ uint32 FRunnableThreadWin::GuardedRun()
 		ExitCode = Run();
 	}
 
-#if STATS
-	FThreadStats::Shutdown();
-#endif
-
 	return ExitCode;
 }
 
@@ -67,10 +63,19 @@ uint32 FRunnableThreadWin::Run()
 	{
 		// Initialization has completed, release the sync event
 		ThreadInitSyncEvent->Trigger();
+
+		// Setup TLS for this thread, used by FTlsAutoCleanup objects.
+		SetTls();
+
 		// Now run the task that needs to be done
 		ExitCode = Runnable->Run();
 		// Allow any allocated resources to be cleaned up
 		Runnable->Exit();
+
+#if STATS
+		FThreadStats::Shutdown();
+#endif
+		FreeTls();
 	}
 	else
 	{

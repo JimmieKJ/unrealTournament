@@ -76,12 +76,12 @@ void FAnimNode_BlendListBase::Update(const FAnimationUpdateContext& Context)
 		float SumWeight = 0.0f;
 		for (int32 i = 0; i < RemainingBlendTimes.Num(); ++i)
 		{
-			float& BlendTime = RemainingBlendTimes[i];
+			float& RemainingBlendTime = RemainingBlendTimes[i];
 			float& BlendWeight = BlendWeights[i];
 
 			const float DesiredWeight = (i == ChildIndex) ? 1.0f : 0.0f;
 
-			FAnimationRuntime::TickBlendWeight(Context.GetDeltaTime(), DesiredWeight, BlendWeight, BlendTime);
+			FAnimationRuntime::TickBlendWeight(Context.GetDeltaTime(), DesiredWeight, BlendWeight, RemainingBlendTime);
 
 			SumWeight += BlendWeight;
 		}

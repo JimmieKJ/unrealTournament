@@ -37,7 +37,7 @@ public:
 	*/
 	APawn(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
 	/** Return our PawnMovementComponent, if we have one. By default, returns the first PawnMovementComponent found. Native classes that create their own movement component should override this method for more efficiency. */
 	UFUNCTION(BlueprintCallable, meta=(Tooltip="Return our PawnMovementComponent, if we have one."), Category="Pawn")
@@ -158,20 +158,6 @@ public:
 	/** Return Physics Volume for this Pawn **/
 	virtual APhysicsVolume* GetPawnPhysicsVolume() const;
 
-private:
-	/** (DEPRECATED) @RETURN true if Pawn is currently walking (moving along the ground) */
-	UFUNCTION(BlueprintCallable, Category="Character|Movement", meta=(DeprecatedFunction, DeprecationMessage="Query the movement component instead using IsMovingOnGround()."))
-	virtual bool IsWalking() const;
-
-	/** (DEPRECATED) @RETURN true if Pawn is currently falling */
-	UFUNCTION(BlueprintCallable, Category="Character|Movement", meta=(DeprecatedFunction, DeprecationMessage="Query the movement component instead."))
-	virtual bool IsFalling() const;
-
-	/** (DEPRECATED) @RETURN true is Pawn is currently crouched */
-	UFUNCTION(BlueprintCallable, Category="Character|Movement", meta=(DeprecatedFunction, DeprecationMessage="Query the movement component instead."))
-	virtual bool IsCrouched() const;
-
-public:
 	/** Gets the owning actor of the Movement Base Component on which the pawn is standing. */
 	UFUNCTION(BlueprintPure, Category="Pawn")
 	static AActor* GetMovementBaseActor(const APawn* Pawn);
@@ -211,25 +197,27 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void Reset() override;
 	virtual FString GetHumanReadableName() const override;
-	virtual float GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, APlayerController* Viewer, UActorChannel* InChannel, float Time, bool bLowBandwidth) override;
 	virtual bool ShouldTickIfViewportsOnly() const override;
-	virtual bool IsNetRelevantFor(const APlayerController* RealViewer, const AActor* Viewer, const FVector& SrcLocation) const override;
+	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 	virtual void PostNetReceiveLocationAndRotation() override;
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 	virtual void GetActorEyesViewPoint( FVector& Location, FRotator& Rotation ) const override;
 	virtual void OutsideWorldBounds() override;
 	virtual void Destroyed() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void PreInitializeComponents() override;
 	virtual void PostInitializeComponents() override;
+	virtual const AActor* GetNetOwner() const override;
 	virtual UPlayer* GetNetOwningPlayer() override;
-	virtual UNetConnection* GetNetConnection() override;
+	virtual class UNetConnection* GetNetConnection() const override;
 	virtual void PostLoad() override;
 	virtual void PostRegisterAllComponents() override;
 	virtual float TakeDamage(float Damage, struct FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual void BecomeViewTarget(APlayerController* PC) override;
 	virtual void EnableInput(APlayerController* PlayerController) override;
 	virtual void DisableInput(APlayerController* PlayerController) override;
+	virtual void TeleportSucceeded(bool bIsATest) override;
 
 	/** Overridden to defer to the RootComponent's CanCharacterStepUpOn setting if it is explicitly Yes or No. If set to Owner, will return Super::CanBeBaseForCharacter(). */
 	virtual bool CanBeBaseForCharacter(APawn* APawn) const override;
@@ -259,7 +247,7 @@ public:
 	virtual bool ShouldTakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) const;
 
 #if WITH_EDITOR
-	virtual void EditorApplyRotation(const FRotator& DeltaRotation, bool bAltDown, bool bShiftDown, bool bCtrlDown);
+	virtual void EditorApplyRotation(const FRotator& DeltaRotation, bool bAltDown, bool bShiftDown, bool bCtrlDown) override;
 #endif
 
 	/** @return vector direction of gravity */
@@ -280,11 +268,11 @@ public:
 	virtual void PossessedBy(AController* NewController);
 
 	/** Event called when the Pawn is possessed by a Controller (normally only occurs on the server/standalone). */
-	UFUNCTION(BlueprintImplementableEvent, meta=(FriendlyName = "Possessed"))
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "Possessed"))
 	void ReceivePossessed(AController* NewController);
 
 	/** Event called when the Pawn is no longer possessed by a Controller. */
-	UFUNCTION(BlueprintImplementableEvent, meta=(FriendlyName = "Unpossessed"))
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "Unpossessed"))
 	void ReceiveUnpossessed(AController* OldController);
 
 	/** @return true if controlled by a local (not network) Controller.	 */
@@ -443,6 +431,7 @@ public:
 	// DEPRECATED FUNCTIONS
 
 	/** (Deprecated) Launch Character with LaunchVelocity  */
+	DEPRECATED(4.8, "LaunchPawn is deprecated. For Characters, use LaunchCharacter() instead.")
 	UFUNCTION(BlueprintCallable, Category="Pawn", meta=(DeprecatedFunction, DeprecationMessage="Use Character.LaunchCharacter instead"))
 	void LaunchPawn(FVector LaunchVelocity, bool bXYOverride, bool bZOverride);
 
@@ -455,7 +444,7 @@ public:
 	FVector GetMovementInputVector() const;
 
 	/** (Deprecated) Return the input vector in world space. */
-	UFUNCTION(BlueprintCallable, Category="Pawn|Input", meta=(DeprecatedFunction, FriendlyName="GetMovementInputVector", DeprecationMessage="GetMovementInputVector has been deprecated, use either GetPendingMovementInputVector or GetLastMovementInputVector"))
+	UFUNCTION(BlueprintCallable, Category="Pawn|Input", meta=(DeprecatedFunction, DisplayName="GetMovementInputVector", DeprecationMessage="GetMovementInputVector has been deprecated, use either GetPendingMovementInputVector or GetLastMovementInputVector"))
 	FVector K2_GetMovementInputVector() const;	
 };
 

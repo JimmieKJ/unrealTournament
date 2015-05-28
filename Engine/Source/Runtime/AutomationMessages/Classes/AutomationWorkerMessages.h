@@ -45,16 +45,6 @@ struct FAutomationWorkerFindWorkers
 };
 
 
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerFindWorkers> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
-
 /**
  * Implements a message that is sent in response to FAutomationWorkerFindWorkers.
  */
@@ -109,15 +99,6 @@ struct FAutomationWorkerFindWorkersResponse
 	FAutomationWorkerFindWorkersResponse( ) { }
 };
 
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerFindWorkersResponse> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  * Implements a message that notifies automation controllers that a worker went off-line.
@@ -126,15 +107,6 @@ USTRUCT()
 struct FAutomationWorkerWorkerOffline
 {
 	GENERATED_USTRUCT_BODY()
-};
-
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerWorkerOffline> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -146,15 +118,6 @@ struct FAutomationWorkerPing
 	GENERATED_USTRUCT_BODY()
 };
 
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerPing> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  */
@@ -164,15 +127,6 @@ struct FAutomationWorkerResetTests
 	GENERATED_USTRUCT_BODY()
 };
 
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerResetTests> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  */
@@ -180,15 +134,6 @@ USTRUCT()
 struct FAutomationWorkerPong
 {
 	GENERATED_USTRUCT_BODY()
-};
-
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerPong> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -222,15 +167,6 @@ struct FAutomationWorkerRequestTests
 	{ }
 };
 
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerRequestTests> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  * Implements a message that is sent in response to FAutomationWorkerRequestTests.
@@ -260,15 +196,6 @@ struct FAutomationWorkerRequestTestsReply
 		: TestInfo(InTestInfo)
 		, TotalNumTests(InTotalNumTests)
 	{ }
-};
-
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerRequestTestsReply> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -317,15 +244,6 @@ struct FAutomationWorkerRunTests
 	{ }
 };
 
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerRunTests> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  * Implements a message that is sent in response to FAutomationWorkerRunTests.
@@ -364,15 +282,6 @@ struct FAutomationWorkerRunTestsReply
 	TArray<FString> Warnings;
 };
 
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerRunTestsReply> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  */
@@ -398,15 +307,6 @@ struct FAutomationWorkerRequestNextNetworkCommand
 	{ }
 };
 
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerRequestNextNetworkCommand> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
-};
-
 
 /**
  */
@@ -414,15 +314,6 @@ USTRUCT()
 struct FAutomationWorkerNextNetworkCommandReply
 {
 	GENERATED_USTRUCT_BODY()
-};
-
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerNextNetworkCommandReply> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };
 
 
@@ -441,13 +332,4 @@ struct FAutomationWorkerScreenImage
 	/** The screen shot name. */
 	UPROPERTY()
 	FString ScreenShotName;
-};
-
-template<>
-struct TStructOpsTypeTraits<FAutomationWorkerScreenImage> : public TStructOpsTypeTraitsBase
-{
-	enum
-	{
-		WithMessageHandling = true
-	};
 };

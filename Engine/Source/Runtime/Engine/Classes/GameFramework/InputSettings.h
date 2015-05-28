@@ -20,6 +20,9 @@ class ENGINE_API UInputSettings
 	UPROPERTY(config, EditAnywhere, EditFixedSize, Category="Bindings", meta=(ToolTip="List of Axis Properties"), AdvancedDisplay)
 	TArray<struct FInputAxisConfigEntry> AxisConfig;
 
+	UPROPERTY(config, EditAnywhere, Category="Bindings", AdvancedDisplay)
+	uint32 bAltEnterTogglesFullscreen:1;
+
 	// Allow mouse to be used for touch
 	UPROPERTY(config, EditAnywhere, Category="MouseProperties")
 	uint32 bUseMouseForTouch:1;

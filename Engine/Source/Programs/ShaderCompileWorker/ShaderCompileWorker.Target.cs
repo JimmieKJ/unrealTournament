@@ -68,6 +68,9 @@ public class ShaderCompileWorkerTarget : TargetRules
 
 		// Disable logging, as the workers are spawned often and logging will just slow them down
 		OutCPPEnvironmentConfiguration.Definitions.Add("ALLOW_LOG_FILE=0");
+
+        // Linking against wer.lib/wer.dll causes XGE to bail when the worker is run on a Windows 8 machine, so turn this off.
+        OutCPPEnvironmentConfiguration.Definitions.Add("ALLOW_WINDOWS_ERROR_REPORT_LIB=0");
 	}
     public override bool GUBP_AlwaysBuildWithBaseEditor()
     {

@@ -177,27 +177,15 @@ int32 URepairLocalizationDataCommandlet::Main(const FString& Params)
 
 	// Get destination path.
 	FString DestinationPath;
-	if( !GetConfigString( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) )
+	if( !GetPathFromConfig( *SectionName, TEXT("DestinationPath"), DestinationPath, GatherTextConfigPath ) )
 	{
 		UE_LOG( LogRepairLocalizationDataCommandlet, Error, TEXT("No destination path specified.") );
 		return -1;
 	}
 
-	if (FPaths::IsRelative(DestinationPath))
-	{
-		if (!FPaths::GameDir().IsEmpty())
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::GameDir() ), *DestinationPath );
-		}
-		else
-		{
-			DestinationPath = FPaths::Combine( *( FPaths::EngineDir() ), *DestinationPath );
-		}
-	}
-
 	// Get manifest name.
 	FString ManifestName;
-	if( !GetConfigString( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) )
+	if( !GetStringFromConfig( *SectionName, TEXT("ManifestName"), ManifestName, GatherTextConfigPath ) )
 	{
 		UE_LOG( LogRepairLocalizationDataCommandlet, Error, TEXT("No manifest name specified.") );
 		return -1;
@@ -205,7 +193,7 @@ int32 URepairLocalizationDataCommandlet::Main(const FString& Params)
 
 	// Get archive name.
 	FString ArchiveName;
-	if( !( GetConfigString(* SectionName, TEXT("ArchiveName"), ArchiveName, GatherTextConfigPath ) ) )
+	if( !( GetStringFromConfig(* SectionName, TEXT("ArchiveName"), ArchiveName, GatherTextConfigPath ) ) )
 	{
 		UE_LOG(LogRepairLocalizationDataCommandlet, Error, TEXT("No archive name specified."));
 		return -1;
@@ -213,7 +201,7 @@ int32 URepairLocalizationDataCommandlet::Main(const FString& Params)
 
 	// Get cultures to generate.
 	TArray<FString> CulturesToGenerate;
-	GetConfigArray(*SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath);
+	GetStringArrayFromConfig(*SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath);
 
 	if( CulturesToGenerate.Num() == 0 )
 	{

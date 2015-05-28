@@ -51,12 +51,14 @@ void SAnimationEditorViewport::Construct(const FArguments& InArgs, TSharedPtr<cl
 			.IsEnabled(FSlateApplication::Get().GetNormalExecutionAttribute())
 			.AddMetaData<FTagMetaData>(TEXT("Persona.Viewport"))
 		);
+
+	Client->VisibilityDelegate.BindSP(this, &SAnimationEditorViewport::IsVisible);
 }
 
 TSharedRef<FEditorViewportClient> SAnimationEditorViewport::MakeEditorViewportClient()
 {
 	// Create an animation viewport client
-	LevelViewportClient = MakeShareable(new FAnimationViewportClient(PersonaPtr.Pin()->GetPreviewScene(), PersonaPtr));
+	LevelViewportClient = MakeShareable(new FAnimationViewportClient(PersonaPtr.Pin()->GetPreviewScene(), PersonaPtr, SharedThis(this)));
 
 	LevelViewportClient->ViewportType = LVT_Perspective;
 	LevelViewportClient->bSetListenerPosition = false;
@@ -181,7 +183,9 @@ public:
 // SAnimationEditorViewportTabBody
 
 SAnimationEditorViewportTabBody::SAnimationEditorViewportTabBody()
-	: AnimationPlaybackSpeedMode(EAnimationPlaybackSpeeds::Normal)
+	: SelectedTurnTableSpeed(EAnimationPlaybackSpeeds::Normal)
+	, SelectedTurnTableMode(EPersonaTurnTableMode::Stopped)
+	, AnimationPlaybackSpeedMode(EAnimationPlaybackSpeeds::Normal)
 {
 }
 
@@ -230,17 +234,17 @@ bool SAnimationEditorViewportTabBody::CanUseGizmos() const
 FText SAnimationEditorViewportTabBody::GetDisplayString() const
 {
 	class UDebugSkelMeshComponent* Component = PersonaPtr.Pin()->PreviewComponent;
-	FString TargetSkeletonName = TargetSkeleton ?TargetSkeleton->GetName() : FName(NAME_None).ToString();
+	FString TargetSkeletonName = TargetSkeleton ? TargetSkeleton->GetName() : FName(NAME_None).ToString();
 
-	if ( Component!=NULL )
+	if (Component != NULL)
 	{
-		if ( Component->bForceRefpose )
+		if (Component->bForceRefpose)
 		{
 			return LOCTEXT("ReferencePose", "Reference pose");
 		}
 		else if (Component->IsPreviewOn())
 		{
-			return FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()) );
+			return FText::Format(LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()));
 		}
 		else if (Component->AnimBlueprintGeneratedClass != NULL)
 		{
@@ -256,22 +260,17 @@ FText SAnimationEditorViewportTabBody::GetDisplayString() const
 		}
 		else if (Component->SkeletalMesh == NULL)
 		{
-			return FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) );
+			return FText::Format(LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName));
 		}
-		else 
+		else
 		{
 			return LOCTEXT("NothingToPlay", "Nothing to play");
 		}
 	}
 	else
 	{
-		return FText::Format( LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName) );
+		return FText::Format(LOCTEXT("NoMeshFound", "No skeletal mesh found for skeleton '{0}'"), FText::FromString(TargetSkeletonName));
 	}
-}
-
-void SAnimationEditorViewportTabBody::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
-{
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 void SAnimationEditorViewportTabBody::RefreshViewport()
@@ -387,15 +386,16 @@ void SAnimationEditorViewportTabBody::Construct(const FArguments& InArgs)
 	}
 
 	LevelViewportClient = ViewportWidget->GetViewportClient();
-	LevelViewportClient->VisibilityDelegate.BindSP(this, &SAnimationEditorViewportTabBody::IsVisible);
 
 	TSharedRef<FAnimationViewportClient> AnimViewportClient = StaticCastSharedRef<FAnimationViewportClient>(LevelViewportClient.ToSharedRef());
 
 	// Load the view mode from config
-	AnimViewportClient->SetViewMode((EViewModeIndex)AnimViewportClient->ConfigOption->ViewModeIndex);
+	AnimViewportClient->SetViewMode(AnimViewportClient->ConfigOption->ViewModeIndex);
 	UpdateShowFlagForMeshEdges();
 
 	UpdateViewportClientPlaybackScale();
+	OnSetTurnTableMode(SelectedTurnTableMode);
+	OnSetTurnTableSpeed(SelectedTurnTableSpeed);
 
 	BindCommands();
 }
@@ -483,6 +483,12 @@ void SAnimationEditorViewportTabBody::BindCommands()
 		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::ToggleShowPreviewMesh),
 		FCanExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::CanShowPreviewMesh),
 		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsShowPreviewMeshEnabled));
+
+	CommandList.MapAction(
+		ViewportShowMenuCommands.ShowMorphTargets,
+		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnShowMorphTargets),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsShowingMorphTargets));
 
 	CommandList.MapAction( 
 		ViewportShowMenuCommands.ShowBones,
@@ -712,6 +718,12 @@ void SAnimationEditorViewportTabBody::BindCommands()
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsShowingFloor));
 
+	CommandList.MapAction(
+		ViewportShowMenuCommands.AutoAlignFloorToMesh,
+		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnToggleAutoAlignFloor),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsAutoAlignFloor));
+
 	CommandList.MapAction( 
 		ViewportShowMenuCommands.ToggleSky,
 		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnShowSky),
@@ -742,6 +754,71 @@ void SAnimationEditorViewportTabBody::BindCommands()
 		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnTogglePreviewRootMotion),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsPreviewingRootMotion));
+
+	// Turn Table Controls
+	for (int32 i = 0; i < int(EAnimationPlaybackSpeeds::NumPlaybackSpeeds); ++i)
+	{
+		CommandList.MapAction(
+			ViewportPlaybackCommands.TurnTableSpeeds[i],
+			FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnSetTurnTableSpeed, i),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsTurnTableSpeedSelected, i));
+	}
+
+	CommandList.MapAction(
+		ViewportPlaybackCommands.PersonaTurnTablePlay,
+		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnSetTurnTableMode, int32(EPersonaTurnTableMode::Playing)),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsTurnTableModeSelected, int32(EPersonaTurnTableMode::Playing)));
+
+	CommandList.MapAction(
+		ViewportPlaybackCommands.PersonaTurnTablePause,
+		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnSetTurnTableMode, int32(EPersonaTurnTableMode::Paused)),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsTurnTableModeSelected, int32(EPersonaTurnTableMode::Paused)));
+
+	CommandList.MapAction(
+		ViewportPlaybackCommands.PersonaTurnTableStop,
+		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnSetTurnTableMode, int32(EPersonaTurnTableMode::Stopped)),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsTurnTableModeSelected, int32(EPersonaTurnTableMode::Stopped)));
+}
+
+void SAnimationEditorViewportTabBody::OnSetTurnTableSpeed(int32 SpeedIndex)
+{
+	SelectedTurnTableSpeed = (EAnimationPlaybackSpeeds::Type)SpeedIndex;
+
+	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
+	if (PreviewComponent)
+	{
+		PreviewComponent->TurnTableSpeedScaling = EAnimationPlaybackSpeeds::Values[SelectedTurnTableSpeed];
+	}
+}
+
+bool SAnimationEditorViewportTabBody::IsTurnTableSpeedSelected(int32 SpeedIndex) const
+{
+	return (SelectedTurnTableSpeed == SpeedIndex);
+}
+
+void SAnimationEditorViewportTabBody::OnSetTurnTableMode(int32 ModeIndex)
+{
+	SelectedTurnTableMode = (EPersonaTurnTableMode::Type)ModeIndex;
+
+	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
+	if (PreviewComponent)
+	{
+		PreviewComponent->TurnTableMode = SelectedTurnTableMode;
+
+		if (SelectedTurnTableMode == EPersonaTurnTableMode::Stopped)
+		{
+			PreviewComponent->SetRelativeRotation(FRotator::ZeroRotator);
+		}
+	}
+}
+
+bool SAnimationEditorViewportTabBody::IsTurnTableModeSelected(int32 ModeIndex) const
+{
+	return (SelectedTurnTableMode == ModeIndex);
 }
 
 bool SAnimationEditorViewportTabBody::IsPreviewModeOn(int32 PreviewMode) const
@@ -782,8 +859,7 @@ int32 SAnimationEditorViewportTabBody::GetLODModelCount() const
 
 void SAnimationEditorViewportTabBody::OnShowBones()
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-	if( PreviewComponent != NULL )
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		PreviewComponent->bDisplayBones = !PreviewComponent->bDisplayBones;
 		PreviewComponent->MarkRenderStateDirty();
@@ -791,10 +867,19 @@ void SAnimationEditorViewportTabBody::OnShowBones()
 	}
 }
 
+void SAnimationEditorViewportTabBody::OnShowMorphTargets()
+{
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
+	{
+		PreviewComponent->bDisableMorphTarget = !PreviewComponent->bDisableMorphTarget;
+		PreviewComponent->MarkRenderStateDirty();
+		RefreshViewport();
+	}
+}
+
 void SAnimationEditorViewportTabBody::OnShowBoneNames()
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-	if( PreviewComponent != NULL )
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		PreviewComponent->bShowBoneNames = !PreviewComponent->bShowBoneNames;
 		PreviewComponent->MarkRenderStateDirty();
@@ -804,8 +889,7 @@ void SAnimationEditorViewportTabBody::OnShowBoneNames()
 
 void SAnimationEditorViewportTabBody::OnShowRawAnimation()
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-	if( PreviewComponent != NULL )
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		PreviewComponent->bDisplayRawAnimation = !PreviewComponent->bDisplayRawAnimation;
 		PreviewComponent->MarkRenderStateDirty();
@@ -814,8 +898,7 @@ void SAnimationEditorViewportTabBody::OnShowRawAnimation()
 
 void SAnimationEditorViewportTabBody::OnShowNonRetargetedAnimation()
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-	if( PreviewComponent != NULL )
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		PreviewComponent->bDisplayNonRetargetedPose = !PreviewComponent->bDisplayNonRetargetedPose;
 		PreviewComponent->MarkRenderStateDirty();
@@ -824,8 +907,7 @@ void SAnimationEditorViewportTabBody::OnShowNonRetargetedAnimation()
 
 void SAnimationEditorViewportTabBody::OnShowSourceRawAnimation()
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-	if(PreviewComponent != NULL)
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		PreviewComponent->bDisplaySourceAnimation = !PreviewComponent->bDisplaySourceAnimation;
 		PreviewComponent->MarkRenderStateDirty();
@@ -834,8 +916,7 @@ void SAnimationEditorViewportTabBody::OnShowSourceRawAnimation()
 
 void SAnimationEditorViewportTabBody::OnShowBakedAnimation()
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-	if(PreviewComponent != NULL)
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		PreviewComponent->bDisplayBakedAnimation = !PreviewComponent->bDisplayBakedAnimation;
 		PreviewComponent->MarkRenderStateDirty();
@@ -844,8 +925,7 @@ void SAnimationEditorViewportTabBody::OnShowBakedAnimation()
 
 void SAnimationEditorViewportTabBody::OnShowAdditiveBase()
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-	if( PreviewComponent != NULL )
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		PreviewComponent->bDisplayAdditiveBasePose = !PreviewComponent->bDisplayAdditiveBasePose;
 		PreviewComponent->MarkRenderStateDirty();
@@ -862,6 +942,12 @@ bool SAnimationEditorViewportTabBody::IsShowingBones() const
 {
 	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
 	return PreviewComponent != NULL && PreviewComponent->bDisplayBones;
+}
+
+bool SAnimationEditorViewportTabBody::IsShowingMorphTargets() const
+{
+	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
+	return PreviewComponent != NULL && PreviewComponent->bDisableMorphTarget == false;
 }
 
 bool SAnimationEditorViewportTabBody::IsShowingBoneNames() const
@@ -982,6 +1068,18 @@ bool SAnimationEditorViewportTabBody::IsShowingFloor() const
 	return AnimViewportClient->IsShowingFloor();
 }
 
+void SAnimationEditorViewportTabBody::OnToggleAutoAlignFloor()
+{
+	TSharedRef<FAnimationViewportClient> AnimViewportClient = StaticCastSharedRef<FAnimationViewportClient>(LevelViewportClient.ToSharedRef());
+	AnimViewportClient->OnToggleAutoAlignFloor();
+}
+
+bool SAnimationEditorViewportTabBody::IsAutoAlignFloor() const
+{
+	TSharedRef<FAnimationViewportClient> AnimViewportClient = StaticCastSharedRef<FAnimationViewportClient>(LevelViewportClient.ToSharedRef());
+	return AnimViewportClient->IsAutoAlignFloor();
+}
+
 void SAnimationEditorViewportTabBody::OnShowSky()
 {
 	TSharedRef<FAnimationViewportClient> AnimViewportClient = StaticCastSharedRef<FAnimationViewportClient>(LevelViewportClient.ToSharedRef());
@@ -1084,8 +1182,7 @@ bool SAnimationEditorViewportTabBody::IsShowBoundEnabled() const
 
 void SAnimationEditorViewportTabBody::ToggleShowPreviewMesh()
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-	if(PreviewComponent != NULL)
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		bool bCurrentlyVisible = IsShowPreviewMeshEnabled();
 		PreviewComponent->SetVisibility(!bCurrentlyVisible);
@@ -1166,9 +1263,9 @@ void SAnimationEditorViewportTabBody::PopulateNumUVChannels()
 {
 	NumUVChannels.Empty();
 
-	if(UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
-		if(FSkeletalMeshResource* MeshResource = PreviewComponent->GetSkeletalMeshResource())
+		if (FSkeletalMeshResource* MeshResource = PreviewComponent->GetSkeletalMeshResource())
 		{
 			int32 NumLods = MeshResource->LODModels.Num();
 			NumUVChannels.AddZeroed(NumLods);
@@ -1187,27 +1284,27 @@ void SAnimationEditorViewportTabBody::PopulateUVChoices()
 	// Fill out the UV channels combo.
 	UVChannels.Empty();
 	
-	if( UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent )
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		int32 CurrentLOD = FMath::Clamp(PreviewComponent->ForcedLodModel - 1, 0, NumUVChannels.Num() - 1);
 
-		if(NumUVChannels.IsValidIndex(CurrentLOD))
+		if (NumUVChannels.IsValidIndex(CurrentLOD))
 		{
-			for(int32 UVChannelID = 0; UVChannelID < NumUVChannels[CurrentLOD]; ++UVChannelID)
+			for (int32 UVChannelID = 0; UVChannelID < NumUVChannels[CurrentLOD]; ++UVChannelID)
 			{
 				UVChannels.Add( MakeShareable( new FString( FText::Format( NSLOCTEXT("AnimationEditorViewport", "UVChannel_ID", "UV Channel {0}"), FText::AsNumber( UVChannelID ) ).ToString() ) ) );
 			}
 
 			TSharedRef<FAnimationViewportClient> AnimViewportClient = StaticCastSharedRef<FAnimationViewportClient>(LevelViewportClient.ToSharedRef());
 			int32 CurrentUVChannel = AnimViewportClient->GetUVChannelToDraw();
-			if(!UVChannels.IsValidIndex(CurrentUVChannel))
+			if (!UVChannels.IsValidIndex(CurrentUVChannel))
 			{
 				CurrentUVChannel = 0;
 			}
 
 			AnimViewportClient->SetUVChannelToDraw(CurrentUVChannel);
 
-			if(UVChannelCombo.IsValid() && UVChannels.IsValidIndex(CurrentUVChannel))
+			if (UVChannelCombo.IsValid() && UVChannels.IsValidIndex(CurrentUVChannel))
 			{
 				UVChannelCombo->SetSelectedItem(UVChannels[CurrentUVChannel]);
 			}
@@ -1218,11 +1315,11 @@ void SAnimationEditorViewportTabBody::PopulateUVChoices()
 void SAnimationEditorViewportTabBody::UpdateScrubPanel(UAnimationAsset* AnimAsset)
 {
 	// We might not have a scrub panel if we're in animation mode.
-	if(ScrubPanelContainer.IsValid())
+	if (ScrubPanelContainer.IsValid())
 	{
 		ScrubPanelContainer->ClearChildren();
 		bool bUseDefaultScrubPanel = true;
-		if(UAnimMontage* Montage = Cast<UAnimMontage>(AnimAsset))
+		if (UAnimMontage* Montage = Cast<UAnimMontage>(AnimAsset))
 		{
 			ScrubPanelContainer->AddSlot()
 				.AutoHeight()
@@ -1252,8 +1349,7 @@ void SAnimationEditorViewportTabBody::UpdateScrubPanel(UAnimationAsset* AnimAsse
 
 float SAnimationEditorViewportTabBody::GetViewMinInput() const
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-	if (PreviewComponent != NULL)
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		UObject* PreviewAsset = PersonaPtr.Pin()->GetPreviewAnimationAsset();
 		if (PreviewAsset != NULL)
@@ -1426,6 +1522,12 @@ void SAnimationEditorViewportTabBody::UpdateViewportClientPlaybackScale()
 {
 	TSharedRef<FAnimationViewportClient> AnimViewportClient = StaticCastSharedRef<FAnimationViewportClient>(LevelViewportClient.ToSharedRef());
 	AnimViewportClient->SetPlaybackScale(EAnimationPlaybackSpeeds::Values[AnimationPlaybackSpeedMode]);
+
+	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
+	if (PreviewComponent)
+	{
+		PreviewComponent->PlaybackSpeedScaling = EAnimationPlaybackSpeeds::Values[AnimationPlaybackSpeedMode];
+	}
 }
 
 void SAnimationEditorViewportTabBody::OnLODChanged()
@@ -1752,9 +1854,7 @@ void SAnimationEditorViewportTabBody::OnShowClothBackstops()
 
 bool SAnimationEditorViewportTabBody::IsShowingClothBackstops() const
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-
-	if( PreviewComponent )
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		return PreviewComponent->bDisplayClothBackstops;
 	}
@@ -1764,9 +1864,7 @@ bool SAnimationEditorViewportTabBody::IsShowingClothBackstops() const
 
 void SAnimationEditorViewportTabBody::OnShowClothFixedVertices()
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-
-	if( PreviewComponent )
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		PreviewComponent->bDisplayClothFixedVertices = !PreviewComponent->bDisplayClothFixedVertices;
 		RefreshViewport();
@@ -1775,9 +1873,7 @@ void SAnimationEditorViewportTabBody::OnShowClothFixedVertices()
 
 bool SAnimationEditorViewportTabBody::IsShowingClothFixedVertices() const
 {
-	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
-
-	if( PreviewComponent )
+	if (UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent)
 	{
 		return PreviewComponent->bDisplayClothFixedVertices;
 	}
@@ -1834,7 +1930,7 @@ EVisibility SAnimationEditorViewportTabBody::GetViewportCornerImageVisibility() 
 	return Persona->Recorder.InRecording()? EVisibility::Visible : EVisibility::Collapsed;
 }
 
-const FSlateBrush * SAnimationEditorViewportTabBody::GetViewportCornerImage() const
+const FSlateBrush* SAnimationEditorViewportTabBody::GetViewportCornerImage() const
 {
 	static int32 Count=0;
 

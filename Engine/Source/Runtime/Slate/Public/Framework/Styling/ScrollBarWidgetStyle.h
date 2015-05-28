@@ -10,7 +10,7 @@
 UCLASS(hidecategories=Object, MinimalAPI)
 class UScrollBarWidgetStyle : public USlateWidgetStyleContainerBase
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
 public:
 	/** The actual data describing the scrollbox's appearance. */

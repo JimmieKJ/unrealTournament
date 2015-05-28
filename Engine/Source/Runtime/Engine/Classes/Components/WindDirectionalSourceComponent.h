@@ -15,6 +15,11 @@ class UWindDirectionalSourceComponent : public USceneComponent
 	UPROPERTY(interp, Category=WindDirectionalSourceComponent)
 	float Speed;
 
+	UPROPERTY(interp, Category = WindDirectionalSourceComponent)
+	float MinGustAmount;
+
+	UPROPERTY(interp, Category = WindDirectionalSourceComponent)
+	float MaxGustAmount;
 
 public:
 	class FWindSourceSceneProxy* SceneProxy;

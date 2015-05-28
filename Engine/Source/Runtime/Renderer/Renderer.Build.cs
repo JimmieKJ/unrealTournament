@@ -15,6 +15,7 @@ public class Renderer : ModuleRules
 		);
 
 		PublicDependencyModuleNames.Add("Core");
+        PublicDependencyModuleNames.Add("Engine");
 
         // Renderer module builds faster without unity
         // Non-unity also provides faster iteration
@@ -25,11 +26,11 @@ public class Renderer : ModuleRules
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
-				"Engine", 
 				"CoreUObject", 
 				"RenderCore", 
 				"RHI", 
-				"ShaderCore"
+				"ShaderCore",
+				"UtilityShaders",
 			}
 			);
 

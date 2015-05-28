@@ -5,6 +5,8 @@
 #include "Editor/DataTableEditor/Public/DataTableEditorModule.h"
 #include "Editor/DataTableEditor/Public/IDataTableEditor.h"
 #include "Engine/DataTable.h"
+#include "DesktopPlatformModule.h"
+#include "IMainFrameModule.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
@@ -23,37 +25,119 @@ void FAssetTypeActions_DataTable::GetActions( const TArray<UObject*>& InObjects,
 	}
 
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("DataTable_JSON", "JSON"),
-		LOCTEXT("DataTable_JSONTooltip", "Creates a JSON version of the data table in the lock."),
+		LOCTEXT("DataTable_ExportAsCSV", "Export as CSV"),
+		LOCTEXT("DataTable_ExportAsCSVTooltip", "Export the data table as a file containing CSV data."),
 		FSlateIcon(),
 		FUIAction(
-			FExecuteAction::CreateSP( this, &FAssetTypeActions_DataTable::ExecuteJSON, Tables ),
+			FExecuteAction::CreateSP( this, &FAssetTypeActions_DataTable::ExecuteExportAsCSV, Tables ),
 			FCanExecuteAction()
 			)
 		);
 
-	TArray<FString> XLSExtensions;
-	XLSExtensions.Add(TEXT(".xls"));
-	XLSExtensions.Add(TEXT(".xlsm"));
 	MenuBuilder.AddMenuEntry(
-		LOCTEXT("DataTable_OpenSourceXLS", "Open Source (.xls/.xlsm)"),
-		LOCTEXT("DataTable_OpenSourceXLSTooltip", "Opens the data table's source XLS/XLSM file in an external editor."),
+		LOCTEXT("DataTable_ExportAsJSON", "Export as JSON"),
+		LOCTEXT("DataTable_ExportAsJSONTooltip", "Export the data table as a file containing JSON data."),
 		FSlateIcon(),
 		FUIAction(
-			FExecuteAction::CreateSP( this, &FAssetTypeActions_DataTable::ExecuteFindExcelFileInExplorer, ImportPaths, XLSExtensions ),
-			FCanExecuteAction::CreateSP(this, &FAssetTypeActions_DataTable::CanExecuteFindExcelFileInExplorer, ImportPaths, XLSExtensions)
+			FExecuteAction::CreateSP( this, &FAssetTypeActions_DataTable::ExecuteExportAsJSON, Tables ),
+			FCanExecuteAction()
+			)
+		);
+
+	TArray<FString> PotentialFileExtensions;
+	PotentialFileExtensions.Add(TEXT(".xls"));
+	PotentialFileExtensions.Add(TEXT(".xlsm"));
+	PotentialFileExtensions.Add(TEXT(".csv"));
+	PotentialFileExtensions.Add(TEXT(".json"));
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("DataTable_OpenSourceData", "Open Source Data"),
+		LOCTEXT("DataTable_OpenSourceDataTooltip", "Opens the data table's source data file in an external editor. It will search using the following extensions: .xls/.xlsm/.csv/.json"),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateSP( this, &FAssetTypeActions_DataTable::ExecuteFindSourceFileInExplorer, ImportPaths, PotentialFileExtensions ),
+			FCanExecuteAction::CreateSP(this, &FAssetTypeActions_DataTable::CanExecuteFindSourceFileInExplorer, ImportPaths, PotentialFileExtensions)
 			)
 		);
 }
 
-void FAssetTypeActions_DataTable::ExecuteJSON(TArray< TWeakObjectPtr<UObject> > Objects)
+void FAssetTypeActions_DataTable::ExecuteExportAsCSV(TArray< TWeakObjectPtr<UObject> > Objects)
 {
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+
+	void* ParentWindowWindowHandle = nullptr;
+
+	IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+	const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+	if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
+	{
+		ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
+	}
+
 	for (auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt)
 	{
-		auto Table = Cast<UDataTable>((*ObjIt).Get());
-		if (Table != NULL)
+		auto DataTable = Cast<UDataTable>((*ObjIt).Get());
+		if (DataTable)
 		{
-			UE_LOG(LogDataTable, Log,  TEXT("JSON DataTable : %s"), *Table->GetTableAsJSON());
+			const FText Title = FText::Format(LOCTEXT("DataTable_ExportCSVDialogTitle", "Export '{0}' as CSV..."), FText::FromString(*DataTable->GetName()));
+			const FString CurrentFilename = (DataTable->ImportPath.IsEmpty()) ? TEXT("") : FReimportManager::ResolveImportFilename(DataTable->ImportPath, DataTable);
+			const FString FileTypes = TEXT("Data Table CSV (*.csv)|*.csv");
+
+			TArray<FString> OutFilenames;
+			DesktopPlatform->SaveFileDialog(
+				ParentWindowWindowHandle,
+				Title.ToString(),
+				(CurrentFilename.IsEmpty()) ? TEXT("") : FPaths::GetPath(CurrentFilename),
+				(CurrentFilename.IsEmpty()) ? TEXT("") : FPaths::GetBaseFilename(CurrentFilename) + TEXT(".csv"),
+				FileTypes,
+				EFileDialogFlags::None,
+				OutFilenames
+				);
+
+			if (OutFilenames.Num() > 0)
+			{
+				FFileHelper::SaveStringToFile(DataTable->GetTableAsCSV(), *OutFilenames[0]);
+			}
+		}
+	}
+}
+
+void FAssetTypeActions_DataTable::ExecuteExportAsJSON(TArray< TWeakObjectPtr<UObject> > Objects)
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+
+	void* ParentWindowWindowHandle = nullptr;
+
+	IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+	const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
+	if ( MainFrameParentWindow.IsValid() && MainFrameParentWindow->GetNativeWindow().IsValid() )
+	{
+		ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
+	}
+
+	for (auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt)
+	{
+		auto DataTable = Cast<UDataTable>((*ObjIt).Get());
+		if (DataTable)
+		{
+			const FText Title = FText::Format(LOCTEXT("DataTable_ExportCSVDialogTitle", "Export '{0}' as JSON..."), FText::FromString(*DataTable->GetName()));
+			const FString CurrentFilename = (DataTable->ImportPath.IsEmpty()) ? TEXT("") : FReimportManager::ResolveImportFilename(DataTable->ImportPath, DataTable);
+			const FString FileTypes = TEXT("Data Table JSON (*.json)|*.json");
+
+			TArray<FString> OutFilenames;
+			DesktopPlatform->SaveFileDialog(
+				ParentWindowWindowHandle,
+				Title.ToString(),
+				(CurrentFilename.IsEmpty()) ? TEXT("") : FPaths::GetPath(CurrentFilename),
+				(CurrentFilename.IsEmpty()) ? TEXT("") : FPaths::GetBaseFilename(CurrentFilename) + TEXT(".json"),
+				FileTypes,
+				EFileDialogFlags::None,
+				OutFilenames
+				);
+
+			if (OutFilenames.Num() > 0)
+			{
+				FFileHelper::SaveStringToFile(DataTable->GetTableAsJSON(), *OutFilenames[0]);
+			}
 		}
 	}
 }

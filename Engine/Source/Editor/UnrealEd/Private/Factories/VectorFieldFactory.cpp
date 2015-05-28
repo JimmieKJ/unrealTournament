@@ -220,11 +220,7 @@ UObject* UVectorFieldStaticFactory::FactoryCreateBinary(
 			FFGAContents FileContents;
 			if ( ParseFGA( &FileContents, Stream, Warn ) )
 			{
-				VectorField = CastChecked<UVectorFieldStatic>( StaticConstructObject(
-					UVectorFieldStatic::StaticClass(),
-					InParent,
-					InName,
-					Flags ) );
+				VectorField = NewObject<UVectorFieldStatic>(InParent, InName,Flags);
 
 				VectorField->SizeX = FileContents.GridX;
 				VectorField->SizeY = FileContents.GridY;

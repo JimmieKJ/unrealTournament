@@ -6,6 +6,7 @@
 #endif
 #include "AI/Navigation/NavigationTestingActor.h"
 #include "AI/Navigation/NavTestRenderingComponent.h"
+#include "AI/Navigation/NavigationInvokerComponent.h"
 #include "Components/CapsuleComponent.h"
 
 void FNavTestTickHelper::Tick(float DeltaTime)
@@ -26,7 +27,7 @@ TStatId FNavTestTickHelper::GetStatId() const
 ANavigationTestingActor::ANavigationTestingActor(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 #if WITH_EDITORONLY_DATA
-	EdRenderComp = ObjectInitializer.CreateDefaultSubobject<UNavTestRenderingComponent>(this, TEXT("EdRenderComp"));
+	EdRenderComp = CreateDefaultSubobject<UNavTestRenderingComponent>(TEXT("EdRenderComp"));
 	EdRenderComp->PostPhysicsComponentTick.bCanEverTick = false;
 
 #if WITH_RECAST
@@ -50,7 +51,7 @@ ANavigationTestingActor::ANavigationTestingActor(const FObjectInitializer& Objec
 	// collision profile name set up - found in baseengine.ini
 	static FName CollisionProfileName(TEXT("Pawn"));
 
-	CapsuleComponent = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("CollisionCylinder"));
+	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(TEXT("CollisionCylinder"));
 	CapsuleComponent->InitCapsuleSize(NavAgentProps.AgentRadius, NavAgentProps.AgentHeight / 2);
 	CapsuleComponent->SetCollisionProfileName(CollisionProfileName);
 	CapsuleComponent->CanCharacterStepUpOn = ECB_No;
@@ -58,6 +59,9 @@ ANavigationTestingActor::ANavigationTestingActor(const FObjectInitializer& Objec
 	CapsuleComponent->bCanEverAffectNavigation = false;
 
 	RootComponent = CapsuleComponent;
+
+	InvokerComponent = CreateDefaultSubobject<UNavigationInvokerComponent>(TEXT("InvokerComponent"));
+	InvokerComponent->bAutoActivate = bActAsNavigationInvoker;
 
 	PathObserver = FNavigationPath::FPathObserverDelegate::FDelegate::CreateUObject(this, &ANavigationTestingActor::OnPathEvent);
 }
@@ -104,6 +108,7 @@ void ANavigationTestingActor::PostEditChangeProperty(FPropertyChangedEvent& Prop
 	static const FName NAME_ShouldBeVisibleInGame = GET_MEMBER_NAME_CHECKED(ANavigationTestingActor, bShouldBeVisibleInGame);
 	static const FName NAME_OtherActor = GET_MEMBER_NAME_CHECKED(ANavigationTestingActor, OtherActor);
 	static const FName NAME_IsSearchStart = GET_MEMBER_NAME_CHECKED(ANavigationTestingActor, bSearchStart);
+	static const FName NAME_InvokerComponent = GET_MEMBER_NAME_CHECKED(ANavigationTestingActor, InvokerComponent);
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
@@ -180,6 +185,10 @@ void ANavigationTestingActor::PostEditChangeProperty(FPropertyChangedEvent& Prop
 
 			UpdatePathfinding();
 		}
+		else if (NAME_InvokerComponent == ChangedPropName)
+		{
+			InvokerComponent->SetActive(bActAsNavigationInvoker);
+		}
 	}
 }
 
@@ -188,19 +197,24 @@ void ANavigationTestingActor::PostEditMove(bool bFinished)
 	Super::PostEditMove(bFinished);
 
 	// project location to navmesh
-	FNavLocation NavLoc;
-	bProjectedLocationValid = GetWorld()->GetNavigationSystem()->ProjectPointToNavigation(GetActorLocation(), NavLoc, QueryingExtent, MyNavData);
-	ProjectedLocation = NavLoc.Location;
-
-	if (bSearchStart || (OtherActor != NULL && OtherActor->bSearchStart))
+	if (GetWorld()->GetNavigationSystem())
 	{
-		UpdatePathfinding();
+		FNavLocation NavLoc;
+		bProjectedLocationValid = GetWorld()->GetNavigationSystem()->ProjectPointToNavigation(GetActorLocation(), NavLoc, QueryingExtent, MyNavData);
+		ProjectedLocation = NavLoc.Location;
+
+		if (bSearchStart || (OtherActor != NULL && OtherActor->bSearchStart))
+		{
+			UpdatePathfinding();
+		}
 	}
 }
 
 void ANavigationTestingActor::PostLoad()
 {
 	Super::PostLoad();
+
+	InvokerComponent->bAutoActivate = bActAsNavigationInvoker;
 
 #if WITH_RECAST && WITH_EDITORONLY_DATA
 	if (GIsEditor)
@@ -343,22 +357,26 @@ void ANavigationTestingActor::SearchPathTo(ANavigationTestingActor* Goal)
 	const float Duration = (EndTime - StartTime);
 	PathfindingTime = Duration * 1000000.0f;			// in micro seconds [us]
 	bPathIsPartial = Result.IsPartial();
-	bPathExist = Result.IsSuccessful() || Result.IsPartial();
+	bPathExist = Result.IsSuccessful();
 	bPathSearchOutOfNodes = bPathExist ? Result.Path->DidSearchReachedLimit() : false;
 	LastPath = Result.Path;
 	PathCost = bPathExist ? Result.Path->GetCost() : 0.0f;
-	LastPath->AddObserver(PathObserver);
 
-	if (OffsetFromCornersDistance > 0.0f)
+	if (bPathExist)
 	{
-		((FNavMeshPath*)LastPath.Get())->OffsetFromCorners(OffsetFromCornersDistance);
+		LastPath->AddObserver(PathObserver);
+
+		if (OffsetFromCornersDistance > 0.0f)
+		{
+			((FNavMeshPath*)LastPath.Get())->OffsetFromCorners(OffsetFromCornersDistance);
+		}
 	}
 
 #if WITH_RECAST && WITH_EDITORONLY_DATA
 	if (bGatherDetailedInfo && !bUseHierarchicalPathfinding)
 	{
 		ARecastNavMesh* RecastNavMesh = Cast<ARecastNavMesh>(MyNavData);
-		if (RecastNavMesh)
+		if (RecastNavMesh && RecastNavMesh->HasValidNavmesh())
 		{
 			PathfindingSteps = RecastNavMesh->DebugPathfinding(Query, DebugSteps);
 		}
@@ -393,7 +411,12 @@ void ANavigationTestingActor::OnPathEvent(FNavigationPath* InvalidatedPath, ENav
 FPathFindingQuery ANavigationTestingActor::BuildPathFindingQuery(const ANavigationTestingActor* Goal) const
 {
 	check(Goal);
-	return FPathFindingQuery(this, MyNavData, GetNavAgentLocation(), Goal->GetNavAgentLocation(), UNavigationQueryFilter::GetQueryFilter(MyNavData, FilterClass));
+	if (MyNavData)
+	{
+		return FPathFindingQuery(this, *MyNavData, GetNavAgentLocation(), Goal->GetNavAgentLocation(), UNavigationQueryFilter::GetQueryFilter(*MyNavData, FilterClass));
+	}
+	
+	return FPathFindingQuery();
 }
 
 

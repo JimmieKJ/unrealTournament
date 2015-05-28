@@ -3,8 +3,9 @@
 #include "Paper2DPrivatePCH.h"
 #include "Paper2DModule.h"
 
-//#include "Physics/Box2DIntegration.h"
 #include "Rendering/PaperBatchManager.h"
+
+DEFINE_STAT(STAT_PaperRender_SetSpriteRT);
 
 //////////////////////////////////////////////////////////////////////////
 // FPaper2DModule

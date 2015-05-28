@@ -20,7 +20,7 @@ public:
 public:
 
 	/** Value stored in this spin box */
-	UPROPERTY(EditDefaultsOnly, Category=Content)
+	UPROPERTY(EditAnywhere, Category=Content)
 	float Value;
 
 	/** A bindable delegate to allow logic to drive the value of the widget */
@@ -36,30 +36,30 @@ public:
 	USlateWidgetStyleAsset* Style_DEPRECATED;
 
 	/** The amount by which to change the spin box value as the slider moves. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Slider")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Slider")
 	float Delta;
 
 	/** The exponent by which to increase the delta as the mouse moves. 1 is constant (never increases the delta). */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Slider")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Slider")
 	float SliderExponent;
 	
 	/** Font color and opacity (overrides style) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Display")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Display")
 	FSlateFontInfo Font;
 
 	/** The minimum width of the spin box */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Display", AdvancedDisplay, DisplayName = "Minimum Desired Width")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Display", AdvancedDisplay, DisplayName = "Minimum Desired Width")
 	float MinDesiredWidth;
 
 	/** Whether to remove the keyboard focus from the spin box when the value is committed */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input", AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", AdvancedDisplay)
 	bool ClearKeyboardFocusOnCommit;
 
 	/** Whether to select the text in the spin box when the value is committed */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Input", AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Input", AdvancedDisplay)
 	bool SelectAllTextOnCommit;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Style")
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Style")
 	FSlateColor ForegroundColor;
 
 public:
@@ -191,19 +191,19 @@ protected:
 	uint32 bOverride_MaxSliderValue : 1;
 
 	/** The minimum allowable value that can be manually entered into the spin box */
-	UPROPERTY(EditDefaultsOnly, Category = Content, DisplayName = "Minimum Value", meta = (editcondition = "bOverride_MinValue"))
+	UPROPERTY(EditAnywhere, Category = Content, DisplayName = "Minimum Value", meta = (editcondition = "bOverride_MinValue"))
 	float MinValue;
 
 	/** The maximum allowable value that can be manually entered into the spin box */
-	UPROPERTY(EditDefaultsOnly, Category = Content, DisplayName = "Maximum Value", meta = (editcondition = "bOverride_MaxValue"))
+	UPROPERTY(EditAnywhere, Category = Content, DisplayName = "Maximum Value", meta = (editcondition = "bOverride_MaxValue"))
 	float MaxValue;
 
 	/** The minimum allowable value that can be specified using the slider */
-	UPROPERTY(EditDefaultsOnly, Category = Content, DisplayName = "Minimum Slider Value", meta = (editcondition = "bOverride_MinSliderValue"))
+	UPROPERTY(EditAnywhere, Category = Content, DisplayName = "Minimum Slider Value", meta = (editcondition = "bOverride_MinSliderValue"))
 	float MinSliderValue;
 
 	/** The maximum allowable value that can be specified using the slider */
-	UPROPERTY(EditDefaultsOnly, Category = Content, DisplayName = "Maximum Slider Value", meta = (editcondition = "bOverride_MaxSliderValue"))
+	UPROPERTY(EditAnywhere, Category = Content, DisplayName = "Maximum Slider Value", meta = (editcondition = "bOverride_MaxSliderValue"))
 	float MaxSliderValue;
 
 protected:

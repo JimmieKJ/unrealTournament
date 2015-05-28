@@ -29,7 +29,7 @@ public:
 	ENGINE_API virtual void EnableHalfRate(bool HalfRate) override {};
 	virtual uint32 GetSourceBufferSize() const override { return SrcBufferDataSize;}
 	virtual bool UsesVorbisChannelOrdering() const override { return false; }
-	virtual int GetStreamBufferSize() const { return  MONO_PCM_BUFFER_SIZE; }
+	virtual int GetStreamBufferSize() const override { return  MONO_PCM_BUFFER_SIZE; }
 
 	virtual bool SupportsStreaming() const override {return true;}
 	virtual bool StreamCompressedInfo(USoundWave* Wave, struct FSoundQualityInfo* QualityInfo) override;

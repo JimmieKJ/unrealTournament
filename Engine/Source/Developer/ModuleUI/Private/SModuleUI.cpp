@@ -277,7 +277,7 @@ FReply SModuleUI::FModuleListItem::OnRecompileClicked()
 
 EVisibility SModuleUI::FModuleListItem::GetVisibilityBasedOnLoadedAndShutdownableState() const
 {
-	if ( GIsSavingPackage || GIsGarbageCollecting )
+	if ( GIsSavingPackage || IsGarbageCollecting() )
 	{
 		return EVisibility::Hidden;
 	}
@@ -299,7 +299,7 @@ EVisibility SModuleUI::FModuleListItem::GetVisibilityBasedOnReloadableState() co
 
 EVisibility SModuleUI::FModuleListItem::GetVisibilityBasedOnRecompilableState() const
 {
-	if ( GIsSavingPackage || GIsGarbageCollecting )
+	if ( GIsSavingPackage || IsGarbageCollecting() )
 	{
 		return EVisibility::Hidden;
 	}

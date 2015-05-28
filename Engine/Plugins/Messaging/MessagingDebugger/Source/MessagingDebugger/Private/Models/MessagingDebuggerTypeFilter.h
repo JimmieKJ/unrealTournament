@@ -26,7 +26,7 @@ public:
 		// filter by search string
 		TArray<FString> FilterSubstrings;
 		
-		if (FilterString.ParseIntoArray(&FilterSubstrings, TEXT(" "), true) > 0)
+		if (FilterString.ParseIntoArray(FilterSubstrings, TEXT(" "), true) > 0)
 		{
 			FString TypeName = TypeInfo->TypeName.ToString();
 

@@ -12,6 +12,7 @@ USizeBox::USizeBox(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bIsVariable = false;
+	Visibility = ESlateVisibility::SelfHitTestInvisible;
 }
 
 void USizeBox::ReleaseSlateResources(bool bReleaseChildren)

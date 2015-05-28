@@ -9,9 +9,13 @@ namespace ListConstants
 	static const float OvershootBounceRate = 250.0f;
 }
 
-void STableViewBase::ConstructChildren( const TAttribute<float>& InItemWidth, const TAttribute<float>& InItemHeight, const TAttribute<EListItemAlignment>& InItemAlignment, const TSharedPtr<SHeaderRow>& InHeaderRow, const TSharedPtr<SScrollBar>& InScrollBar )
+void STableViewBase::ConstructChildren( const TAttribute<float>& InItemWidth, const TAttribute<float>& InItemHeight, const TAttribute<EListItemAlignment>& InItemAlignment, const TSharedPtr<SHeaderRow>& InHeaderRow, const TSharedPtr<SScrollBar>& InScrollBar, const FOnTableViewScrolled& InOnTableViewScrolled )
 {
+	bItemsNeedRefresh = true;
+	
 	HeaderRow = InHeaderRow;
+
+	OnTableViewScrolled = InOnTableViewScrolled;
 
 	// If the user provided a scrollbar, we do not need to make one of our own.
 	if (InScrollBar.IsValid())
@@ -19,7 +23,6 @@ void STableViewBase::ConstructChildren( const TAttribute<float>& InItemWidth, co
 		ScrollBar = InScrollBar;
 		ScrollBar->SetOnUserScrolled( FOnUserScrolled::CreateSP(this, &STableViewBase::ScrollBar_OnUserScrolled) );
 	}
-	
 	
 	TSharedRef<SWidget> ListAndScrollbar = (!ScrollBar.IsValid())
 		// We need to make our own scrollbar
@@ -58,7 +61,12 @@ void STableViewBase::ConstructChildren( const TAttribute<float>& InItemWidth, co
 
 	if (InHeaderRow.IsValid())
 	{
-		InHeaderRow->SetAssociatedVerticalScrollBar( ScrollBar.ToSharedRef(), 16 );
+		// Only associate the scrollbar if we created it.
+		// If the scrollbar was passed in from outside then it won't appear under our header row so doesn't need compensating for.
+		if (!InScrollBar.IsValid())
+		{
+			InHeaderRow->SetAssociatedVerticalScrollBar( ScrollBar.ToSharedRef(), 16 );
+		}
 
 		this->ChildSlot
 		[
@@ -148,64 +156,82 @@ static FEndOfListResult ComputeOffsetForEndOfList( const FGeometry& ListPanelGeo
 	return FEndOfListResult( OffsetFromEndOfList, ItemsAboveView );
 }
 
-void STableViewBase::TickInertialScroll( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+EActiveTimerReturnType STableViewBase::UpdateInertialScroll(double InCurrentTime, float InDeltaTime)
 {
-	if ( IsRightClickScrolling() )
+	bool bKeepTicking = false;
+	if (ItemsPanel.IsValid())
 	{
-		// We sample for the inertial scroll on tick rather than on mouse/touch move so
-		// that we still get samples even if the mouse has not moved.
-		if ( CanUseInertialScroll(TickScrollDelta) )
+		if (IsRightClickScrolling())
 		{
-			this->InertialScrollManager.AddScrollSample(TickScrollDelta, InCurrentTime);
-		}
-	}
-	else
-	{
-		// If we are not right click scrolling then we can perform inertial scroll
-		this->InertialScrollManager.UpdateScrollVelocity(InDeltaTime);
-		const float ScrollVelocity = this->InertialScrollManager.GetScrollVelocity();
+			bKeepTicking = true;
 
-		if ( ScrollVelocity != 0.f )
-		{
-			if ( CanUseInertialScroll(ScrollVelocity) )
+			// We sample for the inertial scroll on tick rather than on mouse/touch move so
+			// that we still get samples even if the mouse has not moved.
+			if (CanUseInertialScroll(TickScrollDelta))
 			{
-				this->ScrollBy(AllottedGeometry, ScrollVelocity * InDeltaTime, AllowOverscroll);
-			}
-			else
-			{
-				this->InertialScrollManager.ClearScrollVelocity();
+				InertialScrollManager.AddScrollSample(TickScrollDelta, InCurrentTime);
 			}
 		}
+		else
+		{
+			InertialScrollManager.UpdateScrollVelocity(InDeltaTime);
+			const float ScrollVelocity = InertialScrollManager.GetScrollVelocity();
+
+			if (ScrollVelocity != 0.f)
+			{
+				if (CanUseInertialScroll(ScrollVelocity))
+				{
+					bKeepTicking = true;
+					ScrollBy(CachedGeometry, ScrollVelocity * InDeltaTime, AllowOverscroll);
+				}
+				else
+				{
+					InertialScrollManager.ClearScrollVelocity();
+				}
+			}
+
+			if (AllowOverscroll == EAllowOverscroll::Yes)
+			{
+				// If we are currently in overscroll, the list will need refreshing.
+				// Do this before UpdateOverscroll, as that could cause GetOverscroll() to be 0
+				if (Overscroll.GetOverscroll() != 0.0f)
+				{
+					bKeepTicking = true;
+					RequestListRefresh();
+				}
+
+				Overscroll.UpdateOverscroll(InDeltaTime);
+			}
+		}
+
+		TickScrollDelta = 0.f;
 	}
 
-	TickScrollDelta = 0.f;
+	bIsScrollingActiveTimerRegistered = bKeepTicking;
+	return bKeepTicking ? EActiveTimerReturnType::Continue : EActiveTimerReturnType::Stop;
+}
+
+EActiveTimerReturnType STableViewBase::EnsureTickToRefresh(double InCurrentTime, float InDeltaTime)
+{
+	// Actual refresh isn't implemented here as it can be needed in response to changes in the panel geometry.
+	// Since that isn't known until Tick (called after this when registered), refreshing here could result in two refreshes in one frame.
+
+	return EActiveTimerReturnType::Stop;
 }
 
 void STableViewBase::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
+	CachedGeometry = AllottedGeometry;
+
 	if (ItemsPanel.IsValid())
 	{
-		TickInertialScroll(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-		if ( !IsRightClickScrolling() && AllowOverscroll == EAllowOverscroll::Yes)
-		{
-			// If we are currently in overscroll, the list will need refreshing.
-			// Do this before UpdateOverscroll, as that could cause GetOverscroll() to be 0
-			if ( Overscroll.GetOverscroll() != 0.0f )
-			{
-				this->RequestListRefresh();
-			}
-
-			Overscroll.UpdateOverscroll( InDeltaTime );
-		}
-
 		FGeometry PanelGeometry = FindChildGeometry( AllottedGeometry, ItemsPanel.ToSharedRef() );
 		if ( bItemsNeedRefresh || PanelGeometryLastTick.Size != PanelGeometry.Size)
 		{
 			PanelGeometryLastTick = PanelGeometry;
 
 			// We never create the ItemsPanel if the user did not specify all the parameters required to successfully make a list.
-			ScrollIntoView( PanelGeometry );
+			const EScrollIntoViewResult ScrollIntoViewResult = ScrollIntoView( PanelGeometry );
 
 			const FReGenerateResults ReGenerateResults = ReGenerateItems( PanelGeometry );
 			LastGenerateResults = ReGenerateResults;
@@ -213,7 +239,9 @@ void STableViewBase::Tick( const FGeometry& AllottedGeometry, const double InCur
 			const int32 NumItemsBeingObserved = GetNumItemsBeingObserved();
 
 			const int32 NumItemsWide = GetNumItemsWide();
-			const bool bEnoughRoomForAllItems = ReGenerateResults.ExactNumRowsOnScreen >= (NumItemsBeingObserved / NumItemsWide);
+			const int32 NumItemRows = NumItemsBeingObserved / NumItemsWide;
+
+			const bool bEnoughRoomForAllItems = ReGenerateResults.ExactNumRowsOnScreen >= NumItemRows;
 			if (bEnoughRoomForAllItems)
 			{
 				// We can show all the items, so make sure there is no scrolling.
@@ -225,7 +253,7 @@ void STableViewBase::Tick( const FGeometry& AllottedGeometry, const double InCur
 			}
 			
 			
-			ScrollOffset = FMath::Max(0.0, ScrollOffset);
+			SetScrollOffset( FMath::Max(0.0, ScrollOffset) );
 			ItemsPanel->SmoothScrollOffset( FMath::Fractional(ScrollOffset / GetNumItemsWide()) );
 
 			if (AllowOverscroll == EAllowOverscroll::Yes)
@@ -237,20 +265,46 @@ void STableViewBase::Tick( const FGeometry& AllottedGeometry, const double InCur
 			UpdateSelectionSet();
 
 			// Update scrollbar
+			if (NumItemsBeingObserved > 0)
 			{
-				// The thumb size is whatever fraction of the items we are currently seeing (including partially seen items).
-				// e.g. if we are seeing 0.5 of the first generated widget and 0.75 of the last widget, that's 1.25 widgets.
-				const double ThumbSizeFraction = ReGenerateResults.ExactNumRowsOnScreen / (NumItemsBeingObserved / NumItemsWide);
-				const double OffsetFraction = ScrollOffset / NumItemsBeingObserved;
+				if (ReGenerateResults.ExactNumRowsOnScreen < 1.0f)
+				{
+					// We are be observing a single row which is larger than the available visible area, so we should calculate thumb size based on that
+					const double VisibleSizeFraction = AllottedGeometry.GetLocalSize().Y / ReGenerateResults.HeightOfGeneratedItems;
+					const double ThumbSizeFraction = FMath::Min(VisibleSizeFraction, 1.0);
+					const double OffsetFraction = ScrollOffset / NumItemsBeingObserved;
+					ScrollBar->SetState( OffsetFraction, ThumbSizeFraction );
+				}
+				else
+				{
+					// The thumb size is whatever fraction of the items we are currently seeing (including partially seen items).
+					// e.g. if we are seeing 0.5 of the first generated widget and 0.75 of the last widget, that's 1.25 widgets.
+					const double ThumbSizeFraction = ReGenerateResults.ExactNumRowsOnScreen / NumItemRows;
+					const double OffsetFraction = ScrollOffset / NumItemsBeingObserved;
+					ScrollBar->SetState( OffsetFraction, ThumbSizeFraction );
+				}
+			}
+			else
+			{
+				const double ThumbSizeFraction = 1;
+				const double OffsetFraction = 0;
 				ScrollBar->SetState( OffsetFraction, ThumbSizeFraction );
 			}
 
-			NotifyItemScrolledIntoView();
-
-			bWasAtEndOfList = ScrollBar->DistanceFromBottom() < KINDA_SMALL_NUMBER ? true : false;
+			bWasAtEndOfList = (ScrollBar->DistanceFromBottom() < KINDA_SMALL_NUMBER);
 
 			bItemsNeedRefresh = false;
 			ItemsPanel->SetRefreshPending(false);
+
+			if (ScrollIntoViewResult == EScrollIntoViewResult::Deferred)
+			{
+				// We call this rather than just leave bItemsNeedRefresh as true to ensure that EnsureTickToRefresh is registered
+				RequestListRefresh();
+			}
+			else
+			{
+				NotifyItemScrolledIntoView();
+			}
 		}
 	}
 }
@@ -361,6 +415,13 @@ FReply STableViewBase::OnMouseMove( const FGeometry& MyGeometry, const FPointerE
 		// the mouse and dragging the view?
 		if( IsRightClickScrolling() )
 		{
+			// Make sure the active timer is registered to update the inertial scroll
+			if (!bIsScrollingActiveTimerRegistered)
+			{
+				bIsScrollingActiveTimerRegistered = true;
+				RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &STableViewBase::UpdateInertialScroll));
+			}
+
 			TickScrollDelta -= ScrollByAmount;
 
 			const float AmountScrolled = this->ScrollBy( MyGeometry, -ScrollByAmount, AllowOverscroll );
@@ -409,10 +470,19 @@ FReply STableViewBase::OnMouseWheel( const FGeometry& MyGeometry, const FPointer
 		this->InertialScrollManager.ClearScrollVelocity();
 
 		const float AmountScrolledInItems = this->ScrollBy( MyGeometry, -MouseEvent.GetWheelDelta()*WheelScrollAmount, EAllowOverscroll::No );
-		if (FMath::Abs(AmountScrolledInItems) > 0.0f)
+
+		switch ( ConsumeMouseWheel )
 		{
+		case EConsumeMouseWheel::Always:
 			return FReply::Handled();
+		case EConsumeMouseWheel::WhenScrollingPossible: //default behavior
+		default:
+			if ( FMath::Abs( AmountScrolledInItems ) > 0.0f )
+			{
+				return FReply::Handled();
+			}
 		}
+		
 	}
 	return FReply::Unhandled();
 }
@@ -422,8 +492,7 @@ FReply STableViewBase::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& 
 {
 	if ( InKeyEvent.IsControlDown() && InKeyEvent.GetKey() == EKeys::End )
 	{
-		ScrollOffset = GetNumItemsBeingObserved();
-		RequestListRefresh();
+		ScrollToBottom();
 		return FReply::Handled();
 	}
 
@@ -460,7 +529,7 @@ FReply STableViewBase::OnTouchMoved( const FGeometry& MyGeometry, const FPointer
 		AmountScrolledWhileRightMouseDown += FMath::Abs( ScrollByAmount );
 		TickScrollDelta -= ScrollByAmount;
 
-		if (AmountScrolledWhileRightMouseDown > FSlateApplication::Get().GetDragTriggerDistnace())
+		if (AmountScrolledWhileRightMouseDown > FSlateApplication::Get().GetDragTriggerDistance())
 		{
 			const float AmountScrolled = this->ScrollBy( MyGeometry, -ScrollByAmount, EAllowOverscroll::Yes );
 
@@ -508,7 +577,7 @@ TSharedPtr<SHeaderRow> STableViewBase::GetHeaderRow() const
 
 bool STableViewBase::IsRightClickScrolling() const
 {
-	return AmountScrolledWhileRightMouseDown >= FSlateApplication::Get().GetDragTriggerDistnace() &&
+	return AmountScrolledWhileRightMouseDown >= FSlateApplication::Get().GetDragTriggerDistance() &&
 		(this->ScrollBar->IsNeeded() || AllowOverscroll == EAllowOverscroll::Yes);
 }
 
@@ -520,7 +589,11 @@ bool STableViewBase::IsUserScrolling() const
 
 void STableViewBase::RequestListRefresh()
 {
-	bItemsNeedRefresh = true;
+	if (!bItemsNeedRefresh)
+	{
+		bItemsNeedRefresh = true;
+		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &STableViewBase::EnsureTickToRefresh));
+	}
 	ItemsPanel->SetRefreshPending(true);
 }
 
@@ -562,9 +635,11 @@ STableViewBase::STableViewBase( ETableViewMode::Type InTableViewMode )
 	, SelectionMode( ESelectionMode::Multi )
 	, SoftwareCursorPosition( ForceInitToZero )
 	, bShowSoftwareCursor( false )
+	, bIsScrollingActiveTimerRegistered( false )
 	, Overscroll()
 	, AllowOverscroll(EAllowOverscroll::Yes)
-	, bItemsNeedRefresh( true )	
+	, ConsumeMouseWheel(EConsumeMouseWheel::WhenScrollingPossible)
+	, bItemsNeedRefresh( false )	
 {
 }
 
@@ -584,16 +659,24 @@ float STableViewBase::ScrollTo( float InScrollOffset )
 {
 	const float NewScrollOffset = FMath::Clamp( InScrollOffset, -10.0f, GetNumItemsBeingObserved()+10.0f );
 	float AmountScrolled = FMath::Abs( ScrollOffset - NewScrollOffset );
-	ScrollOffset = NewScrollOffset;
-
-	RequestListRefresh();	
-
+	SetScrollOffset( NewScrollOffset );
+	
 	if ( bWasAtEndOfList && NewScrollOffset >= ScrollOffset )
 	{
 		AmountScrolled = 0;
 	}
 
 	return AmountScrolled;
+}
+
+void STableViewBase::SetScrollOffset( const float InScrollOffset )
+{
+	if ( ScrollOffset != InScrollOffset )
+	{
+		ScrollOffset = InScrollOffset;
+		OnTableViewScrolled.ExecuteIfBound( ScrollOffset );
+		RequestListRefresh();
+	}
 }
 
 void STableViewBase::InsertWidget( const TSharedRef<ITableRow> & WidgetToInset )
@@ -630,8 +713,7 @@ void STableViewBase::ClearWidgets()
  */
 float STableViewBase::GetItemWidth() const
 {
-	// Casting to a STilePanel here because we constructed it in Construct()
-	return ItemsPanel->GetItemWidth() + ItemsPanel->GetItemPadding(PanelGeometryLastTick);
+	return ItemsPanel->GetItemWidth(PanelGeometryLastTick) + ItemsPanel->GetItemPadding(PanelGeometryLastTick);
 }
 
 /**
@@ -676,6 +758,8 @@ void STableViewBase::OnRightMouseButtonUp(const FVector2D& SummonLocation)
 		{
 			bShowSoftwareCursor = false;
 			FSlateApplication::Get().PushMenu( AsShared(), MenuContent.ToSharedRef(), SummonLocation, FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu ) );
+
+
 		}
 	}
 
@@ -689,6 +773,18 @@ float STableViewBase::GetScrollRateInItems() const
 		? LastGenerateResults.ExactNumRowsOnScreen / LastGenerateResults.HeightOfGeneratedItems
 		// Scroll 1/2 an item at a time as a default.
 		: 0.5f;
+}
+
+void STableViewBase::ScrollToTop()
+{
+	SetScrollOffset( 0 );
+	RequestListRefresh();
+}
+
+void STableViewBase::ScrollToBottom()
+{
+	SetScrollOffset( GetNumItemsBeingObserved() );
+	RequestListRefresh();
 }
 
 FVector2D STableViewBase::GetScrollDistance()

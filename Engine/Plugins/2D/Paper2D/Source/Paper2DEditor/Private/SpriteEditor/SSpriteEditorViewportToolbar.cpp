@@ -3,6 +3,7 @@
 #include "Paper2DEditorPrivatePCH.h"
 #include "SSpriteEditorViewportToolbar.h"
 #include "SpriteEditorCommands.h"
+#include "PaperEditorShared/SpriteGeometryEditCommands.h"
 #include "SEditorViewport.h"
 
 #define LOCTEXT_NAMESPACE "SSpriteEditorViewportToolbar"
@@ -31,7 +32,7 @@ TSharedRef<SWidget> SSpriteEditorViewportToolbar::GenerateShowMenu() const
 
 		ShowMenuBuilder.AddMenuEntry(FSpriteEditorCommands::Get().SetShowGrid);
 		ShowMenuBuilder.AddMenuEntry(FSpriteEditorCommands::Get().SetShowBounds);
-		ShowMenuBuilder.AddMenuEntry(FSpriteEditorCommands::Get().SetShowNormals);
+		ShowMenuBuilder.AddMenuEntry(FSpriteGeometryEditCommands::Get().SetShowNormals);
 
 		ShowMenuBuilder.AddMenuSeparator();
 

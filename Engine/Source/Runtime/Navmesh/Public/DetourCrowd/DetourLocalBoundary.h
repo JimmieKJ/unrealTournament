@@ -23,7 +23,7 @@
 #define DETOURLOCALBOUNDARY_H
 
 #include "DetourNavMeshQuery.h"
-
+#include "DetourSharedBoundary.h"
 
 class NAVMESH_API dtLocalBoundary
 {
@@ -53,9 +53,15 @@ public:
 
 	// [UE4: new sections: link removal, path corridor, direction]
 	void update(dtPolyRef ref, const float* pos, const float collisionQueryRange,
-		const float* forcedRemovePos, float forcedRemoveRadius, bool useForcedRemove,
+		const bool bRemoveNearLink, const float* linkV0, const float* linkV1,
 		const dtPolyRef* path, const int npath,
 		const float* moveDir,
+		dtNavMeshQuery* navquery, const dtQueryFilter* filter);
+
+	void update(const dtSharedBoundary* sharedData, const int sharedIdx,
+		const float* pos, const float collisionQueryRange,
+		const bool bRemoveNearLink, const float* linkV0, const float* linkV1,
+		const dtPolyRef* path, const int npath, const float* moveDir,
 		dtNavMeshQuery* navquery, const dtQueryFilter* filter);
 	
 	bool isValid(dtNavMeshQuery* navquery, const dtQueryFilter* filter);

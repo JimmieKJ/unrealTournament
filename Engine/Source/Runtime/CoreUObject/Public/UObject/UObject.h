@@ -1,13 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	UnObjUObject.h: Unreal object base class
-=============================================================================*/
+#pragma once
 
-#ifndef __UNOBJUOBJECT_H__
-#define __UNOBJUOBJECT_H__
 
 DECLARE_LOG_CATEGORY_EXTERN(LogObj, Log, All);
+
 
 namespace ECastCheckedType
 {
@@ -38,6 +35,12 @@ class COREUOBJECT_API UObject : public UObjectBaseUtility
 	// Declarations.
 	DECLARE_CLASS(UObject,UObject,CLASS_Abstract|CLASS_NoExport,CASTCLASS_None,CoreUObject,NO_API)
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(UObject)
+#if WITH_HOT_RELOAD_CTORS
+	static UObject* __VTableCtorCaller(FVTableHelper& Helper)
+	{
+		return new (EC_InternalUseOnlyConstructor, (UObject*)GetTransientPackage(), NAME_None, RF_NeedLoad | RF_ClassDefaultObject | RF_TagGarbageTemp) UObject(Helper);
+	}
+#endif // WITH_HOT_RELOAD_CTORS
 
 	typedef UObject WithinClass;
 	static const TCHAR* StaticConfigName() {return TEXT("Engine");}
@@ -46,6 +49,10 @@ class COREUOBJECT_API UObject : public UObjectBaseUtility
 	UObject();
 	UObject(const FObjectInitializer& ObjectInitializer);
 	UObject( EStaticConstructor, EObjectFlags InFlags );
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	UObject(FVTableHelper& Helper);
+#endif // WITH_HOT_RELOAD_CTORS
 
 	static void StaticRegisterNativesUObject() 
 	{
@@ -125,6 +132,18 @@ class COREUOBJECT_API UObject : public UObjectBaseUtility
 		return static_cast<TReturnType*>(CreateDefaultSubobject(SubobjectName, ReturnType, ReturnType, /*bIsRequired =*/ true, /*bIsAbstract =*/ true, bTransient));
 	}
 
+	/**
+	* Gets all default subobjects associated with this object instance.
+	* @param	OutDefaultSubobjects	Array containing all default subobjects of this object.
+	*/
+	void GetDefaultSubobjects(TArray<UObject*>& OutDefaultSubobjects);
+
+	/**
+	* Finds a subobject associated with this object instance by its name
+	* @param	OutDefaultSubobjects	Array containing all default subobjects of this object.
+	*/
+	UObject* GetDefaultSubobjectByName(FName ToFind);
+
 	//==========================================
 	// UObject interface.
 	//==========================================	
@@ -182,11 +201,6 @@ public:
 	virtual bool Modify( bool bAlwaysMarkDirty=true );
 
 #if WITH_EDITOR
-	/**
-	 * The cooker (or DDC commandlet) have dealt with this object and will never deal with it again.
-	 * The object should try to free memory
-	 */
-	virtual void CookerWillNeverCookAgain() {}
 	/** 
 	 * Called when the object was loaded from another class via active class redirects.
 	 */
@@ -200,18 +214,18 @@ public:
 	virtual void PostLoad();
 
 	/**
-	* Instances components for objects being loaded from disk, if necessary.  Ensures that component references
-	* between nested components are fixed up correctly.
-	*
-	* @param	OuterInstanceGraph	when calling this method on subobjects, specifies the instancing graph which contains all instanced
-	*								subobjects and components for a subobject root.
-	*/
+	 * Instances components for objects being loaded from disk, if necessary.  Ensures that component references
+	 * between nested components are fixed up correctly.
+	 *
+	 * @param	OuterInstanceGraph	when calling this method on subobjects, specifies the instancing graph which contains all instanced
+	 *								subobjects and components for a subobject root.
+	 */
 	virtual void PostLoadSubobjects(FObjectInstancingGraph* OuterInstanceGraph);
-
+	
 	/**
-	* Called before destroying the object.  This is called immediately upon deciding to destroy the object, to allow the object to begin an
-	* asynchronous cleanup process.
-	*/
+	 * Called before destroying the object.  This is called immediately upon deciding to destroy the object, to allow the object to begin an
+	 * asynchronous cleanup process.
+	 */
 	virtual void BeginDestroy();
 
 	/**
@@ -349,6 +363,17 @@ public:
 		return false;
 	}
 
+	/**
+	* Called during async load to determine if PostLoad can be called on the loading thread.
+	*
+	* @return	true if this object's PostLoad is thread safe
+	*/
+	virtual bool IsPostLoadThreadSafe() const
+	{
+		return false;
+	}
+
+
 	/** 
 	 *	Determines if you can create an object from the supplied template in the current context (editor, client only, dedicated server, game/listen) 
 	 *	This calls NeedsLoadForClient & NeedsLoadForServer
@@ -419,18 +444,21 @@ public:
 		return false;
 	}
 
+	/** Special value meaning that the resource size is not defined */
+	static const SIZE_T RESOURCE_SIZE_NONE = static_cast<SIZE_T>(-1);
+
 	/**
 	 * Returns the size of the object/ resource for display to artists/ LDs in the Editor. The
-	 * default behavior is to return 0 which indicates that the resource shouldn't display its
-	 * size which is used to not confuse people by displaying small sizes for e.g. objects like
-	 * materials
+	 * default behavior is to return RESOURCE_SIZE_NONE which indicates that the resource shouldn't
+	 * display its size which is used to not confuse people by displaying small sizes
+	 * e.g. for objects like materials.
 	 *
 	 * @param	Type	Indicates which resource size should be returned
 	 * @return	Size of resource as to be displayed to artists/ LDs in the Editor.
 	 */
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode)
 	{
-		return 0;
+		return RESOURCE_SIZE_NONE;
 	}
 
 	/** 
@@ -508,11 +536,11 @@ public:
 		};
 
 		FName Name;
-		FString Value;
 		ETagType Type;
+		FString Value;
 
 		FAssetRegistryTag(FName InName, const FString& InValue, ETagType InType)
-			: Name(InName), Value(InValue), Type(InType) {}
+			: Name(InName), Type(InType), Value(InValue) {}
 
 		/** Gathers a list of asset registry searchable tags from given objects properties */
 		COREUOBJECT_API static void GetAssetRegistryTagsFromSearchableProperties(const UObject* Object, TArray<FAssetRegistryTag>& OutTags);
@@ -521,6 +549,50 @@ public:
 
 	/** Get the common tag name used for all asset source file import paths */
 	static const FName& SourceFileTagName();
+
+#if WITH_EDITOR
+	/**
+	 * Additional data pertaining to asset registry tags used by the editor
+	 */
+	struct FAssetRegistryTagMetadata
+	{
+		FText DisplayName;
+		FText TooltipText;
+		FText Suffix;
+		FString ImportantValue;
+
+		/** Set override display name */
+		FAssetRegistryTagMetadata& SetDisplayName(const FText& InDisplayName)
+		{
+			DisplayName = InDisplayName;
+			return *this;
+		}
+
+		/** Set tooltip text pertaining to the asset registry tag in the column view header */
+		FAssetRegistryTagMetadata& SetTooltip(const FText& InTooltipText)
+		{
+			TooltipText = InTooltipText;
+			return *this;
+		}
+
+		/** Set suffix appended to the tag value */
+		FAssetRegistryTagMetadata& SetSuffix(const FText& InSuffix)
+		{
+			Suffix = InSuffix;
+			return *this;
+		}
+
+		/** Set value deemed to be 'important' for this registry tag */
+		FAssetRegistryTagMetadata& SetImportantValue(const FString& InImportantValue)
+		{
+			ImportantValue = InImportantValue;
+			return *this;
+		}
+	};
+
+	/** Gathers a collection of asset registry tag metadata */
+	virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const;
+#endif
 
 	/** Returns true if this object is considered an asset. */
 	virtual bool IsAsset() const;
@@ -636,7 +708,7 @@ public:
 	 *								subobjects and components for a subobject root.
 	 */
 	void ConditionalPostLoadSubobjects( struct FObjectInstancingGraph* OuterInstanceGraph=NULL );
-
+#if WITH_EDITOR
 	/**
 	 * Starts caching of platform specific data for the target platform
 	 * Called when cooking before serialization so that object can prepare platform specific data
@@ -645,6 +717,18 @@ public:
 	 * @param	TargetPlatform	target platform to cache platform specific data for
 	 */
 	virtual void BeginCacheForCookedPlatformData( const ITargetPlatform* TargetPlatform ) {  }
+	
+	/**
+	 * Have we finished loading all the cooked platform data for the target platforms requested in BeginCacheForCookedPlatformData
+	 * 
+	 * @param	TargetPlatform target platform to check for cooked platform data
+	 */
+	virtual bool IsCachedCookedPlatformDataLoaded( const ITargetPlatform* TargetPlatform ) { return true; }
+
+	/**
+	 * All caching has finished for this object (all IsCachedCookedPlatformDataLoaded functions have finished for all platforms)
+	 */
+	virtual void WillNeverCacheCookedPlatformDataAgain() { }
 
 	/**
 	 * Clears cached cooked platform data for specific platform
@@ -659,15 +743,7 @@ public:
 	 * @param	TargetPlatform	target platform to cache platform specific data for
 	 */
 	virtual void ClearAllCachedCookedPlatformData() { }
-
-	/**
-	 * Have we finished loading all the cooked platform data for the target platforms requested in BeginCacheForCookedPlatformData
-	 * 
-	 * @param	TargetPlatform target platform to check for cooked platform data
-	 */
-	virtual bool IsCachedCookedPlatformDataLoaded( const ITargetPlatform* TargetPlatform ) { return true; }
-
-
+#endif
 	/**
 	 * Determine if this object has SomeObject in its archetype chain.
 	 */
@@ -703,18 +779,32 @@ public:
 	/**
 	 * Saves just the section(s) for this class into the default ini file for the class (with just the changes from base)
 	 */
-	void UpdateDefaultConfigFile();
+	void UpdateDefaultConfigFile(const FString& SpecificFileLocation = "");
 
 	/**
 	 * Saves just the section(s) for this class into the global user ini file for the class (with just the changes from base)
 	 */
 	void UpdateGlobalUserConfigFile();
 
+	/**
+	 * Saves just the property into the global user ini file for the class (with just the changes from base)
+	 */
+	void UpdateSinglePropertyInConfigFile(const UProperty* InProperty, const FString& InConfigIniName);
+
 private:
 	/**
 	 * Saves just the section(s) for this class into the given ini file for the class (with just the changes from base)
 	 */
 	void UpdateSingleSectionOfConfigFile(const FString& ConfigIniName);
+
+#if WITH_HOT_RELOAD_CTORS
+	/**
+	 * Ensures that current thread is NOT during vtable ptr retrieval process
+	 * of some UClass.
+	 */
+	void EnsureNotRetrievingVTablePtr() const;
+#endif // WITH_HOT_RELOAD_CTORS
+
 public:
 	
 	/**
@@ -770,7 +860,7 @@ public:
 	 * @param LinkerIndex				New LinkerIndex to set
 	 * @param bShouldDetachExisting		If true, detach existing linker and call PostLinkerChange
 	 */
-	void SetLinker( ULinkerLoad* LinkerLoad, int32 LinkerIndex, bool bShouldDetachExisting=true );
+	void SetLinker( FLinkerLoad* LinkerLoad, int32 LinkerIndex, bool bShouldDetachExisting=true );
 
 	/**
 	 * Creates a new archetype based on this UObject.  The archetype's property values will match
@@ -1031,6 +1121,7 @@ public:
 	DECLARE_FUNCTION(execTransformConst);
 	DECLARE_FUNCTION(execStructConst);
 	DECLARE_FUNCTION(execSetArray);
+	DECLARE_FUNCTION(execArrayConst);
 
 	// Object construction
 	DECLARE_FUNCTION(execNew);
@@ -1076,7 +1167,7 @@ public:
 	{
 		int32 EntryPoint;
 	};
-	virtual void ExecuteUbergraph(int32 EntryPoint)
+	void ExecuteUbergraph(int32 EntryPoint)
 	{
 		Object_eventExecuteUbergraph_Parms Parms;
 		Parms.EntryPoint=EntryPoint;
@@ -1107,6 +1198,3 @@ private:
 	*/
 	UObject* CreateEditorOnlyDefaultSubobjectImpl(FName SubobjectName, UClass* ReturnType, bool bTransient = false);
 };
-
-#endif	// __UNOBJUOBJECT_H__
-

@@ -52,6 +52,8 @@ void SButton::Construct( const FArguments& InArgs )
 	bIsFocusable = InArgs._IsFocusable;
 
 	OnClicked = InArgs._OnClicked;
+	OnPressed = InArgs._OnPressed;
+	OnReleased = InArgs._OnReleased;
 
 	ClickMethod = InArgs._ClickMethod;
 	TouchMethod = InArgs._TouchMethod;
@@ -95,7 +97,7 @@ bool SButton::SupportsKeyboardFocus() const
 
 void SButton::OnFocusLost( const FFocusEvent& InFocusEvent )
 {
-	bIsPressed = false;
+	Release();
 }
 
 FReply SButton::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
@@ -103,9 +105,7 @@ FReply SButton::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEv
 	FReply Reply = FReply::Unhandled();
 	if (IsEnabled() && (InKeyEvent.GetKey() == EKeys::Enter || InKeyEvent.GetKey() == EKeys::SpaceBar || InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Bottom))
 	{
-		bIsPressed = true;
-
-		PlayPressedSound();
+		Press();
 
 		if (PressMethod == EButtonPressMethod::ButtonPress)
 		{
@@ -136,9 +136,11 @@ FReply SButton::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent
 	if (IsEnabled() && (InKeyEvent.GetKey() == EKeys::Enter || InKeyEvent.GetKey() == EKeys::SpaceBar || InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Bottom))
 	{
 		bool bWasPressed = bIsPressed;
-		bIsPressed = false;
+
+		Release();
+
 		//@Todo Slate: This should check focus, however we don't have that API yet, will be easier when focus is unified.
-		if (PressMethod == EButtonPressMethod::ButtonRelease || (PressMethod == EButtonPressMethod::DownAndUp && bWasPressed))
+		if ( PressMethod == EButtonPressMethod::ButtonRelease || ( PressMethod == EButtonPressMethod::DownAndUp && bWasPressed ) )
 		{
 			//execute our "OnClicked" delegate, and get the reply
 			Reply = OnClicked.IsBound() ? OnClicked.Execute() : FReply::Handled();
@@ -161,12 +163,7 @@ FReply SButton::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEv
 	FReply Reply = FReply::Unhandled();
 	if (IsEnabled() && (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton || MouseEvent.IsTouchEvent()))
 	{
-		bIsPressed = true;
-
-		if ( IsEnabled() )
-		{
-			PlayPressedSound();
-		}
+		Press();
 		
 		if( ClickMethod == EButtonClickMethod::MouseDown )
 		{
@@ -203,7 +200,7 @@ FReply SButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEven
 	FReply Reply = FReply::Unhandled();
 	if (IsEnabled() && (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton || MouseEvent.IsTouchEvent()))
 	{
-		bIsPressed = false;
+		Release();
 
 		if( ClickMethod == EButtonClickMethod::MouseDown )
 		{
@@ -250,10 +247,10 @@ FReply SButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEven
 
 FReply SButton::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	const float SlateDragStartDistance = FSlateApplication::Get().GetDragTriggerDistnace();
+	const float SlateDragStartDistance = FSlateApplication::Get().GetDragTriggerDistance();
 	if ( IsPreciseTapOrClick(MouseEvent) && MouseEvent.GetCursorDelta().SizeSquared() > ( SlateDragStartDistance*SlateDragStartDistance ) )
 	{
-		bIsPressed = false;
+		Release();
 	}
 	return FReply::Unhandled();
 }
@@ -277,7 +274,28 @@ void SButton::OnMouseLeave( const FPointerEvent& MouseEvent )
 	// mouse up event, so we need to make sure our pressed state is reset properly here
 	if ( ClickMethod == EButtonClickMethod::MouseDown || IsPreciseTapOrClick(MouseEvent) )
 	{
+		Release();
+	}
+}
+
+void SButton::Press()
+{
+	if ( !bIsPressed )
+	{
+		bIsPressed = true;
+
+		PlayPressedSound();
+
+		OnPressed.ExecuteIfBound();
+	}
+}
+
+void SButton::Release()
+{
+	if ( bIsPressed )
+	{
 		bIsPressed = false;
+		OnReleased.ExecuteIfBound();
 	}
 }
 
@@ -302,7 +320,7 @@ void SButton::PlayHoverSound() const
 	FSlateApplication::Get().PlaySound( HoveredSound );
 }
 
-FVector2D SButton::ComputeDesiredSize() const
+FVector2D SButton::ComputeDesiredSize(float LayoutScaleMultiplier) const
 {
 	// When there is no widget in the button, it sizes itself based on
 	// the border image specified by the style.
@@ -312,7 +330,7 @@ FVector2D SButton::ComputeDesiredSize() const
 	}
 	else
 	{
-		return SBorder::ComputeDesiredSize();
+		return SBorder::ComputeDesiredSize(LayoutScaleMultiplier);
 	}
 }
 

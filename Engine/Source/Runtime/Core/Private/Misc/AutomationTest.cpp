@@ -208,7 +208,7 @@ void FAutomationTestFramework::StartTestByName( const FString& InTestToRun, cons
 
 	FString TestName;
 	FString Params;
-	if (!InTestToRun.Split(TEXT(" "), &TestName, &Params))
+	if (!InTestToRun.Split(TEXT(" "), &TestName, &Params, ESearchCase::CaseSensitive))
 	{
 		TestName = InTestToRun;
 	}
@@ -576,7 +576,7 @@ void FAutomationTestFramework::DumpAutomationTestExecutionInfo( const TMap<FStri
 void FAutomationTestFramework::InternalStartTest( const FString& InTestToRun )
 {
 	FString TestName;
-	if (!InTestToRun.Split(TEXT(" "), &TestName, &Parameters))
+	if (!InTestToRun.Split(TEXT(" "), &TestName, &Parameters, ESearchCase::CaseSensitive))
 	{
 		TestName = InTestToRun;
 	}

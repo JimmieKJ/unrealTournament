@@ -8,14 +8,12 @@ public class DerivedDataCache : ModuleRules
 	public DerivedDataCache(TargetInfo Target)
 	{
 		PrivateDependencyModuleNames.Add("Core");
+
 		// Internal (NotForLicensees) module
-		if (!UnrealBuildTool.UnrealBuildTool.BuildingRocket())
+		var DDCUtilsModule = Path.Combine("Developer", "NotForLicensees", "DDCUtils", "DDCUtils.Build.cs");
+		if (File.Exists(DDCUtilsModule))
 		{
-			var DDCUtilsModule = Path.Combine("Developer", "NotForLicensees", "DDCUtils", "DDCUtils.Build.cs");
-			if (File.Exists(DDCUtilsModule))
-			{
-				DynamicallyLoadedModuleNames.Add("DDCUtils");
-			}
+			DynamicallyLoadedModuleNames.Add("DDCUtils");
 		}
 	}
 }

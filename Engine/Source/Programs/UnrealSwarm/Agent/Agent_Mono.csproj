@@ -144,6 +144,10 @@
       <Project>{6F18ADAC-2619-4C81-B80F-22927E56CA47}</Project>
       <Name>AgentInterface_Mono</Name>
     </ProjectReference>
+    <ProjectReference Include="..\SwarmCommonUtils\SwarmCommonUtils.csproj">
+      <Project>{65521250-b022-442f-b961-3af5ada02083}</Project>
+      <Name>SwarmCommonUtils</Name>
+    </ProjectReference>
     <ProjectReference Include="..\SwarmCoordinatorInterface\SwarmCoordinatorInterface_Mono.csproj">
       <Project>{4C299DD0-B968-49F2-894A-9F115C369E72}</Project>
       <Name>SwarmCoordinatorInterface_Mono</Name>

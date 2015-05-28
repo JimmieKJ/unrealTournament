@@ -67,7 +67,7 @@ public:
 	virtual ESequencerNode::Type GetType() const = 0;
 
 	/** @return Whether or not this node can be selected */
-	virtual bool IsSelectable() const { return false; }
+	virtual bool IsSelectable() const { return true; }
 
 	/**
 	 * @return The desired height of the node when displayed
@@ -135,22 +135,9 @@ public:
 	virtual void GetChildKeyAreaNodesRecursively(TArray< TSharedRef<class FSectionKeyAreaNode> >& OutNodes) const;
 
 	/**
-	 * Selects or deselects this node
-	 *
-	 * @param bSelect				Whether or not this node should be selected
-	 * @param bDeselectOtherNodes	Whether or not to deselect other nodes
-	 */
-	void SetSelectionState( bool bSelect, bool bDeselectOtherNodes );
-
-	/**
 	 * Toggles the expansion state of this node
 	 */
 	void ToggleExpansion();
-
-	/**
-	 * @return Whether or not this node is selected
-	 */
-	bool IsSelected() const;
 
 	/**
 	 * @return Whether or not this node is expanded                                                              
@@ -306,7 +293,6 @@ public:
 	virtual ESequencerNode::Type GetType() const override { return ESequencerNode::Track; }
 	virtual float GetNodeHeight() const override;
 	virtual FText GetDisplayName() const override;
-	virtual bool IsSelectable() const override { return true; }
 	virtual bool GetShotFilteredVisibilityToCache() const override;
 	virtual void GetChildKeyAreaNodesRecursively(TArray< TSharedRef<class FSectionKeyAreaNode> >& OutNodes) const override;
 
@@ -369,30 +355,29 @@ public:
 	 * @param InParentNode		The parent of this node or NULL if this is a root node
 	 * @param InParentTree		The tree this node is in
 	 */
-	FObjectBindingNode( FName NodeName, const FText& InObjectName, const FGuid& InObjectBinding, TSharedPtr<FSequencerDisplayNode> InParentNode, FSequencerNodeTree& InParentTree )
+	FObjectBindingNode( FName NodeName, const FString& InObjectName, const FGuid& InObjectBinding, TSharedPtr<FSequencerDisplayNode> InParentNode, FSequencerNodeTree& InParentTree )
 		: FSequencerDisplayNode( NodeName, InParentNode, InParentTree )
 		, ObjectBinding( InObjectBinding )
-		, DisplayName( InObjectName )
+		, DefaultDisplayName( FText::FromString(InObjectName) )
 	{}
 
 	/** FSequencerDisplayNodeInterface */
 	virtual ESequencerNode::Type GetType() const override { return ESequencerNode::Object; }
-	virtual FText GetDisplayName() const override { return DisplayName; }
+	virtual FText GetDisplayName() const override;
 	virtual float GetNodeHeight() const override;
-	virtual bool IsSelectable() const override { return true; }
 	virtual bool GetShotFilteredVisibilityToCache() const override;
 	
 	/** @return The object binding on this node */
 	const FGuid& GetObjectBinding() const { return ObjectBinding; }
 	
 	/** What sort of context menu this node summons */
-	virtual TSharedPtr<SWidget> OnSummonContextMenu(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
+	virtual TSharedPtr<SWidget> OnSummonContextMenu(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 
 private:
 	/** The binding to live objects */
 	FGuid ObjectBinding;
-	/** Display name of the object */
-	FText DisplayName;
+	/** The default display name of the object which is used if the binding manager doesn't provide one. */
+	FText DefaultDisplayName;
 };
 
 /**

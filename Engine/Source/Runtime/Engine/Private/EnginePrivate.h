@@ -7,6 +7,7 @@ EnginePrivate.h: Unreal engine private header file.
 #pragma once
 #include "CoreUObject.h"
 #include "EngineDefines.h"
+#include "Engine/DeveloperSettings.h"
 #include "GameMapsSettings.h"
 #include "EngineStats.h"
 #include "EngineLogs.h"
@@ -93,7 +94,9 @@ EnginePrivate.h: Unreal engine private header file.
 #include "UnrealEngine.h"					// Unreal engine helpers.
 #include "CanvasTypes.h"							// Canvas.
 #include "EngineUtils.h"
-#include "InstancedFoliage.h"				// Instanced foliage.
 #include "TimerManager.h"					// Game play timers
 #include "SlateCore.h"
 #include "SlateBasics.h"
+#include "Engine/TextureLODSettings.h"
+#include "DeviceProfiles/DeviceProfile.h"
+#include "DeviceProfiles/DeviceProfileManager.h"

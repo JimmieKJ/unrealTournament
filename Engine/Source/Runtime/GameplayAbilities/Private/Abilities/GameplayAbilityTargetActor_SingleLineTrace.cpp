@@ -45,8 +45,11 @@ FHitResult AGameplayAbilityTargetActor_SingleLineTrace::PerformTrace(AActor* InS
 	}
 	if (AGameplayAbilityWorldReticle* LocalReticleActor = ReticleActor.Get())
 	{
-		LocalReticleActor->SetActorLocation(ReturnHitResult.Location);
-		LocalReticleActor->SetIsTargetAnActor(ReturnHitResult.bBlockingHit && (ReturnHitResult.Actor != NULL));
+		const bool bHitActor = (ReturnHitResult.bBlockingHit && (ReturnHitResult.Actor != NULL));
+		const FVector ReticleLocation = (bHitActor && LocalReticleActor->bSnapToTargetedActor) ? ReturnHitResult.Actor->GetActorLocation() : ReturnHitResult.Location;
+
+		LocalReticleActor->SetActorLocation(ReticleLocation);
+		LocalReticleActor->SetIsTargetAnActor(bHitActor);
 	}
 
 	if (bDebug)

@@ -1,0 +1,19 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	VelocityCommon.usf: Common functions for calculating velocity vectors.
+=============================================================================*/
+
+#pragma once
+
+float2 Calculate2DVelocity(float4 PackedVelocityA, float4 PackedVelocityC)
+{
+	float2 ScreenPosition = PackedVelocityA.xy / PackedVelocityA.w - View.ViewToClip[2].xy;
+	float2 PrevScreenPosition = PackedVelocityC.xy / PackedVelocityC.w - View.PrevProjection[2].xy;
+
+	// 2d velocity, includes camera an object motion
+	float2 Velocity = ScreenPosition - PrevScreenPosition;
+
+	// Make sure not to touch 0,0 which is clear color
+	return Velocity;
+}

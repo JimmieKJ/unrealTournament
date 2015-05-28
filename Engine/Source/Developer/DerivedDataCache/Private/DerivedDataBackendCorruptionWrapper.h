@@ -77,7 +77,7 @@ public:
 	}
 
 	/** return true if this cache is writable **/
-	virtual bool IsWritable()
+	virtual bool IsWritable() override
 	{
 		return InnerBackend->IsWritable();
 	}
@@ -88,7 +88,7 @@ public:
 	 * @param	CacheKey	Alphanumeric+underscore key of this cache item
 	 * @return				true if the data probably will be found, this can't be guaranteed because of concurrency in the backends, corruption, etc
 	 */
-	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey)
+	virtual bool CachedDataProbablyExists(const TCHAR* CacheKey) override
 	{
 		return InnerBackend->CachedDataProbablyExists(CacheKey);
 	}
@@ -99,7 +99,7 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData)
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
 	{
 		bool bOk = InnerBackend->GetCachedData(CacheKey, OutData);
 		if (bOk)

@@ -26,7 +26,7 @@
 AAmbientSound::AAmbientSound(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	AudioComponent = ObjectInitializer.CreateDefaultSubobject<UAudioComponent>(this, TEXT("AudioComponent0"));
+	AudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("AudioComponent0"));
 
 	AudioComponent->bAutoActivate = true;
 	AudioComponent->bStopWhenOwnerDestroyed = true;

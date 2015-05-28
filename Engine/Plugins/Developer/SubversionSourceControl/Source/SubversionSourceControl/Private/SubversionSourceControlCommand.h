@@ -5,7 +5,7 @@
 /**
  * Used to execute Subversion commands multi-threaded.
  */
-class FSubversionSourceControlCommand : public FQueuedWork
+class FSubversionSourceControlCommand : public IQueuedWork
 {
 public:
 

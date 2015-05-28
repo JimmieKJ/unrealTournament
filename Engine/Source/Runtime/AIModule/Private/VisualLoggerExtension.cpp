@@ -79,26 +79,23 @@ void FVisualLoggerExtension::DrawData(UWorld* InWorld, UCanvas* Canvas, AActor* 
 			UEQSRenderingComponent* EQSRenderComp = HelperActor->FindComponentByClass<UEQSRenderingComponent>();
 			if (!EQSRenderComp)
 			{
-				EQSRenderComp = ConstructObject<UEQSRenderingComponent>(UEQSRenderingComponent::StaticClass(), HelperActor);
+				EQSRenderComp = NewObject<UEQSRenderingComponent>(HelperActor);
 				EQSRenderComp->bDrawOnlyWhenSelected = false;
 				EQSRenderComp->RegisterComponent();
 				EQSRenderComp->SetHiddenInGame(true);
 			}
 
-			if (DebugData.Id != CachedEQSId || (EQSRenderComp && EQSRenderComp->bHiddenInGame))
+			if (SelectedEQSId == INDEX_NONE || SelectedEQSId != CachedEQSId /*|| (EQSRenderComp && EQSRenderComp->bHiddenInGame)*/)
 			{
 				if (SelectedEQSId == INDEX_NONE)
 				{
 					SelectedEQSId = DebugData.Id;
 				}
-				if (DebugData.Id == SelectedEQSId)
-				{
-					CachedEQSId = DebugData.Id;
-					EQSRenderComp->DebugData = DebugData;
-					EQSRenderComp->Activate();
-					EQSRenderComp->SetHiddenInGame(false);
-					EQSRenderComp->MarkRenderStateDirty();
-				}
+				CachedEQSId = DebugData.Id;
+				EQSRenderComp->DebugData = DebugData;
+				EQSRenderComp->Activate();
+				EQSRenderComp->SetHiddenInGame(false);
+				EQSRenderComp->MarkRenderStateDirty();
 			}
 		}
 

@@ -17,29 +17,29 @@ struct FUserPinInfo
 	UPROPERTY()
 	struct FEdGraphPinType PinType;
 
+	/** Desired direction for the pin. The direction will be forced to work with the node if necessary */
+	UPROPERTY()
+	TEnumAsByte<EEdGraphPinDirection> DesiredPinDirection;
+
 	/** The default value of the pin */
 	UPROPERTY()
 	FString PinDefaultValue;
 
-	/** Direction of the pin */
-	///var EEdGraphPinDirection	PinDirection;
+	friend FArchive& operator <<(FArchive& Ar, FUserPinInfo& Info)
+	{
+		Ar << Info.PinName;
 
+		Ar << Info.PinType.bIsArray;
+		Ar << Info.PinType.bIsReference;
 
-		friend FArchive& operator <<(FArchive& Ar, FUserPinInfo& Info)
-		{
-			Ar << Info.PinName;
+		Ar << Info.PinType.PinCategory;
+		Ar << Info.PinType.PinSubCategory;
 
-			Ar << Info.PinType.bIsArray;
-			Ar << Info.PinType.bIsReference;
+		Ar << Info.PinType.PinSubCategoryObject;
+		Ar << Info.PinDefaultValue;
 
-			Ar << Info.PinType.PinCategory;
-			Ar << Info.PinType.PinSubCategory;
-
-			Ar << Info.PinType.PinSubCategoryObject;
-			Ar << Info.PinDefaultValue;
-
-			return Ar;
-		}
+		return Ar;
+	}
 	
 };
 
@@ -104,12 +104,22 @@ class UK2Node_EditablePinBase : public UK2Node
 	// End of UK2Node interface
 
 	/**
+	 * Queries if a user defined pin of the passed type can be constructed on this node. Node will return false by default and must opt into this functionality
+	 *
+	 * @param			InPinType			The type info for the pin to create
+	 * @param			OutErrorMessage		Only filled with an error if there is pin add support but there is an error with the pin type
+	 * @return			TRUE if a user defined pin can be constructed
+	 */
+	BLUEPRINTGRAPH_API virtual bool CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage) { return false; }
+
+	/**
 	 * Creates a UserPinInfo from the specified information, and also adds a pin based on that description to the node
 	 *
-	 * @param	InPinName	Name of the pin to create
-	 * @param	InPinType	The type info for the pin to create
+	 * @param	InPinName				Name of the pin to create
+	 * @param	InPinType				The type info for the pin to create
+	 * @param	InDesiredDirection		Desired direction of the pin, will auto-correct if the direction is not allowed on the pin.
 	 */
-	BLUEPRINTGRAPH_API UEdGraphPin* CreateUserDefinedPin(const FString& InPinName, const FEdGraphPinType& InPinType);
+	BLUEPRINTGRAPH_API UEdGraphPin* CreateUserDefinedPin(const FString& InPinName, const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection);
 
 	/**
 	 * Removes a pin from the user-defined array, and removes the pin with the same name from the Pins array

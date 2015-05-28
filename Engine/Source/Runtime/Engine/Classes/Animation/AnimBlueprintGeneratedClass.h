@@ -287,3 +287,16 @@ public:
 	class USkeleton* GetTargetSkeleton() const { return TargetSkeleton; }
 #endif
 };
+
+template<typename NodeType>
+NodeType* GetNodeFromPropertyIndex(UAnimInstance* AnimInstance, const UAnimBlueprintGeneratedClass* AnimBlueprintClass, int32 PropertyIndex)
+{
+	if (PropertyIndex != INDEX_NONE)
+	{
+		UStructProperty* NodeProperty = AnimBlueprintClass->AnimNodeProperties[AnimBlueprintClass->AnimNodeProperties.Num() - 1 - PropertyIndex]; //@TODO: Crazysauce
+		check(NodeProperty->Struct == NodeType::StaticStruct());
+		return NodeProperty->ContainerPtrToValuePtr<NodeType>(AnimInstance);
+	}
+
+	return NULL;
+}

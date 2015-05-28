@@ -67,6 +67,11 @@ void UAISense_Blueprint::RegisterWrappedEvent(UAISenseEvent& PerceptionEvent)
 	RequestImmediateUpdate();
 }
 
+void UAISense_Blueprint::OnNewPawn(APawn& NewPawn)
+{
+	K2_OnNewPawn(&NewPawn);
+}
+
 float UAISense_Blueprint::Update()
 {
 	const float TimeUntilNextUpdate = OnUpdate(UnprocessedEvents);

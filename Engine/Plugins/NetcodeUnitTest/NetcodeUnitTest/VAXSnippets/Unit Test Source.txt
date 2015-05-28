@@ -1,0 +1,65 @@
+Title: Unit Test Source
+Shortcut:
+Description: Creates the source file for a basic unit test.
+
+Source:
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "NetcodeUnitTestPCH.h"
+
+#include "UnitTests/$FILE_BASE$.h"
+
+#include "UnitTestEnvironment.h"
+
+
+/**
+ * U$FILE_BASE$
+ */
+
+U$FILE_BASE$::U$FILE_BASE$(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	UnitTestName = TEXT("$UnitTestName$");
+	UnitTestType = TEXT("$UnitTestType$");
+
+	UnitTestDate = FDateTime($YEAR$, $MONTH$, $DAY$);
+
+	bWorkInProgress = true;
+
+	// @todo JohnB: Bugtracking/changelist notes
+
+	ExpectedResult.Add(TEXT("$TargetGame$"), EUnitTestVerification::VerifiedNotFixed);
+
+	UnitTestTimeout = 60;
+
+
+	UnitTestFlags |= (EUnitTestFlags::LaunchServer | $end$);
+}
+
+void U$FILE_BASE$::InitializeEnvironmentSettings()
+{
+	TArray<FString> SupportedGames = GetSupportedGames();
+
+	BaseServerURL = UnitEnv->GetDefaultMap(SupportedGames, UnitTestFlags);
+	BaseServerParameters = UnitEnv->GetDefaultServerParameters(SupportedGames);
+}
+
+void U$FILE_BASE$::ExecuteClientUnitTest()
+{
+	// @todo JohnB
+}
+
+void U$FILE_BASE$::NotifyProcessLog(TWeakPtr<FUnitTestProcess> InProcess, const TArray<FString>& InLogLines)
+{
+	Super::NotifyProcessLog(InProcess, InLogLines);
+
+	if (InProcess.HasSameObject(ServerHandle.Pin().Get()))
+	{
+		for (auto CurLine : InLogLines)
+		{
+			// @todo JohnB
+		}
+	}
+}
+
+

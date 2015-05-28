@@ -7,7 +7,7 @@
 #include "AIResourceInterface.h"
 #include "PathFollowingComponent.generated.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogPathFollowing, Warning, All);
+AIMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogPathFollowing, Warning, All);
 
 class UNavMovementComponent;
 class UCanvas;
@@ -21,10 +21,17 @@ namespace EPathFollowingStatus
 {
 	enum Type
 	{
-		Idle,				// no requests
-		Waiting,			// request with incomplete path, will start after UpdateMove()
-		Paused,				// request paused, will continue after ResumeMove()
-		Moving,				// following path
+		/** No requests */
+		Idle,
+
+		/** Request with incomplete path, will start after UpdateMove() */
+		Waiting,
+
+		/** Request paused, will continue after ResumeMove() */
+		Paused,
+
+		/** Following path */
+		Moving,
 	};
 }
 
@@ -33,12 +40,23 @@ namespace EPathFollowingResult
 {
 	enum Type
 	{
-		Success,			// reached destination
-		Blocked,			// movement was blocked
-		OffPath,			// agent is not on path
-		Aborted,			// aborted and stopped (failure)
-		Skipped,			// aborted and replaced with new request
-		Invalid,			// request was invalid
+		/** Reached destination */
+		Success,
+
+		/** Movement was blocked */
+		Blocked,
+
+		/** Agent is not on path */
+		OffPath,
+
+		/** Aborted and stopped (failure) */
+		Aborted,
+
+		/** Aborted and replaced with new request */
+		Skipped,
+
+		/** Request was invalid */
+		Invalid,
 	};
 }
 
@@ -82,8 +100,11 @@ namespace EPathFollowingMessage
 {
 	enum Type
 	{
-		NoPath,			// abort reason for AI message
-		OtherRequest,	// abort reason for AI message
+		/** Aborted because no path was found */
+		NoPath,
+
+		/** Aborted because another request came in */
+		OtherRequest,
 	};
 }
 
@@ -182,6 +203,12 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	/** set block detection params */
 	void SetBlockDetection(float DistanceThreshold, float Interval, int32 NumSamples);
 
+	/** @returns state of movement stopping on finish */
+	FORCEINLINE bool IsStopMovementOnFinishActive() const { return bStopMovementOnFinish; }
+	
+	/** set whether movement is stopped on finish of move. */
+	FORCEINLINE void SetStopMovementOnFinish(bool bEnable) { bStopMovementOnFinish = bEnable; }
+
 	/** set threshold for precise reach tests in intermediate goals (minimal test radius)  */
 	void SetPreciseReachThreshold(float AgentRadiusMultiplier, float AgentHalfHeightMultiplier);
 
@@ -206,10 +233,10 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	FORCEINLINE FAIRequestID GetCurrentRequestId() const { return CurrentRequestId; }
 	FORCEINLINE uint32 GetCurrentPathIndex() const { return MoveSegmentStartIndex; }
 	FORCEINLINE uint32 GetNextPathIndex() const { return MoveSegmentEndIndex; }
-	FORCEINLINE FVector GetCurrentTargetLocation() const { return *CurrentDestination; }
-	FORCEINLINE FVector GetCurrentDirection() const { return MoveSegmentDirection; }
-	FORCEINLINE FBasedPosition GetCurrentTargetLocationBased() const { return CurrentDestination; }
 	FORCEINLINE UObject* GetCurrentCustomLinkOb() const { return CurrentCustomLinkOb.Get(); }
+	FORCEINLINE FVector GetCurrentTargetLocation() const { return *CurrentDestination; }
+	FORCEINLINE FBasedPosition GetCurrentTargetLocationBased() const { return CurrentDestination; }
+	FVector GetCurrentDirection() const;
 
 	/** will be deprecated soon, please use AIController.GetMoveStatus instead! */
 	UFUNCTION(BlueprintCallable, Category="AI|Components|PathFollowing")
@@ -220,6 +247,7 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	FVector GetPathDestination() const;
 
 	FORCEINLINE const FNavPathSharedPtr GetPath() const { return Path; }
+	FORCEINLINE bool HasValidPath() const { return Path.IsValid() && Path->IsValid(); }
 	bool HasDirectPath() const;
 
 	/** readable name of current status */
@@ -266,6 +294,12 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	virtual void ForceUnlockResource() override;
 	virtual bool IsResourceLocked() const override;
 	// IAIResourceInterface end
+
+	void OnPathEvent(FNavigationPath* InvalidatedPath, ENavPathEvent::Type Event);
+
+	/** helper function for sending a path for visual log */
+	static void LogPathHelper(const AActor* LogOwner, FNavPathSharedPtr LogPath, const AActor* LogGoalActor);
+	static void LogPathHelper(const AActor* LogOwner, FNavigationPath* LogPath, const AActor* LogGoalActor);
 
 protected:
 
@@ -322,6 +356,9 @@ protected:
 	/** agent location when movement was paused */
 	FVector LocationWhenPaused;
 
+	/** timestamp of path update when movement was paused */
+	float PathTimeWhenPaused;
+
 	/** set when paths simplification using visibility tests are needed  (disabled by default because of performance) */
 	UPROPERTY(config)
 	uint32 bUseVisibilityTestsSimplification : 1;
@@ -338,10 +375,7 @@ protected:
 	/** set when last move request was finished at goal */
 	uint32 bLastMoveReachedGoal : 1;
 
-	/** set when UpdateMove() is called during paused move, will update path's start segment on resuming */
-	uint32 bPendingPathStartUpdate : 1;
-
-	/** if set, movment will be stopped on finishing path */
+	/** if set, movement will be stopped on finishing path */
 	uint32 bStopMovementOnFinish : 1;
 
 	/** detect blocked movement when distance between center of location samples and furthest one (centroid radius) is below threshold */
@@ -405,7 +439,9 @@ protected:
 	bool HasReachedCurrentTarget(const FVector& CurrentLocation) const;
 
 	/** check if moving agent has reached goal defined by cylinder */
+	DEPRECATED(4.8, "Please use override with AgentRadiusMultiplier instead of this.")
 	bool HasReachedInternal(const FVector& GoalLocation, float GoalRadius, float GoalHalfHeight, const FVector& AgentLocation, float RadiusThreshold, bool bSuccessOnRadiusOverlap) const;
+	bool HasReachedInternal(const FVector& GoalLocation, float GoalRadius, float GoalHalfHeight, const FVector& AgentLocation, float RadiusThreshold, float AgentRadiusMultiplier) const;
 
 	/** check if agent is on path */
 	virtual bool IsOnPath() const;

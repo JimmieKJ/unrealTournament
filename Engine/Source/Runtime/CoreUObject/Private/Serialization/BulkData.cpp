@@ -93,13 +93,16 @@ FUntypedBulkData::FUntypedBulkData()
  */
 FUntypedBulkData::FUntypedBulkData( const FUntypedBulkData& Other )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::FUntypedBulkData"), STAT_UBD_Constructor, STATGROUP_Memory);
+
 	InitializeMemberVariables();
+	BulkDataAlignment = Other.BulkDataAlignment;
 
 	// Prepare bulk data pointer. Can't call any functions that would call virtual GetElementSize on "this" as
 	// we're in the constructor of the base class and would hence call a pure virtual.
 	ElementCount	= Other.ElementCount;
 	check(bShouldFreeOnEmpty);
-	BulkData		= FMemory::Realloc( BulkData, Other.GetBulkDataSize() );
+	BulkData		= FMemory::Realloc( BulkData, Other.GetBulkDataSize(), BulkDataAlignment );
 
 	// Copy data over.
 	Copy( Other );
@@ -114,13 +117,25 @@ FUntypedBulkData::FUntypedBulkData( const FUntypedBulkData& Other )
  */
 FUntypedBulkData::~FUntypedBulkData()
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::~FUntypedBulkData"), STAT_UBD_Destructor, STATGROUP_Memory);
+
 	check( LockStatus == LOCKSTATUS_Unlocked );
-	// Free memory.
-	if( bShouldFreeOnEmpty )
+	if (SerializeFuture.IsValid())
 	{
-		FMemory::Free( BulkData );
+		WaitForAsyncLoading();
 	}
-	BulkData = NULL;
+
+	// Free memory.
+	if (bShouldFreeOnEmpty)
+	{
+		FMemory::Free(BulkData);
+	}
+	if (BulkData != BulkDataAsync)
+	{
+		FMemory::Free(BulkDataAsync);
+	}
+	BulkData = nullptr;
+	BulkDataAsync = nullptr;
 	
 #if WITH_EDITOR
 	// Detach from archive.
@@ -146,6 +161,8 @@ FUntypedBulkData& FUntypedBulkData::operator=( const FUntypedBulkData& Other )
 	// Remove bulk data, avoiding potential load in Lock call.
 	RemoveBulkData();
 	
+	BulkDataAlignment = Other.BulkDataAlignment;
+
 	// Reallocate to size of src.
 	Lock(LOCK_READ_WRITE);
 	Realloc(Other.GetElementCount());
@@ -304,7 +321,7 @@ bool FUntypedBulkData::CanLoadFromDisk() const
 #if WITH_EDITOR
 	return AttachedAr != NULL;
 #else
-	return Filename != TEXT("") || Linker.IsValid();
+	return Filename != TEXT("") || (Package.IsValid() && Package->LinkerLoad);
 #endif // WITH_EDITOR
 }
 
@@ -328,6 +345,11 @@ bool FUntypedBulkData::IsBulkDataLoaded() const
 	return BulkData != NULL;
 }
 
+bool FUntypedBulkData::IsAsyncLoadingComplete()
+{
+	return SerializeFuture.IsValid() == false || SerializeFuture.WaitFor(FTimespan(0));
+}
+
 /**
 * Returns whether this bulk data is used
 * @return true if BULKDATA_Unused is not set
@@ -341,6 +363,12 @@ bool FUntypedBulkData::IsAvailableForUse() const
 	Data retrieval and manipulation.
 -----------------------------------------------------------------------------*/
 
+void FUntypedBulkData::ResetAsyncData()
+{
+	BulkDataAsync = nullptr;
+	SerializeFuture = TFuture<bool>();
+}
+
 /**
  * Retrieves a copy of the bulk data.
  *
@@ -349,6 +377,8 @@ bool FUntypedBulkData::IsAvailableForUse() const
  */
 void FUntypedBulkData::GetCopy( void** Dest, bool bDiscardInternalCopy )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::GetCopy"), STAT_UBD_GetCopy, STATGROUP_Memory);
+
 	check( LockStatus == LOCKSTATUS_Unlocked );
 	check( Dest );
 
@@ -380,6 +410,13 @@ void FUntypedBulkData::GetCopy( void** Dest, bool bDiscardInternalCopy )
 	// Passed in memory is NULL so we need to allocate some.
 	else
 	{
+		// Check for any pending async requests
+		if (!BulkData && SerializeFuture.IsValid())
+		{
+			WaitForAsyncLoading();
+			BulkData = BulkDataAsync;
+			ResetAsyncData();
+		}
 		// The data is already loaded so we can simply use a mempcy.
 		if( BulkData )
 		{
@@ -389,13 +426,14 @@ void FUntypedBulkData::GetCopy( void** Dest, bool bDiscardInternalCopy )
 			if( bDiscardInternalCopy && (CanLoadFromDisk()|| (BulkDataFlags & BULKDATA_SingleUse)) )
 			{
 				*Dest = BulkData;
-				BulkData = NULL;
+				BulkData = nullptr;
+				ResetAsyncData();
 			}
 			// Can't/ Don't discard so we need to allocate and copy.
 			else
 			{
 				// Allocate enough memory for data...
-				*Dest = FMemory::Malloc( GetBulkDataSize() );
+				*Dest = FMemory::Malloc( GetBulkDataSize(), BulkDataAlignment );
 				// ... and copy it into memory now pointed to by out parameter.
 				FMemory::Memcpy( *Dest, BulkData, GetBulkDataSize() );
 			}
@@ -404,7 +442,7 @@ void FUntypedBulkData::GetCopy( void** Dest, bool bDiscardInternalCopy )
 		else
 		{
 			// Allocate enougn memory for data...
-			*Dest = FMemory::Malloc( GetBulkDataSize() );
+			*Dest = FMemory::Malloc( GetBulkDataSize(), BulkDataAlignment );
 			// ... and directly load into it.
 			LoadDataIntoMemory( *Dest );
 		}
@@ -449,7 +487,6 @@ void* FUntypedBulkData::Lock( uint32 LockFlags )
 		UE_LOG(LogSerialization, Fatal,TEXT("Unknown lock flag %i"),LockFlags);
 	}
 
-	check( BulkData );
 	return BulkData;
 }
 
@@ -476,11 +513,13 @@ const void* FUntypedBulkData::LockReadOnly() const
  */
 void* FUntypedBulkData::Realloc( int32 InElementCount )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::Realloc"), STAT_UBD_Realloc, STATGROUP_Memory);
+
 	check( LockStatus == LOCKSTATUS_ReadWriteLock );
 	// Progate element count and reallocate data based on new size.
 	ElementCount	= InElementCount;
 	check(bShouldFreeOnEmpty);
-	BulkData		= FMemory::Realloc( BulkData, GetBulkDataSize() );
+	BulkData		= FMemory::Realloc( BulkData, GetBulkDataSize(), BulkDataAlignment );
 	return BulkData;
 }
 
@@ -489,6 +528,8 @@ void* FUntypedBulkData::Realloc( int32 InElementCount )
  */
 void FUntypedBulkData::Unlock() const
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::Unlock"), STAT_UBD_Unlock, STATGROUP_Memory);
+
 	check(LockStatus != LOCKSTATUS_Unlocked);
 
 	FUntypedBulkData* mutable_this = const_cast<FUntypedBulkData*>(this);
@@ -511,6 +552,8 @@ void FUntypedBulkData::Unlock() const
  */
 void FUntypedBulkData::RemoveBulkData()
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::RemoveBulkData"), STAT_UBD_RemoveBulkData, STATGROUP_Memory);
+
 	check( LockStatus == LOCKSTATUS_Unlocked );
 
 #if WITH_EDITOR
@@ -571,6 +614,26 @@ uint32 FUntypedBulkData::GetBulkDataFlags() const
 }
 
 /**
+ * Sets the passed in bulk data alignment.
+ *
+ * @param BulkDataAlignmentToSet	Bulk data alignment to set
+ */
+void FUntypedBulkData::SetBulkDataAlignment( uint32 BulkDataAlignmentToSet )
+{
+	BulkDataAlignment = BulkDataAlignmentToSet;
+}
+
+/**
+* Gets the current bulk data alignment.
+*
+* @return Bulk data alignment currently set
+*/
+uint32 FUntypedBulkData::GetBulkDataAlignment() const
+{
+	return BulkDataAlignment;
+}
+
+/**
  * Clears the passed in bulk data flags.
  *
  * @param BulkDataFlagsToClear	Bulk data flags to clear
@@ -595,6 +658,59 @@ bool FUntypedBulkData::ShouldFreeOnEmpty() const
 	Serialization.
 -----------------------------------------------------------------------------*/
 
+void FUntypedBulkData::StartSerializingBulkData(FArchive& Ar, UObject* Owner, int32 Idx, bool bPayloadInline)
+{
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::StartSerializingBulkData"), STAT_UBD_StartSerializingBulkData, STATGROUP_Memory);
+	check(SerializeFuture.IsValid() == false);	
+
+	// Async
+	SerializeFuture = Async<bool>(EAsyncExecution::ThreadPool, [=]()
+	{
+		BulkDataAsync = GetBulkDataResourceMemory(Owner, Idx);
+		if (!BulkDataAsync)
+		{
+			BulkDataAsync = FMemory::Realloc(BulkDataAsync, GetBulkDataSize(), BulkDataAlignment);
+		}
+
+		FArchive* FileReaderAr = IFileManager::Get().CreateFileReader(*Filename, FILEREAD_Silent);
+		checkf(FileReaderAr != NULL, TEXT("Attempted to load bulk data from an invalid filename '%s'."), *Filename);
+
+		// Seek to the beginning of the bulk data in the file.
+		FileReaderAr->Seek(BulkDataOffsetInFile);
+		SerializeBulkData(*FileReaderAr, BulkDataAsync);
+		delete FileReaderAr;
+
+		return true;
+	});
+
+	// Skip bulk data in this archive
+	if (bPayloadInline)
+	{
+		Ar.Seek(Ar.Tell() + BulkDataSizeOnDisk);
+	}
+}
+
+bool FUntypedBulkData::ShouldStreamBulkData()
+{
+	// Minimum bulk data size to start async loading
+	static struct FMinBulkDataSizeForAsyncLoadingSetting
+	{
+		int32 Value;
+		FMinBulkDataSizeForAsyncLoadingSetting()
+			: Value(131072) // 128K by default
+		{
+			GConfig->GetInt(TEXT("Core.System"), TEXT("MinBulkDataSizeForAsyncLoading"), Value, GEngineIni);
+		}
+	} MinBulkDataSizeForAsyncLoading;
+
+	const bool bForceStream = !!(BulkDataFlags & BULKDATA_ForceStreamPayload);
+
+	return (FPlatformProperties::RequiresCookedData() && !Filename.IsEmpty() &&
+		FPlatformProcess::SupportsMultithreading() && IsInGameThread() &&
+		(bForceStream || GetBulkDataSize() > MinBulkDataSizeForAsyncLoading.Value) &&
+		MinBulkDataSizeForAsyncLoading.Value >= 0);
+}
+
 /**
 * Serialize function used to serialize this bulk data structure.
 *
@@ -604,6 +720,8 @@ bool FUntypedBulkData::ShouldFreeOnEmpty() const
 */
 void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::Serialize"), STAT_UBD_Serialize, STATGROUP_Memory);
+
 	check( LockStatus == LOCKSTATUS_Unlocked );
 
 	if(Ar.IsTransacting())
@@ -626,7 +744,7 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 
 				// Allocate bulk data.
 				check(bShouldFreeOnEmpty);
-				BulkData = FMemory::Realloc( BulkData, GetBulkDataSize() );
+				BulkData = FMemory::Realloc( BulkData, GetBulkDataSize(), BulkDataAlignment );
 
 				// Deserialize bulk data.
 				SerializeBulkData( Ar, BulkData );
@@ -683,66 +801,91 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 			
 			Ar << BulkDataOffsetInFile;
 
-			// fix up the file offset 
-			if (Owner != NULL && Owner->GetLinker())
+			// determine whether the payload is stored inline or at the end of the file
+			const bool bPayloadInline = !(BulkDataFlags&BULKDATA_PayloadAtEndOfFile);
+
+			// fix up the file offset, but only if not stored inline
+			if (Owner != NULL && Owner->GetLinker() && !bPayloadInline)
 			{
 				BulkDataOffsetInFile += Owner->GetLinker()->Summary.BulkDataStartOffset;
 			}
 
-			// determine whether the payload is stored inline or at the end of the file
-			bool bPayloadInline = !(BulkDataFlags&BULKDATA_PayloadAtEndOfFile);
-
-// 			check( (bPayloadInline && BulkDataOffsetInFile == Ar.Tell()) || 
-// 				   (!bPayloadInline && BulkDataOffsetInFile > Ar.Tell()));
-			
 			// We're allowing defered serialization.
 			if( Ar.IsAllowingLazyLoading() && Owner != NULL)
-			{
-				Linker = Owner->GetLinker();
-
+			{				
 #if WITH_EDITOR
+				Linker = Owner->GetLinker();
 				check(Linker);
 				Ar.AttachBulkData( Owner, this );
 				AttachedAr = &Ar;
-				
-#else
-				check(Linker.IsValid());
 				Filename = Linker->Filename;
+#else
+				Package = Owner->GetOutermost();
+				check(Package.IsValid());
+				auto Linker = FLinkerLoad::FindExistingLinkerForPackage(Package.Get());
+				check(Linker);
+				Filename = Linker->Filename;		
 #endif // WITH_EDITOR
-				// only skip over payload, if it's stored inline
 				if (bPayloadInline)
 				{
-					Ar.Seek( Ar.Tell() + BulkDataSizeOnDisk );
+					if (ShouldStreamBulkData())
+					{
+						// Start serializing immediately
+						StartSerializingBulkData(Ar, Owner, Idx, bPayloadInline);
+					}
+					else
+					{
+						// Force non-lazy loading of inline bulk data to prevent PostLoad spikes.
+						// Memory for bulk data can come from preallocated GPU-accessible resource memory or default to system memory
+						BulkData = GetBulkDataResourceMemory(Owner, Idx);
+						if (!BulkData)
+						{
+							BulkData = FMemory::Realloc(BulkData, GetBulkDataSize(), BulkDataAlignment);
+						}
+						// if the payload is stored inline, just serialize it
+						SerializeBulkData(Ar, BulkData);
+					}
 				}
 			}
 			// Serialize the bulk data right away.
 			else
 			{
-				// memory for bulk data can come from preallocated GPU-accessible resource memory or default to system memory
-				BulkData = GetBulkDataResourceMemory(Owner,Idx);
-				if( !BulkData )
+				if (Owner && Owner->GetLinker())
 				{
-					BulkData = FMemory::Realloc( BulkData, GetBulkDataSize() );
+					Filename = Owner->GetLinker()->Filename;
 				}
-				
-				if (bPayloadInline)
+				if (ShouldStreamBulkData())
 				{
-					// if the payload is stored inline, just serialize it
-					SerializeBulkData( Ar, BulkData );
+					StartSerializingBulkData(Ar, Owner, Idx, bPayloadInline);
 				}
-				else
-				{
-					// if the payload is NOT stored inline ...
-					
-					// store the current file offset
-					int64 CurOffset = Ar.Tell();
-					// seek to the location in the file where the payload is stored
-					Ar.Seek(BulkDataOffsetInFile);
-					// serialize the payload
-					SerializeBulkData( Ar, BulkData );
-					// seek to the location we came from
-					Ar.Seek(CurOffset);
-				}
+  			else
+  			{
+				  // memory for bulk data can come from preallocated GPU-accessible resource memory or default to system memory
+				  BulkData = GetBulkDataResourceMemory(Owner,Idx);
+				  if( !BulkData )
+				  {
+					  BulkData = FMemory::Realloc( BulkData, GetBulkDataSize(), BulkDataAlignment );
+				  }
+				  
+				  if (bPayloadInline)
+				  {
+					  // if the payload is stored inline, just serialize it
+					  SerializeBulkData( Ar, BulkData );
+				  }
+				  else
+				  {
+					  // if the payload is NOT stored inline ...
+					  
+					  // store the current file offset
+					  int64 CurOffset = Ar.Tell();
+					  // seek to the location in the file where the payload is stored
+					  Ar.Seek(BulkDataOffsetInFile);
+					  // serialize the payload
+					  SerializeBulkData( Ar, BulkData );
+					  // seek to the location we came from
+					  Ar.Seek(CurOffset);
+				  }
+  			}
 			}
 		}
 		// We're saving to the persistent archive.
@@ -784,10 +927,10 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 			Ar << BulkDataOffsetInFile;
 
 				// try to get the linkersave object
-			ULinkerSave* LinkerSave = dynamic_cast<ULinkerSave*>(Ar.GetLinker());
+			FLinkerSave* LinkerSave = Cast<FLinkerSave>(Ar.GetLinker());
 
 			// determine whether we are going to store the payload inline or not.
-			bool bStoreInline = !!(BulkDataFlags&BULKDATA_ForceInlinePayload) || LinkerSave == NULL;
+			bool bStoreInline = !!(BulkDataFlags&BULKDATA_ForceInlinePayload) || !LinkerSave;
 
 			if (!bStoreInline)
 			{
@@ -799,10 +942,11 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 				
 				// add the bulkdata storage info object to the linkersave
 				int32 Index = LinkerSave->BulkDataToAppend.AddZeroed(1);
-				ULinkerSave::FBulkDataStorageInfo& BulkStore = LinkerSave->BulkDataToAppend[Index];
+				FLinkerSave::FBulkDataStorageInfo& BulkStore = LinkerSave->BulkDataToAppend[Index];
 
 				BulkStore.BulkDataOffsetInFilePos = SavedBulkDataOffsetInFilePos;
 				BulkStore.BulkDataSizeOnDiskPos = SavedBulkDataSizeOnDiskPos;
+				BulkStore.BulkDataFlags = BulkDataFlags;
 				BulkStore.BulkData = this;
 				
 				// Serialize bulk data into the storage info
@@ -865,7 +1009,7 @@ bool FUntypedBulkData::RequiresSingleElementSerialization( FArchive& Ar )
 }
 
 /*-----------------------------------------------------------------------------
-	Accessors for friend classes ULinkerLoad and content cookers.
+	Accessors for friend classes FLinkerLoad and content cookers.
 -----------------------------------------------------------------------------*/
 
 #if WITH_EDITOR
@@ -951,17 +1095,30 @@ void FUntypedBulkData::Copy( const FUntypedBulkData& Other )
  */
 void FUntypedBulkData::InitializeMemberVariables()
 {
-	BulkDataFlags				= BULKDATA_None;
-	ElementCount				= 0;
-	BulkDataOffsetInFile		= INDEX_NONE;
-	BulkDataSizeOnDisk			= INDEX_NONE;
-	BulkData					= NULL;
-	LockStatus					= LOCKSTATUS_Unlocked;
-	bShouldFreeOnEmpty			= true;
-	Linker						= NULL;
+	BulkDataFlags = BULKDATA_None;
+	ElementCount = 0;
+	BulkDataOffsetInFile = INDEX_NONE;
+	BulkDataSizeOnDisk = INDEX_NONE;
+	BulkDataAlignment = DEFAULT_ALIGNMENT;
+	BulkData = nullptr;
+	BulkDataAsync = nullptr;
+	LockStatus = LOCKSTATUS_Unlocked;
+	bShouldFreeOnEmpty = true;	
 #if WITH_EDITOR
-	AttachedAr					= NULL;
+	Linker = nullptr;
+	AttachedAr = nullptr;
+#else
+	Package = nullptr;
 #endif
+}
+
+void FUntypedBulkData::SerializeElements(FArchive& Ar, void* Data)
+{
+	// Serialize each element individually.				
+	for (int32 ElementIndex = 0; ElementIndex < ElementCount; ElementIndex++)
+	{
+		SerializeElement(Ar, Data, ElementIndex);
+	}
 }
 
 /**
@@ -1036,11 +1193,8 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 				FMemoryReader MemoryReader( SerializedData, true );
 				MemoryReader.SetByteSwapping( Ar.ForceByteSwapping() );
 
-				// Serialize each element individually via memory reader.				
-				for( int32 ElementIndex=0; ElementIndex<ElementCount; ElementIndex++ )
-				{
-					SerializeElement( MemoryReader, Data, ElementIndex );
-				}
+				// Serialize each element individually via memory reader.
+				SerializeElements(MemoryReader, Data);
 			}
 			// Saving, data is uncompressed in memory and needs to be compressed.
 			else if( Ar.IsSaving() )
@@ -1049,11 +1203,8 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 				FMemoryWriter MemoryWriter( SerializedData, true );
 				MemoryWriter.SetByteSwapping( Ar.ForceByteSwapping() );
 
-				// Serialize each element individually via memory writer.				
-				for( int32 ElementIndex=0; ElementIndex<ElementCount; ElementIndex++ )
-				{
-					SerializeElement( MemoryWriter, Data, ElementIndex );
-				}
+				// Serialize each element individually via memory writer.			
+				SerializeElements(MemoryWriter, Data);
 
 				// Serialize data with passed in archive and compress.
 				Ar.SerializeCompressed( SerializedData.GetData(), SerializedData.Num(), GetDecompressionFlags() );
@@ -1063,10 +1214,7 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
 		else
 		{
 			// We can use the passed in archive if we're not compressing the data.
-			for( int32 ElementIndex=0; ElementIndex<ElementCount; ElementIndex++ )
-			{
-				SerializeElement( Ar, Data, ElementIndex );
-			}
+			SerializeElements(Ar, Data);
 		}
 	}
 }
@@ -1076,19 +1224,54 @@ void FUntypedBulkData::SerializeBulkData( FArchive& Ar, void* Data )
  */
 void FUntypedBulkData::MakeSureBulkDataIsLoaded()
 {
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::MakeSureBulkDataIsLoaded"), STAT_UBD_MakeSureBulkDataIsLoaded, STATGROUP_Memory);
+
 	// Nothing to do if data is already loaded.
 	if( !BulkData )
 	{
-		// Allocate memory for bulk data.
-		BulkData = FMemory::Malloc( GetBulkDataSize() );
-
-		// Only load if there is something to load. E.g. we might have just created the bulk data array
-		// in which case it starts out with a size of zero.
-		if( GetBulkDataSize() > 0 )
+		// Look for async request first
+		if (SerializeFuture.IsValid())
 		{
-			LoadDataIntoMemory( BulkData );
+			WaitForAsyncLoading();
+			BulkData = BulkDataAsync;
+			ResetAsyncData();
+		}
+		else
+		{
+			const int32 BytesNeeded = GetBulkDataSize();
+			// Allocate memory for bulk data.
+			BulkData = FMemory::Malloc(BytesNeeded, BulkDataAlignment);
+
+			// Only load if there is something to load. E.g. we might have just created the bulk data array
+			// in which case it starts out with a size of zero.
+			if (BytesNeeded > 0)
+			{
+				LoadDataIntoMemory(BulkData);
+			}
 		}
 	}
+}
+
+void FUntypedBulkData::WaitForAsyncLoading()
+{
+	check(SerializeFuture.IsValid());
+	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FUntypedBulkData::WaitForAsyncLoading"), STAT_UBD_WaitForAsyncLoading, STATGROUP_Memory);
+	while (!SerializeFuture.WaitFor(FTimespan(0, 0, 0, 0, 1000)))
+	{
+		UE_LOG(LogSerialization, Warning, TEXT("Waiting for %s bulk data (%lld) to be loaded longer than 1000ms"), *Filename, GetBulkDataSize());
+	}
+	check(BulkDataAsync);
+}
+
+bool FUntypedBulkData::FlushAsyncLoading(void* Dest)
+{
+	bool bIsLoadingAsync = SerializeFuture.IsValid();
+	if (bIsLoadingAsync)
+	{
+		WaitForAsyncLoading();
+		FMemory::Memcpy(Dest, BulkDataAsync, GetBulkDataSize());
+	}
+	return bIsLoadingAsync;
 }
 
 /**
@@ -1099,6 +1282,12 @@ void FUntypedBulkData::MakeSureBulkDataIsLoaded()
  */
 void FUntypedBulkData::LoadDataIntoMemory( void* Dest )
 {
+	// Try flushing async loading before attempting to load
+	if (FlushAsyncLoading(Dest))
+	{
+		return;
+	}
+
 #if WITH_EDITOR
 	checkf( AttachedAr, TEXT( "Attempted to load bulk data without an attached archive. Most likely the bulk data was loaded twice on console, which is not supported" ) );
 
@@ -1113,10 +1302,10 @@ void FUntypedBulkData::LoadDataIntoMemory( void* Dest )
 	AttachedAr->Seek( PushedPos );
 #else
 	bool bWasLoadedSuccessfully = false;
-	if (IsInGameThread() && Linker.IsValid())
+	if ((IsInGameThread() || IsInAsyncLoadingThread()) && Package.IsValid() && Package->LinkerLoad && Package->LinkerLoad->GetOwnerThreadId() == FPlatformTLS::GetCurrentThreadId())
 	{
-		ULinkerLoad* LinkerLoad = Linker.Get();
-		if ( LinkerLoad && LinkerLoad->Loader && !LinkerLoad->IsCompressed() )
+		FLinkerLoad* LinkerLoad = Package->LinkerLoad;
+		if (LinkerLoad && LinkerLoad->Loader && !LinkerLoad->IsCompressed())
 		{
 			FArchive* Ar = LinkerLoad;
 			// keep track of current position in this archive
@@ -1262,8 +1451,7 @@ void FFloatBulkData::SerializeElement( FArchive& Ar, void* Data, int32 ElementIn
 	Ar << FloatData;
 }
 
-
-void FFormatContainer::Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave)
+void FFormatContainer::Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave, bool bSingleUse, uint32 InAlignment)
 {
 	if (Ar.IsLoading())
 	{
@@ -1274,6 +1462,7 @@ void FFormatContainer::Serialize(FArchive& Ar, UObject* Owner, const TArray<FNam
 			FName Name;
 			Ar << Name;
 			FByteBulkData& Bulk = GetFormat(Name);
+			Bulk.SetBulkDataAlignment(InAlignment);
 			Bulk.Serialize(Ar, Owner);
 		}
 	}
@@ -1299,7 +1488,12 @@ void FFormatContainer::Serialize(FArchive& Ar, UObject* Owner, const TArray<FNam
 				Ar << Name;
 				FByteBulkData* Bulk = It.Value();
 				check(Bulk);
+				// Force this kind of bulk data (physics, etc) to be stored inline for streaming
+				const uint32 OldBulkDataFlags = Bulk->GetBulkDataFlags();
+				Bulk->SetBulkDataFlags(bSingleUse ? (BULKDATA_ForceInlinePayload | BULKDATA_SingleUse) : BULKDATA_ForceInlinePayload);				
 				Bulk->Serialize(Ar, Owner);
+				Bulk->ClearBulkDataFlags(0xFFFFFFFF);
+				Bulk->SetBulkDataFlags(OldBulkDataFlags);
 			}
 		}
 		check(NumFormats == 0);

@@ -22,11 +22,13 @@ public:
 	void Construct(const FArguments& InArgs);
 
 	// SWidget interface
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime);
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	virtual FReply OnTouchGesture(const FGeometry& MyGeometry, const FPointerEvent& GestureEvent) override;
+	virtual FReply OnTouchEnded(const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent) override;
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 	// End of Swidget interface
@@ -88,12 +90,6 @@ protected:
 	// The interface for mapping ZoomLevel values to actual node scaling values
 	TScopedPointer<FZoomLevelsContainer> ZoomLevels;
 
-	// A flag noting if we have a pending zoom to fit operation to perform next tick.
-	bool bDeferredZoomingToFit;
-
-	// A flag noting if we have a pending zoom to extents operation to perform next tick.
-	bool bDeferredZoomToExtents;
-
 	bool bAllowContinousZoomInterpolation;
 
 	bool bTeleportInsteadOfScrollingWhenZoomingToFit;
@@ -102,6 +98,22 @@ protected:
 	FVector2D ZoomTargetBottomRight;
 	FVector2D ZoomToFitPadding;
 
+	/** Cumulative magnify delta from trackpad gesture */
+	float TotalGestureMagnify;
+
 	/** Does the user need to press Control in order to over-zoom. */
 	bool bRequireControlToOverZoom;
+
+	/** Cached geometry for use within the active timer */
+	FGeometry CachedGeometry;
+
+private:
+	/** Active timer that handles deferred zooming until the target zoom is reached */
+	EActiveTimerReturnType HandleZoomToFit(double InCurrentTime, float InDeltaTime);
+
+	/** The handle to the active timer */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
+
+	// A flag noting if we have a pending zoom to extents operation to perform next tick.
+	bool bDeferredZoomToExtents;
 };

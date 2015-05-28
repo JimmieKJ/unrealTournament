@@ -1,5 +1,6 @@
-﻿Availability:NoPublish
-Title:ブループリントエディタ
+﻿INTSourceChangelist:2301538
+Availability:NoPublish
+Title:ブループリント エディタ
 Crumbs:
 Description:ブループリント ノードの概要
 
@@ -55,7 +56,7 @@ Selection - トリガーされる出力ピンを表示する Enum 値を受け�
 
 **出力ピン**
 
-Variable Number of Execution Pins -  それぞれの列挙型変数に対して出力ピンがあります。ただし、実行信号は対応する[Selection] 入力から出力されます。 
+Variable Number of Execution Pins -  それぞれの列挙型変数に対して出力ピンがあります。ただし、実行信号は対応する [Selection] 入力から出力されます。 
 
 [/EXCERPT:UK2Node_SwitchEnum]
 
@@ -143,7 +144,7 @@ Programming/UnrealArchitecture/StringHandling/FText
 [/EXCERPT:UK2Node_FormatText]
 
 [EXCERPT:UK2Node_Timeline]
-タイムラインは、時間経過と共に値をキーフレームし修正することができる特別なノードです。このノードをクリックすると、 [Timeline Editor] タブが開き、トラックを追加することができます。トラックを作成するたびに、このノードに出力が追加されます。タイムラインが再生されるフレームごとに Update 実行出力ピンが発行され、好きなノードに接続して新規の値を使うことができます。
+タイムラインは、時間経過と共に値をキーフレームし修正することができる特別なノードです。このノードをクリックすると、[Timeline Editor] タブが開き、トラックを追加することができます。トラックを作成するたびに、このノードに出力が追加されます。タイムラインが再生されるフレームごとに Update 実行出力ピンが発行され、好きなノードに接続して新規の値を使うことができます。
 
 ---
 
@@ -171,11 +172,21 @@ Direction - 現在の再生の方向です。
 [/EXCERPT:UK2Node_Timeline]
 
 [EXCERPT:UK2Node_CustomEvent]
-Custom Event は、ユーザーが作成し名前と出力ピンも自分で付けることのできる Event ノードです。この Event はこのブループリントの内部または他のブループリントから呼ぶことができます。
+Custom Event は、ユーザーが作成し名前と出力ピンも自分で付けることのできる Event ノードです。この Event は、このブループリントの内部または他のブループリントから呼ぶことができます。
 
-例としては、スクリプト化されたシーケンス中にレベル ブループリントから発行することができる「Exlode」イベントを追加する銃身のブループリントでしょう。
+例えば、スクリプト化されたシーケンス中にレベル ブループリントから発行することができる Exlode event を追加する銃身のブループリントです。
 [/EXCERPT:UK2Node_CustomEvent]
 
-[EXCERPT:UK2Node_LocalVariable]
-ローカル変数は、それが作成される関数の範囲内でのみ存在する変数であり、データは関数の呼び出し間は持続しません。
-[/EXCERPT:UK2Node_LocalVariable]
+[EXCERPT:UEdGraphNode_Documentation]
+Documentation ノードによって、ブループリントのグラフ内で UDN からの抜粋を表示できるようになります。 
+ユーザーは、[Details] ビューの /Engine/Documentation/Source に相対するリンクとして
+ドキュメントページへの UDN パスを入力しなければなりません。
+[/EXCERPT:UEdGraphNode_Documentation]
+
+
+[EXCERPT:UK2Node_MathExpression]
+Math Expression ノードは折りたたまれたグラフのように動きます。ダブルクリック して、機能を構成しているサブグラフを開く単一のノードです。名前 / 表現式は最初はブランクです。ノード名を変更すると、新規の表現式がパースされ、新規のサブグラフが生成されます。 
+[VAR:ToolTipFullLink]
+Engine/Blueprints/UserGuide/MathNode
+[/VAR]
+[/EXCERPT:UK2Node_MathExpression]

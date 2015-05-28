@@ -16,9 +16,9 @@ FAnimNode_SaveCachedPose::FAnimNode_SaveCachedPose()
 
 void FAnimNode_SaveCachedPose::Initialize(const FAnimationInitializeContext& Context)
 {
-	if( LastInitializedContextCounter != Context.AnimInstance->GetContextCounter() )
+	if (LastInitializedContextCounter != Context.AnimInstance->GetGraphTraversalCounter())
 	{
-		LastInitializedContextCounter = Context.AnimInstance->GetContextCounter();
+		LastInitializedContextCounter = Context.AnimInstance->GetGraphTraversalCounter();
 
 		// Initialize the subgraph
 		Pose.Initialize(Context);
@@ -27,9 +27,9 @@ void FAnimNode_SaveCachedPose::Initialize(const FAnimationInitializeContext& Con
 
 void FAnimNode_SaveCachedPose::CacheBones(const FAnimationCacheBonesContext& Context)
 {
-	if( LastCacheBonesContextCounter != Context.AnimInstance->GetContextCounter() )
+	if (LastCacheBonesContextCounter != Context.AnimInstance->GetGraphTraversalCounter())
 	{
-		LastCacheBonesContextCounter = Context.AnimInstance->GetContextCounter();
+		LastCacheBonesContextCounter = Context.AnimInstance->GetGraphTraversalCounter();
 
 		// Initialize the subgraph
 		Pose.CacheBones(Context);
@@ -38,9 +38,9 @@ void FAnimNode_SaveCachedPose::CacheBones(const FAnimationCacheBonesContext& Con
 
 void FAnimNode_SaveCachedPose::Update(const FAnimationUpdateContext& Context)
 {
-	if( LastUpdatedContextCounter != Context.AnimInstance->GetContextCounter() )
+	if (LastUpdatedContextCounter != Context.AnimInstance->GetGraphTraversalCounter())
 	{
-		LastUpdatedContextCounter = Context.AnimInstance->GetContextCounter();
+		LastUpdatedContextCounter = Context.AnimInstance->GetGraphTraversalCounter();
 
 		// Update the subgraph
 		Pose.Update(Context);
@@ -49,9 +49,9 @@ void FAnimNode_SaveCachedPose::Update(const FAnimationUpdateContext& Context)
 
 void FAnimNode_SaveCachedPose::Evaluate(FPoseContext& Output)
 {
-	if( LastEvaluatedContextCounter != Output.AnimInstance->GetContextCounter() )
+	if (LastEvaluatedContextCounter != Output.AnimInstance->GetGraphTraversalCounter())
 	{
-		LastEvaluatedContextCounter = Output.AnimInstance->GetContextCounter();
+		LastEvaluatedContextCounter = Output.AnimInstance->GetGraphTraversalCounter();
 
 		FPoseContext CachingContext(Output);
 		Pose.Evaluate(CachingContext);

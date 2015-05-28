@@ -16,12 +16,16 @@ UAbilitySystemGlobals::UAbilitySystemGlobals(const FObjectInitializer& ObjectIni
 	AbilitySystemGlobalsClassName = FStringClassReference(TEXT("/Script/GameplayAbilities.AbilitySystemGlobals"));
 	GlobalGameplayCueManagerName = FStringClassReference(TEXT("/Script/GameplayAbilities.GameplayCueManager"));
 
-	// Temp: once system for loading only necessary GameplaycueNotifies, this can go away.
-	GameplayCueNotifyFullyLoad = true;
+	PredictTargetGameplayEffects = true;
 
 #if WITH_EDITORONLY_DATA
 	RegisteredReimportCallback = false;
 #endif // #if WITH_EDITORONLY_DATA
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	bIgnoreAbilitySystemCooldowns = false;
+	bIgnoreAbilitySystemCosts = false;
+#endif // #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
 void UAbilitySystemGlobals::InitGlobalData()
@@ -32,6 +36,7 @@ void UAbilitySystemGlobals::InitGlobalData()
 	InitAttributeDefaults();
 
 	GetGameplayCueManager();
+	InitGlobalTags();
 }
 
 UCurveTable * UAbilitySystemGlobals::GetGlobalCurveTable()
@@ -75,7 +80,7 @@ void UAbilitySystemGlobals::DeriveGameplayCueTagFromAssetName(FString AssetName,
 			AssetName.RemoveFromStart(TEXT("GC_"));		// allow GC_ prefix in asset name
 			AssetName.RemoveFromEnd(TEXT("_c"));
 
-			AssetName.ReplaceInline(TEXT("_"), TEXT("."));
+			AssetName.ReplaceInline(TEXT("_"), TEXT("."), ESearchCase::CaseSensitive);
 
 			if (!AssetName.Contains(TEXT("GameplayCue")))
 			{
@@ -124,14 +129,14 @@ UAbilitySystemGlobals& UAbilitySystemGlobals::Get()
 }
 
 /** Helping function to avoid having to manually cast */
-UAbilitySystemComponent* UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(AActor* Actor, bool LookForComponent)
+UAbilitySystemComponent* UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(const AActor* Actor, bool LookForComponent)
 {
 	if (Actor == nullptr)
 	{
 		return nullptr;
 	}
 
-	IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(Actor);
+	const IAbilitySystemInterface* ASI = Cast<IAbilitySystemInterface>(Actor);
 	if (ASI)
 	{
 		return ASI->GetAbilitySystemComponent();
@@ -227,7 +232,7 @@ UGameplayCueManager* UAbilitySystemGlobals::GetGameplayCueManager()
 		GlobalGameplayCueManager = LoadObject<UGameplayCueManager>(NULL, *GlobalGameplayCueManagerName.ToString(), NULL, LOAD_None, NULL);
 		if (GameplayCueNotifyPaths.Num() > 0)
 		{
-			GlobalGameplayCueManager->LoadObjectLibraryFromPaths( GameplayCueNotifyPaths, GameplayCueNotifyFullyLoad );
+			GlobalGameplayCueManager->LoadObjectLibraryFromPaths(GameplayCueNotifyPaths);
 		}
 	}
 
@@ -237,4 +242,36 @@ UGameplayCueManager* UAbilitySystemGlobals::GetGameplayCueManager()
 void UAbilitySystemGlobals::GlobalPreGameplayEffectSpecApply(FGameplayEffectSpec& Spec, UAbilitySystemComponent* AbilitySystemComponent)
 {
 
+}
+
+void UAbilitySystemGlobals::ToggleIgnoreAbilitySystemCooldowns()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	bIgnoreAbilitySystemCooldowns = !bIgnoreAbilitySystemCooldowns;
+#endif // #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+}
+
+void UAbilitySystemGlobals::ToggleIgnoreAbilitySystemCosts()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	bIgnoreAbilitySystemCosts = !bIgnoreAbilitySystemCosts;
+#endif // #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+}
+
+bool UAbilitySystemGlobals::ShouldIgnoreCooldowns() const
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	return bIgnoreAbilitySystemCooldowns;
+#else
+	return false;
+#endif // #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+}
+
+bool UAbilitySystemGlobals::ShouldIgnoreCosts() const
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	return bIgnoreAbilitySystemCosts;
+#else
+	return false;
+#endif // #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }

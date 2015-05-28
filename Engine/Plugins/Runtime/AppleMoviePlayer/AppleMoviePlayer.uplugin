@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Apple Platform Movie Player using AVPlayer library",
-	"Category" : "Programming Runtime.Plugins",
+	"Category" : "Media Players",
 	"EnabledByDefault" : true,
 	
 	"Modules" :

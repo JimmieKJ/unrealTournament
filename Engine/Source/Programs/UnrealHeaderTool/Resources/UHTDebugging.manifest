@@ -18,7 +18,8 @@
 			],
 			"PCH": "",
 			"GeneratedCPPFilenameBase": "..\\..\\..\\..\\Intermediate/Build/Inc\\CoreUObject\\CoreUObject.generated",
-			"SaveExportedHeaders": true
+			"SaveExportedHeaders": true,
+			"UHTGeneratedCodeVersion":"None"
 		}, {
 			"Name": "UHTDebugging",
 			"ModuleType": "Game",
@@ -26,6 +27,7 @@
 			"IncludeBase": ".\\UHTDebugging",
 			"OutputDirectory": "..\\..\\..\\..\\Intermediate/Build/Inc\\UHTDebugging\\",
 			"ClassesHeaders": [
+				".\\UHTDebugging\\TestDeprecatedObject.h",
 				".\\UHTDebugging\\TestObject.h",
 				".\\UHTDebugging\\TestInterface.h",
 				".\\UHTDebugging\\TestInterfaceObject.h",
@@ -38,7 +40,8 @@
 			],
 			"PCH": "",
 			"GeneratedCPPFilenameBase": "..\\..\\..\\..\\Intermediate/Build/Inc\\UHTDebugging\\UHTDebugging.generated",
-			"SaveExportedHeaders": true
+			"SaveExportedHeaders": true,
+			"UHTGeneratedCodeVersion":"None"
 		}
 	]
 }

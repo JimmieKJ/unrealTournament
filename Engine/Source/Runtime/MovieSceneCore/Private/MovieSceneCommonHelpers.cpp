@@ -132,7 +132,7 @@ FTrackInstancePropertyBindings::FPropertyAddress FTrackInstancePropertyBindings:
 {
 	TArray<FString> PropertyNames;
 
-	InPropertyPath.ParseIntoArray(&PropertyNames, TEXT("."), true);
+	InPropertyPath.ParseIntoArray(PropertyNames, TEXT("."), true);
 
 	if( PropertyNames.Num() > 0 )
 	{

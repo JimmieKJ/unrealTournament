@@ -5,6 +5,7 @@
 #include "AITypes.h"
 #include "BrainComponent.h"
 #include "BehaviorTreeTypes.h"
+#include "GameplayTagContainer.h"
 #include "BehaviorTreeComponent.generated.h"
 
 class UBTNode;
@@ -55,8 +56,23 @@ struct FBTPendingExecutionInfo
 	/** if set, tree ran out of nodes */
 	uint32 bOutOfNodes : 1;
 
-	FBTPendingExecutionInfo() : NextTask(NULL), bOutOfNodes(false) {}
-	bool IsSet() const { return NextTask || bOutOfNodes; }
+	/** if set, request can't be executed */
+	uint32 bLocked : 1;
+
+	FBTPendingExecutionInfo() : NextTask(NULL), bOutOfNodes(false), bLocked(false) {}
+	bool IsSet() const { return (NextTask || bOutOfNodes) && !bLocked; }
+
+	void Lock() { bLocked = true; }
+	void Unlock() { bLocked = false; }
+};
+
+struct FBTPendingInitializeInfo
+{
+	UBehaviorTree* Asset;
+	EBTExecutionMode::Type ExecuteMode;
+
+	FBTPendingInitializeInfo() : Asset(nullptr), ExecuteMode(EBTExecutionMode::Looped) {}
+	bool IsSet() const { return Asset != nullptr; }
 };
 
 UCLASS()
@@ -75,19 +91,25 @@ protected:
 	bool TreeHasBeenStarted() const;
 
 public:
+#if WITH_HOT_RELOAD_CTORS
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	UBehaviorTreeComponent(FVTableHelper& Helper);
+#endif // WITH_HOT_RELOAD_CTORS
+
 	virtual bool IsRunning() const override;
 	virtual bool IsPaused() const override;
+	virtual void Cleanup() override;
 	// End UBrainComponent overrides
 
-	// Begin UObject overrides
-	virtual void BeginDestroy() override;
-	// End UObject overrides
+	// Begin UActorComponent overrides
+	virtual void UninitializeComponent() override;
+	// End UActorComponent overrides
 
 	/** starts execution from root */
-	bool StartTree(UBehaviorTree& Asset, EBTExecutionMode::Type ExecuteMode = EBTExecutionMode::Looped);
+	void StartTree(UBehaviorTree& Asset, EBTExecutionMode::Type ExecuteMode = EBTExecutionMode::Looped);
 
 	/** stops execution */
-	void StopTree();
+	void StopTree(EBTStopMode::Type StopMode = EBTStopMode::Safe);
 
 	/** restarts execution from root */
 	void RestartTree();
@@ -123,6 +145,9 @@ public:
 	/** unregister all aux nodes less important than given index */
 	void UnregisterAuxNodesUpTo(const FBTNodeIndex& Index);
 
+	/** unregister all aux nodes in branch of tree */
+	void UnregisterAuxNodesInBranch(const UBTCompositeNode* Node);
+
 	/** BEGIN UActorComponent overrides */
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	/** END UActorComponent overrides */
@@ -132,9 +157,6 @@ public:
 
 	/** schedule execution flow update in next tick */
 	void ScheduleExecutionUpdate();
-
-	/** remove all runtime data, used on map change */
-	void Cleanup();
 
 	/** tries to find behavior tree instance in context */
 	int32 FindInstanceContainingNode(const UBTNode* Node) const;
@@ -173,6 +195,12 @@ public:
 	virtual FString DescribeActiveTasks() const;
 	virtual FString DescribeActiveTrees() const;
 
+	/** @return the cooldown tag end time, 0.0f if CooldownTag is not found */
+	float GetTagCooldownEndTime(FGameplayTag CooldownTag) const;
+
+	/** add to the cooldown tag's duration */
+	void AddCooldownTagDuration(FGameplayTag CooldownTag, float CooldownDuration, bool bAddToExistingDuration);
+
 #if ENABLE_VISUAL_LOG
 	virtual void DescribeSelfToVisLog(struct FVisualLogEntry* Snapshot) const override;
 #endif
@@ -197,8 +225,14 @@ protected:
 	/** result of ExecutionRequest, will be applied when current task finish aborting */
 	FBTPendingExecutionInfo PendingExecution;
 
+	/** stored data for starting new tree, waits until previously running finishes aborting */
+	FBTPendingInitializeInfo PendingInitialize;
+
 	/** message observers mapped by instance & execution index */
 	TMultiMap<FBTNodeIndex,FAIMessageObserverHandle> TaskMessageObservers;
+
+	/** behavior cooldowns mapped by tag to last time it was set */
+	TMap<FGameplayTag, float> CooldownTagsMap;
 
 #if USE_BEHAVIORTREE_DEBUGGER
 	/** search flow for debugger */
@@ -209,6 +243,9 @@ protected:
 
 	/** debugger's recorded data */
 	mutable TArray<FBehaviorTreeExecutionStep> DebuggerSteps;
+
+	/** set when at least one debugger window is opened */
+	static int32 ActiveDebuggerCounter;
 #endif
 
 	/** index of last active instance on stack */
@@ -222,6 +259,9 @@ protected:
 
 	/** set when execution update is scheduled for next tick */
 	uint8 bRequestedFlowUpdate : 1;
+
+	/** set when tree stop was called */
+	uint8 bRequestedStop : 1;
 
 	/** if set, tree execution is allowed */
 	uint8 bIsRunning : 1;
@@ -275,6 +315,9 @@ protected:
 	/** apply pending execution from last task search */
 	void ProcessPendingExecution();
 
+	/** apply pending tree initialization */
+	void ProcessPendingInitialize();
+
 	/** make a snapshot for debugger */
 	void StoreDebuggerExecutionStep(EBTExecutionSnap::Type SnapType);
 
@@ -297,6 +340,11 @@ protected:
 
 	/** update runtime description of given task node in latest debugger's snapshot */
 	void UpdateDebuggerAfterExecution(const UBTTaskNode* TaskNode, uint16 InstanceIdx) const;
+
+	/** check if debugger is currently running and can gather data */
+	static bool IsDebuggerActive();
+
+	EBTNodeRelativePriority CalculateRelativePriority(const UBTNode* NodeA, const UBTNode* NodeB) const;
 
 	friend UBTNode;
 	friend UBTCompositeNode;
@@ -331,5 +379,5 @@ FORCEINLINE uint16 UBehaviorTreeComponent::GetActiveInstanceIdx() const
 
 FORCEINLINE bool UBehaviorTreeComponent::IsRestartPending() const
 {
-	return ExecutionRequest.ExecuteNode && ExecutionRequest.bIsRestart;
+	return ExecutionRequest.ExecuteNode && !ExecutionRequest.bTryNextChild;
 }

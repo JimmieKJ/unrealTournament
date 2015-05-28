@@ -69,6 +69,9 @@
 #include "NotificationManager.h"
 
 #include "Editor/KismetWidgets/Public/SSingleObjectDetailsPanel.h"
+#include "Animation/AimOffsetBlendSpace.h"
+#include "Animation/AimOffsetBlendSpace1D.h"
+#include "Animation/AnimNotifies/AnimNotifyState.h"
 
 #define LOCTEXT_NAMESPACE "FPersona"
 
@@ -100,7 +103,7 @@ public:
 	{
 		PersonaPtr = InPersona;
 
-		SSingleObjectDetailsPanel::Construct(SSingleObjectDetailsPanel::FArguments(), /*bAutomaticallyObserveViaGetObjectToObserve*/ true, /*bAllowSearch*/ true);
+		SSingleObjectDetailsPanel::Construct(SSingleObjectDetailsPanel::FArguments().HostCommandList(InPersona->GetToolkitCommands()), /*bAutomaticallyObserveViaGetObjectToObserve*/ true, /*bAllowSearch*/ true);
 
 		PropertyView->SetIsPropertyEditingEnabledDelegate(FIsPropertyEditingEnabled::CreateStatic([] { return !GIntraFrameDebuggingGameThread; }));
 	}
@@ -714,7 +717,7 @@ void FPersona::InitPersona(const EToolkitMode::Type Mode, const TSharedPtr< clas
 	check(PreviewComponent == NULL);
 
 	// Create the preview component
-	PreviewComponent = ConstructObject<UDebugSkelMeshComponent>(UDebugSkelMeshComponent::StaticClass(), GetTransientPackage());
+	PreviewComponent = NewObject<UDebugSkelMeshComponent>();
 
 	// note: we add to root here (rather than using RF_Standalone) as all standalone objects will be cleaned up when we switch
 	// preview worlds (in UWorld::CleanupWorld), but we want this to stick around while Persona exists
@@ -728,7 +731,7 @@ void FPersona::InitPersona(const EToolkitMode::Type Mode, const TSharedPtr< clas
 		SetPreviewMesh(InitMesh);
 		bSetMesh = true;
 
-		if(!TargetSkeleton->GetPreviewMesh())
+		if (TargetSkeleton && !TargetSkeleton->GetPreviewMesh())
 		{
 			TargetSkeleton->SetPreviewMesh(InitMesh, false);
 		}
@@ -1674,9 +1677,12 @@ void FPersona::Compile()
 	UObject* CurrentDebugObject = GetBlueprintObj()->GetObjectBeingDebugged();
 	const bool bIsDebuggingPreview = (PreviewComponent != NULL) && PreviewComponent->IsAnimBlueprintInstanced() && (PreviewComponent->AnimScriptInstance == CurrentDebugObject);
 
-	// Force close any asset editors that are using the AnimScriptInstance (such as the Property Matrix), the class will be garbage collected
-	FAssetEditorManager::Get().CloseOtherEditors(PreviewComponent->AnimScriptInstance, nullptr);
-	
+	if (PreviewComponent != NULL)
+	{
+		// Force close any asset editors that are using the AnimScriptInstance (such as the Property Matrix), the class will be garbage collected
+		FAssetEditorManager::Get().CloseOtherEditors(PreviewComponent->AnimScriptInstance, nullptr);
+	}
+
 	// Compile the blueprint
 	FBlueprintEditor::Compile();
 
@@ -1847,7 +1853,27 @@ void FPersona::SetPreviewMesh(USkeletalMesh* NewPreviewMesh)
 				AddEditingObject(NewPreviewMesh);
 			}
 
+			// setting skeletalmesh unregister/re-register, 
+			// so I have to save the animation settings and resetting after setting mesh
+			UAnimationAsset* AnimAssetToPlay = NULL;
+			float PlayPosition = 0.f;
+			bool bPlaying = false;
+			bool bNeedsToCopyAnimationData = PreviewComponent->AnimScriptInstance && PreviewComponent->AnimScriptInstance == PreviewComponent->PreviewInstance;
+			if(bNeedsToCopyAnimationData)
+			{
+				AnimAssetToPlay = PreviewComponent->PreviewInstance->CurrentAsset;
+				PlayPosition = PreviewComponent->PreviewInstance->CurrentTime;
+				bPlaying = PreviewComponent->PreviewInstance->bPlaying;
+			}
+
 			PreviewComponent->SetSkeletalMesh(NewPreviewMesh);
+
+			if(bNeedsToCopyAnimationData)
+			{
+				SetPreviewAnimationAsset(AnimAssetToPlay);
+				PreviewComponent->PreviewInstance->SetPosition(PlayPosition);
+				PreviewComponent->PreviewInstance->bPlaying = bPlaying;
+			}
 		}
 		else
 		{
@@ -1958,9 +1984,9 @@ void FPersona::CreateDefaultTabContents(const TArray<UBlueprint*>& InBlueprints)
 	PreviewEditor = SNew(SPersonaPreviewPropertyEditor, SharedThis(this));
 }
 
-FGraphAppearanceInfo FPersona::GetGraphAppearance() const
+FGraphAppearanceInfo FPersona::GetGraphAppearance(UEdGraph* InGraph) const
 {
-	FGraphAppearanceInfo AppearanceInfo = FBlueprintEditor::GetGraphAppearance();
+	FGraphAppearanceInfo AppearanceInfo = FBlueprintEditor::GetGraphAppearance(InGraph);
 
 	if ( GetBlueprintObj()->IsA(UAnimBlueprint::StaticClass()) )
 	{
@@ -2012,30 +2038,30 @@ void FPersona::SetSelectedBone(USkeleton* InTargetSkeleton, const FName& BoneNam
 	{
 		if (UDebugSkelMeshComponent* Preview = GetPreviewMeshComponent())
 		{
-			// need to get mesh bone base since BonesOfInterest is saved in SkeletalMeshComponent
-			// and it is used by renderer. It is not Skeleton base
-			const int32 MeshBoneIndex = Preview->GetBoneIndex(BoneName);
+			Preview->BonesOfInterest.Empty();
+			ClearSelectedSocket();
 
-			if (MeshBoneIndex != INDEX_NONE)
+			// Add in bone of interest only if we have a preview instance set-up
+			if (Preview->PreviewInstance != NULL)
 			{
-				Preview->BonesOfInterest.Empty();
-				ClearSelectedSocket();
+				// need to get mesh bone base since BonesOfInterest is saved in SkeletalMeshComponent
+				// and it is used by renderer. It is not Skeleton base
+				const int32 MeshBoneIndex = Preview->GetBoneIndex(BoneName);
 
-				if (Preview->PreviewInstance != NULL)
+				if (MeshBoneIndex != INDEX_NONE)
 				{
-					// Add in bone of interest only if we have a preview instance set-up
 					Preview->BonesOfInterest.Add(MeshBoneIndex);
+				}
 
-					if ( bRebroadcast )
-					{
-						// Broadcast that a bone has been selected
-						OnBoneSelected.Broadcast( BoneName );
-					}
+				if ( bRebroadcast )
+				{
+					// Broadcast that a bone has been selected
+					OnBoneSelected.Broadcast( BoneName );
+				}
 
-					if( Viewport.IsValid() )
-					{
-						Viewport.Pin()->GetLevelViewportClient().Invalidate();
-					}
+				if( Viewport.IsValid() )
+				{
+					Viewport.Pin()->GetLevelViewportClient().Invalidate();
 				}
 			}
 		}
@@ -2128,14 +2154,14 @@ void FPersona::DuplicateAndSelectSocket( const FSelectedSocketInfo& SocketInfoTo
 		TargetSkeleton->Modify();
 		bModifiedSkeleton = true;
 
-		NewSocket = ConstructObject<USkeletalMeshSocket>( USkeletalMeshSocket::StaticClass(), TargetSkeleton );
+		NewSocket = NewObject<USkeletalMeshSocket>(TargetSkeleton);
 		check(NewSocket);
 	}
 	else if ( Mesh )
 	{
 		Mesh->Modify();
 
-		NewSocket = ConstructObject<USkeletalMeshSocket>( USkeletalMeshSocket::StaticClass(), Mesh );
+		NewSocket = NewObject<USkeletalMeshSocket>(Mesh);
 		check(NewSocket);
 	}
 	else 
@@ -2217,7 +2243,7 @@ bool FPersona::DoesSocketAlreadyExist( const USkeletalMeshSocket* InSocket, cons
 
 USkeletalMeshComponent*	FPersona::CreateNewSkeletalMeshComponent()
 {
-	USkeletalMeshComponent* NewComp = ConstructObject<USkeletalMeshComponent>(USkeletalMeshComponent::StaticClass());
+	USkeletalMeshComponent* NewComp = NewObject<USkeletalMeshComponent>();
 	AdditionalMeshes.Add(NewComp);
 	NewComp->SetMasterPoseComponent(GetPreviewMeshComponent());
 	return NewComp;
@@ -2285,7 +2311,7 @@ bool FPersona::AttachObjectToPreviewComponent( UObject* Object, FName AttachTo, 
 		WorldSettings->SetFlags(RF_Transactional);
 		WorldSettings->Modify();
 
-		USceneComponent* SceneComponent = ConstructObject<USceneComponent>(ComponentClass, WorldSettings, NAME_None, RF_Transactional);
+		USceneComponent* SceneComponent = NewObject<USceneComponent>(WorldSettings, ComponentClass, NAME_None, RF_Transactional);
 
 		FComponentAssetBrokerage::AssignAssetToComponent(SceneComponent, Object);
 
@@ -3046,7 +3072,7 @@ void FPersona::OnImportAsset(enum EFBXImportType DefaultImportType)
 	{
 		AssetPath = NewAnimDlg->GetAssetPath();
 	
-		UFbxImportUI* ImportUI = ConstructObject<UFbxImportUI>(UFbxImportUI::StaticClass());
+		UFbxImportUI* ImportUI = NewObject<UFbxImportUI>();
 		ImportUI->Skeleton = TargetSkeleton;
 		ImportUI->MeshTypeToImport = DefaultImportType;
 

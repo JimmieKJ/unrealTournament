@@ -19,13 +19,13 @@ FText UK2Node_Message::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	FText NodeName;
 	if (UFunction* Function = GetTargetFunction())
 	{
-		if (!CachedNodeTitles.IsTitleCached(TitleType))
+		if (!CachedNodeTitles.IsTitleCached(TitleType, this))
 		{
-			FText NodeNameText = FText::FromString(UK2Node_CallFunction::GetUserFacingFunctionName(Function));
+			FText NodeNameText = UK2Node_CallFunction::GetUserFacingFunctionName(Function);
 			if (TitleType == ENodeTitleType::MenuTitle)
 			{
 				// FText::Format() is slow, so we cache this to save on performance
-				CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("ListTitle", "{0} (Message)"), NodeNameText));
+				CachedNodeTitles.SetCachedTitle(TitleType, FText::Format(LOCTEXT("ListTitle", "{0} (Message)"), NodeNameText), this);
 			}
 			else
 			{
@@ -35,7 +35,7 @@ FText UK2Node_Message::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 				FText NodeTitle = FText::Format(NSLOCTEXT("K2Node", "CallInterfaceContext", "{NodeName}\nUsing Interface {OuterClassName}"), Args);
 				// FText::Format() is slow, so we cache this to save on performance
-				CachedNodeTitles.SetCachedTitle(TitleType, NodeTitle);
+				CachedNodeTitles.SetCachedTitle(TitleType, NodeTitle, this);
 			}
 		}
 	}
@@ -103,7 +103,7 @@ void UK2Node_Message::ExpandNode(class FKismetCompilerContext& CompilerContext, 
 	if (bExecPinConnected)
 	{
 		// Make sure our interface is valid
-		if (FunctionReference.GetMemberParentClass(this) == NULL)
+		if (FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode()) == NULL)
 		{
 			CompilerContext.MessageLog.Error(*FString::Printf(*LOCTEXT("MessageNodeInvalid_Error", "Message node @@ has an invalid interface.").ToString()), this);
 			return;
@@ -113,7 +113,7 @@ void UK2Node_Message::ExpandNode(class FKismetCompilerContext& CompilerContext, 
 		if (MessageNodeFunction == NULL)
 		{
 			//@TODO: Why do this here in teh compiler, it's already done on AllocateDefaultPins() during on-load node reconstruction
-			MessageNodeFunction = Cast<UFunction>(UK2Node::FindRemappedField(FunctionReference.GetMemberParentClass(this), FunctionReference.GetMemberName()));
+			MessageNodeFunction = Cast<UFunction>(FMemberReference::FindRemappedField(FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode()), FunctionReference.GetMemberName()));
 		}
 
 		if (MessageNodeFunction == NULL)
@@ -156,6 +156,7 @@ void UK2Node_Message::ExpandNode(class FKismetCompilerContext& CompilerContext, 
 
 		UEdGraphPin* CastToInterfaceSourceObjectPin = CastToInterfaceNode->GetCastSourcePin();
 		CompilerContext.MovePinLinksToIntermediate(*MessageSelfPin, *CastToInterfaceSourceObjectPin);
+		CastToInterfaceNode->PinConnectionListChanged(CastToInterfaceSourceObjectPin);
 
 		// Next, create the function call node
 		UK2Node_CallFunction* FunctionCallNode = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "EdGraph/EdGraphNode.h" // for ENodeTitleType
+#include "EdGraph/EdGraphSchema.h"
 
 /*******************************************************************************
  * FNodeTextCache
@@ -15,16 +16,62 @@
 struct FNodeTextCache
 {
 public:
-	/** */
-	FORCEINLINE bool IsOutOfDate() const
+	FNodeTextCache() :
+		CacheRefreshID(0)
+	{}
+
+	/**
+	 * Checks if the title is out of date
+	 *
+	 * @param InOwningNode		Node that owns this title
+	 */
+	FORCEINLINE bool IsOutOfDate(const UEdGraphNode* InOwningNode) const
 	{
-		return CachedText.IsEmpty();
+		return CachedText.IsEmpty() || (InOwningNode && InOwningNode->GetGraph() && InOwningNode->GetSchema()->IsCacheVisualizationOutOfDate(CacheRefreshID));
 	}
 
-	/** */
-	FORCEINLINE void SetCachedText(FText const& Text) const
+	/**
+	 * Checks if the title is out of date
+	 *
+	 * @param InSchema		Schema to use for checking if externally made out of date
+	 */
+	FORCEINLINE bool IsOutOfDate(const UEdGraphSchema* InSchema) const
 	{
-		CachedText = Text;
+		return CachedText.IsEmpty() || (InSchema && InSchema->IsCacheVisualizationOutOfDate(CacheRefreshID));
+	}
+
+	/**
+	 * Checks if the title is out of date
+	 *
+	 * @param InText			Text to cache
+	 * @param InOwningNode		Node that owns this title
+	 */
+	FORCEINLINE void SetCachedText(FText const& InText, const UEdGraphNode* InOwningNode) const
+	{
+		UpdateCacheIternal(InText);
+
+		if (InOwningNode && InOwningNode->GetGraph())
+		{
+			// Update the CacheRefreshID, whenever these values do not match the cached value is out of date
+			CacheRefreshID = InOwningNode->GetSchema()->GetCurrentVisualizationCacheID();
+		}
+	}
+
+	/**
+	 * Checks if the title is out of date
+	 *
+	 * @param InText			Text to cache
+	 * @param InSchema			Schema to use for checking if externally made out of date
+	 */
+	FORCEINLINE void SetCachedText(FText const& InText, const UEdGraphSchema* InSchema) const
+	{
+		UpdateCacheIternal(InText);
+
+		if (InSchema)
+		{
+			// Update the CacheRefreshID, whenever these values do not match the cached value is out of date
+			CacheRefreshID = InSchema->GetCurrentVisualizationCacheID();
+		}
 	}
 
 	/** */
@@ -37,6 +84,7 @@ public:
 	FORCEINLINE void MarkDirty() const
 	{
 		Clear();
+		CacheRefreshID = 0;
 	}
 
 	/** */
@@ -46,21 +94,35 @@ public:
 	}
 
 	/** */
-	FORCEINLINE FText& operator=(FText const& Text) const
-	{
-		SetCachedText(Text);
-		return CachedText;
-	}
-
-	/** */
 	FORCEINLINE operator FText&() const
 	{
 		return GetCachedText();
 	}
 
 private:
+	/** Helper to lookup from the GConfig the correct ini setting for displaying
+	 *  node and pin titles localized and updates the cache accordingly */
+	FORCEINLINE void UpdateCacheIternal(FText const& InText) const
+	{
+		bool bShowNodesAndPinsUnlocalized = false;
+		GConfig->GetBool( TEXT("Internationalization"), TEXT("ShowNodesAndPinsUnlocalized"), bShowNodesAndPinsUnlocalized, GEditorSettingsIni );
+
+		if (bShowNodesAndPinsUnlocalized)
+		{
+			CachedText = FText::FromString(InText.BuildSourceString());
+		}
+		else
+		{
+			CachedText = InText;
+		}
+	}
+
+private:
 	/** Mutable so that SetCachedText() can remain const (callable by the node's GetNodeTitle() method)*/
 	mutable FText CachedText;
+
+	/** ID to check if the title should be considered dirty due to outside conditions that may require the title to refresh */
+	mutable int32 CacheRefreshID;
 };
 
 /*******************************************************************************
@@ -70,16 +132,27 @@ private:
 struct FNodeTitleTextTable
 {
 public:
-	/** */
-	FORCEINLINE bool IsTitleCached(ENodeTitleType::Type TitleType) const
+	/**
+	 * Checks if the title of the passed type is cached
+	 *
+	 * @param InTitleType		Type of title to be examined
+	 * @param InOwningNode		Node that owns this title
+	 */
+	FORCEINLINE bool IsTitleCached(ENodeTitleType::Type InTitleType, const UEdGraphNode* InOwningNode) const
 	{
-		return !CachedNodeTitles[TitleType].IsOutOfDate();
+		return !CachedNodeTitles[InTitleType].IsOutOfDate(InOwningNode);
 	}
 
-	/** */
-	FORCEINLINE void SetCachedTitle(ENodeTitleType::Type TitleType, FText const& Text) const
+	/**
+	 * Caches the specific title type
+	 *
+	 * @param InTitleType		Type of title to be examined
+	 * @param InText			Text to cache
+	 * @param InOwningNode		Node that owns this title
+	 */
+	FORCEINLINE void SetCachedTitle(ENodeTitleType::Type InTitleType, FText const& InText, const UEdGraphNode* InOwningNode) const
 	{
-		CachedNodeTitles[TitleType].SetCachedText(Text);
+		CachedNodeTitles[InTitleType].SetCachedText(InText, InOwningNode);
 	}
 
 	/** */
@@ -115,16 +188,27 @@ private:
 struct FNodeTextTable : FNodeTitleTextTable
 {
 public:
-	/** */
-	FORCEINLINE bool IsTooltipCached() const
+	/**
+	 * Checks if there is text cached
+	 *
+	 * @param InOwningNode		Node that owns this title
+	 */
+	FORCEINLINE bool IsTooltipCached(const UEdGraphNode* InOwningNode) const
 	{
-		return !CachedTooltip.IsOutOfDate();
+		const UEdGraphSchema* NullSchema = nullptr;
+		return !CachedTooltip.IsOutOfDate(NullSchema);
 	}
 
-	/** */
-	FORCEINLINE void SetCachedTooltip(FText const& Text) const
+	/**
+	 * Caches the tooltip
+	 *
+	 * @param InText			Text to cache
+	 * @param InOwningNode		Node that owns this title
+	 */
+	FORCEINLINE void SetCachedTooltip(FText const& InText, const UEdGraphNode* InOwningNode) const
 	{
-		CachedTooltip.SetCachedText(Text);
+		const UEdGraphSchema* NullSchema = nullptr;
+		CachedTooltip.SetCachedText(InText, NullSchema);
 	}
 
 	/** */

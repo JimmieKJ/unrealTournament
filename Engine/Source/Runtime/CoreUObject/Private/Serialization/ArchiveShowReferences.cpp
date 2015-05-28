@@ -33,9 +33,6 @@ FArchiveShowReferences::FArchiveShowReferences( FOutputDevice& inOutputAr, UObje
 	// every object we serialize obviously references our package
 	Found.AddUnique(SourceOuter);
 
-	// every object we serialize obviously references its linker
-	Found.AddUnique(SourceObject->GetLinker());
-
 	// every object we serialize obviously references its class and its class's parent classes
 	for ( UClass* ObjectClass = SourceObject->GetClass(); ObjectClass; ObjectClass = ObjectClass->GetSuperClass() )
 	{

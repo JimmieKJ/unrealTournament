@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "AI/Navigation/NavigationTypes.h"
 #include "StaticMeshActor.generated.h"
 
 /**
@@ -28,6 +29,9 @@ public:
 	UPROPERTY(Category=Actor, EditAnywhere, AdvancedDisplay)
 	bool bStaticMeshReplicateMovement;
 
+	UPROPERTY(EditAnywhere, Category = Navigation, AdvancedDisplay)
+	ENavDataGatheringMode NavigationGeometryGatheringMode;
+
 	/** Function to change mobility type */
 	void SetMobility(EComponentMobility::Type InMobility);
 
@@ -37,6 +41,10 @@ public:
 	virtual bool GetReferencedContentObjects( TArray<UObject*>& Objects ) const override;
 	// End AActor Interface
 #endif // WITH_EDITOR	
+
+	// INavRelevantInterface begin
+	virtual ENavDataGatheringMode GetGeometryGatheringMode() const { return ENavDataGatheringMode::Default; }
+	// INavRelevantInterface end
 
 protected:
 	// Begin UObject interface.

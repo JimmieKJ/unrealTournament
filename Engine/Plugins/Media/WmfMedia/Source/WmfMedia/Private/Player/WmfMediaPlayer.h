@@ -86,6 +86,11 @@ protected:
 
 private:
 
+	/** Handles session errors. */
+	void HandleSessionError(HRESULT Error);
+
+private:
+
 	/** The available media tracks. */
 	TArray<IMediaTrackRef> Tracks;
 

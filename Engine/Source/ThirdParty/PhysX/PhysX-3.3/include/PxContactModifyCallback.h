@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -38,6 +21,7 @@
 #include "PxShape.h"
 #include "PxContact.h"
 #include "foundation/PxTransform.h"
+
 
 #ifndef PX_DOXYGEN
 namespace physx
@@ -64,19 +48,26 @@ public:
 	/**
 	\brief Get the position of a specific contact point in the set.
 
+	The contact points could be on the surface of either shape and there are currently no guarantees provided upon which shape the points lie.
+
 	@see PxModifiableContact.point
 	*/
-	PX_FORCE_INLINE		const PxVec3& getPoint(PxU32 i) const			{ return mContacts[i].contact;		}
+	PX_FORCE_INLINE		const PxVec3& getPoint(PxU32 i) const			{  return mContacts[i].contact;		}
 
 	/**
 	\brief Alter the position of a specific contact point in the set.
 
 	@see PxModifiableContact.point
 	*/
-	PX_FORCE_INLINE		void setPoint(PxU32 i, const PxVec3& p)			{ mContacts[i].contact = p; }
+	PX_FORCE_INLINE		void setPoint(PxU32 i, const PxVec3& p)			
+	{
+		mContacts[i].contact = p; 
+	}
 
 	/**
 	\brief Get the contact normal of a specific contact point in the set.
+
+	The contact normal points from the second shape to the first shape.
 
 	@see PxModifiableContact.normal
 	*/
@@ -86,13 +77,19 @@ public:
 	\brief Alter the contact normal of a specific contact point in the set.
 
 	\note Changing the normal can cause contact points to be ignored.
+	\note This must be a normalized vector.
 
 	@see PxModifiableContact.normal
 	*/
-	PX_FORCE_INLINE		void setNormal(PxU32 i, const PxVec3& n)		{ mContacts[i].normal = n;}
+	PX_FORCE_INLINE		void setNormal(PxU32 i, const PxVec3& n)		
+	{ 
+		mContacts[i].normal = n;
+	}
 
 	/**
 	\brief Get the separation of a specific contact point in the set.
+
+	This value can be either positive or negative. A negative value denotes penetration whereas a positive value denotes separation.
 
 	@see PxModifiableContact.separation
 	*/
@@ -103,7 +100,10 @@ public:
 
 	@see PxModifiableContact.separation
 	*/
-	PX_FORCE_INLINE		void setSeparation(PxU32 i, PxReal s)			{ mContacts[i].separation = s; }
+	PX_FORCE_INLINE		void setSeparation(PxU32 i, PxReal s)			
+	{
+		mContacts[i].separation = s; 
+	}
 
 	/**
 	\brief Get the target velocity of a specific contact point in the set.
@@ -116,9 +116,24 @@ public:
 	/**
 	\brief Alter the target velocity of a specific contact point in the set.
 
+	The user-defined target velocity is used to complement the normal and frictional response to a contact. The actual response to a contact depends on 
+	the relative velocity, bounce threshold, mass properties and material properties.
+
+	The user-defined property should be defined as a relative velocity in the space (v0 - v1), where v0 is actor[0]'s velocity and v1 is actor[1]'s velocity.
+
+	\note Target velocity can be set in any direction and is independent of the contact normal. Any component of the target velocity that projects onto the contact normal
+	will affect normal response and may cause the bodies to either suck into each-other or separate. Any component of the target velocity that does not project onto the contact
+	normal will affect the friction response. Target velocities tangential to the contact normal can be an effective way of replicating effects like a conveyor belt.
+
 	@see PxModifiableContact.targetVelocity
 	*/
-	PX_FORCE_INLINE		void setTargetVelocity(PxU32 i, const PxVec3& v){ mContacts[i].targetVel = v;}
+	PX_FORCE_INLINE		void setTargetVelocity(PxU32 i, const PxVec3& v)
+	{
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
+		header->flags |= PxContactHeader::eHAS_TARGET_VELOCITY;
+		mContacts[i].targetVel = v;
+	}
 
 	/**
 	\brief Get the face index with respect to the first shape of the pair for a specific contact point in the set.
@@ -137,6 +152,9 @@ public:
 	/**
 	\brief Get the maximum impulse for a specific contact point in the set.
 
+	The value of maxImpulse is a real value in the range [0, PX_MAX_F32]. A value of 0 will disable the contact. The applied impulse will be clamped such that it
+	cannot exceed the max impulse.
+
 	@see PxModifiableContact.maxImpulse
 	*/
 	PX_FORCE_INLINE		PxReal getMaxImpulse(PxU32 i) const				{ return mContacts[i].maxImpulse;	}
@@ -144,11 +162,18 @@ public:
 	/**
 	\brief Alter the maximum impulse for a specific contact point in the set.
 
-	\note Must be nonnegative. If set to zero, the contact point will be ignored
+	\note Must be nonnegative. If set to zero, the contact point will be ignored, otherwise the impulse applied inside the solver will be clamped such that it cannot
+	exceed this value.
 
 	@see PxModifiableContact.maxImpulse
 	*/
-	PX_FORCE_INLINE		void setMaxImpulse(PxU32 i, PxReal s)			{ mContacts[i].maxImpulse = s; }
+	PX_FORCE_INLINE		void setMaxImpulse(PxU32 i, PxReal s)			
+	{
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
+		header->flags |= PxContactHeader::eHAS_MAX_IMPULSE;
+		mContacts[i].maxImpulse = s; 
+	}
 
 	/**
 	\brief Ignore the contact point.
@@ -165,44 +190,48 @@ public:
 	/**
 	\brief Returns the invMassScale of body 0
 
-	The scale is defaulted to 1.0, meaning that the body's mass.
+	The scale is defaulted to 1.0, meaning that the body's true mass will be used.
 	*/
 	PX_FORCE_INLINE		PxReal getInvMassScale0() const					
 	{ 
-		PxModifyContactHeader* header = (PxModifyContactHeader*)(((PxU8*)mContacts) - (sizeof(PxModifyContactHeader) + sizeof(PxContactPatchBase)));
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
 		return header->invMassScale0;
 	}
 
 	/**
 	\brief Returns the invMassScale of body 1
 
-	The scale is defaulted to 1.0, meaning that the body's mass.
+	The scale is defaulted to 1.0, meaning that the body's true mass will be used.
 	*/
 	PX_FORCE_INLINE		PxReal getInvMassScale1() const					
 	{ 
-		PxModifyContactHeader* header = (PxModifyContactHeader*)(((PxU8*)mContacts) - (sizeof(PxModifyContactHeader) + sizeof(PxContactPatchBase)));
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
 		return header->invMassScale1;
 	}
 
 	/**
 	\brief Returns the invInertiaScale of body 0
 
-	The scale is defaulted to 1.0, meaning that the body's invInertia.
+	The scale is defaulted to 1.0, meaning that the body's true invInertia will be used.
 	*/
 	PX_FORCE_INLINE		PxReal getInvInertiaScale0() const					
 	{ 
-		PxModifyContactHeader* header = (PxModifyContactHeader*)(((PxU8*)mContacts) - (sizeof(PxModifyContactHeader) + sizeof(PxContactPatchBase)));
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
 		return header->invInertiaScale0;
 	}
 
 	/**
 	\brief Returns the invInertiaScale of body 1
 
-	The scale is defaulted to 1.0, meaning that the body's invInertia.
+	The scale is defaulted to 1.0, meaning that the body's true invInertia will be used.
 	*/
 	PX_FORCE_INLINE		PxReal getInvInertiaScale1() const					
 	{ 
-		PxModifyContactHeader* header = (PxModifyContactHeader*)(((PxU8*)mContacts) - (sizeof(PxModifyContactHeader) + sizeof(PxContactPatchBase)));
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
 		return header->invInertiaScale1;
 	}
 
@@ -214,7 +243,8 @@ public:
 	*/
 	PX_FORCE_INLINE		void setInvMassScale0(const PxReal scale)					
 	{ 
-		PxModifyContactHeader* header = (PxModifyContactHeader*)(((PxU8*)mContacts) - (sizeof(PxModifyContactHeader) + sizeof(PxContactPatchBase)));
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
 		header->invMassScale0 = scale;
 		header->flags |= PxContactHeader::eHAS_MODIFIED_MASS_RATIOS;
 	}
@@ -227,7 +257,8 @@ public:
 	*/
 	PX_FORCE_INLINE		void setInvMassScale1(const PxReal scale)					
 	{ 
-		PxModifyContactHeader* header = (PxModifyContactHeader*)(((PxU8*)mContacts) - (sizeof(PxModifyContactHeader) + sizeof(PxContactPatchBase)));
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
 		header->invMassScale1 = scale;
 		header->flags |= PxContactHeader::eHAS_MODIFIED_MASS_RATIOS;
 	}
@@ -240,7 +271,8 @@ public:
 	*/
 	PX_FORCE_INLINE		void setInvInertiaScale0(const PxReal scale)					
 	{ 
-		PxModifyContactHeader* header = (PxModifyContactHeader*)(((PxU8*)mContacts) - (sizeof(PxModifyContactHeader) + sizeof(PxContactPatchBase)));
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
 		header->invInertiaScale0 = scale;
 		header->flags |= PxContactHeader::eHAS_MODIFIED_MASS_RATIOS;
 	}
@@ -253,13 +285,14 @@ public:
 	*/
 	PX_FORCE_INLINE		void setInvInertiaScale1(const PxReal scale)					
 	{ 
-		PxModifyContactHeader* header = (PxModifyContactHeader*)(((PxU8*)mContacts) - (sizeof(PxModifyContactHeader) + sizeof(PxContactPatchBase)));
+		const size_t headerOffset = sizeof(PxModifyContactHeader) +  sizeof(PxContactPatchBase);
+		PxModifyContactHeader* header = reinterpret_cast<PxModifyContactHeader*>(reinterpret_cast<PxU8*>(mContacts) - headerOffset);
 		header->invInertiaScale1 = scale;
 		header->flags |= PxContactHeader::eHAS_MODIFIED_MASS_RATIOS;
 	}
 
 protected:
-	PxU32						mCount;			//!< Number of contact points in the set
+	PxU32					mCount;			//!< Number of contact points in the set
 	PxModifiableContact*	mContacts;		//!< The contact points of the set
 };
 

@@ -18,16 +18,11 @@ class UPaperSpriteFactory : public UFactory
 
 	// Set bUseSourceRegion to get it to use/set initial sourceUV and dimensions
 	bool bUseSourceRegion;
-	FVector2D InitialSourceUV;
-	FVector2D InitialSourceDimension;
-
+	FIntPoint InitialSourceUV;
+	FIntPoint InitialSourceDimension;
 
 	// UFactory interface
 	virtual bool ConfigureProperties() override;
 	virtual UObject* FactoryCreateNew(UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn) override;
 	// End of UFactory interface
-
-protected:
-	/** A pointer to the window that is asking the user to select a parent class */
-//	TSharedPtr<SWindow> PickerWindow;
 };

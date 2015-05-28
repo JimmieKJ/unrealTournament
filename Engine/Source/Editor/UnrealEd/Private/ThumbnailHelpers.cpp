@@ -15,6 +15,8 @@
 #include "Engine/SimpleConstructionScript.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/TextureCube.h"
+#include "Engine/DestructibleMesh.h"
+#include "PhysicsEngine/DestructibleActor.h"
 
 /*
 ***************************************************************
@@ -29,7 +31,7 @@ FThumbnailPreviewScene::FThumbnailPreviewScene()
 						.SetTransactional(false))
 {
 	// A background sky sphere
- 	UStaticMeshComponent* BackgroundComponent = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
+	UStaticMeshComponent* BackgroundComponent = NewObject<UStaticMeshComponent>();
  	BackgroundComponent->SetStaticMesh( GUnrealEd->GetThumbnailManager()->EditorSkySphere );
  	const float SkySphereScale = 2000.0f;
  	const FTransform BackgroundTransform(FRotator(0,0,0), FVector(0,0,0), FVector(SkySphereScale));
@@ -39,18 +41,18 @@ FThumbnailPreviewScene::FThumbnailPreviewScene()
 	DirectionalLight->Intensity = 0.2f;
 
 	// Add additional lights
-	UDirectionalLightComponent* DirectionalLight2 = ConstructObject<UDirectionalLightComponent>(UDirectionalLightComponent::StaticClass());
+	UDirectionalLightComponent* DirectionalLight2 = NewObject<UDirectionalLightComponent>();
 	DirectionalLight->Intensity = 5.0f;
 	AddComponent(DirectionalLight2, FTransform( FRotator(-40,-144.678, 0) ));
 
-	UDirectionalLightComponent* DirectionalLight3 = ConstructObject<UDirectionalLightComponent>(UDirectionalLightComponent::StaticClass());
+	UDirectionalLightComponent* DirectionalLight3 = NewObject<UDirectionalLightComponent>();
 	DirectionalLight->Intensity = 1.0f;
 	AddComponent(DirectionalLight3, FTransform( FRotator(299.235,144.993, 0) ));
 
 	// Add an infinite plane
 	const float FloorPlaneScale = 10000.f;
 	const FTransform FloorPlaneTransform(FRotator(-90.f,0,0), FVector::ZeroVector, FVector(FloorPlaneScale));
-	UStaticMeshComponent* FloorPlaneComponent = ConstructObject<UStaticMeshComponent>(UStaticMeshComponent::StaticClass());
+	UStaticMeshComponent* FloorPlaneComponent = NewObject<UStaticMeshComponent>();
 	FloorPlaneComponent->SetStaticMesh( GUnrealEd->GetThumbnailManager()->EditorPlane );
 	FloorPlaneComponent->SetMaterial( 0, GUnrealEd->GetThumbnailManager()->FloorPlaneMaterial );
 	FPreviewScene::AddComponent(FloorPlaneComponent, FloorPlaneTransform);
@@ -70,6 +72,7 @@ void FThumbnailPreviewScene::GetView(FSceneViewFamily* ViewFamily, int32 X, int3
 	{
 		const float FOVDegrees = 30.f;
 		const float HalfFOVRadians = FMath::DegreesToRadians<float>(FOVDegrees) * 0.5f;
+		static_assert((int32)ERHIZBuffer::IsInverted != 0, "Check NearPlane and Projection Matrix");
 		const float NearPlane = 1.0f;
 		FMatrix ProjectionMatrix = FReversedZPerspectiveMatrix(
 			HalfFOVRadians,
@@ -89,13 +92,12 @@ void FThumbnailPreviewScene::GetView(FSceneViewFamily* ViewFamily, int32 X, int3
 		OrbitZoom = FMath::Max<float>(MinCameraDistance, OrbitZoom);
 
 		const FRotator RotationOffsetToViewCenter(0.f, 90.f, 0.f);
-		FMatrix ViewMatrix = FTranslationMatrix( Origin ) *
-			FRotationMatrix( FRotator(0, OrbitYaw, 0) ) * 
+		FMatrix ViewRotationMatrix = FRotationMatrix( FRotator(0, OrbitYaw, 0) ) * 
 			FRotationMatrix( FRotator(0, 0, OrbitPitch) ) *
 			FTranslationMatrix( FVector(0, OrbitZoom, 0) ) *
 			FInverseRotationMatrix( RotationOffsetToViewCenter );
 
-		ViewMatrix = ViewMatrix * FMatrix(
+		ViewRotationMatrix = ViewRotationMatrix * FMatrix(
 			FPlane(0,	0,	1,	0),
 			FPlane(1,	0,	0,	0),
 			FPlane(0,	1,	0,	0),
@@ -104,7 +106,8 @@ void FThumbnailPreviewScene::GetView(FSceneViewFamily* ViewFamily, int32 X, int3
 		FSceneViewInitOptions ViewInitOptions;
 		ViewInitOptions.ViewFamily = ViewFamily;
 		ViewInitOptions.SetViewRectangle(ViewRect);
-		ViewInitOptions.ViewMatrix = ViewMatrix;
+		ViewInitOptions.ViewOrigin = -Origin;
+		ViewInitOptions.ViewRotationMatrix = ViewRotationMatrix;
 		ViewInitOptions.ProjectionMatrix = ProjectionMatrix;
 		ViewInitOptions.BackgroundColor = FLinearColor::Black;
 
@@ -112,7 +115,7 @@ void FThumbnailPreviewScene::GetView(FSceneViewFamily* ViewFamily, int32 X, int3
 
 		ViewFamily->Views.Add(NewView);
 
-		NewView->StartFinalPostprocessSettings( ViewMatrix.GetOrigin() );
+		NewView->StartFinalPostprocessSettings( ViewInitOptions.ViewOrigin );
 		NewView->EndFinalPostprocessSettings(ViewInitOptions);
 
 		FFinalPostProcessSettings::FCubemapEntry& CubemapEntry = *new(NewView->FinalPostProcessSettings.ContributingCubemaps) FFinalPostProcessSettings::FCubemapEntry;
@@ -146,7 +149,7 @@ FParticleSystemThumbnailScene::FParticleSystemThumbnailScene()
 	bForceAllUsedMipsResident = false;
 	PartComponent = NULL;
 
-	ThumbnailFXSystem = FFXSystemInterface::Create(GetScene()->GetFeatureLevel());
+	ThumbnailFXSystem = FFXSystemInterface::Create(GetScene()->GetFeatureLevel(), GetScene()->GetShaderPlatform());
 	GetScene()->SetFXSystem( ThumbnailFXSystem );
 }
 
@@ -162,7 +165,7 @@ void FParticleSystemThumbnailScene::SetParticleSystem(UParticleSystem* ParticleS
 	// If no preview component currently existing - create it now and warm it up.
 	if ( ParticleSystem && !ParticleSystem->PreviewComponent)
 	{
-		ParticleSystem->PreviewComponent = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass());
+		ParticleSystem->PreviewComponent = NewObject<UParticleSystemComponent>();
 		ParticleSystem->PreviewComponent->Template = ParticleSystem;
 
 		ParticleSystem->PreviewComponent->ComponentToWorld.SetIdentity();
@@ -428,6 +431,75 @@ void FSkeletalMeshThumbnailScene::GetViewMatrixParameters(const float InFOVDegre
 	OutOrbitZoom = TargetDistance + ThumbnailInfo->OrbitZoom;
 }
 
+/*
+***************************************************************
+FDestructibleMeshThumbnailScene
+***************************************************************
+*/
+
+FDestructibleMeshThumbnailScene::FDestructibleMeshThumbnailScene()
+	: FThumbnailPreviewScene()
+{
+	bForceAllUsedMipsResident = false;
+	// Create preview actor
+	// checked
+	FActorSpawnParameters SpawnInfo;
+	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.bNoFail = true;
+	SpawnInfo.ObjectFlags = RF_Transient;
+	PreviewActor = GetWorld()->SpawnActor<ADestructibleActor>(SpawnInfo);
+
+	PreviewActor->SetActorEnableCollision(false);
+}
+
+void FDestructibleMeshThumbnailScene::SetDestructibleMesh(class UDestructibleMesh* InMesh)
+{
+	PreviewActor->GetDestructibleComponent()->OverrideMaterials.Empty();
+	PreviewActor->GetDestructibleComponent()->SetDestructibleMesh(InMesh);
+
+	if (InMesh)
+	{
+		FTransform MeshTransform = FTransform::Identity;
+
+		PreviewActor->SetActorLocation(FVector(0, 0, 0), false);
+		PreviewActor->GetDestructibleComponent()->UpdateBounds();
+
+		// Center the mesh at the world origin then offset to put it on top of the plane
+		const float BoundsZOffset = GetBoundsZOffset(PreviewActor->GetDestructibleComponent()->Bounds);
+		PreviewActor->SetActorLocation(-PreviewActor->GetDestructibleComponent()->Bounds.Origin + FVector(0, 0, BoundsZOffset), false);
+		PreviewActor->GetDestructibleComponent()->RecreateRenderState_Concurrent();
+	}
+}
+
+void FDestructibleMeshThumbnailScene::GetViewMatrixParameters(const float InFOVDegrees, FVector& OutOrigin, float& OutOrbitPitch, float& OutOrbitYaw, float& OutOrbitZoom) const
+{
+	check(PreviewActor->GetDestructibleComponent());
+	check(PreviewActor->GetDestructibleComponent()->GetDestructibleMesh());
+
+	const float HalfFOVRadians = FMath::DegreesToRadians<float>(InFOVDegrees) * 0.5f;
+	// No need to add extra size to view slightly outside of the sphere to compensate for perspective since skeletal meshes already buffer bounds.
+	const float HalfMeshSize = PreviewActor->GetDestructibleComponent()->Bounds.SphereRadius;
+	const float BoundsZOffset = GetBoundsZOffset(PreviewActor->GetDestructibleComponent()->Bounds);
+	const float TargetDistance = HalfMeshSize / FMath::Tan(HalfFOVRadians);
+
+	USceneThumbnailInfo* ThumbnailInfo = Cast<USceneThumbnailInfo>(PreviewActor->GetDestructibleComponent()->DestructibleMesh->ThumbnailInfo);
+	if (ThumbnailInfo)
+	{
+		if (TargetDistance + ThumbnailInfo->OrbitZoom < 0)
+		{
+			ThumbnailInfo->OrbitZoom = -TargetDistance;
+		}
+	}
+	else
+	{
+		ThumbnailInfo = USceneThumbnailInfo::StaticClass()->GetDefaultObject<USceneThumbnailInfo>();
+	}
+
+	OutOrigin = FVector(0, 0, -BoundsZOffset);
+	OutOrbitPitch = ThumbnailInfo->OrbitPitch;
+	OutOrbitYaw = ThumbnailInfo->OrbitYaw;
+	OutOrbitZoom = TargetDistance + ThumbnailInfo->OrbitZoom;
+}
 
 /*
 ***************************************************************
@@ -986,7 +1058,7 @@ UActorComponent* FClassActorThumbnailScene::CreateComponentInstanceFromTemplate(
 	{
 		// We can not instance components that use the within keyword.
 		// Make a placeholder scene component instead.
-		USceneComponent* NewSceneComp = ConstructObject<USceneComponent>(USceneComponent::StaticClass(), GetTransientPackage());
+		USceneComponent* NewSceneComp = NewObject<USceneComponent>();
 		NewComponent = NewSceneComp;
 		
 		// Preserve relative location, rotation, scale, parent, and children if the template was a scene component.

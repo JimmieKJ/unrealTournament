@@ -22,25 +22,25 @@ class FPrimitiveComponentId
 {
 public:
 
-	FPrimitiveComponentId() : Value(0)
+	FPrimitiveComponentId() : PrimIDValue(0)
 	{}
 
 	inline bool IsValid() const
 	{
-		return Value > 0;
+		return PrimIDValue > 0;
 	}
 
 	inline bool operator==(FPrimitiveComponentId OtherId) const
 	{
-		return Value == OtherId.Value;
+		return PrimIDValue == OtherId.PrimIDValue;
 	}
 
 	friend uint32 GetTypeHash( FPrimitiveComponentId Id )
 	{
-		return GetTypeHash(Id.Value);
+		return GetTypeHash(Id.PrimIDValue);
 	}
 
-	uint64 Value;
+	uint32 PrimIDValue;
 };
 
 /** 
@@ -153,6 +153,7 @@ enum EMaterialProperty
 	MP_CustomizedUVs6,
 	MP_CustomizedUVs7,
 	MP_MaterialAttributes,
+	MP_PixelDepthOffset,
 	MP_MAX,
 };
 

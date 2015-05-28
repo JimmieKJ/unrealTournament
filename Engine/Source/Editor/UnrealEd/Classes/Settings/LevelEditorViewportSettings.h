@@ -180,11 +180,10 @@ struct UNREALED_API FSnapToSurfaceSettings
 	bool bSnapRotation;
 };
 
-
 /**
  * Implements the Level Editor's view port settings.
  */
-UCLASS(config=EditorUserSettings)
+UCLASS(config=EditorPerProjectUserSettings)
 class UNREALED_API ULevelEditorViewportSettings
 	: public UObject
 {
@@ -303,6 +302,14 @@ private:
 	uint32 bUsePercentageBasedScaling:1;
 
 public:
+
+	/** If enabled, actor rotations will snap to the grid. */
+	UPROPERTY(EditAnywhere, config, Category=GridSnapping, meta=(DisplayName = "Enable 2D Layer Snapping"))
+	uint32 bEnableLayerSnap:1;
+
+	/** The index of the snap plane to use when bEnableLayerSnap is true (from the project SnapLayers array) */
+	UPROPERTY(config)
+	int32 ActiveSnapLayerIndex;
 
 	/** If true actor snap will be enabled in the editor **/
 	UPROPERTY(config, Category=GridSnapping, VisibleDefaultsOnly,AdvancedDisplay)

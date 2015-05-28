@@ -6,6 +6,11 @@
 
 #include "BasePassVertexCommon.usf"
 
+#if WRITES_VELOCITY_TO_GBUFFER
+//@todo-rco: Move to pixel shader
+float SkipOutputVelocity;
+#endif
+
 /** Entry point for the base pass vertex shader. */
 void Main(
 	FVertexFactoryInput Input,
@@ -47,18 +52,44 @@ void Main(
 	#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
 		Output.BasePassInterpolants.PixelPositionExcludingWPO = WorldPositionExcludingWPO;
 	#endif
-#endif
+#endif	// USING_TESSELLATION
 
 	Output.FactoryInterpolants = VertexFactoryGetInterpolants(Input, VFIntermediates, VertexParameters);
 
 // Calculate the fog needed for translucency
 #if NEEDS_BASEPASS_FOGGING
-#if BASEPASS_ATMOSPHERIC_FOG
+	#if BASEPASS_ATMOSPHERIC_FOG
 	Output.BasePassInterpolants.VertexFog = CalculateVertexAtmosphericFog(WorldPosition.xyz, View.TranslatedViewOrigin.xyz);
-#else
+	#else
 	Output.BasePassInterpolants.VertexFog = CalculateVertexHeightFog(WorldPosition.xyz, View.TranslatedViewOrigin);
+	#endif
 #endif
-#endif
+
+#if WRITES_VELOCITY_TO_GBUFFER
+	{
+		float4 PrevTranslatedWorldPosition = VertexFactoryGetPreviousWorldPosition( Input, VFIntermediates );	
+		VertexParameters = GetMaterialVertexParameters(Input, VFIntermediates, PrevTranslatedWorldPosition.xyz, TangentToLocal);
+		PrevTranslatedWorldPosition.xyz += GetMaterialPreviousWorldPositionOffset(VertexParameters);
+
+		#if USING_TESSELLATION
+			// We let the Domain Shader convert to post projection when tessellating
+			Output.BasePassInterpolants.VelocityPrevScreenPosition = PrevTranslatedWorldPosition;
+			// Store the mask in .w when doing tessellation as we need the world space Z
+			Output.BasePassInterpolants.VelocityPrevScreenPosition.w = 1 - SkipOutputVelocity;
+			#if WRITES_VELOCITY_TO_GBUFFER_USE_POS_INTERPOLATOR
+			Output.BasePassInterpolants.VelocityScreenPosition = WorldPosition;
+			#endif
+		#else
+			// compute the old screen pos with the old world position and the old camera matrix
+			Output.BasePassInterpolants.VelocityPrevScreenPosition = mul(float4(PrevTranslatedWorldPosition.xyz, 1), View.PrevTranslatedWorldToClip);		
+			// Store the mask in .z when as we don't need the clip space Z
+			Output.BasePassInterpolants.VelocityPrevScreenPosition.z = 1 - SkipOutputVelocity;
+			#if WRITES_VELOCITY_TO_GBUFFER_USE_POS_INTERPOLATOR
+			Output.BasePassInterpolants.VelocityScreenPosition = Output.Position;
+			#endif
+		#endif	// USING_TESSELLATION
+	}
+#endif	// WRITES_VELOCITY_TO_GBUFFER
 
 	OutputVertexID( Output );
 }

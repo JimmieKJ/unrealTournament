@@ -14,12 +14,18 @@
 #include "AssetTypeActions_GameplayAbilitiesBlueprint.h"
 #include "GameplayAbilitiesEditor.h"
 #include "GameplayAbilityBlueprint.h"
+#include "GameplayAbilitiesBlueprintFactory.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
 FText FAssetTypeActions_GameplayAbilitiesBlueprint::GetName() const
 { 
 	return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_GameplayAbilitiesBlueprint", "Gameplay Ability Blueprint"); 
+}
+
+FColor FAssetTypeActions_GameplayAbilitiesBlueprint::GetTypeColor() const
+{
+	return FColor(0, 96, 128);
 }
 
 void FAssetTypeActions_GameplayAbilitiesBlueprint::OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor )
@@ -57,6 +63,13 @@ bool FAssetTypeActions_GameplayAbilitiesBlueprint::ShouldUseDataOnlyEditor(const
 UClass* FAssetTypeActions_GameplayAbilitiesBlueprint::GetSupportedClass() const
 { 
 	return UGameplayAbilityBlueprint::StaticClass(); 
+}
+
+UFactory* FAssetTypeActions_GameplayAbilitiesBlueprint::GetFactoryForBlueprintType(UBlueprint* InBlueprint) const
+{
+	UGameplayAbilitiesBlueprintFactory* GameplayAbilitiesBlueprintFactory = NewObject<UGameplayAbilitiesBlueprintFactory>();
+	GameplayAbilitiesBlueprintFactory->ParentClass = TSubclassOf<UGameplayAbility>(*InBlueprint->GeneratedClass);
+	return GameplayAbilitiesBlueprintFactory;
 }
 
 #undef LOCTEXT_NAMESPACE

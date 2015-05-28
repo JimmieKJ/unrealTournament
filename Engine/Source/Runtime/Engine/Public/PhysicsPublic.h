@@ -23,6 +23,19 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("Phys SubstepStart"), STAT_SubstepSimulationStart
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Phys SubstepEnd"), STAT_SubstepSimulationEnd, STATGROUP_Physics, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("SyncComponentsToBodies"), STAT_SyncComponentsToBodies, STATGROUP_Physics, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Init Articulated"), STAT_InitArticulated, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Init Body"), STAT_InitBody, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Init Body Debug"), STAT_InitBodyDebug, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Init Body Scene Interaction"), STAT_InitBodySceneInteraction, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Init Body Post Add to Scene"), STAT_InitBodyPostAdd, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Term Body"), STAT_TermBody, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Update Materials"), STAT_UpdatePhysMats, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Update Materials Scene Interaction"), STAT_UpdatePhysMatsSceneInteraction, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Filter Update"), STAT_UpdatePhysFilter, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Filter Update (PhysX Code)"), STAT_UpdatePhysFilterPhysX, STATGROUP_Physics, );
+
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Init Bodies"), STAT_InitBodies, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Bulk Body Scene Add"), STAT_BulkSceneAdd, STATGROUP_Physics, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Static Init Bodies"), STAT_StaticInitBodies, STATGROUP_Physics, );
 
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Broadphase Adds"), STAT_NumBroadphaseAdds, STATGROUP_Physics, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Broadphase Removes"), STAT_NumBroadphaseRemoves, STATGROUP_Physics, );
@@ -260,9 +273,9 @@ public:
 	/** Stores the number of valid scenes we are working with. This will be PST_MAX or PST_Async, 
 		depending on whether the async scene is enabled or not*/
 	uint32							NumPhysScenes;
-
-	/** Array of collision notifications, pending execution at the end of the physics engine run. */
-	TArray<FCollisionNotifyInfo>	PendingCollisionNotifies;
+	
+	/** Gets the array of collision notifications, pending execution at the end of the physics engine run. */
+	TArray<FCollisionNotifyInfo>& GetPendingCollisionNotifies(int32 SceneType){ return PendingCollisionData[SceneType].PendingCollisionNotifies; }
 
 	/** World that owns this physics scene */
 	UWorld*							OwningWorld;
@@ -283,6 +296,36 @@ public:
 	 */
 	float							FrameTimeSmoothingFactor[PST_MAX];
 
+#if WITH_PHYSX
+	/** Flush the deferred actor and instance arrays, either adding or removing from the scene */
+	void FlushDeferredActors();
+
+	/** Defer the addition of an actor to a scene, this will actually be performed before the *next*
+	 *  Physics tick
+	 *	@param OwningInstance - The FBodyInstance that owns the actor
+	 *	@param Actor - The actual PhysX actor to add
+	 *	@param SceneType - The scene type to add the actor to
+	 */
+	void DeferAddActor(FBodyInstance* OwningInstance, PxActor* Actor, EPhysicsSceneType SceneType);
+
+	/** Defer the addition of a group of actors to a scene, this will actually be performed before the *next*
+	 *  Physics tick. 
+	 *
+	 *	@param OwningInstance - The FBodyInstance that owns the actor
+	 *	@param Actor - The actual PhysX actor to add
+	 *	@param SceneType - The scene type to add the actor to
+	 */
+	void DeferAddActors(TArray<FBodyInstance*>& OwningInstances, TArray<PxActor*>& Actors, EPhysicsSceneType SceneType);
+
+	/** Defer the removal of an actor to a scene, this will actually be performed before the *next*
+	 *  Physics tick
+	 *	@param OwningInstance - The FBodyInstance that owns the actor
+	 *	@param Actor - The actual PhysX actor to add
+	 *	@param SceneType - The scene type to add the actor to
+	 */
+	void DeferRemoveActor(FBodyInstance* OwningInstance, PxActor* Actor, EPhysicsSceneType SceneType);
+#endif
+
 private:
 	/** DeltaSeconds from UWorld. */
 	float										DeltaSeconds;
@@ -301,6 +344,31 @@ private:
 	FGraphEventRef PhysicsSceneCompletion;
 
 #if WITH_PHYSX
+
+	struct FDeferredSceneData
+	{
+		/** The PhysX scene index used*/
+		int32 SceneIndex;
+
+		/** Body instances awaiting scene add */
+		TArray<FBodyInstance*> AddInstances;
+		/** PhysX Actors awaiting scene add */
+		TArray<PxActor*> AddActors;
+
+		/** Body instances awaiting scene remove */
+		TArray<FBodyInstance*> RemoveInstances;
+		/** PhysX Actors awaiting scene remove */
+		TArray<PxActor*> RemoveActors;
+
+		void FlushDeferredActors();
+		void DeferAddActor(FBodyInstance* OwningInstance, PxActor* Actor);
+		void DeferAddActors(TArray<FBodyInstance*>& OwningInstances, TArray<PxActor*>& Actors);
+		void DeferRemoveActor(FBodyInstance* OwningInstance, PxActor* Actor);
+	};
+
+	FDeferredSceneData DeferredSceneData[PST_MAX];
+
+
 	/** Dispatcher for CPU tasks */
 	class PxCpuDispatcher*			CPUDispatcher;
 	/** Simulation event callback object */
@@ -310,6 +378,14 @@ private:
 	class FPhysXVehicleManager*			VehicleManager;
 #endif
 #endif	//
+
+	struct FPendingCollisionData
+	{
+		/** Array of collision notifications, pending execution at the end of the physics engine run. */
+		TArray<FCollisionNotifyInfo>	PendingCollisionNotifies;
+	};
+
+	FPendingCollisionData PendingCollisionData[PST_MAX];
 
 public:
 
@@ -364,10 +440,10 @@ public:
 	void ProcessPhysScene(uint32 SceneType);
 
 	/** Sync components in the scene to physics bodies that changed */
-	void SyncComponentsToBodies(uint32 SceneType);
+	void SyncComponentsToBodies_AssumesLocked(uint32 SceneType);
 
 	/** Call after WaitPhysScene on the synchronous scene to make deferred OnRigidBodyCollision calls.  */
-	void DispatchPhysNotifications();
+	void DispatchPhysNotifications_AssumesLocked();
 
 	/** Add any debug lines from the physics scene of the given type to the supplied line batcher. */
 	ENGINE_API void AddDebugLines(uint32 SceneType, class ULineBatchComponent* LineBatcherToUse);
@@ -394,26 +470,85 @@ public:
 	ENGINE_API bool HasAsyncScene() const { return bAsyncSceneEnabled; }
 
 	/** Lets the scene update anything related to this BodyInstance as it's now being terminated */
-	void TermBody(FBodyInstance* BodyInstance);
+	DEPRECATED(4.8, "Please call AddCustomPhysics_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void TermBody(FBodyInstance* BodyInstance)
+	{
+		TermBody_AssumesLocked(BodyInstance);
+	}
+
+	/** Lets the scene update anything related to this BodyInstance as it's now being terminated */
+	void TermBody_AssumesLocked(FBodyInstance* BodyInstance);
 
 	/** Add a custom callback for next step that will be called on every substep */
-	void AddCustomPhysics(FBodyInstance* BodyInstance, FCalculateCustomPhysics& CalculateCustomPhysics);
+	DEPRECATED(4.8, "Please call AddCustomPhysics_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void AddCustomPhysics(FBodyInstance* BodyInstance, FCalculateCustomPhysics& CalculateCustomPhysics)
+	{
+		AddCustomPhysics_AssumesLocked(BodyInstance, CalculateCustomPhysics);
+	}
+
+	/** Add a custom callback for next step that will be called on every substep */
+	void AddCustomPhysics_AssumesLocked(FBodyInstance* BodyInstance, FCalculateCustomPhysics& CalculateCustomPhysics);
 
 	/** Adds a force to a body - We need to go through scene to support substepping */
-	void AddForce(FBodyInstance* BodyInstance, const FVector& Force, bool bAllowSubstepping);
+	DEPRECATED(4.8, "Please call AddForce_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void AddForce(FBodyInstance* BodyInstance, const FVector& Force, bool bAllowSubstepping, bool bAccelChange)
+	{
+		AddForce_AssumesLocked(BodyInstance, Force, bAllowSubstepping, bAccelChange);
+	}
+
+	void AddForce_AssumesLocked(FBodyInstance* BodyInstance, const FVector& Force, bool bAllowSubstepping, bool bAccelChange);
 
 	/** Adds a force to a body at a specific position - We need to go through scene to support substepping */
-	void AddForceAtPosition(FBodyInstance* BodyInstance, const FVector& Force, const FVector& Position, bool bAllowSubstepping);
+	DEPRECATED(4.8, "Please call AddForceAtPosition_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void AddForceAtPosition(FBodyInstance* BodyInstance, const FVector& Force, const FVector& Position, bool bAllowSubstepping)
+	{
+		AddForceAtPosition_AssumesLocked(BodyInstance, Force, Position, bAllowSubstepping);
+	}
+
+	/** Adds a force to a body at a specific position - We need to go through scene to support substepping */
+	void AddForceAtPosition_AssumesLocked(FBodyInstance* BodyInstance, const FVector& Force, const FVector& Position, bool bAllowSubstepping);
+
+	/** Adds a radial force to a body - We need to go through scene to support substepping */
+	DEPRECATED(4.8, "Please call AddRadialForceToBody_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void AddRadialForceToBody(FBodyInstance* BodyInstance, const FVector& Origin, const float Radius, const float Strength, const uint8 Falloff, bool bAccelChange, bool bAllowSubstepping)
+	{
+		AddRadialForceToBody_AssumesLocked(BodyInstance, Origin, Radius, Strength, Falloff, bAccelChange, bAllowSubstepping);
+	}
+
+	/** Adds a radial force to a body - We need to go through scene to support substepping */
+	void AddRadialForceToBody_AssumesLocked(FBodyInstance* BodyInstance, const FVector& Origin, const float Radius, const float Strength, const uint8 Falloff, bool bAccelChange, bool bAllowSubstepping);
 
 	/** Adds torque to a body - We need to go through scene to support substepping */
-	void AddTorque(FBodyInstance* BodyInstance, const FVector& Torque, bool bAllowSubstepping);
+	DEPRECATED(4.8, "Please call AddTorque_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void AddTorque(FBodyInstance* BodyInstance, const FVector& Torque, bool bAllowSubstepping, bool bAccelChange)
+	{
+		AddTorque_AssumesLocked(BodyInstance, Torque, bAllowSubstepping, bAccelChange);
+	}
+
+	/** Adds torque to a body - We need to go through scene to support substepping */
+	void AddTorque_AssumesLocked(FBodyInstance* BodyInstance, const FVector& Torque, bool bAllowSubstepping, bool bAccelChange);
 
 	/** Sets a Kinematic actor's target position - We need to do this here to support substepping*/
-	void SetKinematicTarget(FBodyInstance* BodyInstance, const FTransform& TargetTM, bool bAllowSubstepping);
+	DEPRECATED(4.8, "Please call SetKinematicTarget_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	void SetKinematicTarget(FBodyInstance* BodyInstance, const FTransform& TargetTM, bool bAllowSubstepping)
+	{
+		SetKinematicTarget_AssumesLocked(BodyInstance, TargetTM, bAllowSubstepping);
+	}
+	
+	/** Sets a Kinematic actor's target position - We need to do this here to support substepping*/
+	void SetKinematicTarget_AssumesLocked(FBodyInstance* BodyInstance, const FTransform& TargetTM, bool bAllowSubstepping);
 
 	/** Gets a Kinematic actor's target position - We need to do this here to support substepping
 	  * Returns true if kinematic target has been set. If false the OutTM is invalid */
-	bool GetKinematicTarget(const FBodyInstance* BodyInstance, FTransform& OutTM) const;
+	DEPRECATED(4.8, "Please call GetKinematicTarget_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
+	bool GetKinematicTarget(const FBodyInstance* BodyInstance, FTransform& OutTM) const
+	{
+		return GetKinematicTarget_AssumesLocked(BodyInstance, OutTM);
+	}
+
+	/** Gets a Kinematic actor's target position - We need to do this here to support substepping
+	  * Returns true if kinematic target has been set. If false the OutTM is invalid */
+	bool GetKinematicTarget_AssumesLocked(const FBodyInstance* BodyInstance, FTransform& OutTM) const;
 
 	/** Gets the collision disable table */
 	const TMap<uint32, TMap<struct FRigidBodyIndexPair, bool> *> & GetCollisionDisableTableLookup()
@@ -446,6 +581,9 @@ private:
 
 	/** Called when all subscenes of a given scene are complete, calls  ProcessPhysScene*/
 	void SceneCompletionTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent, EPhysicsSceneType SceneType);
+
+	/** Helper function for determining which scene a dyanmic body is in*/
+	EPhysicsSceneType SceneType_AssumesLocked(const FBodyInstance* BodyInstance) const;
 
 #if WITH_SUBSTEPPING
 	/** Task created from TickPhysScene so we can substep without blocking */

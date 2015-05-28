@@ -26,11 +26,12 @@ class UAbilityTask_WaitAbilityActivate : public UAbilityTask
 
 	/** Wait until a new ability (of the same or different type) is activated. Only input based abilities will be counted unless IncludeTriggeredAbilities is true. */
 	UFUNCTION(BlueprintCallable, Category="Ability|Tasks", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "TRUE"))
-	static UAbilityTask_WaitAbilityActivate* WaitForAbilityActivate(UObject* WorldContextObject, FGameplayTag WithTag, FGameplayTag WithoutTag, bool IncludeTriggeredAbilities=false);
+	static UAbilityTask_WaitAbilityActivate* WaitForAbilityActivate(UObject* WorldContextObject, FGameplayTag WithTag, FGameplayTag WithoutTag, bool IncludeTriggeredAbilities=false, bool TriggerOnce=true);
 
 	FGameplayTag WithTag;
 	FGameplayTag WithoutTag;
 	bool IncludeTriggeredAbilities;
+	bool TriggerOnce;
 
 protected:
 

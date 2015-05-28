@@ -41,7 +41,7 @@ TSharedRef<FEdMode> FPhysicsManipulationEdModeFactory::CreateMode() const
 
 FPhysicsManipulationEdMode::FPhysicsManipulationEdMode()
 {
-	HandleComp = ConstructObject<UPhysicsHandleComponent>(UPhysicsHandleComponent::StaticClass(), GetTransientPackage(), NAME_None, RF_NoFlags);
+	HandleComp = NewObject<UPhysicsHandleComponent>();
 }
 
 FPhysicsManipulationEdMode::~FPhysicsManipulationEdMode()
@@ -51,7 +51,9 @@ FPhysicsManipulationEdMode::~FPhysicsManipulationEdMode()
 
 void FPhysicsManipulationEdMode::Enter()
 {
-	HandleComp->RegisterComponentWithWorld(GetWorld());
+	FWorldContext* PIEWorldContext = GEditor->GetPIEWorldContext();
+	check(PIEWorldContext && PIEWorldContext->World());
+	HandleComp->RegisterComponentWithWorld(PIEWorldContext->World());
 }
 
 void FPhysicsManipulationEdMode::Exit()

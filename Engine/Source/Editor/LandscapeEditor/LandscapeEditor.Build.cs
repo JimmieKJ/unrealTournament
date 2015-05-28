@@ -21,6 +21,7 @@ public class LandscapeEditor : ModuleRules
 				"PropertyEditor",
 				"ImageWrapper",
                 "EditorWidgets",
+                "Foliage",
 			}
 			);
 

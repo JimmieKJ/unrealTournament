@@ -598,7 +598,11 @@ void UBlueprint::SetObjectBeingDebugged(UObject* NewObject)
 	if ((NewObject != NULL) && !GCompilingBlueprint && BlueprintType != BPTYPE_MacroLibrary)
 	{
 		// You can only debug instances of this!
-		if (!ensure(NewObject->IsA(this->GeneratedClass)))
+		if (!ensureMsgf(
+				NewObject->IsA(this->GeneratedClass), 
+				TEXT("Type mismatch: Expected %s, Found %s"), 
+				this->GeneratedClass ? *(this->GeneratedClass->GetName()) : TEXT("NULL"), 
+				NewObject->GetClass() ? *(this->GetClass()->GetName()) : TEXT("NULL")))
 		{
 			NewObject = NULL;
 		}
@@ -708,11 +712,14 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 	}
 	OutTags.Add( FAssetRegistryTag("ClassFlags", FString::FromInt(ClassFlagsTagged), FAssetRegistryTag::TT_Hidden) );
 
-	OutTags.Add( FAssetRegistryTag( "IsDataOnly",
-		FBlueprintEditorUtils::IsDataOnlyBlueprint(this) ? TEXT("True") : TEXT("False"),
-		FAssetRegistryTag::TT_Alphabetical ) );
+	if ( ParentClass )
+	{
+		OutTags.Add( FAssetRegistryTag( "IsDataOnly",
+			FBlueprintEditorUtils::IsDataOnlyBlueprint(this) ? TEXT("True") : TEXT("False"),
+			FAssetRegistryTag::TT_Alphabetical ) );
 
-	OutTags.Add( FAssetRegistryTag("FiB", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
+		OutTags.Add( FAssetRegistryTag("FiB", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
+	}
 }
 
 FString UBlueprint::GetFriendlyName() const
@@ -1031,6 +1038,13 @@ void UBlueprint::GetAllGraphs(TArray<UEdGraph*>& Graphs) const
 		Graph->GetAllChildrenGraphs(Graphs);
 	}
 
+	for (int32 i = 0; i < DelegateSignatureGraphs.Num(); ++i)
+	{
+		UEdGraph* Graph = DelegateSignatureGraphs[i];
+		Graphs.Add(Graph);
+		Graph->GetAllChildrenGraphs(Graphs);
+	}
+
 	for (int32 BPIdx=0; BPIdx<ImplementedInterfaces.Num(); BPIdx++)
 	{
 		const FBPInterfaceDescription& InterfaceDesc = ImplementedInterfaces[BPIdx];
@@ -1119,35 +1133,39 @@ bool UBlueprint::ChangeOwnerOfTemplates()
 		for( auto CompIt = ComponentTemplates.CreateIterator(); CompIt; ++CompIt )
 		{
 			UActorComponent* Component = (*CompIt);
-			check(Component);
-			if(Component->GetOuter() == this)
+			if (Component)
 			{
-				const bool bRenamed = Component->Rename(*Component->GetName(), BPGClass, REN_ForceNoResetLoaders|REN_DoNotDirty);
-				ensure(bRenamed);
-				bIsStillStale |= !bRenamed;
-				bMigratedOwner = true;
-			}
-			if (auto TimelineComponent = Cast<UTimelineComponent>(Component))
-			{
-				TimelineComponent->GetAllCurves(Curves);
+				if (Component->GetOuter() == this)
+				{
+					const bool bRenamed = Component->Rename(*Component->GetName(), BPGClass, REN_ForceNoResetLoaders | REN_DoNotDirty);
+					ensure(bRenamed);
+					bIsStillStale |= !bRenamed;
+					bMigratedOwner = true;
+				}
+				if (auto TimelineComponent = Cast<UTimelineComponent>(Component))
+				{
+					TimelineComponent->GetAllCurves(Curves);
+				}
 			}
 		}
 
 		for( auto CompIt = Timelines.CreateIterator(); CompIt; ++CompIt )
 		{
 			UTimelineTemplate* Template = (*CompIt);
-			check(Template);
-			if(Template->GetOuter() == this)
+			if (Template)
 			{
-				const FString OldTemplateName = Template->GetName();
-				ensure(!OldTemplateName.EndsWith(TEXT("_Template")));
-				const bool bRenamed = Template->Rename(*UTimelineTemplate::TimelineVariableNameToTemplateName(Template->GetFName()), BPGClass, REN_ForceNoResetLoaders|REN_DoNotDirty);
-				ensure(bRenamed);
-				bIsStillStale |= !bRenamed;
-				ensure(OldTemplateName == UTimelineTemplate::TimelineTemplateNameToVariableName(Template->GetFName()));
-				bMigratedOwner = true;
+				if(Template->GetOuter() == this)
+				{
+					const FString OldTemplateName = Template->GetName();
+					ensure(!OldTemplateName.EndsWith(TEXT("_Template")));
+					const bool bRenamed = Template->Rename(*UTimelineTemplate::TimelineVariableNameToTemplateName(Template->GetFName()), BPGClass, REN_ForceNoResetLoaders|REN_DoNotDirty);
+					ensure(bRenamed);
+					bIsStillStale |= !bRenamed;
+					ensure(OldTemplateName == UTimelineTemplate::TimelineTemplateNameToVariableName(Template->GetFName()));
+					bMigratedOwner = true;
+				}
+				Template->GetAllCurves(Curves);
 			}
-			Template->GetAllCurves(Curves);
 		}
 		for (auto Curve : Curves)
 		{

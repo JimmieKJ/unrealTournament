@@ -28,9 +28,9 @@ public:
 	static FLiveEditorManager &Get();
 	static void Shutdown();
 
-	virtual void Tick(float DeltaTime);
+	virtual void Tick(float DeltaTime) override;
 
-	virtual bool IsTickable() const
+	virtual bool IsTickable() const override
 	{
 		return bInitialized;
 	}

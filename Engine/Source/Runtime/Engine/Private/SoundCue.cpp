@@ -183,7 +183,7 @@ FString USoundCue::GetDesc()
 
 	// Display group
 	Description += TEXT( " [" );
-	Description += *SoundClassObject->GetName();
+	Description += *GetSoundClass()->GetName();
 	Description += TEXT( "]" );
 
 	return Description;
@@ -310,16 +310,22 @@ const FAttenuationSettings* USoundCue::GetAttenuationSettingsToApply() const
 }
 
 #if WITH_EDITOR
+USoundCueGraph* USoundCue::GetGraph()
+{ 
+	return CastChecked<USoundCueGraph>(SoundCueGraph);
+}
+
 void USoundCue::CreateGraph()
 {
-	check(SoundCueGraph == NULL);
+	if (SoundCueGraph == nullptr)
+	{
+		SoundCueGraph = CastChecked<USoundCueGraph>(FBlueprintEditorUtils::CreateNewGraph(this, NAME_None, USoundCueGraph::StaticClass(), USoundCueGraphSchema::StaticClass()));
+		SoundCueGraph->bAllowDeletion = false;
 
-	SoundCueGraph = CastChecked<USoundCueGraph>(FBlueprintEditorUtils::CreateNewGraph(this, NAME_None, USoundCueGraph::StaticClass(), USoundCueGraphSchema::StaticClass()));
-	SoundCueGraph->bAllowDeletion = false;
-
-	// Give the schema a chance to fill out any required nodes (like the results node)
-	const UEdGraphSchema* Schema = SoundCueGraph->GetSchema();
-	Schema->CreateDefaultNodesForGraph(*SoundCueGraph);
+		// Give the schema a chance to fill out any required nodes (like the results node)
+		const UEdGraphSchema* Schema = SoundCueGraph->GetSchema();
+		Schema->CreateDefaultNodesForGraph(*SoundCueGraph);
+	}
 }
 
 void USoundCue::ClearGraph()
@@ -355,7 +361,7 @@ void USoundCue::LinkGraphNodesFromSoundNodes()
 		check(RootNodeList.Num() == 1);
 
 		RootNodeList[0]->Pins[0]->BreakAllPinLinks();
-		RootNodeList[0]->Pins[0]->MakeLinkTo(FirstNode->GraphNode->GetOutputPin());
+		RootNodeList[0]->Pins[0]->MakeLinkTo(FirstNode->GetGraphNode()->GetOutputPin());
 	}
 
 	for(TArray<USoundNode*>::TConstIterator It(AllNodes); It; ++It)
@@ -364,7 +370,7 @@ void USoundCue::LinkGraphNodesFromSoundNodes()
 		if (SoundNode)
 		{
 			TArray<UEdGraphPin*> InputPins;
-			SoundNode->GraphNode->GetInputPins(/*out*/ InputPins);
+			SoundNode->GetGraphNode()->GetInputPins(/*out*/ InputPins);
 			check(InputPins.Num() == SoundNode->ChildNodes.Num());
 			for (int32 ChildIndex = 0; ChildIndex < SoundNode->ChildNodes.Num(); ChildIndex++)
 			{
@@ -372,7 +378,7 @@ void USoundCue::LinkGraphNodesFromSoundNodes()
 				if (ChildNode)
 				{
 					InputPins[ChildIndex]->BreakAllPinLinks();
-					InputPins[ChildIndex]->MakeLinkTo(ChildNode->GraphNode->GetOutputPin());
+					InputPins[ChildIndex]->MakeLinkTo(ChildNode->GetGraphNode()->GetOutputPin());
 				}
 			}
 		}

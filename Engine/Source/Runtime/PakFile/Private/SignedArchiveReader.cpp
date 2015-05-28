@@ -24,7 +24,7 @@ FChunkCacheWorker::FChunkCacheWorker(FArchive* InReader)
 	// Public key should never be zero at this point. Check PublicKey.inl for more details.
 	check(!DecryptionKey.Exponent.IsZero() && !DecryptionKey.Modulus.IsZero());
 
-	QueuedRequestsEvent = FPlatformProcess::CreateSynchEvent();
+	QueuedRequestsEvent = FPlatformProcess::GetSynchEventFromPool();
 	Thread = FRunnableThread::Create(this, TEXT("FChunkCacheWorker"), 0, TPri_BelowNormal);
 }
 
@@ -32,8 +32,8 @@ FChunkCacheWorker::~FChunkCacheWorker()
 {
 	delete Thread;
 	Thread = NULL;
-	delete QueuedRequestsEvent;
-	QueuedRequestsEvent = NULL;
+	FPlatformProcess::ReturnSynchEventToPool(QueuedRequestsEvent);
+	QueuedRequestsEvent = nullptr;
 }
 
 bool FChunkCacheWorker::Init()

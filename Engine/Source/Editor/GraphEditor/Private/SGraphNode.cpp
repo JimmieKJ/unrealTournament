@@ -31,18 +31,16 @@ void SNodeTitle::Construct(const FArguments& InArgs, UEdGraphNode* InNode)
 	{
 		TitleText = TAttribute<FText>(this, &SNodeTitle::GetNodeTitle);
 	}
-	CachedTitle = TitleText.Get();
+	NodeTitleCache.SetCachedText(TitleText.Get(), GraphNode);
 	RebuildWidget();
 }
 
-void SNodeTitle::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SNodeTitle::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	// Checks to see if the cached string is valid, and if not, updates it.
-	if (TitleText.Get().CompareTo(CachedTitle) != 0)
+	if (NodeTitleCache.IsOutOfDate(GraphNode))
 	{
-		CachedTitle = TitleText.Get();
+		NodeTitleCache.SetCachedText(TitleText.Get(), GraphNode);
 		RebuildWidget();
 	}
 }
@@ -70,8 +68,8 @@ void SNodeTitle::RebuildWidget()
 
 	// Break the title into lines
 	TArray<FString> Lines;
-	const FString CachedTitleString = CachedTitle.ToString().Replace(TEXT("\r"), TEXT(""));
-	CachedTitleString.ParseIntoArray(&Lines, TEXT("\n"), false);
+	const FString CachedTitleString = NodeTitleCache.GetCachedText().ToString().Replace(TEXT("\r"), TEXT(""));
+	CachedTitleString.ParseIntoArray(Lines, TEXT("\n"), false);
 
 	if (Lines.Num())
 	{
@@ -166,6 +164,11 @@ void SGraphNode::SetVerifyTextCommitEvent(FOnNodeVerifyTextCommit InOnVerifyText
 void SGraphNode::SetTextCommittedEvent(FOnNodeTextCommitted InOnTextCommitted)
 {
 	OnTextCommitted = InOnTextCommitted;
+}
+
+void SGraphNode::OnCommentTextCommitted(const FText& NewComment, ETextCommit::Type CommitInfo)
+{
+	GetNodeObj()->OnUpdateCommentText(NewComment.ToString());
 }
 
 void SGraphNode::SetDisallowedPinConnectionEvent(SGraphEditor::FOnDisallowedPinConnection InOnDisallowedPinConnection)
@@ -430,6 +433,7 @@ bool SGraphNode::IsSelectedExclusively() const
 void SGraphNode::SetOwner( const TSharedRef<SGraphPanel>& OwnerPanel )
 {
 	check( !OwnerGraphPanelPtr.IsValid() );
+	SetParentPanel(OwnerPanel);
 	OwnerGraphPanelPtr = OwnerPanel;
 	GraphNode->NodeWidget = SharedThis(this);
 
@@ -841,11 +845,13 @@ void SGraphNode::UpdateGraphNode()
 
 	// Create comment bubble
 	TSharedPtr<SCommentBubble> CommentBubble;
+	const FSlateColor CommentColor = GetDefault<UGraphEditorSettings>()->DefaultCommentNodeTitleColor;
 
 	SAssignNew( CommentBubble, SCommentBubble )
 	.GraphNode( GraphNode )
 	.Text( this, &SGraphNode::GetNodeComment )
-	.ColorAndOpacity( this, &SGraphNode::GetCommentColor )
+	.OnTextCommitted( this, &SGraphNode::OnCommentTextCommitted )
+	.ColorAndOpacity( CommentColor )
 	.AllowPinning( true )
 	.EnableTitleBarBubble( true )
 	.EnableBubbleCtrls( true )
@@ -1130,7 +1136,7 @@ TSharedPtr<SGraphPin> SGraphNode::FindWidgetForPin( UEdGraphPin* ThePin ) const
 
 void SGraphNode::PlaySpawnEffect()
 {
-	SpawnAnim.Play();
+	SpawnAnim.Play( this->AsShared() );
 }
 
 FVector2D SGraphNode::GetContentScale() const
@@ -1364,6 +1370,7 @@ TSharedRef<SWidget> SGraphNode::AddPinButtonContent(FText PinText, FText PinTool
 	.ContentPadding(0.0f)
 	.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
 	.OnClicked( this, &SGraphNode::OnAddPin )
+	.IsEnabled( this, &SGraphNode::IsNodeEditable )
 	.ToolTipText(PinTooltipText)
 	.ToolTip(Tooltip)
 	.Visibility(this, &SGraphNode::IsAddPinButtonVisible)

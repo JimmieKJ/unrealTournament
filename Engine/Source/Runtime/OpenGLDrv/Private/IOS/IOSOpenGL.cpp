@@ -85,7 +85,7 @@ struct FPlatformOpenGLDevice
         {
             if( FrameReadyEvent == nullptr )
             {
-                FrameReadyEvent = FPlatformProcess::CreateSynchEvent();
+                FrameReadyEvent = FPlatformProcess::GetSynchEventFromPool();
                 FIOSPlatformRHIFramePacer::InitWithEvent( FrameReadyEvent );
             }
         }
@@ -227,8 +227,9 @@ FRHITexture* PlatformCreateBuiltinBackBuffer(FOpenGLDynamicRHI* OpenGLRHI, uint3
 {
 	IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
 	FIOSView* GLView = AppDelegate.IOSView;
+	[GLView UpdateRenderWidth:SizeX andHeight:SizeY];
 
-	uint32 Flags = TexCreate_RenderTargetable;
+	uint32 Flags = TexCreate_RenderTargetable | TexCreate_Presentable;
 	FOpenGLTexture2D* Texture2D = new FOpenGLTexture2D(OpenGLRHI, GLView.OnScreenColorRenderBuffer, GL_RENDERBUFFER, GL_COLOR_ATTACHMENT0, SizeX, SizeY, 0, 1, 1, 1, PF_B8G8R8A8, false, false, Flags, nullptr);
 	OpenGLTextureAllocated(Texture2D, Flags);
 
@@ -241,12 +242,21 @@ void PlatformResizeGLContext( FPlatformOpenGLDevice* Device, FPlatformOpenGLCont
 	VERIFY_GL_SCOPE();
 	glBindFramebuffer(GL_FRAMEBUFFER, Context->ViewportFramebuffer);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, BackBufferResource);
+	check (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
 	glViewport(0, 0, SizeX, SizeY);
 
 	// @todo-mobile Do we need to clear here?
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT);
+
+	#if UE_BUILD_DEBUG
+	// check size requested and renderbuffer size agree.
+	GLint RenderBufferWidth, RenderBufferHeight;
+	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_WIDTH, &RenderBufferWidth);
+	glGetRenderbufferParameteriv(GL_RENDERBUFFER, GL_RENDERBUFFER_HEIGHT, &RenderBufferHeight);
+	check(SizeX == RenderBufferWidth && SizeY == RenderBufferHeight);
+	#endif
 }
 
 void PlatformGetSupportedResolution(uint32 &Width, uint32 &Height)

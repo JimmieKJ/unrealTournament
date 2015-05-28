@@ -123,7 +123,13 @@ void UEdGraph::RemoveOnGraphChangedHandler( FDelegateHandle Handle )
 
 UEdGraphNode* UEdGraph::CreateNode( TSubclassOf<UEdGraphNode> NewNodeClass, bool bSelectNewNode/* = true*/ )
 {
-	UEdGraphNode* NewNode = ConstructObject<UEdGraphNode>(NewNodeClass, this, NAME_None, RF_Transactional);
+	UEdGraphNode* NewNode = NewObject<UEdGraphNode>(this, NewNodeClass, NAME_None, RF_Transactional);
+
+	if (HasAnyFlags(RF_Transient))
+	{
+		NewNode->SetFlags(RF_Transient);
+	}
+
 	AddNode(NewNode, false, bSelectNewNode );
 	return NewNode;
 }
@@ -135,18 +141,13 @@ void UEdGraph::AddNode( UEdGraphNode* NodeToAdd, bool bFromUI/* = false*/, bool 
 
 	// Create the graph
 	EEdGraphActionType AddNodeAction = GRAPHACTION_AddNode;
-	
-	if(bFromUI)
-	{
-		AddNodeAction = (EEdGraphActionType)( ((int32)AddNodeAction) | GRAPHACTION_UserInitiated );
-	}
 
-	if(bSelectNewNode)
+	if (bSelectNewNode)
 	{
 		AddNodeAction = (EEdGraphActionType)( ((int32)AddNodeAction) | GRAPHACTION_SelectNode );
 	}
 
-	FEdGraphEditAction Action(AddNodeAction, this, NodeToAdd);
+	FEdGraphEditAction Action(AddNodeAction, this, NodeToAdd, bFromUI);
 	
 	NotifyGraphChanged( Action );
 }
@@ -156,10 +157,6 @@ void UEdGraph::SelectNodeSet(TSet<const UEdGraphNode*> NodeSelection, bool bFrom
 	FEdGraphEditAction SelectionAction;
 
 	SelectionAction.Action = GRAPHACTION_SelectNode;
-	if (bFromUI)
-	{
-		SelectionAction.Action = (EEdGraphActionType)(((int32)SelectionAction.Action) | GRAPHACTION_UserInitiated);
-	}
 
 	SelectionAction.Graph = this;
 	SelectionAction.Nodes = NodeSelection;
@@ -176,7 +173,11 @@ bool UEdGraph::RemoveNode( UEdGraphNode* NodeToRemove )
 	NodeToRemove->BreakAllNodeLinks();
 #endif	//#if WITH_EDITOR
 
-	NotifyGraphChanged();
+	FEdGraphEditAction RemovalAction;
+	RemovalAction.Graph = this;
+	RemovalAction.Action = GRAPHACTION_RemoveNode;
+	RemovalAction.Nodes.Add(NodeToRemove);
+	NotifyGraphChanged(RemovalAction);
 
 	return NumTimesNodeRemoved > 0;
 }
@@ -195,9 +196,10 @@ void UEdGraph::NotifyGraphChanged(const FEdGraphEditAction& InAction)
 void UEdGraph::MoveNodesToAnotherGraph(UEdGraph* DestinationGraph, bool bIsLoading, bool bInIsCompiling/* = false*/)
 {
 	// Move one node over at a time
+	DestinationGraph->Nodes.Reserve(DestinationGraph->Nodes.Num() + Nodes.Num());
 	while (Nodes.Num())
 	{
-		if (UEdGraphNode* Node = Nodes.Pop())
+		if (UEdGraphNode* Node = Nodes.Pop(/*bAllowShrinking=*/ false))
 		{
 #if WITH_EDITOR
 			// During compilation, do not move ghost nodes, they are not used during compilation.

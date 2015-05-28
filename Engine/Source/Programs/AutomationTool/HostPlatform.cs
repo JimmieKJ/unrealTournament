@@ -20,7 +20,14 @@ namespace AutomationTool
 		/// </summary>
 		public static HostPlatform Current
 		{
-			get { return RunningPlatform; }
+			get 
+			{ 
+				if (RunningPlatform == null)
+				{
+					throw new AutomationException("UnrealAutomationTool host platform not initialized.");
+				}
+				return RunningPlatform; 
+			}
 		}
 
 		/// <summary>
@@ -32,6 +39,9 @@ namespace AutomationTool
 			switch (Platform)
 			{
 				case PlatformID.Win32NT:
+				case PlatformID.Win32S:
+				case PlatformID.Win32Windows:
+				case PlatformID.WinCE:
 					RunningPlatform = new WindowsHostPlatform();
 					break;
 
@@ -44,6 +54,10 @@ namespace AutomationTool
 					{
 						RunningPlatform = new LinuxHostPlatform();
 					}
+					break;
+
+				case PlatformID.MacOSX:
+					RunningPlatform = new MacHostPlatform();
 					break;
 
 				default:

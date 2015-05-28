@@ -128,7 +128,7 @@ public:
 		DeferredParameters.Set(RHICmdList, ShaderRHI, *View);
 	}
 
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
 		Ar << ScreenToLight;
@@ -276,7 +276,7 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(FRHICommandLi
 					if( !bLightAttenuationCleared )
 					{
 						LightSceneInfo->Proxy->SetScissorRect(RHICmdList, View);
-						RHICmdList.Clear(true, FLinearColor::White, false, 0, false, 0, FIntRect());
+						RHICmdList.Clear(true, FLinearColor::White, false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
 					}
 				}
 				else
@@ -315,8 +315,7 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(FRHICommandLi
 					else
 					{
 						// Render frontfaces with depth tests on to get the speedup from HiZ since the camera is outside the light function geometry
-						// Note, this is a reversed Z depth surface, using CF_GreaterEqual.
-						RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_GreaterEqual>::GetRHI());
+						RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
 						RHICmdList.SetRasterizerState(View.bReverseCulling ? TStaticRasterizerState<FM_Solid, CM_CCW>::GetRHI() : TStaticRasterizerState<FM_Solid, CM_CW>::GetRHI());
 					}
 
@@ -341,7 +340,7 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(FRHICommandLi
 		if (bRenderedLightFunction)
 		{
 			// Restore stencil buffer to all 0's which is the assumed default state
-			RHICmdList.Clear(false,FColor(0,0,0),false,0,true,0, FIntRect());
+			RHICmdList.Clear(false,FColor(0,0,0),false,(float)ERHIZBuffer::FarPlane,true,0, FIntRect());
 		}
 	}
 	return bRenderedLightFunction;

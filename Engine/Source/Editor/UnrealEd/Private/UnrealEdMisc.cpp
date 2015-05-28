@@ -20,6 +20,7 @@
 #include "AssetRegistryModule.h"
 #include "EngineAnalytics.h"
 #include "IAnalyticsProvider.h"
+#include "ISettingsEditorModule.h"
 #include "LevelEditor.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "UObjectToken.h"
@@ -28,7 +29,6 @@
 #include "PackageTools.h"
 #include "GameProjectGenerationModule.h"
 #include "MaterialEditorActions.h"
-#include "NormalMapIdentification.h"
 #include "EngineBuildSettings.h"
 #include "SlateBasics.h"
 #include "DesktopPlatformModule.h"
@@ -38,6 +38,9 @@
 #include "PerformanceMonitor.h"
 #include "Engine/WorldComposition.h"
 #include "FeaturePack.h"
+#include "GameMapsSettings.h"
+#include "GeneralProjectSettings.h"
+#include "Lightmass/LightmappedSurfaceCollection.h"
 
 #define LOCTEXT_NAMESPACE "UnrealEd"
 
@@ -199,8 +202,6 @@ void FUnrealEdMisc::OnInit()
 	FCoreDelegates::PreModal.AddRaw(this, &FUnrealEdMisc::OnEditorPreModal);
 	FCoreDelegates::PostModal.AddRaw(this, &FUnrealEdMisc::OnEditorPostModal);
 
-	FEditorDelegates::OnAssetPostImport.AddStatic(&NormalMapIdentification::HandleAssetPostImport);
-
 	// Register the play world commands
 	FPlayWorldCommands::Register();
 	FPlayWorldCommands::BindGlobalPlayWorldCommands();
@@ -293,7 +294,7 @@ void FUnrealEdMisc::OnInit()
 			{
 				const FString& StartupMap = GetDefault<UGameMapsSettings>()->EditorStartupMap;
 
-				if ((StartupMap.Len() > 0) && GetDefault<UEditorLoadingSavingSettings>()->bLoadDefaultLevelAtStartup)
+				if ((StartupMap.Len() > 0) && (GetDefault<UEditorLoadingSavingSettings>()->LoadLevelAtStartup != ELoadLevelAtStartup::None))
 				{
 					FEditorFileUtils::LoadDefaultMapAtStartup();
 					BeginPerformanceSurvey();
@@ -428,7 +429,7 @@ void FUnrealEdMisc::OnInit()
 	FAssetNameToken::OnGotoAsset().BindRaw(this, &FUnrealEdMisc::OnGotoAsset);
 
 	// Register to receive notification of new key bindings
-	OnUserDefinedGestureChangedDelegateHandle = FInputBindingManager::Get().RegisterUserDefinedGestureChanged(FOnUserDefinedGestureChanged::FDelegate::CreateRaw( this, &FUnrealEdMisc::OnUserDefinedGestureChanged ));
+	OnUserDefinedChordChangedDelegateHandle = FInputBindingManager::Get().RegisterUserDefinedChordChanged(FOnUserDefinedChordChanged::FDelegate::CreateRaw( this, &FUnrealEdMisc::OnUserDefinedChordChanged ));
 
 	SlowTask.EnterProgressFrame(10);
 
@@ -441,6 +442,10 @@ void FUnrealEdMisc::OnInit()
 	Delegate.BindRaw( this, &FUnrealEdMisc::EditorAnalyticsHeartbeat );
 
 	GEditor->GetTimerManager()->SetTimer( EditorAnalyticsHeartbeatTimerHandle, Delegate, Seconds, true );
+
+	// Give the settings editor a way to restart the editor when it needs to
+	ISettingsEditorModule& SettingsEditorModule = FModuleManager::GetModuleChecked<ISettingsEditorModule>("SettingsEditor");
+	SettingsEditorModule.SetRestartApplicationCallback(FSimpleDelegate::CreateRaw(this, &FUnrealEdMisc::RestartEditor, false));
 
 	// add handler to notify about navmesh building process
 	NavigationBuildingNotificationHandler = MakeShareable(new FNavigationBuildingNotificationImpl());
@@ -661,7 +666,7 @@ bool FUnrealEdMisc::EnableWorldComposition(UWorld* InWorld, bool bEnable)
 			return false;
 		}
 			
-		UWorldComposition* WorldCompostion = ConstructObject<UWorldComposition>(UWorldComposition::StaticClass(), InWorld);
+		auto WorldCompostion = NewObject<UWorldComposition>(InWorld);
 		// All map files found in the same and folder and all sub-folders will be added ass sub-levels to this map
 		// Make sure user understands this
 		int32 NumFoundSublevels = WorldCompostion->GetTilesList().Num();
@@ -754,7 +759,7 @@ void FUnrealEdMisc::OnExit()
 		FEditorViewportStats::SendUsageData();
 	}
 
-	FInputBindingManager::Get().UnregisterUserDefinedGestureChanged(OnUserDefinedGestureChangedDelegateHandle);
+	FInputBindingManager::Get().UnregisterUserDefinedChordChanged(OnUserDefinedChordChangedDelegateHandle);
 	FMessageLog::OnMessageSelectionChanged().Unbind();
 	FUObjectToken::DefaultOnMessageTokenActivated().Unbind();
 	FUObjectToken::DefaultOnGetObjectDisplayName().Unbind();
@@ -834,7 +839,7 @@ void FUnrealEdMisc::OnExit()
 
 			return;
 		}
-		Handle.Close();
+		FPlatformProcess::CloseProc(Handle);
 	}
 }
 
@@ -916,8 +921,8 @@ void FUnrealEdMisc::CB_MapChange( uint32 InFlags )
 	// Minor things like brush subtraction will set it to "0".
 
 	if( InFlags != MapChangeEventFlags::Default )
-	{	
-		GEditor->EditorClearComponents();
+	{
+		World->ClearWorldComponents();
 
 		// Note: CleanupWorld is being abused here to detach components and some other stuff
 		// CleanupWorld should only be called before destroying the world
@@ -1400,7 +1405,7 @@ void FUnrealEdMisc::SwitchProject(const FString& GameOrProjectFileName, bool bWa
 		const FText Message = FText::Format( LOCTEXT( "SwitchProjectWarning", "The editor will restart to switch to the {CurrentProjectName} project.  You will be prompted to save any changes before the editor restarts.  Continue switching projects?" ), Arguments ); 
 
 		// Present the user with a warning that changing projects has to restart the editor
-		FSuppressableWarningDialog::FSetupInfo Info( Message, Title, "Warning_SwitchProject", GEditorGameAgnosticIni );
+		FSuppressableWarningDialog::FSetupInfo Info( Message, Title, "Warning_SwitchProject", GEditorSettingsIni );
 		Info.ConfirmText = LOCTEXT( "Yes", "Yes" );
 		Info.CancelText = LOCTEXT( "No", "No" );
 
@@ -1604,17 +1609,17 @@ FString FUnrealEdMisc::GetExecutableForCommandlets() const
 	return ExecutableName;
 }
 
-void FUnrealEdMisc::OnUserDefinedGestureChanged(const FUICommandInfo& CommandInfo)
+void FUnrealEdMisc::OnUserDefinedChordChanged(const FUICommandInfo& CommandInfo)
 {
 	if( FEngineAnalytics::IsAvailable() )
 	{
-		FString GestureName = FString::Printf(TEXT("%s.%s"), *CommandInfo.GetBindingContext().ToString(), *CommandInfo.GetCommandName().ToString());
+		FString ChordName = FString::Printf(TEXT("%s.%s"), *CommandInfo.GetBindingContext().ToString(), *CommandInfo.GetCommandName().ToString());
 
 		//@todo This shouldn't be using a localized value; GetInputText() [10/11/2013 justin.sargent]
-		TArray< FAnalyticsEventAttribute > GestureAttribs;
-		GestureAttribs.Add(FAnalyticsEventAttribute(TEXT("Context"), GestureName));
-		GestureAttribs.Add(FAnalyticsEventAttribute(TEXT("Shortcut"), CommandInfo.GetActiveGesture()->GetInputText().ToString()));
-		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.KeyboardShortcut"), GestureAttribs);
+		TArray< FAnalyticsEventAttribute > ChordAttribs;
+		ChordAttribs.Add(FAnalyticsEventAttribute(TEXT("Context"), ChordName));
+		ChordAttribs.Add(FAnalyticsEventAttribute(TEXT("Shortcut"), CommandInfo.GetActiveChord()->GetInputText().ToString()));
+		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.KeyboardShortcut"), ChordAttribs);
 	}
 }
 

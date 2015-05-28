@@ -229,7 +229,7 @@ void VerifyComRefCount(IUnknown* Object,int32 ExpectedRefs,const TCHAR* Code,con
 
 	if (Object)
 	{
-		NumRefs = Object->AddRef();
+		Object->AddRef();
 		NumRefs = Object->Release();
 		if (NumRefs != ExpectedRefs)
 		{

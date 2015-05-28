@@ -143,6 +143,12 @@ void UK2Node_FunctionEntry::AllocateDefaultPins()
 	CreatePin(EGPD_Output, K2Schema->PC_Exec, TEXT(""), NULL, false, false, K2Schema->PN_Then);
 
 	UFunction* Function = FindField<UFunction>(SignatureClass, SignatureName);
+
+	if (Function == nullptr)
+	{
+		Function = FindDelegateSignature(SignatureName);
+	}
+
 	if (Function != NULL)
 	{
 		CreatePinsForFunctionEntryExit(Function, /*bIsFunctionEntry=*/ true);
@@ -192,8 +198,29 @@ void UK2Node_FunctionEntry::RemoveOutputPin(UEdGraphPin* PinToRemove)
 	}
 }
 
+bool UK2Node_FunctionEntry::CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage)
+{
+	bool bResult = Super::CanCreateUserDefinedPin(InPinType, InDesiredDirection, OutErrorMessage);
+	if (bResult)
+	{
+		if(InDesiredDirection == EGPD_Input)
+		{
+			OutErrorMessage = LOCTEXT("AddInputPinError", "Cannot add input pins to function entry node!");
+			bResult = false;
+		}
+	}
+	return bResult;
+}
+
 UEdGraphPin* UK2Node_FunctionEntry::CreatePinFromUserDefinition(const TSharedPtr<FUserPinInfo> NewPinInfo)
 {
+	// Make sure that if this is an exec node we are allowed one.
+	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+	if (NewPinInfo->PinType.PinCategory == Schema->PC_Exec && !CanModifyExecutionWires())
+	{
+		return nullptr;
+	}
+
 	UEdGraphPin* NewPin = CreatePin(
 		EGPD_Output, 
 		NewPinInfo->PinType.PinCategory, 

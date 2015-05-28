@@ -7,7 +7,7 @@
 
 class UAISense_Blueprint;
 
-UCLASS(Blueprintable)
+UCLASS(Blueprintable, Abstract)
 class AIMODULE_API UAISenseConfig_Blueprint : public UAISenseConfig
 {
 	GENERATED_BODY()
@@ -16,5 +16,5 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Sense", NoClear, config)
 	TSubclassOf<UAISense_Blueprint> Implementation;
 
-	virtual TSubclassOf<UAISense> GetSenseImplementation() const { return Implementation; }
+	virtual TSubclassOf<UAISense> GetSenseImplementation() const override { return Implementation; }
 };

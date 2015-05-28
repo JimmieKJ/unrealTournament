@@ -20,6 +20,17 @@ void UUserDefinedStruct::Serialize(FArchive& Ar)
 
 	if (Ar.IsLoading() && (EUserDefinedStructureStatus::UDSS_UpToDate == Status))
 	{
+		// We need to force the editor data to be preload in case anyone needs to extract variable
+		// information at editor time about the user structure.
+		if ( EditorData != nullptr )
+		{
+			Ar.Preload(EditorData);
+			if (!(Ar.GetPortFlags() & PPF_Duplicate))
+			{
+				FStructureEditorUtils::RecreateDefaultInstanceInEditorData(this);
+			}
+		}
+
 		const FStructureEditorUtils::EStructureError Result = FStructureEditorUtils::IsStructureValid(this, NULL, &ErrorMessage);
 		if (FStructureEditorUtils::EStructureError::Ok != Result)
 		{
@@ -32,11 +43,22 @@ void UUserDefinedStruct::Serialize(FArchive& Ar)
 void UUserDefinedStruct::PostDuplicate(bool bDuplicateForPIE)
 {
 	Super::PostDuplicate(bDuplicateForPIE);
+	if (!bDuplicateForPIE)
+	{
+		Guid = FGuid::NewGuid();
+	}
 	if (!bDuplicateForPIE && (GetOuter() != GetTransientPackage()))
 	{
 		SetMetaData(TEXT("BlueprintType"), TEXT("true"));
 		FStructureEditorUtils::OnStructureChanged(this);
 	}
+}
+
+void UUserDefinedStruct::PostLoad()
+{
+	Super::PostLoad();
+
+	ValidateGuid();
 }
 
 void UUserDefinedStruct::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
@@ -48,9 +70,9 @@ void UUserDefinedStruct::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags
 
 UProperty* UUserDefinedStruct::CustomFindProperty(const FName Name) const
 {
-	const FGuid Guid = FStructureEditorUtils::GetGuidFromPropertyName(Name);
-	UProperty* Property = Guid.IsValid() ? FStructureEditorUtils::GetPropertyByGuid(this, Guid) : NULL;
-	ensure(!Property || Guid == FStructureEditorUtils::GetGuidForProperty(Property));
+	const FGuid PropertyGuid = FStructureEditorUtils::GetGuidFromPropertyName(Name);
+	UProperty* Property = PropertyGuid.IsValid() ? FStructureEditorUtils::GetPropertyByGuid(this, PropertyGuid) : NULL;
+	ensure(!Property || PropertyGuid == FStructureEditorUtils::GetGuidForProperty(Property));
 	return Property;
 }
 
@@ -59,13 +81,29 @@ void UUserDefinedStruct::InitializeDefaultValue(uint8* StructData) const
 	FStructureEditorUtils::Fill_MakeStructureDefaultValue(this, StructData);
 }
 
+void UUserDefinedStruct::ValidateGuid()
+{
+	// Backward compatibility:
+	// The guid is created in an deterministic way using existing name.
+	if (!Guid.IsValid() && (GetFName() != NAME_None))
+	{
+		const FString HashString = GetFName().ToString();
+		ensure(HashString.Len());
+
+		const uint32 BufferLength = HashString.Len() * sizeof(HashString[0]);
+		uint32 HashBuffer[5];
+		FSHA1::HashBuffer(*HashString, BufferLength, reinterpret_cast<uint8*>(HashBuffer));
+		Guid = FGuid(HashBuffer[1], HashBuffer[2], HashBuffer[3], HashBuffer[4]);
+	}
+}
+
 #endif	// WITH_EDITOR
 
 FString UUserDefinedStruct::PropertyNameToDisplayName(FName Name) const
 {
 #if WITH_EDITOR
-	auto Guid = FStructureEditorUtils::GetGuidFromPropertyName(Name);
-	return FStructureEditorUtils::GetVariableDisplayName(this, Guid);
+	FGuid PropertyGuid = FStructureEditorUtils::GetGuidFromPropertyName(Name);
+	return FStructureEditorUtils::GetVariableDisplayName(this, PropertyGuid);
 #endif	// WITH_EDITOR
 
 	const int32 GuidStrLen = 32;
@@ -121,7 +159,11 @@ void UUserDefinedStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, US
 	}
 	if (bLoadDefaultFirst)
 	{
-		UDDefaultsStruct->CopyScriptStruct(Data, StructDefaultMem.GetStructMemory());
+		if (Defaults == nullptr)
+		{
+			Defaults = StructDefaultMem.GetStructMemory();
+		}
+		UDDefaultsStruct->CopyScriptStruct(Data, Defaults);
 	}
 #endif // WITH_EDITOR
 	Super::SerializeTaggedProperties(Ar, Data, DefaultsStruct, Defaults);
@@ -129,7 +171,7 @@ void UUserDefinedStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, US
 
 void UUserDefinedStruct::RecursivelyPreload()
 {
-	ULinkerLoad* Linker = GetLinker();
+	FLinkerLoad* Linker = GetLinker();
 	if( Linker && (NULL == PropertyLink) )
 	{
 		TArray<UObject*> AllChildMembers;
@@ -146,4 +188,9 @@ void UUserDefinedStruct::RecursivelyPreload()
 			StaticLink(true);
 		}
 	}
+}
+
+FGuid UUserDefinedStruct::GetCustomGuid() const
+{
+	return Guid;
 }

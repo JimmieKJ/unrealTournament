@@ -52,6 +52,7 @@ void SAnimationScrubPanel::Construct( const SAnimationScrubPanel::FArguments& In
 			.ViewInputMax(InArgs._ViewInputMax)
 			.OnSetInputViewRange(InArgs._OnSetInputViewRange)
 			.OnCropAnimSequence( this, &SAnimationScrubPanel::OnCropAnimSequence )
+			.OnAddAnimSequence( this, &SAnimationScrubPanel::OnInsertAnimSequence )
 			.OnReZeroAnimSequence( this, &SAnimationScrubPanel::OnReZeroAnimSequence )
 			.bAllowZoom(InArgs._bAllowZoom)
 			.IsRealtimeStreamingMode(this, &SAnimationScrubPanel::IsRealtimeStreamingMode)
@@ -349,8 +350,6 @@ void SAnimationScrubPanel::Tick( const FGeometry& AllottedGeometry, const double
 			bSliderBeingDragged = false;
 		}
 	}
-
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 }
 
 class UAnimSingleNodeInstance* SAnimationScrubPanel::GetPreviewInstance() const
@@ -480,6 +479,36 @@ void SAnimationScrubPanel::OnCropAnimSequence( bool bFromStart, float CurrentTim
 
 				//Resetting slider position to the first frame
 				PreviewInstance->SetPosition( 0.0f, false );
+			}
+		}
+	}
+}
+
+void SAnimationScrubPanel::OnInsertAnimSequence( bool bBefore, int32 CurrentFrame )
+{
+	UAnimSingleNodeInstance* PreviewInstance = GetPreviewInstance();
+	if(PreviewInstance)
+	{
+		float Length = PreviewInstance->GetLength();
+		if(PreviewInstance->CurrentAsset)
+		{
+			UAnimSequence* AnimSequence = Cast<UAnimSequence>(PreviewInstance->CurrentAsset);
+			if(AnimSequence)
+			{
+				const FScopedTransaction Transaction(LOCTEXT("InsertAnimSequence", "Insert Animation Sequence"));
+
+				//Call modify to restore slider position
+				PreviewInstance->Modify();
+
+				//Call modify to restore anim sequence current state
+				AnimSequence->Modify();
+
+				// Crop the raw anim data.
+				int32 StartFrame = (bBefore)? CurrentFrame : CurrentFrame + 1;
+				int32 EndFrame = StartFrame + 1;
+				AnimSequence->InsertFramesToRawAnimData(StartFrame, EndFrame, CurrentFrame);
+				// Recompress animation from Raw.
+				FAnimationUtils::CompressAnimSequence(AnimSequence, false, false);
 			}
 		}
 	}

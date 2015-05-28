@@ -213,7 +213,7 @@ int32 FPoly::SplitWithPlane
 		for( i=0; i<Vertices.Num(); i++ )
 		{
 			PrevDist	= Dist;
-      		Dist		= FVector::PointPlaneDist( Vertices[i], PlaneBase, PlaneNormal );
+	  		Dist		= FVector::PointPlaneDist( Vertices[i], PlaneBase, PlaneNormal );
 
 			if      (Dist > +Thresh)  	Status = V_FRONT;
 			else if (Dist < -Thresh)  	Status = V_BACK;
@@ -272,8 +272,8 @@ int32 FPoly::SplitWithPlane
 			}
 			else
 			{
-        		if (Status==V_FRONT) new(FrontPoly->Vertices)FVector(Vertices[i]);
-        		else                 new(BackPoly->Vertices)FVector(Vertices[i]);
+	    		if (Status==V_FRONT) new(FrontPoly->Vertices)FVector(Vertices[i]);
+	    		else                 new(BackPoly->Vertices)FVector(Vertices[i]);
 			}
 			j          = i;
 			PrevStatus = Status;
@@ -450,11 +450,6 @@ void FPoly::Transform
 	Base = (Base - PreSubtract) + PostAdd;
 	for( i=0; i<Vertices.Num(); i++ )
 		Vertices[i]  = (Vertices[i] - PreSubtract) + PostAdd;
-
-	// Transform normal.  Since the transformation coordinate system is
-	// orthogonal but not orthonormal, it has to be renormalized here.
-	Normal = Normal.GetSafeNormal();
-
 }
 
 
@@ -464,20 +459,22 @@ void FPoly::Rotate
 	const FRotator&		Rotation
 )
 {
+	const FRotationMatrix RotMatrix(Rotation);
+
 	// Rotate the vertices.
 	for (int32 Vertex = 0; Vertex < Vertices.Num(); Vertex++)
 	{
-		Vertices[Vertex] = PreSubtract + FRotationMatrix(Rotation).TransformVector(Vertices[Vertex] - PreSubtract);
+		Vertices[Vertex] = PreSubtract + RotMatrix.TransformVector(Vertices[Vertex] - PreSubtract);
 	}
 
-	Base = PreSubtract + FRotationMatrix(Rotation).TransformVector(Base - PreSubtract);
+	Base = PreSubtract + RotMatrix.TransformVector(Base - PreSubtract);
 
 	// Rotate the texture vectors.
-	TextureU = FRotationMatrix(Rotation).TransformVector(TextureU);
-	TextureV = FRotationMatrix(Rotation).TransformVector(TextureV);
+	TextureU = RotMatrix.TransformVector(TextureU);
+	TextureV = RotMatrix.TransformVector(TextureV);
 
 	// Rotate the normal.
-	Normal = FRotationMatrix(Rotation).TransformVector(Normal);
+	Normal = RotMatrix.TransformVector(Normal);
 	Normal = Normal.GetSafeNormal();
 }
 
@@ -488,6 +485,13 @@ void FPoly::Scale
 	const FVector&		Scale
 )
 {
+	if (Scale.X == 1.f &&
+		Scale.Y == 1.f &&
+		Scale.Z == 1.f)
+	{
+		return;
+	}
+
 	// Scale the vertices.
 	for (int32 Vertex = 0; Vertex < Vertices.Num(); Vertex++)
 	{
@@ -497,11 +501,11 @@ void FPoly::Scale
 	Base = PreSubtract + (Base - PreSubtract) * Scale;
 
 	// Scale the texture vectors.
-	TextureU *= Scale;
-	TextureV *= Scale;
+	TextureU /= Scale;
+	TextureV /= Scale;
 
-	// Renormalize the normal.
-	Normal = Normal.GetSafeNormal();
+	// Recalculate the normal. Non-uniform scale or mirroring requires this.
+	CalcNormal(true);
 }
 
 

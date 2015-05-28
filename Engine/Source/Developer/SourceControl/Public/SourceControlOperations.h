@@ -234,6 +234,11 @@ public:
 		bUpdateModifiedState = bInUpdateModifiedState;
 	}
 
+	void SetCheckingAllFiles( bool bInCheckingAllFiles )
+	{
+		bCheckingAllFiles = bInCheckingAllFiles;
+	}
+
 	bool ShouldUpdateHistory() const
 	{
 		return bUpdateHistory;
@@ -249,6 +254,11 @@ public:
 		return bUpdateModifiedState;
 	}
 
+	bool ShouldCheckAllFiles() const
+	{
+		return bCheckingAllFiles;
+	}
+
 protected:
 	/** Whether to update history */
 	bool bUpdateHistory;
@@ -258,6 +268,9 @@ protected:
 
 	/** Whether to update the modified state - expensive */
 	bool bUpdateModifiedState;
+
+	/** Hint that we are intending on checking all files in the project - some providers can optimize for this */
+	bool bCheckingAllFiles;
 };
 
 /**

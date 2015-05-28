@@ -61,6 +61,11 @@ public:
 	const FVector GetScreenDelta() const;
 
 	/**
+	 * Returns the raw mouse delta in pixels since dragging started.
+	 */
+	const FVector GetRawDelta() const;
+
+	/**
 	 * Returns the unsnapped start position of the current mouse drag. (This will be zero if there is no drag in progress)
 	 */
 	const FVector GetDragStartPos() const;
@@ -78,11 +83,11 @@ public:
 	/**
 	 * Converts the delta movement to drag/rotation/scale based on the viewport type or widget axis.
 	 */
-	void UNREALED_API ConvertMovementDeltaToDragRot(FEditorViewportClient* InViewportClient, const FVector& InDragDelta, FVector& InDrag, FRotator& InRotation, FVector& InScale) const;
+	void UNREALED_API ConvertMovementDeltaToDragRot(FEditorViewportClient* InViewportClient, FVector& InDragDelta, FVector& OutDrag, FRotator& OutRotation, FVector& OutScale) const;
 	/**
 	 * Absolute Translation conversion from mouse position on the screen to widget axis movement/rotation.
 	 */
-	void AbsoluteTranslationConvertMouseToDragRot(FSceneView* InView, FEditorViewportClient* InViewportClient, FVector& InDrag, FRotator& InRotation, FVector& InScale ) const;
+	void AbsoluteTranslationConvertMouseToDragRot(FSceneView* InView, FEditorViewportClient* InViewportClient, FVector& OutDrag, FRotator& OutRotation, FVector& OutScale ) const;
 
 	/**
 	 * Subtracts the specified value from End and EndSnapped.
@@ -132,14 +137,16 @@ private:
 	FVector Start;
 	/** The snapped start position of the current mouse drag. */
 	FVector StartSnapped;
-	/** The screen space start position of the current mouse drag. */
+	/** The screen space start position of the current mouse drag (may be scaled or rotated according to the ortho zoom or view). */
 	FVector StartScreen;
 	/** The unsnapped end position of the current mouse drag. */
 	FVector End;
 	/** The snapped end position of the current mouse drag. */
 	FVector EndSnapped;
-	/** The screen space end position of the current mouse drag. */
+	/** The screen space end position of the current mouse drag (may be scaled or rotated according to the ortho zoom or view). */
 	FVector EndScreen;
+	/** The raw unscaled mouse delta in pixels */
+	FVector RawDelta;
 
 	/** The amount that the End vectors have been reduced by since dragging started, this is added to the deltas to get an absolute delta. */
 	FVector ReductionAmount;
@@ -163,6 +170,8 @@ private:
 	/** Tracks if the user used a modifier to drag a selected item. (Rather than using a widget handle).Reset on StartTracking */
 	bool bUsedDragModifier;
 
+	/** Tracks whether the drag tool is in the process of being deleted (to protect against reentrancy) */
+	bool bIsDeletingDragTool;
 
 	/** Stores the widget mode active when the tracker begins tracking to help stop it change mid-track */
 	FWidget::EWidgetMode TrackingWidgetMode;

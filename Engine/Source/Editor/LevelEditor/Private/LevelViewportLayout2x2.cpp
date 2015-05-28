@@ -38,7 +38,7 @@ TSharedRef<SWidget> FLevelViewportLayout2x2::MakeViewportLayout(const FString& L
 		{
 			FString PercentageString;
 			FVector2D NewPercentage = ViewportLayout2x2Defs::DefaultSplitterPercentages;
-			if(GConfig->GetString(*IniSection, *(SpecificLayoutString + FString::Printf(TEXT(".Percentages%i"), i)), PercentageString, GEditorUserSettingsIni))
+			if(GConfig->GetString(*IniSection, *(SpecificLayoutString + FString::Printf(TEXT(".Percentages%i"), i)), PercentageString, GEditorPerProjectIni))
 			{
 				NewPercentage.InitFromString(PercentageString);
 			}						
@@ -51,7 +51,7 @@ TSharedRef<SWidget> FLevelViewportLayout2x2::MakeViewportLayout(const FString& L
 	.TopLeft()
 	[
 		SAssignNew( ViewportWidgetTL, SLevelViewport )
-		.ViewportType( LVT_OrthoYZ )		// Side
+		.ViewportType( LVT_OrthoYZ )		// Left
 		.ParentLayout( AsShared() )
 		.ParentLevelEditor( ParentLevelEditor )
 		.ConfigKey( TopLeftKey )
@@ -120,7 +120,7 @@ void FLevelViewportLayout2x2::SaveLayoutString(const FString& LayoutString) cons
 		SplitterWidget->GetSplitterPercentages(Percentages);
 		for (int32 i = 0; i < Percentages.Num(); ++i)
 		{
-			GConfig->SetString(*IniSection, *(SpecificLayoutString + FString::Printf(TEXT(".Percentages%i"), i)), *Percentages[i].ToString(), GEditorUserSettingsIni);
+			GConfig->SetString(*IniSection, *(SpecificLayoutString + FString::Printf(TEXT(".Percentages%i"), i)), *Percentages[i].ToString(), GEditorPerProjectIni);
 		}
 
 		SaveCommonLayoutString(SpecificLayoutString);

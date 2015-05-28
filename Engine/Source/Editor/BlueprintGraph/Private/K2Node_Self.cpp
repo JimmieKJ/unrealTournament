@@ -50,9 +50,9 @@ FText UK2Node_Self::GetTooltipText() const
 	return NSLOCTEXT("K2Node", "GetSelfReference", "Gets a reference to this instance of the blueprint");
 }
 
-FString UK2Node_Self::GetKeywords() const
+FText UK2Node_Self::GetKeywords() const
 {
-	return TEXT("This");
+	return LOCTEXT("SelfKeywords", "This");
 }
 
 FText UK2Node_Self::GetNodeTitle(ENodeTitleType::Type TitleType) const

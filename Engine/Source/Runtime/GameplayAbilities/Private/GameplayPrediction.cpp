@@ -7,6 +7,11 @@
 
 bool FPredictionKey::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
+	// Read bit for server initiated first
+	uint8 ServerInitiatedByte = bIsServerInitiated;
+	Ar.SerializeBits(&ServerInitiatedByte, 1);
+	bIsServerInitiated = ServerInitiatedByte & 1;
+
 	if (Ar.IsLoading())
 	{
 		Ar << Current;
@@ -14,16 +19,20 @@ bool FPredictionKey::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bO
 		{
 			Ar << Base;
 		}
-		PredictiveConnection = Map;
+		if (!bIsServerInitiated)
+		{
+			PredictiveConnection = Map;
+		}
 	}
 	else
 	{
 		/**
-		 *	Only serialize the payload if we have no owning connection (Client sending to server).
-		 *	or if the owning connection is this connection (Server only sends the prediction key to the client who gave it to us).
+		 *	Only serialize the payload if we have no owning connection (Client sending to server)
+		 *	or if the owning connection is this connection (Server only sends the prediction key to the client who gave it to us)
+		 *  or if this is a server initiated key (valid on all connections)
 		 */
 		
-		if (PredictiveConnection == nullptr || (Map == PredictiveConnection))
+		if (PredictiveConnection == nullptr || (Map == PredictiveConnection) || bIsServerInitiated)
 		{
 			Ar << Current;
 			if (Current > 0)
@@ -49,8 +58,14 @@ void FPredictionKey::GenerateNewPredictionKey()
 	bIsStale = false;
 }
 
-void FPredictionKey::GenerateDependantPredictionKey()
+void FPredictionKey::GenerateDependentPredictionKey()
 {
+	if (bIsServerInitiated)
+	{
+		// Can't have dependent keys on server keys, use same key
+		return;
+	}
+
 	KeyType Previous = 0;
 	if (Base == 0)
 	{
@@ -65,7 +80,7 @@ void FPredictionKey::GenerateDependantPredictionKey()
 
 	if (Previous > 0)
 	{
-		FPredictionKeyDelegates::AddDependancy(Current, Previous);
+		FPredictionKeyDelegates::AddDependency(Current, Previous);
 	}
 }
 
@@ -80,6 +95,20 @@ FPredictionKey FPredictionKey::CreateNewPredictionKey(UAbilitySystemComponent* O
 	}
 	return NewKey;
 }
+
+FPredictionKey FPredictionKey::CreateNewServerInitiatedKey(UAbilitySystemComponent* OwningComponent)
+{
+	FPredictionKey NewKey;
+
+	// Only valid on the server
+	if (OwningComponent->GetOwnerRole() == ROLE_Authority)
+	{
+		NewKey.GenerateNewPredictionKey();
+		NewKey.bIsServerInitiated = true;
+	}
+	return NewKey;
+}
+
 
 FPredictionKeyEvent& FPredictionKey::NewRejectedDelegate()
 {
@@ -186,7 +215,7 @@ void FPredictionKeyDelegates::CaughtUp(FPredictionKey::KeyType Key)
 	}
 }
 
-void FPredictionKeyDelegates::AddDependancy(FPredictionKey::KeyType ThisKey, FPredictionKey::KeyType DependsOn)
+void FPredictionKeyDelegates::AddDependency(FPredictionKey::KeyType ThisKey, FPredictionKey::KeyType DependsOn)
 {
 	NewRejectedDelegate(DependsOn).BindStatic(&FPredictionKeyDelegates::Reject, ThisKey);
 	NewCaughtUpDelegate(DependsOn).BindStatic(&FPredictionKeyDelegates::CaughtUp, ThisKey);
@@ -196,28 +225,34 @@ void FPredictionKeyDelegates::AddDependancy(FPredictionKey::KeyType ThisKey, FPr
 
 FScopedPredictionWindow::FScopedPredictionWindow(UAbilitySystemComponent* AbilitySystemComponent, FPredictionKey InPredictionKey)
 {
+	if (!ensure(AbilitySystemComponent != NULL))
+	{
+		return;
+	}
+
 	// This is used to set an already generated prediction key as the current scoped prediction key.
 	// Should be called on the server for logical scopes where a given key is valid. E.g, "client gave me this key, we both are going to run Foo()".
-
-	// If you are hitting this, this FScopedPredictionWindow constructor should only be called from Server RPCs where the client has given us a PredictionKey.
-	ensure(AbilitySystemComponent->IsNetSimulating() == false);
-
-	Owner = AbilitySystemComponent;
-	Owner->ScopedPredictionKey = InPredictionKey;
-	ClearScopedPredictionKey = true;
-	SetReplicatedPredictionKey = true;
+	
+	if (AbilitySystemComponent->IsNetSimulating() == false)
+	{
+		Owner = AbilitySystemComponent;
+		check(Owner.IsValid());
+		Owner->ScopedPredictionKey = InPredictionKey;
+		ClearScopedPredictionKey = true;
+		SetReplicatedPredictionKey = true;
+	}
 }
 
 FScopedPredictionWindow::FScopedPredictionWindow(UAbilitySystemComponent* InAbilitySystemComponent, bool bCanGenerateNewKey)
 {
-	// On the server, this will do nothing since he is authorative and doesnt need a prediction key for anything.
+	// On the server, this will do nothing since he is authoritative and doesn't need a prediction key for anything.
 	// On the client, this will generate a new prediction key if bCanGenerateNewKey is true, and we have a invalid prediction key.
 
 	ClearScopedPredictionKey = false;
 	SetReplicatedPredictionKey = false;
 	Owner = InAbilitySystemComponent;
 
-	if (Owner->IsNetSimulating() == false)
+	if (!ensure(Owner.IsValid()) || Owner->IsNetSimulating() == false)
 	{
 		return;
 	}
@@ -225,9 +260,10 @@ FScopedPredictionWindow::FScopedPredictionWindow(UAbilitySystemComponent* InAbil
 	// InAbilitySystemComponent->GetPredictionKey().IsValidForMorePrediction() == false && 
 	if (bCanGenerateNewKey)
 	{
+		check(InAbilitySystemComponent != NULL); // Should have bailed above with ensure(Owner.IsValid())
 		ClearScopedPredictionKey = true;
 		RestoreKey = InAbilitySystemComponent->ScopedPredictionKey;
-		InAbilitySystemComponent->ScopedPredictionKey.GenerateDependantPredictionKey();
+		InAbilitySystemComponent->ScopedPredictionKey.GenerateDependentPredictionKey();
 		
 	}
 }
@@ -238,7 +274,14 @@ FScopedPredictionWindow::~FScopedPredictionWindow()
 	{
 		if (SetReplicatedPredictionKey)
 		{
-			Owner->ReplicatedPredictionKey = Owner->ScopedPredictionKey;
+			// It is important to not set the ReplicatedPredictionKey unless it is valid (>0).
+			// If we werent given a new prediction key for this scope from the client, then setting the
+			// replicated prediction key back to 0 could cause OnReps to be missed on the client during high PL.
+			// (for example, predict w/ key 100 -> prediction key replication dropped -> predict w/ invalid key -> next rep of prediction key is 0).
+			if (Owner->ScopedPredictionKey.IsValidKey())
+			{
+				Owner->ReplicatedPredictionKey = Owner->ScopedPredictionKey;
+			}
 		}
 		if (ClearScopedPredictionKey)
 		{

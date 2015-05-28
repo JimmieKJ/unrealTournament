@@ -87,6 +87,7 @@ FSkeletonCurveNameManagerSummoner::FSkeletonCurveNameManagerSummoner(TSharedPtr<
 	:FWorkflowTabFactory(FPersonaTabs::CurveNameManagerID, InHostingApp)
 {
 	TabLabel = LOCTEXT("CurveNameTabTitle", "Skeleton Curves");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.Tabs.SkeletonCurves");
 
 	EnableTabPadding();
 	bIsSingleton = true;
@@ -314,8 +315,6 @@ void SSkeletonSmartNameManager::OnAddClicked()
 		SlateApp.GetCursorPos(),
 		FPopupTransitionEffect::TypeInPopup
 		);
-
-	TextEntry->FocusDefaultWidget();
 }
 
 void SSkeletonSmartNameManager::OnPostUndo()
@@ -377,8 +376,8 @@ void SCurveNameManager::OnDeleteNameClicked()
 		FAssetData& Data = AnimationAssets[Idx];
 		bool bRemove = true;
 
-		const FString* SkeletonData = Data.TagsAndValues.Find("Skeleton");
-		if(SkeletonData && *SkeletonData == CurrentSkeletonName)
+		const FString* SkeletonDataTag = Data.TagsAndValues.Find("Skeleton");
+		if(SkeletonDataTag && *SkeletonDataTag == CurrentSkeletonName)
 		{
 			const FString* CurveData = Data.TagsAndValues.Find(USkeleton::CurveTag);
 			FString CurveDataCopy;
@@ -405,7 +404,7 @@ void SCurveNameManager::OnDeleteNameClicked()
 			}
 
 			TArray<FString> ParsedStringUids;
-			CurveDataCopy.ParseIntoArray(&ParsedStringUids, &USkeleton::CurveTagDelimiter, true);
+			CurveDataCopy.ParseIntoArray(ParsedStringUids, *USkeleton::CurveTagDelimiter, true);
 
 			for(const FString& UidString : ParsedStringUids)
 			{

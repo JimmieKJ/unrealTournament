@@ -7,6 +7,7 @@
 #include "CoreUObjectPrivate.h"
 #include "MallocProfiler.h"
 #include "HotReloadInterface.h"
+#include "UObject/UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY(LogScriptFrame);
 DEFINE_LOG_CATEGORY_STATIC(LogScriptCore, Log, All);
@@ -75,7 +76,33 @@ void FBlueprintCoreDelegates::ThrowScriptException(const UObject* ActiveObject, 
 	case EBlueprintExceptionType::Tracepoint:
 	case EBlueprintExceptionType::WireTracepoint:
 		break;
+#if WITH_EDITOR
+	case EBlueprintExceptionType::AccessViolation:
+		{
+			struct FIntConfigValueHelper
+			{
+				int32 Value;
 
+				FIntConfigValueHelper() : Value(0)
+				{
+					GConfig->GetInt(TEXT("ScriptErrorLog"), TEXT("MaxNumOfAccessViolation"), Value, GEditorIni);
+				}
+			};
+
+			static const FIntConfigValueHelper MaxNumOfAccessViolation;
+			if (MaxNumOfAccessViolation.Value > 0)
+			{
+				static TMap<FName, int32> DisplayedWarningsMap;
+				const FName ActiveObjectName = ActiveObject ? ActiveObject->GetFName() : FName();
+				int32& Num = DisplayedWarningsMap.FindOrAdd(ActiveObjectName);
+				if (Num > MaxNumOfAccessViolation.Value)
+				{
+					break;
+				}
+				Num++;
+			}
+		}
+#endif // WITH_EDITOR
 	default:
 		UE_SUPPRESS(LogScript, Warning, const_cast<FFrame*>(&StackFrame)->Logf(TEXT("%s"), *(Info.GetDescription())));
 		break;
@@ -122,11 +149,13 @@ FEditorScriptExecutionGuard::~FEditorScriptExecutionGuard()
 void FFrame::Step(UObject *Context, RESULT_DECL)
 {
 	int32 B = *Code++;
-	(Context->*GNatives[B])(*this,Result);
+	(Context->*GNatives[B])(*this,RESULT_PARAM);
 }
 
 void FFrame::StepExplicitProperty(void*const Result, UProperty* Property)
 {
+	checkSlow(Result != NULL);
+
 	if (Property->PropertyFlags & CPF_OutParm)
 	{
 		// look through the out parameter infos and find the one that has the address of this property
@@ -143,10 +172,7 @@ void FFrame::StepExplicitProperty(void*const Result, UProperty* Property)
 	else
 	{
 		MostRecentPropertyAddress = Property->ContainerPtrToValuePtr<uint8>(Locals);
-		if (Result)
-		{
-			Property->CopyCompleteValueToScriptVM(Result, MostRecentPropertyAddress);
-		}
+		Property->CopyCompleteValueToScriptVM(Result, MostRecentPropertyAddress);
 	}
 }
 
@@ -168,15 +194,32 @@ void FFrame::KismetExecutionMessage(const TCHAR* Message, ELogVerbosity::Type Ve
 #endif
 	}
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	// Walk the script stack, if any
+	FString ScriptStack;
+	if( GScriptStack.Num() > 0 )
+	{
+		ScriptStack = TEXT( "Script call stack:\n" );
+		for( int32 i = GScriptStack.Num() - 1; i >= 0; --i )
+		{
+			ScriptStack += TEXT( "\t" ) + GScriptStack[i].GetStackDescription() + TEXT( "\n" );
+		}
+	}
+#endif
+
 	if (Verbosity == ELogVerbosity::Error)
 	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		UE_LOG(LogScriptCore, Fatal,TEXT("%s\n%s"), Message, *ScriptStack);
+#else
 		UE_LOG(LogScriptCore, Fatal,TEXT("%s"), Message);
+#endif
 	}
 	else
 	{
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		static bool GScriptStackForScriptWarning = FParse::Param(FCommandLine::Get(),TEXT("SCRIPTSTACKONWARNINGS"));
-		UE_LOG(LogScript, Warning, TEXT("%s"), Message);
+		UE_LOG(LogScript, Warning, TEXT("%s%s"), Message, GScriptStackForScriptWarning ? *FString::Printf(TEXT("\n%s"), *ScriptStack) : TEXT(""));
 #endif
 	}
 }
@@ -354,9 +397,9 @@ void UObject::SkipFunction(FFrame& Stack, RESULT_DECL, UFunction* Function)
 	if (ReturnProp != NULL)
 	{
 		// destroy old value if necessary
-		ReturnProp->DestroyValue(Result);
+		ReturnProp->DestroyValue(RESULT_PARAM);
 		// copy zero value for return property into Result
-		FMemory::Memzero(Result, ReturnProp->ArrayDim * ReturnProp->ElementSize);
+		FMemory::Memzero(RESULT_PARAM, ReturnProp->ArrayDim * ReturnProp->ElementSize);
 	}
 }
 
@@ -371,13 +414,38 @@ void UObject::CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function )
 
 	if (Function->FunctionFlags & FUNC_Native)
 	{
-		// Call native networkable function.
-		uint8 Buffer[1024];
+		uint8* Buffer = (uint8*)FMemory_Alloca(Function->ParmsSize);
 		int32 FunctionCallspace = GetFunctionCallspace( Function, Buffer, &Stack );
 		uint8* SavedCode = NULL;
 		if (FunctionCallspace & FunctionCallspace::Remote)
 		{
+			// Call native networkable function.
+
 			SavedCode = Stack.Code; // Since this is native, we need to rollback the stack if we are calling both remotely and locally
+
+			FMemory::Memzero( Buffer, Function->ParmsSize );
+
+			// Form the RPC parameters.
+			for( TFieldIterator<UProperty> It(Function); It && (It->PropertyFlags & (CPF_Parm|CPF_ReturnParm))==CPF_Parm; ++It )
+			{
+				uint8* CurrentPropAddr = It->ContainerPtrToValuePtr<uint8>(Buffer);
+				if ( Cast<UBoolProperty>(*It) && It->ArrayDim == 1 )
+				{
+					// we're going to get '1' returned for bools that are set, so we need to manually mask it in to the proper place
+					bool bValue = false;
+					Stack.Step(Stack.Object, &bValue);
+					if (bValue)
+					{
+						((UBoolProperty*)*It)->SetPropertyValue( CurrentPropAddr, true );
+					}
+				}
+				else
+				{
+					Stack.Step(Stack.Object, CurrentPropAddr);
+				}
+			}
+			checkSlow(*Stack.Code==EX_EndFunctionParms);
+
 			CallRemoteFunction(Function, Buffer, Stack.OutParms, &Stack);
 		}
 
@@ -392,12 +460,12 @@ void UObject::CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function )
 			FScopeCycleCounterUObject ContextScope(Stack.Object);
 			FScopeCycleCounterUObject FunctionScope(Function);
 
-			Function->Invoke(this, Stack, Result);
+			Function->Invoke(this, Stack, RESULT_PARAM);
 		}
 		else
 		{
 			// Eat up the remaining parameters in the stream.
-			SkipFunction(Stack, Result, Function);
+			SkipFunction(Stack, RESULT_PARAM, Function);
 		}
 	}
 	else
@@ -429,8 +497,8 @@ void UObject::CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function )
  					FOutParmRec* RetVal = (FOutParmRec*)FMemory_Alloca(sizeof(FOutParmRec));
  
  					// Our context should be that we're in a variable assignment to the return value, so ensure that we have a valid property to return to
- 					check(Result != NULL);
- 					RetVal->PropAddr = (uint8*)Result;
+ 					check(RESULT_PARAM != NULL);
+ 					RetVal->PropAddr = (uint8*)RESULT_PARAM;
  					RetVal->Property = Property;
 					NewStack.OutParms = RetVal;
  
@@ -464,6 +532,7 @@ void UObject::CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function )
 				// warning: Stack.MostRecentPropertyAddress could be NULL for optional out parameters
 				// if that's the case, we use the extra memory allocated for the out param in the function's locals
 				// so there's always a valid address
+				ensure(Stack.MostRecentPropertyAddress); // possible problem - output param values on local stack are neither initialized nor cleaned.
 				Out->PropAddr = (Stack.MostRecentPropertyAddress != NULL) ? Stack.MostRecentPropertyAddress : Property->ContainerPtrToValuePtr<uint8>(NewStack.Locals);
 				Out->Property = Property;
 
@@ -483,6 +552,8 @@ void UObject::CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function )
 				// copy the result of the expression for this parameter into the appropriate part of the local variable space
 				uint8* Param = Property->ContainerPtrToValuePtr<uint8>(NewStack.Locals);
 				checkSlow(Param);
+
+				Property->InitializeValue_InContainer(NewStack.Locals);
 
 				Stack.Step(Stack.Object, Param);
 			}
@@ -510,7 +581,7 @@ void UObject::CallFunction( FFrame& Stack, RESULT_DECL, UFunction* Function )
 		// Execute the code.
 		if( bIsValidFunction )
 		{
-			ProcessInternal( NewStack, Result );
+			ProcessInternal( NewStack, RESULT_PARAM );
 		}
 
 		if (!bUsePersistentFrame)
@@ -535,10 +606,10 @@ void ClearReturnValue(UProperty* ReturnProp, RESULT_DECL)
 		// destroy old value if necessary
 		if (!ReturnProp->HasAllPropertyFlags(CPF_NoDestructor))
 		{
-			ReturnProp->DestroyValue(Result);
+			ReturnProp->DestroyValue(RESULT_PARAM);
 		}
 		// copy zero value for return property into Result
-		FMemory::Memzero(Result, ReturnProp->ArrayDim * ReturnProp->ElementSize);
+		FMemory::Memzero(RESULT_PARAM, ReturnProp->ArrayDim * ReturnProp->ElementSize);
 	}
 }
 
@@ -571,7 +642,7 @@ void UObject::ProcessInternal( FFrame& Stack, RESULT_DECL )
 		{
 			// If we have a return property, return a zeroed value in it, to try and save execution as much as possible
 			UProperty* ReturnProp = ((UFunction*)Stack.Node)->GetReturnProperty();
-			ClearReturnValue(ReturnProp, Result);
+			ClearReturnValue(ReturnProp, RESULT_PARAM);
 			return;
 		}
 		else if (++Recurse == RECURSE_LIMIT)
@@ -581,14 +652,14 @@ void UObject::ProcessInternal( FFrame& Stack, RESULT_DECL )
 
 			// If we have a return property, return a zeroed value in it, to try and save execution as much as possible
 			UProperty* ReturnProp = ((UFunction*)Stack.Node)->GetReturnProperty();
-			ClearReturnValue(ReturnProp, Result);
+			ClearReturnValue(ReturnProp, RESULT_PARAM);
 
 			// Notify anyone who cares that we've had a fatal error, so we can shut down PIE, etc
 			const FString Desc = FString::Printf(TEXT("Infinite script recursion (%i calls) detected"), RECURSE_LIMIT);
 			FBlueprintExceptionInfo InfiniteRecursionExceptionInfo(EBlueprintExceptionType::InfiniteLoop, Desc);
 			FBlueprintCoreDelegates::ThrowScriptException(this, Stack, InfiniteRecursionExceptionInfo);
 
-			// This flag prevents repeated warnings of ininite loop, script exception handler 
+			// This flag prevents repeated warnings of infinite loop, script exception handler 
 			// is expected to have terminated execution appropriately:
 			Ranaway = true;
 
@@ -609,14 +680,17 @@ void UObject::ProcessInternal( FFrame& Stack, RESULT_DECL )
 
 				// If we have a return property, return a zeroed value in it, to try and save execution as much as possible
 				UProperty* ReturnProp = ((UFunction*)Stack.Node)->GetReturnProperty();
-				ClearReturnValue(ReturnProp, Result);
+				ClearReturnValue(ReturnProp, RESULT_PARAM);
 
 				// Notify anyone who cares that we've had a fatal error, so we can shut down PIE, etc
 				const FString Desc = FString::Printf(TEXT("Runaway loop detected (over %i iterations)"), GMaximumScriptLoopIterations );
 				FBlueprintExceptionInfo RunawayLoopExceptionInfo(EBlueprintExceptionType::InfiniteLoop, Desc);
-				FBlueprintCoreDelegates::ThrowScriptException(this, Stack, RunawayLoopExceptionInfo);
 
+				// Need to reset Runaway counter BEFORE throwing script exception, because the exception causes a modal dialog,
+				// and other scripts running will then erroneously think they are also "runaway".
 				Runaway = 0;
+
+				FBlueprintCoreDelegates::ThrowScriptException(this, Stack, RunawayLoopExceptionInfo);
 				return;
 			}
 #endif
@@ -626,7 +700,15 @@ void UObject::ProcessInternal( FFrame& Stack, RESULT_DECL )
 
 		// Step over the return statement and evaluate the result expression
 		Stack.Code++;
-		Stack.Step(Stack.Object, Result);
+
+		if (*Stack.Code != EX_Nothing)
+		{
+			Stack.Step(Stack.Object, RESULT_PARAM);
+		}
+		else
+		{
+			Stack.Code++;
+		}
 
 #if DO_GUARD
 		--Recurse;
@@ -638,9 +720,9 @@ void UObject::ProcessInternal( FFrame& Stack, RESULT_DECL )
 		if (ReturnProp != NULL)
 		{
 			// destroy old value if necessary
-			ReturnProp->DestroyValue(Result);
+			ReturnProp->DestroyValue(RESULT_PARAM);
 			// copy zero value for return property into Result
-			FMemory::Memzero(Result, ReturnProp->ArrayDim * ReturnProp->ElementSize);
+			FMemory::Memzero(RESULT_PARAM, ReturnProp->ArrayDim * ReturnProp->ElementSize);
 		}
 	}
 }
@@ -796,7 +878,7 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 	static int32 ScriptEntryTag = 0;
 
 	checkf(!HasAnyFlags(RF_Unreachable),TEXT("%s  Function: '%s'"), *GetFullName(), *Function->GetPathName());
-	checkf(!GIsRoutingPostLoad, TEXT("Cannot call UnrealScript (%s - %s) while PostLoading objects"), *GetFullName(), *Function->GetFullName());
+	checkf(!FUObjectThreadContext::Get().IsRoutingPostLoad, TEXT("Cannot call UnrealScript (%s - %s) while PostLoading objects"), *GetFullName(), *Function->GetFullName());
 
 	// Reject.
 	if (IsPendingKill())
@@ -839,6 +921,23 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 	ScriptEntryTag++;
 
 	CONDITIONAL_SCOPE_CYCLE_COUNTER(STAT_BlueprintTime, ScriptEntryTag == 1);
+
+#if UE_BLUEPRINT_EVENTGRAPH_FASTCALLS
+	// Fast path for ubergraph calls
+	int32 EventGraphParams;
+	if (Function->EventGraphFunction != nullptr)
+	{
+		// Call directly into the event graph, skipping the stub thunk function
+		EventGraphParams = Function->EventGraphCallOffset;
+		Parms = &EventGraphParams;
+		Function = Function->EventGraphFunction;
+
+		// Validate assumptions required for this optimized path (EventGraphFunction should have only been filled out if these held)
+		checkSlow(Function->ParmsSize == sizeof(EventGraphParams));
+		checkSlow(Function->FirstPropertyToInit == nullptr);
+		checkSlow(Function->PostConstructLink == nullptr);
+	}
+#endif
 
 	// Scope required for scoped script stats.
 	{
@@ -962,9 +1061,9 @@ void UObject::execLocalVariable(FFrame& Stack, RESULT_DECL)
 	UProperty* VarProperty = Stack.ReadProperty();
 	Stack.MostRecentPropertyAddress = VarProperty->ContainerPtrToValuePtr<uint8>(Stack.Locals);
 
-	if (Result)
+	if (RESULT_PARAM)
 	{
-		VarProperty->CopyCompleteValueToScriptVM( Result, Stack.MostRecentPropertyAddress );
+		VarProperty->CopyCompleteValueToScriptVM( RESULT_PARAM, Stack.MostRecentPropertyAddress );
 	}
 }
 IMPLEMENT_VM_FUNCTION( EX_LocalVariable, execLocalVariable );
@@ -974,9 +1073,9 @@ void UObject::execInstanceVariable(FFrame& Stack, RESULT_DECL)
 	UProperty* VarProperty = Stack.ReadProperty();
 	Stack.MostRecentPropertyAddress = VarProperty->ContainerPtrToValuePtr<uint8>(this);
 
-	if (Result)
+	if (RESULT_PARAM)
 	{
-		VarProperty->CopyCompleteValueToScriptVM(Result, Stack.MostRecentPropertyAddress);
+		VarProperty->CopyCompleteValueToScriptVM(RESULT_PARAM, Stack.MostRecentPropertyAddress);
 	}
 }
 IMPLEMENT_VM_FUNCTION( EX_InstanceVariable, execInstanceVariable );
@@ -999,9 +1098,9 @@ void UObject::execLocalOutVariable(FFrame& Stack, RESULT_DECL)
 	Stack.MostRecentPropertyAddress = Out->PropAddr;
 
 	// if desired, copy the value in that address to Result
-	if (Result && Result != Stack.MostRecentPropertyAddress)
+	if (RESULT_PARAM && RESULT_PARAM != Stack.MostRecentPropertyAddress)
 	{
-		VarProperty->CopyCompleteValueToScriptVM(Result, Stack.MostRecentPropertyAddress);
+		VarProperty->CopyCompleteValueToScriptVM(RESULT_PARAM, Stack.MostRecentPropertyAddress);
 	}
 }
 IMPLEMENT_VM_FUNCTION(EX_LocalOutVariable, execLocalOutVariable);
@@ -1012,10 +1111,10 @@ void UObject::execInterfaceContext(FFrame& Stack, RESULT_DECL)
 	FScriptInterface InterfaceValue;
 	Stack.Step(this, &InterfaceValue);
 
-	if (Result != NULL)
+	if (RESULT_PARAM != NULL)
 	{
 		// copy the UObject pointer to Result
-		*(UObject**)Result = InterfaceValue.GetObject();
+		*(UObject**)RESULT_PARAM = InterfaceValue.GetObject();
 	}
 }
 IMPLEMENT_VM_FUNCTION( EX_InterfaceContext, execInterfaceContext );
@@ -1181,7 +1280,7 @@ void UObject::execPopExecutionFlow( FFrame& Stack, RESULT_DECL )
 	// Try to pop an entry off the stack and go there
 	if (Stack.FlowStack.Num())
 	{
-		CodeSkipSizeType Offset = Stack.FlowStack.Pop();
+		CodeSkipSizeType Offset = Stack.FlowStack.Pop(/*bAllowShrinking=*/ false);
 		Stack.Code = &Stack.Node->Script[ Offset ];
 	}
 	else
@@ -1206,7 +1305,7 @@ void UObject::execPopExecutionFlowIfNot( FFrame& Stack, RESULT_DECL )
 		// Try to pop an entry off the stack and go there
 		if (Stack.FlowStack.Num())
 		{
-			CodeSkipSizeType Offset = Stack.FlowStack.Pop();
+			CodeSkipSizeType Offset = Stack.FlowStack.Pop(/*bAllowShrinking=*/ false);
 			Stack.Code = &Stack.Node->Script[ Offset ];
 		}
 		else
@@ -1233,7 +1332,7 @@ void UObject::execLetValueOnPersistentFrame(FFrame& Stack, RESULT_DECL)
 
 	Stack.Step(Stack.Object, DestAddress);
 #else
-	checkf(false, TEXT("execLetValueOnPersistentFrame: UberGraphPersistentFrame is not supported by current build!")
+	checkf(false, TEXT("execLetValueOnPersistentFrame: UberGraphPersistentFrame is not supported by current build!"));
 #endif
 }
 IMPLEMENT_VM_FUNCTION(Ex_LetValueOnPersistentFrame, execLetValueOnPersistentFrame);
@@ -1418,19 +1517,19 @@ IMPLEMENT_VM_FUNCTION( EX_LetMulticastDelegate, execLetMulticastDelegate );
 void UObject::execSelf( FFrame& Stack, RESULT_DECL )
 {
 	// Get Self actor for this context.
-	*(UObject**)Result = this;
+	*(UObject**)RESULT_PARAM = this;
 }
 IMPLEMENT_VM_FUNCTION( EX_Self, execSelf );
 
 void UObject::execContext( FFrame& Stack, RESULT_DECL )
 {
-	ProcessContextOpcode(Stack, Result, /*bCanFailSilently=*/ false);
+	ProcessContextOpcode(Stack, RESULT_PARAM, /*bCanFailSilently=*/ false);
 }
 IMPLEMENT_VM_FUNCTION( EX_Context, execContext );
 
 void UObject::execContext_FailSilent( FFrame& Stack, RESULT_DECL )
 {
-	ProcessContextOpcode(Stack, Result, /*bCanFailSilently=*/ true);
+	ProcessContextOpcode(Stack, RESULT_PARAM, /*bCanFailSilently=*/ true);
 }
 IMPLEMENT_VM_FUNCTION( EX_Context_FailSilent, execContext_FailSilent );
 
@@ -1445,8 +1544,10 @@ void UObject::ProcessContextOpcode( FFrame& Stack, RESULT_DECL, bool bCanFailSil
 	// Execute or skip the following expression in the object's context.
 	if (IsValid(NewContext))
 	{
-		Stack.Code += sizeof(CodeSkipSizeType) + sizeof(ScriptPointerType) + sizeof(uint8);
-		Stack.Step( NewContext, Result );
+		Stack.Code += sizeof(CodeSkipSizeType)	// Code offset for NULL expressions.
+			+ sizeof(ScriptPointerType)			// Property corresponding to the r-value data, in case the l-value needs to be cleared
+			+ sizeof(uint8);					// Property type, in case the r-value is a non-property - in ue4 it seems to be unused
+		Stack.Step( NewContext, RESULT_PARAM );
 	}
 	else
 	{
@@ -1475,15 +1576,21 @@ void UObject::ProcessContextOpcode( FFrame& Stack, RESULT_DECL, bool bCanFailSil
 			}
 		}
 
-		CodeSkipSizeType wSkip = Stack.ReadCodeSkipCount();
-		VariableSizeType bSize = Stack.ReadVariableSize();
+		const CodeSkipSizeType wSkip = Stack.ReadCodeSkipCount(); // Code offset for NULL expressions. Code += sizeof(CodeSkipSizeType)
+		UField* RValueField = nullptr;
+		const VariableSizeType bSize = Stack.ReadVariableSize(&RValueField); // Code += sizeof(ScriptPointerType) + sizeof(uint8)
 		Stack.Code += wSkip;
 		Stack.MostRecentPropertyAddress = NULL;
 		Stack.MostRecentProperty = NULL;
 
-		if (Result)
+		if (RESULT_PARAM)
 		{
-			FMemory::Memzero( Result, bSize );
+			auto RValueProperty = Cast<const UProperty>(RValueField);
+			ensure(RValueProperty || !RValueField);
+			if (RValueProperty)
+			{
+				RValueProperty->ClearValue(RESULT_PARAM);
+			}
 		}
 	}
 }
@@ -1506,9 +1613,9 @@ void UObject::execStructMemberContext(FFrame& Stack, RESULT_DECL)
 		Stack.MostRecentProperty = StructProperty;
 
 		// Handle variable reads
-		if (Result)
+		if (RESULT_PARAM)
 		{
-			StructProperty->CopyCompleteValueToScriptVM(Result, Stack.MostRecentPropertyAddress);
+			StructProperty->CopyCompleteValueToScriptVM(RESULT_PARAM, Stack.MostRecentPropertyAddress);
 		}
 	}
 	else
@@ -1526,14 +1633,14 @@ IMPLEMENT_VM_FUNCTION( EX_StructMemberContext, execStructMemberContext );
 void UObject::execVirtualFunction( FFrame& Stack, RESULT_DECL )
 {
 	// Call the virtual function.
-	CallFunction( Stack, Result, FindFunctionChecked(Stack.ReadName()) );
+	CallFunction( Stack, RESULT_PARAM, FindFunctionChecked(Stack.ReadName()) );
 }
 IMPLEMENT_VM_FUNCTION( EX_VirtualFunction, execVirtualFunction );
 
 void UObject::execFinalFunction( FFrame& Stack, RESULT_DECL )
 {
 	// Call the final function.
-	CallFunction( Stack, Result, (UFunction*)Stack.ReadObject() );
+	CallFunction( Stack, RESULT_PARAM, (UFunction*)Stack.ReadObject() );
 }
 IMPLEMENT_VM_FUNCTION( EX_FinalFunction, execFinalFunction );
 
@@ -1569,6 +1676,7 @@ public:
 			{
 				uint8* Param = Property->ContainerPtrToValuePtr<uint8>(Parameters);
 				checkSlow(Param);
+				Property->InitializeValue_InContainer(Parameters);
 				Stack.Step(Stack.Object, Param);
 			}
 		}
@@ -1647,26 +1755,26 @@ IMPLEMENT_VM_FUNCTION( EX_ClearMulticastDelegate, execClearMulticastDelegate );
 
 void UObject::execIntConst( FFrame& Stack, RESULT_DECL )
 {
-	*(int32*)Result = Stack.ReadInt();
+	*(int32*)RESULT_PARAM = Stack.ReadInt();
 }
 IMPLEMENT_VM_FUNCTION( EX_IntConst, execIntConst );
 
 void UObject::execSkipOffsetConst( FFrame& Stack, RESULT_DECL )
 {
 	CodeSkipSizeType Literal = Stack.ReadCodeSkipCount();
-	*(int32*)Result = Literal;
+	*(int32*)RESULT_PARAM = Literal;
 }
 IMPLEMENT_VM_FUNCTION( EX_SkipOffsetConst, execSkipOffsetConst );
 
 void UObject::execFloatConst( FFrame& Stack, RESULT_DECL )
 {
-	*(float*)Result = Stack.ReadFloat();
+	*(float*)RESULT_PARAM = Stack.ReadFloat();
 }
 IMPLEMENT_VM_FUNCTION( EX_FloatConst, execFloatConst );
 
 void UObject::execStringConst( FFrame& Stack, RESULT_DECL )
 {
-	*(FString*)Result = (ANSICHAR*)Stack.Code;
+	*(FString*)RESULT_PARAM = (ANSICHAR*)Stack.Code;
 	while( *Stack.Code )
 		Stack.Code++;
 	Stack.Code++;
@@ -1675,7 +1783,7 @@ IMPLEMENT_VM_FUNCTION( EX_StringConst, execStringConst );
 
 void UObject::execUnicodeStringConst( FFrame& Stack, RESULT_DECL )
 {
- 	*(FString*)Result = FString((UCS2CHAR*)Stack.Code);
+ 	*(FString*)RESULT_PARAM = FString((UCS2CHAR*)Stack.Code);
 
 	while( *(uint16*)Stack.Code )
 	{
@@ -1693,20 +1801,20 @@ void UObject::execTextConst( FFrame& Stack, RESULT_DECL )
 	Stack.Step( Stack.Object, &SourceString);
 	Stack.Step( Stack.Object, &KeyString);
 	Stack.Step( Stack.Object, &Namespace);
-	*(FText*)Result = FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*SourceString, *Namespace, *KeyString);
+	*(FText*)RESULT_PARAM = FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*SourceString, *Namespace, *KeyString);
 }
 IMPLEMENT_VM_FUNCTION( EX_TextConst, execTextConst );
 
 void UObject::execObjectConst( FFrame& Stack, RESULT_DECL )
 {
-	*(UObject**)Result = (UObject*)Stack.ReadObject();
+	*(UObject**)RESULT_PARAM = (UObject*)Stack.ReadObject();
 }
 IMPLEMENT_VM_FUNCTION( EX_ObjectConst, execObjectConst );
 
 void UObject::execInstanceDelegate( FFrame& Stack, RESULT_DECL )
 {
 	FName FunctionName = Stack.ReadName();
-	((FScriptDelegate*)Result)->BindUFunction( (FunctionName == NAME_None) ? NULL : this, FunctionName );
+	((FScriptDelegate*)RESULT_PARAM)->BindUFunction( (FunctionName == NAME_None) ? NULL : this, FunctionName );
 }
 IMPLEMENT_VM_FUNCTION( EX_InstanceDelegate, execInstanceDelegate );
 
@@ -1733,29 +1841,29 @@ IMPLEMENT_VM_FUNCTION( EX_BindDelegate, execBindDelegate );
 
 void UObject::execNameConst( FFrame& Stack, RESULT_DECL )
 {
-	*(FName*)Result = Stack.ReadName();
+	*(FName*)RESULT_PARAM = Stack.ReadName();
 }
 IMPLEMENT_VM_FUNCTION( EX_NameConst, execNameConst );
 
 void UObject::execByteConst( FFrame& Stack, RESULT_DECL )
 {
-	*(uint8*)Result = *Stack.Code++;
+	*(uint8*)RESULT_PARAM = *Stack.Code++;
 }
 IMPLEMENT_VM_FUNCTION( EX_ByteConst, execByteConst );
 
 void UObject::execRotationConst( FFrame& Stack, RESULT_DECL )
 {
-	((FRotator*)Result)->Pitch = Stack.ReadFloat();
-	((FRotator*)Result)->Yaw   = Stack.ReadFloat();
-	((FRotator*)Result)->Roll  = Stack.ReadFloat();
+	((FRotator*)RESULT_PARAM)->Pitch = Stack.ReadFloat();
+	((FRotator*)RESULT_PARAM)->Yaw   = Stack.ReadFloat();
+	((FRotator*)RESULT_PARAM)->Roll  = Stack.ReadFloat();
 }
 IMPLEMENT_VM_FUNCTION( EX_RotationConst, execRotationConst );
 
 void UObject::execVectorConst( FFrame& Stack, RESULT_DECL )
 {
-	((FVector*)Result)->X = Stack.ReadFloat();
-	((FVector*)Result)->Y = Stack.ReadFloat();
-	((FVector*)Result)->Z = Stack.ReadFloat();
+	((FVector*)RESULT_PARAM)->X = Stack.ReadFloat();
+	((FVector*)RESULT_PARAM)->Y = Stack.ReadFloat();
+	((FVector*)RESULT_PARAM)->Z = Stack.ReadFloat();
 }
 IMPLEMENT_VM_FUNCTION( EX_VectorConst, execVectorConst );
 
@@ -1780,7 +1888,7 @@ void UObject::execTransformConst( FFrame& Stack, RESULT_DECL )
 	TmpScale.Y = Stack.ReadFloat();
 	TmpScale.Z = Stack.ReadFloat();
 
-	((FTransform*)Result)->SetComponents(TmpRotation, TmpTranslation, TmpScale);
+	((FTransform*)RESULT_PARAM)->SetComponents(TmpRotation, TmpTranslation, TmpScale);
 }
 IMPLEMENT_VM_FUNCTION( EX_TransformConst, execTransformConst );
 
@@ -1795,13 +1903,10 @@ void UObject::execStructConst( FFrame& Stack, RESULT_DECL )
 	
 	for( UProperty* StructProp = ScriptStruct->PropertyLink; StructProp; StructProp = StructProp->PropertyLinkNext )
 	{
-		// Const struct arrays aren't supported yet
-		if ( dynamic_cast<UArrayProperty*>(StructProp) )
+		for (int32 ArrayIter = 0; ArrayIter < StructProp->ArrayDim; ++ArrayIter)
 		{
-			continue;
+			Stack.Step(Stack.Object, StructProp->ContainerPtrToValuePtr<uint8>(RESULT_PARAM, ArrayIter));
 		}
-
-		Stack.Step(Stack.Object, StructProp->ContainerPtrToValuePtr<uint8>(Result));
 	}
 
 	P_FINISH;	// EX_EndStructConst
@@ -1831,46 +1936,66 @@ void UObject::execSetArray( FFrame& Stack, RESULT_DECL )
 }
 IMPLEMENT_VM_FUNCTION( EX_SetArray, execSetArray );
 
+void UObject::execArrayConst(FFrame& Stack, RESULT_DECL)
+{
+	UProperty* InnerProperty = CastChecked<UProperty>(Stack.ReadObject());
+	int32 Num = Stack.ReadInt();
+	check(RESULT_PARAM);
+	FScriptArrayHelper ArrayHelper = FScriptArrayHelper::CreateHelperFormInnerProperty(InnerProperty, RESULT_PARAM);
+	ArrayHelper.EmptyValues(Num);
+
+	int32 i = 0;
+	while (*Stack.Code != EX_EndArrayConst)
+	{
+		ArrayHelper.AddValues(1);
+		Stack.Step(Stack.Object, ArrayHelper.GetRawPtr(i++));
+	}
+	ensure(i == Num);
+
+	P_FINISH;	// EX_EndArrayConst
+}
+IMPLEMENT_VM_FUNCTION(EX_ArrayConst, execArrayConst);
+
 void UObject::execIntZero( FFrame& Stack, RESULT_DECL )
 {
-	*(int32*)Result = 0;
+	*(int32*)RESULT_PARAM = 0;
 }
 IMPLEMENT_VM_FUNCTION( EX_IntZero, execIntZero );
 
 void UObject::execIntOne( FFrame& Stack, RESULT_DECL )
 {
-	*(int32*)Result = 1;
+	*(int32*)RESULT_PARAM = 1;
 }
 IMPLEMENT_VM_FUNCTION( EX_IntOne, execIntOne );
 
 void UObject::execTrue( FFrame& Stack, RESULT_DECL )
 {
-	*(bool*)Result = true;
+	*(bool*)RESULT_PARAM = true;
 }
 IMPLEMENT_VM_FUNCTION( EX_True, execTrue );
 
 void UObject::execFalse( FFrame& Stack, RESULT_DECL )
 {
-	*(bool*)Result = false;
+	*(bool*)RESULT_PARAM = false;
 }
 IMPLEMENT_VM_FUNCTION( EX_False, execFalse );
 
 void UObject::execNoObject( FFrame& Stack, RESULT_DECL )
 {
-	*(UObject**)Result = NULL;
+	*(UObject**)RESULT_PARAM = NULL;
 }
 IMPLEMENT_VM_FUNCTION( EX_NoObject, execNoObject );
 
 void UObject::execNullInterface(FFrame& Stack, RESULT_DECL)
 {
-	FScriptInterface& InterfaceValue = *(FScriptInterface*)Result;
+	FScriptInterface& InterfaceValue = *(FScriptInterface*)RESULT_PARAM;
 	InterfaceValue.SetObject(nullptr);
 }
 IMPLEMENT_VM_FUNCTION( EX_NoInterface, execNullInterface );
 
 void UObject::execIntConstByte( FFrame& Stack, RESULT_DECL )
 {
-	*(int32*)Result = *Stack.Code++;
+	*(int32*)RESULT_PARAM = *Stack.Code++;
 }
 IMPLEMENT_VM_FUNCTION( EX_IntConstByte, execIntConstByte );
 
@@ -1883,8 +2008,8 @@ void UObject::execDynamicCast( FFrame& Stack, RESULT_DECL )
 	// Compile object expression.
 	UObject* Castee = NULL;
 	Stack.Step( Stack.Object, &Castee );
-	//*(UObject**)Result = (Castee && Castee->IsA(Class)) ? Castee : NULL;
-	*(UObject**)Result = NULL; // default value
+	//*(UObject**)RESULT_PARAM = (Castee && Castee->IsA(Class)) ? Castee : NULL;
+	*(UObject**)RESULT_PARAM = NULL; // default value
 
 
 	// if we were passed in a null value
@@ -1892,11 +2017,11 @@ void UObject::execDynamicCast( FFrame& Stack, RESULT_DECL )
 	{
 		if( Class->HasAnyClassFlags(CLASS_Interface) )
 		{
-			((FScriptInterface*)Result)->SetObject(NULL);
+			((FScriptInterface*)RESULT_PARAM)->SetObject(NULL);
 		}
 		else
 		{
-			*(UObject**)Result = NULL;
+			*(UObject**)RESULT_PARAM = NULL;
 		}
 		return;
 	}
@@ -1908,14 +2033,14 @@ void UObject::execDynamicCast( FFrame& Stack, RESULT_DECL )
 		if ( Castee->GetClass()->ImplementsInterface(Class) )
 		{
 			// interface property type - convert to FScriptInterface
-			((FScriptInterface*)Result)->SetObject(Castee);
-			((FScriptInterface*)Result)->SetInterface(Castee->GetInterfaceAddress(Class));
+			((FScriptInterface*)RESULT_PARAM)->SetObject(Castee);
+			((FScriptInterface*)RESULT_PARAM)->SetInterface(Castee->GetInterfaceAddress(Class));
 		}
 	}
 	// check to see if the Castee is a castable class
 	else if( Castee->IsA(Class) )
 	{
-		*(UObject**)Result = Castee;
+		*(UObject**)RESULT_PARAM = Castee;
 	}
 }
 IMPLEMENT_VM_FUNCTION( EX_DynamicCast, execDynamicCast );
@@ -1928,20 +2053,20 @@ void UObject::execMetaCast( FFrame& Stack, RESULT_DECL )
 	UObject* Castee = nullptr;
 	Stack.Step( Stack.Object, &Castee );
 	UClass* CasteeClass = dynamic_cast<UClass*>(Castee);
-	*(UObject**)Result = (CasteeClass && CasteeClass->IsChildOf(MetaClass)) ? Castee : nullptr;
+	*(UObject**)RESULT_PARAM = (CasteeClass && CasteeClass->IsChildOf(MetaClass)) ? Castee : nullptr;
 }
 IMPLEMENT_VM_FUNCTION( EX_MetaCast, execMetaCast );
 
 void UObject::execPrimitiveCast( FFrame& Stack, RESULT_DECL )
 {
 	int32 B = *(Stack.Code)++;
-	(Stack.Object->*GCasts[B])( Stack, Result );
+	(Stack.Object->*GCasts[B])( Stack, RESULT_PARAM );
 }
 IMPLEMENT_VM_FUNCTION( EX_PrimitiveCast, execPrimitiveCast );
 
 void UObject::execInterfaceCast( FFrame& Stack, RESULT_DECL )
 {
-	(Stack.Object->*GCasts[CST_ObjectToInterface])(Stack, Result);
+	(Stack.Object->*GCasts[CST_ObjectToInterface])(Stack, RESULT_PARAM);
 }
 IMPLEMENT_VM_FUNCTION( EX_ObjToInterfaceCast, execInterfaceCast );
 
@@ -1949,7 +2074,7 @@ void UObject::execObjectToBool( FFrame& Stack, RESULT_DECL )
 {
 	UObject* Obj=NULL;
 	Stack.Step( Stack.Object, &Obj );
-	*(bool*)Result = Obj != NULL;
+	*(bool*)RESULT_PARAM = Obj != NULL;
 }
 IMPLEMENT_CAST_FUNCTION( UObject, CST_ObjectToBool, execObjectToBool );
 
@@ -1957,13 +2082,13 @@ void UObject::execInterfaceToBool( FFrame& Stack, RESULT_DECL )
 {
 	FScriptInterface Interface;
 	Stack.Step( Stack.Object, &Interface);
-	*(bool*)Result = (Interface.GetObject() != NULL);
+	*(bool*)RESULT_PARAM = (Interface.GetObject() != NULL);
 }
 IMPLEMENT_CAST_FUNCTION( UObject, CST_InterfaceToBool, execInterfaceToBool );
 
 void UObject::execObjectToInterface( FFrame& Stack, RESULT_DECL )
 {
-	FScriptInterface& InterfaceValue = *(FScriptInterface*)Result;
+	FScriptInterface& InterfaceValue = *(FScriptInterface*)RESULT_PARAM;
 
 	// read the interface class off the stack
 	UClass* InterfaceClass = dynamic_cast<UClass*>(Stack.ReadObject());
@@ -1989,7 +2114,7 @@ IMPLEMENT_CAST_FUNCTION( UObject, CST_ObjectToInterface, execObjectToInterface )
 
 void UObject::execInterfaceToInterface( FFrame& Stack, RESULT_DECL )
 {
-	FScriptInterface& CastResult = *(FScriptInterface*)Result;
+	FScriptInterface& CastResult = *(FScriptInterface*)RESULT_PARAM;
 
 	// read the interface class off the stack
 	UClass* ClassToCastTo = dynamic_cast<UClass*>(Stack.ReadObject());
@@ -2026,13 +2151,13 @@ void UObject::execInterfaceToObject(FFrame& Stack, RESULT_DECL)
 	Stack.Step(Stack.Object, &InterfaceInput);
 
 	UObject* InputObjWithInterface = InterfaceInput.GetObjectRef();
-	if (InputObjWithInterface->IsA(ObjClassToCastTo))
+	if (InputObjWithInterface && InputObjWithInterface->IsA(ObjClassToCastTo))
 	{
-		*(UObject**)Result = InputObjWithInterface;
+		*(UObject**)RESULT_PARAM = InputObjWithInterface;
 	}
 	else
 	{
-		*(UObject**)Result = nullptr;
+		*(UObject**)RESULT_PARAM = nullptr;
 	}
 }
 IMPLEMENT_VM_FUNCTION( EX_InterfaceToObjCast, execInterfaceToObject );

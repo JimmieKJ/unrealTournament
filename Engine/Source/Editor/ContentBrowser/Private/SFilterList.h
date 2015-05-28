@@ -28,7 +28,7 @@ public:
 		SLATE_EVENT( FOnFilterChanged, OnFilterChanged )
 
 		/** The filter collection used to further filter down assets returned from the backend */
-		SLATE_ARGUMENT( TSharedPtr<AssetFilterCollectionType>, FrontendFilters)
+		SLATE_ARGUMENT( TSharedPtr<FAssetFilterCollectionType>, FrontendFilters)
 
 		/** An array of classes to filter the menu by */
 		SLATE_ARGUMENT( TArray<UClass*>, InitialClassFilters)
@@ -127,7 +127,7 @@ private:
 	TArray<TSharedRef<SFilter>> Filters;
 
 	/** The filter collection used to further filter down assets returned from the backend */
-	TSharedPtr<AssetFilterCollectionType> FrontendFilters;
+	TSharedPtr<FAssetFilterCollectionType> FrontendFilters;
 
 	/** All possible frontend filter objects */
 	TArray< TSharedRef<FFrontendFilter> > AllFrontendFilters;

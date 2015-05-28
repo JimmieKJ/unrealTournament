@@ -272,17 +272,17 @@ static bool diagonalie(int i, int j, int n, const int* verts, int* indices)
 // polygon P in the neighborhood of the i endpoint.
 static bool	inCone(int i, int j, int n, const int* verts, int* indices)
 {
-	const int* pi = &verts[(indices[i] & 0x0fffffff) * 4];
-	const int* pj = &verts[(indices[j] & 0x0fffffff) * 4];
-	const int* pi1 = &verts[(indices[next(i, n)] & 0x0fffffff) * 4];
-	const int* pin1 = &verts[(indices[prev(i, n)] & 0x0fffffff) * 4];
+	const int* vi = &verts[(indices[i] & 0x0fffffff) * 4];
+	const int* vj = &verts[(indices[j] & 0x0fffffff) * 4];
+	const int* vi1 = &verts[(indices[next(i, n)] & 0x0fffffff) * 4];
+	const int* vin1 = &verts[(indices[prev(i, n)] & 0x0fffffff) * 4];
 
 	// If P[i] is a convex vertex [ i+1 left or on (i-1,i) ].
-	if (leftOn(pin1, pi, pi1))
-		return left(pi, pj, pin1) && left(pj, pi, pi1);
+	if (leftOn(vin1, vi, vi1))
+		return left(vi, vj, vin1) && left(vj, vi, vi1);
 	// Assume (i-1,i,i+1) not collinear.
 	// else P[i] is reflex.
-	return !(leftOn(pi, pj, pi1) && leftOn(pj, pi, pin1));
+	return !(leftOn(vi, vj, vi1) && leftOn(vj, vi, vin1));
 }
 
 // Returns T iff (v_i, v_j) is a proper internal
@@ -774,10 +774,10 @@ static bool removeVertex(rcContext* ctx, rcPolyMesh& mesh, const unsigned short 
 	// Generate temp vertex array for triangulation.
 	for (int i = 0; i < nhole; ++i)
 	{
-		const int pi = hole[i];
-		tverts[i*4+0] = mesh.verts[pi*3+0];
-		tverts[i*4+1] = mesh.verts[pi*3+1];
-		tverts[i*4+2] = mesh.verts[pi*3+2];
+		const int holeVertIndex = hole[i];
+		tverts[i*4+0] = mesh.verts[holeVertIndex*3+0];
+		tverts[i*4+1] = mesh.verts[holeVertIndex*3+1];
+		tverts[i*4+2] = mesh.verts[holeVertIndex*3+2];
 		tverts[i*4+3] = 0;
 		thole[i] = i;
 	}

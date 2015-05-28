@@ -52,7 +52,10 @@ class ENGINE_API USoundNode : public UObject
 
 #if WITH_EDITORONLY_DATA
 	/** Node's Graph representation, used to get position. */
-	class USoundCueGraphNode*	GraphNode;
+	UPROPERTY()
+	UEdGraphNode*	GraphNode;
+
+	class USoundCueGraphNode* GetGraphNode() const;
 #endif
 
 public:

@@ -25,7 +25,7 @@ class ENGINE_API UNavMovementComponent : public UMovementComponent
 	GENERATED_UCLASS_BODY()
 
 	/** Properties that define how the component can move. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=MovementComponent, meta=(DisplayName="Movement Capabilities", Keywords="Nav Agent"))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Movement Capabilities", meta=(DisplayName="Movement Capabilities", Keywords="Nav Agent"))
 	FNavAgentProperties NavAgentProps;
 
 protected:
@@ -139,6 +139,11 @@ public:
 	const FNavAgentProperties* GetNavAgentProperties() const;
 	DEPRECATED(4.7, "This function is deprecated. Please use GetNavAgentPropertiesRef instead.")
 	FNavAgentProperties* GetNavAgentProperties();
+
+	DEPRECATED(4.8, "This function is deprecated. Please use UpdateNavAgent version that's accepring a reference instead.")
+	void UpdateNavAgent(AActor* Owner);
+	DEPRECATED(4.8, "This function is deprecated. Please use UpdateNavAgent version that's accepring a reference instead.")
+	void UpdateNavAgent(UCapsuleComponent* CapsuleComponent);
 };
 
 

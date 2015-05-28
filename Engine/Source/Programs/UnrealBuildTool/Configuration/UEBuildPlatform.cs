@@ -190,6 +190,13 @@ namespace UnrealBuildTool
 		void SetUpConfigurationEnvironment(UEBuildTarget InBuildTarget);
 
 		/**
+		 * Setup the project environment for building
+		 * 
+		 * @param InBuildTarget The target being built
+		 */
+		void SetUpProjectEnvironment(UnrealTargetPlatform InPlatform);
+
+		/**
 		 * Whether this platform should create debug information or not
 		 * 
 		 * @param InPlatform The UnrealTargetPlatform being built
@@ -261,6 +268,13 @@ namespace UnrealBuildTool
 		 * @param InBuildTarget The target being built
 		 */
 		void SetupBinaries(UEBuildTarget InBuildTarget);
+
+		/**
+		 * Check for the default configuration
+		 *
+		 * return true if the project uses the default build config
+		 */
+		bool HasDefaultBuildConfig(UnrealTargetPlatform InPlatform, string InProjectPath);
 	}
 
 	public abstract partial class UEBuildPlatform : IUEBuildPlatform
@@ -683,25 +697,7 @@ namespace UnrealBuildTool
 			// Determine the C++ compile/link configuration based on the Unreal configuration.
 			CPPTargetConfiguration CompileConfiguration;
 			UnrealTargetConfiguration CheckConfig = InBuildTarget.Configuration;
-			//@todo SAS: Add a true Debug mode!
-			if (UnrealBuildTool.RunningRocket())
-			{
-				if (Utils.IsFileUnderDirectory(InBuildTarget.OutputPaths[0], UnrealBuildTool.GetUProjectPath()))
-				{
-					if (CheckConfig == UnrealTargetConfiguration.Debug)
-					{
-						CheckConfig = UnrealTargetConfiguration.DebugGame;
-					}
-				}
-				else
-				{
-					// Only Development and Shipping are supported for engine modules
-					if (CheckConfig != UnrealTargetConfiguration.Development && CheckConfig != UnrealTargetConfiguration.Shipping)
-					{
-						CheckConfig = UnrealTargetConfiguration.Development;
-					}
-				}
-			}
+
 			switch (CheckConfig)
 			{
 				default:
@@ -744,6 +740,93 @@ namespace UnrealBuildTool
 			InBuildTarget.GlobalCompileEnvironment.Config.bCreateDebugInfo =
 				!BuildConfiguration.bDisableDebugInfo && ShouldCreateDebugInfo(InBuildTarget.Platform, CheckConfig);
 			InBuildTarget.GlobalLinkEnvironment.Config.bCreateDebugInfo = InBuildTarget.GlobalCompileEnvironment.Config.bCreateDebugInfo;
+		}
+
+		/**
+		 *	Setup the project environment for building
+		 *	
+		 *	@param	InBuildTarget		The target being built
+		 */
+		public virtual void SetUpProjectEnvironment(UnrealTargetPlatform InPlatform)
+		{
+			ConfigCacheIni Ini = new ConfigCacheIni(InPlatform, "Engine", UnrealBuildTool.GetUProjectPath());
+			bool bValue = UEBuildConfiguration.bCompileAPEX;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileApex", out bValue))
+			{
+				UEBuildConfiguration.bCompileAPEX = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileBox2D;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileBox2D", out bValue))
+			{
+				UEBuildConfiguration.bCompileBox2D = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileICU;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileICU", out bValue))
+			{
+				UEBuildConfiguration.bCompileICU = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileSimplygon;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileSimplygon", out bValue))
+			{
+				UEBuildConfiguration.bCompileSimplygon = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileLeanAndMeanUE;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileLeanAndMeanUE", out bValue))
+			{
+				UEBuildConfiguration.bCompileLeanAndMeanUE = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bIncludeADO;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bIncludeADO", out bValue))
+			{
+				UEBuildConfiguration.bIncludeADO = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileRecast;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileRecast", out bValue))
+			{
+				UEBuildConfiguration.bCompileRecast = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileSpeedTree;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileSpeedTree", out bValue))
+			{
+				UEBuildConfiguration.bCompileSpeedTree = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileWithPluginSupport;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileWithPluginSupport", out bValue))
+			{
+				UEBuildConfiguration.bCompileWithPluginSupport = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompilePhysXVehicle;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompilePhysXVehicle", out bValue))
+			{
+				UEBuildConfiguration.bCompilePhysXVehicle = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileFreeType;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileFreeType", out bValue))
+			{
+				UEBuildConfiguration.bCompileFreeType = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileForSize;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileForSize", out bValue))
+			{
+				UEBuildConfiguration.bCompileForSize = bValue;
+			}
+
+			bValue = UEBuildConfiguration.bCompileCEF3;
+			if (Ini.GetBool("/Script/BuildSettings.BuildSettings", "bCompileCEF3", out bValue))
+			{
+				UEBuildConfiguration.bCompileCEF3 = bValue;
+			}
 		}
 
 		/**
@@ -850,6 +933,72 @@ namespace UnrealBuildTool
 		 */
 		public virtual void SetupBinaries(UEBuildTarget InBuildTarget)
 		{
+		}
+
+		protected static bool DoProjectSettingsMatchDefault(UnrealTargetPlatform Platform, string ProjectPath, string Section, string[] BoolKeys, string[] IntKeys, string[] StringKeys)
+		{
+			ConfigCacheIni ProjIni = new ConfigCacheIni(Platform, "Engine", ProjectPath);
+			ConfigCacheIni DefaultIni = new ConfigCacheIni(Platform, "Engine", null);
+
+			// look at all bool values
+			if (BoolKeys != null) foreach (string Key in BoolKeys)
+			{
+				bool Default = false, Project = false;
+				DefaultIni.GetBool(Section, Key, out Default);
+				ProjIni.GetBool(Section, Key, out Project);
+				if (Default != Project)
+				{
+					Console.WriteLine(Key + " is not set to default. (" + Default + " vs. " + Project + ")");
+					return false;
+				}
+			}
+
+			// look at all int values
+			if (IntKeys != null) foreach (string Key in IntKeys)
+			{
+				int Default = 0, Project = 0;
+				DefaultIni.GetInt32(Section, Key, out Default);
+				ProjIni.GetInt32(Section, Key, out Project);
+				if (Default != Project)
+				{
+					Console.WriteLine(Key + " is not set to default. (" + Default + " vs. " + Project + ")");
+					return false;
+				}
+			}
+
+			// look for all string values
+			if (StringKeys != null) foreach (string Key in StringKeys)
+			{
+				string Default = "", Project = "";
+				DefaultIni.GetString(Section, Key, out Default);
+				ProjIni.GetString(Section, Key, out Project);
+				if (Default != Project)
+				{
+					Console.WriteLine(Key + " is not set to default. (" + Default + " vs. " + Project + ")");
+					return false;
+				}
+			}
+
+			// if we get here, we match all important settings
+			return true;
+		}
+
+		/**
+		 * Check for the default configuration
+		 *
+		 * return true if the project uses the default build config
+		 */
+		public virtual bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, string ProjectPath)
+		{
+			string[] BoolKeys = new string[] {
+				"bCompileApex", "bCompileBox2D", "bCompileICU", "bCompileSimplygon", 
+				"bCompileLeanAndMeanUE", "bIncludeADO", "bCompileRecast", "bCompileSpeedTree", 
+				"bCompileWithPluginSupport", "bCompilePhysXVehicle", "bCompileFreeType", 
+				"bCompileForSize", "bCompileCEF3"
+			};
+
+			return DoProjectSettingsMatchDefault(Platform, ProjectPath, "/Script/BuildSettings.BuildSettings",
+				BoolKeys, null, null);
 		}
 	}
 
@@ -1160,10 +1309,13 @@ namespace UnrealBuildTool
 					//HookProcess.StartInfo.RedirectStandardOutput = true;
 					//HookProcess.StartInfo.RedirectStandardError = true;					
 
-					//installers may require administrator access to succeed. so run as an admmin.
-					HookProcess.StartInfo.Verb = "runas";
-					HookProcess.Start();
-					HookProcess.WaitForExit();
+					using (var HookTimer = new ScopedTimer("Time to run hook: ", bShouldLogInfo ? TraceEventType.Information : TraceEventType.Verbose))
+					{
+						//installers may require administrator access to succeed. so run as an admmin.
+						HookProcess.StartInfo.Verb = "runas";
+						HookProcess.Start();
+						HookProcess.WaitForExit();
+					}
 
 					//LogAutoSDK(HookProcess.StandardOutput.ReadToEnd());
 					//LogAutoSDK(HookProcess.StandardError.ReadToEnd());

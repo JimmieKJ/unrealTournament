@@ -23,7 +23,7 @@ UCameraAnimInst::UCameraAnimInst(const FObjectInitializer& ObjectInitializer)
 	TransientScaleModifier = 1.0f;
 	PlaySpace = ECameraAnimPlaySpace::CameraLocal;
 
-	InterpGroupInst = ObjectInitializer.CreateDefaultSubobject<UInterpGroupInst>(this, TEXT("InterpGroupInst0"));
+	InterpGroupInst = CreateDefaultSubobject<UInterpGroupInst>(TEXT("InterpGroupInst0"));
 }
 
 void UCameraAnimInst::AdvanceAnim(float DeltaTime, bool bJump)

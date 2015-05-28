@@ -18,10 +18,10 @@ namespace BuildDataCompactifierDefs
 /* Constructors
 *****************************************************************************/
 
-FBuildDataCompactifier::FBuildDataCompactifier(const FString& CloudDir, const bool bPreview, const bool bNoPatchDelete)
-	: CloudDir(CloudDir)
-	, bPreview(bPreview)
-	, bNoPatchDelete(bNoPatchDelete)
+FBuildDataCompactifier::FBuildDataCompactifier(const FString& InCloudDir, const bool bInPreview, const bool bInNoPatchDelete)
+	: CloudDir(InCloudDir)
+	, bPreview(bInPreview)
+	, bNoPatchDelete(bInNoPatchDelete)
 {
 
 }

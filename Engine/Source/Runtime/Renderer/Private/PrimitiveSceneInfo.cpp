@@ -42,19 +42,21 @@ public:
 		bool bShadowOnly
 		)
 	{
-		check(Mesh.GetNumPrimitives() > 0);
-		check(Mesh.VertexFactory);
-		check(Mesh.VertexFactory->IsInitialized());
+		if (Mesh.GetNumPrimitives() > 0)
+		{
+			check(Mesh.VertexFactory);
+			check(Mesh.VertexFactory->IsInitialized());
 #if DO_CHECK
-		Mesh.CheckUniformBuffers();
+			Mesh.CheckUniformBuffers();
 #endif
-		FStaticMesh* StaticMesh = new(PrimitiveSceneInfo->StaticMeshes) FStaticMesh(
-			PrimitiveSceneInfo,
-			Mesh,
-			ScreenSize,
-			bShadowOnly,
-			CurrentHitProxy ? CurrentHitProxy->Id : FHitProxyId()
-			);
+			FStaticMesh* StaticMesh = new(PrimitiveSceneInfo->StaticMeshes) FStaticMesh(
+				PrimitiveSceneInfo,
+				Mesh,
+				ScreenSize,
+				bShadowOnly,
+				CurrentHitProxy ? CurrentHitProxy->Id : FHitProxyId()
+				);
+		}
 	}
 
 private:
@@ -96,7 +98,7 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	Scene(InScene),
 	PackedIndex(INDEX_NONE),
 	ComponentForDebuggingOnly(InComponent),
-	bNeedsStaticMeshUpdate(true)
+	bNeedsStaticMeshUpdate(false)
 {
 	check(ComponentForDebuggingOnly);
 	check(PrimitiveComponentId.IsValid());
@@ -108,7 +110,7 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	{
 		LightingAttachmentRoot = SearchParentComponent->ComponentId;
 	}
-		
+
 	// Only create hit proxies in the Editor as that's where they are used.
 	if (GIsEditor)
 	{
@@ -118,6 +120,13 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 		{
 			DefaultDynamicHitProxyId = DefaultDynamicHitProxy->Id;
 		}
+	}
+
+	// set LOD parent info if exists
+	UPrimitiveComponent* LODParent = InComponent->GetLODParentPrimitive();
+	if (LODParent)
+	{
+		LODParentComponentId = LODParent->ComponentId;
 	}
 }
 
@@ -213,6 +222,10 @@ void FPrimitiveSceneInfo::AddToScene(FRHICommandListImmediate& RHICmdList, bool 
 	{
 		OcclusionFlags |= EOcclusionFlags::CanBeOccluded;
 	}
+	if (Proxy->HasSubprimitiveOcclusionQueries())
+	{
+		OcclusionFlags |= EOcclusionFlags::HasSubprimitiveQueries;
+	}
 	if (Proxy->AllowApproximateOcclusion()
 		// Allow approximate occlusion if attached, even if the parent does not have bLightAttachmentsAsGroup enabled
 		|| LightingAttachmentRoot.IsValid())
@@ -298,6 +311,8 @@ void FPrimitiveSceneInfo::UpdateStaticMeshes(FRHICommandListImmediate& RHICmdLis
 	checkSlow(bNeedsStaticMeshUpdate);
 	bNeedsStaticMeshUpdate = false;
 
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FPrimitiveSceneInfo_UpdateStaticMeshes);
+
 	// Remove the primitive's static meshes from the draw lists they're currently in, and re-add them to the appropriate draw lists.
 	for (int32 MeshIndex = 0; MeshIndex < StaticMeshes.Num(); MeshIndex++)
 	{
@@ -310,6 +325,24 @@ void FPrimitiveSceneInfo::BeginDeferredUpdateStaticMeshes()
 {
 	// Set a flag which causes InitViews to update the static meshes the next time the primitive is visible.
 	bNeedsStaticMeshUpdate = true;
+}
+
+void FPrimitiveSceneInfo::LinkLODParentComponent()
+{
+	if (LODParentComponentId.IsValid())
+	{
+		Scene->SceneLODHierarchy.AddChildNode(LODParentComponentId, this);
+	}
+}
+
+void FPrimitiveSceneInfo::UnlinkLODParentComponent()
+{
+	if(LODParentComponentId.IsValid())
+	{
+		Scene->SceneLODHierarchy.RemoveChildNode(LODParentComponentId, this);
+		// I don't think this will be reused but just in case
+		LODParentComponentId = FPrimitiveComponentId();
+	}
 }
 
 void FPrimitiveSceneInfo::LinkAttachmentGroup()
@@ -420,21 +453,21 @@ bool FPrimitiveSceneInfo::ShouldRenderVelocity(const FViewInfo& View, bool bChec
 		const bool bVisible = View.PrimitiveVisibilityMap[PrimitiveId];
 
 		// Only render if visible.
-		if(!bVisible)
+		if (!bVisible)
 		{
 			return false;
 		}
 	}
-	// Used to determine whether object is movable or not.
-	if(!Proxy->IsMovable())
+
+	const FPrimitiveViewRelevance& PrimitiveViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
+
+	if (!Proxy->IsMovable())
 	{
 		return false;
 	}
 
-	const FPrimitiveViewRelevance& PrimitiveViewRelevance = View.PrimitiveViewRelevanceMap[PrimitiveId];
-
 	// !Skip translucent objects as they don't support velocities and in the case of particles have a significant CPU overhead.
-	if(!PrimitiveViewRelevance.bOpaqueRelevance || !PrimitiveViewRelevance.bRenderInMainPass)
+	if (!PrimitiveViewRelevance.bOpaqueRelevance || !PrimitiveViewRelevance.bRenderInMainPass)
 	{
 		return false;
 	}
@@ -446,19 +479,20 @@ bool FPrimitiveSceneInfo::ShouldRenderVelocity(const FViewInfo& View, bool bChec
 	float MinScreenRadiusForVelocityPassSquared = FMath::Square(MinScreenRadiusForVelocityPass);
 
 	// Skip primitives that only cover a small amount of screenspace, motion blur on them won't be noticeable.
-	if(FMath::Square(Proxy->GetBounds().SphereRadius) <= MinScreenRadiusForVelocityPassSquared * LODFactorDistanceSquared)
+	if (FMath::Square(Proxy->GetBounds().SphereRadius) <= MinScreenRadiusForVelocityPassSquared * LODFactorDistanceSquared)
 	{
 		return false;
 	}
 
 	// Only render primitives with velocity.
-	if(!FVelocityDrawingPolicy::HasVelocity(View, this))
+	if (!FVelocityDrawingPolicy::HasVelocity(View, this))
 	{
 		return false;
 	}
 
 	return true;
 }
+
 void FPrimitiveSceneInfo::ApplyWorldOffset(FVector InOffset)
 {
 	Proxy->ApplyWorldOffset(InOffset);

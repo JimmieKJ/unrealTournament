@@ -61,16 +61,7 @@ public:
 	template< typename DefinitionType >            
 	FORCENOINLINE void Set( const FName PropertyName, const DefinitionType& InStyleDefintion )
 	{
-		const TSharedRef< struct FSlateWidgetStyle >* DefinitionPtr = WidgetStyleValues.Find( PropertyName );
-
-		if ( DefinitionPtr == nullptr )
-		{
-			WidgetStyleValues.Add( PropertyName, MakeShareable( new DefinitionType( InStyleDefintion ) ) );
-		}
-		else
-		{
-			WidgetStyleValues.Add( PropertyName, MakeShareable( new DefinitionType( InStyleDefintion ) ) );
-		}
+		WidgetStyleValues.Add( PropertyName, MakeShareable( new DefinitionType( InStyleDefintion ) ) );
 	}
 
 	/**

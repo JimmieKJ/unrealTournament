@@ -40,7 +40,7 @@ TSharedRef<SWidget> TLevelViewportLayoutTwoPanes<TOrientation>::MakeViewportLayo
 
 
 		FString PercentageString;
-		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage")), PercentageString, GEditorUserSettingsIni))
+		if(GConfig->GetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage")), PercentageString, GEditorPerProjectIni))
 		{
 			TTypeFromString<float>::FromString(SplitterPercentage, *PercentageString);
 		}						
@@ -92,7 +92,7 @@ void TLevelViewportLayoutTwoPanes<TOrientation>::SaveLayoutString(const FString&
 		check (SplitterWidget->GetChildren()->Num() == 2);
 		float Percentage = SplitterWidget->SlotAt(0).SizeValue.Get();
 
-		GConfig->SetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage")), *TTypeToString<float>::ToString(Percentage), GEditorUserSettingsIni);
+		GConfig->SetString(*IniSection, *(SpecificLayoutString + TEXT(".Percentage")), *TTypeToString<float>::ToString(Percentage), GEditorPerProjectIni);
 
 		SaveCommonLayoutString(SpecificLayoutString);
 	}

@@ -1040,7 +1040,7 @@ void FLightPropagationVolume::InjectDirectionalLightRSM(
 	const FProjectedShadowInfo&	ProjectedShadowInfo,
 	const FLinearColor&			LightColour )
 {
-	const FLightSceneProxy* LightProxy = ProjectedShadowInfo.LightSceneInfo->Proxy;
+	const FLightSceneProxy* LightProxy = ProjectedShadowInfo.GetLightSceneInfo().Proxy;
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, LpvInjectDirectionalLightRSM);
 

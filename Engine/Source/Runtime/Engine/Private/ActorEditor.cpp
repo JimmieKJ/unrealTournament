@@ -7,7 +7,6 @@
 #include "UObjectToken.h"
 #include "LevelUtils.h"
 #include "MapErrors.h"
-#include "Foliage/InstancedFoliageActor.h"
 #include "Engine/LevelBounds.h"
 #include "Components/ChildActorComponent.h"
 
@@ -18,6 +17,13 @@
 void AActor::PreEditChange(UProperty* PropertyThatWillChange)
 {
 	Super::PreEditChange(PropertyThatWillChange);
+
+	UObjectProperty* ObjProp = Cast<UObjectProperty>(PropertyThatWillChange);
+	UBlueprintGeneratedClass* BPGC = Cast<UBlueprintGeneratedClass>(GetClass());
+	if ( BPGC != nullptr && ObjProp != nullptr )
+	{
+		BPGC->UnbindDynamicDelegatesForProperty(this, ObjProp);
+	}
 
 	if ( ReregisterComponentsWhenModified() )
 	{
@@ -34,33 +40,73 @@ void AActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 	FName PropertyName = PropertyThatChanged != NULL ? PropertyThatChanged->GetFName() : NAME_None;
 	
-	bool bTransformationChanged = false;
-
-	if ( PropertyName==Name_RelativeLocation || PropertyName==Name_RelativeRotation || PropertyName==Name_RelativeScale3D )
-	{
-		bTransformationChanged = true;
-
-		if ( GIsEditor && !GetWorld()->IsPlayInEditor() )
-		{
-			AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(GetLevel());
-			if (IFA)
-			{
-				TInlineComponentArray<UActorComponent*> Components;
-				GetComponents(Components);
-
-				for ( int32 Idx = 0 ; Idx < Components.Num() ; ++Idx )
-				{
-					IFA->MoveInstancesForMovedComponent( Components[Idx] );
-				}
-			}
-		}
-	}
+	const bool bTransformationChanged = (PropertyName == Name_RelativeLocation || PropertyName == Name_RelativeRotation || PropertyName == Name_RelativeScale3D);
 
 	if ( ReregisterComponentsWhenModified() )
 	{
-		ReregisterAllComponents();
+		// In the Undo case we have an annotation storing information about constructed components and we do not want
+		// to improperly apply out of date changes so we need to skip registration of all blueprint created components
+		// and defer instance components attached to them until after rerun
+		if (CurrentTransactionAnnotation.IsValid())
+		{
+			UnregisterAllComponents();
 
-		RerunConstructionScripts();
+			TInlineComponentArray<UActorComponent*> Components;
+			GetComponents(Components);
+
+			Components.Sort([](UActorComponent& A, UActorComponent& B)
+			{
+				if (&B == B.GetOwner()->GetRootComponent())
+				{
+					return false;
+				}
+				if (USceneComponent* ASC = Cast<USceneComponent>(&A))
+				{
+					if (ASC->AttachParent == &B)
+					{
+						return false;
+					}
+				}
+				return true;
+			});
+
+			bool bRequiresReregister = false;
+			for (UActorComponent* Component : Components)
+			{
+				if (Component->CreationMethod == EComponentCreationMethod::Native)
+				{
+					Component->RegisterComponent();
+				}
+				else if (Component->CreationMethod == EComponentCreationMethod::Instance)
+				{
+					USceneComponent* SC = Cast<USceneComponent>(Component);
+					if (SC == nullptr || SC == RootComponent || (SC->AttachParent && SC->AttachParent->IsRegistered()))
+					{
+						Component->RegisterComponent();
+					}
+					else
+					{
+						bRequiresReregister = true;
+					}
+				}
+				else
+				{
+					bRequiresReregister = true;
+				}
+			}
+
+			RerunConstructionScripts();
+
+			if (bRequiresReregister)
+			{
+				ReregisterAllComponents();
+			}
+		}
+		else
+		{
+			ReregisterAllComponents();
+			RerunConstructionScripts();
+		}
 	}
 
 	// Let other systems know that an actor was moved
@@ -92,21 +138,6 @@ void AActor::PostEditMove(bool bFinished)
 
 	if ( bFinished )
 	{
-		if ( GIsEditor && !GetWorld()->IsPlayInEditor() && !FLevelUtils::IsMovingLevel())
-		{
-			AInstancedFoliageActor* IFA = AInstancedFoliageActor::GetInstancedFoliageActorForLevel(GetLevel());
-			if (IFA)
-			{
-				TInlineComponentArray<UActorComponent*> Components;
-				GetComponents(Components);
-
-				for ( int32 Idx = 0 ; Idx < Components.Num() ; ++Idx )
-				{
-					IFA->MoveInstancesForMovedComponent( Components[Idx] );
-				}
-			}
-		}
-
 		GetWorld()->bDoDelayedUpdateCullDistanceVolumes = true;
 		GetWorld()->bAreConstraintsDirty = true;
 
@@ -239,23 +270,23 @@ void AActor::DebugShowOneComponentHierarchy( USceneComponent* SceneComp, int32& 
 AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* Actor)
 	: ComponentInstanceData(Actor)
 {
-	USceneComponent* RootComponent = Actor->GetRootComponent();
-	if (RootComponent && RootComponent->IsCreatedByConstructionScript())
+	USceneComponent* ActorRootComponent = Actor->GetRootComponent();
+	if (ActorRootComponent && ActorRootComponent->IsCreatedByConstructionScript())
 	{
 		bRootComponentDataCached = true;
-		RootComponentData.Transform = RootComponent->ComponentToWorld;
-		RootComponentData.Transform.SetTranslation(RootComponent->GetComponentLocation()); // take into account any custom location
+		RootComponentData.Transform = ActorRootComponent->ComponentToWorld;
+		RootComponentData.Transform.SetTranslation(ActorRootComponent->GetComponentLocation()); // take into account any custom location
 
-		if (RootComponent->AttachParent)
+		if (ActorRootComponent->AttachParent)
 		{
-			RootComponentData.AttachedParentInfo.Actor = RootComponent->AttachParent->GetOwner();
-			RootComponentData.AttachedParentInfo.AttachParent = RootComponent->AttachParent;
-			RootComponentData.AttachedParentInfo.AttachParentName = RootComponent->AttachParent->GetFName();
-			RootComponentData.AttachedParentInfo.SocketName = RootComponent->AttachSocketName;
-			RootComponentData.AttachedParentInfo.RelativeTransform = RootComponent->GetRelativeTransform();
+			RootComponentData.AttachedParentInfo.Actor = ActorRootComponent->AttachParent->GetOwner();
+			RootComponentData.AttachedParentInfo.AttachParent = ActorRootComponent->AttachParent;
+			RootComponentData.AttachedParentInfo.AttachParentName = ActorRootComponent->AttachParent->GetFName();
+			RootComponentData.AttachedParentInfo.SocketName = ActorRootComponent->AttachSocketName;
+			RootComponentData.AttachedParentInfo.RelativeTransform = ActorRootComponent->GetRelativeTransform();
 		}
 
-		for (USceneComponent* AttachChild : RootComponent->AttachChildren)
+		for (USceneComponent* AttachChild : ActorRootComponent->AttachChildren)
 		{
 			AActor* ChildOwner = (AttachChild ? AttachChild->GetOwner() : NULL);
 			if (ChildOwner && ChildOwner != Actor)
@@ -273,6 +304,11 @@ AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* A
 	{
 		bRootComponentDataCached = false;
 	}
+}
+
+void AActor::FActorTransactionAnnotation::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	ComponentInstanceData.AddReferencedObjects(Collector);
 }
 
 bool AActor::FActorTransactionAnnotation::HasInstanceData() const
@@ -307,21 +343,30 @@ void AActor::PreEditUndo()
 		}
 	}
 
+	// let navigation system know to not care about this actor anymore
+	UNavigationSystem::ClearNavOctreeAll(this);
+
 	Super::PreEditUndo();
 }
 
 void AActor::PostEditUndo()
 {
 	// Notify LevelBounds actor that level bounding box might be changed
-	if (!IsTemplate() && GetLevel()->LevelBoundsActor.IsValid())
+	if (!IsTemplate())
 	{
-		GetLevel()->LevelBoundsActor.Get()->OnLevelBoundsDirtied();
+		GetLevel()->MarkLevelBoundsDirty();
 	}
 
 	// Restore OwnedComponents array
 	if (!IsPendingKill())
 	{
 		ResetOwnedComponents();
+		// notify navigation system
+		UNavigationSystem::UpdateNavOctreeAll(this);
+	}
+	else
+	{
+		UNavigationSystem::ClearNavOctreeAll(this);
 	}
 
 	Super::PostEditUndo();
@@ -332,15 +377,21 @@ void AActor::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAn
 	CurrentTransactionAnnotation = StaticCastSharedPtr<FActorTransactionAnnotation>(TransactionAnnotation);
 
 	// Notify LevelBounds actor that level bounding box might be changed
-	if (!IsTemplate() && GetLevel()->LevelBoundsActor.IsValid())
+	if (!IsTemplate())
 	{
-		GetLevel()->LevelBoundsActor.Get()->OnLevelBoundsDirtied();
+		GetLevel()->MarkLevelBoundsDirty();
 	}
 
 	// Restore OwnedComponents array
 	if (!IsPendingKill())
 	{
 		ResetOwnedComponents();
+		// notify navigation system
+		UNavigationSystem::UpdateNavOctreeAll(this);
+	}
+	else
+	{
+		UNavigationSystem::ClearNavOctreeAll(this);
 	}
 
 	Super::PostEditUndo(TransactionAnnotation);
@@ -401,22 +452,30 @@ void AActor::EditorApplyScale( const FVector& DeltaScale, const FVector* PivotLo
 		const FVector CurrentScale = GetRootComponent()->RelativeScale3D;
 
 		// @todo: Remove this hack once we have decided on the scaling method to use.
+		FVector ScaleToApply;
+
 		if( AActor::bUsePercentageBasedScaling )
 		{
-			GetRootComponent()->SetRelativeScale3D(CurrentScale + DeltaScale * CurrentScale);
-
-			if (PivotLocation)
-			{
-				FVector Loc = GetActorLocation();
-				Loc -= *PivotLocation;
-				Loc += DeltaScale * Loc;
-				Loc += *PivotLocation;
-				GetRootComponent()->SetWorldLocation(Loc);
-			}
+			ScaleToApply = CurrentScale * (FVector(1.0f) + DeltaScale);
 		}
 		else
 		{
-			GetRootComponent()->SetRelativeScale3D(CurrentScale + DeltaScale * CurrentScale.GetSignVector());
+			ScaleToApply = CurrentScale + DeltaScale;
+		}
+
+		GetRootComponent()->SetRelativeScale3D(ScaleToApply);
+
+		if (PivotLocation)
+		{
+			const FVector CurrentScaleSafe(CurrentScale.X ? CurrentScale.X : 1.0f,
+										   CurrentScale.Y ? CurrentScale.Y : 1.0f,
+										   CurrentScale.Z ? CurrentScale.Z : 1.0f);
+
+			FVector Loc = GetActorLocation();
+			Loc -= *PivotLocation;
+			Loc *= (ScaleToApply / CurrentScaleSafe);
+			Loc += *PivotLocation;
+			GetRootComponent()->SetWorldLocation(Loc);
 		}
 	}
 	else
@@ -624,7 +683,7 @@ const FName& AActor::GetFolderPath() const
 	return FolderPath;
 }
 
-void AActor::SetFolderPath(const FName& NewFolderPath)
+void AActor::SetFolderPath(const FName& NewFolderPath, bool bDetachFromParent)
 {
 	// Detach the actor if it is attached
 	USceneComponent* RootComp = GetRootComponent();
@@ -641,7 +700,7 @@ void AActor::SetFolderPath(const FName& NewFolderPath)
 	FolderPath = NewFolderPath;
 	
 	// Detach the actor if it is attached
-	if (bIsAttached)
+	if (RootComp && bIsAttached && bDetachFromParent)
 	{
 		AActor* OldParentActor = RootComp->AttachParent->GetOwner();
 		OldParentActor->Modify();
@@ -652,6 +711,19 @@ void AActor::SetFolderPath(const FName& NewFolderPath)
 	if (GEngine)
 	{
 		GEngine->BroadcastLevelActorFolderChanged(this, OldPath);
+	}
+
+	//recursively change folder path for children (but do not detach so they remain as child)
+	if(RootComp)
+	{
+		for(auto ChildSceneComponent : RootComp->AttachChildren)
+		{
+			AActor* ChildActor = ChildSceneComponent ? ChildSceneComponent->GetOwner() : nullptr;
+			if(ChildActor)
+			{
+				ChildActor->SetFolderPath(NewFolderPath, false);
+			}
+		}
 	}
 }
 
@@ -746,6 +818,23 @@ bool AActor::GetReferencedContentObjects( TArray<UObject*>& Objects ) const
 	return true;
 }
 
+void AActor::SetLODParent(UPrimitiveComponent* InLODParent, float InParentDrawDistance)
+{
+	if(InLODParent)
+	{
+		InLODParent->MinDrawDistance = InParentDrawDistance;
+		InLODParent->MarkRenderStateDirty();
+	}
+
+	TArray<UPrimitiveComponent*> ComponentsToBeReplaced;
+	GetComponents(ComponentsToBeReplaced);
+
+	for(auto& Component : ComponentsToBeReplaced)
+	{
+		// parent primitive will be null if no LOD parent is selected
+		Component->SetLODParentPrimitive(InLODParent);
+	}
+}
 #undef LOCTEXT_NAMESPACE
 
 #endif // WITH_EDITOR

@@ -57,7 +57,7 @@ public:
 	virtual FReply DroppedOnPanel( const TSharedRef< class SWidget >& Panel, FVector2D ScreenPosition, FVector2D GraphPosition, UEdGraph& Graph) override;
 	// End of FGraphEditorDragDropAction
 
-	static TSharedRef<FKismetFunctionDragDropAction> New(FName InFunctionName, UClass* InOwningClass, const FMemberReference& InCallOnMember, FNodeCreationAnalytic AnalyticCallback, FCanBeDroppedDelegate CanBeDroppedDelegate = FCanBeDroppedDelegate());
+	static TSharedRef<FKismetFunctionDragDropAction> New(TSharedPtr<FEdGraphSchemaAction> InActionNode, FName InFunctionName, UClass* InOwningClass, const FMemberReference& InCallOnMember, FNodeCreationAnalytic AnalyticCallback, FCanBeDroppedDelegate CanBeDroppedDelegate = FCanBeDroppedDelegate());
 
 protected:
 	/** Name of function being dragged */
@@ -71,7 +71,7 @@ protected:
 	UFunction const* GetFunctionProperty() const;
 
 	/** Constructs an action to execute, placing a function call node for the associated function */
-	void GetDropAction(FGraphActionListBuilderBase::ActionGroup& DropActionOut) const;
+	class UBlueprintFunctionNodeSpawner* GetDropAction(UEdGraph& Graph) const;
 };
 
 /*******************************************************************************

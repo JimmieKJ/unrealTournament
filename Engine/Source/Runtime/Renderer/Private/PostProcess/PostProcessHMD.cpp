@@ -91,7 +91,7 @@ public:
 		}
 	}
 
-	void SetVS(const FRenderingCompositePassContext& Context, EStereoscopicPass StereoPass)
+	void SetVS(const FRenderingCompositePassContext& Context)
 	{
 		const FVertexShaderRHIParamRef ShaderRHI = GetVertexShader();
 
@@ -100,21 +100,21 @@ public:
 		check(GEngine->HMDDevice.IsValid());
 		FVector2D EyeToSrcUVScaleValue;
 		FVector2D EyeToSrcUVOffsetValue;
-		GEngine->HMDDevice->GetEyeRenderParams_RenderThread(StereoPass, EyeToSrcUVScaleValue, EyeToSrcUVOffsetValue);
+		GEngine->HMDDevice->GetEyeRenderParams_RenderThread(Context, EyeToSrcUVScaleValue, EyeToSrcUVOffsetValue);
 		SetShaderValue(Context.RHICmdList, ShaderRHI, EyeToSrcUVScale, EyeToSrcUVScaleValue);
 		SetShaderValue(Context.RHICmdList, ShaderRHI, EyeToSrcUVOffset, EyeToSrcUVOffsetValue);
 
 		if (bTimeWarp)
 		{
 			FMatrix startM, endM;
-			GEngine->HMDDevice->GetTimewarpMatrices_RenderThread(StereoPass, startM, endM);
+			GEngine->HMDDevice->GetTimewarpMatrices_RenderThread(Context, startM, endM);
 			SetShaderValue(Context.RHICmdList, ShaderRHI, EyeRotationStart, startM);
 			SetShaderValue(Context.RHICmdList, ShaderRHI, EyeRotationEnd, endM);
 		}
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << EyeToSrcUVScale << EyeToSrcUVOffset;
@@ -166,7 +166,7 @@ public:
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter << DeferredParameters;
@@ -224,10 +224,10 @@ void FRCPassPostProcessHMD::Process(FRenderingCompositePassContext& Context)
 		static FGlobalBoundShaderState BoundShaderState;
 		
 		SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GDistortionVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
-		VertexShader->SetVS(Context, View.StereoPass);
+		VertexShader->SetVS(Context);
 		PixelShader->SetPS(Context, SrcRect, SrcSize, View.StereoPass, QuadTexTransform);
 	}
-	GEngine->HMDDevice->DrawDistortionMesh_RenderThread(Context, View, SrcSize);
+	GEngine->HMDDevice->DrawDistortionMesh_RenderThread(Context, SrcSize);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 }

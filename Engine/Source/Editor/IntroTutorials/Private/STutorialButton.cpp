@@ -8,8 +8,6 @@
 #include "TutorialMetaData.h"
 #include "EngineBuildSettings.h"
 #include "AssetRegistryModule.h"
-#include "LevelEditor.h"
-#include "SDockTab.h"
 
 #define LOCTEXT_NAMESPACE "STutorialButton"
 
@@ -30,26 +28,13 @@ void STutorialButton::Construct(const FArguments& InArgs)
 	bTutorialAvailable = false;
 	bTutorialCompleted = false;
 	bTutorialDismissed = false;
-	bDeferTutorialOpen = true;
 	AlertStartTime = 0.0f;
 
 	PulseAnimation.AddCurve(0.0f, TutorialButtonConstants::PulseAnimationLength, ECurveEaseFunction::Linear);
-	PulseAnimation.Play();
+	RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &STutorialButton::OpenTutorialPostConstruct ) );
 
 	IIntroTutorials& IntroTutorials = FModuleManager::LoadModuleChecked<IIntroTutorials>(TEXT("IntroTutorials"));
 	LoadingWidget = IntroTutorials.CreateTutorialsLoadingWidget(ContextWindow);
-	/*
-	//LoadingWidget->SetVisibility(EVisibility::Visible);
-
-	if (GEngine)
-	{
-		UGameViewportClient* GVC = GEngine->Viewport;
-		if (GVC)
-		{
-			GVC->AddViewportWidgetContent(LoadingWidgetRef, 100);
-		}
-	}
-	*/
 
 	ChildSlot
 	[
@@ -65,41 +50,34 @@ void STutorialButton::Construct(const FArguments& InArgs)
 			.HeightOverride(16)
 		]
 	];
-
-	//ChildSlot.AttachWidget(LoadingWidgetRef);
 }
 
-void STutorialButton::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+EActiveTimerReturnType STutorialButton::OpenTutorialPostConstruct( double InCurrentTime, float InDeltaTime )
 {
-	if (bDeferTutorialOpen)
+	// Begin playing the pulse animation on a loop
+	PulseAnimation.Play(this->AsShared(), true);
+
+	RefreshStatus();
+
+	if (bTutorialAvailable && CachedAttractTutorial != nullptr && !bTutorialDismissed && !bTutorialCompleted && !GetMutableDefault<UTutorialStateSettings>()->AreAllTutorialsDismissed())
 	{
-		RefreshStatus();
-
-		if (bTutorialAvailable && CachedAttractTutorial != nullptr && !bTutorialDismissed && !bTutorialCompleted)
-		{
-			// kick off the attract tutorial if the user hasn't dismissed it and hasn't completed it
-			FIntroTutorials& IntroTutorials = FModuleManager::GetModuleChecked<FIntroTutorials>(TEXT("IntroTutorials"));
-			const bool bRestart = true;
-			IntroTutorials.LaunchTutorial(CachedAttractTutorial, bRestart, ContextWindow);
-		}
-
-		if(ShouldShowAlert())
-		{
-			AlertStartTime = FPlatformTime::Seconds();
-		}
-
-		if(CachedLaunchTutorial != nullptr)
-		{
-			TutorialTitle = CachedLaunchTutorial->Title;
-		}
+		// kick off the attract tutorial if the user hasn't dismissed it and hasn't completed it
+		FIntroTutorials& IntroTutorials = FModuleManager::GetModuleChecked<FIntroTutorials>( TEXT( "IntroTutorials" ) );
+		const bool bRestart = true;
+		IntroTutorials.LaunchTutorial(CachedAttractTutorial, bRestart ? IIntroTutorials::ETutorialStartType::TST_RESTART : IIntroTutorials::ETutorialStartType::TST_CONTINUE, ContextWindow);
 	}
-	bDeferTutorialOpen = false;
 
-	//The user has clicked to the button, but if the asset registry isn't done loading, we don't know whether to open the browser or do a tutorial immediately.
-	if (bPendingClickAction)
+	if ( ShouldShowAlert() )
 	{
-		bPendingClickAction = HandleButtonClicked_AssetRegistryChecker();
+		AlertStartTime = FPlatformTime::Seconds();
 	}
+
+	if ( CachedLaunchTutorial != nullptr )
+	{
+		TutorialTitle = CachedLaunchTutorial->Title;
+	}
+
+	return EActiveTimerReturnType::Stop;
 }
 
 static void GetAnimationValues(float InAnimationProgress, float& OutAlphaFactor0, float& OutPulseFactor0, float& OutAlphaFactor1, float& OutPulseFactor1)
@@ -118,13 +96,13 @@ int32 STutorialButton::OnPaint(const FPaintArgs& Args, const FGeometry& Allotted
 {
 	LayerId = SCompoundWidget::OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled) + 1000;
 
-	if (ShouldShowAlert())
+	if ( PulseAnimation.IsPlaying() )
 	{
 		float AlphaFactor0 = 0.0f;
 		float AlphaFactor1 = 0.0f;
 		float PulseFactor0 = 0.0f;
 		float PulseFactor1 = 0.0f;
-		GetAnimationValues(PulseAnimation.GetLerpLooping(), AlphaFactor0, PulseFactor0, AlphaFactor1, PulseFactor1);
+		GetAnimationValues(PulseAnimation.GetLerp(), AlphaFactor0, PulseFactor0, AlphaFactor1, PulseFactor1);
 
 		const FSlateBrush* PulseBrush = FEditorStyle::Get().GetBrush(TEXT("TutorialLaunch.Circle"));
 		const FLinearColor PulseColor = FEditorStyle::Get().GetColor(TEXT("TutorialLaunch.Circle.Color"));
@@ -181,27 +159,27 @@ FReply STutorialButton::HandleButtonClicked()
 		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Rocket.Tutorials.ClickedContextButton"), EventAttributes);
 	}
 
+	bPendingClickAction = true;
+	RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &STutorialButton::HandleButtonClicked_AssetRegistryChecker));
 	FIntroTutorials& IntroTutorials = FModuleManager::GetModuleChecked<FIntroTutorials>(TEXT("IntroTutorials"));
 	IntroTutorials.AttachWidget(LoadingWidget);
-	bPendingClickAction = HandleButtonClicked_AssetRegistryChecker();
 	return FReply::Handled();
 }
 
-bool STutorialButton::HandleButtonClicked_AssetRegistryChecker()
+EActiveTimerReturnType STutorialButton::HandleButtonClicked_AssetRegistryChecker(double InCurrentTime, float InDeltaTime)
 {
 	//Force tutorials to load into the asset registry before we proceed any further.
 	FAssetRegistryModule& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	bool IsStillLoading = AssetRegistry.Get().IsLoadingAssets();
 	if (IsStillLoading)
 	{
-		return true;		//Keep doing this on tick
+		//We could tick the asset registry here, but we don't need to.
+		return EActiveTimerReturnType::Continue;
 	}
 
 	//Sometimes, this gives a false positive because the tutorial we want to launch wasn't loaded into the asset registry when we checked. Opening and closing the tab works around that by letting the browser recheck.
 	if (ShouldLaunchBrowser())
 	{
-		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
-		LevelEditorModule.GetLevelEditorTabManager()->InvokeTab(FTabId("TutorialsBrowser"))->RequestCloseTab();
 		RefreshStatus();
 	}
 
@@ -217,8 +195,7 @@ bool STutorialButton::HandleButtonClicked_AssetRegistryChecker()
 		//If we don't want to launch the browser, and we have a tutorial in mind, launch the tutorial now.
 		auto Delegate = FSimpleDelegate::CreateSP(this, &STutorialButton::HandleTutorialExited);
 
-		const bool bRestart = true;
-		IntroTutorials.LaunchTutorial(CachedLaunchTutorial, bRestart, ContextWindow, Delegate, Delegate);
+		IntroTutorials.LaunchTutorial(CachedLaunchTutorial, IIntroTutorials::ETutorialStartType::TST_RESTART, ContextWindow, Delegate, Delegate);
 
 		// The user asked to start the tutorial, so we don't need to remind them about it again this session, but we'll remind
 		// them in the next session if they haven't completed it by then
@@ -227,7 +204,9 @@ bool STutorialButton::HandleButtonClicked_AssetRegistryChecker()
 		GetMutableDefault<UTutorialStateSettings>()->SaveProgress();
 		bTutorialDismissed = true;
 	}
-	return false;		//Stop doing this
+
+	bPendingClickAction = false;
+	return EActiveTimerReturnType::Stop;
 }
 
 FReply STutorialButton::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
@@ -244,6 +223,13 @@ FReply STutorialButton::OnMouseButtonDown(const FGeometry& MyGeometry, const FPo
 				LOCTEXT("DismissReminderTooltip", "Selecting this option will prevent the tutorial blip from being displayed again, even if you choose not to complete the tutorial."),
 				FSlateIcon(),
 				FUIAction(FExecuteAction::CreateSP(this, &STutorialButton::DismissAlert))
+				);
+
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("DismissAllReminders", "Dismiss All Tutorial Reminders"),
+				LOCTEXT("DismissAllRemindersTooltip", "Selecting this option will prevent all tutorial blips from being displayed."),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateSP(this, &STutorialButton::DismissAllAlerts))
 				);
 
 			MenuBuilder.AddMenuSeparator();
@@ -290,16 +276,23 @@ void STutorialButton::DismissAlert()
 	if (CachedAttractTutorial != nullptr)
 	{
 		GetMutableDefault<UTutorialStateSettings>()->DismissTutorial(CachedAttractTutorial, bDismissAcrossSessions);
+		CachedAttractTutorial = nullptr;
 	}
 	if( CachedLaunchTutorial != nullptr)
 	{
 		GetMutableDefault<UTutorialStateSettings>()->DismissTutorial(CachedLaunchTutorial, bDismissAcrossSessions);
+		CachedLaunchTutorial = nullptr;
 	}
 	GetMutableDefault<UTutorialStateSettings>()->SaveProgress();
 	bTutorialDismissed = true;
 
-	FIntroTutorials& IntroTutorials = FModuleManager::GetModuleChecked<FIntroTutorials>(TEXT("IntroTutorials"));
-	IntroTutorials.CloseAllTutorialContent();
+	RefreshStatus();
+}
+
+void STutorialButton::DismissAllAlerts()
+{
+	GetMutableDefault<UTutorialStateSettings>()->DismissAllTutorials();
+	DismissAlert();		//TODO FIXME Call this for all STutorialButtons that are currently displayed so they all stop pulsing.
 }
 
 void STutorialButton::LaunchTutorial()
@@ -317,12 +310,16 @@ void STutorialButton::LaunchBrowser()
 
 bool STutorialButton::ShouldLaunchBrowser() const
 {
-	return (!bTutorialAvailable || (bTutorialAvailable && bTutorialCompleted));
+	return (!bTutorialAvailable || bTutorialCompleted || bTutorialDismissed);
 }
 
 bool STutorialButton::ShouldShowAlert() const
 {
-	return ((bTestAlerts || !FEngineBuildSettings::IsInternalBuild()) && bTutorialAvailable && !(bTutorialCompleted || bTutorialDismissed));
+	if ((bTestAlerts || !FEngineBuildSettings::IsInternalBuild()) && bTutorialAvailable && !(bTutorialCompleted || bTutorialDismissed))
+	{
+		return !GetMutableDefault<UTutorialStateSettings>()->AreAllTutorialsDismissed();
+	}
+	return false;
 }
 
 FText STutorialButton::GetButtonToolTip() const
@@ -350,6 +347,15 @@ void STutorialButton::RefreshStatus()
 	bTutorialCompleted = (CachedLaunchTutorial != nullptr) && GetDefault<UTutorialStateSettings>()->HaveCompletedTutorial(CachedLaunchTutorial);
 	bTutorialDismissed = ((CachedAttractTutorial != nullptr) && GetDefault<UTutorialStateSettings>()->IsTutorialDismissed(CachedAttractTutorial)) ||
 						 ((CachedLaunchTutorial != nullptr) && GetDefault<UTutorialStateSettings>()->IsTutorialDismissed(CachedLaunchTutorial));
+
+	if (ShouldShowAlert())
+	{
+		PulseAnimation.Resume();
+	}
+	else
+	{
+		PulseAnimation.Pause();
+	}
 }
 
 void STutorialButton::HandleTutorialExited()

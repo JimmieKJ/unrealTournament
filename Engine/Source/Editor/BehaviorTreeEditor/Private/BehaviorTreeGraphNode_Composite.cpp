@@ -2,8 +2,6 @@
 
 #include "BehaviorTreeEditorPrivatePCH.h"
 
-#define LOCTEXT_NAMESPACE "BehaviorTreeGraphNode_Composite"
-
 UBehaviorTreeGraphNode_Composite::UBehaviorTreeGraphNode_Composite(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -24,5 +22,3 @@ void UBehaviorTreeGraphNode_Composite::GetContextMenuActions(const FGraphNodeCon
 	AddContextMenuActionsDecorators(Context);
 	AddContextMenuActionsServices(Context);
 }
-
-#undef LOCTEXT_NAMESPACE

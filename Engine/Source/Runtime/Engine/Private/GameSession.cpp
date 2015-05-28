@@ -45,9 +45,71 @@ AGameSession::AGameSession(const FObjectInitializer& ObjectInitializer)
 {
 }
 
-void AGameSession::HandleMatchIsWaitingToStart() {}
-void AGameSession::HandleMatchHasStarted() {}
-void AGameSession::HandleMatchHasEnded() {}
+void AGameSession::HandleMatchIsWaitingToStart()
+{
+}
+
+void AGameSession::HandleMatchHasStarted()
+{
+	UWorld* World = GetWorld();
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
+	if (SessionInt.IsValid())
+	{
+		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* PlayerController = *Iterator;
+			if (!PlayerController->IsLocalController())
+			{
+				PlayerController->ClientStartOnlineSession();
+			}
+		}
+
+		StartSessionCompleteHandle = SessionInt->AddOnStartSessionCompleteDelegate_Handle(FOnStartSessionCompleteDelegate::CreateUObject(this, &AGameSession::OnStartSessionComplete));
+		SessionInt->StartSession(SessionName);
+	}
+}
+
+void AGameSession::OnStartSessionComplete(FName InSessionName, bool bWasSuccessful)
+{
+	UE_LOG(LogGameSession, Verbose, TEXT("OnStartSessionComplete %s bSuccess: %d"), *InSessionName.ToString(), bWasSuccessful);
+	UWorld* World = GetWorld();
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
+	if (SessionInt.IsValid())
+	{
+		SessionInt->ClearOnStartSessionCompleteDelegate_Handle(StartSessionCompleteHandle);
+	}
+}
+
+void AGameSession::HandleMatchHasEnded()
+{
+	UWorld* World = GetWorld();
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
+	if (SessionInt.IsValid())
+	{
+		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			APlayerController* PlayerController = *Iterator;
+			if (!PlayerController->IsLocalController())
+			{
+				PlayerController->ClientEndOnlineSession();
+			}
+		}
+
+		SessionInt->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &AGameSession::OnEndSessionComplete));
+		SessionInt->EndSession(SessionName);
+	}
+}
+
+void AGameSession::OnEndSessionComplete(FName InSessionName, bool bWasSuccessful)
+{
+	UE_LOG(LogGameSession, Verbose, TEXT("OnEndSessionComplete %s bSuccess: %d"), *InSessionName.ToString(), bWasSuccessful);
+	UWorld* World = GetWorld();
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
+	if (SessionInt.IsValid())
+	{
+		SessionInt->ClearOnEndSessionCompleteDelegate_Handle(EndSessionCompleteHandle);
+	}
+}
 
 bool AGameSession::HandleStartMatchRequest()
 {
@@ -333,8 +395,8 @@ void AGameSession::UpdateSessionJoinability(FName InSessionName, bool bPublicSea
 			FOnlineSessionSettings* GameSettings = SessionInt->GetSessionSettings(InSessionName);
 			if (GameSettings != NULL)
 			{
+				GameSettings->bShouldAdvertise = bPublicSearchable;
 				GameSettings->bAllowInvites = bAllowInvites;
-				GameSettings->bAllowJoinInProgress = bPublicSearchable;
 				GameSettings->bAllowJoinViaPresence = bJoinViaPresence && !bJoinViaPresenceFriendsOnly;
 				GameSettings->bAllowJoinViaPresenceFriendsOnly = bJoinViaPresenceFriendsOnly;
 				SessionInt->UpdateSession(InSessionName, *GameSettings, true);

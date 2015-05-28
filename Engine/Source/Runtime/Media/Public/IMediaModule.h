@@ -24,14 +24,14 @@ public:
 	 *
 	 * @param Url The URL to the media file container to create the player for.
 	 */
-	virtual TSharedPtr<IMediaPlayer> CreatePlayer( const FString& Url ) = 0;
+	virtual TSharedPtr<IMediaPlayer> CreatePlayer(const FString& Url) = 0;
 
 	/**
-	 * Gets the collection of supported media formats.
+	 * Gets the collection of supported media file types.
 	 *
-	 * @param OutFormats Will hold the supported formats.
+	 * @param OutFileTypes Will hold the supported file types.
 	 */
-	virtual int32 GetSupportedFormats( TMap<FString, FText>& OutFormats ) = 0;
+	virtual int32 GetSupportedFileTypes(TMap<FString, FText>& OutFileTypes) = 0;
 
 	/**
 	 * Registers a media player factory.
@@ -39,7 +39,7 @@ public:
 	 * @param Factory The media player factory to register.
 	 * @see UnregisterPlayerFactory
 	 */
-	virtual void RegisterPlayerFactory( IMediaPlayerFactory& Factory ) = 0;
+	virtual void RegisterPlayerFactory(IMediaPlayerFactory& Factory) = 0;
 
 	/**
 	 * Unregisters a media player factory.

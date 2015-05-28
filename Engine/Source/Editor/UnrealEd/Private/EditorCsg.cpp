@@ -353,24 +353,30 @@ void UEditorEngine::polyUpdateMaster
 )
 {
 	FBspSurf &Surf = Model->Surfs[iSurf];
-	if( !Surf.Actor )
+	ABrush* Actor = Surf.Actor;
+	if( !Actor )
 		return;
 
-	for( int32 iEdPoly = Surf.iBrushPoly; iEdPoly < Surf.Actor->Brush->Polys->Element.Num(); iEdPoly++ )
+	const FVector ActorLocation = Actor->GetActorLocation();
+	const FVector ActorPrePivot = Actor->GetPrePivot();
+	const FVector ActorScale = Actor->GetActorScale();
+	const FRotator ActorRotation = -Actor->GetActorRotation();
+
+	for( int32 iEdPoly = Surf.iBrushPoly; iEdPoly < Actor->Brush->Polys->Element.Num(); iEdPoly++ )
 	{
-		FPoly& MasterEdPoly = Surf.Actor->Brush->Polys->Element[iEdPoly];
+		FPoly& MasterEdPoly = Actor->Brush->Polys->Element[iEdPoly];
 		if( iEdPoly==Surf.iBrushPoly || MasterEdPoly.iLink==Surf.iBrushPoly )
 		{
-			Surf.Actor->Brush->Polys->Element.ModifyItem( iEdPoly );
+			Actor->Brush->Polys->Element.ModifyItem( iEdPoly );
 
 			MasterEdPoly.Material  = Surf.Material;
 			MasterEdPoly.PolyFlags = Surf.PolyFlags & ~(PF_NoEdit);
 
 			if( UpdateTexCoords )
 			{
-				MasterEdPoly.Base = (Model->Points[Surf.pBase] - Surf.Actor->GetActorLocation()) + Surf.Actor->GetPrePivot();
-				MasterEdPoly.TextureU = Model->Vectors[Surf.vTextureU];
-				MasterEdPoly.TextureV = Model->Vectors[Surf.vTextureV];
+				MasterEdPoly.Base = ActorRotation.RotateVector(Model->Points[Surf.pBase] - ActorLocation) / ActorScale + ActorPrePivot;
+				MasterEdPoly.TextureU = ActorRotation.RotateVector(Model->Vectors[Surf.vTextureU]) * ActorScale;
+				MasterEdPoly.TextureV = ActorRotation.RotateVector(Model->Vectors[Surf.vTextureV]) * ActorScale;
 			}
 		}
 	}

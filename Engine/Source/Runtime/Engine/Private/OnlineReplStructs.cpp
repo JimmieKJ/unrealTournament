@@ -102,9 +102,9 @@ void TestUniqueIdRepl(UWorld* InWorld)
 				else
 				{
 					// Net serialize
-					bool bSuccess = false;
-					EmptyIdIn.NetSerialize(TestWriteUniqueId, NULL, bSuccess);
-					ValidIdIn.NetSerialize(TestWriteUniqueId, NULL, bSuccess);
+					bool bOutSuccess = false;
+					EmptyIdIn.NetSerialize(TestWriteUniqueId, NULL, bOutSuccess);
+					ValidIdIn.NetSerialize(TestWriteUniqueId, NULL, bOutSuccess);
 				}
 
 				FMemoryReader TestReadUniqueId(Buffer);

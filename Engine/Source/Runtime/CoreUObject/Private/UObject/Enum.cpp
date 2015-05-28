@@ -36,8 +36,48 @@ void UEnum::Serialize( FArchive& Ar )
 	}
 
 	if (Ar.IsLoading() || Ar.IsSaving())
-	{	
+	{
+		// We're duplicating this enum.
+		if ((Ar.GetPortFlags() & PPF_Duplicate)
+			// and we're loading it from already serialized base.
+			&& Ar.IsLoading())
+		{
+			// Rename enum names to reflect new class.
+			RenameNamesAfterDuplication();
+		}
 		AddNamesToMasterList();
+	}
+}
+
+FString UEnum::GetBaseEnumNameOnDuplication() const
+{
+	// Last name is always fully qualified, in form EnumName::Prefix_MAX.
+	FString BaseEnumName = Names[Names.Num() - 1].ToString();
+
+	// Double check we have a fully qualified name.
+	auto DoubleColonPos = BaseEnumName.Find(TEXT("::"));
+	check(DoubleColonPos != INDEX_NONE);
+
+	// Get actual base name.
+	BaseEnumName = BaseEnumName.LeftChop(BaseEnumName.Len() - DoubleColonPos);
+
+	return BaseEnumName;
+}
+
+void UEnum::RenameNamesAfterDuplication()
+{
+	// Get name of base enum, from which we're duplicating.
+	FString BaseEnumName = GetBaseEnumNameOnDuplication();
+
+	// Get name of duplicated enum.
+	auto ThisName = GetName();
+
+	// Replace all usages of base class name to the duplicated one.
+	for (auto& Name : Names)
+	{
+		auto NameString = Name.ToString();
+		NameString.ReplaceInline(*BaseEnumName, *ThisName);
+		Name = FName(*NameString);
 	}
 }
 
@@ -289,8 +329,8 @@ FText UEnum::GetDisplayNameText(int32 NameIndex) const
 
 	static const FString Namespace = TEXT("UObjectDisplayNames");
 	const FString Key =	NameIndex == INDEX_NONE
-		?			GetFullGroupName(true) + TEXT(".") + GetName()
-		:			GetFullGroupName(true) + TEXT(".") + GetName() + TEXT(".") + GetEnumName(NameIndex);
+		?			GetFullGroupName(false)
+		:			GetFullGroupName(false) + TEXT(".") + GetEnumName(NameIndex);
 
 
 	FString NativeDisplayName;
@@ -325,8 +365,8 @@ FText UEnum::GetToolTipText(int32 NameIndex) const
 
 	static const FString Namespace = TEXT("UObjectToolTips");
 	FString Key =	NameIndex == INDEX_NONE
-		?			GetFullGroupName(true) + TEXT(".") + GetName()
-		:			GetFullGroupName(true) + TEXT(".") + GetName() + TEXT(".") + GetEnumName(NameIndex);
+		?			GetFullGroupName(false)
+		:			GetFullGroupName(false) + TEXT(".") + GetEnumName(NameIndex);
 		
 	if ( !(FText::FindText( Namespace, Key, /*OUT*/LocalizedToolTip )) || *FTextInspector::GetSourceString(LocalizedToolTip) != NativeToolTip)
 	{

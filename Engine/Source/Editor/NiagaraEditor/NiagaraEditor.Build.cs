@@ -19,13 +19,15 @@ public class NiagaraEditor : ModuleRules
                 "EditorStyle",
 				"UnrealEd", 
 				"GraphEditor", 
-				"VectorVM"
+				"VectorVM",
+                "Niagara"
 			}
 		);
 
         PublicDependencyModuleNames.AddRange(
             new string[] {
-				"Engine"
+				"Engine",
+                "Niagara"
             }
         );
 

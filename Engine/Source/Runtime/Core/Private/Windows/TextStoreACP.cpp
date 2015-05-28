@@ -548,7 +548,7 @@ STDAPI FTextStoreACP::GetText(LONG acpStart, LONG acpEnd, __RPC__out_ecount_part
 	if(prgRunInfo && ulRunInfoReq > 0)
 	{
 		// We only edit text that's been stripped of any markup, so we have no need to provide multiple runs.
-		prgRunInfo[0].uCount = Length;
+		prgRunInfo[0].uCount = FMath::Min(static_cast<uint32>(ulRunInfoReq), Length);
 		prgRunInfo[0].type = TS_RT_PLAIN;
 		++(*pulRunInfoOut);
 	}

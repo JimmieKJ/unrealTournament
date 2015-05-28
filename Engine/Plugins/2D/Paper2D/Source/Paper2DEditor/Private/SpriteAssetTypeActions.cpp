@@ -7,11 +7,19 @@
 #include "AssetToolsModule.h"
 #include "ContentBrowserModule.h"
 #include "PaperFlipbookHelpers.h"
+#include "PaperFlipbookFactory.h"
+#include "PaperSprite.h"
+#include "PaperFlipbook.h"
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
 
 //////////////////////////////////////////////////////////////////////////
 // FSpriteAssetTypeActions
+
+FSpriteAssetTypeActions::FSpriteAssetTypeActions(EAssetTypeCategories::Type InAssetCategory)
+	: MyAssetCategory(InAssetCategory)
+{
+}
 
 FText FSpriteAssetTypeActions::GetName() const
 {
@@ -44,7 +52,7 @@ void FSpriteAssetTypeActions::OpenAssetEditor(const TArray<UObject*>& InObjects,
 
 uint32 FSpriteAssetTypeActions::GetCategories()
 {
-	return EAssetTypeCategories::Misc;
+	return MyAssetCategory;
 }
 
 void FSpriteAssetTypeActions::GetActions(const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder)
@@ -73,7 +81,7 @@ void FSpriteAssetTypeActions::ExecuteCreateFlipbook(TArray<TWeakObjectPtr<UPaper
 
 	for (auto ObjIt = Objects.CreateConstIterator(); ObjIt; ++ObjIt)
 	{
-		UPaperSprite *Object = (*ObjIt).Get();
+		UPaperSprite* Object = (*ObjIt).Get();
 		if (Object && Object->IsValidLowLevel())
 		{
 			AllSprites.Add(Object);
@@ -108,7 +116,7 @@ void FSpriteAssetTypeActions::ExecuteCreateFlipbook(TArray<TWeakObjectPtr<UPaper
 			FString AssetName;
 			FString PackageName;
 
-			UPaperFlipbookFactory* FlipbookFactory = ConstructObject<UPaperFlipbookFactory>(UPaperFlipbookFactory::StaticClass());
+			UPaperFlipbookFactory* FlipbookFactory = NewObject<UPaperFlipbookFactory>();
 			for (int32 SpriteIndex = 0; SpriteIndex < Sprites.Num(); ++SpriteIndex)
 			{
 				UPaperSprite* Sprite = Sprites[SpriteIndex];
@@ -117,7 +125,7 @@ void FSpriteAssetTypeActions::ExecuteCreateFlipbook(TArray<TWeakObjectPtr<UPaper
 				KeyFrame->FrameRun = 1;
 			}
 
-			AssetToolsModule.Get().CreateUniqueAssetName(NewFlipBookDefaultPath, /*out*/ DefaultSuffix, /*out*/ PackageName, /*out*/ AssetName);
+			AssetToolsModule.Get().CreateUniqueAssetName(NewFlipBookDefaultPath, DefaultSuffix, /*out*/ PackageName, /*out*/ AssetName);
 			const FString PackagePath = FPackageName::GetLongPackagePath(PackageName);
 			if (bOneFlipbookCreated)
 			{

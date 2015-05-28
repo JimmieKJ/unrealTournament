@@ -21,7 +21,7 @@
 
 /* FBuildPatchInstaller implementation
 *****************************************************************************/
-FBuildPatchInstaller::FBuildPatchInstaller( FBuildPatchBoolManifestDelegate InOnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InInstallDirectory, const FString& InStagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef )
+FBuildPatchInstaller::FBuildPatchInstaller(FBuildPatchBoolManifestDelegate InOnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InInstallDirectory, const FString& InStagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef, bool ShouldStageOnly)
 	: Thread( NULL )
 	, OnCompleteDelegate( InOnCompleteDelegate )
 	, CurrentBuildManifest( CurrentManifest )
@@ -34,7 +34,8 @@ FBuildPatchInstaller::FBuildPatchInstaller( FBuildPatchBoolManifestDelegate InOn
 	, ThreadLock()
 	, bIsFileData( InstallManifest->IsFileDataManifest() )
 	, bIsChunkData( !bIsFileData )
-	, bIsRepairing( CurrentManifest == InstallManifest )
+	, bIsRepairing(CurrentManifest.IsValid() && CurrentManifest->IsSameAs(InstallManifest))
+	, bShouldStageOnly(ShouldStageOnly)
 	, bSuccess( true )
 	, bIsRunning( false )
 	, bIsInited( false )
@@ -126,19 +127,31 @@ uint32 FBuildPatchInstaller::Run()
 		// Backup local changes then move generated files
 		bInstallSuccess = bInstallSuccess && RunBackupAndMove();
 
+		// Setup file attributes
+		bInstallSuccess = bInstallSuccess && RunFileAttributes(bIsRepairing);
+
 		// Run Verification
 		CorruptFiles.Empty();
 		BuildProgress.SetStateProgress(EBuildPatchProgress::Initializing, 1.0f);
 		bProcessSuccess = bInstallSuccess && RunVerification(CorruptFiles);
 
 		// Clean staging if INSTALL success
+		CleanUpTime = FPlatformTime::Seconds();
 		if (bInstallSuccess)
 		{
-			GLog->Logf(TEXT("BuildPatchServices: Deleting staging area"));
-			CleanUpTime = FPlatformTime::Seconds();
-			IFileManager::Get().DeleteDirectory(*StagingDirectory, false, true);
-			CleanUpTime = FPlatformTime::Seconds() - CleanUpTime;
+			if (bShouldStageOnly)
+			{
+				GLog->Logf(TEXT("BuildPatchServices: Deleting litter from staging area"));
+				IFileManager::Get().DeleteDirectory(*DataStagingDir, false, true);
+				IFileManager::Get().Delete(*(InstallStagingDir / TEXT("$resumeData")), false, true);
+			}
+			else
+			{
+				GLog->Logf(TEXT("BuildPatchServices: Deleting staging area"));
+				IFileManager::Get().DeleteDirectory(*StagingDirectory, false, true);
+			}
 		}
+		CleanUpTime = FPlatformTime::Seconds() - CleanUpTime;
 		BuildProgress.SetStateProgress(EBuildPatchProgress::CleanUp, 1.0f);
 
 		// Set if we can retry
@@ -422,112 +435,165 @@ bool FBuildPatchInstaller::RunInstallation(TArray<FString>& CorruptFiles)
 	return !FBuildPatchInstallError::HasFatalError();
 }
 
+
+void FBuildPatchInstaller::CleanupEmptyDirectories(const FString& RootDirectory)
+{
+	TArray<FString> SubDirNames;
+	IFileManager::Get().FindFiles(SubDirNames, *(RootDirectory / TEXT("*")), false, true);
+	for(auto DirName : SubDirNames)
+	{
+		CleanupEmptyDirectories(*(RootDirectory / DirName));
+	}
+
+	TArray<FString> SubFileNames;
+	IFileManager::Get().FindFilesRecursive(SubFileNames, *RootDirectory, TEXT("*.*"), true, false);
+	if (SubFileNames.Num() == 0)
+	{
+#if PLATFORM_MAC
+		// On Mac we need to delete the .DS_Store file, but FindFiles() skips .DS_Store files.
+		IFileManager::Get().Delete(*(RootDirectory / TEXT(".DS_Store")), false, true);
+#endif
+
+		bool bDeleteSuccess = IFileManager::Get().DeleteDirectory(*RootDirectory, false, true);
+		const uint32 LastError = FPlatformMisc::GetLastError();
+		GLog->Logf(TEXT("BuildPatchServices: Deleted Empty Folder (%u,%u) %s"), bDeleteSuccess ? 1 : 0, LastError, *RootDirectory);
+	}
+}
+
 bool FBuildPatchInstaller::RunBackupAndMove()
 {
-	GLog->Logf(TEXT("BuildPatchServices: Running backup and stage relocation"));
-	// If there's no error, move all complete files
-	bool bMoveSuccess = FBuildPatchInstallError::HasFatalError() == false;
-	if (bMoveSuccess)
+	// We skip this step if performing stage only
+	bool bMoveSuccess = true;
+	if (bShouldStageOnly)
 	{
-		// First handle files that should be removed for patching
-		TArray< FString > FilesToRemove;
-		if (CurrentBuildManifest.IsValid())
+		GLog->Logf(TEXT("BuildPatchServices: Skipping backup and stage relocation"));
+		BuildProgress.SetStateProgress(EBuildPatchProgress::MovingToInstall, 1.0f);
+	}
+	else
+	{
+		GLog->Logf(TEXT("BuildPatchServices: Running backup and stage relocation"));
+		// If there's no error, move all complete files
+		bMoveSuccess = FBuildPatchInstallError::HasFatalError() == false;
+		if (bMoveSuccess)
 		{
-			FBuildPatchAppManifest::GetRemovableFiles(CurrentBuildManifest.ToSharedRef(), NewBuildManifest, FilesToRemove);
-		}
-		// Add to build stats
-		ThreadLock.Lock();
-		BuildStats.NumFilesToRemove = FilesToRemove.Num();
-		ThreadLock.Unlock();
-		for (const FString& OldFilename : FilesToRemove)
-		{
-			BackupFileIfNecessary(OldFilename);
-			const bool bDeleteSuccess = IFileManager::Get().Delete(*(InstallDirectory / OldFilename), false, true, true);
-			const uint32 LastError = FPlatformMisc::GetLastError();
-			GLog->Logf(TEXT("BuildPatchServices: Removed (%u,%u) %s"), bDeleteSuccess ? 1 : 0, LastError, *OldFilename);
-		}
+			// First handle files that should be removed for patching
+			TArray< FString > FilesToRemove;
+			if (CurrentBuildManifest.IsValid())
+			{
+				FBuildPatchAppManifest::GetRemovableFiles(CurrentBuildManifest.ToSharedRef(), NewBuildManifest, FilesToRemove);
+			}
+			// Add to build stats
+			ThreadLock.Lock();
+			BuildStats.NumFilesToRemove = FilesToRemove.Num();
+			ThreadLock.Unlock();
+			for (const FString& OldFilename : FilesToRemove)
+			{
+				BackupFileIfNecessary(OldFilename);
+				const bool bDeleteSuccess = IFileManager::Get().Delete(*(InstallDirectory / OldFilename), false, true, true);
+				const uint32 LastError = FPlatformMisc::GetLastError();
+				GLog->Logf(TEXT("BuildPatchServices: Removed (%u,%u) %s"), bDeleteSuccess ? 1 : 0, LastError, *OldFilename);
+			}
 
-		// Now handle files that have been constructed
-		bool bSavedMoveMarkerFile = false;
-		TArray< FString > ConstructionFiles;
-		NewBuildManifest->GetFileList(ConstructionFiles);
-		BuildProgress.SetStateProgress(EBuildPatchProgress::MovingToInstall, 0.0f);
-		const float NumConstructionFilesFloat = ConstructionFiles.Num();
-		for (auto ConstructionFilesIt = ConstructionFiles.CreateConstIterator(); ConstructionFilesIt && bMoveSuccess && !FBuildPatchInstallError::HasFatalError(); ++ConstructionFilesIt)
-		{
-			const FString& ConstructionFile = *ConstructionFilesIt;
-			const FString SrcFilename = InstallStagingDir / ConstructionFile;
-			const FString DestFilename = InstallDirectory / ConstructionFile;
-			const float FileIndexFloat = ConstructionFilesIt.GetIndex();
-			// Skip files not constructed
-			if (!FPaths::FileExists(SrcFilename))
+			// Now handle files that have been constructed
+			bool bSavedMoveMarkerFile = false;
+			TArray< FString > ConstructionFiles;
+			NewBuildManifest->GetFileList(ConstructionFiles);
+			BuildProgress.SetStateProgress(EBuildPatchProgress::MovingToInstall, 0.0f);
+			const float NumConstructionFilesFloat = ConstructionFiles.Num();
+			for (auto ConstructionFilesIt = ConstructionFiles.CreateConstIterator(); ConstructionFilesIt && bMoveSuccess && !FBuildPatchInstallError::HasFatalError(); ++ConstructionFilesIt)
 			{
-				BuildProgress.SetStateProgress(EBuildPatchProgress::MovingToInstall, FileIndexFloat / NumConstructionFilesFloat);
-				continue;
-			}
-			// Create the move marker file
-			if (!bSavedMoveMarkerFile)
-			{
-				bSavedMoveMarkerFile = true;
-				GLog->Logf(TEXT("BuildPatchServices: Create MM"));
-				FArchive* MoveMarkerFile = IFileManager::Get().CreateFileWriter(*PreviousMoveMarker, FILEWRITE_EvenIfReadOnly);
-				if (MoveMarkerFile != NULL)
+				const FString& ConstructionFile = *ConstructionFilesIt;
+				const FString SrcFilename = InstallStagingDir / ConstructionFile;
+				const FString DestFilename = InstallDirectory / ConstructionFile;
+				const float FileIndexFloat = ConstructionFilesIt.GetIndex();
+				// Skip files not constructed
+				if (!FPaths::FileExists(SrcFilename))
 				{
-					MoveMarkerFile->Close();
-					delete MoveMarkerFile;
+					BuildProgress.SetStateProgress(EBuildPatchProgress::MovingToInstall, FileIndexFloat / NumConstructionFilesFloat);
+					continue;
 				}
-				// Make sure we have some progress if we do some work
-				if (BuildProgress.GetStateWeight(EBuildPatchProgress::MovingToInstall) <= 0.0f)
+				// Create the move marker file
+				if (!bSavedMoveMarkerFile)
 				{
-					BuildProgress.SetStateWeight(EBuildPatchProgress::MovingToInstall, 0.1f);
+					bSavedMoveMarkerFile = true;
+					GLog->Logf(TEXT("BuildPatchServices: Create MM"));
+					FArchive* MoveMarkerFile = IFileManager::Get().CreateFileWriter(*PreviousMoveMarker, FILEWRITE_EvenIfReadOnly);
+					if (MoveMarkerFile != NULL)
+					{
+						MoveMarkerFile->Close();
+						delete MoveMarkerFile;
+					}
+					// Make sure we have some progress if we do some work
+					if (BuildProgress.GetStateWeight(EBuildPatchProgress::MovingToInstall) <= 0.0f)
+					{
+						BuildProgress.SetStateWeight(EBuildPatchProgress::MovingToInstall, 0.1f);
+					}
 				}
-			}
-			// Backup file if need be
-			BackupFileIfNecessary(ConstructionFile);
-			// Move the file to the installation directory
-			int32 MoveRetries = NUM_FILE_MOVE_RETRIES;
-			bMoveSuccess = IFileManager::Get().Move(*DestFilename, *SrcFilename, true, true);
-			uint32 ErrorCode = FPlatformMisc::GetLastError();
-			while (!bMoveSuccess && MoveRetries > 0)
-			{
-				--MoveRetries;
-				FBuildPatchAnalytics::RecordConstructionError(ConstructionFile, ErrorCode, TEXT("Failed To Move"));
-				GWarn->Logf(TEXT("BuildPatchServices: ERROR: Failed to move file %s (%d), trying copy"), *ConstructionFile, ErrorCode);
-				bMoveSuccess = IFileManager::Get().Copy(*DestFilename, *SrcFilename, true, true) == COPY_OK;
-				ErrorCode = FPlatformMisc::GetLastError();
+				// Backup file if need be
+				BackupFileIfNecessary(ConstructionFile);
+				// Delete existing if there
+				IFileManager::Get().Delete(*DestFilename, false, true, false);
+				// Move the file to the installation directory
+				int32 MoveRetries = NUM_FILE_MOVE_RETRIES;
+				bMoveSuccess = IFileManager::Get().Move(*DestFilename, *SrcFilename, true, true, true, true);
+				uint32 ErrorCode = FPlatformMisc::GetLastError();
+				while (!bMoveSuccess && MoveRetries > 0)
+				{
+					--MoveRetries;
+					FBuildPatchAnalytics::RecordConstructionError(ConstructionFile, ErrorCode, TEXT("Failed To Move"));
+					GWarn->Logf(TEXT("BuildPatchServices: ERROR: Failed to move file %s (%d), trying copy"), *ConstructionFile, ErrorCode);
+					bMoveSuccess = IFileManager::Get().Copy(*DestFilename, *SrcFilename, true, true, true) == COPY_OK;
+					ErrorCode = FPlatformMisc::GetLastError();
+					if (!bMoveSuccess)
+					{
+						GWarn->Logf(TEXT("BuildPatchServices: ERROR: Failed to copy file %s (%d), retying after 0.5 sec"), *ConstructionFile, ErrorCode);
+						FPlatformProcess::Sleep(0.5f);
+						bMoveSuccess = IFileManager::Get().Move(*DestFilename, *SrcFilename, true, true, true, true);
+						ErrorCode = FPlatformMisc::GetLastError();
+					}
+					else
+					{
+						IFileManager::Get().Delete(*SrcFilename, false, true, false);
+					}
+				}
 				if (!bMoveSuccess)
 				{
-					GWarn->Logf(TEXT("BuildPatchServices: ERROR: Failed to copy file %s (%d), retying after 0.5 sec"), *ConstructionFile, ErrorCode);
-					FPlatformProcess::Sleep(0.5f);
-					--MoveRetries;
-					bMoveSuccess = IFileManager::Get().Move(*DestFilename, *SrcFilename, true, true);
-					ErrorCode = FPlatformMisc::GetLastError();
+					GWarn->Logf(TEXT("BuildPatchServices: ERROR: Failed to move file %s"), *FPaths::GetCleanFilename(ConstructionFile));
+					FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::MoveFileToInstall);
 				}
 				else
 				{
-					IFileManager::Get().Delete(*SrcFilename, false, true, false);
+					FilesInstalled.Add(ConstructionFile);
+					BuildProgress.SetStateProgress(EBuildPatchProgress::MovingToInstall, FileIndexFloat / NumConstructionFilesFloat);
 				}
 			}
-			if (!bMoveSuccess)
-			{
-				GWarn->Logf(TEXT("BuildPatchServices: ERROR: Failed to move file %s"), *FPaths::GetCleanFilename(ConstructionFile));
-				FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::MoveFileToInstall);
-			}
-			else
-			{
-				FilesInstalled.Add(ConstructionFile);
-				BuildProgress.SetStateProgress(EBuildPatchProgress::MovingToInstall, FileIndexFloat / NumConstructionFilesFloat);
-			}
-		}
 
-		bMoveSuccess = bMoveSuccess && (FBuildPatchInstallError::HasFatalError() == false);
-		if (bMoveSuccess)
-		{
-			BuildProgress.SetStateProgress(EBuildPatchProgress::MovingToInstall, 1.0f);
+			// After we've completed deleting/moving patch files to the install directory, clean up any empty directories left over
+			CleanupEmptyDirectories(InstallDirectory);
+
+			bMoveSuccess = bMoveSuccess && (FBuildPatchInstallError::HasFatalError() == false);
+			if (bMoveSuccess)
+			{
+				BuildProgress.SetStateProgress(EBuildPatchProgress::MovingToInstall, 1.0f);
+			}
 		}
+		GLog->Logf(TEXT("BuildPatchServices: Relocation complete %d"), bMoveSuccess?1:0);
 	}
-	GLog->Logf(TEXT("BuildPatchServices: Relocation complete %d"), bMoveSuccess?1:0);
 	return bMoveSuccess;
+}
+
+bool FBuildPatchInstaller::RunFileAttributes(bool bForce)
+{
+	// Only provide stage directory if stage-only mode
+	FString EmptyString;
+	FString& OptionalStageDirectory = bShouldStageOnly ? InstallStagingDir : EmptyString;
+
+	// Construct the attributes class
+	auto Attributes = FBuildPatchFileAttributesFactory::Create(NewBuildManifest, CurrentBuildManifest, InstallDirectory, OptionalStageDirectory);
+	Attributes->ApplyAttributes(bForce);
+
+	// We don't fail on this step currently
+	return true;
 }
 
 bool FBuildPatchInstaller::RunVerification(TArray< FString >& CorruptFiles)
@@ -544,7 +610,20 @@ bool FBuildPatchInstaller::RunVerification(TArray< FString >& CorruptFiles)
 	GLog->Logf(TEXT("BuildPatchServices: Verifying install"));
 	CorruptFiles.Empty();
 	VerifyTime = FPlatformTime::Seconds();
-	bool bVerifySuccess = NewBuildManifest->VerifyAgainstDirectory(InstallDirectory, CorruptFiles, FBuildPatchFloatDelegate::CreateRaw(this, &FBuildPatchInstaller::UpdateVerificationProgress), FBuildPatchBoolRetDelegate::CreateRaw(this, &FBuildPatchInstaller::IsPaused), VerifyPauseTime);
+
+	// Setup the verify delegates
+	auto ProgressDelegate = FBuildPatchFloatDelegate::CreateRaw(this, &FBuildPatchInstaller::UpdateVerificationProgress);
+	auto IsPausedDelegate = FBuildPatchBoolRetDelegate::CreateRaw(this, &FBuildPatchInstaller::IsPaused);
+
+	// Only provide stage directory if stage-only mode
+	FString EmptyString;
+	FString& OptionalStageDirectory = bShouldStageOnly ? InstallStagingDir : EmptyString;
+
+	// Construct the verifier
+	auto Verifier = FBuildPatchVerificationFactory::Create(NewBuildManifest, ProgressDelegate, IsPausedDelegate, InstallDirectory, OptionalStageDirectory);
+
+	// Verify the build
+	bool bVerifySuccess = Verifier->VerifyAgainstDirectory(CorruptFiles, VerifyPauseTime);
 	VerifyTime = FPlatformTime::Seconds() - VerifyTime - VerifyPauseTime;
 	if (!bVerifySuccess)
 	{
@@ -566,7 +645,10 @@ bool FBuildPatchInstaller::RunVerification(TArray< FString >& CorruptFiles)
 		for (const FString& CorruptFile : CorruptFiles)
 		{
 			BackupFileIfNecessary(CorruptFile, true);
-			IFileManager::Get().Delete(*(InstallDirectory / CorruptFile), false, true);
+			if (!bShouldStageOnly)
+			{
+				IFileManager::Get().Delete(*(InstallDirectory / CorruptFile), false, true);
+			}
 			IFileManager::Get().Delete(*(InstallStagingDir / CorruptFile), false, true);
 		}
 	}
@@ -666,7 +748,7 @@ bool FBuildPatchInstaller::RunPrereqInstaller()
 		FPlatformProcess::WaitForProc(ProcessHandle);
 		FPlatformProcess::GetProcReturnCode(ProcessHandle, &ReturnCode);
 
-		ProcessHandle.Close();
+		FPlatformProcess::CloseProc(ProcessHandle);
 
 		if (ReturnCode != 0)
 		{

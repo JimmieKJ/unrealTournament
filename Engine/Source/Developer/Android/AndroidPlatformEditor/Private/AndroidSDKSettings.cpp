@@ -20,14 +20,14 @@ void UAndroidSDKSettings::PostEditChangeProperty(struct FPropertyChangedEvent& P
 	UpdateTargetModulePaths();	
 }
 
-void UAndroidSDKSettings::SetTargetModule(ITargetPlatformManagerModule * TargetManagerModule)
+void UAndroidSDKSettings::SetTargetModule(ITargetPlatformManagerModule * InTargetManagerModule)
 {
-	this->TargetManagerModule = TargetManagerModule;
+	TargetManagerModule = InTargetManagerModule;
 }
 
-void UAndroidSDKSettings::SetDeviceDetection(IAndroidDeviceDetection * AndroidDeviceDetection)
+void UAndroidSDKSettings::SetDeviceDetection(IAndroidDeviceDetection * InAndroidDeviceDetection)
 {
-	this->AndroidDeviceDetection = AndroidDeviceDetection;
+	AndroidDeviceDetection = InAndroidDeviceDetection;
 }
 
 void UAndroidSDKSettings::UpdateTargetModulePaths()

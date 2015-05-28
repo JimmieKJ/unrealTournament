@@ -43,11 +43,15 @@ struct FNavMeshSceneProxyData : public TSharedFromThis<FNavMeshSceneProxyData, E
 
 	void Reset()
 	{
-		for (int32 Index=0; Index < RECAST_MAX_AREAS; Index++)
+		for (int32 Index = 0; Index < RECAST_MAX_AREAS; Index++)
+		{
 			NavMeshGeometry.AreaIndices[Index].Reset();
+		}
 		NavMeshGeometry.MeshVerts.Reset();
-		for (int32 Index=0; Index < RECAST_MAX_AREAS; Index++)
+		for (int32 Index = 0; Index < RECAST_MAX_AREAS; Index++)
+		{
 			NavMeshGeometry.AreaIndices[Index].Reset();
+		}
 		NavMeshGeometry.BuiltMeshIndices.Reset();
 		NavMeshGeometry.PolyEdges.Reset();
 		NavMeshGeometry.NavMeshEdges.Reset();
@@ -55,8 +59,10 @@ struct FNavMeshSceneProxyData : public TSharedFromThis<FNavMeshSceneProxyData, E
 		NavMeshGeometry.Clusters.Reset();
 		NavMeshGeometry.ClusterLinks.Reset();
 		NavMeshGeometry.OffMeshSegments.Reset();
-		for (int32 Index=0; Index < RECAST_MAX_AREAS; Index++)
+		for (int32 Index = 0; Index < RECAST_MAX_AREAS; Index++)
+		{
 			NavMeshGeometry.OffMeshSegmentAreas[Index].Reset();
+		}
 		TileEdgeLines.Reset();
 		NavMeshEdgeLines.Reset();
 		NavLinkLines.Reset();
@@ -313,13 +319,13 @@ public:
 	}
 
 
-	void RegisterDebugDrawDelgate()
+	void RegisterDebugDrawDelgate() override
 	{
 		DebugTextDrawingDelegate = FDebugDrawDelegate::CreateRaw(this, &FRecastRenderingSceneProxy::DrawDebugLabels);
 		DebugTextDrawingDelegateHandle = UDebugDrawService::Register(TEXT("Navigation"), DebugTextDrawingDelegate);
 	}
 
-	void UnregisterDebugDrawDelgate()
+	void UnregisterDebugDrawDelgate() override
 	{
 		if (DebugTextDrawingDelegate.IsBound())
 		{
@@ -392,35 +398,38 @@ public:
 				}
 
 				// Draw Mesh
-				for (int32 Index = 0; Index < MeshBatchElements.Num(); ++Index)
+				if (MeshBatchElements.Num())
 				{
-					if (MeshBatchElements[Index].NumPrimitives == 0)
+					for (int32 Index = 0; Index < MeshBatchElements.Num(); ++Index)
 					{
-						continue;
-					}
+						if (MeshBatchElements[Index].NumPrimitives == 0)
+						{
+							continue;
+						}
 
 					FMeshBatch& Mesh = Collector.AllocateMesh();
 					FMeshBatchElement& BatchElement = Mesh.Elements[0];
 					BatchElement = MeshBatchElements[Index];
-					BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(GetLocalToWorld(), GetBounds(), GetLocalBounds(), false, UseEditorDepthTest());
+					BatchElement.PrimitiveUniformBuffer = CreatePrimitiveUniformBufferImmediate(FMatrix::Identity, GetBounds(), GetLocalBounds(), false, UseEditorDepthTest());
 
-					Mesh.bWireframe = false;
-					Mesh.VertexFactory = &VertexFactory;
-					Mesh.MaterialRenderProxy = &MeshColors[Index];
-					Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
-					Mesh.Type = PT_TriangleList;
-					Mesh.DepthPriorityGroup = SDPG_World;
-					Mesh.bCanApplyViewModeOverrides = false;
-					Collector.AddMesh(ViewIndex, Mesh);
-				}
+						Mesh.bWireframe = false;
+						Mesh.VertexFactory = &VertexFactory;
+						Mesh.MaterialRenderProxy = &MeshColors[Index];
+						Mesh.ReverseCulling = IsLocalToWorldDeterminantNegative();
+						Mesh.Type = PT_TriangleList;
+						Mesh.DepthPriorityGroup = SDPG_World;
+						Mesh.bCanApplyViewModeOverrides = false;
+						Collector.AddMesh(ViewIndex, Mesh);
+					}
 
-				if (ProxyData.PathCollidingGeomIndices.Num() > 2)
-				{
-					FDynamicMeshBuilder MeshBuilder;
-					MeshBuilder.AddVertices(ProxyData.PathCollidingGeomVerts);
-					MeshBuilder.AddTriangles(ProxyData.PathCollidingGeomIndices);
+					if (ProxyData.PathCollidingGeomIndices.Num() > 2)
+					{
+						FDynamicMeshBuilder MeshBuilder;
+						MeshBuilder.AddVertices(ProxyData.PathCollidingGeomVerts);
+						MeshBuilder.AddTriangles(ProxyData.PathCollidingGeomIndices);
 
-					MeshBuilder.GetMesh(FMatrix::Identity, &MeshColors[MeshBatchElements.Num()], SDPG_World, false, false, ViewIndex, Collector);
+						MeshBuilder.GetMesh(FMatrix::Identity, &MeshColors[MeshBatchElements.Num()], SDPG_World, false, false, ViewIndex, Collector);
+					}
 				}
 
 				int32 Num = ProxyData.NavMeshEdgeLines.Num();
@@ -527,7 +536,7 @@ public:
 		return View->ViewFrustum.IntersectBox(Location, FVector::ZeroVector);
 	}
 
-	void DrawDebugLabels(UCanvas* Canvas, APlayerController*)
+	void DrawDebugLabels(UCanvas* Canvas, APlayerController*) override
 	{
 		const bool bVisible = (Canvas && Canvas->SceneView && !!Canvas->SceneView->Family->EngineShowFlags.Navigation) || bForceRendering;
 		if (ProxyData.bNeedsNewData == true || ProxyData.bEnableDrawing == false || !bVisible || ProxyData.DebugLabels.Num() == 0)
@@ -552,7 +561,7 @@ public:
 		Canvas->SetDrawColor(OldDrawColor);
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
 	{
 		const bool bVisible = !!View->Family->EngineShowFlags.Navigation || bForceRendering;
 		FPrimitiveViewRelevance Result;
@@ -562,7 +571,7 @@ public:
 		return Result;
 	}
 
-	virtual uint32 GetMemoryFootprint( void ) const { return sizeof( *this ) + GetAllocatedSize(); }
+	virtual uint32 GetMemoryFootprint( void ) const override { return sizeof( *this ) + GetAllocatedSize(); }
 	uint32 GetAllocatedSize( void ) const 
 	{ 
 		return FDebugRenderSceneProxy::GetAllocatedSize() + 

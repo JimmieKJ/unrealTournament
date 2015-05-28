@@ -35,8 +35,12 @@ struct ENGINE_API FCollisionQueryParams
 	/** Only fill in the PhysMaterial field of  */
 	bool bReturnPhysicalMaterial;
 
+	/** TArray typedef of components to ignore. */
+	typedef TArray<uint32, TInlineAllocator<NumInlinedActorComponents>> IgnoreComponentsArrayType;
+
 	/** Set of components to ignore during the trace */
-	TArray<uint32, TInlineAllocator<1> > IgnoreComponents;
+	IgnoreComponentsArrayType IgnoreComponents;
+
 
 	// Constructors
 	FCollisionQueryParams(bool bInTraceComplex=false)
@@ -65,16 +69,19 @@ struct ENGINE_API FCollisionQueryParams
 	/** Add a component for this trace to ignore */
 	void AddIgnoredComponent(const UPrimitiveComponent* InIgnoreComponent);
 
-	/** Add a collection of componnets for this trace to ignore */
+	/** Add a collection of components for this trace to ignore */
 	void AddIgnoredComponents(const TArray<UPrimitiveComponent*>& InIgnoreComponents);
 	
-	/** Varient that uses an array of TWeakObjectPtrs */
+	/** Variant that uses an array of TWeakObjectPtrs */
 	void AddIgnoredComponents(const TArray<TWeakObjectPtr<UPrimitiveComponent>>& InIgnoreComponents);
 
 	FString ToString() const
 	{
 		return FString::Printf(TEXT("[%s:%s] TraceAsync(%d), TraceComplex(%d)"), *OwnerTag.ToString(), *TraceTag.ToString(), bTraceAsyncScene, bTraceComplex );
 	}
+
+	/** static variable for default data to be used without reconstructing everytime **/
+	static FCollisionQueryParams DefaultQueryParam;
 };
 
 /** Structure when performing a collision query using a component's geometry */
@@ -89,6 +96,9 @@ struct ENGINE_API FComponentQueryParams : public FCollisionQueryParams
 	: FCollisionQueryParams(InTraceTag, false, InIgnoreActor)
 	{
 	}
+
+	/** static variable for default data to be used without reconstructing everytime **/
+	static FComponentQueryParams DefaultComponentQueryParams;
 };
 
 /** Structure that defines response container for the query. Advanced option. */

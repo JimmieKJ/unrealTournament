@@ -18,6 +18,17 @@ const int ReflectiveShadowMapResolution = 256;
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FGBufferResourceStruct,TEXT("GBuffers"));
 
+static TAutoConsoleVariable<int32> CVarBasePassOutputsVelocityDebug(
+	TEXT("r.BasePassOutputsVelocityDebug"),
+	0,
+	TEXT("Debug settings for Base Pass outputting velocity.\n") \
+	TEXT("0 - Regular rendering\n") \
+	TEXT("1 - Skip setting GBufferVelocity RT\n") \
+	TEXT("2 - Set Color Mask 0 for GBufferVelocity RT\n"),
+	ECVF_RenderThreadSafe);
+
+static int32 GBasePassOutputsVelocityDebug = 0;
+
 /*-----------------------------------------------------------------------------
 FSceneRenderTargets
 -----------------------------------------------------------------------------*/
@@ -224,6 +235,17 @@ void FSceneRenderTargets::Allocate(const FSceneViewFamily& ViewFamily)
 
 	int32 MaxShadowResolution = GetCachedScalabilityCVars().MaxShadowResolution;
 
+	if (ViewFamily.Scene->ShouldUseDeferredRenderer() == false)
+	{
+		// ensure there is always enough space for forward renderer's tiled shadow maps
+		// by reducing the shadow map resolution.
+		int32 MaxShadowDepthBufferDim = FMath::Max(GMaxShadowDepthBufferSizeX, GMaxShadowDepthBufferSizeY);
+		if (MaxShadowResolution * 2 >  MaxShadowDepthBufferDim)
+		{
+			MaxShadowResolution = MaxShadowDepthBufferDim / 2;
+		}
+	}
+
 	int32 TranslucencyLightingVolumeDim = GTranslucencyLightingVolumeDim;
 
 	uint32 Mobile32bpp = !IsMobileHDR() || IsMobileHDR32bpp();
@@ -263,11 +285,11 @@ void FSceneRenderTargets::Allocate(const FSceneViewFamily& ViewFamily)
 		CurrentMobileMSAA = MobileMSAA;
 		CurrentMinShadowResolution = MinShadowResolution;
 		bCurrentLightPropagationVolume = bLightPropagationVolume;
-		
+
 		// Reinitialize the render targets for the given size.
 		SetBufferSize(DesiredBufferSize.X, DesiredBufferSize.Y);
 
-		UE_LOG(LogRenderer, Warning, TEXT("Reallocating scene render targets to support %ux%u (Frame:%u)."), BufferSize.X, BufferSize.Y, ViewFamily.FrameNumber);
+		UE_LOG(LogRenderer, Log, TEXT("Reallocating scene render targets to support %ux%u (Frame:%u)."), BufferSize.X, BufferSize.Y, ViewFamily.FrameNumber);
 
 		UpdateRHI();
 	}
@@ -277,14 +299,45 @@ void FSceneRenderTargets::Allocate(const FSceneViewFamily& ViewFamily)
 	AllocateRenderTargets();
 }
 
-void FSceneRenderTargets::BeginRenderingSceneColor(FRHICommandList& RHICmdList, ESimpleRenderTargetMode RenderTargetMode/*=EUninitializedColorExistingDepth*/)
+void FSceneRenderTargets::BeginRenderingSceneColor(FRHICommandList& RHICmdList, ESimpleRenderTargetMode RenderTargetMode/*=EUninitializedColorExistingDepth*/, FExclusiveDepthStencil DepthStencilAccess)
 {
 	SCOPED_DRAW_EVENT(RHICmdList, BeginRenderingSceneColor);
 
 	AllocSceneColor();
 	
-	SetRenderTarget(RHICmdList, GetSceneColorSurface(), GetSceneDepthSurface(), RenderTargetMode);
+	SetRenderTarget(RHICmdList, GetSceneColorSurface(), GetSceneDepthSurface(), RenderTargetMode, DepthStencilAccess);
 } 
+
+int32 FSceneRenderTargets::GetGBufferRenderTargets(ERenderTargetLoadAction ColorLoadAction, FRHIRenderTargetView OutRenderTargets[MaxSimultaneousRenderTargets], int32& OutVelocityRTIndex)
+{
+	OutRenderTargets[0] = FRHIRenderTargetView(GetSceneColorSurface(), 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
+	OutRenderTargets[1] = FRHIRenderTargetView(GSceneRenderTargets.GBufferA->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
+	OutRenderTargets[2] = FRHIRenderTargetView(GSceneRenderTargets.GBufferB->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
+	OutRenderTargets[3] = FRHIRenderTargetView(GSceneRenderTargets.GBufferC->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
+	OutRenderTargets[4] = FRHIRenderTargetView(GSceneRenderTargets.GBufferD->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
+	int32 MRTCount = 5;	// Derived from previously used RenderTargets[]; would have been nice to keep a pointer while filling it but it's more confusing to use
+
+	OutVelocityRTIndex = -1;
+
+	if (bAllowStaticLighting)
+	{
+		check(MRTCount == GetGBufferEIndex());
+		OutRenderTargets[MRTCount] = FRHIRenderTargetView(GSceneRenderTargets.GBufferE->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
+		++MRTCount;
+	}
+
+	if (bAllocateVelocityGBuffer)
+	{
+		OutVelocityRTIndex = MRTCount;
+		++MRTCount;
+		check(OutVelocityRTIndex == GetGBufferVelocityIndex());
+		OutRenderTargets[OutVelocityRTIndex] = FRHIRenderTargetView(GSceneRenderTargets.GBufferVelocity->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
+	}
+
+	check(MRTCount <= MaxSimultaneousRenderTargets);
+
+	return MRTCount;
+}
 
 void FSceneRenderTargets::BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERenderTargetLoadAction ColorLoadAction, ERenderTargetLoadAction DepthLoadAction, const FLinearColor& ClearColor/*=(0,0,0,1)*/)
 {
@@ -302,38 +355,68 @@ void FSceneRenderTargets::BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERe
 	// Set the scene color surface as the render target, and the scene depth surface as the depth-stencil target.
 	if (CurrentFeatureLevel >= ERHIFeatureLevel::SM4)
 	{
-		FRHIRenderTargetView RenderTargets[6];
-		RenderTargets[0] = FRHIRenderTargetView(GetSceneColorSurface(), 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
-		RenderTargets[1] = FRHIRenderTargetView(GSceneRenderTargets.GBufferA->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
-		RenderTargets[2] = FRHIRenderTargetView(GSceneRenderTargets.GBufferB->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
-		RenderTargets[3] = FRHIRenderTargetView(GSceneRenderTargets.GBufferC->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
-		RenderTargets[4] = FRHIRenderTargetView(GSceneRenderTargets.GBufferD->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
+		int32 VelocityRTIndex;
+		FRHIRenderTargetView RenderTargets[MaxSimultaneousRenderTargets];
+		int32 MRTCount = GetGBufferRenderTargets(ColorLoadAction, RenderTargets, VelocityRTIndex);
 
-		uint32 MRTCount = ARRAY_COUNT(RenderTargets);
-
-		if (bAllowStaticLighting)
-		{
-			RenderTargets[5] = FRHIRenderTargetView(GSceneRenderTargets.GBufferE->GetRenderTargetItem().TargetableTexture, 0, -1, ColorLoadAction, ERenderTargetStoreAction::EStore);
-		}
-		else
-		{
-			MRTCount--;
-		}
-
+		const float DepthClearValue = (float)ERHIZBuffer::FarPlane;
+		bool bClearColor = ColorLoadAction == ERenderTargetLoadAction::EClear;
+		bool bClearDepth = DepthLoadAction == ERenderTargetLoadAction::EClear;
 		FRHIDepthRenderTargetView DepthView(GetSceneDepthSurface(), DepthLoadAction, ERenderTargetStoreAction::EStore);
 		FRHISetRenderTargetsInfo Info(MRTCount, RenderTargets, DepthView);
-		if (ColorLoadAction == ERenderTargetLoadAction::EClear)
+		if (bClearColor)
 		{
-			Info.ClearColors[0] = ClearColor;
-			Info.ClearColors[1] = Info.ClearColors[2] = Info.ClearColors[3] = FLinearColor::Transparent;
-			Info.ClearColors[4] = FLinearColor(0, 1, 1, 1);
-			Info.ClearColors[5] = FLinearColor(1, 1, 1, 1);
+			bGBuffersCleared = true;
+			GBufferClearColor = ClearColor;
 		}
-		Info.DepthClearValue = 0.0f;
+
+		Info.ClearColors[0] = GBufferClearColor;
+		Info.ClearColors[1] = Info.ClearColors[2] = Info.ClearColors[3] = FLinearColor::Transparent;
+		Info.ClearColors[4] = FLinearColor(0, 1, 1, 1);
+		Info.ClearColors[5] = FLinearColor(1, 1, 1, 1);
+
+		if (VelocityRTIndex != -1)
+		{
+			Info.ClearColors[VelocityRTIndex] = FLinearColor(0, 0, 0, 0);
+		}
+
+		if (bClearDepth)
+		{
+			bSceneDepthCleared = true;
+			SceneDepthClearValue = DepthClearValue;
+		}
+		Info.DepthClearValue = DepthClearValue;
 
 		// set the render target
 		RHICmdList.SetRenderTargetsAndClear(Info);
+
+		//bind any clear data that won't be bound automatically by the preceding SetRenderTargetsAndClear
+		bool bBindClearColor = !bClearColor && bGBuffersCleared;
+		bool bBindClearDepth = !bClearDepth && bSceneDepthCleared;
+		RHICmdList.BindClearMRTValues(bBindClearColor, MRTCount, Info.ClearColors, bBindClearDepth, SceneDepthClearValue, bBindClearDepth, Info.StencilClearValue);
 	}
+}
+
+void FSceneRenderTargets::FinishRenderingGBuffer(FRHICommandListImmediate& RHICmdList)
+{
+	if (IsSimpleDynamicLightingEnabled())
+	{
+		// in this non-standard case, just render to scene color with default mode
+		FinishRenderingSceneColor(RHICmdList, true);
+		return;
+	}
+
+	int32 VelocityRTIndex;
+	FRHIRenderTargetView RenderTargets[MaxSimultaneousRenderTargets];
+	int32 NumMRTs = GetGBufferRenderTargets(ERenderTargetLoadAction::ELoad, RenderTargets, VelocityRTIndex);
+
+	FResolveParams ResolveParams;
+	for (int32 i = 0; i < NumMRTs; ++i)
+	{
+		RHICmdList.CopyToResolveTarget(RenderTargets[i].Texture, RenderTargets[i].Texture, true, ResolveParams);
+	}
+	FTextureRHIParamRef DepthSurface = GetSceneDepthSurface();
+	RHICmdList.CopyToResolveTarget(DepthSurface, DepthSurface, true, ResolveParams);
 }
 
 int32 FSceneRenderTargets::GetNumGBufferTargets() const
@@ -342,7 +425,13 @@ int32 FSceneRenderTargets::GetNumGBufferTargets() const
 
 	if (CurrentFeatureLevel >= ERHIFeatureLevel::SM4 && !IsSimpleDynamicLightingEnabled())
 	{
+		// This needs to match TBasePassPixelShaderBaseType::ModifyCompilationEnvironment()
 		NumGBufferTargets = bAllowStaticLighting ? 6 : 5;
+
+		if (bAllocateVelocityGBuffer)
+		{
+			++NumGBufferTargets;
+		}
 	}
 	return NumGBufferTargets;
 }
@@ -437,6 +526,19 @@ void FSceneRenderTargets::ReleaseGBufferTargets()
 	GBufferC.SafeRelease();
 	GBufferD.SafeRelease();
 	GBufferE.SafeRelease();
+	GBufferVelocity.SafeRelease();
+}
+
+void FSceneRenderTargets::PreallocGBufferTargets(bool bShouldRenderVelocities)
+{
+	if (GBasePassOutputsVelocityDebug == 1)
+	{
+		bAllocateVelocityGBuffer = false;
+	}
+	else
+	{
+		bAllocateVelocityGBuffer = bShouldRenderVelocities && FVelocityRendering::OutputsToGBuffer();
+	}
 }
 
 void FSceneRenderTargets::AllocGBufferTargets()
@@ -444,7 +546,7 @@ void FSceneRenderTargets::AllocGBufferTargets()
 	// AdjustGBufferRefCount +1 doesn't match -1 (within the same frame)
 	ensure(GBufferRefCount == 0);
 
-	if(GBufferA)
+	if (GBufferA)
 	{
 		// no work needed
 		return;
@@ -504,6 +606,13 @@ void FSceneRenderTargets::AllocGBufferTargets()
 		GRenderTargetPool.FindFreeElement(Desc, GBufferE, TEXT("GBufferE"));
 	}
 
+	GBasePassOutputsVelocityDebug = CVarBasePassOutputsVelocityDebug.GetValueOnRenderThread();
+	if (bAllocateVelocityGBuffer)
+	{
+		FPooledRenderTargetDesc VelocityRTDesc = FVelocityRendering::GetRenderTargetDesc();
+		GRenderTargetPool.FindFreeElement(VelocityRTDesc, GBufferVelocity, TEXT("GBufferVelocity"));
+	}
+
 	// otherwise we have a severe problem
 	check(GBufferA);
 
@@ -512,37 +621,42 @@ void FSceneRenderTargets::AllocGBufferTargets()
 	{
 
 		// Allocate the Gbuffer resource uniform buffer.
-		const FSceneRenderTargetItem& GBufferA = this->GBufferA ? this->GBufferA->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
-		const FSceneRenderTargetItem& GBufferB = this->GBufferB ? this->GBufferB->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
-		const FSceneRenderTargetItem& GBufferC = this->GBufferC ? this->GBufferC->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
-		const FSceneRenderTargetItem& GBufferD = this->GBufferD ? this->GBufferD->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
-		const FSceneRenderTargetItem& GBufferE = this->GBufferE ? this->GBufferE->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
+		const FSceneRenderTargetItem& GBufferAToUse = GBufferA ? GBufferA->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
+		const FSceneRenderTargetItem& GBufferBToUse = GBufferB ? GBufferB->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
+		const FSceneRenderTargetItem& GBufferCToUse = GBufferC ? GBufferC->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
+		const FSceneRenderTargetItem& GBufferDToUse = GBufferD ? GBufferD->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
+		const FSceneRenderTargetItem& GBufferEToUse = GBufferE ? GBufferE->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
+		const FSceneRenderTargetItem& GBufferVelocityToUse = GBufferVelocity ? GBufferVelocity->GetRenderTargetItem() : GSystemTextures.BlackDummy->GetRenderTargetItem();
 
 		FGBufferResourceStruct GBufferResourceStruct;
 
-		GBufferResourceStruct.GBufferATexture = GBufferA.ShaderResourceTexture;
-		GBufferResourceStruct.GBufferBTexture = GBufferB.ShaderResourceTexture;
-		GBufferResourceStruct.GBufferCTexture = GBufferC.ShaderResourceTexture;
-		GBufferResourceStruct.GBufferDTexture = GBufferD.ShaderResourceTexture;
-		GBufferResourceStruct.GBufferETexture = GBufferE.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferATexture = GBufferAToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferBTexture = GBufferBToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferCTexture = GBufferCToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferDTexture = GBufferDToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferETexture = GBufferEToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferVelocityTexture = GBufferVelocityToUse.ShaderResourceTexture;
 
-		GBufferResourceStruct.GBufferATextureNonMS = GBufferA.ShaderResourceTexture;
-		GBufferResourceStruct.GBufferBTextureNonMS = GBufferB.ShaderResourceTexture;
-		GBufferResourceStruct.GBufferCTextureNonMS = GBufferC.ShaderResourceTexture;
-		GBufferResourceStruct.GBufferDTextureNonMS = GBufferD.ShaderResourceTexture;
-		GBufferResourceStruct.GBufferETextureNonMS = GBufferE.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferATextureNonMS = GBufferAToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferBTextureNonMS = GBufferBToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferCTextureNonMS = GBufferCToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferDTextureNonMS = GBufferDToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferETextureNonMS = GBufferEToUse.ShaderResourceTexture;
+		GBufferResourceStruct.GBufferVelocityTextureNonMS = GBufferVelocityToUse.ShaderResourceTexture;
 
-		GBufferResourceStruct.GBufferATextureMS = GBufferA.TargetableTexture;
-		GBufferResourceStruct.GBufferBTextureMS = GBufferB.TargetableTexture;
-		GBufferResourceStruct.GBufferCTextureMS = GBufferC.TargetableTexture;
-		GBufferResourceStruct.GBufferDTextureMS = GBufferD.TargetableTexture;
-		GBufferResourceStruct.GBufferETextureMS = GBufferE.TargetableTexture;
+		GBufferResourceStruct.GBufferATextureMS = GBufferAToUse.TargetableTexture;
+		GBufferResourceStruct.GBufferBTextureMS = GBufferBToUse.TargetableTexture;
+		GBufferResourceStruct.GBufferCTextureMS = GBufferCToUse.TargetableTexture;
+		GBufferResourceStruct.GBufferDTextureMS = GBufferDToUse.TargetableTexture;
+		GBufferResourceStruct.GBufferETextureMS = GBufferEToUse.TargetableTexture;
+		GBufferResourceStruct.GBufferVelocityTextureMS = GBufferVelocityToUse.TargetableTexture;
 
 		GBufferResourceStruct.GBufferATextureSampler = TStaticSamplerState<>::GetRHI();
 		GBufferResourceStruct.GBufferBTextureSampler = TStaticSamplerState<>::GetRHI();
 		GBufferResourceStruct.GBufferCTextureSampler = TStaticSamplerState<>::GetRHI();
 		GBufferResourceStruct.GBufferDTextureSampler = TStaticSamplerState<>::GetRHI();
 		GBufferResourceStruct.GBufferETextureSampler = TStaticSamplerState<>::GetRHI();
+		GBufferResourceStruct.GBufferVelocityTextureSampler = TStaticSamplerState<>::GetRHI();
 
 		GBufferResourcesUniformBuffer = FGBufferResourceStruct::CreateUniformBuffer(GBufferResourceStruct, UniformBuffer_SingleFrame);
 	}
@@ -677,13 +791,13 @@ void FSceneRenderTargets::FinishRenderingSceneColor(FRHICommandListImmediate& RH
 
 bool FSceneRenderTargets::BeginRenderingCustomDepth(FRHICommandListImmediate& RHICmdList, bool bPrimitives)
 {
-	IPooledRenderTarget* CustomDepth = RequestCustomDepth(bPrimitives);
+	IPooledRenderTarget* CustomDepthRenderTarget = RequestCustomDepth(bPrimitives);
 
-	if(CustomDepth)
+	if(CustomDepthRenderTarget)
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, BeginRenderingCustomDepth);
 		
-		SetRenderTarget(RHICmdList, FTextureRHIRef(), CustomDepth->GetRenderTargetItem().ShaderResourceTexture);
+		SetRenderTarget(RHICmdList, FTextureRHIRef(), CustomDepthRenderTarget->GetRenderTargetItem().ShaderResourceTexture);
 
 		return true;
 	}
@@ -785,17 +899,46 @@ void FSceneRenderTargets::ResolveGBufferSurfaces(FRHICommandList& RHICmdList, co
 		{
 			RHICmdList.CopyToResolveTarget(GSceneRenderTargets.GBufferE->GetRenderTargetItem().TargetableTexture, GSceneRenderTargets.GBufferE->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams(ResolveRect));
 		}
+
+		if (bAllocateVelocityGBuffer)
+		{
+			RHICmdList.CopyToResolveTarget(GSceneRenderTargets.GBufferVelocity->GetRenderTargetItem().TargetableTexture, GSceneRenderTargets.GBufferVelocity->GetRenderTargetItem().ShaderResourceTexture, true, FResolveParams(ResolveRect));
+		}
 	}
 }
 
-void FSceneRenderTargets::BeginRenderingPrePass(FRHICommandList& RHICmdList)
+void FSceneRenderTargets::BeginRenderingPrePass(FRHICommandList& RHICmdList, bool bPerformClear)
 {
 	SCOPED_DRAW_EVENT(RHICmdList, BeginRenderingPrePass);
 
-	// Set the scene depth surface and a DUMMY buffer as color buffer
-	// (as long as it's the same dimension as the depth buffer),
-	
-	SetRenderTarget(RHICmdList, FTextureRHIRef(), GetSceneDepthSurface());
+	FTextureRHIRef ColorTarget;
+	FTexture2DRHIRef DepthTarget = GetSceneDepthSurface();
+
+	const float DepthClearValue = (float)ERHIZBuffer::FarPlane;
+	const uint32 StencilClearValue = 0;
+	if (bPerformClear)
+	{				
+		FRHIRenderTargetView ColorView(ColorTarget, 0, -1, ERenderTargetLoadAction::ENoAction, ERenderTargetStoreAction::ENoAction);
+		FRHIDepthRenderTargetView DepthView(DepthTarget, ERenderTargetLoadAction::EClear, ERenderTargetStoreAction::EStore);
+
+		// Clear the depth buffer.
+		// Note, this is a reversed Z depth surface, so 0.0f is the far plane.
+		FRHISetRenderTargetsInfo Info(1, &ColorView, DepthView);
+		Info.DepthClearValue = DepthClearValue;
+		Info.StencilClearValue = StencilClearValue;
+
+		RHICmdList.SetRenderTargetsAndClear(Info);
+
+		bSceneDepthCleared = true;
+		SceneDepthClearValue = DepthClearValue;
+	}
+	else
+	{
+		// Set the scene depth surface and a DUMMY buffer as color buffer
+		// (as long as it's the same dimension as the depth buffer),	
+		SetRenderTarget(RHICmdList, FTextureRHIRef(), GetSceneDepthSurface());
+		RHICmdList.BindClearMRTValues(false, 0, nullptr, true, DepthClearValue, true, StencilClearValue);
+	}
 }
 
 void FSceneRenderTargets::FinishRenderingPrePass(FRHICommandListImmediate& RHICmdList)
@@ -868,10 +1011,10 @@ void FSceneRenderTargets::FinishRenderingReflectiveShadowMap(FRHICommandList& RH
 	SetRenderTargets(RHICmdList, ARRAY_COUNT(RenderTargets), RenderTargets, FTextureRHIParamRef(), 2, Uavs);
 }
 
-void FSceneRenderTargets::FinishRenderingCubeShadowDepth(FRHICommandList& RHICmdList, int32 ShadowResolution, const FResolveParams& ResolveParams)
+void FSceneRenderTargets::FinishRenderingCubeShadowDepth(FRHICommandList& RHICmdList, int32 ShadowResolution)
 {
 	SCOPED_DRAW_EVENT(RHICmdList, FinishRenderingCubeShadowDepth);
-	RHICmdList.CopyToResolveTarget(GetCubeShadowDepthZSurface(ShadowResolution), GetCubeShadowDepthZTexture(ShadowResolution), false, ResolveParams);
+	RHICmdList.CopyToResolveTarget(GetCubeShadowDepthZSurface(ShadowResolution), GetCubeShadowDepthZTexture(ShadowResolution), false, FResolveParams(FResolveRect(), CubeFace_PosX, -1, -1, 0));
 }
 
 void FSceneRenderTargets::BeginRenderingSceneAlphaCopy(FRHICommandListImmediate& RHICmdList)
@@ -898,7 +1041,7 @@ void FSceneRenderTargets::BeginRenderingLightAttenuation(FRHICommandList& RHICmd
 	GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, GSceneRenderTargets.GetLightAttenuation());
 
 	// Set the light attenuation surface as the render target, and the scene depth buffer as the depth-stencil surface.
-	SetRenderTarget(RHICmdList, GetLightAttenuationSurface(), GetSceneDepthSurface(), bClearToWhite ? ESimpleRenderTargetMode::EClearColorToWhite : ESimpleRenderTargetMode::EExistingColorAndDepth);
+	SetRenderTarget(RHICmdList, GetLightAttenuationSurface(), GetSceneDepthSurface(), bClearToWhite ? ESimpleRenderTargetMode::EClearColorToWhite : ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 }
 
 void FSceneRenderTargets::FinishRenderingLightAttenuation(FRHICommandList& RHICmdList)
@@ -914,10 +1057,15 @@ void FSceneRenderTargets::FinishRenderingLightAttenuation(FRHICommandList& RHICm
 void FSceneRenderTargets::BeginRenderingTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View)
 {
 	// Use the scene color buffer.
-	GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth);
+	GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 	
 	// viewport to match view size
 	RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
+}
+
+void FSceneRenderTargets::FinishRenderingTranslucency(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View)
+{
+	GSceneRenderTargets.FinishRenderingSceneColor(RHICmdList, true);
 }
 
 
@@ -939,7 +1087,13 @@ bool FSceneRenderTargets::BeginRenderingSeparateTranslucency(FRHICommandList& RH
 
 		// clear the render target the first time, re-use afterwards
 		SetRenderTarget(RHICmdList, SeparateTranslucency->GetRenderTargetItem().TargetableTexture, GetSceneDepthSurface(), 
-			bFirstTimeThisFrame ? ESimpleRenderTargetMode::EClearColorToBlackWithFullAlpha : ESimpleRenderTargetMode::EExistingColorAndDepth);
+			bFirstTimeThisFrame ? ESimpleRenderTargetMode::EClearColorToBlackWithFullAlpha : ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+
+		if (!bFirstTimeThisFrame)
+		{
+			FLinearColor ClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			RHICmdList.BindClearMRTValues(true, 1, &ClearColor, false, (float)ERHIZBuffer::FarPlane, false, 0);
+		}
 
 		RHICmdList.SetViewport(View.ViewRect.Min.X, View.ViewRect.Min.Y, 0.0f, View.ViewRect.Max.X, View.ViewRect.Max.Y, 1.0f);
 
@@ -953,6 +1107,8 @@ void FSceneRenderTargets::FinishRenderingSeparateTranslucency(FRHICommandList& R
 {
 	if(IsSeparateTranslucencyActive(View))
 	{
+		SCOPED_DRAW_EVENT(RHICmdList, FinishSeparateTranslucency);
+
 		FSceneViewState* ViewState = (FSceneViewState*)View.State;
 		TRefCountPtr<IPooledRenderTarget>& SeparateTranslucency = ViewState->GetSeparateTranslucency(View);
 
@@ -1051,7 +1207,7 @@ static TAutoConsoleVariable<int32> CVarSetSeperateTranslucencyEnabled(
 	TEXT("Allows to disable the separate translucency feature (all translucency is rendered in separate RT and composited\n")
 	TEXT("after DOF, if not specified otherwise in the material).\n")
 	TEXT(" 0: off (translucency is affected by depth of field)\n")
-	TEXT(" 1: on costs GPU performance and memory but keeps translucency unaffected by Depth of Fieled. (default)"),
+	TEXT(" 1: on costs GPU performance and memory but keeps translucency unaffected by Depth of Field. (default)"),
 	ECVF_RenderThreadSafe);
 
 bool FSceneRenderTargets::IsSeparateTranslucencyActive(const FViewInfo& View) const
@@ -1091,7 +1247,7 @@ void FSceneRenderTargets::InitEditorPrimitivesDepth()
 	GRenderTargetPool.FindFreeElement(Desc, EditorPrimitivesDepth, TEXT("EditorPrimitivesDepth"));
 }
 
-void FSceneRenderTargets::QuantizeBufferSize(int32& InOutBufferSizeX, int32& InOutBufferSizeY) const
+void FSceneRenderTargets::QuantizeBufferSize(int32& InOutBufferSizeX, int32& InOutBufferSizeY)
 {
 	// ensure sizes are dividable by DividableBy to get post processing effects with lower resolution working well
 	const uint32 DividableBy = 8;
@@ -1137,8 +1293,10 @@ void FSceneRenderTargets::AllocateForwardShadingPathRenderTargets()
 
 void FSceneRenderTargets::AllocateForwardShadingShadowDepthTarget(const FIntPoint& ShadowBufferResolution)
 {
-	FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(ShadowBufferResolution, PF_ShadowDepth, TexCreate_None, TexCreate_DepthStencilTargetable, false));
-	GRenderTargetPool.FindFreeElement(Desc, ShadowDepthZ, TEXT("ShadowDepthZ"));
+	{
+		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(ShadowBufferResolution, PF_ShadowDepth, TexCreate_None, TexCreate_DepthStencilTargetable, false));
+		GRenderTargetPool.FindFreeElement(Desc, ShadowDepthZ, TEXT("ShadowDepthZ"));
+	}
 
 	if (!GSupportsDepthRenderTargetWithoutColorRenderTarget)
 	{
@@ -1373,6 +1531,12 @@ void FSceneRenderTargets::AllocateDeferredShadingPathRenderTargets()
 			}
 		}
 	}
+
+	if (bAllocateVelocityGBuffer)
+	{
+		FPooledRenderTargetDesc VelocityRTDesc = FVelocityRendering::GetRenderTargetDesc();
+		GRenderTargetPool.FindFreeElement(VelocityRTDesc, GBufferVelocity, TEXT("GBufferVelocity"));
+	}
 }
 
 EPixelFormat FSceneRenderTargets::GetSceneColorFormat() const
@@ -1551,6 +1715,16 @@ const FTextureRHIRef& FSceneRenderTargets::GetSceneColorTexture() const
 	}
 
 	return (const FTextureRHIRef&)GetSceneColor()->GetRenderTargetItem().ShaderResourceTexture; 
+}
+
+IPooledRenderTarget* FSceneRenderTargets::GetGBufferVelocityRT()
+{
+	if (!bAllocateVelocityGBuffer)
+	{
+		return nullptr;
+	}
+	
+	return GBufferVelocity;
 }
 
 IPooledRenderTarget* FSceneRenderTargets::RequestCustomDepth(bool bPrimitives)

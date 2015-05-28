@@ -16,6 +16,8 @@
 
 void FStreamedAudioChunk::Serialize(FArchive& Ar, UObject* Owner, int32 ChunkIndex)
 {
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("FStreamedAudioChunk::Serialize"), STAT_StreamedAudioChunk_Serialize, STATGROUP_LoadTime );
+
 	bool bCooked = Ar.IsCooking();
 	Ar << bCooked;
 
@@ -69,12 +71,12 @@ SIZE_T USoundWave::GetResourceSize(EResourceSizeMode::Type Mode)
 		CalculatedResourceSize += RawPCMDataSize;
 	}
 
-	if (GEngine && GEngine->GetAudioDevice())
+	if (GEngine && GEngine->GetMainAudioDevice())
 	{
 		// Don't add compressed data to size of streaming sounds
 		if (!FPlatformProperties::SupportsAudioStreaming() || !IsStreaming())
 		{
-			CalculatedResourceSize += GetCompressedDataSize(GEngine->GetAudioDevice()->GetRuntimeFormat(this));
+			CalculatedResourceSize += GetCompressedDataSize(GEngine->GetMainAudioDevice()->GetRuntimeFormat(this));
 		}
 	}
 
@@ -138,6 +140,8 @@ void USoundWave::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 
 void USoundWave::Serialize( FArchive& Ar )
 {
+	DECLARE_SCOPE_CYCLE_COUNTER( TEXT("USoundWave::Serialize"), STAT_SoundWave_Serialize, STATGROUP_LoadTime );
+
 	Super::Serialize( Ar );
 
 	bool bCooked = Ar.IsCooking();
@@ -316,7 +320,7 @@ void USoundWave::PostLoad()
 	// most likely cause us to run out of memory.
 	if( !GIsEditor && !IsTemplate( RF_ClassDefaultObject ) && GEngine )
 	{
-		FAudioDevice* AudioDevice = GEngine->GetAudioDevice();
+		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
 		if( AudioDevice && AudioDevice->bStartupSoundsPreCached)
 		{
 			// Upload the data to the hardware, but only if we've precached startup sounds already
@@ -329,7 +333,8 @@ void USoundWave::PostLoad()
 		}
 	}
 
-	if (IsStreaming())
+	// Only add this streaming sound if we're not a dedicated server or if there is an audio device manager
+	if (IsStreaming() && !IsRunningDedicatedServer() && GEngine && GEngine->GetAudioDeviceManager())
 	{
 #if WITH_EDITORONLY_DATA
 		FinishCachePlatformData();
@@ -396,14 +401,6 @@ bool USoundWave::IsLocalizedResource()
 
 #if WITH_EDITOR
 
-void USoundWave::CookerWillNeverCookAgain()
-{
-	Super::CookerWillNeverCookAgain();
-	RawData.RemoveBulkData();
-	CompressedFormatData.FlushData();
-	CleanupCachedCookedPlatformData();
-}
-
 void USoundWave::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -444,12 +441,11 @@ void USoundWave::FreeResources()
 	if( GEngine && !GExitPurge )
 	{
 		// Notify the audio device to free the bulk data associated with this wave.
-		FAudioDevice* AudioDevice = GEngine->GetAudioDevice();
-		if (AudioDevice != NULL)
+		FAudioDeviceManager* AudioDeviceManager = GEngine->GetAudioDeviceManager();
+		if (AudioDeviceManager != NULL)
 		{
-			TArray<UAudioComponent*> StoppedComponents;
-			AudioDevice->StopSoundsUsingResource(this, StoppedComponents);
-			AudioDevice->FreeResource( this );
+			AudioDeviceManager->StopSoundsUsingWave(this);
+			AudioDeviceManager->FreeResource(this);
 		}
 	}
 
@@ -487,18 +483,18 @@ FWaveInstance* USoundWave::HandleStart( FActiveSound& ActiveSound, const UPTRINT
 	// Add in the subtitle if they exist
 	if (ActiveSound.bHandleSubtitles && Subtitles.Num() > 0)
 	{
-		// TODO - Audio Threading. This would need to be a call back to the main thread.
-		if (ActiveSound.AudioComponent.IsValid() && ActiveSound.AudioComponent->OnQueueSubtitles.IsBound())
+		if (UAudioComponent* AudioComponent = ActiveSound.AudioComponent.Get())
 		{
-			// intercept the subtitles if the delegate is set
-			ActiveSound.AudioComponent->OnQueueSubtitles.ExecuteIfBound( Subtitles, Duration );
-		}
-		else
-		{
-			// otherwise, pass them on to the subtitle manager for display
-			// Subtitles are hashed based on the associated sound (wave instance).
-			if( ActiveSound.World.IsValid() )
+			// TODO - Audio Threading. This would need to be a call back to the main thread.
+			if (AudioComponent->OnQueueSubtitles.IsBound())
 			{
+				// intercept the subtitles if the delegate is set
+				ActiveSound.AudioComponent->OnQueueSubtitles.ExecuteIfBound( Subtitles, Duration );
+			}
+			else
+			{
+				// otherwise, pass them on to the subtitle manager for display
+				// Subtitles are hashed based on the associated sound (wave instance).
 				FSubtitleManager::GetSubtitleManager()->QueueSubtitles( ( PTRINT )WaveInstance, ActiveSound.SubtitlePriority, bManualWordWrap, bSingleLine, Duration, Subtitles, ActiveSound.World->GetAudioTimeSeconds() );
 			}
 		}
@@ -523,7 +519,9 @@ void USoundWave::FinishDestroy()
 	Super::FinishDestroy();
 
 	CleanupCachedRunningPlatformData();
-	CleanupCachedCookedPlatformData();
+#if WITH_EDITOR
+	ClearAllCachedCookedPlatformData();
+#endif
 
 	IStreamingManager::Get().GetAudioStreamingManager().RemoveStreamingSoundWave(this);
 }
@@ -618,9 +616,19 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		WaveInstance->bIsStarted = true;
 		WaveInstance->bAlreadyNotifiedHook = false;
 		WaveInstance->bUseSpatialization = ParseParams.bUseSpatialization;
+		WaveInstance->SpatializationAlgorithm = ParseParams.SpatializationAlgorithm;
 		WaveInstance->WaveData = this;
 		WaveInstance->NotifyBufferFinishedHooks = ParseParams.NotifyBufferFinishedHooks;
 		WaveInstance->LoopingMode = ((bLooping || ParseParams.bLooping) ? LOOP_Forever : LOOP_Never);
+
+		if (AudioDevice->IsHRTFEnabledForAll() && ParseParams.SpatializationAlgorithm == SPATIALIZATION_Default)
+		{
+			WaveInstance->SpatializationAlgorithm = SPATIALIZATION_HRTF;
+		}
+		else
+		{
+			WaveInstance->SpatializationAlgorithm = ParseParams.SpatializationAlgorithm;
+		}
 
 		// Don't add wave instances that are not going to be played at this point.
 		if( WaveInstance->PlayPriority > KINDA_SMALL_NUMBER )
@@ -632,23 +640,29 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		ActiveSound.bFinished = false;
 
 		// Sanity check
-		if( NumChannels > 2 && WaveInstance->bUseSpatialization && !WaveInstance->bReportedSpatializationWarning)
+		if( NumChannels >= 2 && WaveInstance->bUseSpatialization && !WaveInstance->bReportedSpatializationWarning)
 		{
-			FString SoundWarningInfo = FString::Printf(TEXT("Spatialisation on stereo and multichannel sounds is not supported. SoundWave: %s"), *GetName());
-			if (ActiveSound.Sound != this)
+			static TSet<USoundWave*> ReportedSounds;
+			if (!ReportedSounds.Contains(this))
 			{
-				SoundWarningInfo += FString::Printf(TEXT(" SoundCue: %s"), *ActiveSound.Sound->GetName());
-			}
+				FString SoundWarningInfo = FString::Printf(TEXT("Spatialisation on stereo and multichannel sounds is not supported. SoundWave: %s"), *GetName());
+				if (ActiveSound.Sound != this)
+				{
+					SoundWarningInfo += FString::Printf(TEXT(" SoundCue: %s"), *ActiveSound.Sound->GetName());
+				}
 
-			if (ActiveSound.AudioComponent.IsValid())
-			{
-				// TODO - Audio Threading. This log would have to be a task back to game thread
-				AActor* SoundOwner = ActiveSound.AudioComponent->GetOwner();
-				UE_LOG(LogAudio, Warning, TEXT( "%s Actor: %s AudioComponent: %s" ), *SoundWarningInfo, (SoundOwner ? *SoundOwner->GetName() : TEXT("None")), *ActiveSound.AudioComponent->GetName() );
-			}
-			else
-			{
-				UE_LOG(LogAudio, Warning, TEXT("%s"), *SoundWarningInfo );
+				if (ActiveSound.AudioComponent.IsValid())
+				{
+					// TODO - Audio Threading. This log would have to be a task back to game thread
+					AActor* SoundOwner = ActiveSound.AudioComponent->GetOwner();
+					UE_LOG(LogAudio, Warning, TEXT( "%s Actor: %s AudioComponent: %s" ), *SoundWarningInfo, (SoundOwner ? *SoundOwner->GetName() : TEXT("None")), *ActiveSound.AudioComponent->GetName() );
+				}
+				else
+				{
+					UE_LOG(LogAudio, Warning, TEXT("%s"), *SoundWarningInfo );
+				}
+
+				ReportedSounds.Add(this);
 			}
 			WaveInstance->bReportedSpatializationWarning = true;
 		}

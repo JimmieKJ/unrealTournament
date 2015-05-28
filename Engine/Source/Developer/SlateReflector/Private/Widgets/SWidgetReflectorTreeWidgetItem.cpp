@@ -98,8 +98,6 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 FString SReflectorTreeWidgetItem::GetReadableLocation() const
 {
-	FString ReadableLocation;
-
 	TWeakPtr<SWidget> Widget = WidgetInfo.Get()->Widget;
 	if ( Widget.IsValid() )
 	{
@@ -107,15 +105,11 @@ FString SReflectorTreeWidgetItem::GetReadableLocation() const
 		TSharedPtr<FReflectionMetaData> MetaData = SafeWidget->GetMetaData<FReflectionMetaData>();
 		if ( MetaData.IsValid() && MetaData->Asset.Get() != nullptr )
 		{
-			ReadableLocation = MetaData->Asset->GetName() + TEXT(" [") + MetaData->Name.ToString() + TEXT("]");
-		}
-		else
-		{
-			ReadableLocation = SafeWidget->GetReadableLocation();
+			return MetaData->Asset->GetName() + TEXT(" [") + MetaData->Name.ToString() + TEXT("]");
 		}
 	}
 
-	return ReadableLocation;
+	return CachedReadableLocation;
 }
 
 void SReflectorTreeWidgetItem::HandleHyperlinkNavigate()
@@ -130,14 +124,13 @@ void SReflectorTreeWidgetItem::HandleHyperlinkNavigate()
 			if ( OnAccessAsset.IsBound() )
 			{
 				OnAccessAsset.Execute(MetaData->Asset.Get());
+				return;
 			}
 		}
-		else
-		{
-			if ( OnAccessSourceCode.IsBound() )
-			{
-				OnAccessSourceCode.Execute(GetWidgetFile().ToString(), GetWidgetLineNumber(), 0);
-			}
-		}
+	}
+
+	if ( OnAccessSourceCode.IsBound() )
+	{
+		OnAccessSourceCode.Execute(GetWidgetFile(), GetWidgetLineNumber(), 0);
 	}
 }

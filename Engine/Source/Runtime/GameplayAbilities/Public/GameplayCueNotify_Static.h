@@ -19,7 +19,7 @@
  *	
  */
 
-UCLASS(Blueprintable,meta=(ShowWorldContextPin))
+UCLASS(Blueprintable, meta = (ShowWorldContextPin), hidecategories = (Replication))
 class GAMEPLAYABILITIES_API UGameplayCueNotify_Static : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -29,9 +29,9 @@ class GAMEPLAYABILITIES_API UGameplayCueNotify_Static : public UObject
 
 	virtual void OnOwnerDestroyed();
 
-	virtual void PostInitProperties();
+	virtual void PostInitProperties() override;
 
-	virtual void Serialize(FArchive& Ar);
+	virtual void Serialize(FArchive& Ar) override;
 
 	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
 
@@ -40,14 +40,17 @@ class GAMEPLAYABILITIES_API UGameplayCueNotify_Static : public UObject
 #endif // WITH_EDITOR
 
 	/** Generic Event Graph event that will get called for every event type */
-	UFUNCTION(BlueprintImplementableEvent, Category = "GameplayCueNotify", FriendlyName = "HandleGameplayCue")
-	void K2_HandleGameplayCue(TWeakObjectPtr<AActor> MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters) const;
+	UFUNCTION(BlueprintImplementableEvent, Category = "GameplayCueNotify", DisplayName = "HandleGameplayCue")
+	void K2_HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters) const;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "GameplayCueNotify")
 	bool OnExecute(AActor* MyTarget, FGameplayCueParameters Parameters) const;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "GameplayCueNotify")
 	bool OnActive(AActor* MyTarget, FGameplayCueParameters Parameters) const;
+
+	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "GameplayCueNotify")
+	bool WhileActive(AActor* MyTarget, FGameplayCueParameters Parameters) const;
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "GameplayCueNotify")
 	bool OnRemove(AActor* MyTarget, FGameplayCueParameters Parameters) const;

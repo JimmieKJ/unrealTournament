@@ -7,7 +7,7 @@
 
 namespace physx
 {
-	class PxJoint;
+	class PxD6Joint;
 	class PxRigidDynamic;
 }
 
@@ -33,19 +33,19 @@ class UPhysicsHandleComponent : public UActorComponent
 	uint32 bRotationConstrained:1;
 
 	/** Linear damping of the handle spring. */
-	UPROPERTY(EditAnywhere, Category=PhysicsHandle)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
 	float LinearDamping;
 
 	/** Linear stiffness of the handle spring */
-	UPROPERTY(EditAnywhere, Category=PhysicsHandle)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
 	float LinearStiffness;
 
 	/** Angular stiffness of the handle spring */
-	UPROPERTY(EditAnywhere, Category=PhysicsHandle)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
 	float AngularDamping;
 
 	/** Angular stiffness of the handle spring */
-	UPROPERTY(EditAnywhere, Category=PhysicsHandle)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
 	float AngularStiffness;
 
 	/** Target transform */
@@ -54,13 +54,13 @@ class UPhysicsHandleComponent : public UActorComponent
 	FTransform CurrentTransform;
 
 	/** How quickly we interpolate the physics target transform */
-	UPROPERTY(EditAnywhere, Category=PhysicsHandle)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
 	float InterpolationSpeed;
 
 
 protected:
 	/** Pointer to PhysX joint used by the handle*/
-	physx::PxJoint* HandleData;
+	physx::PxD6Joint* HandleData;
 	/** Pointer to kinematic actor jointed to grabbed object */
 	physx::PxRigidDynamic* KinActorData;
 
@@ -95,9 +95,32 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle")
 	ENGINE_API void GetTargetLocationAndRotation(FVector& TargetLocation, FRotator& TargetRotation) const;
 
+	/** Set linear damping */
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
+	ENGINE_API void SetLinearDamping(float NewLinearDamping);
+
+	/** Set linear stiffness */
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
+	ENGINE_API void SetLinearStiffness(float NewLinearStiffness);
+
+	/** Set angular damping */
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
+	ENGINE_API void SetAngularDamping(float NewAngularDamping);
+
+	/** Set angular stiffness */
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
+	ENGINE_API void SetAngularStiffness(float NewAngularStiffness);
+
+	/** Set interpolation speed */
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
+	ENGINE_API void SetInterpolationSpeed(float NewInterpolationSpeed);
+
 protected:
 	/** Move the kinematic handle to the specified */
 	void UpdateHandleTransform(const FTransform& NewTransform);
+
+	/** Update the underlying constraint drive settings from the params in this component */
+	void UpdateDriveSettings();
 };
 
 

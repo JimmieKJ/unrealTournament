@@ -34,7 +34,7 @@ UMediaPlayerFactory::UMediaPlayerFactory( const FObjectInitializer& ObjectInitia
 
 UObject* UMediaPlayerFactory::FactoryCreateBinary( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn )
 {
-	UMediaPlayer* MediaPlayer = CastChecked<UMediaPlayer>(StaticConstructObject(Class, InParent, Name, Flags));
+	UMediaPlayer* MediaPlayer = NewObject<UMediaPlayer>(InParent, Class, Name, Flags);
 	MediaPlayer->OpenUrl(CurrentFilename);
 
 	return MediaPlayer;
@@ -52,10 +52,10 @@ void UMediaPlayerFactory::ReloadMediaFormats()
 
 	if (MediaModule != nullptr)
 	{
-		FMediaFormats SupportedFormats;
-		MediaModule->GetSupportedFormats(SupportedFormats);
+		FMediaFileTypes FileTypes;
+		MediaModule->GetSupportedFileTypes(FileTypes);
 
-		for (auto& Format : SupportedFormats)
+		for (auto& Format : FileTypes)
 		{
 			Formats.Add(Format.Key + TEXT(";") + Format.Value.ToString());
 		}
@@ -70,6 +70,7 @@ void UMediaPlayerFactory::HandleMediaPlayerFactoryAdded()
 {
 	ReloadMediaFormats();
 }
+
 
 void UMediaPlayerFactory::HandleMediaPlayerFactoryRemoved()
 {

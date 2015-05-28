@@ -29,9 +29,7 @@ void InitNullRHI()
 
 	GDynamicRHI = DynamicRHIModule->CreateRHI();
 	GDynamicRHI->Init();
-#if PLATFORM_RHI_USES_CONTEXT_OBJECT
 	GRHICommandList.GetImmediateCommandList().SetContext(GDynamicRHI->RHIGetDefaultContext());
-#endif
 	GUsingNullRHI = true;
 	GRHISupportsTextureStreaming = false;
 }
@@ -52,9 +50,7 @@ void RHIInit(bool bHasEditorToken)
 			if (GDynamicRHI)
 			{
 				GDynamicRHI->Init();
-#if PLATFORM_RHI_USES_CONTEXT_OBJECT
 				GRHICommandList.GetImmediateCommandList().SetContext(GDynamicRHI->RHIGetDefaultContext());
-#endif
 			}
 #if PLATFORM_ALLOW_NULL_RHI
 			else
@@ -80,17 +76,7 @@ void RHIExit()
 	}
 }
 
-#if PLATFORM_RHI_USES_CONTEXT_OBJECT
-	#define DEFINE_RHIMETHOD_CMDLIST(Type,Name,ParameterTypesAndNames,ParameterNames,ReturnStatement,NullImplementation)
-#else
-	// Implement the static RHI methods that call the dynamic RHI.
-	#define DEFINE_RHIMETHOD_CMDLIST(Type,Name,ParameterTypesAndNames,ParameterNames,ReturnStatement,NullImplementation) \
-		RHI_API Type Name##_Internal ParameterTypesAndNames \
-	{ \
-		check(GDynamicRHI); \
-		ReturnStatement GDynamicRHI->RHI##Name ParameterNames; \
-	}
-#endif
+#define DEFINE_RHIMETHOD_CMDLIST(Type,Name,ParameterTypesAndNames,ParameterNames,ReturnStatement,NullImplementation)
 
 #define DEFINE_RHIMETHOD_GLOBAL(Type,Name,ParameterTypesAndNames,ParameterNames,ReturnStatement,NullImplementation) \
 	RHI_API Type Name##_Internal ParameterTypesAndNames \

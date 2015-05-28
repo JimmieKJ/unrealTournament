@@ -5,7 +5,8 @@
 class FPathTreeNode
 {
 public:
-	FPathTreeNode(FString InFolderName);
+	FPathTreeNode(const FString& InFolderName);
+	FPathTreeNode(FName InFolderName);
 	~FPathTreeNode();
 
 	/** Adds the path to the tree relative to this node, creating nodes as needed. Returns true if the specified path was actually added (as opposed to already existed) */
@@ -31,8 +32,16 @@ private:
 	void GetSubPaths_Recursive(const FString& CurrentPath, TSet<FName>& OutPaths, bool bRecurse = true) const;
 
 private:
+	// Experimental FName version of PathTreeNode functions. Only used when launching with -PathTreeFNames
+	bool CachePath_Recursive(TArray<FName>& PathElements);
+	bool RemoveFolder_Recursive(TArray<FName>& PathElements);
+	const FPathTreeNode* FindNode_Recursive(TArray<FName>& PathElements) const;
+
+private:
 	/** The short folder name in the tree (no path) */
 	FString FolderName;
+	/** Experimental FName folder */
+	FName FolderFName;
 	/** The child node list for this node */
 	TArray<FPathTreeNode*> Children;
 };

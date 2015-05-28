@@ -11,6 +11,7 @@
 #include "AI/Navigation/NavLinkDefinition.h"
 #include "AI/Navigation/NavLinkTrivial.h"
 #include "AI/Navigation/NavAreas/NavAreaMeta.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/BrushComponent.h"
 
 // if square distance between two points is less than this the those points
@@ -21,8 +22,9 @@ static const float CONVEX_HULL_POINTS_MIN_DISTANCE_SQ = 4.0f * 4.0f;
 //----------------------------------------------------------------------//
 // FNavigationLinkBase
 //----------------------------------------------------------------------//
-FNavigationLinkBase::FNavigationLinkBase()
-	: MaxFallDownLength(1000.0f), Direction(ENavLinkDirection::BothWays), UserId(0), SnapRadius(30.f)
+FNavigationLinkBase::FNavigationLinkBase() 
+	: MaxFallDownLength(1000.0f), Direction(ENavLinkDirection::BothWays), UserId(0),
+	  SnapRadius(30.f), SnapHeight(50.0f), bUseSnapHeight(false), bSnapToCheapestArea(true)
 {
 	AreaClass = NULL;
 	SupportedAgentsBits = 0xFFFFFFFF;
@@ -141,7 +143,7 @@ FAreaNavModifier::FAreaNavModifier(float Radius, float Height, const FTransform&
 	Radius *= FMath::Max(Scale3D.X, Scale3D.Y);
 	Height *= Scale3D.Z;
 
-	Points.Init(2);
+	Points.SetNumUninitialized(2);
 	Points[0] = LocalToWorld.GetLocation();
 	Points[1].X = Radius;
 	Points[1].Z = Height;
@@ -221,6 +223,7 @@ void FAreaNavModifier::GetConvex(FConvexNavAreaData& Data) const
 
 void FAreaNavModifier::Init(const TSubclassOf<UNavArea> InAreaClass)
 {
+	bIncludeAgentHeight = false;
 	Cost = 0.0f;
 	FixedCost = 0.0f;
 	ReplaceAreaClass = NULL;
@@ -272,7 +275,7 @@ void FAreaNavModifier::SetBox(const FBox& Box, const FTransform& LocalToWorld)
 			Bounds += Corners[i];
 		}
 
-		Points.Init(2);
+		Points.SetNumUninitialized(2);
 		Points[0] = Bounds.GetCenter();
 		Points[1] = Bounds.GetExtent();
 		ShapeType = ENavigationShapeType::Box;
@@ -575,6 +578,35 @@ FCompositeNavModifier FCompositeNavModifier::GetInstantiatedMetaModifier(const F
 	}
 
 	return Result;
+}
+
+void FCompositeNavModifier::CreateAreaModifiers(const UPrimitiveComponent* PrimComp, const TSubclassOf<UNavArea> AreaClass)
+{
+	UBodySetup* BodySetup = PrimComp ? ((UPrimitiveComponent*)PrimComp)->GetBodySetup() : nullptr;
+	if (BodySetup == nullptr)
+	{
+		return;
+	}
+
+	for (int32 Idx = 0; Idx < BodySetup->AggGeom.BoxElems.Num(); Idx++)
+	{
+		const FKBoxElem& BoxElem = BodySetup->AggGeom.BoxElems[Idx];
+		const FBox BoxSize = BoxElem.CalcAABB(FTransform::Identity, 1.0f);
+
+		FAreaNavModifier AreaMod(BoxSize, PrimComp->ComponentToWorld, AreaClass);
+		Add(AreaMod);
+	}
+
+	for (int32 Idx = 0; Idx < BodySetup->AggGeom.SphylElems.Num(); Idx++)
+	{
+		const FKSphylElem& SphylElem = BodySetup->AggGeom.SphylElems[Idx];
+		const FTransform AreaOffset(FVector(0, 0, -SphylElem.Length));
+
+		FAreaNavModifier AreaMod(SphylElem.Radius, SphylElem.Length, AreaOffset * PrimComp->ComponentToWorld, AreaClass);
+		Add(AreaMod);
+	}
+
+	// convex elements support?
 }
 
 uint32 FCompositeNavModifier::GetAllocatedSize() const

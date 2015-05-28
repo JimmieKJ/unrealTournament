@@ -11,6 +11,23 @@
 void FKCHandler_DynamicCast::RegisterNets(FKismetFunctionContext& Context, UEdGraphNode* Node)
 {
 	FNodeHandlingFunctor::RegisterNets(Context, Node);
+
+	if (const UK2Node_DynamicCast* DynamicCastNode = Cast<UK2Node_DynamicCast>(Node))
+	{
+		UEdGraphPin* BoolSuccessPin = DynamicCastNode->GetBoolSuccessPin();
+		// this is to support backwards compatibility (when a cast node is generating code, but has yet to be reconstructed)
+		// @TODO: remove this at some point, when backwards compatibility isn't a concern
+		if (BoolSuccessPin == nullptr)
+		{
+			// Create a term to determine if the cast was successful or not
+			FBPTerminal* BoolTerm = Context.CreateLocalTerminal();
+			BoolTerm->Type.PinCategory = CompilerContext.GetSchema()->PC_Boolean;
+			BoolTerm->Source = Node;
+			BoolTerm->Name = Context.NetNameMap->MakeValidName(Node) + TEXT("_CastSuccess");
+			BoolTermMap.Add(Node, BoolTerm);
+		}
+	}
+	
 }
 
 void FKCHandler_DynamicCast::RegisterNet(FKismetFunctionContext& Context, UEdGraphPin* Net)
@@ -106,9 +123,17 @@ void FKCHandler_DynamicCast::Compile(FKismetFunctionContext& Context, UEdGraphNo
 	CastStatement.RHS.Add(ClassTerm);
 	CastStatement.RHS.Add(*ObjectToCast);
 
-	UEdGraphPin*  BoolSuccessPin  = DynamicCastNode->GetBoolSuccessPin();
-	FBPTerminal** BoolSuccessTerm = Context.NetMap.Find(BoolSuccessPin);
+	FBPTerminal** BoolSuccessTerm = nullptr;
+	if (UEdGraphPin* BoolSuccessPin = DynamicCastNode->GetBoolSuccessPin())
+	{
+		BoolSuccessTerm = Context.NetMap.Find(BoolSuccessPin);
+	}
+	else
+	{
+		BoolSuccessTerm = BoolTermMap.Find(DynamicCastNode);
+	}	
 	check(BoolSuccessTerm != nullptr);
+
 	// Check result of cast statement
 	FBlueprintCompiledStatement& CheckResultStatement = Context.AppendStatementForNode(Node);
 	CheckResultStatement.Type = KCST_ObjectToBool;

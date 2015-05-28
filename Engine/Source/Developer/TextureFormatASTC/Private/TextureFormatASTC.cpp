@@ -13,7 +13,7 @@
 
 
 // increment this if you change anything that will affect compression in this file, including FORCED_NORMAL_MAP_COMPRESSION_SIZE_VALUE
-#define BASE_FORMAT_VERSION 30
+#define BASE_FORMAT_VERSION 34
 
 #define MAX_QUALITY_BY_SIZE 4
 #define MAX_QUALITY_BY_SPEED 3
@@ -151,15 +151,16 @@ static bool CompressSliceToASTC(
 )
 {
 	// Always Y-invert the image prior to compression for proper orientation post-compression
-	uint8 LineBuffer[16384 * 4];
+	TArray<uint8> LineBuffer;
+	LineBuffer.AddUninitialized(16384 * 4);
 	uint32 LineSize = SizeX * 4;
 	for (int32 LineIndex = 0; LineIndex < (SizeY / 2); LineIndex++)
 	{
 		uint8* LineData0 = ((uint8*)SourceData) + (LineSize * LineIndex);
 		uint8* LineData1 = ((uint8*)SourceData) + (LineSize * (SizeY - LineIndex - 1));
-		FMemory::Memcpy(LineBuffer, LineData0,  LineSize);
-		FMemory::Memcpy(LineData0,  LineData1,  LineSize);
-		FMemory::Memcpy(LineData1,  LineBuffer, LineSize);
+		FMemory::Memcpy(LineBuffer.GetData(), LineData0, LineSize);
+		FMemory::Memcpy(LineData0, LineData1, LineSize);
+		FMemory::Memcpy(LineData1, LineBuffer.GetData(), LineSize);
 	}
 	
 	// Compress and retrieve the PNG data to write out to disk
@@ -186,7 +187,7 @@ static bool CompressSliceToASTC(
 	delete PNGFile;
 
 	// Compress PNG file to ASTC (using the reference astcenc.exe from ARM)
-	FString Params = FString::Printf(TEXT("-c %s %s %s"),
+	FString Params = FString::Printf(TEXT("-c \"%s\" \"%s\" %s"),
 		*InputFilePath,
 		*OutputFilePath,
 		*CompressionParameters
@@ -305,7 +306,7 @@ class FTextureFormatASTC : public ITextureFormat
 //	// Since we want to have per texture [group] compression settings, we need to have the key based on the texture
 //	virtual FString GetDerivedDataKeyString(const class UTexture& Texture) const override
 //	{
-//		const int32 LODBias = GSystemSettings.TextureLODSettings.CalculateLODBias(Texture.Source.GetSizeX(), Texture.Source.GetSizeY(), Texture.LODGroup, Texture.LODBias, Texture.NumCinematicMipLevels, Texture.MipGenSettings);
+//		const int32 LODBias = UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->CalculateLODBias(Texture.Source.GetSizeX(), Texture.Source.GetSizeY(), Texture.LODGroup, Texture.LODBias, Texture.NumCinematicMipLevels, Texture.MipGenSettings);
 //		check(LODBias >= 0);
 //		return FString::Printf(TEXT("%02u%d_"), (uint32)LODBias, CVarVirtualTextureReducedMemoryEnabled->GetValueOnGameThread());
 //	}
@@ -344,13 +345,13 @@ class FTextureFormatASTC : public ITextureFormat
 		  ((BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBAuto) && !bImageHasAlphaChannel))
 		{
 			CompressedPixelFormat = GetQualityFormat();
-			CompressionParameters = FString::Printf(TEXT("%s -esw bgra -ch 1 1 1 0"), *GetQualityString());
+			CompressionParameters = FString::Printf(TEXT("%s %s -esw bgra -ch 1 1 1 0"), *GetQualityString(), /*BuildSettings.bSRGB ? TEXT("-srgb") :*/ TEXT("") );
 		}
 		else if (BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBA ||
 			   ((BuildSettings.TextureFormatName == GTextureFormatNameASTC_RGBAuto) && bImageHasAlphaChannel))
 		{
 			CompressedPixelFormat = GetQualityFormat();
-			CompressionParameters = FString::Printf(TEXT("%s -esw bgra -ch 1 1 1 1 -alphablend"), *GetQualityString());
+			CompressionParameters = FString::Printf(TEXT("%s %s -esw bgra -ch 1 1 1 1 -alphablend"), *GetQualityString(), /*BuildSettings.bSRGB ? TEXT("-srgb") :*/ TEXT("") );
 		}
 		else if (BuildSettings.TextureFormatName == GTextureFormatNameASTC_NormalAG)
 		{

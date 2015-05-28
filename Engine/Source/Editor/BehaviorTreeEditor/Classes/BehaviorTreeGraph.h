@@ -1,48 +1,58 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
+#include "AIGraph.h"
 #include "BehaviorTreeGraph.generated.h"
 
 UCLASS()
-class UBehaviorTreeGraph : public UEdGraph
+class UBehaviorTreeGraph : public UAIGraph
 {
 	GENERATED_UCLASS_BODY()
 
-	enum EDebuggerFlags
+	enum EUpdateFlags
 	{
-		ClearDebuggerFlags,
-		SkipDebuggerFlags,
+		RebuildGraph = 0,
+		ClearDebuggerFlags = 1,
+		KeepRebuildCounter = 2,
 	};
 
-	/** counter incremented on every graph update, used for refreshing injected nodes in parent graph */
+	/** increased with every graph rebuild, used to refresh data from subtrees */
 	UPROPERTY()
-	int32 GraphVersion;
+	int32 ModCounter;
+
+	UPROPERTY()
+	bool bIsUsingModCounter;
+
+	virtual void OnCreated() override;
+	virtual void OnLoaded() override;
+	virtual void Initialize() override;
+	void OnSave();
+
+	virtual void UpdateVersion() override;
+	virtual void MarkVersion() override;
+	virtual void UpdateAsset(int32 UpdateFlags = 0) override;
+	virtual void OnSubNodeDropped() override;
 
 	void UpdateBlackboardChange();
-	void UpdateAsset(EDebuggerFlags DebuggerFlags, bool bBumpVersion = true);
 	void UpdateAbortHighlight(struct FAbortDrawHelper& Mode0, struct FAbortDrawHelper& Mode1);
 	void CreateBTFromGraph(class UBehaviorTreeGraphNode* RootEdNode);
 	void SpawnMissingNodes();
-	void RemoveOrphanedNodes();
 	void UpdatePinConnectionTypes();
 	void UpdateDeprecatedNodes();
 	bool UpdateInjectedNodes();
-	bool UpdateUnknownNodeClasses();
 	class UEdGraphNode* FindInjectedNode(int32 Index);
 	void ReplaceNodeConnections(UEdGraphNode* OldNode, UEdGraphNode* NewNode);
 	void RebuildExecutionOrder();
-
-	void LockUpdates();
-	void UnlockUpdates();
+	void SpawnMissingNodesForParallel();
+	void RemoveUnknownSubNodes();
 
 	void AutoArrange();
 
 protected:
 
-	/** if set, graph modifications won't cause updates in internal tree structure (skipping UpdateAsset)
-	 * flag allows freezing update during heavy changes like pasting new nodes */
-	uint32 bLockUpdates : 1;
+	void CollectAllNodeInstances(TSet<UObject*>& NodeInstances) override;
+
+	void UpdateVersion_UnifiedSubNodes();
+	void UpdateVersion_InnerGraphWhitespace();
 };
-
-
-

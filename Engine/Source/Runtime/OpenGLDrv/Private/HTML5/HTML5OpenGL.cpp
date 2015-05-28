@@ -4,7 +4,10 @@
 #include <SDL.h>
 #if !PLATFORM_HTML5_WIN32
 #include <emscripten.h>
+#include <html5.h>
 #endif
+
+DEFINE_LOG_CATEGORY_STATIC(LogHTML5OpenGL, Log, All);
 
 bool FHTML5OpenGL::bCombinedDepthStencilAttachment = false;
 
@@ -81,6 +84,8 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
         // See http://www.khronos.org/webgl/public-mailing-list/archives/1211/msg00133.html
         // for more information.
 
+		UE_LOG(LogRHI, Warning, TEXT("Trying to enable fp rendering without explicit EXT_color_buffer_half_float by checking for framebuffer completeness"));
+
         GLenum err = glGetError();
         if (err != GL_NO_ERROR) {
             UE_LOG(LogRHI, Warning, TEXT("Detected OpenGL error 0x%04x before checking for implicit half-float fb support"), err);
@@ -118,9 +123,14 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 #endif 
         bSupportsColorBufferHalfFloat = fbstatus == GL_FRAMEBUFFER_COMPLETE && err == GL_NO_ERROR;
 
-        if (bSupportsColorBufferHalfFloat) {
+        if (bSupportsColorBufferHalfFloat) 
+		{
             UE_LOG(LogRHI, Log, TEXT("Enabling implicit ColorBufferHalfFloat after checking fb completeness"));
         }
+		else
+		{
+			UE_LOG(LogRHI, Log, TEXT("Could not enable implicit ColorBufferHalfFloat after checking fb completeness"));
+		}
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glDeleteFramebuffers(1, &fb);
@@ -149,10 +159,15 @@ struct FPlatformOpenGLContext
 	}
 };
 
+extern "C"
+EM_BOOL request_fullscreen_callback(int eventType, const EmscriptenMouseEvent* evt, void* user);
+
 struct FPlatformOpenGLDevice
 {
 	FPlatformOpenGLDevice()
 	{
+		emscripten_set_click_callback("fullscreen_request", nullptr, true, request_fullscreen_callback);
+
 		SharedContext = new FPlatformOpenGLContext; 
 
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_EGL, 1);
@@ -255,6 +270,7 @@ void PlatformResizeGLContext( FPlatformOpenGLDevice* Device, FPlatformOpenGLCont
 	check(Context);
 	VERIFY_GL_SCOPE();
 
+	UE_LOG(LogHTML5OpenGL, Verbose, TEXT("SDL_SetWindowSize(%d,%d)"), SizeX, SizeY);
 	SDL_SetWindowSize(Device->WindowHandle,SizeX,SizeY); 
 
 	glViewport(0, 0, SizeX, SizeY);
@@ -301,6 +317,7 @@ void PlatformGetBackbufferDimensions( uint32& OutWidth, uint32& OutHeight )
 	check(Surface);
 	OutWidth  = Surface->w;
 	OutHeight = Surface->h;
+	UE_LOG(LogHTML5OpenGL, Verbose, TEXT("PlatformGetBackbufferDimensions(%d, %d)"), OutWidth, OutHeight);
 }
 
 // =============================================================
@@ -312,6 +329,7 @@ bool PlatformContextIsCurrent( uint64 QueryContext )
 
 FRHITexture* PlatformCreateBuiltinBackBuffer(FOpenGLDynamicRHI* OpenGLRHI, uint32 SizeX, uint32 SizeY)
 {
+	UE_LOG(LogHTML5OpenGL, Verbose, TEXT("PlatformCreateBuiltinBackBuffer(%d, %d)"), SizeX, SizeY);
 	uint32 Flags = TexCreate_RenderTargetable;
 	FOpenGLTexture2D* Texture2D = new FOpenGLTexture2D(OpenGLRHI, 0, GL_RENDERBUFFER, GL_COLOR_ATTACHMENT0, SizeX, SizeY, 0, 1, 1, 1, PF_B8G8R8A8, false, false, Flags, nullptr);
 	OpenGLTextureAllocated(Texture2D, Flags);
@@ -331,15 +349,31 @@ void PlatformRestoreDesktopDisplayMode()
 {
 }
 
+#if PLATFORM_HTML5_BROWSER
 extern "C"
 {
-#if PLATFORM_HTML5_BROWSER
 	// callback from javascript. 
 	void resize_game(int w, int h)
 	{
-      // to-do: remove this separate code path. 
+      	// to-do: remove this separate code path. 
+		UE_LOG(LogHTML5OpenGL, Verbose, TEXT("resize_game(%d, %d) callback"), w, h);
 	}
-#endif 
+
+	EM_BOOL request_fullscreen_callback(int eventType, const EmscriptenMouseEvent* evt, void* user)
+	{
+#if __EMCC_VER__ >= 1290
+		EmscriptenFullscreenStrategy FSStrat;
+		FMemory::Memzero(FSStrat);
+		FSStrat.scaleMode = EMSCRIPTEN_FULLSCREEN_SCALE_STRETCH;//EMSCRIPTEN_FULLSCREEN_SCALE_ASPECT;// : EMSCRIPTEN_FULLSCREEN_SCALE_STRETCH;
+		FSStrat.canvasResolutionScaleMode = EMSCRIPTEN_FULLSCREEN_CANVAS_SCALE_HIDEF;
+		FSStrat.filteringMode = EMSCRIPTEN_FULLSCREEN_FILTERING_DEFAULT;
+		emscripten_request_fullscreen_strategy("canvas", true, &FSStrat);
+#else		
+		emscripten_request_fullscreen("canvas", true);
+#endif
+		return 0;
+	}
 }
+#endif
 
 

@@ -29,7 +29,7 @@ struct FPhysAssetCreateParams
 	bool								bWalkPastSmall;
 	bool								bBodyForAll;
 	EAngularConstraintMotion			AngularConstraintMode;
-	int32								MaxHullCount;
+	float								HullAccuracy;
 	int32								MaxHullVerts;
 
 	UNREALED_API void Initialize();

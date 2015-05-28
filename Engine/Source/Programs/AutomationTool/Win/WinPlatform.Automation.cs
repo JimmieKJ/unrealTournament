@@ -35,220 +35,92 @@ public abstract class BaseWinPlatform : Platform
 			StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "CrashReportClient.");
 		}
 
-		//todo we need to support shipping and test executables
-		//todo this should all be partially based on UBT manifests and not hard coded
-		//monolithic assumption
-		StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Ogg", SC.PlatformDir), "*.", true);
-		StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Vorbis", SC.PlatformDir), "*.", true);
-		string PhysXVer = "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName();
-		string ApexVer = "VS" + WindowsPlatform.GetVisualStudioCompilerVersionName();
-		string PhysXMaskForDebugConfiguration = Params.bDebugBuildsActuallyUseDebugCRT ? "*DEBUG*.*" : "*PROFILE*.*";
-		if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Debug) && !Params.Rocket)
+		// Stage all the build products
+		foreach(BuildReceipt Receipt in SC.StageTargetReceipts)
 		{
-			StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/APEX-1.3", SC.PlatformDir, ApexVer), PhysXMaskForDebugConfiguration, true);
-			StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/PhysX-3.3", SC.PlatformDir, PhysXVer), PhysXMaskForDebugConfiguration, true);
-			StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/PhysX-3.3", SC.PlatformDir, PhysXVer), "nvToolsExt*.", true);
-		}
-		if (SC.StageTargetConfigurations.Any(x => x != UnrealTargetConfiguration.Debug) || Params.Rocket)
-		{
-			StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/APEX-1.3", SC.PlatformDir, ApexVer), "*.", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" });
-			StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/PhysX/PhysX-3.3", SC.PlatformDir, PhysXVer), "*.", true, new string[] { "*DEBUG*.*", "*CHECKED*.*" });
+			SC.StageBuildProductsFromReceipt(Receipt);
 		}
 
-		if (Params.bUsesSteam)
-		{
-			string SteamVersion = "Steamv130";
-
-			// Check that the TPS directory exists. We don't distribute binaries for Steam in Rocket.
-			if (Directory.Exists(CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion)))
-			{
-				if (SC.StageTargetPlatform.PlatformType == UnrealTargetPlatform.Win32)
-				{
-					StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion, SC.PlatformDir), "steam_api.");
-					if (SC.DedicatedServer)
-					{
-						StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion, SC.PlatformDir), "steamclient.");
-						StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion, SC.PlatformDir), "tier0_s.");
-						StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion, SC.PlatformDir), "vstdlib_s.");
-					}
-				}
-				else
-				{
-					StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion, SC.PlatformDir), "steam_api64.");
-					if (SC.DedicatedServer)
-					{
-						StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion, SC.PlatformDir), "steamclient64.");
-						StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion, SC.PlatformDir), "tier0_s64.");
-						StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Steamworks/" + SteamVersion, SC.PlatformDir), "vstdlib_s64.");
-					}
-				}
-			}
-		}
-
-        // Leap files
-		if(!Params.Rocket)
-		{
-			StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/Leap", SC.PlatformDir), "Leap.", false, null, null, true);
-		}
-        
 		// Copy the splash screen, windows specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
-		// CEF3 files
-		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3", SC.PlatformDir), "*", true, null, null, true);
-		StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UnrealCEFSubProcess.", false, null, null, true);
-
-        if (Params.StageNonMonolithic)
-        {
-            StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/ICU/icu4c-53_1", SC.PlatformDir, "VS2013"), "*.");
-
-            if (SC.DedicatedServer)
-            {
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-" + SC.PlatformDir + "-Shipping.");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-" + SC.PlatformDir + "-Test.");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server.");
-                }
-
-                StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4Server-*.");
-                StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Plugins"), "UE4Server-*.", true);
-                StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir), "UE4Server-*.");
-                StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.ProjectRoot, "Plugins"), "UE4Server-*.", true);
-            }
-            else
-            {
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Debug))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*-Debug.");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Development))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4.");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Test))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*-Test.");
-                }
-
-                if (SC.StageTargetConfigurations.Contains(UnrealTargetConfiguration.Shipping))
-                {
-                    StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4*-Shipping.");
-                }
-
-                StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "UE4-*.");
-                StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Plugins"), "UE4-*.", true);
-                StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir), "UE4-*.");
-                StageExecutable("dll", SC, CommandUtils.CombinePaths(SC.ProjectRoot, "Plugins"), "UE4-*.", true);
-            }
-        }
-        else
-        {
-			List<string> Exes = GetExecutableNames(SC);
-
-			// the first exe is the "main" one, the rest are marked as debug files
-			StagedFileType WorkingFileType = StagedFileType.NonUFS;
-				
-		    foreach (var Exe in Exes)
-            {
-				if (Exe.StartsWith(CombinePaths(SC.RuntimeProjectRootDir, "Binaries", SC.PlatformDir)))
+		// Stage the bootstrap executable
+		if(!Params.NoBootstrapExe)
+		{
+			foreach(BuildReceipt Receipt in SC.StageTargetReceipts)
+			{
+				BuildProduct Executable = Receipt.BuildProducts.FirstOrDefault(x => x.Type == BuildProductType.Executable);
+				if(Executable != null)
 				{
-					string BaseExeFileName = Path.GetFileName(Exe);
-					if (!String.IsNullOrEmpty(Params.OverrideMinimumOS) && (Params.OverrideMinimumOS == "WinXP"))
+					// only create bootstraps for executables
+					if (SC.NonUFSStagingFiles.ContainsKey(Executable.Path) && Path.GetExtension(Executable.Path) == ".exe")
 					{
-						BaseExeFileName = Path.GetFileNameWithoutExtension(Exe) + "_xp" + Path.GetExtension(Exe);
-					}
+						string BootstrapArguments = "";
+						if (!SC.IsCodeBasedProject && !ShouldStageCommandLine(Params, SC))
+						{
+							BootstrapArguments = String.Format("..\\..\\..\\{0}\\{0}.uproject", SC.ShortProjectName);
+						}
 
-					// remap the project root.
-					string SourceFile = CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir, BaseExeFileName);
-					StageExecutable("exe", SC, Path.GetDirectoryName(SourceFile), Path.GetFileNameWithoutExtension(SourceFile) + ".", true, null, CommandUtils.CombinePaths(SC.RelativeProjectRootForStage, "Binaries", SC.PlatformDir), false, WorkingFileType);
-					if(Exe == Exes[0] && !Params.NoBootstrapExe)
-					{
-						StageBootstrapExecutable(SC, SourceFile, CombinePaths(SC.RelativeProjectRootForStage, "Binaries", SC.PlatformDir, BaseExeFileName), "");
+						string BootstrapExeName;
+						if(SC.StageTargetConfigurations.Count > 1)
+						{
+							BootstrapExeName = Path.GetFileName(Executable.Path);
+						}
+						else if(Params.IsCodeBasedProject)
+						{
+							BootstrapExeName = Receipt.GetProperty("TargetName", SC.ShortProjectName) + ".exe";
+						}
+						else
+						{
+							BootstrapExeName = SC.ShortProjectName + ".exe";
+						}
+
+						StageBootstrapExecutable(SC, BootstrapExeName, Executable.Path, SC.NonUFSStagingFiles[Executable.Path], BootstrapArguments);
 					}
 				}
-				else if (Exe.StartsWith(CombinePaths(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir)))
-				{
-					// Select the appropriate windows executable to stage, xp support or not.
-					string ExeFileName = Path.GetFileName(Exe);
-					if (!String.IsNullOrEmpty(Params.OverrideMinimumOS) && (Params.OverrideMinimumOS == "WinXP"))
-					{
-						ExeFileName = Path.GetFileNameWithoutExtension(ExeFileName) + "_xp" + Path.GetExtension(ExeFileName);
-					}
-
-					// keep it in the engine directory.
-					string SourceFile = CombinePaths(SC.LocalRoot, "Engine", "Binaries", SC.PlatformDir, ExeFileName);
-
-					// ensure the ue4game binary exists, if applicable
-					if (!SC.IsCodeBasedProject && !FileExists_NoExceptions(SourceFile))
-					{
-						Log("Failed to find game executable " + SourceFile);
-						AutomationTool.ErrorReporter.Error("Stage Failed.", (int)AutomationTool.ErrorCodes.Error_MissingExecutable);
-						throw new AutomationException("Could not find exe {0}. You may need to build the UE4 project with your target configuration and platform.", SourceFile);
-					}
-
-					StageExecutable("exe", SC, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), Path.GetFileNameWithoutExtension(SourceFile) + ".", true, null, null, false, WorkingFileType);
-					if(Exe == Exes[0] && !Params.NoBootstrapExe)
-					{
-						StageBootstrapExecutable(SC, SourceFile, CombinePaths("Engine", "Binaries", SC.PlatformDir, ExeFileName), String.Format("..\\..\\..\\{0}\\{0}.uproject", SC.ShortProjectName));
-					}
-				}
-				else
-				{
-					throw new AutomationException("Can't stage the exe {0} because it doesn't start with {1} or {2}", Exe, CombinePaths(SC.RuntimeProjectRootDir, "Binaries", SC.PlatformDir), CombinePaths(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir));
-				}
-				// the first exe is the "main" one, the rest are marked as debug files
-				WorkingFileType = StagedFileType.DebugNonUFS;
 			}
 		}
 	}
 
-	void StageBootstrapExecutable(DeploymentContext SC, string TargetFile, string StagedRelativeTargetPath, string StagedArguments)
+	void StageBootstrapExecutable(DeploymentContext SC, string ExeName, string TargetFile, string StagedRelativeTargetPath, string StagedArguments)
 	{
 		string InputFile = CombinePaths(SC.LocalRoot, "Engine", "Binaries", SC.PlatformDir, String.Format("BootstrapPackagedGame-{0}-Shipping.exe", SC.PlatformDir));
 		if(InternalUtils.SafeFileExists(InputFile))
 		{
 			// Create the new bootstrap program
-			string ExeName = String.Format("{0}.exe", SC.ShortProjectName);
-
 			string IntermediateDir = CombinePaths(SC.ProjectRoot, "Intermediate", "Staging");
 			InternalUtils.SafeCreateDirectory(IntermediateDir);
 
 			string IntermediateFile = CombinePaths(IntermediateDir, ExeName);
 			File.Copy(InputFile, IntermediateFile, true);
 	
-			// Get the icon from the build directory if possible
-			GroupIconResource GroupIcon = null;
-			if(InternalUtils.SafeFileExists(CombinePaths(SC.ProjectRoot, "Build/Windows/Application.ico")))
+			// currently the icon updating doesn't run under mono
+			if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 ||
+				UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win32)
 			{
-				GroupIcon = GroupIconResource.FromIco(CombinePaths(SC.ProjectRoot, "Build/Windows/Application.ico"));
-			}
-			if(GroupIcon == null)
-			{
-				GroupIcon = GroupIconResource.FromExe(TargetFile);
-			}
+				// Get the icon from the build directory if possible
+				GroupIconResource GroupIcon = null;
+				if(InternalUtils.SafeFileExists(CombinePaths(SC.ProjectRoot, "Build/Windows/Application.ico")))
+				{
+					GroupIcon = GroupIconResource.FromIco(CombinePaths(SC.ProjectRoot, "Build/Windows/Application.ico"));
+				}
+				if(GroupIcon == null)
+				{
+					GroupIcon = GroupIconResource.FromExe(TargetFile);
+				}
 
-			// Update the resources in the new file
-			using(ModuleResourceUpdate Update = new ModuleResourceUpdate(IntermediateFile, true))
-			{
-				const int IconResourceId = 101;
-				if(GroupIcon != null) Update.SetIcons(IconResourceId, GroupIcon);
+				// Update the resources in the new file
+				using(ModuleResourceUpdate Update = new ModuleResourceUpdate(IntermediateFile, true))
+				{
+					const int IconResourceId = 101;
+					if(GroupIcon != null) Update.SetIcons(IconResourceId, GroupIcon);
 
-				const int ExecFileResourceId = 201;
-				Update.SetData(ExecFileResourceId, ResourceType.RawData, Encoding.Unicode.GetBytes(StagedRelativeTargetPath + "\0"));
+					const int ExecFileResourceId = 201;
+					Update.SetData(ExecFileResourceId, ResourceType.RawData, Encoding.Unicode.GetBytes(StagedRelativeTargetPath + "\0"));
 
-				const int ExecArgsResourceId = 202;
-				Update.SetData(ExecArgsResourceId, ResourceType.RawData, Encoding.Unicode.GetBytes(StagedArguments + "\0"));
+					const int ExecArgsResourceId = 202;
+					Update.SetData(ExecArgsResourceId, ResourceType.RawData, Encoding.Unicode.GetBytes(StagedArguments + "\0"));
+				}
 			}
 
 			// Copy it to the staging directory
@@ -360,6 +232,11 @@ public abstract class BaseWinPlatform : Platform
 			ExecutableNames.Add(CombinePaths(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir, ExeName + Ext));
 		}
 		return ExecutableNames;
+	}
+
+	public override bool ShouldStageCommandLine(ProjectParams Params, DeploymentContext SC)
+	{
+		return !String.IsNullOrEmpty(Params.StageCommandline) || !String.IsNullOrEmpty(Params.RunCommandline) || (!Params.IsCodeBasedProject && Params.NoBootstrapExe);
 	}
 
 	public override List<string> GetDebugFileExtentions()

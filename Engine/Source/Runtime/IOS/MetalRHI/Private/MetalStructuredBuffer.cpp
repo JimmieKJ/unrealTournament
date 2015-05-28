@@ -9,17 +9,22 @@ FMetalStructuredBuffer::FMetalStructuredBuffer(uint32 Stride, uint32 Size, FReso
 {
 	check((Size % Stride) == 0);
 
-	// copy any resources to the CPU address
+	Buffer = [FMetalManager::GetDevice() newBufferWithLength:Size options:BUFFER_CACHE_MODE];
+
 	if (ResourceArray)
 	{
-// 		FMemory::Memcpy( , ResourceArray->GetResourceData(), Size);
+		// copy any resources to the CPU address
+		void* LockedMemory = RHILockStructuredBuffer(this, 0, Size, RLM_WriteOnly);
+ 		FMemory::Memcpy(LockedMemory, ResourceArray->GetResourceData(), Size);
 		ResourceArray->Discard();
 	}
+
+	TRACK_OBJECT(Buffer);
 }
 
 FMetalStructuredBuffer::~FMetalStructuredBuffer()
 {
-
+	FMetalManager::ReleaseObject(Buffer);
 }
 
 
@@ -32,12 +37,13 @@ FStructuredBufferRHIRef FMetalDynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 
 void* FMetalDynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBufferRHI,uint32 Offset,uint32 Size,EResourceLockMode LockMode)
 {
-	DYNAMIC_CAST_METALRESOURCE(StructuredBuffer,StructuredBuffer);
+	FMetalStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
 
-	return NULL;
+	// just return the memory plus the offset
+	return ((uint8*)[StructuredBuffer->Buffer contents]) + Offset;
 }
 
 void FMetalDynamicRHI::RHIUnlockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBufferRHI)
 {
-
+	// nothing to do
 }

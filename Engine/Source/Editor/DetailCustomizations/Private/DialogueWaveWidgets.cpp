@@ -166,8 +166,6 @@ void SDialogueVoicePropertyEditor::Construct( const FArguments& InArgs, const TS
 
 void SDialogueVoicePropertyEditor::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
 	UDialogueVoice* CurrentDialogueVoice = NULL;
 	if( DialogueVoicePropertyHandle->IsValidHandle() )
 	{
@@ -465,7 +463,6 @@ float STargetsSummaryWidget::GetPreferredWidthForWrapping() const
 
 void STargetsSummaryWidget::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
 	AllottedWidth = AllottedGeometry.Size.X;
 
 	if( TargetsPropertyHandle->IsValidHandle() )
@@ -473,15 +470,9 @@ void STargetsSummaryWidget::Tick( const FGeometry& AllottedGeometry, const doubl
 		uint32 TargetCount;
 		TargetsPropertyHandle->GetNumChildren(TargetCount);
 
-		bool bRefreshList = false;
 		if( TargetCount != DisplayedTargets.Num() )
 		{
 			// The array sizes differ so we need to refresh the list
-			bRefreshList = true;
-		}
-
-		if( bRefreshList )
-		{
 			GenerateContent();
 		}
 	}
@@ -915,12 +906,8 @@ void SDialogueContextHeaderWidget::Construct( const FArguments& InArgs, const TS
 		];
 	}
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
-
 void SDialogueContextHeaderWidget::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
-
 	if( !IsSpeakerValid() )
 	{
 		if( SpeakerErrorHint.IsValid() ) { SpeakerErrorHint->SetError( LOCTEXT("NullSpeakerError", "Speaker can not be \"None\".") ); }
@@ -948,15 +935,15 @@ bool SDialogueContextHeaderWidget::IsSpeakerValid() const
 	{
 		const TSharedPtr<IPropertyHandle> SpeakerPropertyHandle = ContextPropertyHandle->GetChildHandle("Speaker");
 
-		const UDialogueVoice* Speaker = NULL;
+		const UDialogueVoice* Speaker = nullptr;
 		if( SpeakerPropertyHandle.IsValid() && SpeakerPropertyHandle->IsValidHandle() )
 		{
-			UObject* Object = NULL;
+			UObject* Object = nullptr;
 			SpeakerPropertyHandle->GetValue(Object);
 			Speaker = Cast<UDialogueVoice>(Object);
 		}
 
-		Result = (Speaker != NULL);
+		Result = ( Speaker != nullptr );
 	}
 
 	return Result;
@@ -980,15 +967,15 @@ bool SDialogueContextHeaderWidget::IsTargetSetValid() const
 		{
 			TSharedPtr<IPropertyHandle> TargetPropertyHandle = TargetsArrayPropertyHandle->GetElement(i);
 
-			const UDialogueVoice* Target = NULL;
+			const UDialogueVoice* Target = nullptr;
 			if( TargetPropertyHandle.IsValid() && TargetPropertyHandle->IsValidHandle() )
 			{
-				UObject* Object = NULL;
+				UObject* Object = nullptr;
 				TargetPropertyHandle->GetValue(Object);
 				Target = Cast<UDialogueVoice>(Object);
 			}
 
-			if( Target == NULL )
+			if ( Target == nullptr )
 			{
 				Result = false;
 				break;

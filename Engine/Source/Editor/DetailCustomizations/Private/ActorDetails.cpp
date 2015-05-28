@@ -4,10 +4,10 @@
 #include "ActorDetails.h"
 #include "AssetSelection.h"
 #include "Editor/Layers/Public/LayersModule.h"
-#include "Editor/LevelEditor/Public/LevelEditor.h"
-#include "Editor/LevelEditor/Public/LevelEditorActions.h"
-#include "Editor/ClassViewer/Public/ClassViewerModule.h"
-#include "Editor/ClassViewer/Public/ClassViewerFilter.h"
+#include "LevelEditor.h"
+#include "LevelEditorActions.h"
+#include "ClassViewerModule.h"
+#include "ClassViewerFilter.h"
 #include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
 #include "Editor/UnrealEd/Public/Kismet2/KismetDebugUtilities.h"
 #include "ClassIconFinder.h"
@@ -30,6 +30,11 @@
 #include "SHyperlink.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
+#include "GameFramework/Volume.h"
+#include "Engine/Selection.h"
+#include "GameFramework/WorldSettings.h"
+#include "Engine/BlueprintGeneratedClass.h"
+#include "Components/BillboardComponent.h"
 
 #define LOCTEXT_NAMESPACE "ActorDetails"
 
@@ -46,6 +51,10 @@ FActorDetails::~FActorDetails()
 
 void FActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
+	// Get the list of hidden categories
+	TArray<FString> HideCategories;
+	FEditorCategoryUtils::GetClassHideCategories(DetailLayout.GetDetailsView().GetBaseClass(), HideCategories); 
+
 	// These details only apply when adding an instance of the actor in a level
 	if( !DetailLayout.GetDetailsView().HasClassDefaultObject() && DetailLayout.GetDetailsView().GetSelectedActorInfo().NumSelected > 0 )
 	{
@@ -99,10 +108,6 @@ void FActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 
 		AddExperimentalWarningCategory(DetailLayout);
 
-		// Get the list of hidden categories
-		TArray<FString> HideCategories;
-		FEditorCategoryUtils::GetClassHideCategories(DetailLayout.GetDetailsView().GetBaseClass(), HideCategories); 
-
 		if (!HideCategories.Contains(TEXT("Transform")))
 		{
 			AddTransformCategory(DetailLayout);
@@ -125,7 +130,7 @@ void FActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 	TSharedPtr<IPropertyHandle> PrimaryTickProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(AActor, PrimaryActorTick));
 
 	// Defaults only show tick properties
-	if (DetailLayout.GetDetailsView().HasClassDefaultObject())
+	if (DetailLayout.GetDetailsView().HasClassDefaultObject() && !HideCategories.Contains(TEXT("Tick")))
 	{
 		IDetailCategoryBuilder& TickCategory = DetailLayout.EditCategory("Tick");
 
@@ -492,7 +497,7 @@ void FActorDetails::AddActorCategory( IDetailLayoutBuilder& DetailBuilder, const
 	IDetailCategoryBuilder& ActorCategory = DetailBuilder.EditCategory("Actor", FText::GetEmpty(), ECategoryPriority::Uncommon );
 
 
-#if 0
+#if 1
 	// Create the info buttons per level
 	for ( auto LevelIt( ActorsPerLevelCount.CreateConstIterator() ); LevelIt; ++LevelIt)
 	{
@@ -622,6 +627,17 @@ void FActorDetails::AddBlutilityCategory( IDetailLayoutBuilder& DetailBuilder, c
 				]
 			]
 		];
+		// Iterate over actor properties, adding property rows that are editable and may feed into the blutility function.
+		TArray<UObject*> ActorArray;
+		ActorArray.Add( ActorPtr.Get() );
+		for( TFieldIterator<UProperty> PropertyIt(ActorPtr->GetClass()); PropertyIt; ++PropertyIt )
+		{
+			const bool bBlueprintProperty = PropertyIt->GetOuter()->GetClass() == UBlueprintGeneratedClass::StaticClass();
+			if( bBlueprintProperty && !PropertyIt->HasAllPropertyFlags( CPF_DisableEditOnInstance ))
+			{
+				BlutilitiesCategory.AddExternalProperty( ActorArray, PropertyIt->GetFName(), EPropertyLocation::Advanced );
+			}
+		}
 	}
 }
 
@@ -641,7 +657,7 @@ bool FActorDetails::DoesActorHaveBlutiltyFunctions() const
 
 		if( ActorClass )
 		{
-			for (TFieldIterator<UFunction> FunctionIter(ActorClass, EFieldIteratorFlags::IncludeSuper); FunctionIter; ++FunctionIter)
+			for( TFieldIterator<UFunction> FunctionIter(ActorClass, EFieldIteratorFlags::IncludeSuper); FunctionIter; ++FunctionIter )
 			{
 				if( FunctionIter->GetBoolMetaData( FBlueprintMetadata::MD_CallInEditor ))
 				{
@@ -700,12 +716,8 @@ FReply FActorDetails::CallBlutilityFunction()
 	if( ActorWeakPtr.IsValid() && ActiveBlutilityFunction.IsValid() )
 	{
 		AActor* Actor = ActorWeakPtr.Get();
-		UFunction* Function = ActiveBlutilityFunction.Get();
-
-		if( Function->GetOuter() == Actor->GetClass() )
-		{
-			Actor->ProcessEvent( Function, NULL );
-		}
+		UFunction* ActiveFunction = ActiveBlutilityFunction.Get();
+		Actor->ProcessEvent( ActiveFunction, ActiveFunction->Children );
 	}
 
 	return FReply::Handled();

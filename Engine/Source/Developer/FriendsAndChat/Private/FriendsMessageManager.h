@@ -20,11 +20,15 @@ namespace EChatMessageType
 	/** @return the FTextified version of the enum passed in */
 	inline FText ToText(EChatMessageType::Type Type)
 	{
+		static FText GlobalText = NSLOCTEXT("FriendsList", "Global", "Global");
+		static FText WhisperText = NSLOCTEXT("FriendsList", "Whisper", "Whisper");
+		static FText PartyText = NSLOCTEXT("FriendsList", "Party", "Party");
+
 		switch (Type)
 		{
-			case Global: return NSLOCTEXT("FriendsList","Global", "Global");
-			case Whisper: return NSLOCTEXT("FriendsList","Whisper", "Whisper");
-			case Party: return NSLOCTEXT("FriendsList","Party", "Party");
+			case Global: return GlobalText;
+			case Whisper: return WhisperText;
+			case Party: return PartyText;
 
 			default: return FText::GetEmpty();
 		}
@@ -36,11 +40,13 @@ struct FFriendChatMessage
 {
 	EChatMessageType::Type MessageType;
 	FText FromName;
+	FText ToName;
 	FText Message;
-	FText MessageTimeText;
+	FDateTime MessageTime;
 	FDateTime ExpireTime;
 	TSharedPtr<class FChatMessage> MessageRef;
 	TSharedPtr<FUniqueNetId> SenderId;
+	TSharedPtr<FUniqueNetId> RecipientId;
 	bool bIsFromSelf;
 };
 
@@ -57,13 +63,13 @@ public:
 
 	virtual void LogIn() = 0;
 	virtual void LogOut() = 0;
-	virtual const TArray<TSharedRef<class FChatItemViewModel> >& GetMessageList() const = 0;
+	virtual const TArray<TSharedRef<FFriendChatMessage> >& GetMessages() const = 0;
 	virtual void JoinPublicRoom(const FString& RoomName) = 0;
 	virtual bool SendRoomMessage(const FString& RoomName, const FString& MsgBody) = 0;
-	virtual bool SendPrivateMessage(TSharedPtr<FUniqueNetId> UserID, const FText UserName, const FText MessageText) = 0;
+	virtual bool SendPrivateMessage(TSharedPtr<FUniqueNetId> UserID, const FText MessageText) = 0;
 	virtual void InsertNetworkMessage(const FString& MsgBody) = 0;
 
-	DECLARE_EVENT_OneParam(FFriendsMessageManager, FOnChatMessageReceivedEvent, const TSharedRef<class FChatItemViewModel> /*The chat message*/)
+	DECLARE_EVENT_OneParam(FFriendsMessageManager, FOnChatMessageReceivedEvent, const TSharedRef<FFriendChatMessage> /*The chat message*/)
 	virtual FOnChatMessageReceivedEvent& OnChatMessageRecieved() = 0;
 
 	DECLARE_EVENT_OneParam(FFriendsMessageManager, FOnChatPublicRoomJoinedEvent, const FString& /*RoomName*/)

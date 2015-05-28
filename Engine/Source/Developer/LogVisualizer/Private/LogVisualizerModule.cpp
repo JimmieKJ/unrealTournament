@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "LogVisualizer.h"
-#include "LogVisualizerModule.h"
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "LogVisualizerStyle.h"
 #include "SDockTab.h"
 #include "VisualLoggerRenderingActor.h"
@@ -19,16 +19,33 @@ static const FName VisualLoggerTabName("VisualLogger");
 
 //DEFINE_LOG_CATEGORY(LogLogVisualizer);
 
-void FNewLogVisualizerModule::StartupModule()
+class FLogVisualizerModule : public ILogVisualizer
+{
+public:
+	// Begin IModuleInterface
+	virtual void StartupModule() override;
+	virtual void ShutdownModule() override;
+	// End IModuleInterface
+
+	virtual void Goto(float Timestamp, FName LogOwner) override;
+	virtual void GotoNextItem() override;
+	virtual void GotoPreviousItem() override;
+
+private:
+	TSharedRef<SDockTab> SpawnLogVisualizerTab(const FSpawnTabArgs& SpawnTabArgs);
+};
+
+void FLogVisualizerModule::StartupModule()
 {
 	FLogVisualizerStyle::Initialize();
+	FLogVisualizer::Initialize();
 
 	FVisualLoggerCommands::Register();
 	IModularFeatures::Get().RegisterModularFeature(VisualLoggerTabName, this);
 
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
 		VisualLoggerTabName, 
-		FOnSpawnTab::CreateRaw(this, &FNewLogVisualizerModule::SpawnLogVisualizerTab))
+		FOnSpawnTab::CreateRaw(this, &FLogVisualizerModule::SpawnLogVisualizerTab))
 		.SetGroup(WorkspaceMenu::GetMenuStructure().GetDeveloperToolsMiscCategory())
 		.SetDisplayName(NSLOCTEXT("LogVisualizerApp", "TabTitle", "Visual Logger"))
 		.SetTooltipText(NSLOCTEXT("LogVisualizerApp", "TooltipText", "Opens Visual Logger tool."))
@@ -45,7 +62,7 @@ void FNewLogVisualizerModule::StartupModule()
 	}
 }
 
-void FNewLogVisualizerModule::ShutdownModule()
+void FLogVisualizerModule::ShutdownModule()
 {
 	FGlobalTabmanager::Get()->UnregisterTabSpawner(VisualLoggerTabName);
 	FVisualLoggerCommands::Unregister();
@@ -57,13 +74,14 @@ void FNewLogVisualizerModule::ShutdownModule()
 		SettingsModule->UnregisterSettings("Editor", "General", "VisualLogger");
 	}
 
+	FLogVisualizer::Shutdown();
 	FLogVisualizerStyle::Shutdown();
 }
 
-TSharedRef<SDockTab> FNewLogVisualizerModule::SpawnLogVisualizerTab(const FSpawnTabArgs& SpawnTabArgs)
+TSharedRef<SDockTab> FLogVisualizerModule::SpawnLogVisualizerTab(const FSpawnTabArgs& SpawnTabArgs)
 {
 	const TSharedRef<SDockTab> MajorTab = SNew(SDockTab)
-		.TabRole(ETabRole::MajorTab).OnTabClosed(SDockTab::FOnTabClosedCallback::CreateRaw(this, &FNewLogVisualizerModule::OnTabClosed));
+		.TabRole(ETabRole::NomadTab);
 
 	TSharedPtr<SWidget> TabContent;
 
@@ -74,41 +92,21 @@ TSharedRef<SDockTab> FNewLogVisualizerModule::SpawnLogVisualizerTab(const FSpawn
 	return MajorTab;
 }
 
-void FNewLogVisualizerModule::OnTabClosed(TSharedRef<SDockTab> DockTab)
+void FLogVisualizerModule::Goto(float Timestamp, FName LogOwner)
 {
-	UWorld* World = NULL;
-#if WITH_EDITOR
-	UEditorEngine *EEngine = Cast<UEditorEngine>(GEngine);
-	if (GIsEditor && EEngine != NULL)
-	{
-		// lets use PlayWorld during PIE/Simulate and regular world from editor otherwise, to draw debug information
-		World = EEngine->PlayWorld != NULL ? EEngine->PlayWorld : EEngine->GetEditorWorldContext().World();
-
-	}
-	else 
-#endif
-	if (!GIsEditor)
-	{
-
-		World = GEngine->GetWorld();
-	}
-
-	TSharedRef<SVisualLogger> VisualLoggerTab = StaticCastSharedRef<SVisualLogger>(DockTab->GetContent());
-	VisualLoggerTab->OnTabLosed();
-
-	if (World == NULL)
-	{
-		World = GWorld;
-	}
-
-	if (World)
-	{
-		for (TActorIterator<AVisualLoggerRenderingActor> It(World); It; ++It)
-		{
-			World->DestroyActor(*It);
-		}
-	}
+	FLogVisualizer::Get().Goto(Timestamp, LogOwner);
 }
 
-IMPLEMENT_MODULE(FNewLogVisualizerModule, LogVisualizer);
+void FLogVisualizerModule::GotoNextItem()
+{
+	FLogVisualizer::Get().GotoNextItem();
+}
+
+void FLogVisualizerModule::GotoPreviousItem()
+{
+	FLogVisualizer::Get().GotoPreviousItem();
+}
+
+
+IMPLEMENT_MODULE(FLogVisualizerModule, LogVisualizer);
 #undef LOCTEXT_NAMESPACE

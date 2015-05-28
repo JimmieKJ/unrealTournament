@@ -6,6 +6,8 @@
 
 #include "PropertyBinding.generated.h"
 
+DECLARE_CYCLE_STAT_EXTERN(TEXT("UMG Binding"), STAT_UMGBinding, STATGROUP_Slate,);
+
 UCLASS()
 class UMG_API UPropertyBinding : public UObject
 {

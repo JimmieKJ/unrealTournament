@@ -101,7 +101,7 @@ public:
 	{
 		FParticleVertexFactoryBase::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 
-		const bool bInstanced = IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+		const bool bInstanced = IsFeatureLevelSupported(Platform, ERHIFeatureLevel::ES3_1);
 
 		// Set a define so we can tell in MaterialTemplate.usf when we are compiling a mesh particle vertex factory
 		OutEnvironment.SetDefine(TEXT("PARTICLE_MESH_FACTORY"),TEXT("1"));

@@ -3,7 +3,7 @@
 
 #include "GraphEditorCommon.h"
 #include "SGraphPinString.h"
-
+#include "Editor/UnrealEd/Public/ScopedTransaction.h"
 
 void SGraphPinString::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {
@@ -12,15 +12,21 @@ void SGraphPinString::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPi
 
 TSharedRef<SWidget>	SGraphPinString::GetDefaultValueWidget()
 {
-	return SNew(SEditableTextBox)
-		.Style( FEditorStyle::Get(), "Graph.EditableTextBox" )
-		.Text( this, &SGraphPinString::GetTypeInValue )
-		.SelectAllTextWhenFocused(true)
-		.MinDesiredWidth( 18.0f )
-		.Visibility( this, &SGraphPin::GetDefaultValueVisibility )
-		.IsReadOnly(this, &SGraphPinString::GetDefaultValueIsReadOnly )
-		.OnTextCommitted( this, &SGraphPinString::SetTypeInValue )
-		.ForegroundColor( FSlateColor::UseForeground() );
+	return SNew(SBox)
+		.MinDesiredWidth(18.0f)
+		.MaxDesiredHeight(200)
+		[
+			SNew(SMultiLineEditableTextBox)
+			.Style(FEditorStyle::Get(), "Graph.EditableTextBox")
+			.Text(this, &SGraphPinString::GetTypeInValue)
+			.SelectAllTextWhenFocused(true)
+			.Visibility(this, &SGraphPin::GetDefaultValueVisibility)
+			.IsReadOnly(this, &SGraphPinString::GetDefaultValueIsReadOnly)
+			.OnTextCommitted(this, &SGraphPinString::SetTypeInValue)
+			.ForegroundColor(FSlateColor::UseForeground())
+			.WrapTextAt(400)
+			.ModiferKeyForNewLine(EModifierKey::Shift)
+		];
 }
 
 FText SGraphPinString::GetTypeInValue() const
@@ -30,7 +36,13 @@ FText SGraphPinString::GetTypeInValue() const
 
 void SGraphPinString::SetTypeInValue(const FText& NewTypeInValue, ETextCommit::Type /*CommitInfo*/)
 {
-	GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, NewTypeInValue.ToString());
+	if(GraphPinObj->GetDefaultAsString() != NewTypeInValue.ToString())
+	{
+		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeStringPinValue", "Change String Pin Value" ) );
+		GraphPinObj->Modify();
+
+		GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, NewTypeInValue.ToString());
+	}
 }
 
 bool SGraphPinString::GetDefaultValueIsReadOnly() const

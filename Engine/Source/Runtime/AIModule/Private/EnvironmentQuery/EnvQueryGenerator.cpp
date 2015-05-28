@@ -8,33 +8,13 @@ UEnvQueryGenerator::UEnvQueryGenerator(const FObjectInitializer& ObjectInitializ
 {
 }
 
-void UEnvQueryGenerator::UpdateGeneratorVersion()
+void UEnvQueryGenerator::UpdateNodeVersion()
 {
 	VerNum = EnvQueryGeneratorVersion::Latest;
 }
 
-FText UEnvQueryGenerator::GetDescriptionTitle() const
-{
-	return UEnvQueryTypes::GetShortTypeName(this);
-}
-
-FText UEnvQueryGenerator::GetDescriptionDetails() const
-{
-	return FText::GetEmpty();
-}
-
-#if WITH_EDITOR && USE_EQS_DEBUGGER
-void UEnvQueryGenerator::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) 
-{
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-#if USE_EQS_DEBUGGER
-	UEnvQueryManager::NotifyAssetUpdate(NULL);
-#endif
-}
-#endif //WITH_EDITOR && USE_EQS_DEBUGGER
-
 void UEnvQueryGenerator::PostLoad()
 {
 	Super::PostLoad();
-	UpdateGeneratorVersion();
+	UpdateNodeVersion();
 }

@@ -106,10 +106,10 @@ public:
 		}
 	}
 
-	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
 		Table->Tick();
-		STreeView< TSharedRef< IPropertyTableRow > >::Tick( AllottedGeometry, InCurrentTime, InDeltaTime  );
+		STreeView< TSharedRef< IPropertyTableRow > >::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 	}
 
 	virtual void RequestRefresh() override

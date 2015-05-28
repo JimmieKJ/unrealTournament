@@ -107,7 +107,7 @@ void FMultiBoxCustomizationData::LoadCustomizedBlocks()
 
 	FString Content;
 	
-	GConfig->GetString(*GetConfigSectionName(), *CustomizationName.ToString(), Content, GEditorUserSettingsIni);
+	GConfig->GetString(*GetConfigSectionName(), *CustomizationName.ToString(), Content, GEditorPerProjectIni);
 
 	TSharedPtr<FJsonObject> SavedData;
 	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( FRemoteConfig::ReplaceIniSpecialCharWithChar(Content).ReplaceEscapedCharWithChar() );
@@ -344,7 +344,7 @@ void FMultiBoxCustomizationData::SaveCustomizedBlocks()
 	Writer->WriteObjectEnd();
 	Writer->Close();
 
-	GConfig->SetString( *GetConfigSectionName(), *CustomizationName.ToString(), *FRemoteConfig::ReplaceIniCharWithSpecialChar(SaveData).ReplaceCharWithEscapedChar(), GEditorUserSettingsIni );
+	GConfig->SetString( *GetConfigSectionName(), *CustomizationName.ToString(), *FRemoteConfig::ReplaceIniCharWithSpecialChar(SaveData).ReplaceCharWithEscapedChar(), GEditorPerProjectIni );
 }
 
 void FMultiBoxCustomizationData::BlockRemoved( TSharedRef< const FMultiBlock> RemovedBlock, int32 Index, const TArray< TSharedRef< const FMultiBlock > >& AllBlocks )

@@ -8,20 +8,11 @@
 
 // Cache of Sampler States; we store pointers to both as we don't want the TMap to be artificially
 // modifying ref counts if not needed; so we manage that ourselves
-#if PLATFORM_SUPPORTS_RHI_THREAD
-FCriticalSection GSamplerStateCacheLock;
-#define LOCK_GSamplerStateCache (1)
-#else
-#define LOCK_GSamplerStateCache (0)
-#endif
 static TMap<ID3D11SamplerState*, FD3D11SamplerState*> GSamplerStateCache;
 
 
 void EmptyD3DSamplerStateCache()
 {
-#if LOCK_GSamplerStateCache
-	FScopeLock Lock(&GSamplerStateCacheLock);
-#endif
 	for (auto Iter = GSamplerStateCache.CreateIterator(); Iter; ++Iter )
 	{
 		auto* State = Iter.Value();
@@ -182,11 +173,6 @@ FSamplerStateRHIRef FD3D11DynamicRHI::RHICreateSamplerState(const FSamplerStateI
 	SamplerDesc.BorderColor[3] = LinearBorderColor.A;
 	SamplerDesc.ComparisonFunc = TranslateSamplerCompareFunction(Initializer.SamplerComparisonFunction);
 
-#if LOCK_GSamplerStateCache
-	QUICK_SCOPE_CYCLE_COUNTER(FD3D11DynamicRHI_RHICreateSamplerState_LockAndCreate);
-	FScopeLock Lock(&GSamplerStateCacheLock);
-#endif
-
 	// D3D11 will return the same pointer if the particular state description was already created
 	TRefCountPtr<ID3D11SamplerState> SamplerStateHandle;
 	VERIFYD3D11RESULT(Direct3DDevice->CreateSamplerState(&SamplerDesc, SamplerStateHandle.GetInitReference()));
@@ -265,7 +251,7 @@ FDepthStencilStateRHIRef FD3D11DynamicRHI::RHICreateDepthStencilState(const FDep
 		&& Initializer.BackFacePassStencilOp == SO_Keep;
 
 	const bool bMayWriteStencil = Initializer.StencilWriteMask != 0 && !bStencilOpIsKeep;
-	DepthStencilState->AccessType = (EDepthStencilAccessType)((Initializer.bEnableDepthWrite ? DSAT_Writable : DSAT_ReadOnlyDepth) | (bMayWriteStencil ? DSAT_Writable : DSAT_ReadOnlyStencil));
+	DepthStencilState->AccessType.SetDepthStencilWrite(Initializer.bEnableDepthWrite, bMayWriteStencil);
 
 	VERIFYD3D11RESULT(Direct3DDevice->CreateDepthStencilState(&DepthStencilDesc,DepthStencilState->Resource.GetInitReference()));
 	return DepthStencilState;

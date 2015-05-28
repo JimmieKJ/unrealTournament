@@ -5,7 +5,7 @@
 
 UTextureEditorSettings::UTextureEditorSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
-	, Background(TextureEditorBackground_SolidColor)
+	, Background(TextureEditorBackground_Checkered)
 	, BackgroundColor(FColor::Black)
 	, CheckerColorOne(FColor(128, 128, 128))
 	, CheckerColorTwo(FColor(64, 64, 64))

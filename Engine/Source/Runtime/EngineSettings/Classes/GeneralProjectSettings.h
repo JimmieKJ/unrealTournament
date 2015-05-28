@@ -15,6 +15,10 @@ class ENGINESETTINGS_API UGeneralProjectSettings
 	UPROPERTY(config, EditAnywhere, Category=Publisher)
 	FString CompanyName;
 
+	/** The distinguished name of the company (author, provider) that created the project. */
+	UPROPERTY(config, EditAnywhere, Category=Publisher)
+	FString CompanyDistinguishedName;
+
 	/** The project's copyright and/or trademark notices. */
 	UPROPERTY(config, EditAnywhere, Category=Legal)
 	FString CopyrightNotice;

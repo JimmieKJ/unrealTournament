@@ -22,7 +22,7 @@ FText UK2Node_AssignDelegate::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	if (TitleType == ENodeTitleType::ListView || TitleType == ENodeTitleType::MenuTitle)
 	{
-		if (CachedListTitle.IsOutOfDate())
+		if (CachedListTitle.IsOutOfDate(this))
 		{
 			FText PropertyName;
 			if (UProperty* Property = GetProperty())
@@ -31,7 +31,7 @@ FText UK2Node_AssignDelegate::GetNodeTitle(ENodeTitleType::Type TitleType) const
 				PropertyName = FText::FromString(bShowFriendlyNames ? UEditorEngine::GetFriendlyName(Property) : Property->GetName());
 
 				// FText::Format() is slow, so we cache this to save on performance
-				CachedListTitle = FText::Format(LOCTEXT("AssignDelegateTitle", "Assign {0}"), PropertyName);
+				CachedListTitle.SetCachedText(FText::Format(LOCTEXT("AssignDelegateTitle", "Assign {0}"), PropertyName), this);
 			}
 			else
 			{

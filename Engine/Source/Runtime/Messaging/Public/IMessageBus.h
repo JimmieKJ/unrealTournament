@@ -3,7 +3,6 @@
 #pragma once
 
 
-// forward declarations
 enum class EMessageScope;
 struct FMessageAddress;
 class IMessageAttachment;
@@ -30,7 +29,7 @@ DECLARE_MULTICAST_DELEGATE(FOnMessageBusShutdown);
  * Depending on their usage, messages are classified into a number of types, such as commands, events and documents. In Unreal Engine,
  * all these messages are modeled with regular built-in or user defined UStructs that may either be empty or contain data in the
  * form of UProperty fields[2]. Before being dispatched, messages are internally wrapped into so called Message Context objects
- * (@see IMessageContext) that contain additional information about a message, such as when it was sent and the sender and recipients.
+ * (see IMessageContext) that contain additional information about a message, such as when it was sent and the sender and recipients.
  *
  * The sending and receiving of messages is not limited to message endpoints within the same thread or process, but may be extended
  * to other applications running on the same computer or on other computers connected to a network with so called Message Transport
@@ -38,13 +37,13 @@ DECLARE_MULTICAST_DELEGATE(FOnMessageBusShutdown);
  * details of the underlying transport mechanisms, so that users can focus on implementing their distributed applications rather than
  * worrying about how data gets from one endpoint to another. A message bus makes it look as if all senders and recipients are located
  * within the same process, regardless of whether that is actually the case or not. It is possible to restrict the reach of messages
- * using so called Message Scopes (@see EMessageScope).
+ * using so called Message Scopes (see EMessageScope).
  *
- * All message recipients (objects implementing the @see IReceiveMessages interface) must be registered with the message bus through the
- * @see IMessageBus.Register method. Before a recipient is destroyed it should unregister itself using the @see IMessageBus.Unregister
- * method. Message senders (objects implementing the @see ISendMessages interface) do not register with the bus, but instead pass a
+ * All message recipients (objects implementing the see IReceiveMessages interface) must be registered with the message bus through the
+ * see IMessageBus.Register method. Before a recipient is destroyed it should unregister itself using the see IMessageBus.Unregister
+ * method. Message senders (objects implementing the see ISendMessages interface) do not register with the bus, but instead pass a
  * reference to themselves each time they send a message. The IReceiveMessages and ISendMessages both are very low-level interfaces
- * into the messaging system. Most users will prefer to use instances of the @see FMessageEndpoint class instead, which provides a much
+ * into the messaging system. Most users will prefer to use instances of the see FMessageEndpoint class instead, which provides a much
  * more convenient way of sending and receiving messages.
  *
  * Message buses in Unreal Engine support the following two common messaging patterns: Request-Reply and Publish-Subscribe. Please note
@@ -52,12 +51,12 @@ DECLARE_MULTICAST_DELEGATE(FOnMessageBusShutdown);
  * separate features in the future.
  *
  * In the Request-Reply pattern a message is sent to one or more particular message recipients using the IMessageBus.Send method.
- * Message recipients implement the @see IMessageRecipient interface and are uniquely identified by their addresses (@see FMessageAddress).
+ * Message recipients implement the see IMessageRecipient interface and are uniquely identified by their addresses (see FMessageAddress).
  * After a message is received, the recipients may then reply with another message using the same IMessageBus.Send method. Alternatively,
- * a previously received message may be forwarded to another recipient using the @see IMessageBus.Forward method. This pattern is useful
+ * a previously received message may be forwarded to another recipient using the see IMessageBus.Forward method. This pattern is useful
  * when message recipients already know about each other and wish to communicate directly, i.e. to exchange commands or events.
  *
- * In the Publish-Subscribe pattern a message is sent to all message recipients on the bus using the @see IMessageBus.Publish method.
+ * In the Publish-Subscribe pattern a message is sent to all message recipients on the bus using the see IMessageBus.Publish method.
  * Only recipients that previously subscribed to the type of the sent message using the @IMessageBus.Subscribe method will actually receive
  * the message. All other recipients will not receive the message. After a published message is received, the recipients may respond with
  * another message, either directly to the message sender using IMessageBus.Send method, or by publishing another message using the
@@ -80,7 +79,7 @@ DECLARE_MULTICAST_DELEGATE(FOnMessageBusShutdown);
  * manipulation of messages contents, such as message filtering and enriching, splitting and aggregating, resequencing or authentication[4].
  *
  * The messaging system also provides a facility for debugging the system itself through the so called Message Tracer (an internal object
- * implementing the @see IMessageTracer interface) that can be accessed with the IMessageBus.GetTracer() method. The message tracer is
+ * implementing the see IMessageTracer interface) that can be accessed with the IMessageBus.GetTracer() method. The message tracer is
  * currently used in the Messaging Debugger - a visual debugging tool for the Messaging System in Unreal Frontend and the Unreal Editor.
  *
  * Notes:
@@ -135,7 +134,8 @@ public:
 	/**
 	 * Sends a message to subscribed recipients.
 	 *
-	 * The message is published with a default time to live of Process.
+	 * The bus takes over ownership of the message's memory.
+	 * It must NOT be freed by the caller.
 	 *
 	 * @param Message The message to publish.
 	 * @param TypeInfo The message's type information.
@@ -158,6 +158,9 @@ public:
 
 	/**
 	 * Sends a message to multiple recipients.
+	 *
+	 * The bus takes over ownership of the message's memory.
+	 * It must NOT be freed by the caller.
 	 *
 	 * @param Message The message to send.
 	 * @param TypeInfo The message's type information.

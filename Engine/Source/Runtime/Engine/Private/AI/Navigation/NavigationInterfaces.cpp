@@ -42,6 +42,11 @@ UNavLinkCustomInterface::UNavLinkCustomInterface(const FObjectInitializer& Objec
 {
 }
 
+UObject* INavLinkCustomInterface::GetLinkOwner() const
+{
+	return Cast<UObject>((INavLinkCustomInterface*)this);
+}
+
 uint32 INavLinkCustomInterface::GetUniqueId()
 {
 	return NextUniqueId++;

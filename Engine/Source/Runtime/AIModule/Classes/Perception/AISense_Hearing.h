@@ -67,6 +67,9 @@ public:
 	// part of BP interface. Translates PerceptionEvent to FAINoiseEvent and call RegisterEvent(const FAINoiseEvent& Event)
 	virtual void RegisterWrappedEvent(UAISenseEvent& PerceptionEvent) override;
 
+	UFUNCTION(BlueprintCallable, Category = "AI|Perception", meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
+	static void ReportNoiseEvent(UObject* WorldContext, FVector NoiseLocation, float Loudness = 1.f, AActor* Instigator = nullptr);
+
 protected:
 	virtual float Update() override;
 

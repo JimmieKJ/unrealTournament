@@ -47,6 +47,11 @@ public:
 	/** Resets accumulated offsets to (0,0), */
 	void ResetOffset();
 
+	/**
+	 * Invalidates whatever cached data cursor may have
+	 */
+	void InvalidateCaches();
+
 private:
 
 	EMouseCursor::Type CurrentType;
@@ -64,4 +69,13 @@ private:
 
 	/** Accumulated Y offset (from relative mouse movement events) used for reconstructing global cursor position */
 	int32 AccumulatedOffsetY;
+
+	/** Cached global X position */
+	mutable int32 CachedGlobalXPosition;
+
+	/** Cached global Y position */
+	mutable int32 CachedGlobalYPosition;
+
+	/** Whether mouse position cache is valid */
+	mutable bool bPositionCacheIsValid;
 };

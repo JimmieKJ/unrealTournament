@@ -65,6 +65,32 @@ public:
 		Term->CopyFromPin(Net, Net->PinName);
 		Context.NetMap.Add(Net, Term);
 	}
+
+	virtual void Compile(FKismetFunctionContext& Context, UEdGraphNode* Node) override
+	{
+		static const FBoolConfigValueHelper ExecutionAfterReturn(TEXT("Kismet"), TEXT("bExecutionAfterReturn"), GEngineIni);
+
+		if (ExecutionAfterReturn)
+		{
+			// for backward compatibility only
+			FKCHandler_VariableSet::Compile(Context, Node);
+		}
+		else
+		{
+			GenerateAssigments(Context, Node);
+
+			if (Context.bCreateDebugData && Node)
+			{
+				FBlueprintCompiledStatement& TraceStatement = Context.AppendStatementForNode(Node);
+				TraceStatement.Type = KCST_WireTraceSite;
+				TraceStatement.Comment = Node->NodeComment.IsEmpty() ? Node->GetName() : Node->NodeComment;
+			}
+
+			// always go to return
+			FBlueprintCompiledStatement& GotoStatement = Context.AppendStatementForNode(Node);
+			GotoStatement.Type = KCST_GotoReturn;
+		}
+	}
 };
 
 UK2Node_FunctionResult::UK2Node_FunctionResult(const FObjectInitializer& ObjectInitializer)
@@ -91,6 +117,20 @@ void UK2Node_FunctionResult::AllocateDefaultPins()
 	Super::AllocateDefaultPins();
 
 	FFillDefaultPinValueHelper::FillAll(this);
+}
+
+bool UK2Node_FunctionResult::CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage)
+{
+	bool bResult = Super::CanCreateUserDefinedPin(InPinType, InDesiredDirection, OutErrorMessage);
+	if (bResult)
+	{
+		if(InDesiredDirection == EGPD_Output)
+		{
+			OutErrorMessage = NSLOCTEXT("K2Node", "AddOutputPinError", "Cannot add output pins to function result node!");
+			bResult = false;
+		}
+	}
+	return bResult;
 }
 
 UEdGraphPin* UK2Node_FunctionResult::CreatePinFromUserDefinition(const TSharedPtr<FUserPinInfo> NewPinInfo)

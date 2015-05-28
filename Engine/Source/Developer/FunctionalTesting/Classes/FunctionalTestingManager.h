@@ -68,7 +68,7 @@ protected:
 	void AllTestsDone();
 
 	void OnWorldCleanedUp(UWorld* World, bool bSessionEnded, bool bCleanupResources);
-	virtual UWorld* GetWorld() const;
+	virtual UWorld* GetWorld() const override;
 	
 	bool bIsRunning;
 	bool bFinished;

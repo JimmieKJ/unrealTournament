@@ -2,7 +2,7 @@
 
 #pragma once
 
-class UDeviceProfile;
+#include "TextureLODSettingsDetails.h"
 
 
 /* FDeviceProfileParentPropertyDetails
@@ -65,7 +65,7 @@ private:
 	TArray<TSharedPtr<FString>> AvailableParentProfiles;
 	
 	/** A reference to the object we are showing these properties for */
-	UDeviceProfile* ActiveDeviceProfile;
+	class UDeviceProfile* ActiveDeviceProfile;
 };
 
 
@@ -159,7 +159,7 @@ private:
 };
 
 
-/* FDeviceProfileParentPropertyDetails
+/* FDeviceProfileDetails
  *****************************************************************************/
 
 /**
@@ -193,4 +193,7 @@ private:
 
 	/** Reference to the console variables property view */
 	TSharedPtr<FDeviceProfileConsoleVariablesPropertyDetails> ConsoleVariablesDetails;
+
+	/** Reference to the console variables property view */
+	TSharedPtr<FDeviceProfileTextureLODSettingsDetails> TextureLODSettingsDetails;
 };

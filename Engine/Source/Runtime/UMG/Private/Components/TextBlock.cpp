@@ -12,7 +12,6 @@ UTextBlock::UTextBlock(const FObjectInitializer& ObjectInitializer)
 {
 	bIsVariable = false;
 
-	Text = LOCTEXT("TextBlockDefaultValue", "Text Block");
 	ShadowOffset = FVector2D(1.0f, 1.0f);
 	ColorAndOpacity = FLinearColor::White;
 	ShadowColorAndOpacity = FLinearColor::Transparent;
@@ -53,6 +52,15 @@ void UTextBlock::SetShadowOffset(FVector2D InShadowOffset)
 	if( MyTextBlock.IsValid() )
 	{
 		MyTextBlock->SetShadowOffset(ShadowOffset);
+	}
+}
+
+void UTextBlock::SetJustification( ETextJustify::Type InJustification )
+{
+	Justification = InJustification;
+	if ( MyTextBlock.IsValid() )
+	{
+		MyTextBlock->SetJustification( Justification );
 	}
 }
 
@@ -171,6 +179,11 @@ const FSlateBrush* UTextBlock::GetEditorIcon()
 const FText UTextBlock::GetPaletteCategory()
 {
 	return LOCTEXT("Common", "Common");
+}
+
+void UTextBlock::OnCreationFromPalette()
+{
+	Text = LOCTEXT("TextBlockDefaultValue", "Text Block");
 }
 
 #endif

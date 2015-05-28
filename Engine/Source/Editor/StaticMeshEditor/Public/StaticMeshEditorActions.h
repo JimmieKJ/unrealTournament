@@ -41,6 +41,7 @@ public:
 	TSharedPtr< FUICommandInfo > SetShowTangents;
 	TSharedPtr< FUICommandInfo > SetShowBinormals;
 	TSharedPtr< FUICommandInfo > SetShowPivot;
+	TSharedPtr< FUICommandInfo > SetShowVertices;
 
 	// Collision Menu Commands
 	TSharedPtr< FUICommandInfo > CreateDOP10X;
@@ -60,6 +61,8 @@ public:
 	TSharedPtr< FUICommandInfo > FindSource;
 
 	TSharedPtr< FUICommandInfo > ChangeMesh;
+
+	TSharedPtr< FUICommandInfo > SaveGeneratedLODs;
 
 	/**
 	 * Initialize commands

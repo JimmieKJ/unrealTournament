@@ -13,6 +13,9 @@ namespace UnrealBuildTool
 	{
         static string EMCCPath;
         static string PythonPath;
+		static string EMSDKVersionString;
+        // Debug options -- TODO: add these to SDK/Project setup?
+        static bool   bEnableTracing = false;
 
 		// cache the location of SDK tools
 		public override void RegisterToolChain()
@@ -20,7 +23,8 @@ namespace UnrealBuildTool
             if (HTML5SDKInfo.IsSDKInstalled() && HTML5SDKInfo.IsPythonInstalled())
             {
                     EMCCPath = "\"" + HTML5SDKInfo.EmscriptenCompiler() + "\"";
-					PythonPath = HTML5SDKInfo.PythonPath(); 
+					PythonPath = HTML5SDKInfo.PythonPath();
+					EMSDKVersionString = HTML5SDKInfo.EmscriptenVersion().Replace(".", "");
 
 					// set some environment variable we'll need
 					//Environment.SetEnvironmentVariable("EMCC_DEBUG", "cache");
@@ -59,7 +63,6 @@ namespace UnrealBuildTool
             Result += " -Wno-logical-op-parentheses"; // appErrorf triggers this
             Result += " -Wno-array-bounds"; // some VectorLoads go past the end of the array, but it's okay in that case
             Result += " -Wno-invalid-offsetof"; // too many warnings kills windows clang. 
-            
 
             // JavsScript option overrides (see src/settings.js)
 
@@ -82,6 +85,11 @@ namespace UnrealBuildTool
                 Result += " -s NO_EXIT_RUNTIME=1 --memory-init-file 1";
             }
 
+            if (bEnableTracing)
+            {
+            	Result += " --tracing";
+            }
+
             return Result;
 		}
 		
@@ -98,6 +106,7 @@ namespace UnrealBuildTool
 							}*/
 
 				Result += " -Wno-warn-absolute-paths ";
+				Result += " -Wno-reorder"; // we disable constructor order warnings.
 
 				if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
 				{
@@ -184,7 +193,7 @@ namespace UnrealBuildTool
 				}
 				if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Development)
 				{
-					Result += " -O2 -s ASM_JS=1 -s OUTLINING_LIMIT=110000   -g2 ";
+					Result += " -O2 -s ASM_JS=1 -s OUTLINING_LIMIT=110000 ";
 				}
 				if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping)
 				{
@@ -194,8 +203,6 @@ namespace UnrealBuildTool
 				Result += " -s CASE_INSENSITIVE_FS=1 ";
 
 
-                string BaseSDKPath = HTML5SDKInfo.EmscriptenSDKPath();
-				Result += " --js-library \"" + BaseSDKPath + "/Src/library_openal.js\" ";
 			}
 
 			return Result;
@@ -310,6 +317,13 @@ namespace UnrealBuildTool
 				Arguments += string.Format(" -D{0}", Definition);
 			}
 
+			if (bEnableTracing)
+			{
+				Arguments += string.Format(" -D__EMSCRIPTEN_TRACING__");
+			}
+
+			Arguments += string.Format(" -D__EMCC_VER__={0}", EMSDKVersionString);
+
         
 			var BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Config.Target.Platform);
 
@@ -349,7 +363,7 @@ namespace UnrealBuildTool
 
 				CompileAction.CommandArguments = EMCCPath + " " + Arguments + FileArguments + CompileEnvironment.Config.AdditionalArguments;
 
-                System.Console.WriteLine(CompileAction.CommandArguments); 
+                //System.Console.WriteLine(CompileAction.CommandArguments); 
 				CompileAction.StatusDescription = Path.GetFileName(SourceFile.AbsolutePath);
 				CompileAction.OutputEventHandler = new DataReceivedEventHandler(CompileOutputReceivedDataEventHandler);
 
@@ -459,7 +473,7 @@ namespace UnrealBuildTool
 			// Add the input files to a response file, and pass the response file on the command-line.
 			foreach (FileItem InputFile in LinkEnvironment.InputFiles)
 			{
-                System.Console.WriteLine("File  {0} ", InputFile.AbsolutePath);
+                //System.Console.WriteLine("File  {0} ", InputFile.AbsolutePath);
                 LinkAction.CommandArguments += string.Format(" \"{0}\"", InputFile.AbsolutePath);
 				LinkAction.PrerequisiteItems.Add(InputFile);
 			}
@@ -497,7 +511,7 @@ namespace UnrealBuildTool
 
 		    FileItem OutputBC = FileItem.GetItemByPath(LinkEnvironment.Config.OutputFilePath.Replace(".js", ".bc").Replace(".html", ".bc"));
 		    LinkAction.ProducedItems.Add(OutputBC);
-		    LinkAction.CommandArguments += string.Format(" --save-bc \"{0}\"", OutputBC.AbsolutePath);
+			LinkAction.CommandArguments += " --emit-symbol-map " + string.Format(" --save-bc \"{0}\"", OutputBC.AbsolutePath);
 
      		LinkAction.StatusDescription = Path.GetFileName(OutputFile.AbsolutePath);
 			LinkAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
@@ -510,10 +524,14 @@ namespace UnrealBuildTool
 			throw new BuildException("HTML5 cannot compile C# files");
 		}
 
-        public override void AddFilesToManifest(BuildManifest Manifest, UEBuildBinary Binary)
+        public override void AddFilesToReceipt(BuildReceipt Receipt, UEBuildBinary Binary)
         {
-            // we need to include the generated .mem file.  
-            Manifest.AddBuildProduct(Binary.Config.OutputFilePath + ".mem");
+            // we need to include the generated .mem and .symbols file.  
+			if(Binary.Config.Type != UEBuildBinaryType.StaticLibrary)
+			{
+	            Receipt.AddBuildProduct(Binary.Config.OutputFilePath + ".mem", BuildProductType.RequiredResource);
+				Receipt.AddBuildProduct(Binary.Config.OutputFilePath + ".symbols", BuildProductType.RequiredResource);
+			}
         }
 
 		public override UnrealTargetPlatform GetPlatform()

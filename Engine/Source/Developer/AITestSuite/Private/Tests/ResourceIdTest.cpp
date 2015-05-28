@@ -15,7 +15,7 @@ struct FAITest_ResourceIDBasic : public FAITestBase
 		Test(TEXT("Resource ID's indexes are broken!"), FAIResources::Movement == MovementID);
 	}
 };
-IMPLEMENT_AI_INSTANT_TEST(FAITest_ResourceIDBasic, "Engine.AI.Resource ID.Basic operations")
+IMPLEMENT_AI_INSTANT_TEST(FAITest_ResourceIDBasic, "System.Engine.AI.Resource ID.Basic operations")
 
 //----------------------------------------------------------------------//
 // 
@@ -63,7 +63,7 @@ struct FAITest_ResourceLock : public FAITestBase
 		Test(TEXT("At this point both locks should be identical"), MockLock == MockLock2);
 	}
 };
-IMPLEMENT_AI_INSTANT_TEST(FAITest_ResourceLock, "Engine.AI.Resource ID.Resource locking")
+IMPLEMENT_AI_INSTANT_TEST(FAITest_ResourceLock, "System.Engine.AI.Resource ID.Resource locking")
 
 //----------------------------------------------------------------------//
 // 
@@ -120,7 +120,7 @@ struct FAITest_ResourceSet : public FAITestBase
 		}
 	}
 };
-IMPLEMENT_AI_INSTANT_TEST(FAITest_ResourceSet, "Engine.AI.Resource ID.Resource locking")
+IMPLEMENT_AI_INSTANT_TEST(FAITest_ResourceSet, "System.Engine.AI.Resource ID.Resource locking")
 
 //----------------------------------------------------------------------//
 // 
@@ -149,7 +149,7 @@ struct FAITest_PawnActions_PausingActionsOfSameResource : public FAITest_SimpleA
 		Test(TEXT("First MoveAction should get paused"), MoveAction->IsPaused() == true);
 	}
 };
-IMPLEMENT_AI_INSTANT_TEST(FAITest_PawnActions_PausingActionsOfSameResource, "Engine.AI.Pawn Actions.Pausing actions of same resource")
+IMPLEMENT_AI_INSTANT_TEST(FAITest_PawnActions_PausingActionsOfSameResource, "System.Engine.AI.Pawn Actions.Pausing actions of same resource")
 
 //----------------------------------------------------------------------//
 // 
@@ -179,4 +179,4 @@ struct FAITest_PawnActions_NotPausingActionsOfDifferentResources : public FAITes
 		//Test(TEXT("First MoveAction should get paused"), MoveAction->IsPaused() == false && PerceptionAction->IsPaused() == false);
 	}
 };
-IMPLEMENT_AI_INSTANT_TEST(FAITest_PawnActions_NotPausingActionsOfDifferentResources, "Engine.AI.Pawn Actions.Not pausing actions of different resources")
+IMPLEMENT_AI_INSTANT_TEST(FAITest_PawnActions_NotPausingActionsOfDifferentResources, "System.Engine.AI.Pawn Actions.Not pausing actions of different resources")

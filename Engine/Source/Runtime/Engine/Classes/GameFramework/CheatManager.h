@@ -67,10 +67,6 @@ class ENGINE_API UCheatManager : public UObject
 	UPROPERTY()
 	TSubclassOf<class ADebugCameraController>  DebugCameraControllerClass;
 
-	/** Holds information about VisualLogger on server - came from replication */
-	UPROPERTY(ReplicatedUsing = OnRep_VisualLoggerActiveOnServer)
-	bool bVisualLoggerActiveOnServer;
-
 	// Trace/Sweep debug start
 	/** If we should should perform a debug capsule trace and draw results. Toggled with DebugCapsuleSweep() */
 	uint32 bDebugCapsuleSweep:1;
@@ -156,6 +152,10 @@ class ENGINE_API UCheatManager : public UObject
 	UFUNCTION(exec)
 	virtual void DestroyAll(TSubclassOf<class AActor>  aClass);
 
+	/** Destroy all pawns except for the (pawn) target.  If no (pawn) target is found we don't destroy anything. */
+	UFUNCTION(exec)
+	void DestroyAllPawnsExceptTarget();
+
 	/** Destroys (by calling destroy directly) all non-player pawns of class aClass in the level */
 	UFUNCTION(exec)
 	virtual void DestroyPawns(TSubclassOf<class APawn> aClass);
@@ -206,10 +206,6 @@ class ENGINE_API UCheatManager : public UObject
 
 	UFUNCTION(reliable, server, WithValidation)
 	virtual void ServerToggleAILogging();
-
-	/** after bVisualLoggerActiveOnServer replication callback */
-	UFUNCTION()
-	virtual void OnRep_VisualLoggerActiveOnServer();
 
 	/** Toggle capsule trace debugging. Will trace a capsule from current view point and show where it hits the world */
 	UFUNCTION(exec)
@@ -308,6 +304,14 @@ class ENGINE_API UCheatManager : public UObject
 	UFUNCTION(exec)
 	void SetWorldOrigin();
 
+	/** Exec function to return the mouse sensitivity to its default value */
+	UFUNCTION(exec)
+	void SetMouseSensitivityToDefault();
+
+	/** Backwards compatibility exec function for people used to it instead of using InvertAxisKey */
+	UFUNCTION(exec)
+	void InvertMouse();
+
 	/**
 	 * This will move the player and set their rotation to the passed in values.
 	 * This actually does the location / rotation setting.  Additionally it will set you as ghost as the level may have
@@ -353,7 +357,7 @@ class ENGINE_API UCheatManager : public UObject
 	virtual void BeginDestroy() override;
 
 	/** Use the Outer Player Controller to get a World.  */
-	UWorld* GetWorld() const;
+	virtual UWorld* GetWorld() const override;
 protected:
 
 	/** Do game specific bugIt */

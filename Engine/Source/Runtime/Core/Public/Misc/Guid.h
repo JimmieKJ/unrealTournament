@@ -121,7 +121,7 @@ public:
 		return	((X.A < Y.A) ? true : ((X.A > Y.A) ? false :
 				((X.B < Y.B) ? true : ((X.B > Y.B) ? false :
 				((X.C < Y.C) ? true : ((X.C > Y.C) ? false :
-				((X.D < Y.D) ? true : ((X.D > Y.D) ? false : false ))))))));
+				((X.D < Y.D) ? true : ((X.D > Y.D) ? false : false )))))))); //-V583
 	}
 
 	/**

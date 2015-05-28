@@ -55,7 +55,7 @@ public:
 
 	// SWidget interface
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
-	virtual FVector2D ComputeDesiredSize() const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual FChildren* GetChildren() override;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	// End of SWidget interface
@@ -69,11 +69,20 @@ public:
 	/** Remove all the children from this panel */
 	void ClearItems();
 
+	/** @return the uniform desired item width used when arranging children. */
+	float GetDesiredItemWidth() const;
+
 	/** @return the uniform item width used when arranging children. */
-	float GetItemWidth() const;
+	float GetItemWidth(const FGeometry& AllottedGeometry) const;
+
+	/** @return the uniform item width used when arranging children. */
+	float GetItemWidth(const FGeometry& AllottedGeometry, const EListItemAlignment ListItemAlignment) const;
 
 	/** @return the horizontal padding applied to each tile item */
 	float GetItemPadding(const FGeometry& AllottedGeometry) const;
+
+	/** @return the horizontal padding applied to each tile item */
+	float GetItemPadding(const FGeometry& AllottedGeometry, const EListItemAlignment ListItemAlignment) const;
 
 	/** @return the horizontal padding applied to all the items on a line */
 	float GetLinePadding(const FGeometry& AllottedGeometry, const int32 LineStartIndex) const;

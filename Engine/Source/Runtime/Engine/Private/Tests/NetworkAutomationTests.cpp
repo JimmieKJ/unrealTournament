@@ -24,7 +24,7 @@ namespace EMultiplayerAutomationRoles
  * 2-Multiplayer session automation test
  * Verification for 2 player multiplayer session start up and tear down
  */
-IMPLEMENT_NETWORKED_AUTOMATION_TEST( FMultiplayer4PlayerTest, "Networking.Multiplayer.TwoPlayerSessionStartupShutdown", EAutomationTestFlags::ATF_Game, EMultiplayerAutomationRoles::MaxNumParticipants )
+IMPLEMENT_NETWORKED_AUTOMATION_TEST( FMultiplayer4PlayerTest, "System.Networking.Multiplayer.TwoPlayerSessionStartupShutdown", EAutomationTestFlags::ATF_Game, EMultiplayerAutomationRoles::MaxNumParticipants )
 
 
 /** 

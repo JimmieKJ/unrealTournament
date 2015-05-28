@@ -9,10 +9,11 @@
 #include "WorldTileModel.h"
 #include "Engine/LevelBounds.h"
 #include "Engine/WorldComposition.h"
-#include "Landscape.h"
 #include "GameFramework/WorldSettings.h"
 #include "Engine/LevelStreaming.h"
 #include "Engine/LevelStreamingKismet.h"
+#include "Landscape.h"
+#include "AssetData.h"
 
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
@@ -29,17 +30,14 @@ FWorldTileModel::FWorldTileModel(const TWeakObjectPtr<UEditorEngine>& InEditor,
 	UWorldComposition* WorldComposition = LevelCollectionModel.GetWorld()->WorldComposition;
 
 	// Tile display details object
-	TileDetails = Cast<UWorldTileDetails>(
-		StaticConstructObject(UWorldTileDetails::StaticClass(), 
-			GetTransientPackage(), NAME_None, RF_RootSet|RF_Transient, NULL
-			)
-		);
+	TileDetails = NewObject<UWorldTileDetails>(GetTransientPackage(), NAME_None, RF_RootSet | RF_Transient);
 
 	// Subscribe to tile properties changes
 	TileDetails->PositionChangedEvent.AddRaw(this, &FWorldTileModel::OnPositionPropertyChanged);
 	TileDetails->ParentPackageNameChangedEvent.AddRaw(this, &FWorldTileModel::OnParentPackageNamePropertyChanged);
 	TileDetails->LODSettingsChangedEvent.AddRaw(this, &FWorldTileModel::OnLODSettingsPropertyChanged);
 	TileDetails->ZOrderChangedEvent.AddRaw(this, &FWorldTileModel::OnZOrderPropertyChanged);
+	TileDetails->HideInTileViewChangedEvent.AddRaw(this, &FWorldTileModel::OnHideInTileViewChanged);
 			
 	// Initialize tile details
 	if (WorldComposition->GetTilesList().IsValidIndex(TileIdx))
@@ -50,6 +48,7 @@ FWorldTileModel::FWorldTileModel(const TWeakObjectPtr<UEditorEngine>& InEditor,
 		TileDetails->bPersistentLevel = false;
 				
 		// Asset name for storing tile thumbnail inside package
+		SetAssetName(Tile.PackageName);
 		//FString AssetNameString = FString::Printf(TEXT("%s %s.TheWorld:PersistentLevel"), *ULevel::StaticClass()->GetName(), *Tile.PackageName.ToString());
 		FString AssetNameString = FString::Printf(TEXT("%s %s"), *UPackage::StaticClass()->GetName(), *Tile.PackageName.ToString());
 		AssetName =	FName(*AssetNameString);
@@ -115,6 +114,12 @@ bool FWorldTileModel::IsRootTile() const
 	return TileDetails->bPersistentLevel;
 }
 
+void FWorldTileModel::SetAssetName(const FName& PackageName)
+{
+	FString AssetNameString = FString::Printf(TEXT("%s %s"), *UPackage::StaticClass()->GetName(), *PackageName.ToString());
+	AssetName = FName(*AssetNameString);
+}
+
 FName FWorldTileModel::GetAssetName() const
 {
 	return AssetName;
@@ -123,6 +128,28 @@ FName FWorldTileModel::GetAssetName() const
 FName FWorldTileModel::GetLongPackageName() const
 {
 	return TileDetails->PackageName;
+}
+
+void FWorldTileModel::UpdateAsset(const FAssetData& AssetData)
+{
+	check(TileDetails != nullptr);
+	const FName OldPackageName = TileDetails->PackageName;
+
+	// Patch up any parent references which have been renamed
+	for (const TSharedPtr<FLevelModel>& LevelModel : LevelCollectionModel.GetAllLevels())
+	{
+		TSharedPtr<FWorldTileModel> WorldTileModel = StaticCastSharedPtr<FWorldTileModel>(LevelModel);
+
+		check(WorldTileModel->TileDetails != nullptr);
+		if (WorldTileModel->TileDetails->ParentPackageName == OldPackageName)
+		{
+			WorldTileModel->TileDetails->ParentPackageName = AssetData.PackageName;
+		}
+	}
+
+	const FName PackageName = AssetData.PackageName;
+	SetAssetName(PackageName);
+	TileDetails->PackageName = PackageName;
 }
 
 FVector2D FWorldTileModel::GetLevelPosition2D() const
@@ -425,7 +452,7 @@ void FWorldTileModel::SetLevelPosition(const FIntPoint& InPosition)
 	
 	// Move actors if necessary
 	ULevel* Level = GetLevelObject();
-	if (Level != NULL && Level->bIsVisible)
+	if (Level != nullptr && Level->bIsVisible)
 	{
 		// Shelve level, if during this translation level will end up out of Editable area
 		if (!ShouldBeVisible(LevelCollectionModel.EditableWorldArea()))
@@ -437,12 +464,22 @@ void FWorldTileModel::SetLevelPosition(const FIntPoint& InPosition)
 		if (Offset != FIntPoint::ZeroValue)
 		{
 			Level->ApplyWorldOffset(FVector(Offset), false);
+
+			for (auto Actor : Level->Actors)
+			{
+				if (Actor != nullptr)
+				{
+					Editor->BroadcastOnActorMoved(Actor);
+				}
+			}
 		}
 	}
 
 	if (IsLandscapeBased())
 	{
 		UpdateLandscapeSectionsOffset(Offset);
+		bool bShowWarnings = true;
+		ULandscapeInfo::RecreateLandscapeInfo(LevelCollectionModel.GetWorld(), bShowWarnings);
 	}
 	
 	// Transform child levels
@@ -566,9 +603,7 @@ ULevelStreaming* FWorldTileModel::GetAssosiatedStreamingLevel()
 	if (Index == INDEX_NONE)
 	{
 		// Create new streaming level
-		ULevelStreaming* AssociatedStreamingLevel = Cast<ULevelStreaming>(
-			StaticConstructObject(ULevelStreamingKismet::StaticClass(), PersistentWorld, NAME_None, RF_Transient, NULL)
-			);
+		auto AssociatedStreamingLevel = NewObject<ULevelStreamingKismet>(PersistentWorld, NAME_None, RF_Transient);
 
 		//
 		AssociatedStreamingLevel->SetWorldAssetByPackageName(PackageName);
@@ -620,6 +655,11 @@ void FWorldTileModel::OnParentChanged()
 	}
 		
 	OnLevelInfoUpdated();
+}
+
+bool FWorldTileModel::IsVisibleInCompositionView() const
+{
+	return !TileDetails->bHideInTileView && LevelCollectionModel.PassesAllFilters(*this);
 }
 
 void FWorldTileModel::OnLevelBoundsActorUpdated()
@@ -729,6 +769,11 @@ void FWorldTileModel::OnZOrderPropertyChanged()
 	OnLevelInfoUpdated();
 }
 
+void FWorldTileModel::OnHideInTileViewChanged()
+{
+	OnLevelInfoUpdated();
+}
+
 bool FWorldTileModel::CreateAdjacentLandscapeProxy(ALandscapeProxy* SourceLandscape, FIntPoint SourceTileOffset, FWorldTileModel::EWorldDirections InWhere)
 {
 	if (!IsLoaded())	
@@ -743,14 +788,15 @@ bool FWorldTileModel::CreateAdjacentLandscapeProxy(ALandscapeProxy* SourceLandsc
 	FIntPoint SourceLandscapeSize = SourceLandscapeRect.Size();
 
 	FLandscapeImportSettings ImportSettings = {};
-	ImportSettings.LandscapeGuid = SourceLandscape->GetLandscapeGuid();
-	ImportSettings.ComponentSizeQuads = SourceLandscape->ComponentSizeQuads;
+	ImportSettings.LandscapeGuid		= SourceLandscape->GetLandscapeGuid();
+	ImportSettings.LandscapeMaterial	= SourceLandscape->GetLandscapeMaterial();
+	ImportSettings.ComponentSizeQuads	= SourceLandscape->ComponentSizeQuads;
+	ImportSettings.QuadsPerSection		= SourceLandscape->SubsectionSizeQuads;
 	ImportSettings.SectionsPerComponent = SourceLandscape->NumSubsections;
-	ImportSettings.QuadsPerSection = SourceLandscape->SubsectionSizeQuads;
-	ImportSettings.SizeX = SourceLandscapeRect.Width() + 1;
-	ImportSettings.SizeY = SourceLandscapeRect.Height() + 1;
+	ImportSettings.SizeX				= SourceLandscapeRect.Width() + 1;
+	ImportSettings.SizeY				= SourceLandscapeRect.Height() + 1;
 
-	// Initialize blank heightmap data
+	// Initialize with blank heightmap data
 	ImportSettings.HeightData.AddUninitialized(ImportSettings.SizeX * ImportSettings.SizeY);
 	for (auto& HeightSample : ImportSettings.HeightData)
 	{
@@ -758,18 +804,18 @@ bool FWorldTileModel::CreateAdjacentLandscapeProxy(ALandscapeProxy* SourceLandsc
 	}
 
 	// Set proxy location at landscape bounds Min point
-	ImportSettings.LandscapeTransform.SetLocation(-FVector(SourceLandscapeSize, 0.f)*SourceLandscapeScale*0.5f + FVector(0.f, 0.f, SourceLandscape->GetActorLocation().Z));
+	ImportSettings.LandscapeTransform.SetLocation(FVector(0.f, 0.f, SourceLandscape->GetActorLocation().Z));
 	ImportSettings.LandscapeTransform.SetScale3D(SourceLandscapeScale);
 	
 	// Create new landscape object
-	ALandscapeProxy* AdjacenLandscape = ImportLandscape(ImportSettings);
-	if (AdjacenLandscape)
+	ALandscapeProxy* AdjacentLandscape = ImportLandscapeTile(ImportSettings);
+	if (AdjacentLandscape)
 	{
 		// Copy source landscape properties 
-		AdjacenLandscape->GetSharedProperties(SourceLandscape);
+		AdjacentLandscape->GetSharedProperties(SourceLandscape);
 		
 		// Refresh level model bounding box
-		FBox AdjacentLandscapeBounds = AdjacenLandscape->GetComponentsBoundingBox(true);
+		FBox AdjacentLandscapeBounds = AdjacentLandscape->GetComponentsBoundingBox(true);
 		TileDetails->Bounds = AdjacentLandscapeBounds;
 
 		// Calculate proxy offset from source landscape actor
@@ -803,36 +849,29 @@ bool FWorldTileModel::CreateAdjacentLandscapeProxy(ALandscapeProxy* SourceLandsc
 	return false;
 }
 
-ALandscapeProxy* FWorldTileModel::ImportLandscape(const FLandscapeImportSettings& Settings)
+ALandscapeProxy* FWorldTileModel::ImportLandscapeTile(const FLandscapeImportSettings& Settings)
 {
 	if (!IsLoaded())
 	{
 		return nullptr;
 	}
 	
-	ALandscapeProxy*	LandscapeProxy;
-	FGuid				LandscapeGuid = Settings.LandscapeGuid;
+	check(Settings.LandscapeGuid.IsValid())
 	
-	if (LandscapeGuid.IsValid())
-	{
-		LandscapeProxy = Cast<UWorld>(LoadedLevel->GetOuter())->SpawnActor<ALandscapeProxy>();
-	}
-	else
-	{
-		LandscapeProxy = Cast<UWorld>(LoadedLevel->GetOuter())->SpawnActor<ALandscape>();
-		LandscapeGuid = FGuid::NewGuid();
-	}
-	
+	ALandscapeProxy* LandscapeProxy = Cast<UWorld>(LoadedLevel->GetOuter())->SpawnActor<ALandscapeProxy>();
 	LandscapeProxy->SetActorTransform(Settings.LandscapeTransform);
-	
+		
 	if (Settings.LandscapeMaterial)
 	{
 		LandscapeProxy->LandscapeMaterial = Settings.LandscapeMaterial;
 	}
 	
+	// Cache pointer to landscape in the level model
+	Landscape = LandscapeProxy;
+
 	// Create landscape components	
 	LandscapeProxy->Import(
-		LandscapeGuid, 
+		Settings.LandscapeGuid, 
 		Settings.SizeX, 
 		Settings.SizeY, 
 		Settings.ComponentSizeQuads, 

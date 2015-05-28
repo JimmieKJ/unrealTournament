@@ -379,6 +379,12 @@ public:
 	 * @return				True if this value is restricted.
 	 */
 	virtual bool GenerateRestrictionToolTip(const FString& Value, FText& OutTooltip)const = 0;
+
+	 /** 
+	  * Sets whether or not data validation should occur for this property and all of its children. It is generally unsafe to set this value unless you know what you are doing.  Data validation done by the details panel ensures changes to properties out from under the details panel are known
+	  * This should only ever be set for extremely large arrays or other costly validation checks where validation is handled by the customizer
+	  */
+	virtual void SetIgnoreValidation(bool bInIgnore) = 0;
 };
 
 /**

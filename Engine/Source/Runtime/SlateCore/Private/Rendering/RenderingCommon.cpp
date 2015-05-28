@@ -73,10 +73,14 @@ FSlateVertex::FSlateVertex()
 }
 
 FSlateVertex::FSlateVertex(const FSlateRenderTransform& RenderTransform, const FVector2D& InLocalPosition, const FVector2D& InTexCoord, const FVector2D& InTexCoord2, const FColor& InColor, const FSlateRotatedClipRectType& InClipRect )
-	: TexCoords( InTexCoord, InTexCoord2 )
-	, ClipRect( InClipRect )
+	: ClipRect( InClipRect )
 	, Color( InColor )
 {
+	TexCoords[0] = InTexCoord.X;
+	TexCoords[1] = InTexCoord.Y;
+	TexCoords[2] = InTexCoord2.X;
+	TexCoords[3] = InTexCoord2.Y;
+
 	const FVector2D WindowPosition = TransformPoint(RenderTransform, InLocalPosition);
 	// Pixel snapping here.
 	Position[0] = FMath::RoundToInt(WindowPosition.X);
@@ -84,10 +88,14 @@ FSlateVertex::FSlateVertex(const FSlateRenderTransform& RenderTransform, const F
 }
 
 FSlateVertex::FSlateVertex( const FSlateRenderTransform& RenderTransform, const FVector2D& InLocalPosition, const FVector2D& InTexCoord, const FColor& InColor, const FSlateRotatedClipRectType& InClipRect )
-	: TexCoords( InTexCoord, FVector2D(1.0f, 1.0f) )
-	, ClipRect( InClipRect )
+	: ClipRect( InClipRect )
 	, Color( InColor )
 {
+	TexCoords[0] = InTexCoord.X;
+	TexCoords[1] = InTexCoord.Y;
+	TexCoords[2] = 1.0f;
+	TexCoords[3] = 1.0f;
+
 	const FVector2D WindowPosition = TransformPoint(RenderTransform, InLocalPosition);
 	// Pixel snapping here.
 	Position[0] = FMath::RoundToInt(WindowPosition.X);

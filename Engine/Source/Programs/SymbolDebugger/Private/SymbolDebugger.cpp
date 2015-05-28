@@ -39,7 +39,7 @@ void FSymbolDebugger_AsyncInspect::DoWork()
 	}
 	else if ((EngineVersionName.Len() > 0) || (ChangelistName.Len() > 0))
 	{
-		const FString FoundLabel = CrashHelperModule->GetLabelFromChangelistNumber(FCString::Atoi(*ChangelistName));
+		const FString FoundLabel;// = CrashHelperModule->GetLabelFromChangelistNumber( FCString::Atoi( *ChangelistName ) );
 
 		if (FoundLabel.Len() > 0)
 		{
@@ -157,7 +157,7 @@ FSymbolDebugger::FSymbolDebugger()
 
 	CrashHelperModule = FModuleManager::LoadModuleChecked<FCrashDebugHelperModule>(FName("CrashDebugHelper")).Get();
 	check(CrashHelperModule != nullptr);
-	DepotName = CrashHelperModule->GetDepotName();
+	//DepotName = CrashHelperModule->GetDepotName();
 }
 
 bool FSymbolDebugger::SetCurrentMethod(SSymbolDebugger::ESymbolDebuggerMethods InNewMethod)
@@ -295,7 +295,7 @@ bool FSymbolDebugger::SetTextField(SSymbolDebugger::ESymbolDebuggerTextFields In
 	case SSymbolDebugger::TextField_SourceControlDepot:
 		{
 			DepotName = InNewName;
-			CrashHelperModule->SetDepotName(DepotName);
+			//CrashHelperModule->SetDepotName(DepotName);
 		}
 		break;
 	default:

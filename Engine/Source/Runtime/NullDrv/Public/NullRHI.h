@@ -4,11 +4,7 @@
 
 
 /** A null implementation of the dynamically bound RHI. */
-class FNullDynamicRHI
-	: public FDynamicRHI
-#if PLATFORM_RHI_USES_CONTEXT_OBJECT
-	, public IRHICommandContext
-#endif
+class FNullDynamicRHI : public FDynamicRHI , public IRHICommandContext
 {
 public:
 

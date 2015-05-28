@@ -6,7 +6,6 @@
 #include "KismetCompiler.h"
 #include "BlueprintNodeSpawner.h"
 #include "EditorCategoryUtils.h"
-#include "K2ActionMenuBuilder.h"
 
 #include "K2Node_CreateWidget.h"
 
@@ -59,18 +58,6 @@ UClass* UK2Node_CreateWidget::GetClassPinBaseClass() const
 FText UK2Node_CreateWidget::GetMenuCategory() const
 {
 	return FEditorCategoryUtils::GetCommonCategory(FCommonEditorCategory::UserInterface);
-}
-
-void UK2Node_CreateWidget::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	UK2Node_CreateWidget* TemplateNode = NewObject<UK2Node_CreateWidget>(GetTransientPackage(), GetClass());
-
-	const FString Category = TEXT("User Interface");
-	const FText   MenuDesc = LOCTEXT("CreateWidgetMenuOption", "Create Widget...");
-	const FString Tooltip  = TEXT("Create a new UI widget");
-
-	TSharedPtr<FEdGraphSchemaAction_K2NewNode> NodeAction = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, Category, MenuDesc, Tooltip);
-	NodeAction->NodeTemplate = TemplateNode;
 }
 
 FName UK2Node_CreateWidget::GetCornerIcon() const

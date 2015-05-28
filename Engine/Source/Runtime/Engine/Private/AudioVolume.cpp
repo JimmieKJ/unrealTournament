@@ -146,10 +146,10 @@ AAudioVolume::AAudioVolume(const FObjectInitializer& ObjectInitializer)
 	bEnabled = true;
 }
 
-void AAudioVolume::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
+void AAudioVolume::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
-	Super::GetLifetimeReplicatedProps( OutLifetimeProps );
-	DOREPLIFETIME( AAudioVolume, bEnabled );
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AAudioVolume, bEnabled);
 }
 
 void AAudioVolume::PostUnregisterAllComponents( void )
@@ -158,26 +158,27 @@ void AAudioVolume::PostUnregisterAllComponents( void )
 	Super::PostUnregisterAllComponents();
 
 	// World will be NULL during exit purge.
-	if( GetWorld() )
+	UWorld* World = GetWorld();
+	if (World)
 	{
-		AAudioVolume* CurrentVolume = GetWorld()->HighestPriorityAudioVolume;
+		AAudioVolume* CurrentVolume = World->HighestPriorityAudioVolume;
 		AAudioVolume* PreviousVolume = NULL;
 
 		// Iterate over linked list, removing this volume if found.
-		while( CurrentVolume )
+		while (CurrentVolume)
 		{
 			// Found.
-			if( CurrentVolume == this )
+			if (CurrentVolume == this)
 			{
 				// Remove from linked list.
-				if( PreviousVolume )
+				if (PreviousVolume)
 				{
 					PreviousVolume->NextLowerPriorityVolume = NextLowerPriorityVolume;
 				}
 				else
 				{
 					// Special case removal from first entry.
-					GetWorld()->HighestPriorityAudioVolume = NextLowerPriorityVolume;
+					World->HighestPriorityAudioVolume = NextLowerPriorityVolume;
 				}
 
 				break;
@@ -189,9 +190,9 @@ void AAudioVolume::PostUnregisterAllComponents( void )
 		}
 
 		// Reset next pointer to avoid dangling end bits and also for GC.
-		NextLowerPriorityVolume = NULL;
+		NextLowerPriorityVolume = nullptr;
 
-		if (FAudioDevice* AudioDevice = GEngine->GetAudioDevice())
+		if (FAudioDevice* AudioDevice = World->GetAudioDevice())
 		{
 			AudioDevice->InvalidateCachedInteriorVolumes();
 		}
@@ -203,20 +204,21 @@ void AAudioVolume::PostRegisterAllComponents()
 	// Route update to super first.
 	Super::PostRegisterAllComponents();
 
-	AAudioVolume* CurrentVolume = GetWorld()->HighestPriorityAudioVolume;
-	AAudioVolume* PreviousVolume = NULL;
+	UWorld* World = GetWorld();
+	AAudioVolume* CurrentVolume = World->HighestPriorityAudioVolume;
+	AAudioVolume* PreviousVolume = nullptr;
 
 	// Find where to insert in sorted linked list.
-	if( CurrentVolume )
+	if (CurrentVolume)
 	{
 		// Avoid double insertion!
-		while( CurrentVolume && CurrentVolume != this )
+		while (CurrentVolume && CurrentVolume != this)
 		{
 			// We use > instead of >= to be sure that we are not inserting twice in the case of multiple volumes having
 			// the same priority and the current one already having being inserted after one with the same priority.
-			if( Priority > CurrentVolume->Priority )
+			if (Priority > CurrentVolume->Priority)
 			{
-				if ( PreviousVolume )
+				if (PreviousVolume)
 				{
 					// Insert before current node by fixing up previous to point to current.
 					PreviousVolume->NextLowerPriorityVolume = this;
@@ -224,7 +226,7 @@ void AAudioVolume::PostRegisterAllComponents()
 				else
 				{
 					// Special case for insertion at the beginning.
-					GetWorld()->HighestPriorityAudioVolume = this;
+					World->HighestPriorityAudioVolume = this;
 				}
 
 				// Point to current volume, finalizing insertion.
@@ -238,21 +240,21 @@ void AAudioVolume::PostRegisterAllComponents()
 		}
 
 		// We're the lowest priority volume, insert at the end.
-		if( !CurrentVolume )
+		if (!CurrentVolume)
 		{
-			checkSlow( PreviousVolume );
+			checkSlow(PreviousVolume);
 			PreviousVolume->NextLowerPriorityVolume = this;
-			NextLowerPriorityVolume = NULL;
+			NextLowerPriorityVolume = nullptr;
 		}
 	}
 	else
 	{
 		// First volume in the world info.
-		GetWorld()->HighestPriorityAudioVolume = this;
-		NextLowerPriorityVolume	= NULL;
+		World->HighestPriorityAudioVolume = this;
+		NextLowerPriorityVolume	= nullptr;
 	}
 
-	if (FAudioDevice* AudioDevice = GEngine->GetAudioDevice())
+	if (FAudioDevice* AudioDevice = World->GetAudioDevice())
 	{
 		AudioDevice->InvalidateCachedInteriorVolumes();
 	}

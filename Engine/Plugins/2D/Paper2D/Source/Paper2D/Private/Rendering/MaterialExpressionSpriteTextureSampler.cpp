@@ -12,19 +12,40 @@ UMaterialExpressionSpriteTextureSampler::UMaterialExpressionSpriteTextureSampler
 	: Super(ObjectInitializer)
 {
 	ParameterName = TEXT("SpriteTexture");
+	bSampleAdditionalTextures = false;
+	AdditionalSlotIndex = 0;
 }
 
 void UMaterialExpressionSpriteTextureSampler::GetCaption(TArray<FString>& OutCaptions) const
 {
-	OutCaptions.Add(TEXT("Paper2D"));
-	OutCaptions.Add(TEXT("SpriteTexture"));
+	OutCaptions.Add(TEXT("Paper2D Sprite"));
+
+	if (!SlotDisplayName.IsEmpty())
+	{
+		OutCaptions.Add(SlotDisplayName.ToString());
+	}
+
+	if (bSampleAdditionalTextures)
+	{
+		FNumberFormattingOptions NoCommas;
+		NoCommas.UseGrouping = false;
+		const FText SlotDesc = FText::Format(LOCTEXT("SpriteSamplerTitle_AdditionalSlot", "Additional Texture #{0}"), FText::AsNumber(AdditionalSlotIndex, &NoCommas));
+		OutCaptions.Add(SlotDesc.ToString());
+	}
+	else
+	{
+		OutCaptions.Add(LOCTEXT("SpriteSamplerTitle_BasicSlot", "Source Texture").ToString());
+	}
 }
 
 #if WITH_EDITOR
-FString UMaterialExpressionSpriteTextureSampler::GetKeywords() const
+FText UMaterialExpressionSpriteTextureSampler::GetKeywords() const
 {
-	FString ParentKeywords = Super::GetKeywords();
-	return ParentKeywords + TEXT(" Paper2D Sprite");
+	FText ParentKeywords = Super::GetKeywords();
+
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("ParentKeywords"), ParentKeywords);
+	return FText::Format(LOCTEXT("SpriteTextureSamplerKeywords", "{ParentKeywords} Paper2D Sprite"), Args);
 }
 
 bool UMaterialExpressionSpriteTextureSampler::CanRenameNode() const
@@ -35,13 +56,25 @@ bool UMaterialExpressionSpriteTextureSampler::CanRenameNode() const
 
 void UMaterialExpressionSpriteTextureSampler::GetExpressionToolTip(TArray<FString>& OutToolTip)
 {
-	OutToolTip.Add(LOCTEXT("SpriteTextureSamplerTooltip", "This is a texture sampler 2D with the parameter name fixed as 'SpriteTexture'. The texture specified here will be replaced by the SourceTexture of a Paper2D sprite if this material is used on a sprite.").ToString());
+	const FText MyTooltip = GetClass()->GetToolTipText(/*bShortTooltip=*/ true);
+	OutToolTip.Add(MyTooltip.ToString());
 }
 
 void UMaterialExpressionSpriteTextureSampler::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
+	// Clamp the slot index to something reasonably sane
+	AdditionalSlotIndex = FMath::Clamp<int32>(AdditionalSlotIndex, 0, 127);
+
 	// Ensure that the parameter name never changes
-	ParameterName = TEXT("SpriteTexture");
+	if (bSampleAdditionalTextures)
+	{
+		ParameterName = FName(TEXT("SpriteAdditionalTexture"), AdditionalSlotIndex + 1);
+	}
+	else
+	{
+		ParameterName = TEXT("SpriteTexture");
+	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 

@@ -8,8 +8,8 @@
 #define LOCTEXT_NAMESPACE "AnimMontageSegmentDetails"
 
 /////////////////////////////////////////////////////////////////////////
-FAnimationSegmentViewportClient::FAnimationSegmentViewportClient(FPreviewScene& InPreviewScene)
-	: FEditorViewportClient(nullptr, &InPreviewScene)
+FAnimationSegmentViewportClient::FAnimationSegmentViewportClient(FPreviewScene& InPreviewScene, const TWeakPtr<SEditorViewport>& InEditorViewportWidget)
+	: FEditorViewportClient(nullptr, &InPreviewScene, InEditorViewportWidget)
 {
 	SetViewMode(VMI_Lit);
 
@@ -180,6 +180,7 @@ void SAnimationSegmentViewport::Construct(const FArguments& InArgs)
 			.PreviewInstance(this, &SAnimationSegmentViewport::GetPreviewInstance)
 			.DraggableBars(this, &SAnimationSegmentViewport::GetBars)
 			.OnBarDrag(this, &SAnimationSegmentViewport::OnBarDrag)
+			.OnTickPlayback(this, &SAnimationSegmentViewport::OnTickPreview)
 			.bAllowZoom(true)
 		]
 	];
@@ -201,7 +202,7 @@ void SAnimationSegmentViewport::Construct(const FArguments& InArgs)
 
 	ViewportWidget->SetViewportInterface( SceneViewport.ToSharedRef() );
 	
-	PreviewComponent = ConstructObject<UDebugSkelMeshComponent>(UDebugSkelMeshComponent::StaticClass());
+	PreviewComponent = NewObject<UDebugSkelMeshComponent>();
 	PreviewComponent->bEnablePhysicsOnDedicatedServer = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	PreviewScene.AddComponent(PreviewComponent, FTransform::Identity);
 
@@ -243,13 +244,25 @@ void SAnimationSegmentViewport::InitSkeleton()
 	TargetSkeleton = Skeleton;
 }
 
-void SAnimationSegmentViewport::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SAnimationSegmentViewport::OnTickPreview( double InCurrentTime, float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	// Clamp the sequence playing to the start/end values of the anim segment
+	float Start, End;
+	StartTimePropertyHandle->GetValue( Start );
+	EndTimePropertyHandle->GetValue( End );
+	if ( PreviewComponent->PreviewInstance->CurrentTime > End || PreviewComponent->PreviewInstance->CurrentTime < Start )
+	{
+		PreviewComponent->PreviewInstance->SetPosition( Start, false );
+	}
 
+	LevelViewportClient->Invalidate();
+}
+
+void SAnimationSegmentViewport::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
 	class UDebugSkelMeshComponent* Component = PreviewComponent;
 
-	FString TargetSkeletonName = TargetSkeleton ?TargetSkeleton->GetName() : FName(NAME_None).ToString();
+	FString TargetSkeletonName = TargetSkeleton ? TargetSkeleton->GetName() : FName(NAME_None).ToString();
 
 	if (Component != NULL)
 	{
@@ -258,20 +271,6 @@ void SAnimationSegmentViewport::Tick(const FGeometry& AllottedGeometry, const do
 
 		if (Component->IsPreviewOn())
 		{
-			if(PreviewComponent != NULL && PreviewComponent->PreviewInstance != NULL)
-			{
-				// Clamp the sequence playing to the start/end values of the anim segment
-				float Start, End;
-				StartTimePropertyHandle->GetValue(Start);
-				EndTimePropertyHandle->GetValue(End);
-				if(PreviewComponent->PreviewInstance->CurrentTime > End || PreviewComponent->PreviewInstance->CurrentTime < Start)
-				{
-					PreviewComponent->PreviewInstance->SetPosition(Start, false);
-					// reinvalidate the viewport
-					LevelViewportClient->Invalidate();
-				}
-			}
-
 			Description->SetText(FText::Format( LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()) ));
 		}
 		else if (Component->AnimBlueprintGeneratedClass)
@@ -402,6 +401,7 @@ void SAnimationSegmentScrubPanel::Construct( const SAnimationSegmentScrubPanel::
 				.IsRealtimeStreamingMode(this, &SAnimationSegmentScrubPanel::IsRealtimeStreamingMode)
 				.DraggableBars(InArgs._DraggableBars)
 				.OnBarDrag(InArgs._OnBarDrag)
+				.OnTickPlayback(InArgs._OnTickPlayback)
 			]
 		];
 
@@ -414,7 +414,6 @@ SAnimationSegmentScrubPanel::~SAnimationSegmentScrubPanel()
 
 FReply SAnimationSegmentScrubPanel::OnClick_Forward()
 {
-	
 	UAnimSingleNodeInstance* PreviewInst = GetPreviewInstance();
 	if (PreviewInst)
 	{

@@ -56,6 +56,9 @@ public:
 		/** Called when the slider for any axis is released */
 		SLATE_EVENT( FOnFloatValueChanged, OnEndSliderMovement )
 
+		/** Provide custom type functionality for the rotator */
+		SLATE_ARGUMENT( TSharedPtr< INumericTypeInterface<float> >, TypeInterface )
+
 	SLATE_END_ARGS()
 
 	/**

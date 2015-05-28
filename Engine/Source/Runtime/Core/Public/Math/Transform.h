@@ -26,7 +26,7 @@ struct FTransform
 #else
 	#define MAYBE_COREUOBJECT_API COREUOBJECT_API
 #endif
-	friend MAYBE_COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_UObject_FTransform();
+	friend MAYBE_COREUOBJECT_API class UScriptStruct* Z_Construct_UScriptStruct_FTransform();
 
 protected:
 	/** Rotation of this transformation, as a quaternion. */
@@ -288,8 +288,11 @@ public:
 	*/
 	FORCEINLINE FTransform Inverse() const
 	{
-		// todo: optimize
-		return FTransform(ToMatrixWithScale().Inverse());
+		FQuat   InvRotation    = Rotation.Inverse();
+		FVector InvScale3D     = Scale3D.Reciprocal();
+		FVector InvTranslation = InvRotation * (InvScale3D * -Translation);
+
+		return FTransform(InvRotation, InvTranslation, InvScale3D);
 	}
 
 	/**
@@ -511,6 +514,7 @@ public:
 	FORCEINLINE FVector4	TransformFVector4(const FVector4& V) const;
 	FORCEINLINE FVector4	TransformFVector4NoScale(const FVector4& V) const;
 	FORCEINLINE FVector		TransformPosition(const FVector& V) const;
+	FORCEINLINE FVector		TransformPositionNoScale(const FVector& V) const;
 
 
 	/** Inverts the matrix and then transforms V - correctly handles scaling in this matrix. */
@@ -535,7 +539,7 @@ public:
 	FORCEINLINE FVector		GetScaledAxis(EAxis::Type InAxis) const;
 	FORCEINLINE FVector		GetUnitAxis(EAxis::Type InAxis) const;
 	FORCEINLINE void		Mirror(EAxis::Type MirrorAxis, EAxis::Type FlipAxis);
-	FORCEINLINE FVector		GetSafeScaleReciprocal(const FVector& InScale) const;
+	static FORCEINLINE FVector		GetSafeScaleReciprocal(const FVector& InScale);
 
 	// temp function for easy conversion
 	FORCEINLINE FVector GetLocation() const
@@ -1138,7 +1142,7 @@ FORCEINLINE FVector4 FTransform::TransformFVector4NoScale(const FVector4& V) con
 
 	//Transform using QST is following
 	//QST(P) = Q*S*P*-Q + T where Q = quaternion, S = scale, T = translation
-	FVector4 Transform = Rotation*V;
+	FVector4 Transform = Rotation.RotateVector(V);
 	if (V.W == 1.f)
 	{
 		Transform += FVector4(Translation, 1.f);
@@ -1158,7 +1162,7 @@ FORCEINLINE FVector4 FTransform::TransformFVector4(const FVector4& V) const
 	//Transform using QST is following
 	//QST(P) = Q*S*P*-Q + T where Q = quaternion, S = scale, T = translation
 
-	FVector4 Transform = (Rotation*(Scale3D*V));
+	FVector4 Transform = (Rotation.RotateVector(Scale3D*V));
 	if (V.W == 1.f)
 	{
 		Transform += FVector4(Translation, 1.f);
@@ -1171,42 +1175,55 @@ FORCEINLINE FVector4 FTransform::TransformFVector4(const FVector4& V) const
 
 FORCEINLINE FVector FTransform::TransformPosition(const FVector& V) const
 {
-	return TransformFVector4(FVector4(V.X,V.Y,V.Z,1.0f));
+	DiagnosticCheckNaN_All();
+	return Rotation.RotateVector(Scale3D*V) + Translation;
+}
+
+FORCEINLINE FVector FTransform::TransformPositionNoScale(const FVector& V) const
+{
+	DiagnosticCheckNaN_All();
+	return Rotation.RotateVector(V) + Translation;
 }
 
 FORCEINLINE FVector FTransform::TransformVector(const FVector& V) const
 {
-	return TransformFVector4(FVector4(V.X,V.Y,V.Z,0.0f));
+	DiagnosticCheckNaN_All();
+	return Rotation.RotateVector(Scale3D*V);
 }
 
 FORCEINLINE FVector FTransform::TransformVectorNoScale(const FVector& V) const
 {
-	return TransformFVector4NoScale(FVector4(V.X,V.Y,V.Z,0.0f));
+	DiagnosticCheckNaN_All();
+	return Rotation.RotateVector(V);
 }
 
 // do backward operation when inverse, translation -> rotation -> scale
 FORCEINLINE FVector FTransform::InverseTransformPosition(const FVector &V) const
 {
-	return ( Rotation.Inverse() * (V-Translation) ) * GetSafeScaleReciprocal(Scale3D);
+	DiagnosticCheckNaN_All();
+	return ( Rotation.UnrotateVector(V-Translation) ) * GetSafeScaleReciprocal(Scale3D);
 }
 
 // do backward operation when inverse, translation -> rotation
 FORCEINLINE FVector FTransform::InverseTransformPositionNoScale(const FVector &V) const
 {
-	return ( Rotation.Inverse() * (V-Translation) );
+	DiagnosticCheckNaN_All();
+	return ( Rotation.UnrotateVector(V-Translation) );
 }
 
 
 // do backward operation when inverse, translation -> rotation -> scale
 FORCEINLINE FVector FTransform::InverseTransformVector(const FVector &V) const
 {
-	return ( Rotation.Inverse() * V ) * GetSafeScaleReciprocal(Scale3D);
+	DiagnosticCheckNaN_All();
+	return ( Rotation.UnrotateVector(V) ) * GetSafeScaleReciprocal(Scale3D);
 }
 
 // do backward operation when inverse, translation -> rotation
 FORCEINLINE FVector FTransform::InverseTransformVectorNoScale(const FVector &V) const
 {
-	return ( Rotation.Inverse() * V );
+	DiagnosticCheckNaN_All();
+	return ( Rotation.UnrotateVector(V) );
 }
 
 FORCEINLINE FTransform FTransform::operator*(const FTransform& Other) const
@@ -1292,7 +1309,7 @@ inline float FTransform::GetMinimumAxisScale() const
 // anymore because you should be instead of showing gigantic infinite mesh
 // also returning BIG_NUMBER causes sequential NaN issues by multiplying 
 // so we hardcode as 0
-FORCEINLINE FVector FTransform::GetSafeScaleReciprocal(const FVector& InScale) const
+FORCEINLINE FVector FTransform::GetSafeScaleReciprocal(const FVector& InScale)
 {
 	FVector SafeReciprocalScale;
 	// mathematically if you have 0 scale, it should be infinite, 

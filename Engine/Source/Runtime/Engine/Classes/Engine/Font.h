@@ -1,12 +1,16 @@
 ﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+
 #include "Engine/FontImportOptions.h"
 #include "FontProviderInterface.h"
 #include "SlateFontInfo.h"
 #include "Font.generated.h"
 
-/** What kind of caching is this font using? */
+
+/**
+ * Enumerates supported font caching types.
+ */
 UENUM()
 enum class EFontCacheType
 {
@@ -16,6 +20,7 @@ enum class EFontCacheType
 	/** The font is using runtime caching (this is how Slate fonts work) */
 	Runtime,
 };
+
 
 /** this struct is serialized using native serialization so any changes to it require a package version bump */
 USTRUCT()
@@ -49,8 +54,7 @@ struct FFontCharacter
 		, VSize(0)
 		, TextureIndex(0)
 		, VerticalOffset(0)
-	{
-	}
+	{ }
 
 	/**
 	 * Serialization.
@@ -72,6 +76,7 @@ struct FFontCharacter
 	}
 };
 
+
 template<>
 struct TStructOpsTypeTraits<FFontCharacter> : public TStructOpsTypeTraitsBase
 {
@@ -80,6 +85,7 @@ struct TStructOpsTypeTraits<FFontCharacter> : public TStructOpsTypeTraitsBase
 		WithSerializer = true,
 	};
 };
+
 
 /**
  * A font object, for use by Slate, UMG, and Canvas.
@@ -165,8 +171,8 @@ class UFont : public UObject, public IFontProviderInterface
 	UPROPERTY()
 	FCompositeFont CompositeFont;
 
-
 public:
+
 	/** This is the character that RemapChar will return if the specified character doesn't exist in the font */
 	static const TCHAR NULLCHARACTER = 127;
 
@@ -176,7 +182,7 @@ public:
 	/** IFontProviderInterface */
 	virtual const FCompositeFont* GetCompositeFont() const override
 	{
-		return &CompositeFont;
+		return (FontCacheType == EFontCacheType::Runtime) ? &CompositeFont : nullptr;
 	}
 
 	/** Get the info needed to use this UFont with Slate, using the fallback data for legacy Canvas APIs */
@@ -215,11 +221,20 @@ public:
 	ENGINE_API int8 GetCharKerning(TCHAR First, TCHAR Second) const;
 
 	/**
+	 * Gets the horizontal distance from the origin to the left most border of the given character
+	 *
+	 * @param	InCh					the character to get the offset for
+	 *
+	 * @return The offset value
+	 */
+	ENGINE_API int16 GetCharHorizontalOffset(TCHAR InCh) const;
+
+	/**
 	 * Calculate the width of the string using this font's default size and scale.
 	 *
 	 * @param	Text					the string to size
 	 *
-	 * @return	the width (in pixels) of the specified text, or 0 if Text was NULL.
+	 * @return	the width (in pixels) of the specified text, or 0 if Text was nullptr.
 	 */
 	ENGINE_API int32 GetStringSize( const TCHAR *Text ) const;
 
@@ -228,7 +243,7 @@ public:
 	 *
 	 * @param	Text					the string to size
 	 *
-	 * @return	the height (in pixels) of the specified text, or 0 if Text was NULL.
+	 * @return	the height (in pixels) of the specified text, or 0 if Text was nullptr.
 	 */
 	ENGINE_API int32 GetStringHeightSize( const TCHAR *Text ) const;
 
@@ -237,7 +252,7 @@ public:
 	virtual void PostLoad() override;
 	virtual bool IsLocalizedResource() override;
 #if WITH_EDITORONLY_DATA
-	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const;
+	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
 	// End UObject interface
 
@@ -245,7 +260,6 @@ public:
 	 * Caches the character count and maximum character height for this font (as well as sub-fonts, in the multi-font case)
 	 */
 	ENGINE_API void CacheCharacterCountAndMaxCharHeight();
-
 
 	/**
 	 *	Set the scaling factor

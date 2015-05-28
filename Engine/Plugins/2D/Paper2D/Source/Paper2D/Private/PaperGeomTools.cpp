@@ -16,6 +16,19 @@ bool PaperGeomTools::IsPolygonWindingCCW(const TArray<FVector2D>& Points)
 	return (Sum < 0.0f);
 }
 
+bool PaperGeomTools::IsPolygonWindingCCW(const TArray<FIntPoint>& Points)
+{
+	int32 Sum = 0;
+	const int PointCount = Points.Num();
+	for (int PointIndex = 0; PointIndex < PointCount; ++PointIndex)
+	{
+		const FIntPoint& A = Points[PointIndex];
+		const FIntPoint& B = Points[(PointIndex + 1) % PointCount];
+		Sum += (B.X - A.X) * (B.Y + A.Y);
+	}
+	return (Sum < 0);
+}
+
 // Note: We need to simplify non-simple polygons before this
 static bool IsPolygonConvex(const TArray<FVector2D>& Points)
 {
@@ -58,7 +71,7 @@ static bool IsPointInPolygon(const FVector2D& TestPoint, const TArray<FVector2D>
 	return (FMath::Abs(AngleSum) > 0.001f);
 }
 
-static bool IsPointInTriangle(const FVector2D& TestPoint, const FVector2D& A, const FVector2D& B, const FVector2D& C)
+static bool IsAdditivePointInTriangle(const FVector2D& TestPoint, const FVector2D& A, const FVector2D& B, const FVector2D& C)
 {
 	const FVector2D AP = TestPoint - A;
 	const FVector2D BP = TestPoint - B;
@@ -75,6 +88,37 @@ static bool IsPointInTriangle(const FVector2D& TestPoint, const FVector2D& A, co
 	return true;
 }
 
+static float VectorSign(const FVector2D& Vec, const FVector2D& A, const FVector2D& B)
+{
+	return FMath::Sign((B.X - A.X) * (Vec.Y - A.Y) - (B.Y - A.Y) * (Vec.X - A.X));
+}
+
+// Returns true when the point is inside the triangle
+// Should not return true when the point is on one of the edges
+static bool IsPointInTriangle(const FVector2D& TestPoint, const FVector2D& A, const FVector2D& B, const FVector2D& C)
+{
+	float BA = VectorSign(B, A, TestPoint);
+	float CB = VectorSign(C, B, TestPoint);
+	float AC = VectorSign(A, C, TestPoint);
+
+	// point is in the same direction of all 3 tri edge lines
+	// must be inside, regardless of tri winding
+	return BA == CB && CB == AC;
+}
+
+// Returns true when the point is on the line segment limited by A and B
+static bool IsPointOnLineSegment(const FVector2D& TestPoint, const FVector2D& A, const FVector2D& B)
+{
+	FVector2D BA = B - A;
+	FVector2D PA = TestPoint - A;
+	float SizeSquaredBA = FVector2D::DotProduct(BA, BA);
+	float AreaCompareThreshold = 0.01f * SizeSquaredBA;
+	float ParallelogramArea = BA.X * PA.Y - BA.Y * PA.X;
+
+	return  TestPoint.X >= FMath::Min(A.X, B.X) && TestPoint.X <= FMath::Max(A.X, B.X) && // X within AB.X, including ON A or B
+			TestPoint.Y >= FMath::Min(A.Y, B.Y) && TestPoint.Y <= FMath::Max(A.Y, B.Y) && // Y within AB.Y, including ON A or B
+			FMath::Abs(ParallelogramArea) < AreaCompareThreshold; // Area is smaller than allowed epsilon = point on line
+}
 
 static void JoinSubtractiveToAdditive(TArray<FVector2D>& AdditivePoly, const TArray<FVector2D>& SubtractivePoly, const int AdditiveJoinIndex, const int SubtractiveJoinIndex)
 {
@@ -196,7 +240,7 @@ static void JoinMutuallyVisible(TArray<FVector2D>& AdditivePoly, const TArray<FV
 			continue;
 		}
 
-		if (IsPointInTriangle(AdditivePoly[AdditiveIndex], TriA, TriB, TriC))
+		if (IsAdditivePointInTriangle(AdditivePoly[AdditiveIndex], TriA, TriB, TriC))
 		{
 			const FVector2D MR = AdditivePoly[AdditiveIndex] - PointMaxX;
 			const float CosAngle = MR.X / MR.Size();
@@ -370,7 +414,7 @@ void PaperGeomTools::CorrectPolygonWinding(TArray<FVector2D>& OutVertices, const
 			// Reverse vertices
 			for (int32 VertexIndex = Vertices.Num() - 1; VertexIndex >= 0; --VertexIndex)
 			{
-				new (OutVertices)FVector2D(Vertices[VertexIndex]);
+				new (OutVertices) FVector2D(Vertices[VertexIndex]);
 			}
 		}
 		else
@@ -378,7 +422,7 @@ void PaperGeomTools::CorrectPolygonWinding(TArray<FVector2D>& OutVertices, const
 			// Copy vertices
 			for (int32 VertexIndex = 0; VertexIndex < Vertices.Num(); ++VertexIndex)
 			{
-				new (OutVertices)FVector2D(Vertices[VertexIndex]);
+				new (OutVertices) FVector2D(Vertices[VertexIndex]);
 			}
 		}
 	}
@@ -558,9 +602,11 @@ bool PaperGeomTools::TriangulatePoly(TArray<FVector2D>& OutTris, const TArray<FV
 					const FVector2D& CurrentVertex = PolyVerts[VertexIndex];
 					// Test indices first, then make sure we arent comparing identical points
 					// These might have been added by the convex / concave splitting
+					// If a point is not in the triangle, it may be on the new edge we're adding, which isn't allowed as 
+					// it will create a partition in the polygon
 					if (VertexIndex != AIndex && VertexIndex != BIndex && VertexIndex != CIndex &&
 						CurrentVertex != PolyVerts[AIndex] && CurrentVertex != PolyVerts[BIndex] && CurrentVertex != PolyVerts[CIndex] &&
-						IsPointInTriangle(CurrentVertex, PolyVerts[AIndex], PolyVerts[BIndex], PolyVerts[CIndex]))
+						(IsPointInTriangle(CurrentVertex, PolyVerts[AIndex], PolyVerts[BIndex], PolyVerts[CIndex]) || IsPointOnLineSegment(CurrentVertex, PolyVerts[CIndex], PolyVerts[AIndex])))
 					{
 						bFoundVertInside = true;
 						break;
@@ -586,6 +632,7 @@ bool PaperGeomTools::TriangulatePoly(TArray<FVector2D>& OutTris, const TArray<FV
 			// If we couldn't find an 'ear' it indicates something is bad with this polygon - discard triangles and return.
 			if (!bFoundEar)
 			{
+				// If we couldn't find an 'ear' it indicates something is bad with this polygon - discard triangles and return.
 				UE_LOG(LogPaper2D, Log, TEXT("Triangulation of poly failed."));
 				OutTris.Empty();
 				return false;
@@ -607,7 +654,7 @@ void PaperGeomTools::RemoveRedundantTriangles(TArray<FVector2D>& OutTriangles, c
 	TArray<FLocalTriangle> Triangles;
 	for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < InTriangleVertices.Num(); TriangleVertexIndex += 3)
 	{
-		FLocalTriangle* NewTriangle = new(Triangles)FLocalTriangle();
+		FLocalTriangle* NewTriangle = new (Triangles) FLocalTriangle();
 		NewTriangle->VertexA = TriangleVertexIndex + 0;
 		NewTriangle->VertexB = TriangleVertexIndex + 1;
 		NewTriangle->VertexC = TriangleVertexIndex + 2;
@@ -617,7 +664,7 @@ void PaperGeomTools::RemoveRedundantTriangles(TArray<FVector2D>& OutTriangles, c
 	{
 		TArray<FVector2D> PolygonVertices;
 
-		const FLocalTriangle InitialTriangle = Triangles.Pop();
+		const FLocalTriangle InitialTriangle = Triangles.Pop(/*bAllowShrinking=*/ false);
 		PolygonVertices.Add(InTriangleVertices[InitialTriangle.VertexA]);
 		PolygonVertices.Add(InTriangleVertices[InitialTriangle.VertexB]);
 		PolygonVertices.Add(InTriangleVertices[InitialTriangle.VertexC]);
@@ -646,16 +693,6 @@ void PaperGeomTools::RemoveRedundantTriangles(TArray<FVector2D>& OutTriangles, c
 // Find convex polygons from triangle soup
 void PaperGeomTools::GenerateConvexPolygonsFromTriangles(TArray<TArray<FVector2D>>& OutPolygons, const TArray<FVector2D>& InTriangleVertices)
 {
-	// Test: Return input triangles in exactly the same format
-	//for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < InTriangleVertices.Num(); TriangleVertexIndex += 3)
-	//{
-	//	TArray<FVector2D>& Poly = *(new(OutPolygons)TArray<FVector2D>());
-	//	Poly.Add(InTriangleVertices[TriangleVertexIndex + 0]);
-	//	Poly.Add(InTriangleVertices[TriangleVertexIndex + 1]);
-	//	Poly.Add(InTriangleVertices[TriangleVertexIndex + 2]);
-	//}
-	//return;
-
 	struct FLocalTriangle
 	{
 		int VertexA, VertexB, VertexC;
@@ -664,7 +701,7 @@ void PaperGeomTools::GenerateConvexPolygonsFromTriangles(TArray<TArray<FVector2D
 	TArray<FLocalTriangle> Triangles;
 	for (int32 TriangleVertexIndex = 0; TriangleVertexIndex < InTriangleVertices.Num(); TriangleVertexIndex += 3)
 	{
-		FLocalTriangle* NewTriangle = new(Triangles)FLocalTriangle();
+		FLocalTriangle* NewTriangle = new (Triangles) FLocalTriangle();
 		NewTriangle->VertexA = TriangleVertexIndex + 0;
 		NewTriangle->VertexB = TriangleVertexIndex + 1;
 		NewTriangle->VertexC = TriangleVertexIndex + 2;
@@ -674,7 +711,7 @@ void PaperGeomTools::GenerateConvexPolygonsFromTriangles(TArray<TArray<FVector2D
 	{
 		TArray<FVector2D> PolygonVertices;
 
-		const FLocalTriangle InitialTriangle = Triangles.Pop();
+		const FLocalTriangle InitialTriangle = Triangles.Pop(/*bAllowShrinking=*/ false);
 		PolygonVertices.Add(InTriangleVertices[InitialTriangle.VertexA]);
 		PolygonVertices.Add(InTriangleVertices[InitialTriangle.VertexB]);
 		PolygonVertices.Add(InTriangleVertices[InitialTriangle.VertexC]);

@@ -80,14 +80,9 @@ class TOpenGLBuffer : public BaseType
 
 	GLenum GetAccess()
 	{
-		GLenum Access = GL_STATIC_DRAW;
-
-		if (!OpenGLConsoleVariables::bUseStagingBuffer)
-		{
-			Access = bStreamDraw ? GL_STREAM_DRAW : (IsDynamic() ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
-		}
-		
-		return Access;
+		// Previously there was special-case logic to always use GL_STATIC_DRAW for vertex buffers allocated from staging buffer.
+		// However it seems to be incorrect as NVidia drivers complain (via debug output callback) about VIDEO->HOST copying for buffers with such hints
+		return bStreamDraw ? GL_STREAM_DRAW : (IsDynamic() ? GL_DYNAMIC_DRAW : GL_STATIC_DRAW);
 	}
 public:
 
@@ -1033,7 +1028,7 @@ public:
 	
 	}
 	uint32 GetSizeX() const { return GetSize(); }
-	uint32 GetSizeY() const { return GetSize(); }
+	uint32 GetSizeY() const { return GetSize(); } //-V524
 	uint32 GetSizeZ() const { return ArraySize > 1 ? ArraySize : 0; }
 	
 	uint32 GetArraySize() const {return ArraySize;}
@@ -1356,7 +1351,7 @@ class FOpenGLViewport : public FRHIViewport
 {
 public:
 
-	FOpenGLViewport(class FOpenGLDynamicRHI* InOpenGLRHI,void* InWindowHandle,uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen);
+	FOpenGLViewport(class FOpenGLDynamicRHI* InOpenGLRHI,void* InWindowHandle,uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen,EPixelFormat PreferredPixelFormat);
 	~FOpenGLViewport();
 
 	void Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen);
@@ -1395,9 +1390,120 @@ private:
 	uint32 SizeX;
 	uint32 SizeY;
 	bool bIsFullscreen;
+	EPixelFormat PixelFormat;
 	bool bIsValid;
 	TRefCountPtr<FOpenGLTexture2D> BackBuffer;
 	FOpenGLEventQuery FrameSyncEvent;
 	FCustomPresentRHIRef CustomPresent;
 };
 
+template<class T>
+struct TOpenGLResourceTraits
+{
+};
+template<>
+struct TOpenGLResourceTraits<FRHIVertexDeclaration>
+{
+	typedef FOpenGLVertexDeclaration TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIVertexShader>
+{
+	typedef FOpenGLVertexShader TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIGeometryShader>
+{
+	typedef FOpenGLGeometryShader TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIHullShader>
+{
+	typedef FOpenGLHullShader TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIDomainShader>
+{
+	typedef FOpenGLDomainShader TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIPixelShader>
+{
+	typedef FOpenGLPixelShader TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIComputeShader>
+{
+	typedef FOpenGLComputeShader TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIBoundShaderState>
+{
+	typedef FOpenGLBoundShaderState TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHITexture3D>
+{
+	typedef FOpenGLTexture3D TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHITexture>
+{
+	typedef FOpenGLTexture TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHITexture2D>
+{
+	typedef FOpenGLTexture2D TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHITexture2DArray>
+{
+	typedef FOpenGLTexture2DArray TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHITextureCube>
+{
+	typedef FOpenGLTextureCube TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIRenderQuery>
+{
+	typedef FOpenGLRenderQuery TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIUniformBuffer>
+{
+	typedef FOpenGLUniformBuffer TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIIndexBuffer>
+{
+	typedef FOpenGLIndexBuffer TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIStructuredBuffer>
+{
+	typedef FOpenGLStructuredBuffer TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIVertexBuffer>
+{
+	typedef FOpenGLVertexBuffer TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIShaderResourceView>
+{
+	typedef FOpenGLShaderResourceView TConcreteType;
+};
+template<>
+struct TOpenGLResourceTraits<FRHIUnorderedAccessView>
+{
+	typedef FOpenGLUnorderedAccessView TConcreteType;
+};
+
+template<>
+struct TOpenGLResourceTraits<FRHIViewport>
+{
+	typedef FOpenGLViewport TConcreteType;
+};

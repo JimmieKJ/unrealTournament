@@ -16,7 +16,7 @@ public:
 	// Begin UCommandlet Interface
 	virtual int32 Main( const FString& Params ) override;
 
-	bool WriteManifest( const TSharedPtr<FInternationalizationManifest>& InManifest, const FString& OutputFilePath );
+	bool WriteManifestToFile( const TSharedPtr<FInternationalizationManifest>& InManifest, const FString& OutputFilePath );
 	// End UCommandlet Interface
 #endif
 };

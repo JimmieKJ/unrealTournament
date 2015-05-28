@@ -3,6 +3,7 @@
 #pragma once
 
 #include "PropertyEditing.h"
+#include "SpriteEditorOnlyTypes.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FSpritePolygonCollectionCustomization

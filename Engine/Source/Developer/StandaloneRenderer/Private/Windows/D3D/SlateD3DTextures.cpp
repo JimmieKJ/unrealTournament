@@ -21,7 +21,7 @@ void FSlateD3DTexture::Init( DXGI_FORMAT InFormat, D3D11_SUBRESOURCE_DATA* Inita
 	TexDesc.MiscFlags = 0;
 
 	HRESULT Hr = GD3DDevice->CreateTexture2D( &TexDesc, InitalData, D3DTexture.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 
 	// Create the shader accessable view of the texture
 	D3D11_SHADER_RESOURCE_VIEW_DESC SrvDesc;
@@ -32,7 +32,7 @@ void FSlateD3DTexture::Init( DXGI_FORMAT InFormat, D3D11_SUBRESOURCE_DATA* Inita
 
 	// Create the shader resource view.
 	Hr = GD3DDevice->CreateShaderResourceView( D3DTexture, &SrvDesc, ShaderResource.GetInitReference() );
-	check( SUCCEEDED(Hr) );
+	checkf( SUCCEEDED(Hr), TEXT("D3D11 Error Result %X"), Hr );
 }
 
 void FSlateD3DTexture::ResizeTexture(uint32 Width, uint32 Height)

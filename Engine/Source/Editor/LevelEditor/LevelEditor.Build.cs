@@ -9,9 +9,11 @@ public class LevelEditor : ModuleRules
 		PrivateIncludePathModuleNames.AddRange(
 			new string[] {
 				"AssetTools",
+				"ClassViewer",
 				"MainFrame",
                 "PlacementMode",
 				"ReferenceViewer",
+				"SizeMap",
                 "IntroTutorials",
                 "AppFramework"
 			}
@@ -71,9 +73,7 @@ public class LevelEditor : ModuleRules
 				"SessionFrontend",
 				"AutomationWindow",
 				"Layers",
-				"Levels",
                 "WorldBrowser",
-				"TaskBrowser",
 				"EditorWidgets",
 				"AssetTools",
 				"WorkspaceMenuStructure",
@@ -83,6 +83,7 @@ public class LevelEditor : ModuleRules
                 "PlacementMode",
 				"UserFeedback",
 				"ReferenceViewer",
+				"SizeMap",
                 "IntroTutorials"
 			}
 		);

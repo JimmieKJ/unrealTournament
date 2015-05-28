@@ -7,6 +7,7 @@ struct FViewportClick;
 struct HGeomEdgeProxy;
 struct HGeomPolyProxy;
 struct HGeomVertexProxy;
+struct HActor;
 
 /**
  * A hit proxy class for sockets in the main editor viewports.

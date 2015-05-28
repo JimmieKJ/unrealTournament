@@ -33,12 +33,58 @@ namespace EGraphRemoveFlags
 struct UNREALED_API FFunctionFromNodeHelper
 {
 	UFunction* const Function;
-	UK2Node* const Node;
+	const UK2Node* const Node;
 
-	static UFunction* FunctionFromNode(UK2Node* Node);
+	static UFunction* FunctionFromNode(const UK2Node* Node);
 
-	FFunctionFromNodeHelper(UObject* Obj);
+	FFunctionFromNodeHelper(const UObject* Obj);
 };
+
+class UNREALED_API FBasePinChangeHelper
+{
+public:
+	static bool NodeIsNotTransient(const UK2Node* Node)
+	{
+		return (NULL != Node)
+			&& !Node->HasAnyFlags(RF_Transient) 
+			&& (NULL != Cast<UEdGraph>(Node->GetOuter()));
+	}
+
+	virtual void EditCompositeTunnelNode(class UK2Node_Tunnel* TunnelNode) {}
+
+	virtual void EditMacroInstance(class UK2Node_MacroInstance* MacroInstance, UBlueprint* Blueprint) {}
+
+	virtual void EditCallSite(class UK2Node_CallFunction* CallSite, UBlueprint* Blueprint) {}
+
+	virtual void EditDelegates(class UK2Node_BaseMCDelegate* CallSite, UBlueprint* Blueprint) {}
+
+	virtual void EditCreateDelegates(class UK2Node_CreateDelegate* CallSite) {}
+
+	void Broadcast(UBlueprint* InBlueprint, class UK2Node_EditablePinBase* InTargetNode, UEdGraph* Graph);
+};
+
+class UNREALED_API FParamsChangedHelper : public FBasePinChangeHelper
+{
+public:
+	TSet<UBlueprint*> ModifiedBlueprints;
+	TSet<UEdGraph*> ModifiedGraphs;
+
+	virtual void EditCompositeTunnelNode(class UK2Node_Tunnel* TunnelNode) override;
+
+	virtual void EditMacroInstance(class UK2Node_MacroInstance* MacroInstance, UBlueprint* Blueprint) override;
+
+	virtual void EditCallSite(class UK2Node_CallFunction* CallSite, UBlueprint* Blueprint) override;
+
+	virtual void EditDelegates(class UK2Node_BaseMCDelegate* CallSite, UBlueprint* Blueprint) override;
+
+	virtual void EditCreateDelegates(class UK2Node_CreateDelegate* CallSite) override;
+
+};
+
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Notify Blueprint Changed"), EKismetCompilerStats_NotifyBlueprintChanged, STATGROUP_KismetCompiler, );
+
+/** Array type for GetCompilerRelevantNodes()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 */
+typedef TArray<UK2Node*, TInlineAllocator<4> > FCompilerRelevantNodesArray;
 
 class UNREALED_API FBlueprintEditorUtils
 {
@@ -74,7 +120,7 @@ public:
 	/** 
 	 * Helper function to patch the new CDO into the linker where the old one existed 
 	 */
-	static void PatchNewCDOIntoLinker(UObject* CDO, ULinkerLoad* Linker, int32 ExportIndex, TArray<UObject*>& ObjLoaded);
+	static void PatchNewCDOIntoLinker(UObject* CDO, FLinkerLoad* Linker, int32 ExportIndex, TArray<UObject*>& ObjLoaded);
 
 	/**
 	 * Regenerates the class at class load time, and refreshes the blueprint
@@ -85,6 +131,9 @@ public:
 	 * Replace subobjects of CDO in linker
 	 */
 	static void PatchCDOSubobjectsIntoExport(UObject* PreviousCDO, UObject* NewCDO);
+
+	/** Recreates class meta data */
+	static void RecreateClassMetaData(UBlueprint* Blueprint, UClass* Class, bool bRemoveExistingMetaData);
 
 	/**
 	 * Copies the default properties of all parent blueprint classes in the chain to the specified blueprint's skeleton CDO
@@ -193,6 +242,13 @@ public:
 				if ( BPTYPE_FunctionLibrary == Blueprint->BlueprintType )
 				{
 					ExtraFunctionFlags |= FUNC_Static;
+				}
+				if( IsBlutility( Blueprint ))
+				{
+					if( FKismetUserDeclaredFunctionMetadata* MetaData = GetGraphFunctionMetaData( Graph ))
+					{
+						MetaData->bCallInEditor = true;
+					}
 				}
 				K2Schema->AddExtraFunctionFlags(Graph, ExtraFunctionFlags);
 				K2Schema->MarkFunctionEntryAsEditable(Graph, true);
@@ -340,6 +396,9 @@ public:
 	/** Returns whether or not the blueprint is const during execution */
 	static bool IsBlueprintConst(const UBlueprint* Blueprint);
 
+	/** Returns whether or not the blueprint is a blutility */
+	static bool IsBlutility(const UBlueprint* Blueprint);
+
 	/**
 	 * Whether or not this is an actor-based blueprint, and supports features like the uber-graph, components, etc
 	 *
@@ -414,6 +473,9 @@ public:
 	/** Returns whether or not the blueprint supports default values (IE has a CDO) */
 	static bool DoesSupportDefaults(UBlueprint const* Blueprint);
 
+	/** Returns whether or not the blueprint graph supports local variables */
+	static bool DoesSupportLocalVariables(UEdGraph const* InGraph);
+
 	// Returns a descriptive name of the type of blueprint passed in
 	static FString GetBlueprintTypeDescription(const UBlueprint* Blueprint);
 
@@ -436,6 +498,23 @@ public:
 	 * @param [in,out]	GraphNames	The graph names will be appended to this array.
 	 */
 	static void GetAllGraphNames(const UBlueprint* Blueprint, TArray<FName>& GraphNames);
+
+	/**
+	 * Gets the compiler-relevant (i.e. non-ignorable) nodes from the given pin.
+	 *
+	 * @param			FromPin			The pin to start searching from.
+	 * @param			OutNodes		Will contain the given pin's owning node if compiler-relevant, or all nodes linked to the owning node at the matching "pass-through" pin that are compiler-relevant. Empty if no compiler-relevant nodes can be found from the given pin.
+	 */
+	static void GetCompilerRelevantNodes(const UEdGraphPin* FromPin, FCompilerRelevantNodesArray& OutNodes);
+
+	/**
+	 * Finds the first compiler-relevant (i.e. non-ignorable) node from the given pin.
+	 *
+	 * @param			FromPin			The pin to start searching from.
+	 *
+	 * @return			The given pin's owning node if compiler-relevant, or the first node linked to the owning node at the matching "pass-through" pin that is compiler-relevant. May be NULL if no compiler-relevant nodes can be found from the given pin.
+	 */
+	static UK2Node* FindFirstCompilerRelevantNode(const UEdGraphPin* FromPin);
 
 
 	//////////////////////////////////////////////////////////////////////////
@@ -562,7 +641,7 @@ public:
 	 *
 	 * @param	VarName	Name of the variable to be removed.
 	 */
-	static void RemoveMemberVariable(UBlueprint* Blueprint, const FName& VarName);
+	static void RemoveMemberVariable(UBlueprint* Blueprint, const FName VarName);
 	
 	/**
 	 * Removes member variables if they were declared in this blueprint and not in a base class.
@@ -570,6 +649,24 @@ public:
 	 * @param	VarNames	Names of the variable to be removed.
 	 */
 	static void BulkRemoveMemberVariables(UBlueprint* Blueprint, const TArray<FName>& VarNames);
+
+	/**
+	 * Finds a member variable Guid using the variable's name
+	 *
+	 * @param InBlueprint		Blueprint to search for the local variable
+	 * @param InVariableGuid	Local variable's name to search for
+	 * @return					The Guid associated with the local variable
+	 */
+	static FGuid FindMemberVariableGuidByName(UBlueprint* InBlueprint, const FName InVariableName);
+
+	/**
+	 * Finds a member variable name using the variable's Guid
+	 *
+	 * @param InBlueprint		Blueprint to search for the local variable
+	 * @param InVariableGuid	Guid to identify the local variable with
+	 * @return					Local variable's name
+	 */
+	static FName FindMemberVariableNameByGuid(UBlueprint* InBlueprint, const FGuid& InVariableGuid);
 
 	/**
 	 * Removes the variable nodes associated with the specified var name
@@ -580,16 +677,16 @@ public:
 	 * @param	LocalGraphScope		Local scope graph of variables
 	 *								false if you just want everything with the specified name removed (variables from other classes too).
 	 */
-	static void RemoveVariableNodes(UBlueprint* Blueprint, const FName& VarName, bool const bForSelfOnly = true, UEdGraph* LocalGraphScope = nullptr);
+	static void RemoveVariableNodes(UBlueprint* Blueprint, const FName VarName, bool const bForSelfOnly = true, UEdGraph* LocalGraphScope = nullptr);
 
 	/**Rename a member variable*/
-	static void RenameMemberVariable(UBlueprint* Blueprint, const FName& OldName, const FName& NewName);
+	static void RenameMemberVariable(UBlueprint* Blueprint, const FName OldName, const FName NewName);
 
 	/** Rename a member variable created by a SCS entry */
-	static void RenameComponentMemberVariable(UBlueprint* Blueprint, USCS_Node* Node, const FName& NewName);
+	static void RenameComponentMemberVariable(UBlueprint* Blueprint, USCS_Node* Node, const FName NewName);
 	
 	/** Changes the type of a member variable */
-	static void ChangeMemberVariableType(UBlueprint* Blueprint, const FName& VariableName, const FEdGraphPinType& NewPinType);
+	static void ChangeMemberVariableType(UBlueprint* Blueprint, const FName VariableName, const FEdGraphPinType& NewPinType);
 
 	/**
 	 * Finds the scope's associated graph for local variables (or any passed UFunction)
@@ -608,7 +705,7 @@ public:
 	 *
 	 * @return	true if it succeeds, false if it fails.
 	 */
-	static bool AddLocalVariable(UBlueprint* Blueprint, UEdGraph* InTargetGraph, const FName& InNewVarName, const FEdGraphPinType& InNewVarType);
+	static bool AddLocalVariable(UBlueprint* Blueprint, UEdGraph* InTargetGraph, const FName InNewVarName, const FEdGraphPinType& InNewVarType);
 
 	/**
 	 * Removes a member variable if it was declared in this blueprint and not in a base class.
@@ -617,7 +714,7 @@ public:
 	 * @param	InScope				Local variable's scope
 	 * @param	InVarName			Name of the variable to be removed.
 	 */
-	static void RemoveLocalVariable(UBlueprint* InBlueprint, const UStruct* InScope, const FName& InVarName);
+	static void RemoveLocalVariable(UBlueprint* InBlueprint, const UStruct* InScope, const FName InVarName);
 
 	/**
 	 * Returns a local variable with the function entry it was found in
@@ -626,7 +723,7 @@ public:
 	 * @param InVariableName	Name of the variable to search for
 	 * @return					The local variable description
 	 */
-	static FBPVariableDescription* FindLocalVariable(UBlueprint* InBlueprint, const UStruct* InScope, const FName& InVariableName);
+	static FBPVariableDescription* FindLocalVariable(UBlueprint* InBlueprint, const UStruct* InScope, const FName InVariableName);
 
 	/**
 	 * Returns a local variable
@@ -637,7 +734,7 @@ public:
 	 * @param OutFunctionEntry	Optional output parameter. If not null, the found function entry is returned.
 	 * @return					The local variable description
 	 */
-	static FBPVariableDescription* FindLocalVariable(const UBlueprint* InBlueprint, const UEdGraph* InScopeGraph, const FName& InVariableName, class UK2Node_FunctionEntry** OutFunctionEntry = NULL);
+	static FBPVariableDescription* FindLocalVariable(const UBlueprint* InBlueprint, const UEdGraph* InScopeGraph, const FName InVariableName, class UK2Node_FunctionEntry** OutFunctionEntry = NULL);
 
 	/**
 	 * Returns a local variable
@@ -648,13 +745,12 @@ public:
 	 * @param OutFunctionEntry	Optional output parameter. If not null, the found function entry is returned.
 	 * @return					The local variable description
 	 */
-	static FBPVariableDescription* FindLocalVariable(const UBlueprint* InBlueprint, const UStruct* InScope, const FName& InVariableName, class UK2Node_FunctionEntry** OutFunctionEntry = NULL);
+	static FBPVariableDescription* FindLocalVariable(const UBlueprint* InBlueprint, const UStruct* InScope, const FName InVariableName, class UK2Node_FunctionEntry** OutFunctionEntry = NULL);
 
 	/**
 	 * Finds a local variable name using the variable's Guid
 	 *
 	 * @param InBlueprint		Blueprint to search for the local variable
-	 * @param InScope			Local variable's scope
 	 * @param InVariableGuid	Guid to identify the local variable with
 	 * @return					Local variable's name
 	 */
@@ -688,7 +784,7 @@ public:
 	 * @param InOldName			The name of the local variable to change
 	 * @param InNewName			The new name of the local variable
 	 */
-	static void RenameLocalVariable(UBlueprint* InBlueprint, const UStruct* InScope, const FName& InOldName, const FName& InNewName);
+	static void RenameLocalVariable(UBlueprint* InBlueprint, const UStruct* InScope, const FName InOldName, const FName InNewName);
 
 	/**
 	 * Changes the type of a local variable
@@ -698,19 +794,19 @@ public:
 	 * @param InVariableName	Name of the local variable to change the type of
 	 * @param InNewPinType		The pin type to change the local variable type to
 	 */
-	static void ChangeLocalVariableType(UBlueprint* InBlueprint, const UStruct* InScope, const FName& InVariableName, const FEdGraphPinType& InNewPinType);
+	static void ChangeLocalVariableType(UBlueprint* InBlueprint, const UStruct* InScope, const FName InVariableName, const FEdGraphPinType& InNewPinType);
 
 	/** Replaces all variable references in the specified blueprint */
-	static void ReplaceVariableReferences(UBlueprint* Blueprint, const FName& OldName, const FName& NewName);
+	static void ReplaceVariableReferences(UBlueprint* Blueprint, const FName OldName, const FName NewName);
 
 	/** Replaces all variable references in the specified blueprint */
 	static void ReplaceVariableReferences(UBlueprint* Blueprint, const UProperty* OldVariable, const UProperty* NewVariable);
 
 	/** Validate child blueprint component member variables, member variables, and timelines, and function graphs against the given variable name */
-	static void ValidateBlueprintChildVariables(UBlueprint* InBlueprint, const FName& InVariableName);
+	static void ValidateBlueprintChildVariables(UBlueprint* InBlueprint, const FName InVariableName);
 
 	/** Rename a Timeline. If bRenameNodes is true, will also rename any timeline nodes associated with this timeline */
-	static bool RenameTimeline (UBlueprint* Blueprint, const FName& OldVarName, const FName& NewVarName);
+	static bool RenameTimeline (UBlueprint* Blueprint, const FName OldVarName, const FName NewVarName);
 
 	/**
 	 * Sets the Blueprint edit-only flag on the variable with the specified name
@@ -865,13 +961,16 @@ public:
 	static bool PropertyValueToString(const UProperty* Property, const uint8* Container, FString& OutForm);
 
 	/** Call PostEditChange() on all Actors based on the given Blueprint */
-	static void PostEditChangeBlueprintActors(UBlueprint* Blueprint);
+	static void PostEditChangeBlueprintActors(UBlueprint* Blueprint, bool bComponentEditChange = false);
 
 	/** Checks if the property can be modified in given blueprint */
 	static bool IsPropertyReadOnlyInCurrentBlueprint(const UBlueprint* Blueprint, const UProperty* Property);
 
 	/** Ensures that the CDO root component reference is valid for Actor-based Blueprints */
 	static void UpdateRootComponentReference(UBlueprint* Blueprint);
+
+	/** Determines if this property is associated with a component that would be displayed in the SCS editor */
+	static bool IsSCSComponentProperty(UObjectProperty* MemberProperty);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Interface
@@ -1059,6 +1158,14 @@ public:
 	static void GetEntryAndResultNodes(const UEdGraph* InGraph, TWeakObjectPtr<class UK2Node_EditablePinBase>& OutEntryNode, TWeakObjectPtr<class UK2Node_EditablePinBase>& OutResultNode);
 
 	/**
+	 * Returns the function meta data block for the graph entry node.
+	 *
+	 * @param InGraph			The graph to search through
+	 * @return					If valid a pointer to the user declared function meta data structure otherwise nullptr.
+	 */
+	static FKismetUserDeclaredFunctionMetadata* GetGraphFunctionMetaData( UEdGraph* InGraph );
+
+	/**
 	 * Returns the description of the graph from the metadata
 	 *
 	 * @param InGraph			Graph to find the description of
@@ -1068,6 +1175,14 @@ public:
 
 	/** Checks if a graph (or any sub-graphs or referenced graphs) have latent function nodes */
 	static bool CheckIfGraphHasLatentFunctions(UEdGraph* InGraph);
+
+	/**
+	 * Creates a function result node or returns the current one if one exists
+	 *
+	 * @param InFunctionEntryNode		The function entry node to spawn the result node for
+	 * @return							Spawned result node
+	 */
+	static class UK2Node_FunctionResult* FindOrCreateFunctionResultNode(class UK2Node_EditablePinBase* InFunctionEntryNode);
 
 protected:
 	// Removes all NULL graph references from the SubGraphs array and recurses thru the non-NULL ones
@@ -1089,7 +1204,7 @@ protected:
 	static bool IsObjectADebugCandidate( AActor* InActorObject, UBlueprint* InBlueprint , bool bInDisallowDerivedBlueprints );
 
 	/** Validate child blueprint member variables against the given variable name */
-	static bool ValidateAllMemberVariables(UBlueprint* InBlueprint, UBlueprint* InParentBlueprint, const FName& InVariableName);
+	static bool ValidateAllMemberVariables(UBlueprint* InBlueprint, UBlueprint* InParentBlueprint, const FName InVariableName);
 
 	/** Validate child blueprint component member variables against the given variable name */
 	static bool ValidateAllComponentMemberVariables(UBlueprint* InBlueprint, UBlueprint* InParentBlueprint, const FName& InVariableName);
@@ -1156,4 +1271,9 @@ public:
 	 * Returns a class name for the specified class that has no automatic suffixes, but is otherwise unmodified.  Class can be nullptr.
 	 */
 	static FString GetClassNameWithoutSuffix(const UClass* Class);
+
+	/**
+	 * Remove overridden component templates from instance component handlers when a parent class disables editable when inherited boolean.
+	 */
+	static void HandleDisableEditableWhenInherited(UObject* ModifiedObject, TArray<UObject*>& ArchetypeInstances);
 };

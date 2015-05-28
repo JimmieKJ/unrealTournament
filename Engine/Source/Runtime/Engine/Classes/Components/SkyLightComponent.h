@@ -38,12 +38,14 @@ public:
 		FTexture::ReleaseRHI();
 	}
 
-	virtual uint32 GetSizeX() const
+	virtual uint32 GetSizeX() const override
 	{
 		return Size;
 	}
 
-	virtual uint32 GetSizeY() const
+	// PVS-Studio notices that the implementation of GetSizeX is identical to this one
+	// and warns us. In this case, it is intentional, so we disable the warning:
+	virtual uint32 GetSizeY() const override //-V524
 	{
 		return Size;
 	}
@@ -58,7 +60,7 @@ public:
 	void Release();
 
 	// FDeferredCleanupInterface
-	virtual void FinishCleanup()
+	virtual void FinishCleanup() override
 	{
 		delete this;
 	}
@@ -82,7 +84,7 @@ enum ESkyLightSourceType
 	SLS_MAX,
 };
 
-UCLASS(ClassGroup=Lights, HideCategories=(Trigger,Activation,"Components|Activation",Physics), meta=(BlueprintSpawnableComponent))
+UCLASS(Blueprintable, ClassGroup=Lights, HideCategories=(Trigger,Activation,"Components|Activation",Physics), meta=(BlueprintSpawnableComponent))
 class ENGINE_API USkyLightComponent : public ULightComponentBase
 {
 	GENERATED_UCLASS_BODY()
@@ -136,7 +138,7 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	class FSkyLightSceneProxy* CreateSceneProxy() const;
 
 	// Begin UObject Interface
-	virtual void PostInitProperties();	
+	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
 	virtual void PostInterpChange(UProperty* PropertyThatChanged) override;
 #if WITH_EDITOR
@@ -161,6 +163,9 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|SkyLight")
 	void SetIntensity(float NewIntensity);
 
+	UFUNCTION(BlueprintCallable, Category="Rendering|Components|Light")
+	void SetIndirectLightingIntensity(float NewIntensity);
+
 	/** Set color of the light */
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|SkyLight")
 	void SetLightColor(FLinearColor NewLightColor);
@@ -174,6 +179,8 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|SkyLight")
 	void SetMinOcclusion(float InMinOcclusion);
+
+	virtual void SetVisibility(bool bNewVisibility, bool bPropagateToChildren=false) override;
 
 	/** Indicates that the capture needs to recapture the scene, adds it to the recapture queue. */
 	void SetCaptureIsDirty();
@@ -199,6 +206,8 @@ protected:
 	/** Indicates whether the cached data stored in GetComponentInstanceData is valid to be applied in ApplyComponentInstanceData. */
 	bool bSavedConstructionScriptValuesValid;
 
+	bool bHasEverCaptured;
+
 	TRefCountPtr<FSkyTextureCubeResource> ProcessedSkyTexture;
 
 	FSHVectorRGB3 IrradianceEnvironmentMap;
@@ -219,6 +228,8 @@ protected:
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
 	// Begin UActorComponent Interface
+
+	void UpdateLimitedRenderingStateFast();
 
 	friend class FSkyLightSceneProxy;
 };

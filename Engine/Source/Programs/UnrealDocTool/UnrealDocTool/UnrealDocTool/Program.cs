@@ -1079,7 +1079,7 @@ namespace UnrealDocTool
 				return;
 			}
 
-            action(sourcePath);
+			action(sourcePath);
 
             foreach (var subDirectory in Directory.GetDirectories(sourcePath))
             {

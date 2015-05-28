@@ -77,7 +77,9 @@ public:
 #if PLATFORM_HTML5_BROWSER
 		char*	OutData;
 		int		Size;
-		UE_LoadGame(TCHAR_TO_ANSI(Name),UserIndex,&OutData,&Size);
+		bool Result = UE_LoadGame(TCHAR_TO_ANSI(Name),UserIndex,&OutData,&Size);
+		if (!Result)
+			return false; 
 		Data.Append((uint8*)OutData,Size);
 		::free (OutData);
 		return true;

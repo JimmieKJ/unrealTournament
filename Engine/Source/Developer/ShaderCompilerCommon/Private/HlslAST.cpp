@@ -542,7 +542,7 @@ namespace CrossCompiler
 		{
 			DumpIndent(Indent);
 			DumpAttributes();
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("if("));
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("if ("));
 			Condition->Dump(Indent);
 			FPlatformMisc::LowLevelOutputDebugString(TEXT(")\n"));
 			ThenStatement->Dump(Indent);
@@ -566,6 +566,8 @@ namespace CrossCompiler
 
 		FTypeSpecifier::FTypeSpecifier(FLinearAllocator* InAllocator, const FSourceInfo& InInfo) :
 			FNode(InAllocator, InInfo),
+			TypeName(nullptr),
+			InnerType(nullptr),
 			Structure(nullptr),
 			TextureMSNumSamples(1),
 			PatchSize(0),
@@ -641,7 +643,7 @@ namespace CrossCompiler
 			}
 
 			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n"));
+			FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n\n"));
 		}
 
 		FCBufferDeclaration::~FCBufferDeclaration()
@@ -669,7 +671,11 @@ namespace CrossCompiler
 				FPlatformMisc::LowLevelOutputDebugString(TEXT("static "));
 			}
 
-			if (bIn && bOut)
+			if (bShared)
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("groupshared "));
+			}
+			else if (bIn && bOut)
 			{
 				FPlatformMisc::LowLevelOutputDebugString(TEXT("inout "));
 			}
@@ -682,8 +688,31 @@ namespace CrossCompiler
 				FPlatformMisc::LowLevelOutputDebugString(TEXT("out "));
 			}
 
-			//bRowMajor?
-			//bShared?
+			if (bLinear)
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("linear "));
+			}
+			if (bCentroid)
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("centroid "));
+			}
+			if (bNoInterpolation)
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("nointerpolation "));
+			}
+			if (bNoPerspective)
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("noperspective "));
+			}
+			if (bSample)
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("sample "));
+			}
+
+			if (bRowMajor)
+			{
+				FPlatformMisc::LowLevelOutputDebugString(TEXT("row_major "));
+			}
 		}
 
 		FFullySpecifiedType::FFullySpecifiedType(FLinearAllocator* InAllocator, const FSourceInfo& InInfo) :
@@ -758,7 +787,7 @@ namespace CrossCompiler
 			DumpAttributes();
 			if (Type)
 			{
-				Type->Dump(0);
+				Type->Dump(Indent);
 			}
 
 			bool bFirst = true;
@@ -912,14 +941,17 @@ namespace CrossCompiler
 					RestExpression->Dump(0);
 				}
 				FPlatformMisc::LowLevelOutputDebugString(TEXT(")\n"));
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
 				if (Body)
 				{
 					Body->Dump(Indent + 1);
 				}
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n"));
+				else
+				{
+					DumpIndent(Indent);
+					FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
+					DumpIndent(Indent);
+					FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n"));
+				}
 				break;
 
 			case EIterationType::While:
@@ -1172,8 +1204,7 @@ namespace CrossCompiler
 
 		void FStructSpecifier::Dump(int32 Indent) const
 		{
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("struct %s"), Name);
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("struct %s"), Name ? Name : TEXT(""));
 			if (ParentName && *ParentName)
 			{
 				FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" : %s"), ParentName);

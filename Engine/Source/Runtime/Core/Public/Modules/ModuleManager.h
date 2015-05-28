@@ -113,10 +113,7 @@ public:
 	/**
 	 * Adds a module to our list of modules, unless it's already known.
 	 *
-	 * This method is used by the plug-in manager to register a plug-in module.
-	 *
 	 * @param InModuleName The base name of the module file.  Should not include path, extension or platform/configuration info.  This is just the "name" part of the module file name.  Names should be globally unique.
-	 * @param InBinariesDirectory The directory where to find this file, or an empty string to search in the default locations.  This parameter is used by the plugin system to locate plugin binaries.
 	 */
 	void AddModule( const FName InModuleName );
 
@@ -138,7 +135,7 @@ public:
 	 * @return true if module is currently loaded, false otherwise.
 	 * @see AbandonModule, LoadModule, LoadModuleWithFailureReason, UnloadModule
 	 */
-	bool IsModuleLoaded( const FName InModuleName ) const;
+	bool IsModuleLoaded( const FName InModuleName );
 
 	/**
 	 * Loads the specified module.
@@ -214,9 +211,10 @@ public:
 	 *
 	 * @param InModuleName The name of the module to unload.
 	 * @param Ar The archive to receive error messages, if any.
+	 * @param bAbandonOnly Do not try to unload the module, only abandon.
 	 * @see LoadModuleWithCallback
 	 */
-	void UnloadOrAbandonModuleWithCallback( const FName InModuleName, FOutputDevice &Ar );
+	void UnloadOrAbandonModuleWithCallback( const FName InModuleName, FOutputDevice &Ar, bool bAbandonOnly = false);
 
 public:
 
@@ -316,10 +314,7 @@ public:
 	 *
 	 * @return The number of modules.
 	 */
-	int32 GetModuleCount( ) const
-	{
-		return Modules.Num();
-	}
+	int32 GetModuleCount( );
 
 	/**
 	 * Unloads modules during the shutdown process.
@@ -389,7 +384,7 @@ public:
 	static const TCHAR *GetUBTConfiguration( );
 
 	/** Gets the filename for a module. The return value is a full path of a module known to the module manager. */
-	FString GetModuleFilename(FName ModuleName) const;
+	FString GetModuleFilename(FName ModuleName);
 
 	/** Sets the filename for a module. The module is not reloaded immediately, but the new name will be used for subsequent unload/load events. */
 	void SetModuleFilename(FName ModuleName, const FString& Filename);
@@ -502,7 +497,13 @@ public:
 	 */
 	void MakeUniqueModuleFilename( const FName InModuleName, FString& UniqueSuffix, FString& UniqueModuleFileName );
 
+	void AddModuleToModulesList(const FName InModuleName, TSharedRef<FModuleInfo>& ModuleInfo);
+
 private:
+	/** Thread safe module finding routine. */
+	TSharedRef<FModuleInfo>* FindModule(FName InModuleName);
+	TSharedRef<FModuleInfo> FindModuleChecked(FName InModuleName);
+
 	/** Compares file versions between the current executing engine version and the specified dll */
 	static bool CheckModuleCompatibility(const TCHAR *Filename);
 
@@ -516,6 +517,8 @@ private:
 	void FindModulePathsInDirectory(const FString &DirectoryName, bool bIsGameDirectory, const TCHAR *NamePattern, TMap<FName, FString> &OutModulePaths) const;
 
 private:
+	/** Gets module with given name from Modules or creates a new one. Doesn't modify Modules. */
+	TSharedRef<FModuleInfo> GetOrCreateModule(FName InModuleName);
 
 	/** Map of all modules.  Maps the case-insensitive module name to information about that module, loaded or not. */
 	FModuleMap Modules;
@@ -543,6 +546,9 @@ private:
 
 	/** Array of game binaries directories. */
 	TArray<FString> GameBinariesDirectories;
+
+	/** Critical section object controlling R/W access to Modules. */
+	FMultiReaderSingleWriterGT ModulesCriticalSection;
 };
 
 /**

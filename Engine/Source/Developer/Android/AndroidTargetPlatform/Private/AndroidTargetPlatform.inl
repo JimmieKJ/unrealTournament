@@ -10,13 +10,29 @@
 
 #define LOCTEXT_NAMESPACE "FAndroidTargetPlatform"
 
+static bool SupportsES2()
+{
+	// default to support ES2
+	bool bBuildForES2 = true;
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES2"), bBuildForES2, GEngineIni);
+	return bBuildForES2;
+}
+
+static bool SupportsAEP()
+{
+	// default to not supporting ES31
+	bool bBuildForES31 = false;
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31, GEngineIni);
+	return bBuildForES31;
+}
+
 template<class TPlatformProperties>
 inline FAndroidTargetPlatform<TPlatformProperties>::FAndroidTargetPlatform( ) :
 	DeviceDetection(nullptr)
 {
 	#if WITH_ENGINE
 		FConfigCacheIni::LoadLocalIniFile(EngineSettings, TEXT("Engine"), true, *TTargetPlatformBase<TPlatformProperties>::PlatformName());
-		TextureLODSettings.Initialize(EngineSettings, TEXT("SystemSettings"));
+			TextureLODSettings = nullptr; // These are registered by the device profile system.
 		StaticMeshLODSettings.Initialize(EngineSettings);
 	#endif
 
@@ -89,7 +105,6 @@ inline bool FAndroidTargetPlatform<TPlatformProperties>::IsRunningPlatform( ) co
 template<class TPlatformProperties>
 inline bool FAndroidTargetPlatform<TPlatformProperties>::IsSdkInstalled(bool bProjectHasCode, FString& OutDocumentationPath) const
 {
-
 	OutDocumentationPath = FString("Shared/Tutorials/SettingUpAndroidTutorial");
 	return true;
 }
@@ -98,11 +113,23 @@ inline bool FAndroidTargetPlatform<TPlatformProperties>::IsSdkInstalled(bool bPr
 template<class TPlatformProperties>
 inline bool FAndroidTargetPlatform<TPlatformProperties>::SupportsFeature( ETargetPlatformFeatures Feature ) const
 {
-	if (Feature == ETargetPlatformFeatures::Packaging)
+	switch (Feature)
 	{
-		return true;
+		case ETargetPlatformFeatures::Packaging:
+			return true;
+			
+		case ETargetPlatformFeatures::LowQualityLightmaps:
+			return SupportsES2();
+			
+		case ETargetPlatformFeatures::HighQualityLightmaps:
+		case ETargetPlatformFeatures::VertexShaderTextureSampling:
+		case ETargetPlatformFeatures::Tessellation:
+			return SupportsAEP();
+			
+		default:
+			break;
 	}
-
+	
 	return TTargetPlatformBase<TPlatformProperties>::SupportsFeature(Feature);
 }
 
@@ -113,7 +140,22 @@ template<class TPlatformProperties>
 inline void FAndroidTargetPlatform<TPlatformProperties>::GetAllPossibleShaderFormats( TArray<FName>& OutFormats ) const
 {
 	static FName NAME_OPENGL_ES2(TEXT("GLSL_ES2"));
-	OutFormats.AddUnique(NAME_OPENGL_ES2);
+	static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
+
+	// get project rendering support, default to ES2 and no ES31
+	bool bBuildForES2 = true;
+	bool bBuildForES31 = false;
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES2"), bBuildForES2, GEngineIni);
+	GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31, GEngineIni);
+
+	if (bBuildForES2)
+	{
+		OutFormats.AddUnique(NAME_OPENGL_ES2);
+	}
+	if (bBuildForES31)
+	{
+		OutFormats.AddUnique(NAME_GLSL_310_ES_EXT);
+	}
 }
 
 template<class TPlatformProperties>
@@ -227,9 +269,23 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::GetTextureFormats( cons
 
 
 template<class TPlatformProperties>
-const FTextureLODSettings& FAndroidTargetPlatform<TPlatformProperties>::GetTextureLODSettings( ) const
+void FAndroidTargetPlatform<TPlatformProperties>::GetReflectionCaptureFormats( TArray<FName>& OutFormats ) const
 {
-	return TextureLODSettings;
+	if (SupportsAEP())
+	{
+		// use Full HDR with AEP
+		OutFormats.Add(FName(TEXT("FullHDR")));
+	}
+	
+	// always emit encoded
+	OutFormats.Add(FName(TEXT("EncodedHDR")));
+}
+
+
+template<class TPlatformProperties>
+const UTextureLODSettings& FAndroidTargetPlatform<TPlatformProperties>::GetTextureLODSettings() const
+{
+	return *TextureLODSettings;
 }
 
 
@@ -305,6 +361,8 @@ inline void FAndroidTargetPlatform<TPlatformProperties>::AddTextureFormatIfSuppo
 template<class TPlatformProperties>
 inline bool FAndroidTargetPlatform<TPlatformProperties>::HandleTicker( float DeltaTime )
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FAndroidTargetPlatform_HandleTicker);
+
 	if (DeviceDetection == nullptr)
 	{
 		DeviceDetection = FModuleManager::LoadModuleChecked<IAndroidDeviceDetectionModule>("AndroidDeviceDetection").GetAndroidDeviceDetection();

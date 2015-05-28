@@ -5,14 +5,18 @@
 #include "SMaterialEditorViewport.h"
 #include "EditorViewportCommands.h"
 #include "MaterialEditorActions.h"
+#include "Editor/UnrealEd/Public/SViewportToolBar.h"
 
 #define LOCTEXT_NAMESPACE "MaterialEditorViewportToolBar"
 
-void SMaterialEditorViewportToolBar::Construct(const FArguments& InArgs)
+///////////////////////////////////////////////////////////
+// SMaterialEditorViewportPreviewShapeToolBar
+
+void SMaterialEditorViewportPreviewShapeToolBar::Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditorViewport> InViewport)
 {
 	// Force this toolbar to have small icons, as the preview panel is only small so we have limited space
 	const bool bForceSmallIcons = true;
-	FToolBarBuilder ToolbarBuilder(InArgs._Viewport->GetMaterialEditorCommands(), FMultiBoxCustomization::None, nullptr, Orient_Horizontal, bForceSmallIcons);
+	FToolBarBuilder ToolbarBuilder(InViewport->GetCommandList(), FMultiBoxCustomization::None, nullptr, Orient_Horizontal, bForceSmallIcons);
 
 	// Use a custom style
 	ToolbarBuilder.SetStyle(&FEditorStyle::Get(), "ViewportMenu");
@@ -26,8 +30,6 @@ void SMaterialEditorViewportToolBar::Construct(const FArguments& InArgs)
 		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().SetPlanePreview);
 		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().SetCubePreview);
 		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().SetPreviewMeshFromSelection);
-		ToolbarBuilder.AddToolBarButton(FMaterialEditorCommands::Get().TogglePreviewGrid);
-		ToolbarBuilder.AddToolBarButton(FEditorViewportCommands::Get().ToggleRealTime);
 	}
 	ToolbarBuilder.EndSection();
 
@@ -47,6 +49,37 @@ void SMaterialEditorViewportToolBar::Construct(const FArguments& InArgs)
 	];
 
 	SViewportToolBar::Construct(SViewportToolBar::FArguments());
+}
+
+///////////////////////////////////////////////////////////
+// SMaterialEditorViewportToolBar
+
+void SMaterialEditorViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditorViewport> InViewport)
+{
+	SCommonEditorViewportToolbarBase::Construct(SCommonEditorViewportToolbarBase::FArguments(), InViewport);
+}
+
+TSharedRef<SWidget> SMaterialEditorViewportToolBar::GenerateShowMenu() const
+{
+	GetInfoProvider().OnFloatingButtonClicked();
+
+	TSharedRef<SEditorViewport> ViewportRef = GetInfoProvider().GetViewportWidget();
+
+	const bool bInShouldCloseWindowAfterMenuSelection = true;
+	FMenuBuilder ShowMenuBuilder(bInShouldCloseWindowAfterMenuSelection, ViewportRef->GetCommandList());
+	{
+		auto Commands = FMaterialEditorCommands::Get();
+
+		ShowMenuBuilder.AddMenuEntry(Commands.ToggleMaterialStats);
+		ShowMenuBuilder.AddMenuEntry(Commands.ToggleMobileStats);
+
+		ShowMenuBuilder.AddMenuSeparator();
+
+		ShowMenuBuilder.AddMenuEntry(Commands.TogglePreviewGrid);
+		ShowMenuBuilder.AddMenuEntry(Commands.TogglePreviewBackground);
+	}
+
+	return ShowMenuBuilder.MakeWidget();
 }
 
 #undef LOCTEXT_NAMESPACE

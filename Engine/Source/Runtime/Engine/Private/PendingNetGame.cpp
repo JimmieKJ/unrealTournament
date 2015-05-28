@@ -51,7 +51,7 @@ void UPendingNetGame::InitNetDriver()
 		else
 		{
 			// error initializing the network stack...
-			UE_LOG(LogNet, Log, TEXT("error initializing the network stack"));
+			UE_LOG(LogNet, Warning, TEXT("error initializing the network stack"));
 			GEngine->DestroyNamedNetDriver(this, NetDriver->NetDriverName);
 			NetDriver = NULL;
 
@@ -218,6 +218,8 @@ void UPendingNetGame::NotifyControlMessage(UNetConnection* Connection, uint8 Mes
 			{
 				URL.AddOption(*FString::Printf(TEXT("game=%s"), *GameName));
 			}
+
+			// Send out netspeed now that we're connected
 			FNetControlMessage<NMT_Netspeed>::Send(Connection, Connection->CurrentNetSpeed);
 
 			// We have successfully connected.
@@ -240,17 +242,24 @@ void UPendingNetGame::NotifyControlMessage(UNetConnection* Connection, uint8 Mes
 
 void UPendingNetGame::Tick( float DeltaTime )
 {
-	check(NetDriver);
-	check(NetDriver->ServerConnection);
+	check(NetDriver && NetDriver->ServerConnection);
+
+	// The following line disables checks for nullptr access on NetDriver. We have checked() it's validity above,
+	// but the TickDispatch call below may invalidate the ptr, thus we must null check after calling TickDispatch.
+	// PVS-Studio notes that we have used the pointer before null checking (it currently does not understand check)
+	//-V:NetDriver<<:522
 
 	// Handle timed out or failed connection.
-	if( NetDriver->ServerConnection->State==USOCK_Closed && ConnectionError==TEXT("") )
+	if (NetDriver->ServerConnection->State == USOCK_Closed && ConnectionError == TEXT(""))
 	{
 		ConnectionError = NSLOCTEXT("Engine", "ConnectionFailed", "Your connection to the host has been lost.").ToString();
 		return;
 	}
 
-	// Update network driver (may NULL itself via CancelPending if a disconnect/error occurs)
+	/**
+	 *   Update the network driver
+	 *   ****may NULL itself via CancelPending if a disconnect/error occurs****
+	 */
 	NetDriver->TickDispatch(DeltaTime);
 	if (NetDriver)
 	{

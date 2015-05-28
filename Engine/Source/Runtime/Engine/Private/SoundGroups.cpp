@@ -24,7 +24,7 @@ void USoundGroups::Initialize() const
 	}
 
 #if WITH_EDITOR
-	UEnum* SoundGroupEnum = FindObjectChecked<UEnum>(NULL, TEXT("/Script/Engine.SoundGroups.ESoundGroup"));
+	UEnum* SoundGroupEnum = FindObjectChecked<UEnum>(NULL, TEXT("/Script/Engine.ESoundGroup"));
 
 	for (const auto& It : SoundGroupMap)
 	{
@@ -56,7 +56,7 @@ const FSoundGroup& USoundGroups::GetSoundGroup(const ESoundGroup SoundGroup) con
 	const FSoundGroup* SG = SoundGroupMap.Find(SoundGroup);
 	if (SG == NULL)
 	{
-		UEnum* SoundGroupEnum = FindObjectChecked<UEnum>(NULL, TEXT("/Script/Engine.SoundGroups.ESoundGroup"));
+		UEnum* SoundGroupEnum = FindObjectChecked<UEnum>(NULL, TEXT("/Script/Engine.ESoundGroup"));
 		
 		UE_LOG(LogAudio, Warning, TEXT("Requested SoundGroup %s does not have defined profile.  Using SOUNDGROUP_Default."), *SoundGroupEnum->GetEnumText(SoundGroup).ToString());
 		return SoundGroupMap.FindChecked(SOUNDGROUP_Default);

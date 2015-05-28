@@ -426,11 +426,10 @@ static void EditorCommandLineUtilsImpl::RaiseEditorMessageBox(const FText& Title
 //------------------------------------------------------------------------------
 static void EditorCommandLineUtilsImpl::ForceCloseEditor()
 {
-	IMainFrameModule& MainFrameModule = IMainFrameModule::Get();
-	if (MainFrameModule.IsWindowInitialized())
-	{
-		MainFrameModule.RequestCloseEditor();
-	}
+	// We used to call IMainFrameModule::RequestCloseEditor, but that runs a lot of logic that should only be
+	// run for the real project editor (notably UThumbnailManager::CaptureProjectThumbnail was causing a crash on shutdown
+	// but INI serialization was running when it should not have as well). Instead, we just raise the QUIT_EDITOR command:
+	GEngine->DeferredCommands.Add(TEXT("QUIT_EDITOR"));
 }
 
 //------------------------------------------------------------------------------
@@ -673,9 +672,9 @@ static void EditorCommandLineUtilsImpl::RunAssetMerge(FMergeAsset const& Base, F
 	// we use a lambda delegate to route the call into MergeHandler (we require 
 	// this intermediate to hold onto a MergeHandler ref, so it doesn't get 
 	// prematurely destroyed at the end of this function)
-	auto HandleEditorClose = [](TSharedRef<FMergeResolutionHandler> MergeHandler)
+	auto HandleEditorClose = [](TSharedRef<FMergeResolutionHandler> InMergeHandler)
 	{
-		MergeHandler->HandleEditorClose();
+		InMergeHandler->HandleEditorClose();
 	};	
 	// have to copy the file into the expected result file when we're done
 	FEditorDelegates::OnShutdownPostPackagesSaved.AddStatic(HandleEditorClose, MergeHandler);

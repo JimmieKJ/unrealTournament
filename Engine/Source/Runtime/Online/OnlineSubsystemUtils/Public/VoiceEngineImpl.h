@@ -211,11 +211,7 @@ public:
 		return S_OK;
 	}
 
-    virtual uint32 UnregisterRemoteTalker(const FUniqueNetId& UniqueId) override
-	{
-		// Not needed
-		return S_OK;
-	}
+	virtual uint32 UnregisterRemoteTalker(const FUniqueNetId& UniqueId) override;
 
     virtual bool IsHeadsetPresent(uint32 LocalUserNum) override
 	{

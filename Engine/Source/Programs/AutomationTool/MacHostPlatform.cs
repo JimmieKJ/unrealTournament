@@ -93,7 +93,7 @@ namespace AutomationTool
 			if (AppName == "xbuild")
 			{
 				AppName = "sh";
-				CommandLine = "-c 'xbuild " + (String.IsNullOrEmpty(CommandLine) ? "" : CommandLine) + " /property:TargetFrameworkVersion=v4.5 /tv:4.0 /p:DefineConstants=MONO /verbosity:quiet /nologo |grep -i error; if [ $? -ne 1 ]; then exit 1; else exit 0; fi'";
+				CommandLine = "-c 'xbuild " + (String.IsNullOrEmpty(CommandLine) ? "" : CommandLine) + " /p:DefineConstants=MONO /verbosity:quiet /nologo |grep -i error; if [ $? -ne 1 ]; then exit 1; else exit 0; fi'";
 			}
 			if (AppName.EndsWith(".exe") || ((AppName.Contains("/Binaries/Win64/") || AppName.Contains("/Binaries/Mac/")) && string.IsNullOrEmpty(Path.GetExtension(AppName))))
 			{
@@ -132,7 +132,7 @@ namespace AutomationTool
 
 		public override string UBTProjectName
 		{
-			get { return "UnrealBuildTool_Mono"; }
+			get { return "UnrealBuildTool"; }
 		}
 
 		public override UnrealTargetPlatform HostEditorPlatform

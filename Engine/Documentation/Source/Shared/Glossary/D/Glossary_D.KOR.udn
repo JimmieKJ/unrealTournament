@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2004247
+﻿INTSourceChangelist:2419781
 Title:D
 Crumbs:Shared/Glossary
 Description:
@@ -36,7 +36,7 @@ Defaults Mode 디폴트 모드
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_Defaults_Mode]
-**Blueprint Defaults** (블루프린트 디폴트) 또는 **Defaults Mode** (디폴트 모드)에는 블루프린트의 모든 프로퍼티가 표시되며, 거기에는 
+**Class Defaults** (클래스 디폴트) 또는 **Defaults Mode** (디폴트 모드)에는 블루프린트의 모든 프로퍼티가 표시되며, 거기에는 
 블루프린트에 포함된 변수와 네이티브 코드에 정의된 컴포넌트는 물론, 리플리케이션, 내비게이션, 콜리전 프로퍼티도 포함됩니다.
 **디폴트 모드** 에서 설정된 이 프로퍼티들에 대한 값은 해당 블루프린트의 인스턴스가 
 새로 생성될 때 사용됩니다.

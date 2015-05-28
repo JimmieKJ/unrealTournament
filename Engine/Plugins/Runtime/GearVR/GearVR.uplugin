@@ -1,15 +1,15 @@
 {
 	"FileVersion" : 3,
 
-	"FriendlyName" : "Gear VR Plugin",
+	"FriendlyName" : "Gear VR",
 	"Version" : 1,
 	"VersionName" : "1.0",
 	"CreatedBy" : "Epic Games, Inc.",
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Support for the Gear VR head mounted display",
-	"Category" : "Head Mounted Displays.Devices",
-	"EnabledByDefault" : false,
+	"Category" : "Virtual Reality",
+	"EnabledByDefault" : true,
 
 	"Modules" :
 	[

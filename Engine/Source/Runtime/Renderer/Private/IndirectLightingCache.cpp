@@ -400,21 +400,21 @@ void FIndirectLightingCache::UpdateCache(FScene* Scene, FSceneRenderer& Renderer
 			UpdateBlocks(Scene, Renderer.Views.GetData(), BlocksToUpdate);
 
 			UpdateTransitionsOverTime(TransitionsOverTimeToUpdate, Renderer.ViewFamily.DeltaWorldTime);
-
-			if (GCacheDrawLightingSamples || Renderer.ViewFamily.EngineShowFlags.VolumeLightingSamples || GCacheDrawDirectionalShadowing)
-			{
-				FViewElementPDI DebugPDI(Renderer.Views.GetData(), NULL);
-
-				for (int32 VolumeIndex = 0; VolumeIndex < Scene->PrecomputedLightVolumes.Num(); VolumeIndex++)
-				{
-					const FPrecomputedLightVolume* PrecomputedLightVolume = Scene->PrecomputedLightVolumes[VolumeIndex];
-
-					PrecomputedLightVolume->DebugDrawSamples(&DebugPDI, GCacheDrawDirectionalShadowing != 0);
-				}
-			}
 		}
 
 		bUpdateAllCacheEntries = false;
+	}
+
+	if (GCacheDrawLightingSamples || Renderer.ViewFamily.EngineShowFlags.VolumeLightingSamples || GCacheDrawDirectionalShadowing)
+	{
+		FViewElementPDI DebugPDI(Renderer.Views.GetData(), NULL);
+
+		for (int32 VolumeIndex = 0; VolumeIndex < Scene->PrecomputedLightVolumes.Num(); VolumeIndex++)
+		{
+			const FPrecomputedLightVolume* PrecomputedLightVolume = Scene->PrecomputedLightVolumes[VolumeIndex];
+
+			PrecomputedLightVolume->DebugDrawSamples(&DebugPDI, GCacheDrawDirectionalShadowing != 0);
+		}
 	}
 }
 

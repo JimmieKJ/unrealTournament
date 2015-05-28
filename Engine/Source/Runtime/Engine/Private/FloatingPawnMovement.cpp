@@ -9,17 +9,22 @@ UFloatingPawnMovement::UFloatingPawnMovement(const FObjectInitializer& ObjectIni
 	MaxSpeed = 1200.f;
 	Acceleration = 4000.f;
 	Deceleration = 8000.f;
+	TurningBoost = 8.0f;
 	bPositionCorrected = false;
 
 	ResetMoveState();
 }
 
-
 void UFloatingPawnMovement::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
+	if (ShouldSkipUpdate(DeltaTime))
+	{
+		return;
+	}
+
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (!PawnOwner || !UpdatedComponent || ShouldSkipUpdate(DeltaTime))
+	if (!PawnOwner || !UpdatedComponent)
 	{
 		return;
 	}
@@ -27,13 +32,14 @@ void UFloatingPawnMovement::TickComponent(float DeltaTime, enum ELevelTick TickT
 	const AController* Controller = PawnOwner->GetController();
 	if (Controller && Controller->IsLocalController())
 	{
-		if (Controller->IsLocalPlayerController())
+		// apply input for local players but also for AI that's not following a navigation path at the moment
+		if (Controller->IsLocalPlayerController() == true || Controller->IsFollowingAPath() == false)
 		{
 			ApplyControlInputToVelocity(DeltaTime);
 		}
 		// if it's not player controller, but we do have a controller, then it's AI
-		// and we need to limit the speed
-		else if (IsExceedingMaxSpeed(MaxSpeed))
+		// (that's not following a path) and we need to limit the speed
+		else if (IsExceedingMaxSpeed(MaxSpeed) == false)
 		{
 			Velocity = Velocity.GetUnsafeNormal() * MaxSpeed;
 		}
@@ -48,7 +54,6 @@ void UFloatingPawnMovement::TickComponent(float DeltaTime, enum ELevelTick TickT
 		{
 			const FVector OldLocation = UpdatedComponent->GetComponentLocation();
 			const FRotator Rotation = UpdatedComponent->GetComponentRotation();
-			FVector TraceStart = OldLocation;
 
 			FHitResult Hit(1.f);
 			SafeMoveUpdatedComponent(Delta, Rotation, true, Hit);
@@ -74,7 +79,6 @@ void UFloatingPawnMovement::TickComponent(float DeltaTime, enum ELevelTick TickT
 	}
 };
 
-
 bool UFloatingPawnMovement::LimitWorldBounds()
 {
 	AWorldSettings* WorldSettings = PawnOwner ? PawnOwner->GetWorldSettings() : NULL;
@@ -93,7 +97,6 @@ bool UFloatingPawnMovement::LimitWorldBounds()
 	return false;
 }
 
-
 void UFloatingPawnMovement::ApplyControlInputToVelocity(float DeltaTime)
 {
 	const FVector ControlAcceleration = GetPendingInputVector().GetClampedToMaxSize(1.f);
@@ -107,7 +110,9 @@ void UFloatingPawnMovement::ApplyControlInputToVelocity(float DeltaTime)
 		// Apply change in velocity direction
 		if (Velocity.SizeSquared() > 0.f)
 		{
-			Velocity -= (Velocity - ControlAcceleration * Velocity.Size()) * FMath::Min(DeltaTime * 8.f, 1.f);
+			// Change direction faster than only using acceleration, but never increase velocity magnitude.
+			const float TimeScale = FMath::Clamp(DeltaTime * TurningBoost, 0.f, 1.f);
+			Velocity = Velocity + (ControlAcceleration * Velocity.Size() - Velocity) * TimeScale;
 		}
 	}
 	else
@@ -135,9 +140,8 @@ void UFloatingPawnMovement::ApplyControlInputToVelocity(float DeltaTime)
 	ConsumeInputVector();
 }
 
-
-bool UFloatingPawnMovement::ResolvePenetration(const FVector& Adjustment, const FHitResult& Hit, const FRotator& NewRotation)
+bool UFloatingPawnMovement::ResolvePenetrationImpl(const FVector& Adjustment, const FHitResult& Hit, const FQuat& NewRotationQuat)
 {
-	bPositionCorrected |= Super::ResolvePenetration(Adjustment, Hit, NewRotation);
+	bPositionCorrected |= Super::ResolvePenetrationImpl(Adjustment, Hit, NewRotationQuat);
 	return bPositionCorrected;
 }

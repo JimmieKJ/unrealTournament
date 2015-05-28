@@ -74,30 +74,37 @@ PxGeometry * GetGeometryFromShape(GeometryFromShapeStorage & LocalStorage, const
 
 // FILTER
 
+/** TArray typedef of components to ignore. */
+typedef TArray<uint32, TInlineAllocator<NumInlinedActorComponents>> FilterIgnoreComponentsArrayType;
+
+
 /** Unreal PhysX scene query filter callback object */
 class FPxQueryFilterCallback : public PxSceneQueryFilterCallback
 {
 public:
-	/** List of ActorIds for this query to ignore */
-	TArray<uint32, TInlineAllocator<1> >	IgnoreComponents;
-	PxSceneQueryHitType::Enum				PrefilterReturnValue;
 
-	/** Whether this is a raycastSingle or sweepSingle, because in 3.3 you can't return eTOUCH for single queries */
-	bool bSingleQuery;
+	/** List of ActorIds for this query to ignore */
+	FilterIgnoreComponentsArrayType IgnoreComponents;
+	
+	/** Result of PreFilter callback. */
+	PxSceneQueryHitType::Enum PrefilterReturnValue;
+
+	/** Whether to ignore touches (convert an eTOUCH result to eNONE). */
+	bool bIgnoreTouches;
 
 
 	FPxQueryFilterCallback()
 	{
 		PrefilterReturnValue = PxSceneQueryHitType::eNONE;
-		bSingleQuery = false;
+		bIgnoreTouches = false;
 	}
 
-	FPxQueryFilterCallback(const TArray<uint32, TInlineAllocator<1> > InIgnoreComponents)
+	FPxQueryFilterCallback(const FilterIgnoreComponentsArrayType& InIgnoreComponents)
 	{
 		PrefilterReturnValue = PxSceneQueryHitType::eNONE;
 		
 		IgnoreComponents = InIgnoreComponents;
-		bSingleQuery = false;
+		bIgnoreTouches = false;
 	}
 
 	/** 
@@ -126,7 +133,7 @@ class FPxQueryFilterCallbackSweep : public FPxQueryFilterCallback
 public:
 	bool DiscardInitialOverlaps;
 
-	FPxQueryFilterCallbackSweep(const TArray<uint32, TInlineAllocator<1> > InIgnoreComponents)
+	FPxQueryFilterCallbackSweep(const FilterIgnoreComponentsArrayType& InIgnoreComponents)
 		: FPxQueryFilterCallback(InIgnoreComponents)
 	{
 		DiscardInitialOverlaps = false;
@@ -171,15 +178,14 @@ bool RaycastMulti(const UWorld* World, TArray<struct FHitResult>& OutHits, const
 
 // GEOM OVERLAP
 
-/** Function for testing overlap between a supplied PxGeometry and the world. */
-bool GeomOverlapTest(const UWorld* World, const struct FCollisionShape& CollisionShape, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const struct FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
+/** Function for testing overlaps between a supplied PxGeometry and the world. Returns true if at least one overlapping shape is blocking*/
+bool GeomOverlapBlockingTest(const UWorld* World, const struct FCollisionShape& CollisionShape, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const struct FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
 
-/** Function for testing overlap between a supplied PxGeometry and the world. */
-bool GeomOverlapSingle(const UWorld* World, const struct FCollisionShape& CollisionShape, const FVector& Pos, const FQuat& Rot, FOverlapResult& OutOverlaps, ECollisionChannel TraceChannel, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const struct FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
+/** Function for testing overlaps between a supplied PxGeometry and the world. Returns true if anything is overlapping (blocking or touching)*/
+bool GeomOverlapAnyTest(const UWorld* World, const struct FCollisionShape& CollisionShape, const FVector& Pos, const FQuat& Rot, ECollisionChannel TraceChannel, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const struct FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
 
 /**
-* Function for overlapping a supplied PxGeometry against the world
-* Note that this does not clear OutOverlaps, but adds unique results to it
+* Function for overlapping a supplied PxGeometry against the world.
 */
 bool GeomOverlapMulti(const UWorld* World, const struct FCollisionShape& CollisionShape, const FVector& Pos, const FQuat& Rot, TArray<FOverlapResult>& OutOverlaps, ECollisionChannel TraceChannel, const struct FCollisionQueryParams& Params, const struct FCollisionResponseParams& ResponseParams, const struct FCollisionObjectQueryParams& ObjectParams = FCollisionObjectQueryParams::DefaultObjectQueryParam);
 

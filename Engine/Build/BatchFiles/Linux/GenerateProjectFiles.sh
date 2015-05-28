@@ -19,12 +19,12 @@ echo Setting up Unreal Engine 4 project files...
 echo
 
 set -x
-xbuild Source/Programs/UnrealBuildTool/UnrealBuildTool_Mono.csproj \
+xbuild Source/Programs/UnrealBuildTool/UnrealBuildTool.csproj \
   /verbosity:quiet /nologo \
   /p:TargetFrameworkVersion=v4.0 \
   /p:Configuration="Development"
 
-xbuild Source/Programs/AutomationTool/AutomationTool_Mono.csproj \
+xbuild Source/Programs/AutomationTool/AutomationTool.csproj \
   /verbosity:quiet /nologo \
   /tv:4.0 \
   /p:TargetFrameworkVersion=v4.0 \
@@ -56,5 +56,5 @@ xbuild Source/Programs/AutomationTool/HTML5/HTML5.Automation.csproj \
   /p:Configuration="Development"
 
 # pass all parameters to UBT
-mono Binaries/DotNET/UnrealBuildTool.exe -makefile -qmakefile -cmakefile "$@"
+mono Binaries/DotNET/UnrealBuildTool.exe -makefile -kdevelopfile -qmakefile -cmakefile "$@"
 set +x

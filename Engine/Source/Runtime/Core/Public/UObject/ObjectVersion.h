@@ -462,8 +462,42 @@ enum EUnrealEngineObjectUE4Version
 	VER_UE4_AFTER_MERGED_ADD_MODIFIERS_RUNTIME_GENERATION_TO_4_7_DEPRECATED,
 	// After merging VER_UE4_ADD_MODIFIERS_RUNTIME_GENERATION into 4.7 branch
 	VER_UE4_MERGED_ADD_MODIFIERS_RUNTIME_GENERATION_TO_4_7,
-	// MovementComponent->UpdatedComponent changed from UPrimitiveComponent to USceneComponent
-	VER_UE4_MOVEMENTCOMPONENT_UPDATEDSCENECOMPONENT,
+	// After merging VER_UE4_ADD_MODIFIERS_RUNTIME_GENERATION into 4.7 branch
+	VER_UE4_AFTER_MERGING_ADD_MODIFIERS_RUNTIME_GENERATION_TO_4_7,
+	// Landscape grass weightmap data is now generated in the editor and serialized.
+	VER_UE4_SERIALIZE_LANDSCAPE_GRASS_DATA,
+	// New property to optionally prevent gpu emitters clearing existing particles on Init().
+	VER_UE4_OPTIONALLY_CLEAR_GPU_EMITTERS_ON_INIT,
+	// Also store the Material guid with the landscape grass data
+	VER_UE4_SERIALIZE_LANDSCAPE_GRASS_DATA_MATERIAL_GUID,
+	// Make sure that all template components from blueprint generated classes are flagged as public
+	VER_UE4_BLUEPRINT_GENERATED_CLASS_COMPONENT_TEMPLATES_PUBLIC,
+	// Split out creation method on ActorComponents to distinguish between native, instance, and simple or user construction script
+	VER_UE4_ACTOR_COMPONENT_CREATION_METHOD,
+	// K2Node_Event now uses FMemberReference for handling references
+	VER_UE4_K2NODE_EVENT_MEMBER_REFERENCE,
+	// FPropertyTag stores GUID of struct
+	VER_UE4_STRUCT_GUID_IN_PROPERTY_TAG,
+	// Remove unused UPolys from UModel cooked content
+	VER_UE4_REMOVE_UNUSED_UPOLYS_FROM_UMODEL,
+	// This doesn't do anything except trigger a rebuild on HISMC cluster trees, in this case to get a good "occlusion query" level
+	VER_UE4_REBUILD_HIERARCHICAL_INSTANCE_TREES,
+	// Package summary includes an CompatibleWithEngineVersion field, separately to the version it's saved with
+	VER_UE4_PACKAGE_SUMMARY_HAS_COMPATIBLE_ENGINE_VERSION,
+	// Track UCS modified properties on Actor Components
+	VER_UE4_TRACK_UCS_MODIFIED_PROPERTIES,
+	// Allowed landscape spline meshes to be stored into landscape streaming levels rather than the spline's level
+	VER_UE4_LANDSCAPE_SPLINE_CROSS_LEVEL_MESHES,
+	// Deprecate the variables used for sizing in the designer on UUserWidget
+	VER_UE4_DEPRECATE_USER_WIDGET_DESIGN_SIZE,
+	// Make the editor views array dynamically sized
+	VER_UE4_ADD_EDITOR_VIEWS,
+	// Updated foliage to work with either FoliageType assets or blueprint classes
+	VER_UE4_FOLIAGE_WITH_ASSET_OR_CLASS,
+	// Allows PhysicsSerializer to serialize shapes and actors for faster load times
+	VER_UE4_BODYINSTANCE_BINARY_SERIALIZATION,
+	// Added fastcall data serialization directly in UFunction
+	VER_UE4_SERIALIZE_BLUEPRINT_EVENTGRAPH_FASTCALLS_IN_UFUNCTION,
 
 	// -----<new versions can be added before this line>-------------------------------------------------
 	// - this needs to be the last line (see note below)

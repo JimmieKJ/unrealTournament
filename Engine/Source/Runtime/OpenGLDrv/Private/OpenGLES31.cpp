@@ -121,6 +121,12 @@ bool FOpenGLES31::bRequiresDontEmitPrecisionForTextureSamplers = false;
 /* Some android platforms require textureCubeLod to be used some require textureCubeLodEXT however they either inconsistently or don't use the GL_TextureCubeLodEXT extension definition */
 bool FOpenGLES31::bRequiresTextureCubeLodEXTToTextureCubeLodDefine = false;
 
+/* This is a hack to remove the gl_FragCoord if shader will fail to link if exceeding the max varying on android platforms */
+bool FOpenGLES31::bRequiresGLFragCoordVaryingLimitHack = false;
+
+/* This hack fixes an issue with SGX540 compiler which can get upset with some operations that mix highp and mediump */
+bool FOpenGLES31::bRequiresTexture2DPrecisionHack = false;
+
 /** GL_EXT_disjoint_timer_query or GL_NV_timer_query*/
 bool FOpenGLES31::bSupportsDisjointTimeQueries = false;
 
@@ -171,8 +177,10 @@ void FOpenGLES31::ProcessQueryGLInt()
 {
 	if(bES2Fallback)
 	{
+		LOG_AND_GET_GL_INT(GL_MAX_VARYING_VECTORS, 0, MaxVaryingVectors);
 		LOG_AND_GET_GL_INT(GL_MAX_VERTEX_UNIFORM_VECTORS, 0, MaxVertexUniformComponents);
 		LOG_AND_GET_GL_INT(GL_MAX_FRAGMENT_UNIFORM_VECTORS, 0, MaxPixelUniformComponents);
+		MaxVaryingVectors *= 4;
 		MaxVertexUniformComponents *= 4;
 		MaxPixelUniformComponents *= 4;
 		MaxGeometryUniformComponents = 0;
@@ -183,6 +191,7 @@ void FOpenGLES31::ProcessQueryGLInt()
 	}
 	else
 	{
+		GET_GL_INT(GL_MAX_VARYING_VECTORS, 0, MaxVaryingVectors);
 		GET_GL_INT(GL_MAX_VERTEX_UNIFORM_COMPONENTS, 0, MaxVertexUniformComponents);
 		GET_GL_INT(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, 0, MaxPixelUniformComponents);
 		GET_GL_INT(GL_MAX_GEOMETRY_UNIFORM_COMPONENTS_EXT, 0, MaxGeometryUniformComponents);

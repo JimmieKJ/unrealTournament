@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2220812
+﻿INTSourceChangelist:2463968
 Title:P
 Crumbs:Shared/Glossary
 Description:
@@ -28,7 +28,9 @@ Pawn 폰
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_pawn]
-**Pawn** (폰)은 Actor (액터)의 서브클래스로, 게임내 아바타 또는 가면, 이를테면 게임의 캐릭터같은 역할을 합니다. 폰은 플레이어의 제어를 받을 수도, 혹은 플레이어가 아닌 캐릭터(NPC)의 경우처럼 AI 의 제어를 받을 수도 있습니다.
+**Pawn**, 폰이란 Actor 의 서브클래스로, 게임내 아바타 또는 페르소나 역할을 하며, 게임에서의 캐릭터를 예로 들 수 있습니다. 폰은 플레이어 또는 플레이 불가능한 캐릭터(NPC) 형태로 게임의 AI 제어를 받을 수 있습니다.
+
+폰이 사람 또는 AI 플레이어의 제어를 받을 때는, _Possess_ 빙의된 것으로 간주합니다. 역으로 폰이 사람 또는 AI 플레이어의 제어를 받지 않는 경우, _Unpossess_ 빙의되지 않은 것으로 간주합니다.
 [/EXCERPT:Glossary_pawn]
 
 	[/PARAM]
@@ -97,7 +99,6 @@ pin 핀
 [/OBJECT]
 
 
-
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
 pivot point 피벗 포인트
@@ -110,8 +111,6 @@ pivot point 피벗 포인트
 
 	[/PARAM]
 [/OBJECT]
-
-
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
@@ -127,6 +126,41 @@ Play In Editor (PIE) 에디터에서 플레이
 [/OBJECT]
 
 
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+PlayerController 플레이어 콘트롤러
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_PlayerController]
+**PlayerController**, 플레이어 콘트롤러는 플레이어 입력을 받아 게임 내 상호작용으로 변환하는 데 사용되는 베이스 클래스이며, 모든 게임에는 최소 하나의 플레이어 콘트롤러가 있습니다. 플레이어 콘트롤러는 종종 게임 내 플레이어의 표상으로 폰 또는 캐릭터를 빙의합니다.
+
+멀티플레이어 게임의 경우 PlayerController 가 주요 네트워크 상호작용 지점이 되기도 합니다. 멀티플레이어 플레이 도중, 서버는 멀티플레이어 게임 내 모든 플레이어에 대해 하나의 플레이어 콘트롤러 인스턴스를 갖는데, 이는 각 플레이어로의 네트워크 함수 호출이 가능해야 하기 때문이며, 각 클라이언트는 자기 플레이어에 해당하는 플레이어 콘트롤러만 갖으며, 이를 통해서만 서버와 통신할 수 있습니다.
+[/EXCERPT:Glossary_PlayerController]
+
+	[/PARAM]
+[/OBJECT]
+
+
+[OBJECT:GlossaryItem]
+	[PARAM:Term]
+PlayerState 플레이어 스테이트
+	[/PARAM]
+	[PARAM:Definition]
+
+[EXCERPT:Glossary_PlayerState]
+**PlayerState**, 플레이어 스테이트는 사람 플레이어 또는 플레이어를 흉내내는 봇과 같은 게임내 참여자의 상태를 나타냅니다. 게임 월드의 일부로 존재하는 플레이어가 아닌 AI 의 경우 PlayerState 가 없을 것입니다.
+
+PlayerState 에 포함시키기 적합한 예제 데이터라면, 플레이어 이름 또는 점수, 그 현재 레벨 또는 생명력, 깃발뺏기 게임에서 현재 깃발 운반 여부 등입니다.
+
+멀티플레이어 게임의 경우, 모든 플레이어에 대한 PlayerState 는 (PlayerController 와는 달리) 모든 머신에 존재하며, 서버에서 클라이언트로 프로퍼티를 리플리케이트하여 동기화 상태 유지가 가능합니다.
+
+[/EXCERPT:Glossary_PlayerState]
+
+	[/PARAM]
+[/OBJECT]
+
+
 
 [OBJECT:GlossaryItem]
 	[PARAM:Term]
@@ -135,11 +169,16 @@ project 프로젝트
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_project]
-언리얼 엔진에서 생성하는 각 게임은 **project** (프로젝트)입니다. 프로젝트는 개별적인 게임 하나를 이루는 
-콘텐츠와 코드 전부가 포함되는 자립적 단위입니다. 몇 개의 프로젝트든 동시에 생성, 유지, 개발 가능하며, 
-각각의 프로젝트마다 그에 맞는 엔진 및 에디터를 쉽게 전환할 수 있습니다. 그 덕에 개발자는 한 번에 복수의 
-게임에 대한 작업을 하거나, 주요 게임 프로젝트 이외에도 여러가지 테스트 프로젝트 관리를 쉽게 할 수 
-있습니다.
+**Project**, 프로젝트란 각각의 게임을 이루는 콘텐츠와 코드 전부가 들어있는 독립적인 유닛으로, 디스크상의 디렉토리 세트와 일치합니다. 예를 들어 아래 그림에서 **콘텐츠 브라우저** 의 계층구조 트리에는 디스크의 Project 폴더 안에서 찾을 수 있는 동일한 디렉토리 구조가 들어있습니다.
+[REGION:lightbox]
+[![](ProjectHierarchy.png)(w:440)](ProjectHierarchy.png)
+[/REGION:lightbox]
+
+_이미지를 클릭하면 원래 크기로 보입니다._
+
+ Project 종종 그 파일에 관련된 .uproject 파일을 가리키기도 하지만, 서로와 공존하는 별개의 파일이 두 개 있습니다. .uproject 는 파일을 생성하고 열고 저장하는 데 사용되는 레퍼런스 파일인 반면, Project 에는 프로젝트에 관련된 모든 파일과 폴더가 들어있습니다.
+
+프로젝트는 동시에 몇 개를 만들어 유지하면서 개발할 수 있습니다. 엔진(과 에디터) 둘 다 쉽게 전환이 가능하여, 주요 게임 프로젝트에 추가로 한 번에 다수의 게임 작업을 할 수 있습니다.
 [/EXCERPT:Glossary_project]
 
 	[/PARAM]

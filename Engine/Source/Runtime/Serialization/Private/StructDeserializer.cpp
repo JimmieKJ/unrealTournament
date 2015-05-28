@@ -109,7 +109,7 @@ bool FStructDeserializer::Deserialize( void* OutStruct, UStruct& TypeInfo, IStru
 					return false;
 				}
 
-				CurrentState = StateStack.Pop();
+				CurrentState = StateStack.Pop(/*bAllowShrinking=*/ false);
 			}
 			break;
 
@@ -220,7 +220,7 @@ bool FStructDeserializer::Deserialize( void* OutStruct, UStruct& TypeInfo, IStru
 					return true;
 				}
 
-				CurrentState = StateStack.Pop();
+				CurrentState = StateStack.Pop(/*bAllowShrinking=*/ false);
 			}
 			break;
 

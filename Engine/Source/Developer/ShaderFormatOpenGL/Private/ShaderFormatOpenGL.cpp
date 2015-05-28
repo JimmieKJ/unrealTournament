@@ -14,6 +14,8 @@ static FName NAME_GLSL_430(TEXT("GLSL_430"));
 static FName NAME_GLSL_ES2(TEXT("GLSL_ES2"));
 static FName NAME_GLSL_ES2_WEBGL(TEXT("GLSL_ES2_WEBGL"));
 static FName NAME_GLSL_150_ES2(TEXT("GLSL_150_ES2"));
+static FName NAME_GLSL_150_ES2_NOUB(TEXT("GLSL_150_ES2_NOUB"));
+static FName NAME_GLSL_150_ES3_1(TEXT("GLSL_150_ES31"));
 static FName NAME_GLSL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
 static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
  
@@ -22,14 +24,16 @@ class FShaderFormatGLSL : public IShaderFormat
 	enum 
 	{
 		/** Version for shader format, this becomes part of the DDC key. */
-		UE_SHADER_GLSL_150_VER = 27,
-		UE_SHADER_GLSL_150_MAC_VER = 7,
+		UE_SHADER_GLSL_150_VER = 26,
+		UE_SHADER_GLSL_150_MAC_VER = 6,
 		UE_SHADER_GLSL_430_VER = 57,
 		UE_SHADER_GLSL_ES2_VER = 15,
 		UE_SHADER_GLSL_150ES2_VER = 18,
+		UE_SHADER_GLSL_150ES2NOUB_VER = 2,
+		UE_SHADER_GLSL_150ES3_1_VER = 1,
 		UE_SHADER_GLSL_ES2_VER_WEBGL  = 16,
-		UE_SHADER_GLSL_ES2_IOS_VER  = 6,
-		UE_SHADER_GLSL_310_ES_EXT_VER = 4,
+		UE_SHADER_GLSL_ES2_IOS_VER  = 5,
+		UE_SHADER_GLSL_310_ES_EXT_VER = 3,
 	}; 
 
 	void CheckFormat(FName Format) const
@@ -39,6 +43,8 @@ class FShaderFormatGLSL : public IShaderFormat
 				Format == NAME_GLSL_430 || 
 				Format == NAME_GLSL_ES2 || 
 				Format == NAME_GLSL_150_ES2 ||
+				Format == NAME_GLSL_150_ES2_NOUB ||
+				Format == NAME_GLSL_150_ES3_1 ||
                 Format == NAME_GLSL_ES2_WEBGL ||
 				Format == NAME_GLSL_ES2_IOS ||
 				Format == NAME_GLSL_310_ES_EXT
@@ -70,6 +76,14 @@ public:
 		{
 			GLSLVersion = UE_SHADER_GLSL_150ES2_VER;
 		}
+		else if (Format == NAME_GLSL_150_ES3_1)
+		{
+			GLSLVersion = UE_SHADER_GLSL_150ES3_1_VER;
+		}
+		else if (Format == NAME_GLSL_150_ES2_NOUB)
+		{
+			GLSLVersion = UE_SHADER_GLSL_150ES2NOUB_VER;
+		}
 		else if (Format == NAME_GLSL_ES2_WEBGL)
 		{
 			GLSLVersion = UE_SHADER_GLSL_ES2_VER_WEBGL;
@@ -90,7 +104,7 @@ public:
 		const uint16 Version = ((HLSLCCVersion & 0xff) << 8) | (GLSLVersion & 0xff);
 		return Version;
 	}
-	virtual void GetSupportedFormats(TArray<FName>& OutFormats) const
+	virtual void GetSupportedFormats(TArray<FName>& OutFormats) const override
 	{
 		OutFormats.Add(NAME_GLSL_150);
 		OutFormats.Add(NAME_GLSL_150_MAC);
@@ -98,10 +112,12 @@ public:
 		OutFormats.Add(NAME_GLSL_ES2);
 		OutFormats.Add(NAME_GLSL_ES2_WEBGL);
 		OutFormats.Add(NAME_GLSL_150_ES2);
+		OutFormats.Add(NAME_GLSL_150_ES3_1);
 		OutFormats.Add(NAME_GLSL_ES2_IOS);
 		OutFormats.Add(NAME_GLSL_310_ES_EXT);
+		OutFormats.Add(NAME_GLSL_150_ES2_NOUB);
 	}
-	virtual void CompileShader(FName Format, const struct FShaderCompilerInput& Input, struct FShaderCompilerOutput& Output,const FString& WorkingDirectory) const
+	virtual void CompileShader(FName Format, const struct FShaderCompilerInput& Input, struct FShaderCompilerOutput& Output,const FString& WorkingDirectory) const override
 	{
 		CheckFormat(Format);
 
@@ -142,6 +158,14 @@ public:
 		else if (Format == NAME_GLSL_ES2_IOS )
 		{
 			CompileShader_Windows_OGL(Input, Output, WorkingDirectory, GLSL_ES2_IOS);
+		}
+		else if (Format == NAME_GLSL_150_ES3_1)
+		{
+			CompileShader_Windows_OGL(Input, Output, WorkingDirectory, GLSL_150_ES3_1);
+		}
+		else if (Format == NAME_GLSL_150_ES2_NOUB)
+		{
+			CompileShader_Windows_OGL(Input, Output, WorkingDirectory, GLSL_150_ES2_NOUB);
 		}
 		else if (Format == NAME_GLSL_150_ES2)
 		{

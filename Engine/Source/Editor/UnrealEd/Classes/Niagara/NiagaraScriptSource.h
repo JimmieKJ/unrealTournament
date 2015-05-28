@@ -2,7 +2,7 @@
 
 
 #pragma once
-#include "Engine/NiagaraScriptSourceBase.h"
+#include "NiagaraScriptSourceBase.h"
 #include "NiagaraScriptSource.generated.h"
 
 
@@ -13,12 +13,11 @@ class UNiagaraScriptSource : public UNiagaraScriptSourceBase
 
 	/** Graph for particle update expression */
 	UPROPERTY()
-	class UNiagaraGraph*	UpdateGraph;
+	class UNiagaraGraph*	NodeGraph;
 
 	// UObject interface.
 	virtual void PostLoad() override;
 	virtual void Compile() override;
 
-	UNREALED_API void GetParticleAttributes(TArray<FName>& VectorOutputs);
 	UNREALED_API void GetEmitterAttributes(TArray<FName>& VectorInputs, TArray<FName>& MatrixInputs);
 };

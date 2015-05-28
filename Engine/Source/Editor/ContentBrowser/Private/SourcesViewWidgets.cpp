@@ -180,8 +180,6 @@ FReply SAssetTreeItem::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent
 
 void SAssetTreeItem::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	LastGeometry = AllottedGeometry;
 }
 
@@ -405,8 +403,6 @@ void SCollectionListItem::Tick( const FGeometry& AllottedGeometry, const double 
 {
 	// Cache this widget's geometry so it can pop up warnings over itself
 	CachedGeometry = AllottedGeometry;
-
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 void SCollectionListItem::OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )

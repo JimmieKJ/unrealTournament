@@ -27,6 +27,8 @@ namespace EBuildOptions
 		BuildAllSubmit,
 		/** Build everything except for paths only build seleced */
 		BuildAllOnlySelectedPaths,
+		/** Build Hierarchical LOD system - need WorldSetting setup*/
+		BuildHierarchicalLOD, 
 	};
 }
 
@@ -162,6 +164,14 @@ private:
 	 * @param	BuildSettings	Build settings that will be used for the editor build
 	 */
 	static void TriggerNavigationBuilder(UWorld* InWorld, EBuildOptions::Type Id);
+
+	/** 
+	 * Trigger LOD builder to (re)generate LODActors
+	 *
+	 * @param	InWorld			WorldContext
+	 * @param	BuildSettings	Build settings that will be used for the editor build
+	 */
+	static void TriggerHierarchicalLODBuilder(UWorld* InWorld, EBuildOptions::Type Id);
 
 	/** Intentionally hide constructors, etc. to prevent instantiation */
 	FEditorBuildUtils();

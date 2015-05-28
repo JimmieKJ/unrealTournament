@@ -2,19 +2,7 @@
 
 #pragma once
 
-#include "Core.h"
 #include "CrashDebugHelper.h"
+#include "CrashDebugHelperModule.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogCrashDebugHelper, Log, All);
-
-#if PLATFORM_WINDOWS
-	#include "Windows/CrashDebugHelperWindows.h"
-#endif
-
-#if PLATFORM_LINUX
-	#include "Linux/CrashDebugHelperLinux.h"
-#endif
-
-#if PLATFORM_MAC
-	#include "Mac/CrashDebugHelperMac.h"
-#endif
+DECLARE_LOG_CATEGORY_EXTERN( LogCrashDebugHelper, Log, All );

@@ -5,6 +5,7 @@
 #include "SlateWrapperTypes.h"
 #include "WidgetTransform.h"
 #include "DynamicPropertyPath.h"
+#include "UObject/UObjectThreadContext.h"
 
 #include "Widget.generated.h"
 
@@ -13,16 +14,62 @@ class UPanelSlot;
 /**
  * Helper macro for binding to a delegate or using the constant value when constructing the underlying SWidget
  */
-#define OPTIONAL_BINDING(ReturnType, MemberName) ( MemberName ## Delegate.IsBound() && !IsDesignTime() ) ? TAttribute< ReturnType >::Create(MemberName ## Delegate.GetUObject(), MemberName ## Delegate.GetFunctionName()) : TAttribute< ReturnType >(MemberName)
+#define OPTIONAL_BINDING(ReturnType, MemberName)				\
+	( MemberName ## Delegate.IsBound() && !IsDesignTime() )		\
+	?															\
+		TAttribute< ReturnType >::Create(MemberName ## Delegate.GetUObject(), MemberName ## Delegate.GetFunctionName()) \
+	:															\
+		TAttribute< ReturnType >(MemberName)
+
+#if WITH_EDITOR
+
+#define GAME_SAFE_OPTIONAL_BINDING(ReturnType, MemberName)			\
+	( MemberName ## Delegate.IsBound() && !IsDesignTime() )			\
+	?																\
+		BIND_UOBJECT_ATTRIBUTE(ReturnType, K2_Gate_ ## MemberName)	\
+	:																\
+		TAttribute< ReturnType >(MemberName)
+
+#define GAME_SAFE_BINDING_IMPLEMENTATION(ReturnType, MemberName)		\
+	ReturnType K2_Cache_ ## MemberName;									\
+	ReturnType K2_Gate_ ## MemberName()									\
+	{																	\
+		if (CanSafelyRouteEvent())										\
+		{																\
+			K2_Cache_ ## MemberName = TAttribute< ReturnType >::Create(MemberName ## Delegate.GetUObject(), MemberName ## Delegate.GetFunctionName()).Get(); \
+		}																\
+																		\
+		return K2_Cache_ ## MemberName;									\
+	}
+
+#else
+
+#define GAME_SAFE_OPTIONAL_BINDING(ReturnType, MemberName)		\
+	( MemberName ## Delegate.IsBound() && !IsDesignTime() )		\
+	?															\
+		TAttribute< ReturnType >::Create(MemberName ## Delegate.GetUObject(), MemberName ## Delegate.GetFunctionName()) \
+	:															\
+		TAttribute< ReturnType >(MemberName)
+
+#define GAME_SAFE_BINDING_IMPLEMENTATION(Type, MemberName)
+
+#endif
 
 /**
  * Helper macro for binding to a delegate or using the constant value when constructing the underlying SWidget,
  * also allows a conversion function to be provided to convert between the SWidget value and the value exposed to UMG.
  */
-#define OPTIONAL_BINDING_CONVERT(ReturnType, MemberName, ConvertedType, ConversionFunction) ( MemberName ## Delegate.IsBound() && !IsDesignTime() ) ? TAttribute< ConvertedType >::Create(TAttribute< ConvertedType >::FGetter::CreateUObject(this, &ThisClass::ConversionFunction, TAttribute< ReturnType >::Create(MemberName ## Delegate.GetUObject(), MemberName ## Delegate.GetFunctionName()))) : ConversionFunction(TAttribute< ReturnType >(MemberName))
+#define OPTIONAL_BINDING_CONVERT(ReturnType, MemberName, ConvertedType, ConversionFunction) \
+		( MemberName ## Delegate.IsBound() && !IsDesignTime() )								\
+		?																					\
+			TAttribute< ConvertedType >::Create(TAttribute< ConvertedType >::FGetter::CreateUObject(this, &ThisClass::ConversionFunction, TAttribute< ReturnType >::Create(MemberName ## Delegate.GetUObject(), MemberName ## Delegate.GetFunctionName()))) \
+		:																					\
+			ConversionFunction(TAttribute< ReturnType >(MemberName))
+
+
 
 /**
- * This is the base class for all wrapped Slate controls that are exposed to UMG.
+ * This is the base class for all wrapped Slate controls that are exposed to UObjects.
  */
 UCLASS(Abstract, BlueprintType)
 class UMG_API UWidget : public UVisual
@@ -31,22 +78,22 @@ class UMG_API UWidget : public UVisual
 
 public:
 
-	// Common Bindings
+	// Common Bindings - If you add any new common binding, you must provide a UPropertyBinder for it.
+	//                   all primitive binding in UMG goes through native binding evaluators to prevent
+	//                   thunking through the VM.
 	DECLARE_DYNAMIC_DELEGATE_RetVal(bool, FGetBool);
 	DECLARE_DYNAMIC_DELEGATE_RetVal(float, FGetFloat);
 	DECLARE_DYNAMIC_DELEGATE_RetVal(int32, FGetInt32);
 	DECLARE_DYNAMIC_DELEGATE_RetVal(FText, FGetText);
-	//DECLARE_DYNAMIC_DELEGATE_RetVal(FVector2D, FGetVector2D);
-	//DECLARE_DYNAMIC_DELEGATE_RetVal(FVector, FGetVector);
-	//DECLARE_DYNAMIC_DELEGATE_RetVal(FMargin, FGetMargin);
 	DECLARE_DYNAMIC_DELEGATE_RetVal(FSlateColor, FGetSlateColor);
 	DECLARE_DYNAMIC_DELEGATE_RetVal(FLinearColor, FGetLinearColor);
 	DECLARE_DYNAMIC_DELEGATE_RetVal(FSlateBrush, FGetSlateBrush);
 	DECLARE_DYNAMIC_DELEGATE_RetVal(ESlateVisibility, FGetSlateVisibility);
 	DECLARE_DYNAMIC_DELEGATE_RetVal(EMouseCursor::Type, FGetMouseCursor);
 	DECLARE_DYNAMIC_DELEGATE_RetVal(ECheckBoxState, FGetCheckBoxState);
-	DECLARE_DYNAMIC_DELEGATE_RetVal(UWidget*, FGetContent);
+	DECLARE_DYNAMIC_DELEGATE_RetVal(UWidget*, FGetWidget);
 
+	// Events
 	DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(UWidget*, FGenerateWidgetForString, FString, Item);
 	DECLARE_DYNAMIC_DELEGATE_RetVal_OneParam(UWidget*, FGenerateWidgetForObject, UObject*, Item);
 
@@ -72,7 +119,7 @@ public:
 	UPanelSlot* Slot;
 
 	/** Sets whether this widget can be modified interactively by the user */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Behavior)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Behavior")
 	bool bIsEnabled;
 
 	/** A bindable delegate for bIsEnabled */
@@ -80,19 +127,27 @@ public:
 	FGetBool bIsEnabledDelegate;
 
 	/** Tooltip text to show when the user hovers over the widget with the mouse */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Behavior)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Behavior", meta=(MultiLine=true))
 	FText ToolTipText;
 
 	/** A bindable delegate for ToolTipText */
 	UPROPERTY()
 	FGetText ToolTipTextDelegate;
 
+	/** Tooltip widget to show when the user hovers over the widget with the mouse */
+	UPROPERTY(EditAnywhere, Category="Behavior", AdvancedDisplay)
+	UWidget* ToolTipWidget;
+
+	/** A bindable delegate for ToolTipWidget */
+	UPROPERTY()
+	FGetWidget ToolTipWidgetDelegate;
+
 	/** The visibility of the widget */
 	UPROPERTY()
 	TEnumAsByte<ESlateVisibility> Visiblity_DEPRECATED;
 
 	/** The visibility of the widget */
-	UPROPERTY(EditDefaultsOnly, Category=Behavior)
+	UPROPERTY(EditAnywhere, Category="Behavior")
 	ESlateVisibility Visibility;
 
 	/** A bindable delegate for Visibility */
@@ -100,7 +155,7 @@ public:
 	FGetSlateVisibility VisibilityDelegate;
 
 	/** The cursor to show when the mouse is over the widget */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Behavior, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Behavior", AdvancedDisplay)
 	TEnumAsByte<EMouseCursor::Type> Cursor;
 
 	/** A bindable delegate for Cursor */
@@ -108,17 +163,21 @@ public:
 	FGetMouseCursor CursorDelegate;
 
 	/** The render transform of the widget allows for arbitrary 2D transforms to be applied to the widget. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Render Transform", meta=( DisplayName="Transform" ))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Render Transform", meta=( DisplayName="Transform" ))
 	FWidgetTransform RenderTransform;
 
 	/**
 	 * The render transform pivot controls the location about which transforms are applied.  
 	 * This value is a normalized coordinate about which things like rotations will occur.
 	 */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Render Transform", meta=( DisplayName="Pivot" ))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Render Transform", meta=( DisplayName="Pivot" ))
 	FVector2D RenderTransformPivot;
 
-	/**  */
+	/**
+	 * The navigation object for this widget is optionally created if the user has configured custom
+	 * navigation rules for this widget in the widget designer.  Those rules determine how navigation transitions
+	 * can occur between widgets.
+	 */
 	UPROPERTY(Instanced, EditAnywhere, BlueprintReadOnly, Category="Navigation")
 	class UWidgetNavigation* Navigation;
 
@@ -176,6 +235,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void SetToolTipText(const FText& InToolTipText);
 
+	/** Sets a custom widget as the tooltip of the widget. */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	void SetToolTip(UWidget* Widget);
+
 	/** @return true if the widget is Visible, HitTestInvisible or SelfHitTestInvisible. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool IsVisible() const;
@@ -188,7 +251,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void SetVisibility(ESlateVisibility InVisibility);
 
-	/** Gets if the button is currently being hovered by the mouse */
+	/** @return true if the widget is currently being hovered by a pointer device */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool IsHovered() const;
 
@@ -215,9 +278,25 @@ public:
 
 	/** Sets the focus to this widget. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
-	void SetKeyboardFocus() const;
+	void SetKeyboardFocus();
 
-	/** Forces the underlying slate system to perform a pre-pass on the layout of the widget.  This is for advanced users. */
+	/** Gets the focus to this widget. */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	bool HasUserFocus(APlayerController* PlayerController) const;
+
+	/** Gets the focus to this widget. */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	bool HasAnyUserFocus() const;
+	
+	/** Sets the focus to this widget for a specific user */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	void SetUserFocus(APlayerController* PlayerController);
+
+	/**
+	 * Forces a pre-pass.  A pre-pass caches the desired size of the widget hierarchy owned by this widget.  
+	 * One pre-pass is already happens for every widget before Tick occurs.  You only need to perform another 
+	 * pre-pass if you are adding child widgets this frame and want them to immediately be visible this frame.
+	 */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ForceLayoutPrepass();
 
@@ -235,7 +314,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	class UPanelWidget* GetParent() const;
 
-	/** Removes the widget from it's parent widget */
+	/**
+	 * Removes the widget from its parent widget.  If this widget was added to the player's screen or the viewport
+	 * it will also be removed from those containers.
+	 */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	virtual void RemoveFromParent();
 
@@ -256,26 +338,31 @@ public:
 	 */
 	virtual void SynchronizeProperties();
 
+	/**
+	 * Called by the owning user widget after the slate widget has been created.  After the entire widget tree
+	 * has been initialized, any widget reference that was needed to support navigating to another widget will
+	 * now be initialized and ready for usage.
+	 */
+	void BuildNavigation();
+
+#if WITH_EDITOR
 	/** Returns if the widget is currently being displayed in the designer, it may want to display different data. */
 	bool IsDesignTime() const;
+#else
+	FORCEINLINE bool IsDesignTime() const { return false; }
+#endif
 	
 	/** Sets that this widget is being designed */
 	virtual void SetIsDesignTime(bool bInDesignTime);
 
 	/** Mark this object as modified, also mark the slot as modified. */
-	virtual bool Modify(bool bAlwaysMarkDirty = true);
+	virtual bool Modify(bool bAlwaysMarkDirty = true) override;
 
 	/**
 	 * Recurses up the list of parents and returns true if this widget is a descendant of the PossibleParent
 	 * @return true if this widget is a child of the PossibleParent
 	 */
 	bool IsChildOf(UWidget* PossibleParent);
-
-	///**
-	// * Allows binding to properties of other objects at runtime.
-	// */
-	//UFUNCTION(BlueprintCallable, Category="Widget")
-	//bool BindProperty(const FName& DestinationProperty, UObject* SourceObject, const FName& SourceProperty);
 
 	/**  */
 	bool AddBinding(UDelegateProperty* DelegateProperty, UObject* SourceObject, const FDynamicPropertyPath& BindingPath);
@@ -286,8 +373,18 @@ public:
 	virtual UWorld* GetWorld() const override;
 	virtual void PostLoad() override;
 	// End UObject
-	
+
 #if WITH_EDITOR
+	FORCEINLINE bool CanSafelyRouteEvent()
+	{
+		return !(IsDesignTime() || GIntraFrameDebuggingGameThread || HasAnyFlags(RF_Unreachable) || FUObjectThreadContext::Get().IsRoutingPostLoad);
+	}
+#else
+	FORCEINLINE bool CanSafelyRouteEvent() { return !(HasAnyFlags(RF_Unreachable) || FUObjectThreadContext::Get().IsRoutingPostLoad); }
+#endif
+
+#if WITH_EDITOR
+
 	/** Is the label generated or provided by the user? */
 	bool IsGeneratedName() const;
 
@@ -295,7 +392,11 @@ public:
 	virtual FString GetLabelMetadata() const;
 
 	/** Gets the label to display to the user for this widget. */
+	DEPRECATED(4.8, "Use GetLabelText(), which will return the label as FText.")
 	FString GetLabel() const;
+
+	/** Gets the label to display to the user for this widget. */
+	FText GetLabelText() const;
 
 	/** Gets the palette category of the widget */
 	virtual const FText GetPaletteCategory();
@@ -341,8 +442,6 @@ public:
 
 	static FSizeParam ConvertSerializedSizeParamToRuntime(const FSlateChildSize& Input);
 
-	static void GatherChildren(UWidget* Root, TSet<UWidget*>& Children);
-	static void GatherAllChildren(UWidget* Root, TSet<UWidget*>& Children);
 	static UWidget* FindChildContainingDescendant(UWidget* Root, UWidget* Descendant);
 
 protected:
@@ -358,6 +457,9 @@ protected:
 	TSharedRef<SWidget> BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidget);
 
 	void UpdateRenderTransform();
+
+	/** Gets the base name used to generate the display label/name of this widget. */
+	FText GetDisplayNameBase() const;
 
 protected:
 	//TODO UMG Consider moving conversion functions into another class.
@@ -394,4 +496,8 @@ protected:
 	TArray<class UPropertyBinding*> NativeBindings;
 
 	static TArray<TSubclassOf<UPropertyBinding>> BinderClasses;
+
+private:
+	GAME_SAFE_BINDING_IMPLEMENTATION(FText, ToolTipText)
+	GAME_SAFE_BINDING_IMPLEMENTATION(bool, bIsEnabled)
 };

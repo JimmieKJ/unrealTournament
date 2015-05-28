@@ -80,14 +80,23 @@ class GAMEPLAYDEBUGGER_API AGameplayDebuggingReplicator : public AActor
 	UPROPERTY(Transient, EditAnywhere, Category = DataView)
 	bool GameView5;
 
+	UPROPERTY()
+	class UTexture2D* DefaultTexture_Red;
+
+	UPROPERTY()
+	class UTexture2D* DefaultTexture_Green;
+
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerReplicateMessage(class AActor* Actor, uint32 InMessage, uint32 DataView = 0);
 
 	UFUNCTION(reliable, client, WithValidation)
 	void ClientReplicateMessage(class AActor* Actor, uint32 InMessage, uint32 DataView = 0);
 
-	UFUNCTION(reliable, server, WithValidation)
-	void ServerEnableTargetSelection(bool bEnable, APlayerController* Context);
+	UFUNCTION(Reliable, Client)
+	void ClientAutoActivate();
+
+	UFUNCTION(Reliable, Client, WithValidation)
+	void ClientEnableTargetSelection(bool bEnable, APlayerController* Context);
 
 #if WITH_EDITOR
 	void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -96,10 +105,12 @@ class GAMEPLAYDEBUGGER_API AGameplayDebuggingReplicator : public AActor
 	UFUNCTION()
 	virtual void OnRep_AutoActivate();
 
-	virtual class UNetConnection* GetNetConnection() override;
+	virtual class UNetConnection* GetNetConnection() const override;
 
-	virtual bool IsNetRelevantFor(const APlayerController* RealViewer, const AActor* Viewer, const FVector& SrcLocation) const override;
+	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 
+	virtual void PostNetInit() override;
+	
 	virtual void PostInitializeComponents() override;
 
 	virtual void BeginPlay() override;
@@ -120,7 +131,19 @@ class GAMEPLAYDEBUGGER_API AGameplayDebuggingReplicator : public AActor
 	APlayerController* GetLocalPlayerOwner() { return LocalPlayerOwner; }
 
 	FORCEINLINE AActor* GetSelectedActorToDebug() { return LastSelectedActorToDebug; }
-	void SetActorToDebug(AActor* InActor);
+	
+	UFUNCTION(reliable, server, WithValidation)
+	void ServerSetActorToDebug(AActor* InActor);
+
+	/**
+	 * Iterates through the pawn list to find the next pawn of the specified type to debug
+	 */
+	void DebugNextPawn(UClass* CompareClass, APawn* CurrentPawn = nullptr);
+
+	/**
+	 * Iterates through the pawn list to find the previous pawn of the specified type to debug
+	 */
+	void DebugPrevPawn(UClass* CompareClass, APawn* CurrentPawn = nullptr);
 
 	uint32 DebuggerShowFlags;
 

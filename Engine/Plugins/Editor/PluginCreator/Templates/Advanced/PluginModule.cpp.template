@@ -1,0 +1,95 @@
+// Some copyright should be here...
+
+#include "%PLUGIN_NAME%PrivatePCH.h"
+
+#include "SlateBasics.h"
+#include "SlateExtras.h"
+
+#include "%PLUGIN_NAME%Style.h"
+#include "%PLUGIN_NAME%Commands.h"
+
+#include "LevelEditor.h"
+
+%PUBLIC_HEADER_INCLUDES%
+
+static const FName %PLUGIN_NAME%TabName("%PLUGIN_NAME%");
+
+#define LOCTEXT_NAMESPACE "F%PLUGIN_NAME%Module"
+
+void F%PLUGIN_NAME%Module::StartupModule()
+{
+	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	
+	F%PLUGIN_NAME%Style::Initialize();
+	F%PLUGIN_NAME%Style::ReloadTextures();
+
+	F%PLUGIN_NAME%Commands::Register();
+	
+	PluginCommands = MakeShareable(new FUICommandList);
+
+	PluginCommands->MapAction(
+		F%PLUGIN_NAME%Commands::Get().OpenPluginWindow,
+		FExecuteAction::CreateRaw(this, &F%PLUGIN_NAME%Module::PluginButtonClicked),
+		FCanExecuteAction());
+		
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+	
+	{
+		TSharedPtr<FExtender> MenuExtender = MakeShareable(new FExtender());
+		MenuExtender->AddMenuExtension("WindowLayout", EExtensionHook::After, PluginCommands, FMenuExtensionDelegate::CreateRaw(this, &F%PLUGIN_NAME%Module::AddMenuExtension));
+
+		LevelEditorModule.GetMenuExtensibilityManager()->AddExtender(MenuExtender);
+	}
+	
+	{
+		TSharedPtr<FExtender> ToolbarExtender = MakeShareable(new FExtender);
+		ToolbarExtender->AddToolBarExtension("Settings", EExtensionHook::After, PluginCommands, FToolBarExtensionDelegate::CreateRaw(this, &F%PLUGIN_NAME%Module::AddToolbarExtension));
+		
+		LevelEditorModule.GetToolBarExtensibilityManager()->AddExtender(ToolbarExtender);
+	}
+	
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(%PLUGIN_NAME%TabName, FOnSpawnTab::CreateRaw(this, &F%PLUGIN_NAME%Module::OnSpawnPluginTab))
+		.SetDisplayName(LOCTEXT("F%PLUGIN_NAME%TabTitle", "%PLUGIN_NAME%"))
+		.SetMenuType(ETabSpawnerMenuType::Hidden);
+}
+
+void F%PLUGIN_NAME%Module::ShutdownModule()
+{
+	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
+	// we call this function before unloading the module.
+	
+	F%PLUGIN_NAME%Style::Shutdown();
+
+	F%PLUGIN_NAME%Commands::Unregister();
+
+	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(%PLUGIN_NAME%TabName);
+}
+
+TSharedRef<SDockTab> F%PLUGIN_NAME%Module::OnSpawnPluginTab(const FSpawnTabArgs& SpawnTabArgs)
+{
+	return SNew(SDockTab)
+		.TabRole(ETabRole::NomadTab)
+		[
+			// Put your tab content here!
+			SNullWidget::NullWidget
+		];
+}
+
+void F%PLUGIN_NAME%Module::PluginButtonClicked()
+{
+	FGlobalTabmanager::Get()->InvokeTab(%PLUGIN_NAME%TabName);
+}
+
+void F%PLUGIN_NAME%Module::AddMenuExtension(FMenuBuilder& Builder)
+{
+	Builder.AddMenuEntry(F%PLUGIN_NAME%Commands::Get().OpenPluginWindow);
+}
+
+void F%PLUGIN_NAME%Module::AddToolbarExtension(FToolBarBuilder& Builder)
+{
+	Builder.AddToolBarButton(F%PLUGIN_NAME%Commands::Get().OpenPluginWindow);
+}
+
+#undef LOCTEXT_NAMESPACE
+	
+IMPLEMENT_MODULE(F%PLUGIN_NAME%Module, %PLUGIN_NAME%)

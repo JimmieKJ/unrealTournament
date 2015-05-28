@@ -180,10 +180,10 @@ void UAIPerceptionComponent::OnRegister()
 
 	// this should not be needed but aparently AAIController::PostRegisterAllComponents
 	// gets called component's OnRegister
-	AAIController* AIOwner = Cast<AAIController>(GetOwner());
+	AIOwner = Cast<AAIController>(GetOwner());
 	if (AIOwner)
 	{
-		AIOwner->PerceptionComponent = this;
+		AIOwner->SetPerceptionComponent(*this);
 	}
 }
 
@@ -195,7 +195,10 @@ void UAIPerceptionComponent::OnUnregister()
 
 void UAIPerceptionComponent::OnOwnerEndPlay(EEndPlayReason::Type EndPlayReason)
 {
-	CleanUp();
+	if (EndPlayReason != EEndPlayReason::EndPlayInEditor && EndPlayReason != EEndPlayReason::Quit)
+	{
+		CleanUp();
+	}
 }
 
 void UAIPerceptionComponent::CleanUp()
@@ -206,6 +209,11 @@ void UAIPerceptionComponent::CleanUp()
 		if (AIPerceptionSys != nullptr)
 		{
 			AIPerceptionSys->UnregisterListener(*this);
+			AActor* MutableBodyActor = GetMutableBodyActor();
+			if (MutableBodyActor)
+			{
+				AIPerceptionSys->UnregisterSource(*MutableBodyActor);
+			}
 		}
 
 		if (HasAnyFlags(RF_BeginDestroyed) == false)
@@ -334,23 +342,12 @@ FVector UAIPerceptionComponent::GetActorLocation(const AActor& Actor) const
 
 void UAIPerceptionComponent::GetLocationAndDirection(FVector& Location, FVector& Direction) const
 {
-	AController* OwnerController = Cast<AController>(GetOuter());
-	if (OwnerController != NULL)
-	{
-		const APawn* OwnerPawn = OwnerController->GetPawn();
-		if (OwnerPawn != NULL)
-		{
-			Location = OwnerPawn->GetActorLocation() + FVector(0,0,OwnerPawn->BaseEyeHeight);
-			Direction = OwnerPawn->GetActorRotation().Vector();
-			return;
-		}
-	}
-	
 	const AActor* OwnerActor = Cast<AActor>(GetOuter());
-	if (OwnerActor != NULL)
+	if (OwnerActor != nullptr)
 	{
-		Location = OwnerActor->GetActorLocation();
-		Direction = OwnerActor->GetActorRotation().Vector();
+		FRotator ViewRotation;
+		OwnerActor->GetActorEyesViewPoint(Location, ViewRotation);
+		Direction = ViewRotation.Vector();
 	}
 }
 
@@ -363,6 +360,11 @@ const AActor* UAIPerceptionComponent::GetBodyActor() const
 	}
 
 	return Cast<AActor>(GetOuter());
+}
+
+AActor* UAIPerceptionComponent::GetMutableBodyActor()
+{
+	return const_cast<AActor*>(GetBodyActor());
 }
 
 void UAIPerceptionComponent::RegisterStimulus(AActor* Source, const FAIStimulus& Stimulus)
@@ -419,7 +421,7 @@ void UAIPerceptionComponent::ProcessStimuli()
 		FAIStimulus& StimulusStore = PerceptualInfo->LastSensedStimuli[SourcedStimulus->Stimulus.Type];
 
 		// if the new stimulus is "valid" or it's info that "no longer sensed" and it used to be sensed successfully
-		if (SourcedStimulus->Stimulus.WasSuccessfullySensed() || StimulusStore.WasSuccessfullySensed())
+		if (SourcedStimulus->Stimulus.WantsToNotifyOnlyOnPerceptionChange() == false || SourcedStimulus->Stimulus.WasSuccessfullySensed() != StimulusStore.WasSuccessfullySensed())
 		{
 			UpdatedActors.AddUnique(SourcedStimulus->Source);
 		}
@@ -577,10 +579,27 @@ void UAIPerceptionComponent::GetPerceivedHostileActors(TArray<AActor*>& OutActor
 	GetHostileActors(OutActors);
 }
 
+void UAIPerceptionComponent::GetPerceivedActors(TSubclassOf<UAISense> SenseToUse, TArray<AActor*>& OutActors) const
+{
+	const FAISenseID SenseID = UAISense::GetSenseID(SenseToUse);
+
+	OutActors.Reserve(PerceptualData.Num());
+	for (TActorPerceptionContainer::TConstIterator DataIt = GetPerceptualDataConstIterator(); DataIt; ++DataIt)
+	{
+		if (SenseToUse == nullptr || DataIt->Value.IsSenseRegistered(SenseID))
+		{
+			if (DataIt->Value.Target.IsValid())
+			{
+				OutActors.Add(DataIt->Value.Target.Get());
+			}
+		}
+	}
+}
+
 bool UAIPerceptionComponent::GetActorsPerception(AActor* Actor, FActorPerceptionBlueprintInfo& Info)
 {
 	bool bInfoFound = false;
-	if (Actor && Actor->IsPendingKillPending())
+	if (Actor != nullptr && Actor->IsPendingKillPending() == false)
 	{
 		const FActorPerceptionInfo* PerceivedInfo = GetActorInfo(*Actor);
 		if (PerceivedInfo)

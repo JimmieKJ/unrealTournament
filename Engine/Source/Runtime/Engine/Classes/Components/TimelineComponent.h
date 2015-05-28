@@ -277,7 +277,7 @@ public:
 	ENGINE_API bool IsReversing() const;
 
 	/** Jump to a position in the timeline. If bFireEvents is true, event functions will fire, otherwise will not. */
-	ENGINE_API void SetPlaybackPosition(float NewPosition, bool bFireEvents);
+	ENGINE_API void SetPlaybackPosition(float NewPosition, bool bFireEvents, bool bFireUpdate = true);
 
 	/** Get the current playback position of the Timeline */
 	ENGINE_API float GetPlaybackPosition() const;
@@ -398,9 +398,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|Timeline")
 	ENGINE_API bool IsReversing() const;
 
-	/** Jump to a position in the timeline. If bFireEvents is true, event functions will fire, otherwise will not. */
-	UFUNCTION(BlueprintCallable, Category="Components|Timeline")
-	ENGINE_API void SetPlaybackPosition(float NewPosition, bool bFireEvents);
+	/** Jump to a position in the timeline. 
+	  * @param bFireEvents If true, event functions that are between current position and new playback position will fire. 
+	  * @param bFireUpdate If true, the update output exec will fire after setting the new playback position.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Components|Timeline", meta=(AdvancedDisplay="bFireUpdate"))
+	ENGINE_API void SetPlaybackPosition(float NewPosition, bool bFireEvents, bool bFireUpdate = true);
 
 	/** Get the current playback position of the Timeline */
 	UFUNCTION(BlueprintCallable, Category="Components|Timeline")

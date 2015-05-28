@@ -24,11 +24,23 @@ float4 ClearPS() : SV_Target0
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5
 RWTexture2D<float4> ClearTextureRW;
+uint4 TargetBounds; //xy upperleft, zw lowerright
 
 [numthreads(8,8,1)]
 void ClearTexture2DCS(uint2 Position : SV_DispatchThreadID)
 {
 	ClearTextureRW[Position] = ClearColor;
+}
+
+//clear with emulated scissor rects.
+[numthreads(8, 8, 1)]
+void ClearTexture2DScissorCS(uint2 Position : SV_DispatchThreadID)
+{
+	uint2 FinalPos = Position + TargetBounds.xy;
+	if (all(FinalPos < TargetBounds.zw))
+	{
+		ClearTextureRW[FinalPos] = ClearColor;
+	}
 }
 
 

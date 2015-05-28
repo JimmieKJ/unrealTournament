@@ -100,7 +100,10 @@ float3 StandardShading( FGBufferData GBuffer, float3 LobeRoughness, float3 LobeE
 	float Vis = Vis_SmithJointApprox( LobeRoughness[1], NoV, NoL );
 	float3 F = F_Schlick( GBuffer.SpecularColor, VoH );
 
-	return Diffuse_Lambert(GBuffer.DiffuseColor) * (LobeEnergy[2] * DiffSpecMask.r) + (D * Vis * DiffSpecMask.g) * F;
+	//float3 Diffuse = Diffuse_Lambert( GBuffer.DiffuseColor );
+	float3 Diffuse = Diffuse_Burley( GBuffer.DiffuseColor, LobeRoughness[1], NoV, NoL, VoH );
+	
+	return Diffuse * (LobeEnergy[2] * DiffSpecMask.r) + (D * Vis * DiffSpecMask.g) * F;
 }
 
 float3 SimpleShading( FGBufferData GBuffer, float Roughness, float3 L, float3 V, half3 N )
@@ -118,6 +121,7 @@ float3 SimpleShading( FGBufferData GBuffer, float Roughness, float3 L, float3 V,
 
 float3 ClearCoatShading( FGBufferData GBuffer, float3 LobeRoughness, float3 LobeEnergy, float3 L, float3 V, half3 N )
 {
+#if USE_CLEARCOAT
 	const float ClearCoat			= GBuffer.CustomData.x;
 	const float ClearCoatRoughness	= GBuffer.CustomData.y;
 	const float Film = 1 * ClearCoat;
@@ -150,7 +154,7 @@ float3 ClearCoatShading( FGBufferData GBuffer, float3 LobeRoughness, float3 Lobe
 	//float3 F2 = F_Schlick( GBuffer.SpecularColor, VoH );
 	float3 F2 = saturate( 50.0 * GBuffer.SpecularColor.g ) * Fc + (1 - Fc) * GBuffer.SpecularColor;
 
-	float3 Fr2 = Diffuse_Lambert( GBuffer.DiffuseColor ) * LobeEnergy[2] + (D2 * Vis2) * F2;
+	float3 Fr2 = Diffuse_Burley( GBuffer.DiffuseColor, LobeRoughness[1], NoV, NoL, VoH ) * LobeEnergy[2] + (D2 * Vis2) * F2;
 	
 	return Fr1 + Fr2 * LayerAttenuation;
 #else
@@ -224,6 +228,9 @@ float3 ClearCoatShading( FGBufferData GBuffer, float3 LobeRoughness, float3 Lobe
 	
 	return Fr1 + Fr2 * LayerAttenuation;
 #endif
+#else //USE_CLEARCOAT
+	return float3(0.0f, 0.0f, 0.0f);
+#endif //USE_CLEARCOAT
 }
 
 float3 SubsurfaceShadingSubsurface( FGBufferData GBuffer, float3 L, float3 V, half3 N )
@@ -245,23 +252,17 @@ float3 SubsurfaceShadingSubsurface( FGBufferData GBuffer, float3 L, float3 V, ha
 	return SubsurfaceColor * lerp(BackScatter, 1, InScatter);
 }
 
-float3 TwoSidedFoliageShadingSubsurface( FGBufferData GBuffer, float3 L, float3 V, half3 N )
+float3 SubsurfaceShadingTwoSided( float3 SubsurfaceColor, float3 L, float3 V, half3 N )
 {
-	float VoL = saturate(dot(V, -L));
-	float VoLLobe = VoL * VoL;
-	VoLLobe *= VoLLobe;
-	float Exponent = 8;
-	// Modified phong energy conservation
-	VoLLobe = VoLLobe * (Exponent + 1) / (2.0f * PI);
+	float Wrap = 0.5;
+	float NoL = saturate( ( dot(-N, L) + Wrap ) / Square( 1 + Wrap ) );
 
-	float DiffuseWrap = .6f;
-	// Energy conserving wrap
-	float BackDiffuse = saturate(dot(-N, L) * DiffuseWrap * DiffuseWrap + (1 - DiffuseWrap) * DiffuseWrap) / PI;  
-	float ViewDependenceAmount = .5f;
-	float BackShading = lerp(BackDiffuse, VoLLobe, ViewDependenceAmount);
-
-	float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
-	return BackShading * SubsurfaceColor;
+	float VoL = saturate( dot(V, -L) );
+	float a = 0.6;
+	float a2 = a * a;
+	float d = ( VoL * a2 - VoL ) * VoL + 1;	// 2 mad
+	float GGX = (a2 / PI) / (d * d);		// 2 mul, 1 rcp
+	return NoL * GGX * SubsurfaceColor;
 }
 
 Texture2D		PreIntegratedBRDF;
@@ -298,6 +299,8 @@ float3 SurfaceShading( FGBufferData GBuffer, float3 LobeRoughness, float3 LobeEn
 
 float3 SubsurfaceShading( FGBufferData GBuffer, float3 L, float3 V, half3 N )
 {
+	float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
+
 	switch( GBuffer.ShadingModelID )
 	{
 		case SHADINGMODELID_SUBSURFACE:
@@ -305,7 +308,7 @@ float3 SubsurfaceShading( FGBufferData GBuffer, float3 L, float3 V, half3 N )
 		case SHADINGMODELID_PREINTEGRATED_SKIN:
 			return SubsurfaceShadingPreintegratedSkin( GBuffer, L, V, N );
 		case SHADINGMODELID_TWOSIDED_FOLIAGE:
-			return TwoSidedFoliageShadingSubsurface( GBuffer, L, V, N );
+			return SubsurfaceShadingTwoSided( SubsurfaceColor, L, V, N );
 		default:
 			return 0;
 	}

@@ -143,7 +143,7 @@ static void ApplyABTestDiffs(const FString& ResourceDiffPayload)
 			TSharedPtr<FJsonObject> TestObj = (*it)->AsObject();
 			FString IniKey = TestObj->GetStringField(TEXT("uid"));
 			TArray<FString> IniTokens;
-			IniKey.ParseIntoArray(&IniTokens, TEXT("."), false);
+			IniKey.ParseIntoArray(IniTokens, TEXT("."), false);
 			if (IniTokens.Num() < 2)
 			{
 				UE_LOG(LogAnalytics, Warning, TEXT("Failed to parse resource name %s into an INI file and section"), *IniKey);

@@ -337,17 +337,20 @@ TSharedRef< SWidget > FDisplayedMeshBoneInfo::CreateBoneTranslationRetargetingMo
 
 	MenuBuilder.BeginSection("BoneTranslationRetargetingMode", LOCTEXT( "BoneTranslationRetargetingModeMenuHeading", "Bone Translation Retargeting Mode" ) );
 	{
+		UEnum* const Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EBoneTranslationRetargetingMode"), true);	
+		check(Enum);
+
 		FUIAction ActionRetargetingAnimation = FUIAction(FExecuteAction::CreateSP(this, &FDisplayedMeshBoneInfo::SetBoneTranslationRetargetingMode, EBoneTranslationRetargetingMode::Animation));
-		MenuBuilder.AddMenuEntry( FText::FromString( TargetSkeleton->GetRetargetingModeString(EBoneTranslationRetargetingMode::Animation) ), LOCTEXT( "BoneTranslationRetargetingAnimationToolTip", "Use translation from animation." ), FSlateIcon(), ActionRetargetingAnimation);
+		MenuBuilder.AddMenuEntry( Enum->GetDisplayNameText(EBoneTranslationRetargetingMode::Animation), LOCTEXT( "BoneTranslationRetargetingAnimationToolTip", "Use translation from animation." ), FSlateIcon(), ActionRetargetingAnimation);
 
 		FUIAction ActionRetargetingSkeleton = FUIAction(FExecuteAction::CreateSP(this, &FDisplayedMeshBoneInfo::SetBoneTranslationRetargetingMode, EBoneTranslationRetargetingMode::Skeleton));
-		MenuBuilder.AddMenuEntry( FText::FromString( TargetSkeleton->GetRetargetingModeString(EBoneTranslationRetargetingMode::Skeleton) ), LOCTEXT( "BoneTranslationRetargetingSkeletonToolTip", "Use translation from Skeleton." ), FSlateIcon(), ActionRetargetingSkeleton);
+		MenuBuilder.AddMenuEntry( Enum->GetDisplayNameText(EBoneTranslationRetargetingMode::Skeleton), LOCTEXT( "BoneTranslationRetargetingSkeletonToolTip", "Use translation from Skeleton." ), FSlateIcon(), ActionRetargetingSkeleton);
 
 		FUIAction ActionRetargetingLengthScale = FUIAction(FExecuteAction::CreateSP(this, &FDisplayedMeshBoneInfo::SetBoneTranslationRetargetingMode, EBoneTranslationRetargetingMode::AnimationScaled));
-		MenuBuilder.AddMenuEntry( FText::FromString( TargetSkeleton->GetRetargetingModeString(EBoneTranslationRetargetingMode::AnimationScaled) ), LOCTEXT( "BoneTranslationRetargetingAnimationScaledToolTip", "Use translation from animation, scale length by Skeleton's proportions." ), FSlateIcon(), ActionRetargetingLengthScale);
+		MenuBuilder.AddMenuEntry( Enum->GetDisplayNameText(EBoneTranslationRetargetingMode::AnimationScaled), LOCTEXT( "BoneTranslationRetargetingAnimationScaledToolTip", "Use translation from animation, scale length by Skeleton's proportions." ), FSlateIcon(), ActionRetargetingLengthScale);
 
 		FUIAction ActionRetargetingAnimationRelative = FUIAction(FExecuteAction::CreateSP(this, &FDisplayedMeshBoneInfo::SetBoneTranslationRetargetingMode, EBoneTranslationRetargetingMode::AnimationRelative));
-		MenuBuilder.AddMenuEntry(FText::FromString(TargetSkeleton->GetRetargetingModeString(EBoneTranslationRetargetingMode::AnimationRelative)), LOCTEXT("BoneTranslationRetargetingAnimationRelativeToolTip", "Use relative translation from animation similar to an additive animation."), FSlateIcon(), ActionRetargetingAnimationRelative);
+		MenuBuilder.AddMenuEntry( Enum->GetDisplayNameText(EBoneTranslationRetargetingMode::AnimationRelative), LOCTEXT("BoneTranslationRetargetingAnimationRelativeToolTip", "Use relative translation from animation similar to an additive animation."), FSlateIcon(), ActionRetargetingAnimationRelative);
 	}
 	MenuBuilder.EndSection();
 
@@ -360,7 +363,11 @@ FText FDisplayedMeshBoneInfo::GetTranslationRetargetingModeMenuTitle() const
 	if( BoneIndex != INDEX_NONE )
 	{
 		const EBoneTranslationRetargetingMode::Type RetargetingMode = TargetSkeleton->GetBoneTranslationRetargetingMode(BoneIndex);
-		return FText::FromString(TargetSkeleton->GetRetargetingModeString(RetargetingMode));
+		UEnum* const Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EBoneTranslationRetargetingMode"), true);	
+		if (Enum)
+		{
+			return Enum->GetDisplayNameText(RetargetingMode);
+		}
 	}
 
 	return LOCTEXT("None", "None");
@@ -792,7 +799,7 @@ void SSkeletonTree::Construct(const FArguments& InArgs)
 
 	BoneFilter = EBoneFilter::All;
 	SocketFilter = ESocketFilter::Active;
-	bShowingRetargetingOptions = false;
+	bShowingAdvancedOptions = false;
 
 	PersonaPtr = InArgs._Persona;
 	IsEditable = InArgs._IsEditable;
@@ -872,12 +879,12 @@ void SSkeletonTree::Construct(const FArguments& InArgs)
 			.AutoWidth()
 			[
 				SNew(SCheckBox)
-				.IsChecked(this, &SSkeletonTree::IsShowingRetargetingOptions)
+				.IsChecked(this, &SSkeletonTree::IsShowingAdvancedOptions)
 				.ToolTipText(LOCTEXT("SocketFilterToolTip", "Change which types of sockets are shown"))
-				.OnCheckStateChanged(this, &SSkeletonTree::OnChangeShowingRetargetingOptions)
+				.OnCheckStateChanged(this, &SSkeletonTree::OnChangeShowingAdvancedOptions)
 				[
 					SNew(STextBlock)
-						.Text(LOCTEXT("ShowRetargetingOptions", "Show Retargeting Options"))
+						.Text(LOCTEXT("ShowAdvancedOptions", "Show Advanced Options"))
 				]
 			]
 		]
@@ -1063,7 +1070,7 @@ void SSkeletonTree::CreateTreeColumns()
 		.DefaultLabel(LOCTEXT("SkeletonBoneNameLabel", "Name"))
 		.FillWidth(0.75f);
 
-	if (bShowingRetargetingOptions)
+	if (bShowingAdvancedOptions)
 	{
 		TreeHeaderRow->AddColumn(
 			SHeaderRow::Column(ColumnID_RetargetingLabel)
@@ -1407,7 +1414,7 @@ TSharedPtr< SWidget > SSkeletonTree::CreateContextMenu()
 
 			MenuBuilder.EndSection();
 
-			if(bShowingRetargetingOptions)
+			if(bShowingAdvancedOptions)
 			{
 				MenuBuilder.BeginSection("SkeletonTreeBoneTranslationRetargeting", LOCTEXT("BoneTranslationRetargetingHeader", "Bone Translation Retargeting"));
 				{
@@ -1791,7 +1798,7 @@ void SSkeletonTree::OnAddSocket()
 		const FScopedTransaction Transaction( LOCTEXT( "AddSocket", "Add Socket to Skeleton" ) );
 		TargetSkeleton->Modify();
 
-		NewSocket = ConstructObject<USkeletalMeshSocket>( USkeletalMeshSocket::StaticClass(), TargetSkeleton );
+		NewSocket = NewObject<USkeletalMeshSocket>(TargetSkeleton);
 		check(NewSocket);
 
 		NewSocket->BoneName = *static_cast<FName*>( TreeSelection.GetSingleSelectedItem()->GetData() );
@@ -1826,7 +1833,7 @@ void SSkeletonTree::OnCustomizeSocket()
 				const FScopedTransaction Transaction( LOCTEXT( "CreateMeshSocket", "Create Mesh Socket" ) );
 				Mesh->Modify();
 
-				USkeletalMeshSocket* NewSocket = ConstructObject<USkeletalMeshSocket>( USkeletalMeshSocket::StaticClass(), Mesh );
+				USkeletalMeshSocket* NewSocket = NewObject<USkeletalMeshSocket>(Mesh);
 				check(NewSocket);
 
 				NewSocket->BoneName = SocketToCustomize->BoneName;
@@ -1857,7 +1864,7 @@ void SSkeletonTree::OnPromoteSocket()
 		const FScopedTransaction Transaction( LOCTEXT( "PromoteSocket", "Promote Socket" ) );
 		TargetSkeleton->Modify();
 
-		USkeletalMeshSocket* NewSocket = ConstructObject<USkeletalMeshSocket>( USkeletalMeshSocket::StaticClass(), TargetSkeleton );
+		USkeletalMeshSocket* NewSocket = NewObject<USkeletalMeshSocket>(TargetSkeleton);
 		check(NewSocket);
 
 		NewSocket->BoneName = SocketToCustomize->BoneName;
@@ -1877,6 +1884,10 @@ void SSkeletonTree::FillAttachAssetSubmenu(FMenuBuilder& MenuBuilder, const FDis
 	FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
 
 	TArray<UClass*> FilterClasses = FComponentAssetBrokerage::GetSupportedAssets(USceneComponent::StaticClass());
+
+	//Clean up the selection so it is relevant to Persona
+	FilterClasses.RemoveSingleSwap(UBlueprint::StaticClass(), false); //Child actor components broker gives us blueprints which isnt wanted
+	FilterClasses.RemoveSingleSwap(USoundBase::StaticClass(), false); //No sounds wanted
 
 	FAssetPickerConfig AssetPickerConfig;
 	AssetPickerConfig.Filter.bRecursiveClasses = true;
@@ -2545,15 +2556,15 @@ void SSkeletonTree::AddAttachedAssets( const FPreviewAssetAttachContainer& Attac
 	}
 }
 
-void SSkeletonTree::OnChangeShowingRetargetingOptions(ECheckBoxState NewState)
+void SSkeletonTree::OnChangeShowingAdvancedOptions(ECheckBoxState NewState)
 {
-	bShowingRetargetingOptions = NewState == ECheckBoxState::Checked;
+	bShowingAdvancedOptions = NewState == ECheckBoxState::Checked;
 	CreateTreeColumns();
 }
 
-ECheckBoxState SSkeletonTree::IsShowingRetargetingOptions() const
+ECheckBoxState SSkeletonTree::IsShowingAdvancedOptions() const
 {
-	return bShowingRetargetingOptions ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	return bShowingAdvancedOptions ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
 
 

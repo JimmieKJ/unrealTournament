@@ -16,22 +16,41 @@ UAbilityTask_WaitConfirmCancel::UAbilityTask_WaitConfirmCancel(const FObjectInit
 
 void UAbilityTask_WaitConfirmCancel::OnConfirmCallback()
 {
-	OnConfirm.Broadcast();
+	
 	if (AbilitySystemComponent.IsValid())
 	{
-		AbilitySystemComponent->ConsumeAbilityConfirmCancel();
+		AbilitySystemComponent->ConsumeGenericReplicatedEvent(EAbilityGenericReplicatedEvent::GenericConfirm, GetAbilitySpecHandle(), GetActivationPredictionKey());
+		OnConfirm.Broadcast();
 		EndTask();
 	}
 }
 
 void UAbilityTask_WaitConfirmCancel::OnCancelCallback()
 {
-	OnCancel.Broadcast();
 	if (AbilitySystemComponent.IsValid())
 	{
-		AbilitySystemComponent->ConsumeAbilityConfirmCancel();
+		AbilitySystemComponent->ConsumeGenericReplicatedEvent(EAbilityGenericReplicatedEvent::GenericCancel, GetAbilitySpecHandle(), GetActivationPredictionKey());
+		OnCancel.Broadcast();
 		EndTask();
 	}
+}
+
+void UAbilityTask_WaitConfirmCancel::OnLocalConfirmCallback()
+{
+	if (AbilitySystemComponent.IsValid() && IsPredictingClient())
+	{
+		AbilitySystemComponent->ServerSetReplicatedEvent(EAbilityGenericReplicatedEvent::GenericConfirm, GetAbilitySpecHandle(), GetActivationPredictionKey() ,AbilitySystemComponent->ScopedPredictionKey);
+	}
+	OnConfirmCallback();
+}
+
+void UAbilityTask_WaitConfirmCancel::OnLocalCancelCallback()
+{
+	if (AbilitySystemComponent.IsValid() && IsPredictingClient())
+	{
+		AbilitySystemComponent->ServerSetReplicatedEvent(EAbilityGenericReplicatedEvent::GenericCancel, GetAbilitySpecHandle(), GetActivationPredictionKey() ,AbilitySystemComponent->ScopedPredictionKey);
+	}
+	OnCancelCallback();
 }
 
 UAbilityTask_WaitConfirmCancel* UAbilityTask_WaitConfirmCancel::WaitConfirmCancel(UObject* WorldContextObject)
@@ -45,31 +64,28 @@ void UAbilityTask_WaitConfirmCancel::Activate()
 	{
 		const FGameplayAbilityActorInfo* Info = Ability.Get()->GetCurrentActorInfo();
 
-		// If not locally controlled (E.g., we are the server and this is an ability running on the client), check to see if they already sent us
-		// the Confirm/Cancel. If so, immediately end this task.
-		if (!Info->IsLocallyControlled())
+		
+		if (Info->IsLocallyControlled())
 		{
-			if (AbilitySystemComponent->ReplicatedConfirmAbility)
+			// We have to wait for the callback from the AbilitySystemComponent.
+			AbilitySystemComponent->GenericLocalConfirmCallbacks.AddDynamic(this, &UAbilityTask_WaitConfirmCancel::OnLocalConfirmCallback);	// Tell me if the confirm input is pressed
+			AbilitySystemComponent->GenericLocalCancelCallbacks.AddDynamic(this, &UAbilityTask_WaitConfirmCancel::OnLocalCancelCallback);	// Tell me if the cancel input is pressed
+
+			RegisteredCallbacks = true;
+		}
+		else
+		{
+			if (CallOrAddReplicatedDelegate(EAbilityGenericReplicatedEvent::GenericConfirm,  FSimpleMulticastDelegate::FDelegate::CreateUObject(this, &UAbilityTask_WaitConfirmCancel::OnConfirmCallback)) )
 			{
-				OnConfirmCallback();
+				// GenericConfirm was already received from the client and we just called OnConfirmCallback. The task is done.
 				return;
 			}
-			else if (AbilitySystemComponent->ReplicatedCancelAbility)
+			if (CallOrAddReplicatedDelegate(EAbilityGenericReplicatedEvent::GenericCancel,  FSimpleMulticastDelegate::FDelegate::CreateUObject(this, &UAbilityTask_WaitConfirmCancel::OnCancelCallback)) )
 			{
-				OnCancelCallback();
+				// GenericCancel was already received from the client and we just called OnCancelCallback. The task is done.
 				return;
 			}
 		}
-		
-		// We have to wait for the callback from the AbilitySystemComponent. Which may be instigated locally or through network replication
-
-		AbilitySystemComponent->ConfirmCallbacks.AddDynamic(this, &UAbilityTask_WaitConfirmCancel::OnConfirmCallback);	// Tell me if the confirm input is pressed
-		AbilitySystemComponent->CancelCallbacks.AddDynamic(this, &UAbilityTask_WaitConfirmCancel::OnCancelCallback);	// Tell me if the cancel input is pressed
-
-		RegisteredCallbacks = true;
-		
-		// Tell me if something else tells me to 'force' my target data (an ability may allow targeting during animation/limited time)
-		// Tell me if something else tells me to cancel my targeting
 	}
 }
 
@@ -77,8 +93,8 @@ void UAbilityTask_WaitConfirmCancel::OnDestroy(bool AbilityEnding)
 {
 	if (RegisteredCallbacks && AbilitySystemComponent.IsValid())
 	{
-		AbilitySystemComponent->ConfirmCallbacks.RemoveDynamic(this, &UAbilityTask_WaitConfirmCancel::OnConfirmCallback);
-		AbilitySystemComponent->CancelCallbacks.RemoveDynamic(this, &UAbilityTask_WaitConfirmCancel::OnCancelCallback);
+		AbilitySystemComponent->GenericLocalConfirmCallbacks.RemoveDynamic(this, &UAbilityTask_WaitConfirmCancel::OnLocalConfirmCallback);
+		AbilitySystemComponent->GenericLocalCancelCallbacks.RemoveDynamic(this, &UAbilityTask_WaitConfirmCancel::OnLocalCancelCallback);
 	}
 
 	Super::OnDestroy(AbilityEnding);

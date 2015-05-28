@@ -153,7 +153,7 @@ protected:
 	 * @param		InOject		ActionListType to check for pending actions.
 	 *
 	 */	
-	const FActionList* GetActionListForObject(UObject* InObject) const
+	const FActionList* GetActionListForObject(const TWeakObjectPtr<UObject>& InObject) const
 	{
 		auto ObjectActionListPtr = ObjectToActionListMap.Find(InObject);
 		return ObjectActionListPtr ? ObjectActionListPtr->Get() : NULL;
@@ -165,7 +165,7 @@ protected:
 	 * @param		InOject		ActionListType to check for pending actions.
 	 *
 	 */	
-	FActionList* GetActionListForObject(UObject* InObject)
+	FActionList* GetActionListForObject(const TWeakObjectPtr<UObject>& InObject)
 	{
 		auto ObjectActionListPtr = ObjectToActionListMap.Find(InObject);
 		return ObjectActionListPtr ? ObjectActionListPtr->Get() : NULL;
@@ -185,7 +185,9 @@ protected:
 	/** list of objects we have processed the latent action list for this frame. */	
 	TSet<UObject*> ProcessedThisFrame;
 
-	/** For listed objects all actions will be removed */
-	TArray<TWeakObjectPtr<UObject>> ObjectsToRemove;
+	/**List of actions that will be unconditionally removed at the begin of next tick */
+	typedef TPair<int32, class FPendingLatentAction*> FUuidAndAction;
+	typedef TMap< TWeakObjectPtr<UObject>, TSharedPtr<TArray<FUuidAndAction>>> FActionsForObject;
+	FActionsForObject ActionsToRemoveMap;
 };
 

@@ -7,6 +7,7 @@
  */
 
 #include "GeomModifier.generated.h"
+typedef TSharedPtr<class FGeomObject> FGeomObjectPtr;
 
 UCLASS(abstract, hidecategories=(Object, GeomModifier))
 class UGeomModifier : public UObject
@@ -16,6 +17,10 @@ class UGeomModifier : public UObject
 	/** A human readable name for this modifier (appears on buttons, menus, etc) */
 	UPROPERTY(EditAnywhere, Category=GeomModifier)
 	FText Description;
+
+	/** The tooltip to be displayed for this modifier */
+	UPROPERTY(EditAnywhere, Category = GeomModifier)
+	FText Tooltip;
 
 	/** If true, this modifier should be displayed as a push button instead of a radio button */
 	UPROPERTY(EditAnywhere, Category=GeomModifier)
@@ -37,6 +42,9 @@ public:
 
 	/** @return		The modifier's description string. */
 	const FText& GetModifierDescription() const;
+
+	/** @return		The modifier's tooltip string. */
+	const FText& GetModifierTooltip() const;
 
 	/** @return		true if the key was handled by this editor mode tool. */
 	virtual bool InputKey(class FEditorViewportClient* ViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event);
@@ -88,7 +96,7 @@ public:
 	/**
 	 * Store the current geom selections (Edge, Vert and Poly)
 	 */
-	void StoreCurrentGeomSelections( TArray<struct FGeomSelection>& SelectionArray, FGeomObject* go );
+	void StoreCurrentGeomSelections( TArray<struct FGeomSelection>& SelectionArray, FGeomObjectPtr go );
 
 	/**
 	 * Store the current geom selections for all geom objects

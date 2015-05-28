@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "AI/Navigation/NavigationTypes.h"
 #include "AITypes.generated.h"
 
 #define TEXT_AI_LOCATION(v) (FAISystem::IsValidLocation(v) ? *(v).ToString() : TEXT("Invalid"))
@@ -10,7 +11,8 @@ namespace FAISystem
 {
 	static const FRotator InvalidRotation = FRotator(FLT_MAX);
 	static const FVector InvalidLocation = FVector(FLT_MAX);
-	static const FVector InvalidDirection = FVector::ZeroVector;
+	static const FVector InvalidDirection = FVector::ZeroVector; 
+	static const float InvalidRange = -1.f;
 	static const float InfiniteInterval = -FLT_MAX;
 
 	FORCEINLINE bool IsValidLocation(const FVector& TestLocation)
@@ -419,4 +421,87 @@ public:
 	static const FAIRequestID AnyRequest;
 	static const FAIRequestID CurrentRequest;
 	static const FAIRequestID InvalidRequest;
+};
+
+//////////////////////////////////////////////////////////////////////////
+
+class UNavigationQueryFilter;
+
+USTRUCT()
+struct AIMODULE_API FAIMoveRequest
+{
+	GENERATED_USTRUCT_BODY()
+
+	FAIMoveRequest();
+	FAIMoveRequest(const AActor* InGoalActor);
+	FAIMoveRequest(const FVector& InGoalLocation);
+
+	FAIMoveRequest& SetNavigationFilter(TSubclassOf<UNavigationQueryFilter> Filter) { FilterClass = Filter; return *this; }
+	FAIMoveRequest& SetUsePathfinding(bool bPathfinding) { bUsePathfinding = bPathfinding; return *this; }
+	FAIMoveRequest& SetAllowPartialPath(bool bAllowPartial) { bAllowPartialPath = bAllowPartial; return *this; }
+	FAIMoveRequest& SetProjectGoalLocation(bool bProject) { bProjectGoalOnNavigation = bProject; return *this; }
+
+	FAIMoveRequest& SetCanStrafe(bool bStrafe) { bCanStrafe = bStrafe; return *this; }
+	FAIMoveRequest& SetStopOnOverlap(bool bStop) { bStopOnOverlap = bStop; return *this; }
+	FAIMoveRequest& SetAcceptanceRadius(float Radius) { AcceptanceRadius = Radius; return *this; }
+	FAIMoveRequest& SetUserData(FCustomMoveSharedPtr Data) { UserData = Data; return *this; }
+
+	bool HasGoalActor() const { return bHasGoalActor; }
+	AActor* GetGoalActor() const { return bHasGoalActor ? GoalActor : nullptr; }
+	FVector GetGoalLocation() const { return GoalLocation; }
+
+	bool IsUsingPathfinding() const { return bUsePathfinding; }
+	bool IsUsingPartialPaths() const { return bAllowPartialPath; }
+	bool IsProjectingGoal() const { return bProjectGoalOnNavigation; }
+	TSubclassOf<UNavigationQueryFilter> GetNavigationFilter() const { return FilterClass; }
+
+	bool CanStrafe() const { return bCanStrafe; }
+	bool CanStopOnOverlap() const { return bStopOnOverlap; }
+	float GetAcceptanceRadius() const { return AcceptanceRadius; }
+	FCustomMoveSharedPtr GetUserData() const { return UserData; }
+
+	void SetGoalActor(const AActor* InGoalActor);
+	void SetGoalLocation(const FVector& InGoalLocation);
+
+	bool UpdateGoalLocation(const FVector& NewLocation) const;
+	FString ToString() const;
+
+protected:
+
+	/** move goal: actor */
+	UPROPERTY()
+	AActor* GoalActor;
+
+	/** move goal: location */
+	mutable FVector GoalLocation;
+
+	/** pathfinding: navigation filter to use */
+	TSubclassOf<UNavigationQueryFilter> FilterClass;
+
+	/** move goal is an actor */
+	uint32 bInitialized : 1;
+
+	/** move goal is an actor */
+	uint32 bHasGoalActor : 1;
+
+	/** pathfinding: if set - regular pathfinding will be used, if not - direct path between two points */
+	uint32 bUsePathfinding : 1;
+
+	/** pathfinding: allow using incomplete path going toward goal but not reaching it */
+	uint32 bAllowPartialPath : 1;
+
+	/** pathfinding: goal location will be projected on navigation data before use */
+	uint32 bProjectGoalOnNavigation : 1;
+
+	/** pathfollowing: stop move when agent touches/overlaps with goal */
+	uint32 bStopOnOverlap : 1;
+
+	/** pathfollowing: keep focal point at move goal */
+	uint32 bCanStrafe : 1;
+
+	/** pathfollowing: required distance to goal to complete move */
+	float AcceptanceRadius;
+
+	/** pathfollowing: custom user data */
+	FCustomMoveSharedPtr UserData;
 };

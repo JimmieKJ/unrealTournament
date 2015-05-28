@@ -14,7 +14,7 @@
 DEFINE_LOG_CATEGORY_STATIC(LogChartCreation, Log, All);
 
 /** The total GPU time taken to render all frames. In seconds. */
-double			GTotalGPUTime = 0;
+double			GTotalGPUTime = 0; 
 
 #if DO_CHARTING
 
@@ -84,19 +84,27 @@ static FString GetFPSChartType()
  * @param InMapName	the name of the map
  * @param FileExtension	the filename extension to append
  **/
-FString CreateFileNameForChart( const FString& ChartType, const FString& InMapName, const FString& FileExtension )
+static FString CreateFileNameForChart( const FString& ChartType, const FString& InMapName, const FString& FileExtension )
 {
 	FString Retval;
 	// Create FPS chart filename.
 	FString Platform;
 	// determine which platform we are
-	Platform = TEXT( "PC" );
+	Platform = FPlatformProperties::PlatformName();
 
 	Retval = InMapName + TEXT("-") + ChartType + TEXT("-") + Platform + FileExtension;
 
 	return Retval;
 }
 
+/** This will create the folder name for the output directory for FPS charts. */
+static FString CreateOutputDirectory()
+{
+	// Create folder for FPS chart data.
+	const FString OutputDir = FPaths::ProfilingDir() / TEXT( "FPSChartStats" ) / GCaptureStartTime;
+	IFileManager::Get().MakeDirectory( *OutputDir, true );
+	return OutputDir;
+}
 
 /**
 * Ticks the FPS chart.
@@ -403,12 +411,44 @@ void UEngine::StopFPSChart()
 }
 
 /**
+* Calculates the range of FPS values for the given bucket index
+*/
+
+void UEngine::CalcQuantisedFPSRange(int32 BucketIndex, int32& StartFPS, int32& EndFPS )
+{
+	// Figure out bucket range. Buckets start at 5 frame intervals then change to 10.
+	StartFPS = 0;
+	EndFPS = 0;
+	
+	if (BucketIndex < STAT_FPSChart_30_40)
+	{
+		// Still incrementing by 5
+		StartFPS = BucketIndex * 5;
+		EndFPS = StartFPS + 5;
+	}
+	else
+	{
+		// Now incrementing by 10
+		StartFPS = STAT_FPSChart_30_40 * 5;
+		StartFPS += (BucketIndex - STAT_FPSChart_30_40) * 10;
+		EndFPS = StartFPS + 10;
+	}
+
+	if (BucketIndex + STAT_FPSChartFirstStat == STAT_FPSChart_120_INF)
+	{
+		EndFPS = 999;
+	}
+}
+
+/**
  * Dumps the FPS chart information to the log.
  */
 void UEngine::DumpFPSChartToLog( float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName )
 {
 	int32 NumFramesBelow30 = 0; // keep track of the number of frames below 30 FPS
-	float PctTimeAbove30 = 0; // Keep track of percentage of time at 30+ FPS.
+	float PctTimeAbove30 = 0;	// Keep track of percentage of time at 30+ FPS.
+	int32 NumFramesBelow60 = 0; // keep track of the number of frames below 60 FPS
+	float PctTimeAbove60 = 0;	// Keep track of percentage of time at 60+ FPS.
 
 	UE_LOG(LogChartCreation, Log, TEXT("--- Begin : FPS chart dump for level '%s'"), *InMapName );
 
@@ -422,24 +462,7 @@ void UEngine::DumpFPSChartToLog( float TotalTime, float DeltaTime, int32 NumFram
 		// Figure out bucket range. Buckets start at 5 frame intervals then change to 10.
 		int32 StartFPS = 0;
 		int32 EndFPS = 0;
-		if ( BucketIndex < STAT_FPSChart_30_40 )
-		{
-			// Still incrementing by 5
-			StartFPS = BucketIndex * 5;
-			EndFPS = StartFPS + 5;
-		}
-		else
-		{
-			// Now incrementing by 10
-			StartFPS = STAT_FPSChart_30_40 * 5;
-			StartFPS += (BucketIndex - STAT_FPSChart_30_40) * 10;
-			EndFPS = StartFPS + 10;
-		}
-		
-		if( BucketIndex + STAT_FPSChartFirstStat == STAT_FPSChart_120_INF )
-		{
-			EndFPS = 999;
-		}
+		CalcQuantisedFPSRange(BucketIndex, StartFPS, EndFPS);
 
 		// Keep track of time spent at 30+ FPS.
 		if( StartFPS >= 30 )
@@ -451,26 +474,39 @@ void UEngine::DumpFPSChartToLog( float TotalTime, float DeltaTime, int32 NumFram
 			NumFramesBelow30 += GFPSChart[BucketIndex].Count;
 		}
 
+		// Keep track of time spent at 60+ FPS.
+		if (StartFPS >= 60)
+		{
+			PctTimeAbove60 += BucketTimePercentage;
+		}
+		else
+		{
+			NumFramesBelow60 += GFPSChart[BucketIndex].Count;
+		}
+
 		// Log bucket index, time and frame Percentage.
 		UE_LOG(LogChartCreation, Log, TEXT("Bucket: %2i - %2i  Time: %5.2f  Frame: %5.2f"), StartFPS, EndFPS, BucketTimePercentage, BucketFramePercentage );
 	}
 
-	UE_LOG(LogChartCreation, Log, TEXT("%i frames collected over %4.2f seconds, disregarding %4.2f seconds for a %4.2f FPS average, %4.2f percent of time spent > 30 FPS"),
+	UE_LOG(LogChartCreation, Log, TEXT("%i frames collected over %4.2f seconds, disregarding %4.2f seconds for a %4.2f FPS average, %4.2f percent of time spent > 30 FPS, %4.2f percent of time spent > 60 FPS"),
 		NumFrames, 
 		DeltaTime, 
 		FMath::Max<float>( 0, DeltaTime - TotalTime ), 
 		NumFrames / TotalTime,
-		PctTimeAbove30);
+		PctTimeAbove30,
+		PctTimeAbove60);
 	UE_LOG(LogChartCreation, Log, TEXT("Average GPU frametime: %4.2f ms"), float((GTotalGPUTime / NumFrames)*1000.0));
-	UE_LOG(LogChartCreation, Log, TEXT("BoundGameThreadPct: %4.2f  BoundRenderThreadPct: %4.2f  BoundGPUPct: %4.2f PercentFrames30+: %f   BoundGameTime: %f  BoundRenderTime: %f  BoundGPUTime: %f  PctTimeAbove30: %f ")
+	UE_LOG(LogChartCreation, Log, TEXT("BoundGameThreadPct: %4.2f  BoundRenderThreadPct: %4.2f  BoundGPUPct: %4.2f PercentFrames30+: %f   PercentFrames60+: %f   BoundGameTime: %f  BoundRenderTime: %f  BoundGPUTime: %f  PctTimeAbove30: %f  PctTimeAbove60: %f ")
 		, (float(GNumFramesBound_GameThread)/float(NumFrames))*100.0f
 		, (float(GNumFramesBound_RenderThread)/float(NumFrames))*100.0f
 		, (float(GNumFramesBound_GPU)/float(NumFrames))*100.0f
 		, float(NumFrames - NumFramesBelow30) / float(NumFrames)*100.0f
-		, (GTotalFramesBoundTime_GameThread/DeltaTime)*100.0f
+		, float(NumFrames - NumFramesBelow60) / float(NumFrames)*100.0f
+		, (GTotalFramesBoundTime_GameThread / DeltaTime)*100.0f
 		, ((GTotalFramesBoundTime_RenderThread)/DeltaTime)*100.0f
 		, ((GTotalFramesBoundTime_GPU)/DeltaTime)*100.0f
 		, PctTimeAbove30
+		, PctTimeAbove60
 		);
 
 	UE_LOG(LogChartCreation, Log, TEXT("--- End"));
@@ -600,12 +636,11 @@ void UEngine::DumpFrameTimesToStatsLog( float TotalTime, float DeltaTime, int32 
 {
 #if ALLOW_DEBUG_FILES
 	// Create folder for FPS chart data.
-	FString OutputDir = FPaths::ProfilingDir() + TEXT("FPSChartStats/") + GCaptureStartTime + TEXT("/");
-	IFileManager::Get().MakeDirectory( *OutputDir, true );
+	const FString OutputDir = CreateOutputDirectory();
 
 	// Create archive for log data.
 	const FString ChartType = GetFPSChartType();
-	const FString ChartName = (OutputDir + CreateFileNameForChart( ChartType, InMapName, TEXT( ".csv" ) ) );
+	const FString ChartName = OutputDir / CreateFileNameForChart( ChartType, InMapName, TEXT( ".csv" ) );
 	FArchive* OutputFile = IFileManager::Get().CreateDebugFileWriter( *ChartName );
 
 	if( OutputFile )
@@ -646,13 +681,11 @@ void UEngine::DumpFrameTimesToStatsLog( float TotalTime, float DeltaTime, int32 
 void UEngine::DumpFPSChartToStatsLog( float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName )
 {
 #if ALLOW_DEBUG_FILES
-	// Create folder for FPS chart data.
-	FString OutputDir = FPaths::ProfilingDir() + TEXT("FPSChartStats/") + GCaptureStartTime + TEXT("/");
-	IFileManager::Get().MakeDirectory( *OutputDir );
+	const FString OutputDir = CreateOutputDirectory();
 	
 	// Create archive for log data.
 	const FString ChartType = GetFPSChartType();
-	const FString ChartName = (OutputDir + CreateFileNameForChart( ChartType, InMapName, TEXT( ".log" ) ) );
+	const FString ChartName = OutputDir / CreateFileNameForChart( ChartType, InMapName, TEXT( ".log" ) );
 	FArchive* OutputFile = IFileManager::Get().CreateDebugFileWriter( *ChartName, FILEWRITE_Append );
 
 	if( OutputFile )
@@ -680,7 +713,9 @@ void UEngine::DumpFPSChartToStatsLog( float TotalTime, float DeltaTime, int32 Nu
 		OutputFile->Logf(TEXT("\tEffects Quality: %d"), Quality.EffectsQuality);
 
 		int32 NumFramesBelow30 = 0; // keep track of the number of frames below 30 FPS
-		float PctTimeAbove30 = 0; // Keep track of percentage of time at 30+ FPS.
+		float PctTimeAbove30 = 0;	// Keep track of percentage of time at 30+ FPS.
+		int32 NumFramesBelow60 = 0; // keep track of the number of frames below 60 FPS
+		float PctTimeAbove60 = 0;	// Keep track of percentage of time at 60+ FPS.
 
 		// Iterate over all buckets, dumping percentages.
 		for( int32 BucketIndex=0; BucketIndex<ARRAY_COUNT(GFPSChart); BucketIndex++ )
@@ -689,30 +724,12 @@ void UEngine::DumpFPSChartToStatsLog( float TotalTime, float DeltaTime, int32 Nu
 			const float BucketTimePercentage  = 100.f * GFPSChart[BucketIndex].CummulativeTime / TotalTime;
 			const float BucketFramePercentage = 100.f * GFPSChart[BucketIndex].Count / NumFrames;
 
-			// Figure out bucket range. Buckets start at 5 frame intervals then change to 10.
 			int32 StartFPS = 0;
 			int32 EndFPS = 0;
-			if (BucketIndex < STAT_FPSChart_30_40)
-			{
-				// Still incrementing by 5
-				StartFPS = BucketIndex * 5;
-				EndFPS = StartFPS + 5;
-			}
-			else
-			{
-				// Now incrementing by 10
-				StartFPS = STAT_FPSChart_30_40 * 5;
-				StartFPS += (BucketIndex - STAT_FPSChart_30_40) * 10;
-				EndFPS = StartFPS + 10;
-			}
-
-			if( BucketIndex + STAT_FPSChartFirstStat == STAT_FPSChart_120_INF )
-			{
-				EndFPS = 999;
-			}
+			CalcQuantisedFPSRange(BucketIndex, StartFPS, EndFPS);
 
 			// Keep track of time spent at 30+ FPS.
-			if( StartFPS >= 30 )
+			if (StartFPS >= 30)
 			{
 				PctTimeAbove30 += BucketTimePercentage;
 			}
@@ -720,27 +737,39 @@ void UEngine::DumpFPSChartToStatsLog( float TotalTime, float DeltaTime, int32 Nu
 			{
 				NumFramesBelow30 += GFPSChart[BucketIndex].Count;
 			}
+			
+			// Keep track of time spent at 60+ FPS.
+			if (StartFPS >= 60)
+			{
+				PctTimeAbove60 += BucketTimePercentage;
+			}
+			else
+			{
+				NumFramesBelow60 += GFPSChart[BucketIndex].Count;
+			}
 
 			// Log bucket index, time and frame Percentage.
 			OutputFile->Logf(TEXT("Bucket: %2i - %2i  Time: %5.2f  Frame: %5.2f"), StartFPS, EndFPS, BucketTimePercentage, BucketFramePercentage);
 		}
 
-		OutputFile->Logf(TEXT("%i frames collected over %4.2f seconds, disregarding %4.2f seconds for a %4.2f FPS average, %4.2f percent of time spent > 30 FPS"), 
+		OutputFile->Logf(TEXT("%i frames collected over %4.2f seconds, disregarding %4.2f seconds for a %4.2f FPS average, %4.2f percent of time spent > 30 FPS, %4.2f percent of time spent > 60 FPS"), 
 			NumFrames, 
 			DeltaTime, 
 			FMath::Max<float>( 0, DeltaTime - TotalTime ), 
 			NumFrames / TotalTime,
-			PctTimeAbove30);
+			PctTimeAbove30, PctTimeAbove60 );
 		OutputFile->Logf(TEXT("Average GPU frame time: %4.2f ms"), float((GTotalGPUTime / NumFrames)*1000.0));
-		OutputFile->Logf(TEXT("BoundGameThreadPct: %4.2f  BoundRenderThreadPct: %4.2f  BoundGPUPct: %4.2f PercentFrames30+: %f   BoundGameTime: %f  BoundRenderTime: %f  BoundGPUTime: %f  PctTimeAbove30: %f ")
+		OutputFile->Logf(TEXT("BoundGameThreadPct: %4.2f  BoundRenderThreadPct: %4.2f  BoundGPUPct: %4.2f PercentFrames30+: %f   PercentFrames60+: %f   BoundGameTime: %f  BoundRenderTime: %f  BoundGPUTime: %f  PctTimeAbove30: %f  PctTimeAbove60: %f ")
 			, (float(GNumFramesBound_GameThread)/float(NumFrames))*100.0f
 			, (float(GNumFramesBound_RenderThread)/float(NumFrames))*100.0f
 			, (float(GNumFramesBound_GPU)/float(NumFrames))*100.0f
 			, float(NumFrames - NumFramesBelow30) / float(NumFrames)*100.0f
-			, (GTotalFramesBoundTime_GameThread/DeltaTime)*100.0f
+			, float(NumFrames - NumFramesBelow60) / float(NumFrames)*100.0f
+			, (GTotalFramesBoundTime_GameThread / DeltaTime)*100.0f
 			, ((GTotalFramesBoundTime_RenderThread)/DeltaTime)*100.0f
 			, ((GTotalFramesBoundTime_GPU)/DeltaTime)*100.0f
 			, PctTimeAbove30
+			, PctTimeAbove60
 			);
 
 		// Dump hitch data
@@ -791,7 +820,13 @@ void UEngine::DumpFPSChartToStatsLog( float TotalTime, float DeltaTime, int32 Nu
 		// Flush, close and delete.
 		delete OutputFile;
 
-		UE_LOG( LogProfilingDebugging, Warning, TEXT( "FPS Chart (logfile) saved to %s" ), *IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead( *ChartName ) );
+		const FString AbsolutePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead( *ChartName );
+
+		UE_LOG( LogProfilingDebugging, Warning, TEXT( "FPS Chart (logfile) saved to %s" ), *AbsolutePath );
+
+#if	PLATFORM_DESKTOP
+		FPlatformProcess::ExploreFolder( *AbsolutePath );
+#endif // PLATFORM_DESKTOP
 	}
 #endif // ALLOW_DEBUG_FILES
 }
@@ -817,6 +852,8 @@ void UEngine::DumpFPSChartToHTML( float TotalTime, float DeltaTime, int32 NumFra
 	{
 		// Keep track of percentage of time at 30+ FPS.
 		float PctTimeAbove30 = 0;
+		// Keep track of percentage of time at 60+ FPS.
+		float PctTimeAbove60 = 0;
 
 		// Iterate over all buckets, updating row 
 		for( int32 BucketIndex=0; BucketIndex<ARRAY_COUNT(GFPSChart); BucketIndex++ )
@@ -828,24 +865,7 @@ void UEngine::DumpFPSChartToHTML( float TotalTime, float DeltaTime, int32 NumFra
 			// Figure out bucket range. Buckets start at 5 frame intervals then change to 10.
 			int32 StartFPS = 0;
 			int32 EndFPS = 0;
-			if (BucketIndex < STAT_FPSChart_30_40)
-			{
-				// Still incrementing by 5
-				StartFPS = BucketIndex * 5;
-				EndFPS = StartFPS + 5;
-			}
-			else
-			{
-				// Now incrementing by 10
-				StartFPS = STAT_FPSChart_30_40 * 5;
-				StartFPS += (BucketIndex - STAT_FPSChart_30_40) * 10;
-				EndFPS = StartFPS + 10;
-			}
-
-			if( BucketIndex + STAT_FPSChartFirstStat == STAT_FPSChart_120_INF )
-			{
-				EndFPS = 999;
-			}
+			CalcQuantisedFPSRange(BucketIndex, StartFPS, EndFPS);
 
 			// Keep track of time spent at 30+ FPS.
 			if( StartFPS >= 30 )
@@ -853,7 +873,13 @@ void UEngine::DumpFPSChartToHTML( float TotalTime, float DeltaTime, int32 NumFra
 				PctTimeAbove30 += BucketTimePercentage;
 			}
 
-			const FString SrcToken = FString::Printf( TEXT("TOKEN_%i_%i"), StartFPS, EndFPS );
+			// Keep track of time spent at 60+ FPS.
+			if (StartFPS >= 60)
+			{
+				PctTimeAbove60 += BucketTimePercentage;
+			}
+
+			const FString SrcToken = FString::Printf(TEXT("TOKEN_%i_%i"), StartFPS, EndFPS);
 			const FString DstToken = FString::Printf( TEXT("%5.2f"), BucketTimePercentage );
 
 			// Replace token with actual values.
@@ -923,8 +949,9 @@ void UEngine::DumpFPSChartToHTML( float TotalTime, float DeltaTime, int32 NumFra
 		FPSChartRow = FPSChartRow.Replace( TEXT("TOKEN_SETTINGS_FX"),	    *FString::Printf(TEXT("%d"), Quality.EffectsQuality ), ESearchCase::CaseSensitive );
 
 		FPSChartRow = FPSChartRow.Replace( TEXT("TOKEN_AVG_FPS"),			*FString::Printf(TEXT("%4.2f"), NumFrames / TotalTime), ESearchCase::CaseSensitive );
-		FPSChartRow = FPSChartRow.Replace( TEXT("TOKEN_PCT_ABOVE_30"),		*FString::Printf(TEXT("%4.2f"), PctTimeAbove30), ESearchCase::CaseSensitive );
-		FPSChartRow = FPSChartRow.Replace( TEXT("TOKEN_TIME_DISREGARDED"),	*FString::Printf(TEXT("%4.2f"), FMath::Max<float>( 0, DeltaTime - TotalTime ) ), ESearchCase::CaseSensitive );
+		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_PCT_ABOVE_30"), *FString::Printf(TEXT("%4.2f"), PctTimeAbove30), ESearchCase::CaseSensitive);
+		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_PCT_ABOVE_60"), *FString::Printf(TEXT("%4.2f"), PctTimeAbove60), ESearchCase::CaseSensitive);
+		FPSChartRow = FPSChartRow.Replace(TEXT("TOKEN_TIME_DISREGARDED"), *FString::Printf(TEXT("%4.2f"), FMath::Max<float>(0, DeltaTime - TotalTime)), ESearchCase::CaseSensitive);
 		FPSChartRow = FPSChartRow.Replace( TEXT("TOKEN_TIME"),				*FString::Printf(TEXT("%4.2f"), DeltaTime), ESearchCase::CaseSensitive );
 		FPSChartRow = FPSChartRow.Replace( TEXT("TOKEN_FRAMECOUNT"),		*FString::Printf(TEXT("%i"), NumFrames), ESearchCase::CaseSensitive );
 		FPSChartRow = FPSChartRow.Replace( TEXT("TOKEN_AVG_GPUTIME"),		*FString::Printf(TEXT("%4.2f ms"), float((GTotalGPUTime / NumFrames)*1000.0) ), ESearchCase::CaseSensitive );
@@ -938,14 +965,12 @@ void UEngine::DumpFPSChartToHTML( float TotalTime, float DeltaTime, int32 NumFra
 		FPSChartRow = FPSChartRow.Replace( TEXT("TOKEN_BOUND_GPU_TIME"),		*FString::Printf(TEXT("%4.2f"), ((GTotalFramesBoundTime_GPU)/DeltaTime)*100.0f ), ESearchCase::CaseSensitive );
 
 
-		// Create folder for FPS chart data.
-		const FString OutputDir = FPaths::ProfilingDir() + TEXT("FPSChartStats/") + GCaptureStartTime + TEXT("/");
-		IFileManager::Get().MakeDirectory( *OutputDir );
+		const FString OutputDir = CreateOutputDirectory();
 
 		// Create FPS chart filename.
 		const FString ChartType = GetFPSChartType();
 
-		const FString& FPSChartFilename = OutputDir + CreateFileNameForChart( ChartType, *InMapName, TEXT( ".html" ) );
+		const FString& FPSChartFilename = OutputDir / CreateFileNameForChart( ChartType, *InMapName, TEXT( ".html" ) );
 		FString FPSChart;
 
 		// See whether file already exists and load it into string if it does.

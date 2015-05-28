@@ -42,7 +42,7 @@ void UParticleModuleParameterDynamic::InitializeDefaults()
 	{
 		if(!DynamicParams[ParamIdx].ParamValue.Distribution)
 		{
-			DynamicParams[ParamIdx].ParamValue.Distribution = NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionParam1"));
+			DynamicParams[ParamIdx].ParamValue.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam1"));
 		}
 	}
 }
@@ -63,10 +63,10 @@ void UParticleModuleParameterDynamic::PostInitProperties()
 		};
 		static FConstructorStatics ConstructorStatics;
 
-		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionParam1"))));
-		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionParam2"))));
-		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionParam3"))));
-		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewNamedObject<UDistributionFloatConstant>(this, TEXT("DistributionParam4"))));
+		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam1"))));
+		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam2"))));
+		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam3"))));
+		DynamicParams.Add(FEmitterDynamicParameter(ConstructorStatics.NAME_None, false, EDPV_UserSet, NewObject<UDistributionFloatConstant>(this, TEXT("DistributionParam4"))));
 	}
 }
 

@@ -243,8 +243,8 @@ private:
 	 */
 	void OnMapChanged( UWorld* World, EMapChangeType::Type MapChangeType );
 
-	/** Called when the input manager records a user-defined gesture */
-	void OnUserDefinedGestureChanged(const FUICommandInfo& CommandInfo);
+	/** Called when the input manager records a user-defined chord */
+	void OnUserDefinedChordChanged(const FUICommandInfo& CommandInfo);
 
 	/** Delegate for (default) message log UObject token activation - selects the object that the token refers to (if any) */
 	void OnMessageTokenActivated(const TSharedRef<class IMessageToken>& Token);
@@ -323,8 +323,8 @@ private:
 	/** Package names and the number of times they have been updated */
 	TMap<FName, uint32> NumUpdatesByAssetName;
 
-	/** Handle to the registered OnUserDefinedGestureChanged delegate. */
-	FDelegateHandle OnUserDefinedGestureChangedDelegateHandle;
+	/** Handle to the registered OnUserDefinedChordChanged delegate. */
+	FDelegateHandle OnUserDefinedChordChangedDelegateHandle;
 
 	/** Handle to the registered OnMapChanged delegate. */
 	FDelegateHandle OnMapChangedDelegateHandle;

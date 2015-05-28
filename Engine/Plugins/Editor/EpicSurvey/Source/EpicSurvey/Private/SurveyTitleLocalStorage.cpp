@@ -54,6 +54,11 @@ bool FSurveyTitleLocalStorage::ClearFile(const FString& DLName)
 	return ClearedFile;
 }
 
+void FSurveyTitleLocalStorage::DeleteCachedFiles(bool bSkipEnumerated)
+{
+	// not implemented
+}
+
 bool FSurveyTitleLocalStorage::EnumerateFiles(const FPagedQuery& Page)
 {
 	if (!IFileManager::Get().DirectoryExists(*RootDirectory))

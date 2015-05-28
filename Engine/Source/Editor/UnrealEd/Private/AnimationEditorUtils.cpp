@@ -284,7 +284,7 @@ namespace AnimationEditorUtils
 				FString PackageName;
 				CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
-				UAnimBlueprintFactory* Factory = ConstructObject<UAnimBlueprintFactory>(UAnimBlueprintFactory::StaticClass());
+				UAnimBlueprintFactory* Factory = NewObject<UAnimBlueprintFactory>();
 				Factory->TargetSkeleton = Object;
 
 				FContentBrowserModule& ContentBrowserModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
@@ -305,7 +305,7 @@ namespace AnimationEditorUtils
 					CreateUniqueAssetName(Object->GetOutermost()->GetName(), DefaultSuffix, PackageName, Name);
 
 					// Create the anim blueprint factory used to generate the asset
-					UAnimBlueprintFactory* Factory = ConstructObject<UAnimBlueprintFactory>(UAnimBlueprintFactory::StaticClass());
+					UAnimBlueprintFactory* Factory = NewObject<UAnimBlueprintFactory>();
 					Factory->TargetSkeleton = Object;
 
 					FAssetToolsModule& AssetToolsModule = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools");
@@ -329,6 +329,8 @@ namespace AnimationEditorUtils
 	{
 		MenuBuilder.BeginSection("CreateAnimAssets", LOCTEXT("CreateAnimAssetsMenuHeading", "Anim Assets"));
 		{
+// commented out for UE-13743
+/*
 			MenuBuilder.AddMenuEntry(
 				LOCTEXT("Skeleton_NewAnimBlueprint", "Anim Blueprint"),
 				LOCTEXT("Skeleton_NewAnimBlueprintTooltip", "Creates an Anim Blueprint using the selected skeleton."),
@@ -338,6 +340,7 @@ namespace AnimationEditorUtils
 					FCanExecuteAction()
 					)
 				);
+*/
 
 			MenuBuilder.AddMenuEntry(
 				LOCTEXT("Skeleton_NewAnimComposite", "Anim Composite"),

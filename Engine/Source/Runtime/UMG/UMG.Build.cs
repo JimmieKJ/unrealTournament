@@ -20,19 +20,39 @@ public class UMG : ModuleRules
                 "InputCore",
 				"Slate",
 				"SlateCore",
+                "ShaderCore",
 				"RenderCore",
 				"MovieSceneCore",
 				"RHI",
 			}
 		);
 
+        PublicDependencyModuleNames.AddRange(
+            new string[] {
+				"HTTP",
+			}
+        );
+
+        PrivateIncludePathModuleNames.AddRange(
+            new string[] {
+				"ImageWrapper",
+			}
+        );
+
 		if (Target.Type != TargetRules.TargetType.Server)
 		{
-			PrivateDependencyModuleNames.AddRange(
+			PrivateIncludePathModuleNames.AddRange(
 				new string[] {
 					"SlateRHIRenderer",
 				}
 			);
+
+            DynamicallyLoadedModuleNames.AddRange(
+                new string[] {
+				    "ImageWrapper",
+				    "SlateRHIRenderer",
+			    }
+            );
 		};
 	}
 }

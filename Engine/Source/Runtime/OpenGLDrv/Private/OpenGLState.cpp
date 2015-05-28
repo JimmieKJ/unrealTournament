@@ -78,6 +78,7 @@ static GLenum TranslateFillMode(ERasterizerFillMode FillMode)
 		{
 			case FM_Point: return GL_POINT;
 			case FM_Wireframe: return GL_LINE;
+			default: break;
 		};
 	}
 	return GL_FILL;

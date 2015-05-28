@@ -93,7 +93,7 @@ FDetailCategoryImpl::FDetailCategoryImpl( FName InCategoryName, TSharedRef<FDeta
 
 	CategoryPathName = BaseStructName.ToString() + TEXT(".") + CategoryName.ToString();
 
-	GConfig->GetBool( TEXT("DetailCategoriesAdvanced"), *CategoryPathName, bUserShowAdvanced, GEditorUserSettingsIni );
+	GConfig->GetBool( TEXT("DetailCategoriesAdvanced"), *CategoryPathName, bUserShowAdvanced, GEditorPerProjectIni );
 
 }
 
@@ -402,7 +402,7 @@ void FDetailCategoryImpl::OnAdvancedDropdownClicked()
 {
 	bUserShowAdvanced = !bUserShowAdvanced;
 
-	GConfig->SetBool( TEXT("DetailCategoriesAdvanced"), *CategoryPathName, bUserShowAdvanced, GEditorUserSettingsIni );
+	GConfig->SetBool( TEXT("DetailCategoriesAdvanced"), *CategoryPathName, bUserShowAdvanced, GEditorPerProjectIni );
 
 	const bool bRefilterCategory = true;
 	RefreshTree( bRefilterCategory );
@@ -546,7 +546,7 @@ void FDetailCategoryImpl::OnItemExpansionChanged( bool bIsExpanded )
 	if( bRestoreExpansionState )
 	{
 		// Save the collapsed state of this section
-		GConfig->SetBool( TEXT("DetailCategories"), *CategoryPathName, bIsExpanded, GEditorUserSettingsIni );
+		GConfig->SetBool( TEXT("DetailCategories"), *CategoryPathName, bIsExpanded, GEditorPerProjectIni );
 	}
 
 	OnExpansionChangedDelegate.ExecuteIfBound( bIsExpanded );
@@ -563,7 +563,7 @@ bool FDetailCategoryImpl::ShouldBeExpanded() const
 		// Collapse by default if there are no simple child nodes
 		bool bShouldBeExpanded = !ContainsOnlyAdvanced();
 		// Save the collapsed state of this section
-		GConfig->GetBool( TEXT("DetailCategories"), *CategoryPathName, bShouldBeExpanded, GEditorUserSettingsIni );
+		GConfig->GetBool( TEXT("DetailCategories"), *CategoryPathName, bShouldBeExpanded, GEditorPerProjectIni );
 		return bShouldBeExpanded;
 	}
 	else
@@ -600,12 +600,16 @@ void FDetailCategoryImpl::GenerateNodesFromCustomizations( const FCustomizationL
 			TSharedRef<FDetailItemNode> NewNode = MakeShareable( new FDetailItemNode( Customization, AsShared(), IsParentEnabled ) );
 			NewNode->Initialize();
 
-			if( CustomizationIndex == InCustomizationList.Num()-1 )
+			// Add the node unless only its children should be visible or it didnt generate any children or if it is a custom builder which can generate children at any point
+			if( !NewNode->ShouldShowOnlyChildren() || NewNode->HasGeneratedChildren() || Customization.HasCustomBuilder() )
 			{
-				bOutLastItemHasMultipleColumns = NewNode->HasMultiColumnWidget();
-			}
+				if(CustomizationIndex == InCustomizationList.Num()-1)
+				{
+					bOutLastItemHasMultipleColumns = NewNode->HasMultiColumnWidget();
+				}
 
-			OutNodeList.Add( NewNode );
+				OutNodeList.Add(NewNode);
+			}
 		}
 	}
 }

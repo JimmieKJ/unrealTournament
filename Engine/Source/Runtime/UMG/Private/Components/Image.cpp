@@ -76,6 +76,16 @@ const FSlateBrush* UImage::ConvertImage(TAttribute<FSlateBrush> InImageAsset) co
 	return &Brush;
 }
 
+void UImage::SetBrush(const FSlateBrush& InBrush)
+{
+	Brush = InBrush;
+
+	if ( MyImage.IsValid() )
+	{
+		MyImage->SetImage(&Brush);
+	}
+}
+
 void UImage::SetBrushFromAsset(USlateBrushAsset* Asset)
 {
 	Brush = Asset ? Asset->Brush : FSlateBrush();

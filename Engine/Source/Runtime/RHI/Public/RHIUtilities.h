@@ -187,11 +187,12 @@ inline void DecodeRenderTargetMode(ESimpleRenderTargetMode Mode, ERenderTargetLo
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, FTextureRHIParamRef NewDepthStencilTarget)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget);
-	RHICmdList.SetRenderTargets(1, &RTV, NewDepthStencilTarget, 0, NULL);
+	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTarget);
+	RHICmdList.SetRenderTargets(1, &RTV, &DepthRTV, 0, NULL);
 }
 
 /** Helper for the common case of using a single color and depth render target. */
-inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, FTextureRHIParamRef NewDepthStencilTarget, ESimpleRenderTargetMode Mode)
+inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, FTextureRHIParamRef NewDepthStencilTarget, ESimpleRenderTargetMode Mode, FExclusiveDepthStencil DepthStencilAccess = FExclusiveDepthStencil::DepthWrite_StencilWrite)
 {
 	ERenderTargetLoadAction ColorLoadAction, DepthLoadAction;
 	ERenderTargetStoreAction ColorStoreAction, DepthStoreAction;
@@ -201,7 +202,7 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 
 	// now make the FRHISetRenderTargetsInfo that encapsulates all of the info
 	FRHIRenderTargetView ColorView(NewRenderTarget, 0, -1, ColorLoadAction, ColorStoreAction);
-	FRHISetRenderTargetsInfo Info(1, &ColorView, FRHIDepthRenderTargetView(NewDepthStencilTarget, DepthLoadAction, DepthStoreAction));
+	FRHISetRenderTargetsInfo Info(1, &ColorView, FRHIDepthRenderTargetView(NewDepthStencilTarget, DepthLoadAction, DepthStoreAction, DepthStencilAccess));
 	Info.ClearColors[0] = ClearColor;
 	Info.DepthClearValue = ClearDepth;
 	RHICmdList.SetRenderTargetsAndClear(Info);
@@ -211,14 +212,16 @@ inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef New
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, int32 MipIndex, FTextureRHIParamRef NewDepthStencilTarget)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget, MipIndex, -1);
-	RHICmdList.SetRenderTargets(1, &RTV, NewDepthStencilTarget, 0, NULL);
+	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTarget);
+	RHICmdList.SetRenderTargets(1, &RTV, &DepthRTV, 0, nullptr);
 }
 
 /** Helper for the common case of using a single color and depth render target, with a mip index for the color target. */
 inline void SetRenderTarget(FRHICommandList& RHICmdList, FTextureRHIParamRef NewRenderTarget, int32 MipIndex, int32 ArraySliceIndex, FTextureRHIParamRef NewDepthStencilTarget)
 {
 	FRHIRenderTargetView RTV(NewRenderTarget, MipIndex, ArraySliceIndex);
-	RHICmdList.SetRenderTargets(1, &RTV, NewDepthStencilTarget, 0, NULL);
+	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTarget);
+	RHICmdList.SetRenderTargets(1, &RTV, &DepthRTV, 0, nullptr);
 }
 
 /** Helper that converts FTextureRHIParamRef's into FRHIRenderTargetView's. */
@@ -238,7 +241,35 @@ inline void SetRenderTargets(
 		RTVs[Index] = FRHIRenderTargetView(NewRenderTargetsRHI[Index]);
 	}
 
-	RHICmdList.SetRenderTargets(NewNumSimultaneousRenderTargets, RTVs, NewDepthStencilTargetRHI, NewNumUAVs, UAVs);
+	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTargetRHI);
+	RHICmdList.SetRenderTargets(NewNumSimultaneousRenderTargets, RTVs, &DepthRTV, NewNumUAVs, UAVs);
+}
+
+/** Helper that converts FTextureRHIParamRef's into FRHIRenderTargetView's. */
+inline void SetRenderTargets(
+	FRHICommandList& RHICmdList,
+	uint32 NewNumSimultaneousRenderTargets,
+	const FTextureRHIParamRef* NewRenderTargetsRHI,
+	FTextureRHIParamRef NewDepthStencilTargetRHI,
+	ESimpleRenderTargetMode Mode,
+	FExclusiveDepthStencil DepthStencilAccess
+	)
+{
+	ERenderTargetLoadAction ColorLoadAction, DepthLoadAction;
+	ERenderTargetStoreAction ColorStoreAction, DepthStoreAction;
+	FLinearColor ClearColor;
+	float ClearDepth;
+	DecodeRenderTargetMode(Mode, ColorLoadAction, ColorStoreAction, DepthLoadAction, DepthStoreAction, ClearColor, ClearDepth);
+
+	FRHIRenderTargetView RTVs[MaxSimultaneousRenderTargets];
+
+	for (uint32 Index = 0; Index < NewNumSimultaneousRenderTargets; Index++)
+	{
+		RTVs[Index] = FRHIRenderTargetView(NewRenderTargetsRHI[Index], 0, -1, ColorLoadAction, ColorStoreAction);
+	}
+
+	FRHIDepthRenderTargetView DepthRTV(NewDepthStencilTargetRHI, DepthLoadAction, DepthStoreAction, DepthStencilAccess);
+	RHICmdList.SetRenderTargets(NewNumSimultaneousRenderTargets, RTVs, &DepthRTV, 0, nullptr);
 }
 
 /**

@@ -21,7 +21,7 @@ void SSettingsEditorCheckoutNotice::Construct( const FArguments& InArgs )
 	OnFileProbablyModifiedExternally = InArgs._OnFileProbablyModifiedExternally;
 	ConfigFilePath = InArgs._ConfigFilePath;
 
-	DefaultConfigCheckOutTimer = 0.0f;
+	LastDefaultConfigCheckOutTime = 0.0;
 	DefaultConfigCheckOutNeeded = false;
 	DefaultConfigQueryInProgress = true;
 
@@ -226,14 +226,10 @@ FSlateColor SSettingsEditorCheckoutNotice::HandleBorderBackgroundColor() const
 	return FinalColor;
 }
 
-void SSettingsEditorCheckoutNotice::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SSettingsEditorCheckoutNotice::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
-	// cache selected settings object's configuration file state
-	DefaultConfigCheckOutTimer += InDeltaTime;
-
-	if (DefaultConfigCheckOutTimer >= 1.0f)
+	// cache selected settings object's configuration file state (purposely not in an active timer to make sure it appears while the user is active)
+	if (InCurrentTime - LastDefaultConfigCheckOutTime >= 1.0f)
 	{
 		bool NewCheckOutNeeded = false;
 
@@ -265,7 +261,7 @@ void SSettingsEditorCheckoutNotice::Tick(const FGeometry& AllottedGeometry, cons
 		}
 
 		DefaultConfigCheckOutNeeded = NewCheckOutNeeded;
-		DefaultConfigCheckOutTimer = 0.0f;
+		LastDefaultConfigCheckOutTime = InCurrentTime;
 	}
 }
 

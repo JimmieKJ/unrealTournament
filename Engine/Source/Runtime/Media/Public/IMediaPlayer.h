@@ -6,7 +6,6 @@
 #include "IMediaTrack.h"
 
 
-// forward declaration
 class IMediaTrack;
 
 

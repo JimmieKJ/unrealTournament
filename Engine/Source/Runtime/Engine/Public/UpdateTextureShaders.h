@@ -21,7 +21,7 @@ public:
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << SrcPitchParameter << SrcBuffer << DestPosSizeParameter << DestTexture;
@@ -40,6 +40,49 @@ public:
 	FShaderResourceParameter DestTexture;
 };
 
+class FUpdateTexture3DSubresouceCS : public FGlobalShader
+{
+	DECLARE_SHADER_TYPE(FUpdateTexture3DSubresouceCS, Global);
+public:
+	FUpdateTexture3DSubresouceCS() {}
+	FUpdateTexture3DSubresouceCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
+		: FGlobalShader(Initializer)
+	{
+		SrcPitchParameter.Bind(Initializer.ParameterMap, TEXT("SrcPitch"), SPF_Mandatory);
+		SrcDepthPitchParameter.Bind(Initializer.ParameterMap, TEXT("SrcDepthPitch"), SPF_Mandatory);
+
+		SrcBuffer.Bind(Initializer.ParameterMap, TEXT("SrcBuffer"), SPF_Mandatory);
+
+		DestPosParameter.Bind(Initializer.ParameterMap, TEXT("DestPos"), SPF_Mandatory);
+		DestSizeParameter.Bind(Initializer.ParameterMap, TEXT("DestSize"), SPF_Mandatory);
+
+		DestTexture3D.Bind(Initializer.ParameterMap, TEXT("DestTexture3D"), SPF_Mandatory);
+	}
+
+	// FShader interface.
+	virtual bool Serialize(FArchive& Ar) override
+	{
+		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
+		Ar << SrcPitchParameter << SrcDepthPitchParameter << SrcBuffer << DestPosParameter << DestSizeParameter  << DestTexture3D;
+		return bShaderHasOutdatedParameters;
+	}
+
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM5);
+	}
+
+	//protected:
+	FShaderParameter SrcPitchParameter;
+	FShaderParameter SrcDepthPitchParameter;
+	FShaderResourceParameter SrcBuffer;
+
+	FShaderParameter DestPosParameter;
+	FShaderParameter DestSizeParameter;
+
+	FShaderResourceParameter DestTexture3D;
+};
+
 class FCopyTexture2DCS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(FCopyTexture2DCS,Global);
@@ -53,7 +96,7 @@ public:
 	}
 
 	// FShader interface.
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << SrcTexture << DestTexture;

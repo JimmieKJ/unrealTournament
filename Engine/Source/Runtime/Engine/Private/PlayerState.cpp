@@ -288,6 +288,7 @@ APlayerState* APlayerState::Duplicate()
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.Instigator = Instigator;
 	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save player states into a map
 	APlayerState* NewPlayerState = GetWorld()->SpawnActor<APlayerState>(GetClass(), SpawnInfo );
 	// Can fail in case of multiplayer PIE teardown
 	if (NewPlayerState)

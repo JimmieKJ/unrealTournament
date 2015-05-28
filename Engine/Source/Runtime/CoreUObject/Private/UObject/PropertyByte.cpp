@@ -5,7 +5,7 @@
 /*-----------------------------------------------------------------------------
 	UByteProperty.
 -----------------------------------------------------------------------------*/
-void UByteProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const
+void UByteProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
 {
 	if(Enum && Ar.UseToResolveEnumerators())
 	{
@@ -18,7 +18,7 @@ void UByteProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes
 	const bool bUseBinarySerialization = (Enum == NULL) || (!Ar.IsLoading() && !Ar.IsSaving());
 	if( bUseBinarySerialization )
 	{
-		Super::SerializeItem(Ar, Value, MaxReadBytes, Defaults);
+		Super::SerializeItem(Ar, Value, Defaults);
 	}
 	// Loading
 	else if (Ar.IsLoading())

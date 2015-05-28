@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Niagara/NiagaraCommon.h"
+#include "NiagaraCommon.h"
+
 
 //List of operations supported by the Niagara compiler(s) as visible from the outside.
 //Additional information about each operation is added in FNiagaraOpInfo::Init
@@ -61,7 +62,12 @@
 	NiagaraOp(TransformVector)\
 	NiagaraOp(Transpose)\
 	NiagaraOp(Inverse)\
-	NiagaraOp(LessThan)
+	NiagaraOp(LessThan)\
+	NiagaraOp(Sample)\
+	NiagaraOp(Write)\
+	NiagaraOp(EventBroadcast)\
+	NiagaraOp(EaseIn)\
+	NiagaraOp(EaseInOut)\
 
 enum class ENiagaraExpressionResultLocation
 {
@@ -69,8 +75,11 @@ enum class ENiagaraExpressionResultLocation
 	OutputData,
 	Constants,
 	Temporaries,
+	BufferConstants,
 	Unknown,
 };
+
+
 
 typedef TSharedPtr<class FNiagaraExpression> TNiagaraExprPtr;
 
@@ -78,12 +87,12 @@ typedef TSharedPtr<class FNiagaraExpression> TNiagaraExprPtr;
 class FNiagaraExpression : public TSharedFromThis<FNiagaraExpression>
 {
 public:
-	FNiagaraExpression(class FNiagaraCompiler* InCompiler, ENiagaraDataType InResultType)
+	FNiagaraExpression(class FNiagaraCompiler* InCompiler, const FNiagaraVariableInfo& InResult)
 		: Compiler(InCompiler)
 		, ResultLocation(ENiagaraExpressionResultLocation::Unknown)
 		, ResultIndex(INDEX_NONE)
 		, ComponentIndex(INDEX_NONE)
-		, ResultType(InResultType)
+		, Result(InResult)
 	{
 	}
 
@@ -113,8 +122,8 @@ public:
 	/** The index of the component we're accessing. Typically this is unused and set to INDEX_NONE. Scalar ops will set and use it however. */
 	int32 ComponentIndex;
 
-	/** The data type of the result. */
-	ENiagaraDataType ResultType;
+	/** The variable info for the result of this expression. */
+	FNiagaraVariableInfo Result;
 
 	//Expressions that this one relies on. Will be processed before this one.
 	TArray<TNiagaraExprPtr> SourceExpressions;
@@ -153,6 +162,7 @@ public:
 		case ENiagaraDataType::Scalar: Default = TEXT("1.0f");	break;
 		case ENiagaraDataType::Vector: Default = TEXT("1.0f,1.0f,1.0f,1.0f");	break;
 		case ENiagaraDataType::Matrix: Default = TEXT("1.0f,0.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,0.0f,1.0f");	break;
+		case ENiagaraDataType::Curve: Default = TEXT("");	break;
 		};
 	}
 };
@@ -196,3 +206,4 @@ public:
 	TNiagaraExprPtr Expression;
 	UEdGraphPin* OutputPin;
 };
+

@@ -26,7 +26,7 @@ void UBTDecorator_BlackboardBase::OnBecomeRelevant(UBehaviorTreeComponent& Owner
 	if (BlackboardComp)
 	{
 		auto KeyID = BlackboardKey.GetSelectedKeyID();
-		BlackboardComp->RegisterObserver(KeyID, this, FOnBlackboardChange::CreateUObject(this, &UBTDecorator_BlackboardBase::OnBlackboardChange));
+		BlackboardComp->RegisterObserver(KeyID, this, FOnBlackboardChangeNotification::CreateUObject(this, &UBTDecorator_BlackboardBase::OnBlackboardKeyValueChange));
 	}
 }
 
@@ -39,13 +39,19 @@ void UBTDecorator_BlackboardBase::OnCeaseRelevant(UBehaviorTreeComponent& OwnerC
 	}
 }
 
-void UBTDecorator_BlackboardBase::OnBlackboardChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID)
+EBlackboardNotificationResult UBTDecorator_BlackboardBase::OnBlackboardKeyValueChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID)
 {
 	UBehaviorTreeComponent* BehaviorComp = (UBehaviorTreeComponent*)Blackboard.GetBrainComponent();
-	if (BlackboardKey.GetSelectedKeyID() == ChangedKeyID && BehaviorComp)
+	if (BehaviorComp == nullptr)
+	{
+		return EBlackboardNotificationResult::RemoveObserver;
+	}
+
+	if (BlackboardKey.GetSelectedKeyID() == ChangedKeyID)
 	{
 		BehaviorComp->RequestExecution(this);		
 	}
+	return EBlackboardNotificationResult::ContinueObserving;
 }
 
 #if WITH_EDITOR
@@ -56,3 +62,11 @@ FName UBTDecorator_BlackboardBase::GetNodeIconName() const
 }
 
 #endif	// WITH_EDITOR
+
+//----------------------------------------------------------------------//
+// DEPRECATED
+//----------------------------------------------------------------------//
+void UBTDecorator_BlackboardBase::OnBlackboardChange(const UBlackboardComponent& Blackboard, FBlackboard::FKey ChangedKeyID)
+{
+	OnBlackboardKeyValueChange(Blackboard, ChangedKeyID);
+}

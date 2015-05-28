@@ -3,8 +3,3 @@
 #include "SlatePrivatePCH.h"
 
 
-UButtonWidgetStyle::UButtonWidgetStyle( const FObjectInitializer& ObjectInitializer )
-	: Super(ObjectInitializer)
-{
-	
-}

@@ -193,6 +193,7 @@ void SWorldLayerButton::Construct(const FArguments& InArgs)
 						.OnCheckStateChanged(this, &SWorldLayerButton::OnCheckStateChanged)
 						.IsChecked(this, &SWorldLayerButton::IsChecked)
 						.OnGetMenuContent(this, &SWorldLayerButton::GetRightClickMenu)
+						.ToolTipText(this, &SWorldLayerButton::GetToolTipText)
 						.Padding(3)
 						[
 							SNew(STextBlock)
@@ -239,6 +240,18 @@ FReply SWorldLayerButton::OnCtrlClicked()
 TSharedRef<SWidget> SWorldLayerButton::GetRightClickMenu()
 {
 	return SNullWidget::NullWidget;
+}
+
+FText SWorldLayerButton::GetToolTipText() const
+{
+	if (WorldLayer.DistanceStreamingEnabled)
+	{
+		return FText::Format(LOCTEXT("Layer_Distance_Tooltip", "Streaming Distance: {0}"), FText::AsNumber(WorldLayer.StreamingDistance));
+	}
+	else
+	{
+		return FText(LOCTEXT("Layer_DisabledDistance_Tooltip", "Distance Streaming Disabled"));
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

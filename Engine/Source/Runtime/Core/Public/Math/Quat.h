@@ -290,6 +290,14 @@ public:
 	 * @return vector after rotation
 	 */
 	FVector RotateVector( FVector V ) const;
+	
+	/**
+	 * Rotate a vector by the inverse of this quaternion.
+	 *
+	 * @param V the vector to be rotated
+	 * @return vector after rotation by the inverse of this quaternion.
+	 */
+	FVector UnrotateVector( FVector V ) const;
 
 	/**
 	 * @return quaternion with W=0 and V=theta*v.
@@ -303,6 +311,9 @@ public:
 	 */
 	CORE_API FQuat Exp() const;
 
+	/**
+	 * @return inverse of this quaternion
+	 */
 	FORCEINLINE FQuat Inverse() const;
 
 	/**
@@ -321,7 +332,7 @@ public:
 	FORCEINLINE FVector GetAxisZ() const;
 
 	/** @return rotator representation of this quaternion */
-	FRotator Rotator() const;
+	CORE_API FRotator Rotator() const;
 
 	/** @return Vector of the axis of the quaternion */
 	FORCEINLINE FVector GetRotationAxis() const;
@@ -515,15 +526,9 @@ FORCEINLINE FQuat::FQuat( const FRotator& R )
 }
 
 
-inline FVector FQuat::operator*( const FVector& V ) const
+FORCEINLINE FVector FQuat::operator*( const FVector& V ) const
 {
-	FQuat VQ(V.X, V.Y, V.Z, 0.f);
-	FQuat VT, VR;
-	FQuat I = Inverse();
-	VectorQuaternionMultiply(&VT, this, &VQ);
-	VectorQuaternionMultiply(&VR, &VT, &I);
-
-	return FVector(VR.X, VR.Y, VR.Z);
+	return RotateVector(V);
 }
 
 
@@ -570,64 +575,6 @@ FORCEINLINE bool DebugRotatorEquals(const FRotator& R1, const FRotator& R2, floa
 }
 #endif
 
-
-inline FRotator FQuat::Rotator() const
-{
-#if USE_MATRIX_ROTATOR 
-	// if you think this function is problem, you can undo previous matrix rotator by returning RotatorFromMatrix
-	FRotator RotatorFromMatrix = FQuatRotationTranslationMatrix( *this, FVector::ZeroVector ).Rotator();
-	checkSlow (IsNormalized());
-#endif
-
-	static float RAD_TO_DEG = 180.f/PI;
-
-	FRotator RotatorFromQuat;
-	float SingularityTest = Z*X-W*Y;
-	float Pitch = FMath::Asin(2*(SingularityTest));
-
-	RotatorFromQuat.Yaw = FMath::Atan2(2.f*(W*Z+X*Y), (1-2.f*(FMath::Square(Y) + FMath::Square(Z))))*RAD_TO_DEG;
-
-	// reference 
-	// http://en.wikipedia.org/wiki/Conversion_between_quaternions_and_Euler_angles
-	// http://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToEuler/
-
-// this value was found from experience, the above websites recommend different values
-// but that isn't the case for us, so I went through different testing, and finally found the case 
-// where both of world lives happily. 
-#define SINGULARITY_THRESHOLD	0.4999995f
-
-	if ( SingularityTest < -SINGULARITY_THRESHOLD )
-	{
-		RotatorFromQuat.Roll = -RotatorFromQuat.Yaw - 2.f* FMath::Atan2(X, W) * RAD_TO_DEG;
-		RotatorFromQuat.Pitch = 270.f;
-	}
-	else if ( SingularityTest > SINGULARITY_THRESHOLD )
-	{
-		RotatorFromQuat.Roll = RotatorFromQuat.Yaw - 2.f* FMath::Atan2(X, W) * RAD_TO_DEG;
-		RotatorFromQuat.Pitch = 90.f;
-	}
-	else
-	{
-		RotatorFromQuat.Roll = FMath::Atan2(-2.f*(W*X+Y*Z), (1-2.f*(FMath::Square(X) + FMath::Square(Y))))*RAD_TO_DEG;
-		RotatorFromQuat.Pitch = FRotator::ClampAxis(Pitch*RAD_TO_DEG); //clamp it so within 360 - this is for if below
-	}
-
-	RotatorFromQuat.Normalize();
-
-#if USE_MATRIX_ROTATOR
-	RotatorFromMatrix = RotatorFromMatrix.Clamp();
-
-	// this Euler is degree, so less 1 is negligible
-	if (!DebugRotatorEquals(RotatorFromQuat, RotatorFromMatrix, 0.1f))
-	{
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("WRONG: (Singularity: %.9f) RotationMatrix (%s), RotationQuat(%s)"), SingularityTest, *RotatorFromMatrix.ToString(), *RotatorFromQuat.ToString());
-	}
-
-	return RotatorFromMatrix;
-#else
-	return RotatorFromQuat;
-#endif
-}
 
 
 /* FQuat inline functions
@@ -678,8 +625,8 @@ FORCEINLINE FQuat& FQuat::operator=( const FQuat& Other )
 FORCEINLINE FQuat::FQuat( FVector Axis, float AngleRad )
 {
 	const float half_a = 0.5f * AngleRad;
-	const float s = FMath::Sin(half_a);
-	const float c = FMath::Cos(half_a);
+	float s, c;
+	FMath::SinCos(&s, &c, half_a);
 
 	X = s * Axis.X;
 	Y = s * Axis.Y;
@@ -867,14 +814,44 @@ FORCEINLINE FVector FQuat::GetRotationAxis() const
 
 FORCEINLINE FVector FQuat::RotateVector( FVector V ) const
 {	
+#if WITH_DIRECTXMATH
+	FVector Result;
+	VectorQuaternionVector3Rotate(&Result, &V, this);
+	return Result;
+
+	/*
+	// In unit testing this appears to be slower than the non-vectorized version.
+#elif PLATFORM_ENABLE_VECTORINTRINSICS
+	FQuat VQ(V.X, V.Y, V.Z, 0.f);
+	FQuat VT, VR;
+	FQuat I = Inverse();
+	VectorQuaternionMultiply(&VT, this, &VQ);
+	VectorQuaternionMultiply(&VR, &VT, &I);
+
+	return FVector(VR.X, VR.Y, VR.Z);
+	*/
+
+#else
 	// (q.W*q.W-qv.qv)v + 2(qv.v)qv + 2 q.W (qv x v)
 
 	const FVector qv(X, Y, Z);
-	FVector vOut = 2.f * W * (qv ^ V);
+	FVector vOut = (2.f * W) * (qv ^ V);
 	vOut += ((W * W) - (qv | qv)) * V;
 	vOut += (2.f * (qv | V)) * qv;
 
 	return vOut;
+#endif
+}
+
+FORCEINLINE FVector FQuat::UnrotateVector( FVector V ) const
+{	
+#if WITH_DIRECTXMATH
+	FVector Result;
+	VectorQuaternionVector3InverseRotate(&Result, &V, this);
+	return Result;
+#else
+	return Inverse().RotateVector(V);
+#endif
 }
 
 

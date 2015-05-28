@@ -8,29 +8,6 @@
 /////////////////////////////////////////////////////
 // FClassMetaData
 
-FFunctionData* FClassMetaData::FindFunctionData( UFunction* Function )
-{
-	FFunctionData* Result = NULL;
-	
-	TScopedPointer<FFunctionData>* FuncData = FunctionData.Find(Function);
-	if ( FuncData != NULL )
-	{
-		Result = FuncData->GetOwnedPointer();
-	}
-
-	if ( Result == NULL )
-	{
-		UClass* OwnerClass = Function->GetOwnerClass();
-		FClassMetaData* OwnerClassData = GScriptHelper.FindClassData(OwnerClass);
-		if ( OwnerClassData && OwnerClassData != this )
-		{
-			Result = OwnerClassData->FindFunctionData(Function);
-		}
-	}
-
-	return Result;
-}
-
 /**
  * Finds the metadata for the struct specified
  * 
@@ -78,15 +55,21 @@ FTokenData* FClassMetaData::FindTokenData( UProperty* Prop )
 {
 	check(Prop);
 
-	FTokenData* Result = NULL;
+	FTokenData* Result = nullptr;
 	UObject* Outer = Prop->GetOuter();
-	UClass* OuterClass = Cast<UClass>(Outer);
-	if ( OuterClass != NULL )
+	UClass* OuterClass = nullptr;
+	if (Outer->IsA<UStruct>())
 	{
 		Result = GlobalPropertyData.Find(Prop);
-		if ( Result == NULL && OuterClass->GetSuperClass() != OuterClass )
+
+		if (Result == nullptr)
 		{
-			OuterClass = OuterClass->GetSuperClass();
+			OuterClass = Cast<UClass>(Outer);
+
+			if (Result == nullptr && OuterClass != nullptr && OuterClass->GetSuperClass() != OuterClass)
+			{
+				OuterClass = OuterClass->GetSuperClass();
+			}
 		}
 	}
 	else
@@ -95,12 +78,9 @@ FTokenData* FClassMetaData::FindTokenData( UProperty* Prop )
 		if ( OuterFunction != NULL )
 		{
 			// function parameter, return, or local property
-			TScopedPointer<FFunctionData>* pFuncData = FunctionData.Find(OuterFunction);
-			if ( pFuncData != NULL )
+			FFunctionData* FuncData = nullptr;
+			if (FFunctionData::TryFindForFunction(OuterFunction, FuncData))
 			{
-				FFunctionData* FuncData = pFuncData->GetOwnedPointer();
-				check(FuncData);
-
 				FPropertyData& FunctionParameters = FuncData->GetParameterData();
 				Result = FunctionParameters.Find(Prop);
 				if ( Result == NULL )
@@ -135,45 +115,16 @@ FTokenData* FClassMetaData::FindTokenData( UProperty* Prop )
 		}
 	}
 
-	if ( Result == NULL && OuterClass != NULL )
+	if (Result == nullptr && OuterClass != nullptr)
 	{
 		FClassMetaData* SuperClassData = GScriptHelper.FindClassData(OuterClass);
-		if ( SuperClassData && SuperClassData != this )
+		if (SuperClassData && SuperClassData != this)
 		{
 			Result = SuperClassData->FindTokenData(Prop);
 		}
 	}
+
 	return Result;
-}
-
-void FClassMetaData::Dump( int32 Indent )
-{
-	UE_LOG(LogCompile, Log, TEXT("Globals:"));
-	GlobalPropertyData.Dump(Indent+4);
-
-	UE_LOG(LogCompile, Log, TEXT("Structs:"));
-	for ( TMap<UScriptStruct*, TScopedPointer<FStructData> >::TIterator It(StructData); It; ++It )
-	{
-		UScriptStruct* Struct = It.Key();
-
-		TScopedPointer<FStructData>& PointerVal = It.Value();
-		FStructData* Data = PointerVal.GetOwnedPointer();
-
-		UE_LOG(LogCompile, Log, TEXT("%s%s"), FCString::Spc(Indent), *Struct->GetName());
-		Data->Dump(Indent+4);
-	}
-
-	UE_LOG(LogCompile, Log, TEXT("Functions:"));
-	for ( TMap<UFunction*, TScopedPointer<FFunctionData> >::TIterator It(FunctionData); It; ++It )
-	{
-		UFunction* Function = It.Key();
-
-		TScopedPointer<FFunctionData>& PointerVal = It.Value();
-		FFunctionData* Data = PointerVal.GetOwnedPointer();
-
-		UE_LOG(LogCompile, Log, TEXT("%s%s"), FCString::Spc(Indent), *Function->GetName());
-		Data->Dump(Indent+4);
-	}
 }
 
 /////////////////////////////////////////////////////
@@ -210,8 +161,10 @@ const TCHAR* FPropertyBase::GetPropertyTypeText( EPropertyType Type )
 		CASE_TEXT(CPT_String);
 		CASE_TEXT(CPT_Text);
 		CASE_TEXT(CPT_MulticastDelegate);
+		CASE_TEXT(CPT_AssetObjectReference);
 		CASE_TEXT(CPT_WeakObjectReference);
 		CASE_TEXT(CPT_LazyObjectReference);
+		CASE_TEXT(CPT_Map);
 		CASE_TEXT(CPT_MAX);
 	}
 
@@ -251,7 +204,7 @@ FAdvancedDisplayParameterHandler::FAdvancedDisplayParameterHandler(const TMap<FN
 		const FString* FoundString = MetaData->Find(FName(TEXT("AdvancedDisplay")));
 		if(FoundString)
 		{
-			FoundString->ParseIntoArray(&ParametersNames, TEXT(","), true);
+			FoundString->ParseIntoArray(ParametersNames, TEXT(","), true);
 			for(int32 NameIndex = 0; NameIndex < ParametersNames.Num();)
 			{
 				FString& ParameterName = ParametersNames[NameIndex];
@@ -295,4 +248,42 @@ bool FAdvancedDisplayParameterHandler::ShouldMarkParameter(const FString& Parame
 bool FAdvancedDisplayParameterHandler::CanMarkMore() const
 {
 	return bUseNumber ? (NumberLeaveUnmarked > 0) : (0 != ParametersNames.Num());
+}
+
+TMap<UFunction*, TSharedRef<FFunctionData> > FFunctionData::FunctionDataMap;
+
+FFunctionData* FFunctionData::FindForFunction(UFunction* Function)
+{
+	auto* Output = FunctionDataMap.Find(Function);
+
+	check(Output);
+
+	return &(*Output).Get();
+}
+
+FFunctionData* FFunctionData::Add(UFunction* Function)
+{
+	auto Output = FunctionDataMap.Add(Function, MakeShareable(new FFunctionData()));
+
+	return &Output.Get();
+}
+
+FFunctionData* FFunctionData::Add(const FFuncInfo& FunctionInfo)
+{
+	auto Output = FunctionDataMap.Add(FunctionInfo.FunctionReference, MakeShareable(new FFunctionData(FunctionInfo)));
+
+	return &Output.Get();
+}
+
+bool FFunctionData::TryFindForFunction(UFunction* Function, FFunctionData*& OutData)
+{
+	auto* Output = FunctionDataMap.Find(Function);
+
+	if (!Output)
+	{
+		return false;
+	}
+
+	OutData = &(*Output).Get();
+	return true;
 }

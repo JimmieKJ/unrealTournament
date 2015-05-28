@@ -76,8 +76,6 @@ void SGraphTitleBar::Construct( const FArguments& InArgs )
 	Kismet2Ptr = InArgs._Kismet2;
 	check(Kismet2Ptr.IsValid());
 
-	bEditingFunction = false;
-
 	// Set-up shared breadcrumb defaults
 	FMargin BreadcrumbTrailPadding = FMargin(4.f, 2.f);
 	const FSlateBrush* BreadcrumbButtonImage = FEditorStyle::GetBrush("BreadcrumbTrail.Delimiter");
@@ -205,11 +203,6 @@ void SGraphTitleBar::RebuildBreadcrumbTrail()
 		auto Foo = TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateStatic<const UEdGraph*>(&SGraphTitleBar::GetTitleForOneCrumb, Graph));
 		BreadcrumbTrail->PushCrumb(Foo, Graph);
 	}
-}
-
-void SGraphTitleBar::BeginEditing()
-{
-	bEditingFunction = true;
 }
 
 UEdGraph* SGraphTitleBar::GetOuterGraph( UObject* Obj )

@@ -97,7 +97,7 @@ void FTransaction::FObjectRecord::Restore( FTransaction* Owner )
 	{
 		bRestored = true;
 		TArray<uint8> FlipData;
-		TArray<UObject*> FlipReferencedObjects;
+		TArray<FReferencedObject> FlipReferencedObjects;
 		TArray<FName> FlipReferencedNames;
 		TSharedPtr<ITransactionObjectAnnotation> FlipObjectAnnotation;
 		if( Owner->bFlip )
@@ -164,22 +164,59 @@ FArchive& operator<<( FArchive& Ar, FTransaction::FObjectRecord& R )
 	return Ar;
 }
 
+FTransaction::FObjectRecord::FReferencedObject::FReferencedObject(UObject* InObject)
+{
+	UActorComponent* Component = Cast<UActorComponent>(InObject);
+	UObject* CDO = nullptr;
+	if (Component && OuterIsCDO(Component, CDO))
+	{
+		Object = CDO;
+		ComponentName = Component->GetFName();
+	}
+	else if (Component && Component->IsCreatedByConstructionScript())
+	{
+		Object = Component->GetOuter();
+		ComponentName = Component->GetFName();
+	}
+	else
+	{
+		Object = InObject;
+	}
+}
+
+UObject* FTransaction::FObjectRecord::FReferencedObject::GetObject() const
+{
+	return (ComponentName.IsNone() ? Object : FindObjectFast<UActorComponent>(Object, ComponentName));
+}
+
+void FTransaction::FObjectRecord::FReferencedObject::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	Collector.AddReferencedObject(Object);
+}
+
 void FTransaction::FObjectRecord::AddReferencedObjects( FReferenceCollector& Collector )
 {
-	UObject* Obj = Object.Get();
-	Collector.AddReferencedObject(Obj);
-	Object = Obj;
-	for( int32 ObjIndex = 0; ObjIndex < ReferencedObjects.Num(); ObjIndex++ )
+	if (Object.ShouldAddReference())
 	{
-		Collector.AddReferencedObject( ReferencedObjects[ ObjIndex ] );
+		UObject* Obj = Object.Get();
+		Collector.AddReferencedObject(Obj);
+		Object = Obj;
+	}
+	for( FReferencedObject& ReferencedObject : ReferencedObjects )
+	{
+		ReferencedObject.AddReferencedObjects(Collector);
+	}
+	if (ObjectAnnotation.IsValid())
+	{
+		ObjectAnnotation->AddReferencedObjects(Collector);
 	}
 }
 
 void FTransaction::AddReferencedObjects( FReferenceCollector& Collector )
 {
-	for( int32 Index = 0; Index < Records.Num(); Index++ )
+	for( FObjectRecord& ObjectRecord : Records )
 	{
-		Records[ Index ].AddReferencedObjects( Collector );
+		ObjectRecord.AddReferencedObjects( Collector );
 	}
 	Collector.AddReferencedObjects(ObjectMap);
 }
@@ -292,13 +329,6 @@ void FTransaction::Apply()
 			ChangedObject->PostEditUndo();
 		}
 	}
-	
-	// Rebuild BSP here instead of waiting for the next tick since
-	// multiple transaction events can occur in a single tick
-	if (ABrush::NeedsRebuild())
-	{
-		GEditor->RebuildAlteredBSP();
-	}
 
 	// Flip it.
 	if (bFlip)
@@ -326,7 +356,7 @@ SIZE_T FTransaction::DataSize() const
  * Get all the objects that are part of this transaction.
  * @param	Objects		[out] Receives the object list.  Previous contents are cleared.
  */
-void FTransaction::GetTransactionObjects(TArray<UObject*>& Objects)
+void FTransaction::GetTransactionObjects(TArray<UObject*>& Objects) const
 {
 	Objects.Empty(); // Just in case.
 
@@ -705,4 +735,22 @@ void UTransBuffer::SetPrimaryUndoObject(UObject* PrimaryObject)
 			Transaction->SetPrimaryObject(PrimaryObject);
 		}
 	}
+}
+
+bool UTransBuffer::IsObjectInTransationBuffer( const UObject* Object ) const
+{
+	TArray<UObject*> TransactionObjects;
+	for( const FTransaction& Transaction : UndoBuffer )
+	{
+		Transaction.GetTransactionObjects(TransactionObjects);
+
+		if( TransactionObjects.Contains(Object) )
+		{
+			return true;
+		}
+		
+		TransactionObjects.Reset();
+	}
+
+	return false;
 }

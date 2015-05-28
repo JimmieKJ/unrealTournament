@@ -48,7 +48,7 @@ bool AGameplayAbilityTargetActor_GroundTrace::AdjustCollisionResultForShape(cons
 {
 	UWorld *ThisWorld = GetWorld();
 	//Pull back toward player to find a better spot, accounting for the width of our object
-	FVector Movement = (OriginalEndPoint - OriginalStartPoint);
+	FVector Movement = (OriginalEndPoint - OriginalStartPoint);	
 	FVector MovementDirection = Movement.GetSafeNormal();
 	float MovementMagnitude2D = Movement.Size2D();
 

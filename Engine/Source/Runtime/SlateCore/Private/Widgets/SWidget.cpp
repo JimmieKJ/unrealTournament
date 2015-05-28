@@ -3,16 +3,22 @@
 #include "SlateCorePrivatePCH.h"
 #include "Widgets/SWidget.h"
 #include "Input/Events.h"
+#include "ActiveTimerHandle.h"
+#include "SlateStats.h"
 
-DECLARE_CYCLE_STAT(TEXT("OnPaint"), STAT_SlateOnPaint, STATGROUP_Slate);
-DECLARE_CYCLE_STAT(TEXT("ArrangeChildren"), STAT_SlateArrangeChildren, STATGROUP_Slate);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Painted Widgets"), STAT_SlateNumPaintedWidgets, STATGROUP_Slate);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Ticked Widgets"), STAT_SlateNumTickedWidgets, STATGROUP_Slate);
 
+SLATE_DECLARE_CYCLE_COUNTER(GSlateWidgetTick, "SWidget Tick");
+SLATE_DECLARE_CYCLE_COUNTER(GSlateOnPaint, "OnPaint");
+SLATE_DECLARE_CYCLE_COUNTER(GSlatePrepass, "SlatePrepass");
+SLATE_DECLARE_CYCLE_COUNTER(GSlateArrangeChildren, "ArrangeChildren");
+SLATE_DECLARE_CYCLE_COUNTER(GSlateGetVisibility, "GetVisibility");
+
+TAutoConsoleVariable<int32> TickInvisibleWidgets(TEXT("Slate.TickInvisibleWidgets"), 0, TEXT("Controls whether invisible widgets are ticked."));
+
 SWidget::SWidget()
-	: CreatedInFile( TEXT("") )
-	, CreatedOnLine( -1 )
-	, Cursor( TOptional<EMouseCursor::Type>() )
+	: Cursor( TOptional<EMouseCursor::Type>() )
 	, EnabledState( true )
 	, Visibility( EVisibility::Visible )
 	, RenderTransform( )
@@ -68,24 +74,11 @@ FReply SWidget::OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& 
 	return FReply::Unhandled();
 }
 
-FReply SWidget::OnKeyboardFocusReceived(const FGeometry& MyGeometry, const FKeyboardFocusEvent& InFocusEvent)
-{
-	return FReply::Unhandled();
-}
-
 void SWidget::OnFocusLost(const FFocusEvent& InFocusEvent)
 {
 }
 
-void SWidget::OnKeyboardFocusLost(const FKeyboardFocusEvent& InFocusEvent)
-{
-}
-
 void SWidget::OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath)
-{
-}
-
-void SWidget::OnKeyboardFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath)
 {
 }
 
@@ -125,10 +118,17 @@ FReply SWidget::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEv
 		// If the key was Tab, interpret as an attempt to move focus.
 		else if (InKeyEvent.GetKey() == EKeys::Tab)
 		{
-			EUINavigation MoveDirection = (InKeyEvent.IsShiftDown())
-				? EUINavigation::Previous
-				: EUINavigation::Next;
-			return FReply::Handled().SetNavigation(MoveDirection);
+			//@TODO: Really these uses of input should be at a lower priority, only occurring if nothing else handled them
+			// For now this code prevents consuming them when some modifiers are held down, allowing some limited binding
+			const bool bAllowEatingKeyEvents = !InKeyEvent.IsControlDown() && !InKeyEvent.IsAltDown() && !InKeyEvent.IsCommandDown();
+
+			if (bAllowEatingKeyEvents)
+			{
+				EUINavigation MoveDirection = (InKeyEvent.IsShiftDown())
+					? EUINavigation::Previous
+					: EUINavigation::Next;
+				return FReply::Handled().SetNavigation(MoveDirection);
+			}
 		}
 	}
 	return FReply::Unhandled();
@@ -321,11 +321,11 @@ void SWidget::OnFinishedKeyInput()
 FNavigationReply SWidget::OnNavigation(const FGeometry& MyGeometry, const FNavigationEvent& InNavigationEvent)
 {
 	EUINavigation Type = InNavigationEvent.GetNavigationType();
-	TSharedPtr<FNavigationMetaData> MetaData = GetMetaData<FNavigationMetaData>();
-	if (MetaData.IsValid())
+	TSharedPtr<FNavigationMetaData> NavigationMetaData = GetMetaData<FNavigationMetaData>();
+	if (NavigationMetaData.IsValid())
 	{
-		TSharedPtr<SWidget> Widget = MetaData->GetFocusRecipient(Type).Pin();
-		return FNavigationReply(MetaData->GetBoundaryRule(Type), Widget, MetaData->GetFocusDelegate(Type));
+		TSharedPtr<SWidget> Widget = NavigationMetaData->GetFocusRecipient(Type).Pin();
+		return FNavigationReply(NavigationMetaData->GetBoundaryRule(Type), Widget, NavigationMetaData->GetFocusDelegate(Type));
 	}
 	return FNavigationReply::Escape();
 }
@@ -341,14 +341,16 @@ void SWidget::Tick( const FGeometry& AllottedGeometry, const double InCurrentTim
 {
 }
 
-TAutoConsoleVariable<int32> TickInvisibleWidgets(TEXT("Slate.TickInvisibleWidgets"), 1, TEXT("Controls whether invisible widgets are ticked."));
-
 void SWidget::TickWidgetsRecursively( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	INC_DWORD_STAT(STAT_SlateNumTickedWidgets);
 
-	// Tick this widget
-	Tick( AllottedGeometry, InCurrentTime, InDeltaTime );
+	// Execute any pending active timers for this widget, followed by the passive tick
+	ExecuteActiveTimers( InCurrentTime, InDeltaTime );
+	{
+		SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateWidgetTick, GetType());
+		Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	}
 
 	// Gather all children, whether they're visible or not.  We need to allow invisible widgets to
 	// consider whether they should still be invisible in their tick functions, as well as maintain
@@ -365,8 +367,14 @@ void SWidget::TickWidgetsRecursively( const FGeometry& AllottedGeometry, const d
 }
 
 
-void SWidget::SlatePrepass()	
+void SWidget::SlatePrepass()
 {
+	SlatePrepass( FSlateApplicationBase::Get().GetApplicationScale() );
+}
+
+void SWidget::SlatePrepass(float LayoutScaleMultiplier)
+{
+	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlatePrepass, GetType());
 	// Cache child desired sizes first. This widget's desired size is
 	// a function of its children's sizes.
 	FChildren* MyChildren = this->GetChildren();
@@ -376,20 +384,21 @@ void SWidget::SlatePrepass()
 		const TSharedRef<SWidget>& Child = MyChildren->GetChildAt(ChildIndex);
 		if ( Child->Visibility.Get() != EVisibility::Collapsed )
 		{
+			const float ChildLayoutScaleMultiplier = GetRelativeLayoutScale( MyChildren->GetSlotAt(ChildIndex) );
 			// Recur: Descend down the widget tree.
-			Child->SlatePrepass();
+			Child->SlatePrepass(LayoutScaleMultiplier*ChildLayoutScaleMultiplier);
 		}
 	}
 
 	// Cache this widget's desired size.
-	CacheDesiredSize();
+	CacheDesiredSize(LayoutScaleMultiplier);
 }
 
 
-void SWidget::CacheDesiredSize()
+void SWidget::CacheDesiredSize(float LayoutScaleMultiplier)
 {
 	// Cache this widget's desired size.
-	this->Advanced_SetDesiredSize( this->ComputeDesiredSize() );
+	this->Advanced_SetDesiredSize(this->ComputeDesiredSize(LayoutScaleMultiplier));
 }
 
 
@@ -498,13 +507,19 @@ FGeometry SWidget::FindChildGeometry( const FGeometry& MyGeometry, TSharedRef<SW
 int32 SWidget::FindChildUnderMouse( const FArrangedChildren& Children, const FPointerEvent& MouseEvent )
 {
 	const FVector2D& AbsoluteCursorLocation = MouseEvent.GetScreenSpacePosition();
+	return SWidget::FindChildUnderPosition( Children, AbsoluteCursorLocation );
+}
+
+
+int32 SWidget::FindChildUnderPosition( const FArrangedChildren& Children, const FVector2D& ArrangedSpacePosition )
+{
 	const int32 NumChildren = Children.Num();
 	for( int32 ChildIndex=NumChildren-1; ChildIndex >= 0; --ChildIndex )
 	{
 		const FArrangedWidget& Candidate = Children[ChildIndex];
 		const bool bCandidateUnderCursor = 
 			// Candidate is physically under the cursor
-			Candidate.Geometry.IsUnderLocation( AbsoluteCursorLocation );
+			Candidate.Geometry.IsUnderLocation( ArrangedSpacePosition );
 
 		if (bCandidateUnderCursor)
 		{
@@ -518,7 +533,7 @@ int32 SWidget::FindChildUnderMouse( const FArrangedChildren& Children, const FPo
 
 FString SWidget::ToString() const
 {
-	return FString::Printf(TEXT("%s [%s(%d)]"), *this->TypeOfWidget.ToString(), *this->CreatedInFile.ToString(), this->CreatedOnLine );
+	return FString::Printf(TEXT("%s [%s]"), *this->TypeOfWidget.ToString(), *this->GetReadableLocation() );
 }
 
 
@@ -536,21 +551,14 @@ FName SWidget::GetType() const
 
 FString SWidget::GetReadableLocation() const
 {
-	return FString::Printf(TEXT("%s(%d)"), *this->CreatedInFile.ToString(), this->CreatedOnLine );
+	return FString::Printf(TEXT("%s(%d)"), *FPaths::GetCleanFilename(this->CreatedInLocation.GetPlainNameString()), this->CreatedInLocation.GetNumber());
 }
 
 
-FString SWidget::GetCreatedInFile() const
+FName SWidget::GetCreatedInLocation() const
 {
-	return this->CreatedInFileFullPath.ToString();
+	return this->CreatedInLocation;
 }
-
-
-int32 SWidget::GetCreatedInLineNumber() const
-{
-	return this->CreatedOnLine;
-}
-
 
 FName SWidget::GetTag() const
 {
@@ -613,9 +621,9 @@ void SWidget::SetCursor( const TAttribute< TOptional<EMouseCursor::Type> >& InCu
 void SWidget::SetDebugInfo( const ANSICHAR* InType, const ANSICHAR* InFile, int32 OnLine )
 {
 	this->TypeOfWidget = InType;
-	this->CreatedInFileFullPath = FName( InFile );
-	this->CreatedInFile = FName( *FPaths::GetCleanFilename(InFile) );
-	this->CreatedOnLine = OnLine;
+	this->
+		CreatedInLocation = FName( InFile );
+	this->CreatedInLocation.SetNumber(OnLine);
 }
 
 SLATECORE_API int32 bFoldTick = 1;
@@ -623,8 +631,8 @@ FAutoConsoleVariableRef FoldTick(TEXT("Slate.FoldTick"), bFoldTick, TEXT("When f
 
 int32 SWidget::Paint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
-	SCOPE_CYCLE_COUNTER(STAT_SlateOnPaint);
 	INC_DWORD_STAT(STAT_SlateNumPaintedWidgets);
+	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateOnPaint, GetType());
 
 	if ( bFoldTick )
 	{
@@ -632,6 +640,7 @@ int32 SWidget::Paint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, 
 		TickGeometry.AppendTransform( FSlateLayoutTransform(Args.GetWindowToDesktopTransform()) );
 
 		SWidget* MutableThis = const_cast<SWidget*>(this);
+		MutableThis->ExecuteActiveTimers( Args.GetCurrentTime(), Args.GetDeltaTime() );
 		MutableThis->Tick( TickGeometry, Args.GetCurrentTime(), Args.GetDeltaTime() );
 	}
 
@@ -663,9 +672,70 @@ int32 SWidget::Paint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, 
 	return NewLayerID;
 }
 
+float SWidget::GetRelativeLayoutScale(const FSlotBase& Child) const
+{
+	return 1.0f;
+}
+
 void SWidget::ArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
 {
-	SCOPE_CYCLE_COUNTER(STAT_SlateArrangeChildren);
+	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_MED, GSlateArrangeChildren, GetType());
 	OnArrangeChildren(AllottedGeometry, ArrangedChildren);
 }
 
+EVisibility SWidget::GetVisibility() const
+{
+	SLATE_CYCLE_COUNTER_SCOPE_CUSTOM_DETAILED(SLATE_STATS_DETAIL_LEVEL_HI,GSlateGetVisibility, GetType());
+	return Visibility.Get();
+}
+
+TSharedRef<FActiveTimerHandle> SWidget::RegisterActiveTimer(float TickPeriod, FWidgetActiveTimerDelegate TickFunction)
+{
+	TSharedRef<FActiveTimerHandle> ActiveTimerHandle = MakeShareable(new FActiveTimerHandle(TickPeriod, TickFunction, FSlateApplicationBase::Get().GetCurrentTime() + TickPeriod));
+	FSlateApplicationBase::Get().RegisterActiveTimer(ActiveTimerHandle);
+	ActiveTimers.Add(ActiveTimerHandle);
+	return ActiveTimerHandle;
+}
+
+void SWidget::UnRegisterActiveTimer(const TSharedRef<FActiveTimerHandle>& ActiveTimerHandle)
+{
+	if (FSlateApplicationBase::IsInitialized())
+	{
+		FSlateApplicationBase::Get().UnRegisterActiveTimer(ActiveTimerHandle);
+		ActiveTimers.Remove(ActiveTimerHandle);
+	}
+}
+
+void SWidget::ExecuteActiveTimers(double CurrentTime, float DeltaTime)
+{
+	// loop over the registered tick handles and execute them, removing them if necessary.
+	for (int32 i = 0; i < ActiveTimers.Num();)
+	{
+		EActiveTimerReturnType Result = ActiveTimers[i]->ExecuteIfPending( CurrentTime, DeltaTime );
+		if (Result == EActiveTimerReturnType::Continue)
+		{
+			++i;
+		}
+		else
+		{
+			if (FSlateApplicationBase::IsInitialized())
+			{
+				FSlateApplicationBase::Get().UnRegisterActiveTimer(ActiveTimers[i]);
+			}
+			
+			ActiveTimers.RemoveAt(i);
+		}
+	}
+}
+
+SWidget::~SWidget()
+{
+	// Unregister all ActiveTimers so they aren't left stranded in the Application's list.
+	if (FSlateApplicationBase::IsInitialized())
+	{
+		for (const auto& ActiveTimerHandle : ActiveTimers)
+		{
+			FSlateApplicationBase::Get().UnRegisterActiveTimer(ActiveTimerHandle);
+		}
+	}
+}

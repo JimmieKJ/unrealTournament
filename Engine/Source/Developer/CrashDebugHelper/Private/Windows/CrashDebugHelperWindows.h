@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "CrashDebugHelper.h"
+
 class FCrashDebugHelperWindows : public ICrashDebugHelper
 {
 public:
@@ -18,8 +20,6 @@ public:
 	 */
 	virtual bool ParseCrashDump(const FString& InCrashDumpName, FCrashDebugInfo& OutCrashDebugInfo) override;
 
-	virtual bool SyncAndDebugCrashDump(const FString& InCrashDumpName) override;
-
 	/**
 	 *	Parse the given crash dump, and generate a report. 
 	 *
@@ -28,24 +28,6 @@ public:
 	 *	@return	bool				true if successful, false if not
 	 */
 	virtual bool CreateMinidumpDiagnosticReport( const FString& InCrashDumpName ) override;
-protected:
-	/**
-	 *	Process the given crash dump file
-	 *
-	 *	@param	InCrashDumpFilename		The name of the crash dump file
-	 *	@param	OutCrashDebugInfo		The info on the crash dump
-	 *
-	 *	@return	bool					true if successful, false if not
-	 */
-	bool ParseCrashDump_Windows(const TCHAR* InCrashDumpFilename, FCrashDebugInfo& OutCrashDebugInfo);
-
-	/**
-	 *	Launch the debugger for the current crash dump
-	 *
-	 *	@return bool		true if successful, false if not
-	 */
-	bool LaunchDebugger(const FString& InCrashDumpFilename, FCrashDebugInfo& OutCrashDebugInfo);
-
 };
 
 typedef FCrashDebugHelperWindows FCrashDebugHelper;

@@ -13,15 +13,3 @@ extern SHADERCOMPILERCOMMON_API FString CreateCrossCompilerBatchFileContents(
 											const FString& EntryPoint,
 											const FString& VersionSwitch,
 											const FString& ExtraArguments = TEXT(""));
-
-extern SHADERCOMPILERCOMMON_API int32 HlslCrossCompile(
-	const FString& InSourceFilename, 
-	const FString& InShaderSource,
-	const FString& InEntryPoint,
-	EShaderFrequency InShaderFrequency,
-	class FCodeBackend* InShaderBackEnd,
-	struct ILanguageSpec* InLanguageSpec,
-	unsigned int InFlags,
-	int32/*EHlslCompileTarget*/ InCompileTarget,
-	FString& OutShaderSource,
-	char** OutErrorLog);

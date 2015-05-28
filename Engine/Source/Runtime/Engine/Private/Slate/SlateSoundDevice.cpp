@@ -11,7 +11,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogSlateSoundDevice, Log, All);
 
 void FSlateSoundDevice::PlaySound(const FSlateSound& Sound, int32 UserIndex) const
 {
-	FAudioDevice* const AudioDevice = GEngine->GetAudioDevice();
+	FAudioDevice* const AudioDevice = GEngine->GetActiveAudioDevice();
 	if(AudioDevice)
 	{
 		UObject* const Object = Sound.GetResourceObject();

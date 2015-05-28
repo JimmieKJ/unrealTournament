@@ -44,7 +44,7 @@ void FLevelEditorModesCommands::RegisterCommands()
 				Tooltip,
 				Mode.IconBrush,
 				EUserInterfaceActionType::ToggleButton,
-				editorMode < 9 ? FInputGesture( EModifierKey::Shift, EdModeKeys[editorMode] ) : FInputGesture() );
+				editorMode < 9 ? FInputChord( EModifierKey::Shift, EdModeKeys[editorMode] ) : FInputChord() );
 
 			EditorModeCommands.Add(EditorModeCommand);
 		}

@@ -64,7 +64,6 @@ void FSlateLoadingSynchronizationMechanism::DestroySlateThread()
 
 		MainLoop.BlockUntilUnlocked();
 
-		SlateLoadingThread->Kill();
 		delete SlateLoadingThread;
 		delete SlateRunnableTask;
 		SlateLoadingThread = NULL;

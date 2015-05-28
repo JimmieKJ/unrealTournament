@@ -331,7 +331,7 @@ public:
 	/** Default constructor. */
 	FTexture()
 	: TextureRHI(NULL)
-    , SamplerStateRHI(NULL)
+	, SamplerStateRHI(NULL)
 	, DeferredPassSamplerStateRHI(NULL)
 	, LastRenderTime(-FLT_MAX)
 	, bGreyScaleFormat(false)
@@ -360,7 +360,7 @@ public:
 		SamplerStateRHI.SafeRelease();
 		DeferredPassSamplerStateRHI.SafeRelease();
 	}
-	virtual FString GetFriendlyName() const { return TEXT("FTexture"); }
+	virtual FString GetFriendlyName() const override { return TEXT("FTexture"); }
 };
 
 /** A texture reference resource. */
@@ -420,7 +420,7 @@ public:
 	{
 		VertexBufferRHI.SafeRelease();
 	}
-	virtual FString GetFriendlyName() const { return TEXT("FVertexBuffer"); }
+	virtual FString GetFriendlyName() const override { return TEXT("FVertexBuffer"); }
 };
 
 /**
@@ -461,7 +461,7 @@ public:
 	{
 		IndexBufferRHI.SafeRelease();
 	}
-	virtual FString GetFriendlyName() const { return TEXT("FIndexBuffer"); }
+	virtual FString GetFriendlyName() const override { return TEXT("FIndexBuffer"); }
 };
 
 /**
@@ -606,9 +606,6 @@ private:
  * A list of the most recently used bound shader states.
  * This is used to keep bound shader states that have been used recently from being freed, as they're likely to be used again soon.
  */
-#if !defined(HAS_THREADSAFE_CreateBoundShaderState)
-#error "HAS_THREADSAFE_CreateBoundShaderState must be defined"
-#endif
 
 template<uint32 Size>
 class TBoundShaderStateHistory : public FRenderResource
@@ -623,16 +620,21 @@ public:
 	/** Adds a bound shader state to the history. */
 	void Add(FBoundShaderStateRHIParamRef BoundShaderState)
 	{
-#if HAS_THREADSAFE_CreateBoundShaderState
-		FScopeLock Lock(&BoundShaderStateHistoryLock);
-#endif
+		if (GRHISupportsParallelRHIExecute)
+		{
+			BoundShaderStateHistoryLock.Lock();
+		}
 		BoundShaderStates[NextBoundShaderStateIndex] = BoundShaderState;
 		NextBoundShaderStateIndex = (NextBoundShaderStateIndex + 1) % Size;
+		if (GRHISupportsParallelRHIExecute)
+		{
+			BoundShaderStateHistoryLock.Unlock();
+		}
 	}
 
 	FBoundShaderStateRHIParamRef GetLast()
 	{
-		check(!HAS_THREADSAFE_CreateBoundShaderState);
+		check(!GRHISupportsParallelRHIExecute);
 		// % doesn't work as we want on negative numbers, so handle the wraparound manually
 		uint32 LastIndex = NextBoundShaderStateIndex == 0 ? Size - 1 : NextBoundShaderStateIndex - 1;
 		return BoundShaderStates[LastIndex];
@@ -641,9 +643,17 @@ public:
 	// FRenderResource interface.
 	virtual void ReleaseRHI()
 	{
+		if (GRHISupportsParallelRHIExecute)
+		{
+			BoundShaderStateHistoryLock.Lock();
+		}
 		for(uint32 Index = 0;Index < Size;Index++)
 		{
 			BoundShaderStates[Index].SafeRelease();
+		}
+		if (GRHISupportsParallelRHIExecute)
+		{
+			BoundShaderStateHistoryLock.Unlock();
 		}
 	}
 
@@ -651,7 +661,5 @@ private:
 
 	FBoundShaderStateRHIRef BoundShaderStates[Size];
 	uint32 NextBoundShaderStateIndex;
-#if HAS_THREADSAFE_CreateBoundShaderState
 	FCriticalSection BoundShaderStateHistoryLock;
-#endif
 };

@@ -45,8 +45,9 @@ private:
 
 public:
 	// Begin UActorComponent Interface
+	virtual void OnRegister() override;
 	virtual void SendRenderTransform_Concurrent() override;
-	virtual bool RequiresGameThreadEndOfFrameUpdates() const
+	virtual bool RequiresGameThreadEndOfFrameUpdates() const override
 	{
 		// this method could probably be removed allowing them to run on any thread, but it isn't worth the trouble
 		return true;
@@ -61,6 +62,7 @@ public:
 	// End UObject Interface
 
 	/** Render the scene to the texture */
+	UFUNCTION(BlueprintCallable,Category = "Rendering|SceneCapture")
 	ENGINE_API void UpdateContent();
 
 	ENGINE_API static void UpdateDeferredCaptures( FSceneInterface* Scene );

@@ -69,7 +69,10 @@ void APawn::PreInitializeComponents()
 {
 	Super::PreInitializeComponents();
 
-	Instigator = this;
+	if (Instigator == nullptr)
+	{
+		Instigator = this;
+	}
 
 	if (AutoPossessPlayer != EAutoReceiveInput::Disabled && GetNetMode() != NM_Client )
 	{
@@ -251,34 +254,6 @@ FVector APawn::GetGravityDirection()
 	return FVector(0.f,0.f,-1.f);
 }
 
-
-float APawn::GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, APlayerController* Viewer, UActorChannel* InChannel, float Time, bool bLowBandwidth)
-{
-	if ( !bHidden )
-	{
-		FVector Dir = GetActorLocation() - ViewPos;
-		float DistSq = Dir.SizeSquared();
-
-		// adjust priority based on distance and whether pawn is in front of viewer or is controlled
-		if ( (ViewDir | Dir) < 0.f )
-		{
-			if ( DistSq > NEARSIGHTTHRESHOLDSQUARED )
-				Time *= 0.3f;
-			else if ( DistSq > CLOSEPROXIMITYSQUARED )
-				Time *= 0.5f;
-		}
-		else if ( Controller && (DistSq < FARSIGHTTHRESHOLDSQUARED) && (FMath::Square(ViewDir | Dir) > 0.5f * DistSq) )
-		{
-			Time *= 2.f;
-		}
-		else if (DistSq > MEDSIGHTTHRESHOLDSQUARED)
-		{
-			Time *= 0.5f;
-		}
-	}
-	return NetPriority * Time;
-}
-
 bool APawn::ShouldTickIfViewportsOnly() const 
 { 
 	return IsLocallyControlled() && Cast<APlayerController>(GetController()); 
@@ -323,6 +298,7 @@ void APawn::SpawnDefaultController()
 		SpawnInfo.Instigator = Instigator;
 		SpawnInfo.bNoCollisionFail = true;
 		SpawnInfo.OverrideLevel = GetLevel();
+		SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save AI controllers into a map
 		AController* NewController = GetWorld()->SpawnActor<AController>(AIControllerClass, GetActorLocation(), GetActorRotation(), SpawnInfo);
 		if (NewController != NULL)
 		{
@@ -397,9 +373,20 @@ void APawn::PawnClientRestart()
 void APawn::Destroyed()
 {
 	DetachFromControllerPendingDestroy();
-
 	GetWorld()->RemovePawn( this );
 	Super::Destroyed();
+}
+
+void APawn::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Only do this once, to not be redundant with Destroyed().
+	if (EndPlayReason != EEndPlayReason::Destroyed)
+	{
+		DetachFromControllerPendingDestroy();
+		GetWorld()->RemovePawn( this );
+	}
+	
+	Super::EndPlay(EndPlayReason);
 }
 
 bool APawn::ShouldTakeDamage(float Damage, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser) const
@@ -523,10 +510,12 @@ void APawn::UnPossessed()
 	{
 		ReceiveUnpossessed(OldController);
 	}
+
+	ConsumeMovementInputVector();
 }
 
 
-class UNetConnection* APawn::GetNetConnection()
+class UNetConnection* APawn::GetNetConnection() const
 {
 	// if have a controller, it has the net connection
 	if ( Controller )
@@ -536,6 +525,10 @@ class UNetConnection* APawn::GetNetConnection()
 	return Super::GetNetConnection();
 }
 
+const AActor* APawn::GetNetOwner() const
+{
+	return this;
+}
 
 class UPlayer* APawn::GetNetOwningPlayer()
 {
@@ -555,7 +548,7 @@ class UPlayer* APawn::GetNetOwningPlayer()
 UInputComponent* APawn::CreatePlayerInputComponent()
 {
 	static const FName InputComponentName(TEXT("PawnInputComponent0"));
-	return ConstructObject<UInputComponent>(UInputComponent::StaticClass(), this, InputComponentName);
+	return NewObject<UInputComponent>(this, InputComponentName);
 }
 
 void APawn::DestroyPlayerInputComponent()
@@ -683,6 +676,7 @@ void APawn::Restart()
 	{
 		GetMovementComponent()->StopMovementImmediately();
 	}
+	ConsumeMovementInputVector();
 	RecalculateBaseEyeHeight();
 }
 
@@ -747,7 +741,7 @@ void APawn::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDi
 // 		UPrimitiveComponent* const OtherComp = It.Value().Get();
 // 		AActor* OtherActor = OtherComp ? OtherComp->GetOwner() : NULL;
 // 
-// 		HUD->Canvas->DrawText(FString::Printf(TEXT("TOUCHING my %s to %s's %s"), *GetNameSafe(MyComp), *GetNameSafe(OtherActor), *GetNameSafe(OtherComp)));
+// 		YL = HUD->Canvas->DrawText(FString::Printf(TEXT("TOUCHING my %s to %s's %s"), *GetNameSafe(MyComp), *GetNameSafe(OtherActor), *GetNameSafe(OtherComp)));
 // 		YPos += YL;
 // 		HUD->Canvas->SetPos(4,YPos);
 // 	}
@@ -755,7 +749,7 @@ void APawn::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDi
 	UFont* RenderFont = GEngine->GetSmallFont();
 	if ( PlayerState == NULL )
 	{
-		Canvas->DrawText(RenderFont, TEXT("NO PlayerState"), 4.0f, YPos );
+		YL = Canvas->DrawText(RenderFont, TEXT("NO PlayerState"), 4.0f, YPos );
 		YPos += YL;
 	}
 	else
@@ -770,7 +764,7 @@ void APawn::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDi
 
 	if (DebugDisplay.IsDisplayOn(NAME_Camera))
 	{
-		Canvas->DrawText(RenderFont, FString::Printf(TEXT("BaseEyeHeight %f"), BaseEyeHeight), 4.0f, YPos);
+		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("BaseEyeHeight %f"), BaseEyeHeight), 4.0f, YPos);
 		YPos += YL;
 	}
 
@@ -778,7 +772,7 @@ void APawn::DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDi
 	if ( Controller == NULL )
 	{
 		Canvas->SetDrawColor(255,0,0);
-		Canvas->DrawText(RenderFont, TEXT("NO Controller"), 4.0f, YPos);
+		YL = Canvas->DrawText(RenderFont, TEXT("NO Controller"), 4.0f, YPos);
 		YPos += YL;
 		//HUD->PlayerOwner->DisplayDebug(Canvas, DebugDisplay, YL, YPos);
 	}
@@ -812,7 +806,7 @@ FRotator APawn::GetBaseAimRotation() const
 	POVRot = GetActorRotation();
 
 	// If our Pitch is 0, then use RemoteViewPitch
-	if( POVRot.Pitch == 0.f )
+	if( FMath::IsNearlyZero(POVRot.Pitch) )
 	{
 		POVRot.Pitch = RemoteViewPitch;
 		POVRot.Pitch = POVRot.Pitch * 360.f/255.f;
@@ -860,31 +854,34 @@ void APawn::ClientSetRotation( FRotator NewRotation )
 
 void APawn::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 {
-	const FRotator CurrentRotation = GetActorRotation();
-
-	if (!bUseControllerRotationPitch)
+	// Only if we actually are going to use any component of rotation.
+	if (bUseControllerRotationPitch || bUseControllerRotationYaw || bUseControllerRotationRoll)
 	{
-		NewControlRotation.Pitch = CurrentRotation.Pitch;
-	}
+		const FRotator CurrentRotation = GetActorRotation();
 
-	if (!bUseControllerRotationYaw)
-	{
-		NewControlRotation.Yaw = CurrentRotation.Yaw;
-	}
+		if (!bUseControllerRotationPitch)
+		{
+			NewControlRotation.Pitch = CurrentRotation.Pitch;
+		}
 
-	if (!bUseControllerRotationRoll)
-	{
-		NewControlRotation.Roll = CurrentRotation.Roll;
-	}
+		if (!bUseControllerRotationYaw)
+		{
+			NewControlRotation.Yaw = CurrentRotation.Yaw;
+		}
 
-	SetActorRotation(NewControlRotation);
+		if (!bUseControllerRotationRoll)
+		{
+			NewControlRotation.Roll = CurrentRotation.Roll;
+		}
+
+		SetActorRotation(NewControlRotation);
+	}
 }
 
 void APawn::DetachFromControllerPendingDestroy()
 {
 	if ( Controller != NULL && Controller->GetPawn() == this )
 	{
-		AController* OldController = Controller;
 		Controller->PawnPendingDestroy(this);
 		if (Controller != NULL)
 		{
@@ -945,6 +942,20 @@ void APawn::DisableInput(class APlayerController* PlayerController)
 	}
 }
 
+void APawn::TeleportSucceeded(bool bIsATest)
+{
+	if (bIsATest == false)
+	{
+		UMovementComponent* const MoveComponent = GetMovementComponent();
+		if (MoveComponent)
+		{
+			MoveComponent->OnTeleported();
+		}
+	}
+
+	Super::TeleportSucceeded(bIsATest);
+}
+
 void APawn::GetMoveGoalReachTest(AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const 
 {
 	GoalOffset = FVector::ZeroVector;
@@ -959,24 +970,6 @@ void APawn::LaunchPawn(FVector LaunchVelocity, bool bXYOverride, bool bZOverride
 	{
 		Character->LaunchCharacter(LaunchVelocity, bXYOverride, bZOverride);
 	}
-}
-
-bool APawn::IsWalking() const
-{
-	// @todo: Deprecated, remove
-	return GetMovementComponent() ? GetMovementComponent()->IsMovingOnGround() : false;
-}
-
-bool APawn::IsFalling() const
-{
-	// @todo: Deprecated, remove
-	return GetMovementComponent() ? GetMovementComponent()->IsFalling() : false;
-}
-
-bool APawn::IsCrouched() const
-{
-	// @todo: Deprecated, remove
-	return GetMovementComponent() ? GetMovementComponent()->IsCrouching() : false;
 }
 
 // REPLICATION
@@ -1030,10 +1023,10 @@ bool APawn::IsBasedOnActor(const AActor* Other) const
 }
 
 
-bool APawn::IsNetRelevantFor(const APlayerController* RealViewer, const AActor* Viewer, const FVector& SrcLocation) const
+bool APawn::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
 {
-	if( bAlwaysRelevant || RealViewer == Controller || IsOwnedBy(Viewer) || IsOwnedBy(RealViewer) || this==Viewer || Viewer==Instigator
-		|| IsBasedOnActor(Viewer) || (Viewer && Viewer->IsBasedOnActor(this)))
+	if (bAlwaysRelevant || RealViewer == Controller || IsOwnedBy(ViewTarget) || IsOwnedBy(RealViewer) || this == ViewTarget || ViewTarget == Instigator
+		|| IsBasedOnActor(ViewTarget) || (ViewTarget && ViewTarget->IsBasedOnActor(this)))
 	{
 		return true;
 	}
@@ -1047,7 +1040,7 @@ bool APawn::IsNetRelevantFor(const APlayerController* RealViewer, const AActor* 
 		AActor* BaseActor = MovementBase ? MovementBase->GetOwner() : NULL;
 		if ( MovementBase && BaseActor && GetMovementComponent() && ((Cast<const USkeletalMeshComponent>(MovementBase)) || (BaseActor == GetOwner())) )
 		{
-			return BaseActor->IsNetRelevantFor( RealViewer, Viewer, SrcLocation );
+			return BaseActor->IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
 		}
 	}
 
@@ -1066,7 +1059,7 @@ void APawn::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetim
 
 void APawn::MoveIgnoreActorAdd(AActor* ActorToIgnore)
 {
-	UPrimitiveComponent * RootPrimitiveComponent = Cast<UPrimitiveComponent>(GetRootComponent());
+	UPrimitiveComponent* RootPrimitiveComponent = Cast<UPrimitiveComponent>(GetRootComponent());
 	if( RootPrimitiveComponent )
 	{
 		RootPrimitiveComponent->IgnoreActorWhenMoving(ActorToIgnore, true);
@@ -1075,7 +1068,7 @@ void APawn::MoveIgnoreActorAdd(AActor* ActorToIgnore)
 
 void APawn::MoveIgnoreActorRemove(AActor* ActorToIgnore)
 {
-	UPrimitiveComponent * RootPrimitiveComponent = Cast<UPrimitiveComponent>(GetRootComponent());
+	UPrimitiveComponent* RootPrimitiveComponent = Cast<UPrimitiveComponent>(GetRootComponent());
 	if( RootPrimitiveComponent )
 	{
 		RootPrimitiveComponent->IgnoreActorWhenMoving(ActorToIgnore, false);

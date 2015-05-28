@@ -202,7 +202,7 @@ public:
 		return bInCollisionView;
 	}
 
-	virtual HHitProxy* CreateHitProxies(UPrimitiveComponent*,TArray<TRefCountPtr<HHitProxy> >& OutHitProxies)
+	virtual HHitProxy* CreateHitProxies(UPrimitiveComponent*,TArray<TRefCountPtr<HHitProxy> >& OutHitProxies) override
 	{
 		HHitProxy* ModelHitProxy = new HModel(CastChecked<UModelComponent>(Component), Component->GetModel());
 		OutHitProxies.Add(ModelHitProxy);
@@ -403,7 +403,7 @@ public:
 		const_cast<FModelSceneProxy*>(this)->SetSelection_RenderThread(bAnySelectedSurfs,false);
 	}
 
-	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
+	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override
 	{
 		if(!HasViewDependentDPG())
 		{
@@ -436,7 +436,7 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View)
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View) && View->Family->EngineShowFlags.BSPTriangles && View->Family->EngineShowFlags.BSP;
@@ -461,7 +461,7 @@ public:
 		return !MaterialRelevance.bDisableDepthTest;
 	}
 
-	virtual void GetLightRelevance(const FLightSceneProxy* LightSceneProxy, bool& bDynamic, bool& bRelevant, bool& bLightMapped, bool& bShadowMapped) const
+	virtual void GetLightRelevance(const FLightSceneProxy* LightSceneProxy, bool& bDynamic, bool& bRelevant, bool& bLightMapped, bool& bShadowMapped) const override
 	{
 		// Attach the light to the primitive's static meshes.
 		bDynamic = true;
@@ -484,7 +484,7 @@ public:
 						{
 							bLightMapped = false;
 						}
-						if(InteractionType != LIT_Dynamic && InteractionType != LIT_CachedSignedDistanceFieldShadowMap2D)
+						if(InteractionType != LIT_Dynamic)
 						{
 							bDynamic = false;
 						}
@@ -499,7 +499,7 @@ public:
 		}
 	}
 
-	virtual uint32 GetMemoryFootprint( void ) const { return( sizeof( *this ) + GetAllocatedSize() ); }
+	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 	uint32 GetAllocatedSize( void ) const 
 	{ 
 		uint32 AdditionalSize = FPrimitiveSceneProxy::GetAllocatedSize();
@@ -509,7 +509,7 @@ public:
 		return( AdditionalSize ); 
 	}
 
-	virtual bool ShowInBSPSplitViewmode() const
+	virtual bool ShowInBSPSplitViewmode() const override
 	{
 		return true;
 	}

@@ -61,16 +61,16 @@ static bool IsDelayLoadException(PEXCEPTION_POINTERS ExceptionPointers)
 	MSVC_PRAGMA(warning(disable:6322))
 #endif	// USING_CODE_ANALYSIS
 /**
- * Since CreateDXGIFactory is a delay loaded import from the D3D11 DLL, if the user
- * doesn't have Vista/DX10, calling CreateDXGIFactory will throw an exception.
+ * Since CreateDXGIFactory1 is a delay loaded import from the D3D11 DLL, if the user
+ * doesn't have VistaSP2/DX10, calling CreateDXGIFactory1 will throw an exception.
  * We use SEH to detect that case and fail gracefully.
  */
-static void SafeCreateDXGIFactory(IDXGIFactory** DXGIFactory)
+static void SafeCreateDXGIFactory(IDXGIFactory1** DXGIFactory1)
 {
 #if !D3D11_CUSTOM_VIEWPORT_CONSTRUCTOR
 	__try
 	{
-		CreateDXGIFactory(__uuidof(IDXGIFactory),(void**)DXGIFactory);
+		CreateDXGIFactory1(__uuidof(IDXGIFactory1),(void**)DXGIFactory1);
 	}
 	__except(IsDelayLoadException(GetExceptionInformation()))
 	{
@@ -225,10 +225,10 @@ void FD3D11DynamicRHIModule::FindAdapter()
 	// Once we chosen one we don't need to do it again.
 	check(!ChosenAdapter.IsValid());
 
-	// Try to create the DXGIFactory.  This will fail if we're not running Vista.
-	TRefCountPtr<IDXGIFactory> DXGIFactory;
-	SafeCreateDXGIFactory(DXGIFactory.GetInitReference());
-	if(!DXGIFactory)
+	// Try to create the DXGIFactory1.  This will fail if we're not running Vista SP2 or higher.
+	TRefCountPtr<IDXGIFactory1> DXGIFactory1;
+	SafeCreateDXGIFactory(DXGIFactory1.GetInitReference());
+	if(!DXGIFactory1)
 	{
 		return;
 	}
@@ -254,7 +254,7 @@ void FD3D11DynamicRHIModule::FindAdapter()
 	bool bIsAnyNVIDIA = false;
 
 	// Enumerate the DXGIFactory's adapters.
-	for(uint32 AdapterIndex = 0; DXGIFactory->EnumAdapters(AdapterIndex,TempAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND; ++AdapterIndex)
+	for(uint32 AdapterIndex = 0; DXGIFactory1->EnumAdapters(AdapterIndex,TempAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND; ++AdapterIndex)
 	{
 		// Check that if adapter supports D3D11.
 		if(TempAdapter)
@@ -355,10 +355,10 @@ void FD3D11DynamicRHIModule::FindAdapter()
 
 FDynamicRHI* FD3D11DynamicRHIModule::CreateRHI()
 {
-	TRefCountPtr<IDXGIFactory> DXGIFactory;
-	SafeCreateDXGIFactory(DXGIFactory.GetInitReference());
-	check(DXGIFactory);
-	return new FD3D11DynamicRHI(DXGIFactory,ChosenAdapter.MaxSupportedFeatureLevel,ChosenAdapter.AdapterIndex);
+	TRefCountPtr<IDXGIFactory1> DXGIFactory1;
+	SafeCreateDXGIFactory(DXGIFactory1.GetInitReference());
+	check(DXGIFactory1);
+	return new FD3D11DynamicRHI(DXGIFactory1,ChosenAdapter.MaxSupportedFeatureLevel,ChosenAdapter.AdapterIndex);
 }
 
 void FD3D11DynamicRHI::Init()
@@ -432,7 +432,7 @@ void FD3D11DynamicRHI::InitD3DDevice()
 
 		TRefCountPtr<IDXGIAdapter> EnumAdapter;
 
-		if(DXGIFactory->EnumAdapters(ChosenAdapter,EnumAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND)
+		if(DXGIFactory1->EnumAdapters(ChosenAdapter,EnumAdapter.GetInitReference()) != DXGI_ERROR_NOT_FOUND)
 		{
 			if (EnumAdapter)// && EnumAdapter->CheckInterfaceSupport(__uuidof(ID3D11Device),NULL) == S_OK)
 			{
@@ -567,7 +567,7 @@ void FD3D11DynamicRHI::InitD3DDevice()
 			&& (DeviceFlags & D3D11_CREATE_DEVICE_SINGLETHREADED) == 0;
 
 		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES2] = SP_PCD3D_ES2;
-		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_NumPlatforms;
+		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::ES3_1] = SP_PCD3D_ES3_1;
 		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM4] = SP_PCD3D_SM4;
 		GShaderPlatformForFeatureLevel[ERHIFeatureLevel::SM5] = SP_PCD3D_SM5;
 
@@ -702,7 +702,7 @@ bool FD3D11DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 
 	HRESULT hr = S_OK;
 	TRefCountPtr<IDXGIAdapter> Adapter;
-	hr = DXGIFactory->EnumAdapters(ChosenAdapter,Adapter.GetInitReference());
+	hr = DXGIFactory1->EnumAdapters(ChosenAdapter,Adapter.GetInitReference());
 
 	if( DXGI_ERROR_NOT_FOUND == hr )
 		return false;
@@ -711,7 +711,10 @@ bool FD3D11DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 
 	// get the description of the adapter
 	DXGI_ADAPTER_DESC AdapterDesc;
-	VERIFYD3D11RESULT(Adapter->GetDesc(&AdapterDesc));
+	if( FAILED(Adapter->GetDesc(&AdapterDesc)) )
+	{
+		return false;
+	}
 
 	int32 CurrentOutput = 0;
 	do 
@@ -739,6 +742,8 @@ bool FD3D11DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 				);
 			return false;
 		}
+
+		checkf(NumModes > 0, TEXT("No display modes found for the standard format DXGI_FORMAT_R8G8B8A8_UNORM!"));
 
 		DXGI_MODE_DESC* ModeList = new DXGI_MODE_DESC[ NumModes ];
 		VERIFYD3D11RESULT(Output->GetDisplayModeList(Format, 0, &NumModes, ModeList));

@@ -53,7 +53,7 @@ bool FEdGraphPinType::Serialize(FArchive& Ar)
 			if (const UFunction* Signature = Cast<const UFunction>(PinSubCategoryObject.Get()))
 			{
 				PinSubCategoryMemberReference.MemberName = Signature->GetFName();
-				PinSubCategoryMemberReference.MemberParentClass = Signature->GetOwnerClass();
+				PinSubCategoryMemberReference.MemberParent = Signature->GetOwnerClass();
 				PinSubCategoryObject = NULL;
 			}
 			else
@@ -180,14 +180,6 @@ void UEdGraphPin::CopyPersistentDataFromOldPin(const UEdGraphPin& SourcePin)
 		DefaultTextValue = SourcePin.DefaultTextValue;
 	}
 
-	// In K2 schemas the wildcard pins need to have their type copied before we get to pin splitting
-	// TODO: Better less hacky way of this?
-	static const FString WildCardText(TEXT("wildcard"));
-	if (PinType.PinCategory == WildCardText)
-	{
-		PinType = SourcePin.PinType;
-	}
-
 	// Copy the links
 	for (int32 LinkIndex = 0; LinkIndex < SourcePin.LinkedTo.Num(); ++LinkIndex)
 	{
@@ -214,8 +206,10 @@ void UEdGraphPin::CopyPersistentDataFromOldPin(const UEdGraphPin& SourcePin)
 		}
 	}
 
-	// If the source pin is split, then split the new one
-	if (SourcePin.SubPins.Num() > 0)
+	// If the source pin is split, then split the new one, but don't split multiple times, typically splitting is done
+	// by UK2Node::ReallocatePinsDuringReconstruction or FBlueprintEditor::OnSplitStructPin, but there are several code
+	// paths into this, and split state should be persistent:
+	if (SourcePin.SubPins.Num() > 0 && SubPins.Num() == 0)
 	{
 		GetSchema()->SplitPin(this);
 	}
@@ -268,6 +262,13 @@ FText UEdGraphPin::GetDisplayName() const
 	else
 	{
 		DisplayName = (!PinFriendlyName.IsEmpty()) ? PinFriendlyName : FText::FromString(PinName);
+
+		bool bShowNodesAndPinsUnlocalized = false;
+		GConfig->GetBool( TEXT("Internationalization"), TEXT("ShowNodesAndPinsUnlocalized"), bShowNodesAndPinsUnlocalized, GEditorSettingsIni );
+		if (bShowNodesAndPinsUnlocalized)
+		{
+			return FText::FromString(DisplayName.BuildSourceString());
+		}
 	}
 	return DisplayName;
 }

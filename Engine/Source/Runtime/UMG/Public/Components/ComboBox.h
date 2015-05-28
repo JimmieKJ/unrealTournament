@@ -19,7 +19,7 @@ public:
 	TArray<UObject*> Items;
 
 	/** Called when the widget is needed for the item. */
-	UPROPERTY(EditDefaultsOnly, Category=Events)
+	UPROPERTY(EditAnywhere, Category=Events, meta=( IsBindableEvent="True" ))
 	FGenerateWidgetForObject OnGenerateWidgetEvent;
 
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;

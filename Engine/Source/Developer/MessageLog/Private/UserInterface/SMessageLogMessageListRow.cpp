@@ -124,6 +124,8 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 	TSharedPtr<SWidget> Content;
 	FName IconBrushName;
 
+	TAttribute<EVisibility> TokenContentVisbility;
+	
 	switch (InMessageToken->GetType())
 	{
 	case EMessageToken::Image:
@@ -181,6 +183,8 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 			.ToolTipText(ActionToken->GetActionDescription())
 			.TextStyle(FEditorStyle::Get(), "MessageLog")
 			.OnNavigate(this, &SMessageLogMessageListRow::HandleActionHyperlinkNavigate, ActionToken);
+
+		TokenContentVisbility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateRaw(this, &SMessageLogMessageListRow::GetActionLinkVisibility, ActionToken));
 	}
 		break;
 
@@ -214,9 +218,16 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 
 	case EMessageToken::Text:
 	{
-		Content = SNew(STextBlock)
-			.ColorAndOpacity(FSlateColor::UseSubduedForeground())
-			.Text(InMessageToken->ToText());
+		if (InMessageToken->GetOnMessageTokenActivated().IsBound())
+		{
+			Content = CreateHyperlink(InMessageToken, InMessageToken->ToText());
+		}
+		else
+		{
+			Content = SNew(STextBlock)
+				.ColorAndOpacity(FSlateColor::UseSubduedForeground())
+				.Text(InMessageToken->ToText());
+		}
 	}
 		break;
 
@@ -243,6 +254,7 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 			.Padding(Padding, 0.0f, 0.0f, 0.0f)
 			[
 				SNew(SHorizontalBox)
+				.Visibility(TokenContentVisbility.IsBound() ? TokenContentVisbility : EVisibility::Visible)
 
 				+ SHorizontalBox::Slot()
 				.AutoWidth()

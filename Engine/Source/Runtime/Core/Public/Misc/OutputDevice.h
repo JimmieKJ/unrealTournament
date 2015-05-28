@@ -257,22 +257,30 @@ public:
 
 #if PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
 
+	FOutputDevice(FOutputDevice&&) = default;
 	FOutputDevice(const FOutputDevice&) = default;
+	FOutputDevice& operator=(FOutputDevice&&) = default;
 	FOutputDevice& operator=(const FOutputDevice&) = default;
 
-	#if PLATFORM_COMPILER_HAS_RVALUE_REFERENCES
-
-		FOutputDevice(FOutputDevice&&) = default;
-		FOutputDevice& operator=(FOutputDevice&&) = default;
-
-	#endif
-
 #else
+
+	FORCEINLINE FOutputDevice(FOutputDevice&& Other)
+		 : bSuppressEventTag      (Other.bSuppressEventTag)
+		 , bAutoEmitLineTerminator(Other.bAutoEmitLineTerminator)
+	{
+	}
 
 	FORCEINLINE FOutputDevice(const FOutputDevice& Other)
 		 : bSuppressEventTag      (Other.bSuppressEventTag)
 		 , bAutoEmitLineTerminator(Other.bAutoEmitLineTerminator)
 	{
+	}
+
+	FORCEINLINE FOutputDevice& operator=(FOutputDevice&& Other)
+	{
+		bSuppressEventTag       = Other.bSuppressEventTag;
+		bAutoEmitLineTerminator = Other.bAutoEmitLineTerminator;
+		return *this;
 	}
 
 	FORCEINLINE FOutputDevice& operator=(const FOutputDevice& Other)
@@ -281,23 +289,6 @@ public:
 		bAutoEmitLineTerminator = Other.bAutoEmitLineTerminator;
 		return *this;
 	}
-
-	#if PLATFORM_COMPILER_HAS_RVALUE_REFERENCES
-
-		FORCEINLINE FOutputDevice(FOutputDevice&& Other)
-			 : bSuppressEventTag      (Other.bSuppressEventTag)
-			 , bAutoEmitLineTerminator(Other.bAutoEmitLineTerminator)
-		{
-		}
-
-		FORCEINLINE FOutputDevice& operator=(FOutputDevice&& Other)
-		{
-			bSuppressEventTag       = Other.bSuppressEventTag;
-			bAutoEmitLineTerminator = Other.bAutoEmitLineTerminator;
-			return *this;
-		}
-
-	#endif
 
 #endif
 
@@ -381,6 +372,9 @@ struct CORE_API FMsg
 
 	/** Log function */
 	VARARG_DECL( static void, static void, {}, Logf, VARARG_NONE, const TCHAR*, VARARG_EXTRA(const ANSICHAR* File) VARARG_EXTRA(int32 Line) VARARG_EXTRA(const class FName& Category) VARARG_EXTRA(ELogVerbosity::Type Verbosity), VARARG_EXTRA(File) VARARG_EXTRA(Line) VARARG_EXTRA(Category) VARARG_EXTRA(Verbosity) );
+
+	/** Internal version of log function. Should be used only in logging macros, as it relies on caller to call assert on fatal error */
+	VARARG_DECL(static void, static void, {}, Logf_Internal, VARARG_NONE, const TCHAR*, VARARG_EXTRA(const ANSICHAR* File) VARARG_EXTRA(int32 Line) VARARG_EXTRA(const class FName& Category) VARARG_EXTRA(ELogVerbosity::Type Verbosity), VARARG_EXTRA(File) VARARG_EXTRA(Line) VARARG_EXTRA(Category) VARARG_EXTRA(Verbosity));
 };
 
 /**
@@ -388,12 +382,15 @@ struct CORE_API FMsg
  * These functions offer debugging and diagnostic functionality and its presence 
  * depends on compiler switches.
  **/
-#if DO_CHECK || DO_GUARD_SLOW
 struct CORE_API FDebug
 {
-	/** Failed assertion handler.  Warning: May be called at library startup time. */
-	static void VARARGS AssertFailed( const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Format=TEXT(""), ... );
+	/** Logs final assert message and exits the program. */
+	static void VARARGS AssertFailed(const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Format = TEXT(""), ...);
 
+#if DO_CHECK || DO_GUARD_SLOW
+	/** Failed assertion handler.  Warning: May be called at library startup time. */
+	static void VARARGS LogAssertFailedMessage( const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Format=TEXT(""), ... );
+	
 	/**
 	 * Called when an 'ensure' assertion fails; gathers stack data and generates and error report.
 	 *
@@ -405,37 +402,21 @@ struct CORE_API FDebug
 	static void EnsureFailed( const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Msg );
 
 	/**
-	 * Triggers a (potentially) non-fatal, non-intrusive error if bExpressionResult is zero
+	 * Logs an error if bLog is true, and returns false.  Takes a formatted string.
 	 *
-	 * @param	bExpressionResult	Expression that will trigger an error if resolves to zero
-	 * @param	Expr	Code expression ANSI string (#code)
-	 * @param	File	File name ANSI string (__FILE__)
-	 * @param	Line	Line number (__LINE__)
-	 * @param	Msg		Optional informative error message text
-	 */
-	static FORCEINLINE bool EnsureNotFalse( bool bExpressionResult, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* Msg = TEXT( "" ) )
-	{
-		if( bExpressionResult == 0 )
-		{
-			FPlatformMisc::DebugBreak();
-			EnsureFailed( Expr, File, Line, Msg );
-		}
-	
-		return bExpressionResult;
-	}
-
-	/**
-	 * Triggers a (potentially) non-fatal, non-intrusive error if bExpressionResult is zero.  Takes a formatted string.
-	 *
-	 * @param	bExpressionResult	Expression that will trigger an error if resolves to zero
+	 * @param	bLog	Log if true.
 	 * @param	Expr	Code expression ANSI string (#code)
 	 * @param	File	File name ANSI string (__FILE__)
 	 * @param	Line	Line number (__LINE__)
 	 * @param	FormattedMsg	Informative error message text with variable args
+	 *
+	 * @return false in all cases.
+	 *
+	 * Note: this crazy name is to ensure that the crash reporter recognizes it, which checks for functions in the callstack starting with 'EnsureNotFalse'.
 	 */
-	static bool VARARGS EnsureNotFalseFormatted( bool bExpressionResult, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ... );
-};
+	static bool VARARGS EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(bool bLog, const ANSICHAR* Expr, const ANSICHAR* File, int32 Line, const TCHAR* FormattedMsg, ...);
 #endif // DO_CHECK || DO_GUARD_SLOW
+};
 
 
 /** 

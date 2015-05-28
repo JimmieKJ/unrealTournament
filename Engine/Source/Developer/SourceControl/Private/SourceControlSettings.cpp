@@ -48,7 +48,7 @@ void FSourceControlSettings::LoadSettings()
 	{
 		FString& Switch = Switches[SwitchIdx];
 		TArray<FString> SplitSwitch;
-		if (2 == Switch.ParseIntoArray(&SplitSwitch, TEXT("="), true))
+		if (2 == Switch.ParseIntoArray(SplitSwitch, TEXT("="), true))
 		{
 			SwitchPairs.Add(SplitSwitch[0], SplitSwitch[1].TrimQuotes());
 			Switches.RemoveAt(SwitchIdx);

@@ -97,7 +97,7 @@ public:
 	/**
 	 * Create an effects system instance.
 	 */
-	ENGINE_API static FFXSystemInterface* Create(ERHIFeatureLevel::Type InFeatureLevel);
+	ENGINE_API static FFXSystemInterface* Create(ERHIFeatureLevel::Type InFeatureLevel, EShaderPlatform InShaderPlatform);
 
 	/**
 	 * Destroy an effects system instance.

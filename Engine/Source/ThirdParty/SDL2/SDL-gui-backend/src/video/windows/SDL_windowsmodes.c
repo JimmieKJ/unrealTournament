@@ -241,6 +241,43 @@ WIN_GetDisplayBounds(_THIS, SDL_VideoDisplay * display, SDL_Rect * rect)
     return 0;
 }
 
+int
+WIN_GetDisplayUsableBounds(_THIS, SDL_VideoDisplay * display, SDL_Rect * rect)
+{
+    const SDL_DisplayModeData *data = (const SDL_DisplayModeData *) display->current_mode.driverdata;
+    const DEVMODE *pDevMode = &data->DeviceMode;
+    POINT pt = {
+        /* !!! FIXME: no scale, right? */
+        (LONG) (pDevMode->dmPosition.x + (pDevMode->dmPelsWidth / 2)),
+        (LONG) (pDevMode->dmPosition.y + (pDevMode->dmPelsHeight / 2))
+    };
+    HMONITOR hmon = MonitorFromPoint(&pt, MONITOR_DEFAULTTONULL);
+    MONITORINFO minfo;
+    const RECT *work;
+    BOOL rc = FALSE;
+
+    SDL_assert(hmon != NULL);
+
+    if (hmon != NULL) {
+        SDL_zero(minfo);
+        minfo.cbSize = sizeof (MONITORINFO);
+        rc = GetMonitorInfo(hmon, &minfo);
+        SDL_assert(rc);
+    }
+
+    if (!rc) {
+        return SDL_SetError("Couldn't find monitor data");
+    }
+
+    work = &minfo->rcWork;
+    rect->x = (int)SDL_ceil(work->left * data->ScaleX);
+    rect->y = (int)SDL_ceil(work->top * data->ScaleY);
+    rect->w = (int)SDL_ceil((work->right - work->left) * data->ScaleX);
+    rect->h = (int)SDL_ceil((work->bottom - work->top) * data->ScaleY);
+
+    return 0;
+}
+
 void
 WIN_GetDisplayModes(_THIS, SDL_VideoDisplay * display)
 {
@@ -274,9 +311,11 @@ WIN_SetDisplayMode(_THIS, SDL_VideoDisplay * display, SDL_DisplayMode * mode)
     SDL_DisplayModeData *data = (SDL_DisplayModeData *) mode->driverdata;
     LONG status;
 
-    status =
-        ChangeDisplaySettingsEx(displaydata->DeviceName, &data->DeviceMode,
-                                NULL, CDS_FULLSCREEN, NULL);
+    if (mode->driverdata == display->desktop_mode.driverdata) {
+        status = ChangeDisplaySettingsEx(displaydata->DeviceName, NULL, NULL, 0, NULL);
+    } else {
+        status = ChangeDisplaySettingsEx(displaydata->DeviceName, &data->DeviceMode, NULL, CDS_FULLSCREEN, NULL);
+    }
     if (status != DISP_CHANGE_SUCCESSFUL) {
         const char *reason = "Unknown reason";
         switch (status) {

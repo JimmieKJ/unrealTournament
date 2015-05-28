@@ -31,10 +31,6 @@ public:
 
 private:
 	/** */
-	TSharedRef<SWidget> CreateLandscapeMaterialPicker();
-	FText GetLandscapeMaterialName() const;
-
-	/** */
 	TSharedRef<SWidget> HandleTileConfigurationComboBoxGenarateWidget(TSharedPtr<FTileImportConfiguration> InItem) const;
 	FText				GetTileConfigurationText() const;
 	
@@ -66,6 +62,7 @@ private:
 	FReply OnClickedCancel();
 
 	/** */
+	FString GetLandscapeMaterialPath() const;
 	void OnLandscapeMaterialChanged(const FAssetData& AssetData);
 
 	/** */
@@ -101,9 +98,6 @@ private:
 	/** */
 	TSharedPtr<SComboBox<TSharedPtr<FTileImportConfiguration>>> TileConfigurationComboBox;
 	
-	/** */
-	TSharedPtr<SComboButton> LandscapeMaterialComboButton;
-
 	TSharedPtr<SListView<TSharedPtr<FTiledLandscapeImportSettings::LandscapeLayerSettings>>>	LayerDataListView;
 	TArray<TSharedPtr<FTiledLandscapeImportSettings::LandscapeLayerSettings>>					LayerDataList;		
 		

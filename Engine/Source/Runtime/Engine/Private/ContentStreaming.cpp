@@ -41,9 +41,6 @@ DEFINE_STAT(STAT_NumWantingTextures);
 
 DEFINE_STAT(STAT_StreamingTextures);
 
-DEFINE_STAT(STAT_RenderingThreadUpdateTime);
-DEFINE_STAT(STAT_RenderingThreadFinalizeTime);
-
 DEFINE_STAT(STAT_TotalStaticTextureHeuristicSize);
 DEFINE_STAT(STAT_TotalDynamicHeuristicSize);
 DEFINE_STAT(STAT_TotalLastRenderHeuristicSize);
@@ -379,13 +376,21 @@ struct FStreamingTexture
 	 */
 	float CalcPriority( )
 	{
-//		float DistanceFactor = 1.0f - FMath::Clamp( MinDistance, 1.0f, MAX_STREAMINGDISTANCE ) / MAX_STREAMINGDISTANCE;
-		float DistanceFactor = 1 - FMath::Sqrt( FMath::Clamp( MinDistance, 1.0f, MAX_STREAMINGDISTANCE ) / MAX_STREAMINGDISTANCE );
-//		float MipFactor = WantedMips - ResidentMips;
-		float MipFactor = float(WantedMips) / float(MAX_TEXTURE_MIP_COUNT);
-		float TimeFactor = GStreamWithTimeFactor ? (FMath::Clamp( LastRenderTime, 1.0f, MAX_LASTRENDERTIME ) / MAX_LASTRENDERTIME) : 0.0f;
-		float Priority = MipFactor + DistanceFactor * (1.0f - TimeFactor * 0.5f) + bForceFullyLoad * 100.0f;
-		return Priority;
+		if (LODGroup != TEXTUREGROUP_Terrain_Heightmap)
+		{
+	//		float DistanceFactor = 1.0f - FMath::Clamp( MinDistance, 1.0f, MAX_STREAMINGDISTANCE ) / MAX_STREAMINGDISTANCE;
+			float DistanceFactor = 1 - FMath::Sqrt( FMath::Clamp( MinDistance, 1.0f, MAX_STREAMINGDISTANCE ) / MAX_STREAMINGDISTANCE );
+	//		float MipFactor = WantedMips - ResidentMips;
+			float MipFactor = float(WantedMips) / float(MAX_TEXTURE_MIP_COUNT);
+			float TimeFactor = GStreamWithTimeFactor ? (FMath::Clamp( LastRenderTime, 1.0f, MAX_LASTRENDERTIME ) / MAX_LASTRENDERTIME) : 0.0f;
+			float Priority = MipFactor + DistanceFactor * (1.0f - TimeFactor * 0.5f) + bForceFullyLoad * 100.0f;
+			return Priority;
+		}
+		else
+		{
+			// Because heightmaps are technically geometry, it is absolutely imperative that they are streamed in
+			return 1000.0f;
+		}
 	}
 
 	/**
@@ -500,6 +505,12 @@ int32 FFloatMipLevel::ComputeMip(const FStreamingTexture* StreamingTexture, floa
 			bOptimal ? StreamingTexture->MaxAllowedOptimalMips : 
 #endif
 			StreamingTexture->MaxAllowedMips;
+		// Landscape textures should not be affected by MipBias
+		if (StreamingTexture->LODGroup == TEXTUREGROUP_Terrain_Heightmap || 
+			StreamingTexture->LODGroup == TEXTUREGROUP_Terrain_Weightmap)
+		{
+			MipBias = 0.0f;
+		}
 	}
 
 	// bias the clamped mip level
@@ -517,14 +528,15 @@ bool FFloatMipLevel::operator>=(const FFloatMipLevel& rhs) const
 
 FFloatMipLevel FFloatMipLevel::FromScreenSizeInTexels(float ScreenSizeInTexels)
 {
-	check(ScreenSizeInTexels >= 0);
+	//check(ScreenSizeInTexels >= 0);  @todo: should we figure out why this is negative?
+	const float ScreenSizeInTexelsClamped = FMath::Max(0.f, ScreenSizeInTexels);
 
 	FFloatMipLevel Ret;
 
 	// int
 //	Ret.MipLevel = 1 + FMath::CeilLogTwo( FMath::TruncToInt(ScreenSizeInTexels) );
 	// float
-	Ret.MipLevel = 1.0f + FMath::Log2(ScreenSizeInTexels);
+	Ret.MipLevel = 1.0f + FMath::Log2(ScreenSizeInTexelsClamped);
 
 	return Ret;
 }
@@ -928,9 +940,9 @@ struct FStreamingContext
 			PendingMemoryAdjustment = Stats.PendingMemoryAdjustment;
 	
 			// set total size for the pool (used to available)
-			SET_MEMORY_STAT(STAT_TexturePoolAllocatedSize, (int32)AllocatedMemorySize);
-			SET_MEMORY_STAT(STAT_TexturePoolSize, (int32)Stats.TexturePoolSize);
-			SET_MEMORY_STAT(MCR_TexturePool, (int32)Stats.TexturePoolSize);
+			SET_MEMORY_STAT(STAT_TexturePoolAllocatedSize, AllocatedMemorySize);
+			SET_MEMORY_STAT(STAT_TexturePoolSize, Stats.TexturePoolSize);
+			SET_MEMORY_STAT(MCR_TexturePool, Stats.TexturePoolSize);
 		}
 		else
 		{
@@ -976,7 +988,7 @@ struct FStreamingContext
 	/** Currently available number of bytes in the texture pool, or INDEX_NONE if bRHISupportsMemoryStats is false. */
 	int64 AvailableMemorySize;
 	/** Pending Adjustments to allocated texture memory, due to async reallocations, etc. */
-	int32 PendingMemoryAdjustment;
+	int64 PendingMemoryAdjustment;
 	/** Whether to fill in TextureStats this frame. */
 	bool bCollectTextureStats;
 
@@ -986,28 +998,28 @@ struct FStreamingContext
 #endif
 
 	// Stats for this frame.
-	uint32 ThisFrameTotalRequestSize;
-	uint32 ThisFrameTotalLightmapRequestSize;
-	uint32 ThisFrameNumStreamingTextures;
-	uint32 ThisFrameNumRequestsInCancelationPhase;
-	uint32 ThisFrameNumRequestsInUpdatePhase;
-	uint32 ThisFrameNumRequestsInFinalizePhase;
-	uint32 ThisFrameTotalIntermediateTexturesSize;
-	uint32 ThisFrameNumIntermediateTextures;
-	uint32 ThisFrameTotalStreamingTexturesSize;
-	uint32 ThisFrameTotalStreamingTexturesMaxSize;
-	uint32 ThisFrameTotalLightmapMemorySize;
-	uint32 ThisFrameTotalLightmapDiskSize;
-	uint32 ThisFrameTotalMipCountIncreaseRequestsInFlight;
-	uint32 ThisFrameOptimalWantedSize;
+	uint64 ThisFrameTotalRequestSize;
+	uint64 ThisFrameTotalLightmapRequestSize;
+	uint64 ThisFrameNumStreamingTextures;
+	uint64 ThisFrameNumRequestsInCancelationPhase;
+	uint64 ThisFrameNumRequestsInUpdatePhase;
+	uint64 ThisFrameNumRequestsInFinalizePhase;
+	uint64 ThisFrameTotalIntermediateTexturesSize;
+	uint64 ThisFrameNumIntermediateTextures;
+	uint64 ThisFrameTotalStreamingTexturesSize;
+	uint64 ThisFrameTotalStreamingTexturesMaxSize;
+	uint64 ThisFrameTotalLightmapMemorySize;
+	uint64 ThisFrameTotalLightmapDiskSize;
+	uint64 ThisFrameTotalMipCountIncreaseRequestsInFlight;
+	uint64 ThisFrameOptimalWantedSize;
 	/** Number of bytes using StaticTexture heuristics this frame, currently in memory. */
-	uint32 ThisFrameTotalStaticTextureHeuristicSize;
+	uint64 ThisFrameTotalStaticTextureHeuristicSize;
 	/** Number of bytes using DynmicTexture heuristics this frame, currently in memory. */
-	uint32 ThisFrameTotalDynamicTextureHeuristicSize;
+	uint64 ThisFrameTotalDynamicTextureHeuristicSize;
 	/** Number of bytes using LastRenderTime heuristics this frame, currently in memory. */
-	uint32 ThisFrameTotalLastRenderHeuristicSize;
+	uint64 ThisFrameTotalLastRenderHeuristicSize;
 	/** Number of bytes using ForcedIntoMemory heuristics this frame, currently in memory. */
-	uint32 ThisFrameTotalForcedHeuristicSize;
+	uint64 ThisFrameTotalForcedHeuristicSize;
 };
 
 
@@ -1046,9 +1058,9 @@ public:
 	}
 
 	/** Statistics for the async work. */
-	struct FThreadStats
+	struct FAsyncStats
 	{
-		FThreadStats()
+		FAsyncStats()
 		{
 			Reset();
 		}
@@ -1065,21 +1077,21 @@ public:
 			NumWantingTextures = 0;
 		}
 		/** Total number of bytes currently in memory */
-		int32 TotalResidentSize;
+		int64 TotalResidentSize;
 		/** Total number of bytes required, using PerfectWantedMips */
-		STAT( int32 TotalRequiredSize );
+		STAT( int64 TotalRequiredSize );
 		/** Currently being streamed in, in bytes. */
 		SIZE_T PendingStreamInSize;
 		/** Currently being streamed out, in bytes. */
 		SIZE_T PendingStreamOutSize;
 		/** How much we want to stream in, in bytes. */
-		int32 WantedInSize;
+		int64 WantedInSize;
 		/** How much we want to stream out, in bytes.  */
-		int32 WantedOutSize;
+		int64 WantedOutSize;
 		/** How much memory we're temporarily using for streaming in/out, in bytes. */
-		int32 TempStreamingSize;
+		int64 TempStreamingSize;
 		/** Number of textures that want more mips. */
-		int32 NumWantingTextures;
+		int64 NumWantingTextures;
 	};
 
 	/** Returns the resulting priorities, matching the FStreamingManagerTexture::StreamingTextures array. */
@@ -1095,7 +1107,7 @@ public:
 	}
 
 	/** Returns the thread statistics. */
-	const FThreadStats& GetStats() const
+	const FAsyncStats& GetStats() const
 	{
 		return ThreadStats;
 	}
@@ -1105,6 +1117,7 @@ private:
 	/** Performs the async work. */
 	void DoWork()
 	{
+		DECLARE_SCOPE_CYCLE_COUNTER(TEXT("FAsyncTextureStreaming::DoWork"), STAT_AsyncTextureStreaming_DoWork, STATGROUP_StreamingDetails);
 		PrioritizedTextures.Empty( StreamingManager.StreamingTextures.Num() );
 
 		// Calculate DynamicWantedMips and DynamicMinDistanceSq for all dynamic textures.
@@ -1118,7 +1131,7 @@ private:
 		{
 			FStreamingTexture& StreamingTexture = StreamingManager.StreamingTextures[ Index ];
 
-			int32 ResidentTextureSize = StreamingTexture.GetSize( StreamingTexture.ResidentMips );
+			int64 ResidentTextureSize = StreamingTexture.GetSize( StreamingTexture.ResidentMips );
 			ThreadStats.TotalResidentSize += ResidentTextureSize;
 
 			StreamingTexture.bUsesStaticHeuristics = false;
@@ -1149,10 +1162,10 @@ private:
 				}
 
 				// Accumulate streaming numbers.
-				int32 WantedTextureSize = StreamingTexture.GetSize( StreamingTexture.WantedMips );
+				int64 WantedTextureSize = StreamingTexture.GetSize( StreamingTexture.WantedMips );
 				if ( StreamingTexture.bInFlight )
 				{
-					int32 RequestedTextureSize = StreamingTexture.GetSize( StreamingTexture.RequestedMips );
+					int64 RequestedTextureSize = StreamingTexture.GetSize( StreamingTexture.RequestedMips );
 					ThreadStats.TempStreamingSize += ResidentTextureSize;	//@TODO: 0 for in-place reallocations.
 					if ( StreamingTexture.RequestedMips > StreamingTexture.ResidentMips )
 					{
@@ -1204,13 +1217,9 @@ private:
 		PrioritizedTextures.Sort( FCompareTexturePriority() );
 	}
 
-	/**
-	 * Give the name for external event viewers
-	 * @return	the name to display in external event viewers
-	 */ 
-	static const TCHAR *Name()
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FAsyncTextureStreaming");
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncTextureStreaming, STATGROUP_ThreadPoolAsyncTasks);
 	}
 
 	/** Reference to the owning streaming manager, for accessing the thread-safe data. */
@@ -1220,7 +1229,7 @@ private:
 	/** Context (temporary info) used for the async work. */
 	FStreamingContext			ThreadContext;
 	/** Thread statistics. */
-	FThreadStats				ThreadStats;
+	FAsyncStats				ThreadStats;
 	/** Whether the async work should abort its processing. */
 	volatile bool				bAbort;
 };
@@ -2099,8 +2108,11 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 ,	bPauseTextureStreaming(false)
 {
 	// Read settings from ini file.
-	verify( GConfig->GetInt( TEXT("TextureStreaming"), TEXT("MemoryMargin"),				MemoryMargin,						GEngineIni ) );
-	verify( GConfig->GetInt( TEXT("TextureStreaming"), TEXT("MinEvictSize"),				MinEvictSize,						GEngineIni ) );
+	int32 TempInt;
+	verify( GConfig->GetInt( TEXT("TextureStreaming"), TEXT("MemoryMargin"),				TempInt,						GEngineIni ) );
+	MemoryMargin = TempInt;
+	verify( GConfig->GetInt( TEXT("TextureStreaming"), TEXT("MinEvictSize"),				TempInt,						GEngineIni ) );
+	MinEvictSize = TempInt;
 
 	verify( GConfig->GetFloat( TEXT("TextureStreaming"), TEXT("LightmapStreamingFactor"),			GLightmapStreamingFactor,		GEngineIni ) );
 	verify( GConfig->GetFloat( TEXT("TextureStreaming"), TEXT("ShadowmapStreamingFactor"),			GShadowmapStreamingFactor,		GEngineIni ) );
@@ -2143,8 +2155,6 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 		GNeverStreamOutTextures = false;
 
 		// Use unlimited texture streaming in the editor. Quality is more important than stutter.
-		static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streaming.PoolSize"));
-		CVar->Set(0, ECVF_SetByCode);
 		GTexturePoolSize = 0;
 	}
 	if (GNeverStreamOutTextures)
@@ -2175,7 +2185,7 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 #if STATS_FAST
 	MaxStreamingTexturesSize = 0;
 	MaxOptimalTextureSize = 0;
-	MaxStreamingOverBudget = MIN_int32;
+	MaxStreamingOverBudget = MIN_int64;
 	MaxTexturePoolAllocatedSize = 0;
 	MinLargestHoleSize = OriginalTexturePoolSize;
 	MaxNumWantingTextures = 0;
@@ -2183,7 +2193,7 @@ FStreamingManagerTexture::FStreamingManagerTexture()
 
 	for ( int32 LODGroup=0; LODGroup < TEXTUREGROUP_MAX; ++LODGroup )
 	{
-		FTextureLODSettings::FTextureLODGroup& TexGroup = GSystemSettings.TextureLODSettings.GetTextureLODGroup( LODGroup );
+		const FTextureLODGroup& TexGroup = UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetTextureLODGroup(TextureGroup(LODGroup));
 		ThreadSettings.NumStreamedMips[LODGroup] = TexGroup.NumStreamedMips;
 	}
 
@@ -2320,7 +2330,7 @@ struct FTextureStreamingCompare
  *	@param RequiredMemorySize	- Amount of memory to try to free up, in bytes
  *	@param bSucceeded			- [out] Upon return, whether it succeeded or not
  **/
-void Renderthread_StreamOutTextureData(FRHICommandListImmediate& RHICmdList, TArray<FTextureSortElement>* InCandidateTextures, int32 RequiredMemorySize, volatile bool* bSucceeded)
+void Renderthread_StreamOutTextureData(FRHICommandListImmediate& RHICmdList, TArray<FTextureSortElement>* InCandidateTextures, int64 RequiredMemorySize, volatile bool* bSucceeded)
 {
 	*bSucceeded = false;
 	// only for debugging?
@@ -2336,7 +2346,7 @@ void Renderthread_StreamOutTextureData(FRHICommandListImmediate& RHICmdList, TAr
 	InCandidateTextures->Sort( FTextureStreamingCompare() );
 
 	// Attempt to shrink enough candidates to free up the required memory size. One mip-level at a time.
-	int32 SavedMemory = 0;
+	int64 SavedMemory = 0;
 	bool bKeepShrinking = true;
 	bool bShrinkCharacterTextures = false;	// Don't shrink any character textures the first loop.
 	while ( SavedMemory < RequiredMemorySize && bKeepShrinking )
@@ -2356,9 +2366,9 @@ void Renderthread_StreamOutTextureData(FRHICommandListImmediate& RHICmdList, TAr
 				if ( bReallocationSucceeded )
 				{
 					// Start using the new one.
-					int32 OldSize = SortElement.Size;
-					int32 NewSize = SortElement.Texture->CalcTextureMemorySize(NewMipCount);
-					int32 Savings = OldSize - NewSize;
+					int64 OldSize = SortElement.Size;
+					int64 NewSize = SortElement.Texture->CalcTextureMemorySize(NewMipCount);
+					int64 Savings = OldSize - NewSize;
 
 					// Set up UTexture2D
 					SortElement.Texture->ResidentMips = NewMipCount;
@@ -2391,9 +2401,9 @@ void Renderthread_StreamOutTextureData(FRHICommandListImmediate& RHICmdList, TAr
  *	@param RequiredMemorySize	- Additional texture memory required
  *	@return						- Whether it succeeded or not
  **/
-bool FStreamingManagerTexture::StreamOutTextureData( int32 RequiredMemorySize )
+bool FStreamingManagerTexture::StreamOutTextureData( int64 RequiredMemorySize )
 {
-	RequiredMemorySize = FMath::Max<int32>(RequiredMemorySize, MinEvictSize);
+	RequiredMemorySize = FMath::Max<int64>(RequiredMemorySize, MinEvictSize);
 
 	// Array of candidates for reducing mip-levels.
 	TArray<FTextureSortElement> CandidateTextures;
@@ -2455,7 +2465,7 @@ bool FStreamingManagerTexture::StreamOutTextureData( int32 RequiredMemorySize )
 	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
 		StreamOutTextureDataCommand,
 		TArray<FTextureSortElement>*,CandidateTextures,&CandidateTextures,
-		int32,RequiredMemorySize,RequiredMemorySize,
+		int64,RequiredMemorySize,RequiredMemorySize,
 		volatile bool*,bSucceeded,&bSucceeded,
 	{
 		Renderthread_StreamOutTextureData(RHICmdList, CandidateTextures, RequiredMemorySize, bSucceeded);
@@ -2653,7 +2663,7 @@ bool FStreamingManagerTexture::AddDynamicPrimitive( const UPrimitiveComponent* P
 	if (Primitive && Primitive->IsRegistered())
 	{
 		TArray<FStreamingTexturePrimitiveInfo> TextureInstanceInfos;
-		Primitive->GetStreamingTextureInfo( TextureInstanceInfos );
+		Primitive->GetStreamingTextureInfoWithNULLRemoval( TextureInstanceInfos );
 
 		FSpawnedPrimitiveData* PrimitiveData = NULL;
 		TArray<FSpawnedTextureInstance>* TextureInstances = NULL;
@@ -2762,7 +2772,7 @@ void FStreamingManagerTexture::RemoveLevel( ULevel* Level )
 		FThreadLevelData& ThreadLevelData = LevelData->Value;
 		ThreadLevelData.bRemove = true;
 
-		// Mark all textures with a timestamp. They're about to loose their location-based heuristic and we don't want them to
+		// Mark all textures with a timestamp. They're about to lose their location-based heuristic and we don't want them to
 		// start using LastRenderTime heuristic for a few seconds until they are garbage collected!
 		for( TMap<UTexture2D*,TArray<FStreamableTextureInstance> >::TIterator It(Level->TextureToInstancesMap); It; ++It )
 		{
@@ -2976,7 +2986,7 @@ void FStreamingManagerTexture::NotifyPrimitiveDetached( const UPrimitiveComponen
 }
 
 /**
- * Mark the textures instances with a timestamp. They're about to loose their location-based heuristic and we don't want them to
+ * Mark the textures instances with a timestamp. They're about to lose their location-based heuristic and we don't want them to
  * start using LastRenderTime heuristic for a few seconds until they are garbage collected!
  *
  * @param PrimitiveData		Our data structure for the spawned primitive that is being detached.
@@ -3028,7 +3038,7 @@ void FStreamingManagerTexture::NotifyTimedPrimitiveAttached( const UPrimitiveCom
 	if ( Primitive  && Primitive->IsRegistered())
 	{
 		TArray<FStreamingTexturePrimitiveInfo> TextureInstanceInfos;
-		Primitive->GetStreamingTextureInfo( TextureInstanceInfos );
+		Primitive->GetStreamingTextureInfoWithNULLRemoval( TextureInstanceInfos );
 
 		FSpawnedPrimitiveData* PrimitiveData = NULL;
 		TArray<FSpawnedTextureInstance>* TextureInstances = NULL;
@@ -3059,7 +3069,7 @@ void FStreamingManagerTexture::NotifyTimedPrimitiveDetached( const UPrimitiveCom
 	if ( Primitive )
 	{
 		TArray<FStreamingTexturePrimitiveInfo> TextureInstanceInfos;
-		Primitive->GetStreamingTextureInfo( TextureInstanceInfos );
+		Primitive->GetStreamingTextureInfoWithNULLRemoval( TextureInstanceInfos );
 
 		FSpawnedPrimitiveData* PrimitiveData = NULL;
 		TArray<FSpawnedTextureInstance>* TextureInstances = NULL;
@@ -3188,7 +3198,7 @@ void FStreamingManagerTexture::UpdateStreamingStats( const FStreamingContext& Co
 #if STATS_FAST
 		MaxStreamingTexturesSize = FMath::Max(MaxStreamingTexturesSize, GET_MEMORY_STAT(STAT_StreamingTexturesSize));
 		MaxOptimalTextureSize = FMath::Max(MaxOptimalTextureSize, GET_MEMORY_STAT(STAT_OptimalTextureSize));
-		MaxStreamingOverBudget = FMath::Max<int32>(MaxStreamingOverBudget, int32(GET_MEMORY_STAT(STAT_StreamingOverBudget)) - int32(GET_MEMORY_STAT(STAT_StreamingUnderBudget)));
+		MaxStreamingOverBudget = FMath::Max<int64>(MaxStreamingOverBudget, GET_MEMORY_STAT(STAT_StreamingOverBudget) - GET_MEMORY_STAT(STAT_StreamingUnderBudget));
 		MaxTexturePoolAllocatedSize = FMath::Max(MaxTexturePoolAllocatedSize, GET_MEMORY_STAT(STAT_TexturePoolAllocatedSize));
 #if STATS
 		MinLargestHoleSize = FMath::Min(MinLargestHoleSize, GET_MEMORY_STAT(STAT_TexturePool_LargestHole));
@@ -3266,7 +3276,7 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 	FStreamingContext Context( bProcessEverything, IndividualStreamingTexture, bCollectTextureStats );
 
 	const TArray<FTexturePriority>& PrioritizedTextures = AsyncWork->GetTask().GetPrioritizedTextures();
-	FAsyncTextureStreaming::FThreadStats ThreadStats = AsyncWork->GetTask().GetStats();
+	FAsyncTextureStreaming::FAsyncStats ThreadStats = AsyncWork->GetTask().GetStats();
 	Context.AddStats( AsyncWork->GetTask().GetContext() );
 
 #if STATS
@@ -3296,9 +3306,9 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 			}
 		};
 		Context.TextureStats.Sort( FCompareFTextureStreamingStats() );
-		int32 TotalCurrentSize	= 0;
-		int32 TotalWantedSize	= 0;
-		int32 TotalMaxSize		= 0;
+		int64 TotalCurrentSize	= 0;
+		int64 TotalWantedSize	= 0;
+		int64 TotalMaxSize		= 0;
 		TextureStatsReport.Add( FString( TEXT(",Priority,Current,Wanted,Max,Largest Resident,Current Size (KB),Wanted Size (KB),Max Size (KB),Largest Resident Size (KB),Streaming Type,Last Rendered,BoostFactor,Name") ) );
 		for( int32 TextureIndex=0; TextureIndex<Context.TextureStats.Num(); TextureIndex++ )
 		{
@@ -3355,7 +3365,7 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 	ThreadStats.PendingStreamInSize += (Stats.PendingMemoryAdjustment > 0) ? Stats.PendingMemoryAdjustment : 0;
 	ThreadStats.PendingStreamOutSize += (Stats.PendingMemoryAdjustment < 0) ? -Stats.PendingMemoryAdjustment : 0;
 
-	int32 AvailableNow, AvailableLater, TempMemoryUsed;
+	int64 AvailableNow, AvailableLater, TempMemoryUsed;
 	if ( Stats.IsUsingLimitedPoolSize() )
 	{
 		ThreadStats.TempStreamingSize = GStreamMemoryTracker.CalcTempMemory();
@@ -3375,8 +3385,8 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 	else
 	{
 		TempMemoryUsed = ThreadStats.TempStreamingSize;
-		AvailableNow = MAX_int32;
-		AvailableLater = MAX_int32;
+		AvailableNow = MAX_int64;
+		AvailableLater = MAX_int64;
 		SET_MEMORY_STAT( STAT_StreamingOverBudget, 0 );
 		SET_MEMORY_STAT( STAT_StreamingUnderBudget, 0 );
 	}
@@ -3408,8 +3418,8 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 				if ( HighPrioTexture.bInFlight && HighPrioTexture.RequestedMips < HighPrioTexture.ResidentMips && HighPrioTexture.RequestedMips < HighPrioTexture.WantedMips )
 				{
 					// Should we cancel?
-					int32 RequestedSize = HighPrioTexture.GetSize( HighPrioTexture.RequestedMips );
-					int32 StreamSize = HighPrioTexture.GetSize( HighPrioTexture.ResidentMips ) - RequestedSize;
+					int64 RequestedSize = HighPrioTexture.GetSize( HighPrioTexture.RequestedMips );
+					int64 StreamSize = HighPrioTexture.GetSize( HighPrioTexture.ResidentMips ) - RequestedSize;
 					if ( StreamSize > AvailableLater )
 					{
 						// Try to cancel.
@@ -3425,8 +3435,8 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
 				if ( HighPrioTexture.bInFlight == false && HighPrioTexture.WantedMips > HighPrioTexture.ResidentMips )
 				{
 					//@TODO: TempSize=0 when using in-place reallocation, but we're conservative here.
-					int32 TempSize = HighPrioTexture.GetSize( HighPrioTexture.ResidentMips );
-					int32 StreamSize = HighPrioTexture.GetSize( HighPrioTexture.WantedMips ) - TempSize;
+					int64 TempSize = HighPrioTexture.GetSize( HighPrioTexture.ResidentMips );
+					int64 StreamSize = HighPrioTexture.GetSize( HighPrioTexture.WantedMips ) - TempSize;
 					AvailableLater -= StreamSize;
 
 					// Can we stream in this texture now?
@@ -3493,7 +3503,7 @@ void FStreamingManagerTexture::StreamTextures( bool bProcessEverything )
  * @param StreamingRequests		[in/out] Indices to textures that are going to be streamed this frame
  * @return						The last priority index considered (may be sooner that StopIndex)
  */
-int32 FStreamingManagerTexture::StreamoutTextures( FStreamoutLogic StreamoutLogic, int32& AvailableLater, int32& TempMemoryUsed, int32 StartIndex, int32 StopIndex, int32& LowPrioIndex, const TArray<FTexturePriority>& PrioritizedTextures, FStreamingRequests& StreamingRequests )
+int32 FStreamingManagerTexture::StreamoutTextures( FStreamoutLogic StreamoutLogic, int64& AvailableLater, int64& TempMemoryUsed, int32 StartIndex, int32 StopIndex, int32& LowPrioIndex, const TArray<FTexturePriority>& PrioritizedTextures, FStreamingRequests& StreamingRequests )
 {
 	// Only bump LowPrioIndex if we're starting from there.
 	bool bBumpLowPrioIndex = (StartIndex == LowPrioIndex);
@@ -3519,8 +3529,8 @@ int32 FStreamingManagerTexture::StreamoutTextures( FStreamoutLogic StreamoutLogi
 					bool bCancelled = CancelStreamingRequest( StreamingTexture );
 					if ( bCancelled )
 					{
-						int32 CurrentSize = StreamingTexture.GetSize( StreamingTexture.ResidentMips );
-						int32 StreamSize = StreamingTexture.GetSize( StreamingTexture.RequestedMips ) - CurrentSize;
+						int64 CurrentSize = StreamingTexture.GetSize( StreamingTexture.ResidentMips );
+						int64 StreamSize = StreamingTexture.GetSize( StreamingTexture.RequestedMips ) - CurrentSize;
 						AvailableLater += StreamSize;
 					}
 				}
@@ -3536,8 +3546,8 @@ int32 FStreamingManagerTexture::StreamoutTextures( FStreamoutLogic StreamoutLogi
 				if ( WantedMips < CurrentMips )
 				{
 					//@TODO: Temp memory used=0 when using in-place reallocation. Though this is conservative and should be fine.
-					int32 CurrentSize = StreamingTexture.GetSize( CurrentMips );
-					int32 StreamSize = CurrentSize - StreamingTexture.GetSize( WantedMips );
+					int64 CurrentSize = StreamingTexture.GetSize( CurrentMips );
+					int64 StreamSize = CurrentSize - StreamingTexture.GetSize( WantedMips );
 					AvailableLater += StreamSize;
 					TempMemoryUsed += CurrentSize;
 
@@ -3575,7 +3585,7 @@ int32 FStreamingManagerTexture::StreamoutTextures( FStreamoutLogic StreamoutLogi
  * @param PrioritizedTextures	Array of prioritized textures to process
  * @param TempMemoryUsed		Current amount of temporary memory used by the streaming system, in bytes
  */
-void FStreamingManagerTexture::StreamTexturesUnlimited( FStreamingContext& Context, const TArray<FTexturePriority>& PrioritizedTextures, int32 TempMemoryUsed )
+void FStreamingManagerTexture::StreamTexturesUnlimited( FStreamingContext& Context, const TArray<FTexturePriority>& PrioritizedTextures, int64 TempMemoryUsed )
 {
 	for ( int32 PrioIndex=0; PrioIndex < PrioritizedTextures.Num() && TempMemoryUsed < MaxTempMemoryUsed; ++PrioIndex )
 	{
@@ -3606,7 +3616,7 @@ void FStreamingManagerTexture::StreamTexturesUnlimited( FStreamingContext& Conte
 			if (!GNeverStreamOutTextures || StreamingTexture.ResidentMips < StreamingTexture.WantedMips)
 			{
 				//@TODO: Temp memory used=0 when using in-place reallocation.
-				int32 CurrentSize = StreamingTexture.GetSize( StreamingTexture.ResidentMips );
+				int64 CurrentSize = StreamingTexture.GetSize( StreamingTexture.ResidentMips );
 				TempMemoryUsed += CurrentSize;
 				StartStreaming( StreamingTexture, StreamingTexture.WantedMips, Context, true );
 			}
@@ -3977,16 +3987,16 @@ void FStreamingManagerTexture::CalcMinMaxMips( FStreamingTexture& StreamingTextu
 void FStreamingManagerTexture::UpdateFrameStats( FStreamingContext& Context, FStreamingTexture& StreamingTexture, int32 TextureIndex )
 {
 #if STATS_FAST || STATS
-	STAT(int32 ResidentSize = StreamingTexture.GetSize(StreamingTexture.ResidentMips));
+	STAT(int64 ResidentSize = StreamingTexture.GetSize(StreamingTexture.ResidentMips));
 	STAT(Context.ThisFrameTotalStreamingTexturesSize += ResidentSize);
 	STAT(int32 PerfectWantedMips = FMath::Clamp(StreamingTexture.PerfectWantedMips, StreamingTexture.MinAllowedMips, StreamingTexture.MaxAllowedOptimalMips) );
-	STAT(int32 PerfectWantedSize = StreamingTexture.GetSize( PerfectWantedMips ));
-	STAT(int32 MostResidentSize = StreamingTexture.GetSize( StreamingTexture.MostResidentMips ) );
+	STAT(int64 PerfectWantedSize = StreamingTexture.GetSize( PerfectWantedMips ));
+	STAT(int64 MostResidentSize = StreamingTexture.GetSize( StreamingTexture.MostResidentMips ) );
 	STAT(Context.ThisFrameOptimalWantedSize += PerfectWantedSize );
 #endif
 
 #if STATS
-	int32 PotentialSize = StreamingTexture.GetSize(StreamingTexture.MaxAllowedMips);
+	int64 PotentialSize = StreamingTexture.GetSize(StreamingTexture.MaxAllowedMips);
 	ETextureStreamingType StreamType = StreamingTexture.GetStreamingType();
 	switch ( StreamType )
 	{
@@ -4001,6 +4011,9 @@ void FStreamingManagerTexture::UpdateFrameStats( FStreamingContext& Context, FSt
 			break;
 		case StreamType_Static:
 			Context.ThisFrameTotalStaticTextureHeuristicSize += PerfectWantedSize;
+			break;
+		case StreamType_Orphaned:
+		case StreamType_Other:
 			break;
 	}
 	if ( Context.bCollectTextureStats )
@@ -4213,8 +4226,8 @@ bool FStreamingManagerTexture::StartStreaming( FStreamingTexture& StreamingTextu
 				if ( bIsLoadingRequest )
 				{
 					// Manually update size as allocations are deferred/ happening in rendering thread.
-					int32 CurrentRequestSize			= StreamingTexture.GetSize(RequestMips);
-					int32 StreamInSize					= CurrentRequestSize - StreamingTexture.GetSize(StreamingTexture.ResidentMips);
+					int64 CurrentRequestSize			= StreamingTexture.GetSize(RequestMips);
+					int64 StreamInSize					= CurrentRequestSize - StreamingTexture.GetSize(StreamingTexture.ResidentMips);
 					Context.ThisFrameTotalRequestSize	+= StreamInSize;
 					Context.ThisFrameTotalLightmapRequestSize += StreamingTexture.bIsStreamingLightmap ? StreamInSize : 0;
 					Context.AvailableMemorySize			-= CurrentRequestSize;
@@ -4271,7 +4284,7 @@ bool FStreamingManagerTexture::HandleDumpTextureStreamingStatsCommand( const TCH
 	Ar.Logf( TEXT("  Num Wanting Textures =             %d"), MaxNumWantingTextures );
 	MaxStreamingTexturesSize = 0;
 	MaxOptimalTextureSize = 0;
-	MaxStreamingOverBudget = MIN_int32;
+	MaxStreamingOverBudget = MIN_int64;
 	MaxTexturePoolAllocatedSize = 0;
 	MinLargestHoleSize = OriginalTexturePoolSize;
 	MaxNumWantingTextures = 0;
@@ -4406,7 +4419,7 @@ bool FStreamingManagerTexture::HandleNumStreamedMipsCommand( const TCHAR* Cmd, F
 	int32 NumMips = ( NumMipsString.Len() > 0 ) ? FCString::Atoi(*NumMipsString) : MAX_int32;
 	if ( LODGroup >= 0 && LODGroup < TEXTUREGROUP_MAX )
 	{
-		FTextureLODSettings::FTextureLODGroup& TexGroup = GSystemSettings.TextureLODSettings.GetTextureLODGroup(LODGroup);
+		FTextureLODGroup& TexGroup = UDeviceProfileManager::Get().GetActiveProfile()->GetTextureLODSettings()->GetTextureLODGroup(TextureGroup(LODGroup));
 		if ( NumMips >= -1 && NumMips <= MAX_TEXTURE_MIP_COUNT )
 		{
 			TexGroup.NumStreamedMips = NumMips;
@@ -4547,7 +4560,7 @@ bool FStreamingManagerTexture::HandleUntrackTextureCommand( const TCHAR* Cmd, FO
 bool FStreamingManagerTexture::HandleStreamOutCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
 	FString Parameter(FParse::Token(Cmd, 0));
-	int32 FreeMB = (Parameter.Len() > 0) ? FCString::Atoi(*Parameter) : 0;
+	int64 FreeMB = (Parameter.Len() > 0) ? FCString::Atoi(*Parameter) : 0;
 	if ( FreeMB > 0 )
 	{
 		bool bSucceeded = StreamOutTextureData( FreeMB * 1024 * 1024 );
@@ -4734,18 +4747,18 @@ void FStreamingManagerTexture::DumpTextureGroupStats( bool bDetailedStats )
 		}
 		int32 NumTextures;
 		int32 NumNonStreamingTextures;
-		int32 CurrentTextureSize;
-		int32 WantedTextureSize;
-		int32 MaxTextureSize;
-		int32 NonStreamingSize;
+		int64 CurrentTextureSize;
+		int64 WantedTextureSize;
+		int64 MaxTextureSize;
+		int64 NonStreamingSize;
 	};
 	FTextureGroupStats TextureGroupStats[TEXTUREGROUP_MAX];
 	FTextureGroupStats TextureGroupWaste[TEXTUREGROUP_MAX];
-	int32 NumNonStreamingTextures = 0;
-	int32 NonStreamingSize = 0;
+	int64 NumNonStreamingTextures = 0;
+	int64 NonStreamingSize = 0;
 	int32 NumNonStreamingPoolTextures = 0;
-	int32 NonStreamingPoolSize = 0;
-	int32 TotalSavings = 0;
+	int64 NonStreamingPoolSize = 0;
+	int64 TotalSavings = 0;
 //	int32 UITexels = 0;
 	int32 NumDXT[PF_MAX];
 	int32 NumNonSaved[PF_MAX];
@@ -4778,29 +4791,29 @@ void FStreamingManagerTexture::DumpTextureGroupStats( bool bDetailedStats )
 			Stat.WantedTextureSize += StreamingTexture.GetSize( StreamingTexture.WantedMips );
 			Stat.MaxTextureSize += StreamingTexture.GetSize( StreamingTexture.MaxAllowedMips );
 			
-			int32 WasteCurrent = StreamingTexture.GetSize( StreamingTexture.ResidentMips ) - RHICalcTexture2DPlatformSize(Texture2D->GetSizeX(), Texture2D->GetSizeY(), Texture2D->GetPixelFormat(), StreamingTexture.ResidentMips, 1, 0, TextureAlign);			
+			int64 WasteCurrent = StreamingTexture.GetSize( StreamingTexture.ResidentMips ) - RHICalcTexture2DPlatformSize(Texture2D->GetSizeX(), Texture2D->GetSizeY(), Texture2D->GetPixelFormat(), StreamingTexture.ResidentMips, 1, 0, TextureAlign);			
 
-			int32 WasteWanted = StreamingTexture.GetSize( StreamingTexture.WantedMips ) - RHICalcTexture2DPlatformSize(Texture2D->GetSizeX(), Texture2D->GetSizeY(), Texture2D->GetPixelFormat(), StreamingTexture.WantedMips, 1, 0, TextureAlign);			
+			int64 WasteWanted = StreamingTexture.GetSize( StreamingTexture.WantedMips ) - RHICalcTexture2DPlatformSize(Texture2D->GetSizeX(), Texture2D->GetSizeY(), Texture2D->GetPixelFormat(), StreamingTexture.WantedMips, 1, 0, TextureAlign);			
 
-			int32 WasteMaxSize = StreamingTexture.GetSize( StreamingTexture.MaxAllowedMips ) - RHICalcTexture2DPlatformSize(Texture2D->GetSizeX(), Texture2D->GetSizeY(), Texture2D->GetPixelFormat(), StreamingTexture.MaxAllowedMips, 1, 0, TextureAlign);			
+			int64 WasteMaxSize = StreamingTexture.GetSize( StreamingTexture.MaxAllowedMips ) - RHICalcTexture2DPlatformSize(Texture2D->GetSizeX(), Texture2D->GetSizeY(), Texture2D->GetPixelFormat(), StreamingTexture.MaxAllowedMips, 1, 0, TextureAlign);			
 
 			Waste.NumTextures++;
-			Waste.CurrentTextureSize += FMath::Max(WasteCurrent,0);
-			Waste.WantedTextureSize += FMath::Max(WasteWanted,0);
-			Waste.MaxTextureSize += FMath::Max(WasteMaxSize,0);
+			Waste.CurrentTextureSize += FMath::Max<int64>(WasteCurrent,0);
+			Waste.WantedTextureSize += FMath::Max<int64>(WasteWanted,0);
+			Waste.MaxTextureSize += FMath::Max<int64>(WasteMaxSize,0);
 		}
 		else
 		{
 			bool bIsPooledTexture = Texture->Resource && IsValidRef(Texture->Resource->TextureRHI) && appIsPoolTexture( Texture->Resource->TextureRHI );
-			int32 TextureSize = Texture->CalcTextureMemorySizeEnum(TMC_ResidentMips);
+			int64 TextureSize = Texture->CalcTextureMemorySizeEnum(TMC_ResidentMips);
 			Stat.NumNonStreamingTextures++;
 			Stat.NonStreamingSize += TextureSize;
 			if ( Texture2D && Texture2D->Resource )
 			{				
-				int32 WastedSize = TextureSize - RHICalcTexture2DPlatformSize(Texture2D->GetSizeX(), Texture2D->GetSizeY(), Texture2D->GetPixelFormat(), Texture2D->GetNumMips(), 1, 0, TextureAlign);				
+				int64 WastedSize = TextureSize - RHICalcTexture2DPlatformSize(Texture2D->GetSizeX(), Texture2D->GetSizeY(), Texture2D->GetPixelFormat(), Texture2D->GetNumMips(), 1, 0, TextureAlign);				
 
 				Waste.NumNonStreamingTextures++;
-				Waste.NonStreamingSize += FMath::Max(WastedSize, 0);
+				Waste.NonStreamingSize += FMath::Max<int64>(WastedSize, 0);
 			}
 			if ( bIsPooledTexture )
 			{
@@ -5530,8 +5543,8 @@ FStreamMemoryTracker::FStreamMemoryTracker()
 /** Track 'start streaming' on the gamethread. (Memory not yet affected.) */
 void FStreamMemoryTracker::GameThread_BeginUpdate( const UTexture2D& Texture )
 {
-	int32 ResidentSize = Texture.CalcTextureMemorySize( Texture.ResidentMips );
-	int32 RequestedSize = Texture.CalcTextureMemorySize( Texture.RequestedMips );
+	TSize ResidentSize = Texture.CalcTextureMemorySize( Texture.ResidentMips );
+	TSize RequestedSize = Texture.CalcTextureMemorySize( Texture.RequestedMips );
 
 	// Always plan on allocating temporary memory (we don't know if we're going to use in-place realloc yet).
 	FPlatformAtomics::InterlockedAdd( &PendingTempMemory, ResidentSize );	//@TODO: 0 for pre-planned in-place realloc 
@@ -5550,8 +5563,8 @@ void FStreamMemoryTracker::GameThread_BeginUpdate( const UTexture2D& Texture )
 
 void FStreamMemoryTracker::RenderThread_Update( const UTexture2D& Texture, bool bSuccessful )
 {
-	int32 ResidentSize = Texture.CalcTextureMemorySize( Texture.ResidentMips );
-	int32 RequestedSize = Texture.CalcTextureMemorySize( Texture.RequestedMips );
+	TSize ResidentSize = Texture.CalcTextureMemorySize( Texture.ResidentMips );
+	TSize RequestedSize = Texture.CalcTextureMemorySize( Texture.RequestedMips );
 
 	// We're not planning to use temp memory anymore - we're now either using it or not.
 	FPlatformAtomics::InterlockedAdd( &PendingTempMemory, -ResidentSize );		//@TODO: 0 for pre-planned in-place realloc
@@ -5573,8 +5586,8 @@ void FStreamMemoryTracker::RenderThread_Update( const UTexture2D& Texture, bool 
 
 void FStreamMemoryTracker::RenderThread_Finalize( const UTexture2D& Texture, bool bSuccessful )
 {
-	int32 ResidentSize = Texture.CalcTextureMemorySize( Texture.ResidentMips );
-	int32 RequestedSize = Texture.CalcTextureMemorySize( Texture.RequestedMips );
+	TSize ResidentSize = Texture.CalcTextureMemorySize( Texture.ResidentMips );
+	TSize RequestedSize = Texture.CalcTextureMemorySize( Texture.RequestedMips );
 
 	// When not using in-place realloc, track freed temp memory.
 	FPlatformAtomics::InterlockedAdd( &CurrentTempMemory, -ResidentSize );	
@@ -5588,20 +5601,20 @@ void FStreamMemoryTracker::RenderThread_Finalize( const UTexture2D& Texture, boo
 }
 
 /** Calculate how much texture memory is currently available for streaming. */
-int32 FStreamMemoryTracker::CalcAvailableNow( int32 TotalFreeMemory, int32 MemoryMargin )
+FStreamMemoryTracker::TSize FStreamMemoryTracker::CalcAvailableNow( FStreamMemoryTracker::TSize TotalFreeMemory, FStreamMemoryTracker::TSize MemoryMargin )
 {
 	// Conservative.
 	return TotalFreeMemory - PendingStreamIn - PendingTempMemory - MemoryMargin;
 }
 
 /** Calculate how much texture memory will available later for streaming. */
-int32 FStreamMemoryTracker::CalcAvailableLater( int32 TotalFreeMemory, int32 MemoryMargin )
+FStreamMemoryTracker::TSize FStreamMemoryTracker::CalcAvailableLater( FStreamMemoryTracker::TSize TotalFreeMemory, FStreamMemoryTracker::TSize MemoryMargin )
 {
 	return TotalFreeMemory - PendingStreamIn + CurrentStreamOut + CurrentTempMemory - MemoryMargin;
 }
 
 /** Calculate how much texture memory is currently being used for temporary texture data during streaming. */
-int32 FStreamMemoryTracker::CalcTempMemory()
+FStreamMemoryTracker::TSize FStreamMemoryTracker::CalcTempMemory()
 {
 	return PendingTempMemory + CurrentTempMemory;
 }

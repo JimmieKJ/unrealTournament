@@ -1,0 +1,21 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "StructBox",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.8.0",
+	"Description" : "Adds new struct type, that can contain any other struct",
+	"Category" : "Blueprints",
+	"IsBetaVersion" : true,
+
+	"Modules" :
+	[
+		{
+			"Name" : "StructBox",
+			"Type" : "Runtime"
+		}
+	]
+}

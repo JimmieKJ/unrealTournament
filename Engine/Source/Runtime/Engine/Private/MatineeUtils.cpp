@@ -352,7 +352,7 @@ namespace FMatineeUtils
 				{
 					// Now look for a component
 					const FName TrialCompName(*CompString);
-					const FName RemappedCompName = ULinkerLoad::FindSubobjectRedirectName(TrialCompName);
+					const FName RemappedCompName = FLinkerLoad::FindSubobjectRedirectName(TrialCompName);
 					const FName CompName = (RemappedCompName != NAME_None) ? RemappedCompName : TrialCompName;
 
 					TArray<UObject*> Components;

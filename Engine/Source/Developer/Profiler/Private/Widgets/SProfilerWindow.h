@@ -68,7 +68,7 @@ private:
 	 * @param  InCurrentTime  Current absolute real time
 	 * @param  InDeltaTime  Real time passed since last tick
 	 */
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
+	//virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 	/**
 	 * The system will use this event to notify a widget that the cursor has entered it. This event is NOT bubbled.
@@ -115,10 +115,17 @@ private:
 	 */
 	virtual FReply OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )  override;
 
+	/** Updates the amount of time the profiler has been active */
+	EActiveTimerReturnType UpdateActiveDuration( double InCurrentTime, float InDeltaTime );
+
+	/** The handle to the active update duration tick */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandle;
+
 	/** Holds all widgets for the profiler window like menu bar, toolbar and tabs. */
 	TSharedPtr<SVerticalBox> MainContentPanel;
 
 public:
+	
 	/** Holds all event graphs. */
 	TSharedPtr<SVerticalBox> EventGraphPanel;
 
@@ -146,7 +153,4 @@ public:
 
 	/** The number of seconds the profiler has been active */
 	float	DurationActive;
-
-	/** Whether or not the profiler widget is being used */
-	bool	bIsActive;
 };

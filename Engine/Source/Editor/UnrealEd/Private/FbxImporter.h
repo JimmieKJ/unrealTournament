@@ -145,6 +145,7 @@ struct FBXImportOptions
 	struct FIntPoint AnimationRange;
 	FString AnimationName;
 	bool	bPreserveLocalTransform;
+	bool	bDeleteExistingMorphTargetCurves;
 	bool	bImportCustomAttribute;
 
 	bool ShouldImportNormals()

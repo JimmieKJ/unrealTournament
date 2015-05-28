@@ -23,6 +23,7 @@ class UK2Node_FunctionResult : public UK2Node_FunctionTerminator
 	// End UK2Node interface
 
 	// Begin K2Node_FunctionTerminator interface
+	virtual bool CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage) override;
 	virtual UEdGraphPin* CreatePinFromUserDefinition(const TSharedPtr<FUserPinInfo> NewPinInfo) override;
 	// End K2Node_FunctionTerminator interface
 };

@@ -298,12 +298,6 @@ SDL_X11_SYM(Bool,XF86VidModeSwitchToMode,(Display *a,int b,XF86VidModeModeInfo *
 SDL_X11_SYM(Bool,XF86VidModeLockModeSwitch,(Display *a,int b,int c),(a,b,c),return)
 #endif
 
-/* EG BEGIN */
-#ifdef SDL_WITH_EPIC_EXTENSIONS
-SDL_X11_SYM(int,XSetWMHints,(Display *a, Window b, XWMHints *c),(a,b,c), return)
-#endif /* SDL_WITH_EPIC_EXTENSIONS */
-/* EG END */
-
 /* *INDENT-ON* */
 
 /* vi: set ts=4 sw=4 expandtab: */

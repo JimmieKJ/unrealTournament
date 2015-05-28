@@ -22,12 +22,11 @@ public:
 
 FORCEINLINE FScaleRotationTranslationMatrix::FScaleRotationTranslationMatrix(const FVector& Scale, const FRotator& Rot, const FVector& Origin)
 {
-	const float	SR	= FMath::Sin(Rot.Roll * PI / 180.f);
-	const float	SP	= FMath::Sin(Rot.Pitch * PI / 180.f);
-	const float	SY	= FMath::Sin(Rot.Yaw * PI / 180.f);
-	const float	CR	= FMath::Cos(Rot.Roll * PI / 180.f);
-	const float	CP	= FMath::Cos(Rot.Pitch * PI / 180.f);
-	const float	CY	= FMath::Cos(Rot.Yaw * PI / 180.f);
+	float SP, SY, SR;
+	float CP, CY, CR;
+	FMath::SinCos(&SP, &CP, FMath::DegreesToRadians(Rot.Pitch));
+	FMath::SinCos(&SY, &CY, FMath::DegreesToRadians(Rot.Yaw));
+	FMath::SinCos(&SR, &CR, FMath::DegreesToRadians(Rot.Roll));
 
 	M[0][0]	= (CP * CY) * Scale.X;
 	M[0][1]	= (CP * SY) * Scale.X;

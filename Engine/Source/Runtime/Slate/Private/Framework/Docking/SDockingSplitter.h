@@ -12,7 +12,7 @@ public:
 
 	void Construct( const FArguments& InArgs, const TSharedRef<FTabManager::FSplitter>& PersistentNode );
 
-	virtual Type GetNodeType() const
+	virtual Type GetNodeType() const override
 	{
 		return SDockingNode::DockSplitter;
 	}

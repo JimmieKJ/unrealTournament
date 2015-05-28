@@ -15,6 +15,7 @@
 #include "GameProjectGenerationModule.h"
 #include "Factories/PackFactory.h"
 #include "GameFramework/InputSettings.h"
+#include "Dialogs/SOutputLogDialog.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogPackFactory, Log, All);
 
@@ -132,9 +133,21 @@ namespace PackFactoryHelper
 		MemReader << FileContents;
 	}
 
+	struct FPackConfigParameters
+	{
+		FPackConfigParameters()
+			: bContainsSource(false)
+		{
+		}
+
+		bool bContainsSource;
+		FString GameName;
+		TArray<FString> AdditionalFilesToAdd;
+	};
+
 	// Takes a string that represents the contents of a config file and sets up the supported config properties based on it
 	// Currently we support Action and Axis Mappings and a GameName (for setting up redirects)
-	void ProcessPackConfig(const FString& ConfigString, TMap<FString, FString>& ConfigParameters)
+	void ProcessPackConfig(const FString& ConfigString, FPackConfigParameters& ConfigParameters)
 	{
 		FConfigFile PackConfig;
 		PackConfig.ProcessInputFileContents(ConfigString);
@@ -228,7 +241,48 @@ namespace PackFactoryHelper
 		{	
 			if (FString* GameName = RedirectsSection->Find("GameName"))
 			{
-				ConfigParameters.Add("GameName", *GameName);
+				ConfigParameters.GameName = *GameName;
+			}
+		}
+
+		FConfigSection* AdditionalFilesSection = PackConfig.Find("AdditionalFilesToAdd");
+		if (AdditionalFilesSection)
+		{
+			for (auto FilePair : *AdditionalFilesSection)
+			{
+				if (FilePair.Key.ToString().Contains("Files"))
+				{
+					FString Filename = FPaths::GetCleanFilename(FilePair.Value);
+					FString Directory = FPaths::RootDir() / FPaths::GetPath(FilePair.Value);
+					FPaths::MakeStandardFilename(Directory);
+					FPakFile::MakeDirectoryFromPath(Directory);
+
+					if (Filename.Contains(TEXT("*")))
+					{
+						TArray<FString> FoundFiles;
+						IFileManager::Get().FindFilesRecursive(FoundFiles, *Directory, *Filename, true, false);
+						ConfigParameters.AdditionalFilesToAdd.Append(FoundFiles);
+						if (!ConfigParameters.bContainsSource)
+						{
+							for (const FString& FoundFile : FoundFiles)
+							{
+								if (FoundFile.StartsWith(TEXT("Source/")) || FoundFile.Contains(TEXT("/Source/")))
+								{
+									ConfigParameters.bContainsSource = true;
+									break;
+								}
+							}
+						}
+					}
+					else
+					{
+						ConfigParameters.AdditionalFilesToAdd.Add(Directory / Filename);
+						if (!ConfigParameters.bContainsSource && (ConfigParameters.AdditionalFilesToAdd.Last().StartsWith(TEXT("Source/")) || ConfigParameters.AdditionalFilesToAdd.Last().Contains(TEXT("/Source/"))))
+						{
+							ConfigParameters.bContainsSource = true;
+						}
+					}
+				}
 			}
 		}
 	}
@@ -255,7 +309,6 @@ UObject* UPackFactory::FactoryCreateBinary
 	if (PakFile.IsValid())
 	{
 		static FString ContentFolder(TEXT("/Content/"));
-		static FString SourceFolder(TEXT("/Source/"));
 		FString ContentDestinationRoot = FPaths::GameContentDir();
 
 		const int32 ChopIndex = PakFile.GetMountPoint().Find(ContentFolder);
@@ -264,15 +317,14 @@ UObject* UPackFactory::FactoryCreateBinary
 			ContentDestinationRoot /= PakFile.GetMountPoint().RightChop(ChopIndex + ContentFolder.Len());
 		}
 
-		TArray<uint8> Buffer;
+		TArray<uint8> CopyBuffer;
 		TArray<uint8> PersistentCompressionBuffer;
-		Buffer.AddUninitialized(8 * 1024 * 1024); // 8MB buffer for extracting
+		CopyBuffer.AddUninitialized(8 * 1024 * 1024); // 8MB buffer for extracting
 		int32 ErrorCount = 0;
 		int32 FileCount = 0;
 
-		bool bContainsSource = false;
 		FModuleContextInfo SourceModuleInfo;
-		TMap<FString, FString> ConfigParameters;
+		PackFactoryHelper::FPackConfigParameters ConfigParameters;
 
 		TArray<FString> WrittenFiles;
 		TArray<FString> WrittenSourceFiles;
@@ -290,7 +342,7 @@ UObject* UPackFactory::FactoryCreateBinary
 				if (EntryInfo == Entry)
 				{
 					FString ConfigString;
-					PackFactoryHelper::ExtractFileToString(Entry, PakReader, Buffer, PersistentCompressionBuffer, ConfigString);
+					PackFactoryHelper::ExtractFileToString(Entry, PakReader, CopyBuffer, PersistentCompressionBuffer, ConfigString);
 					PackFactoryHelper::ProcessPackConfig(ConfigString, ConfigParameters);
 				}
 				else
@@ -299,9 +351,9 @@ UObject* UPackFactory::FactoryCreateBinary
 					ErrorCount++;
 				}
 			}
-			else if (!bContainsSource && (It.Filename().StartsWith(TEXT("Source/")) || It.Filename().Contains(TEXT("/Source/"))))
+			else if (!ConfigParameters.bContainsSource && (It.Filename().StartsWith(TEXT("Source/")) || It.Filename().Contains(TEXT("/Source/"))))
 			{
-				bContainsSource = true;
+				ConfigParameters.bContainsSource = true;
 			}
 		}
 
@@ -309,7 +361,7 @@ UObject* UPackFactory::FactoryCreateBinary
 
 		// If we have source files, set up the project files if necessary and the game name redirects for blueprints saved with class
 		// references to the module name from the source template
-		if (bContainsSource)
+		if (ConfigParameters.bContainsSource)
 		{
 			FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
 			bProjectHadSourceFiles = GameProjectModule.Get().ProjectHasCodeFiles();
@@ -337,7 +389,7 @@ UObject* UPackFactory::FactoryCreateBinary
 					SourceModuleInfo = ModuleInfo;
 
 					// Setup the game name redirect
-					if (FString* GameName = ConfigParameters.Find("GameName"))
+					if (!ConfigParameters.GameName.IsEmpty())
 					{
 						const FString EngineIniFilename = FPaths::ConvertRelativePathToFull(GetDefault<UEngine>()->GetDefaultConfigFilename());
 
@@ -352,7 +404,7 @@ UObject* UPackFactory::FactoryCreateBinary
 						}
 
 						const FString RedirectsSection(TEXT("/Script/Engine.Engine"));
-						const FString LongOldGameName = FString::Printf(TEXT("/Script/%s"), **GameName);
+						const FString LongOldGameName = FString::Printf(TEXT("/Script/%s"), *ConfigParameters.GameName);
 						const FString LongNewGameName = FString::Printf(TEXT("/Script/%s"), *ModuleInfo.ModuleName);
 						
 						FConfigCacheIni Config(EConfigCacheType::Temporary);
@@ -361,15 +413,15 @@ UObject* UPackFactory::FactoryCreateBinary
 						FConfigSection* PackageRedirects = Config.GetSectionPrivate(*RedirectsSection, true, false, EngineIniFilename);
 
 						PackageRedirects->Add(TEXT("+ActiveGameNameRedirects"), FString::Printf(TEXT("(OldGameName=\"%s\",NewGameName=\"%s\")"), *LongOldGameName, *LongNewGameName));
-						PackageRedirects->Add(TEXT("+ActiveGameNameRedirects"), FString::Printf(TEXT("(OldGameName=\"%s\",NewGameName=\"%s\")"), **GameName, *LongNewGameName));
+						PackageRedirects->Add(TEXT("+ActiveGameNameRedirects"), FString::Printf(TEXT("(OldGameName=\"%s\",NewGameName=\"%s\")"), *ConfigParameters.GameName, *LongNewGameName));
 
 						NewFile.UpdateSections(*EngineIniFilename, *RedirectsSection);
 
 						FString FinalIniFileName;
-						GConfig->LoadGlobalIniFile(FinalIniFileName, *RedirectsSection, NULL, NULL, true);
+						GConfig->LoadGlobalIniFile(FinalIniFileName, *RedirectsSection, NULL, true);
 
-						ULinkerLoad::AddGameNameRedirect(*LongOldGameName, *LongNewGameName);
-						ULinkerLoad::AddGameNameRedirect(**GameName, *LongNewGameName);
+						FLinkerLoad::AddGameNameRedirect(*LongOldGameName, *LongNewGameName);
+						FLinkerLoad::AddGameNameRedirect(*ConfigParameters.GameName, *LongNewGameName);
 					}
 					break;
 				}
@@ -407,7 +459,7 @@ UObject* UPackFactory::FactoryCreateBinary
 					}
 					else 
 					{
-						const int32 SourceIndex = DestFilename.Find(SourceFolder);
+						const int32 SourceIndex = DestFilename.Find(TEXT("/Source/"));
 						if (SourceIndex != INDEX_NONE)
 						{
 							DestFilename = DestFilename.RightChop(SourceIndex + 8);
@@ -418,10 +470,10 @@ UObject* UPackFactory::FactoryCreateBinary
 					UE_LOG(LogPackFactory, Log, TEXT("%s (%ld) -> %s"), *It.Filename(), Entry.Size, *DestFilename);
 
 					FString SourceContents;
-					PackFactoryHelper::ExtractFileToString(Entry, PakReader, Buffer, PersistentCompressionBuffer, SourceContents);
+					PackFactoryHelper::ExtractFileToString(Entry, PakReader, CopyBuffer, PersistentCompressionBuffer, SourceContents);
 
 					FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
-					FString StringToReplace = *ConfigParameters.Find("GameName");
+					FString StringToReplace = ConfigParameters.GameName;
 					StringToReplace += ".h";
 					SourceContents = SourceContents.Replace(*StringToReplace, *GameProjectModule.Get().DetermineModuleIncludePath(SourceModuleInfo, DestFilename), ESearchCase::CaseSensitive);
 
@@ -458,7 +510,7 @@ UObject* UPackFactory::FactoryCreateBinary
 
 					if (FileHandle.IsValid())
 					{
-						PackFactoryHelper::ExtractFile(Entry, PakReader, Buffer, PersistentCompressionBuffer, *FileHandle);
+						PackFactoryHelper::ExtractFile(Entry, PakReader, CopyBuffer, PersistentCompressionBuffer, *FileHandle);
 						WrittenFiles.Add(*DestFilename);
 					}
 					else
@@ -477,6 +529,97 @@ UObject* UPackFactory::FactoryCreateBinary
 
 		UE_LOG(LogPackFactory, Log, TEXT("Finished extracting %d files (including %d errors)."), FileCount, ErrorCount);
 
+		if (ConfigParameters.AdditionalFilesToAdd.Num() > 0)
+		{
+			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+
+			for (const FString& FileToCopy : ConfigParameters.AdditionalFilesToAdd)
+			{
+				if (FileToCopy.StartsWith(TEXT("Source/")) || FileToCopy.Contains(TEXT("/Source/")))
+				{
+					FString DestFilename = FileToCopy;
+					if (DestFilename.StartsWith(TEXT("Source/")))
+					{
+						DestFilename = DestFilename.RightChop(7);
+					}
+					else 
+					{
+						const int32 SourceIndex = DestFilename.Find(TEXT("/Source/"));
+						if (SourceIndex != INDEX_NONE)
+						{
+							DestFilename = DestFilename.RightChop(SourceIndex + 8);
+						}
+					}
+					DestFilename = SourceModuleInfo.ModuleSourcePath / DestFilename;
+
+					FString DestDirectory = FPaths::GetPath(DestFilename);
+
+					if (PlatformFile.CreateDirectoryTree(*DestDirectory))
+					{
+						FString SourceContents;
+						if (FFileHelper::LoadFileToString(SourceContents, *FileToCopy))
+						{
+							FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
+							FString StringToReplace = ConfigParameters.GameName;
+							StringToReplace += ".h";
+							SourceContents = SourceContents.Replace(*StringToReplace, *GameProjectModule.Get().DetermineModuleIncludePath(SourceModuleInfo, DestFilename), ESearchCase::CaseSensitive);
+
+							if (FFileHelper::SaveStringToFile(SourceContents, *DestFilename))
+							{
+								WrittenFiles.Add(*DestFilename);
+								WrittenSourceFiles.Add(*DestFilename);
+							}
+							else
+							{
+								UE_LOG(LogPackFactory, Error, TEXT("Unable to write file \"%s\"."), *DestFilename);
+								++ErrorCount;
+							}
+						}
+						else
+						{
+							UE_LOG(LogPackFactory, Error, TEXT("Unable to read file \"%s\"."), *FileToCopy);
+						}
+					}
+				}
+				else
+				{
+					FString DestFilename = FileToCopy;
+					if (DestFilename.StartsWith(TEXT("Content/")))
+					{
+						DestFilename = DestFilename.RightChop(8);
+					}
+					else
+					{
+						const int32 ContentIndex = DestFilename.Find(ContentFolder);
+						if (ContentIndex != INDEX_NONE)
+						{
+							DestFilename = DestFilename.RightChop(ContentIndex + 9);
+						}
+					}
+					DestFilename = ContentDestinationRoot / DestFilename;
+
+					FString DestDirectory = FPaths::GetPath(DestFilename);
+
+					if (PlatformFile.CreateDirectoryTree(*DestDirectory))
+					{
+						if (PlatformFile.CopyFile(*DestFilename, *FileToCopy))
+						{
+							WrittenFiles.Add(DestFilename);
+							UE_LOG(LogPackFactory, Log, TEXT("Copied \"%s\" to \"%s\""), *FileToCopy, *DestFilename);
+						}
+						else
+						{
+							UE_LOG(LogPackFactory, Error, TEXT("Unable to copy file \"%s\" to \"%s\"."), *FileToCopy, *DestFilename);
+						}
+					}
+					else
+					{
+						UE_LOG(LogPackFactory, Error, TEXT("Unable to create directory \"%s\"."), *FileToCopy, *DestFilename);
+					}
+				}
+			}
+		}
+
 		if (WrittenFiles.Num() > 0)
 		{
 			// If we wrote out source files, kick off the hot reload process
@@ -484,10 +627,10 @@ UObject* UPackFactory::FactoryCreateBinary
 			{
 				// Update the game projects before we attempt to build
 				FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
-				FText FailReason;
-				if (!GameProjectModule.UpdateCodeProject(FailReason))
+				FText FailReason, FailLog;
+				if (!GameProjectModule.UpdateCodeProject(FailReason, FailLog))
 				{
-					FMessageDialog::Open(EAppMsgType::Ok, FailReason);
+					SOutputLogDialog::Open(NSLOCTEXT("PackFactory", "CreateBinary", "Create binary"), FailReason, FailLog, FText::GetEmpty());
 				}
 
 				// Compile the new code, either using the in editor hot-reload (if an existing module), or as a brand new module (if no existing code)

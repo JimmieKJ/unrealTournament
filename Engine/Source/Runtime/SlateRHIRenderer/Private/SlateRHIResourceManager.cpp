@@ -6,6 +6,10 @@
 #include "SlateUTextureResource.h"
 #include "SlateMaterialResource.h"
 
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Texture Atlases"), STAT_SlateNumTextureAtlases, STATGROUP_SlateMemory);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Non-Atlased Textures"), STAT_SlateNumNonAtlasedTextures, STATGROUP_SlateMemory);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Dynamic Textures"), STAT_SlateNumDynamicTextures, STATGROUP_SlateMemory);
+
 TSharedPtr<FSlateDynamicTextureResource> FDynamicResourceMap::GetDynamicTextureResource( FName ResourceName ) const
 {
 	return NativeTextureMap.FindRef( ResourceName );
@@ -96,23 +100,11 @@ void FDynamicResourceMap::ReleaseResources()
 		BeginReleaseResource(It.Value()->RHIRefTexture);
 	}
 	
-	for (TMap<UObject*, TSharedPtr<FSlateUTextureResource> >::TIterator It(UTextureResourceMap); It; ++It)
+	for (TMap<TWeakObjectPtr<UTexture2D>, TSharedPtr<FSlateUTextureResource> >::TIterator It(UTextureResourceMap); It; ++It)
 	{
 		It.Value()->UpdateRenderResource(nullptr);
 	}
 
-}
-
-void FDynamicResourceMap::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	for(TMap<UObject*, TSharedPtr<FSlateUTextureResource> >::TIterator It(UTextureResourceMap); It; ++It)
-	{
-		TSharedPtr<FSlateUTextureResource>& Resource = It.Value();
-		if (Resource.IsValid() && Resource->TextureObject != nullptr)
-		{
-			Collector.AddReferencedObject(Resource->TextureObject);
-		}
-	}
 }
 
 
@@ -178,8 +170,6 @@ bool FSlateRHIResourceManager::IsAtlasPageResourceAlphaOnly() const
 
 void FSlateRHIResourceManager::CreateTextures( const TArray< const FSlateBrush* >& Resources )
 {
-	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("Loading Slate Textures"), STAT_Slate, STATGROUP_LoadTime);
-
 	TMap<FName,FNewTextureInfo> TextureInfoMap;
 
 	const uint32 Stride = GPixelFormats[PF_R8G8B8A8].BlockBytes;
@@ -367,9 +357,16 @@ static void LoadUObjectForBrush( const FSlateBrush& InBrush )
 		// Set the texture object to a default texture to prevent constant loading of missing textures
 		if( !TextureObject )
 		{
+			UE_LOG(LogSlate, Warning, TEXT("Error loading loading UTexture from path: %s not found"), *Path);
 			TextureObject = GEngine->DefaultTexture;
 		}
+		else
+		{
+			// We do this here because this deprecated system of loading textures will not report references and we dont want the Slate RHI resource manager to manage references
+			TextureObject->AddToRoot();
+		}
 
+		
 		Brush->SetResourceObject(TextureObject);
 
 		UE_LOG(LogSlate, Warning, TEXT("The texture:// method of loading UTextures for use in Slate is deprecated.  Please convert %s to a Brush Asset"), *Path);
@@ -417,7 +414,7 @@ TSharedPtr<FSlateDynamicTextureResource> FSlateRHIResourceManager::MakeDynamicTe
 	// Get a resource from the free list if possible
 	if(DynamicTextureFreeList.Num() > 0)
 	{
-		TextureResource = DynamicTextureFreeList.Pop();
+		TextureResource = DynamicTextureFreeList.Pop(/*bAllowShrinking=*/ false);
 	}
 	else
 	{
@@ -485,7 +482,7 @@ TSharedPtr<FSlateUTextureResource> FSlateRHIResourceManager::MakeDynamicUTexture
 		// Get a resource from the free list if possible
 		if (UTextureFreeList.Num() > 0)
 		{
-			TextureResource = UTextureFreeList.Pop(); 
+			TextureResource = UTextureFreeList.Pop(/*bAllowShrinking=*/ false);
 			TextureResource->TextureObject = InTextureObject;
 		}
 		else
@@ -518,8 +515,6 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::FindOrCreateDynamicTextureR
 	const FName ResourceName = InBrush.GetResourceName();
 	if ( ResourceName.IsValid() && ResourceName != NAME_None )
 	{
-		TSharedPtr<FSlateUTextureResource> TextureResource ;
-
 		if( InBrush.GetResourceObject() != nullptr )
 		{
 			UTexture2D* TextureObject = CastChecked<UTexture2D>(InBrush.GetResourceObject());
@@ -537,8 +532,8 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::FindOrCreateDynamicTextureR
 
 			if(TextureResource.IsValid())
 			{
-				UTexture2D* TextureObject = TextureResource->TextureObject;
-				if(TextureObject && !AccessedUTextures.Contains(TextureObject) && TextureObject->Resource)
+				UTexture2D* Texture2DObject = TextureResource->TextureObject;
+				if(Texture2DObject && !AccessedUTextures.Contains(Texture2DObject) && Texture2DObject->Resource)
 				{
 					// Set the texture rendering resource that should be used.  The UTexture resource could change at any time so we must do this each frame
 					ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(UpdateSlateUTextureResource,
@@ -555,7 +550,7 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::FindOrCreateDynamicTextureR
 						});
 
 				
-					AccessedUTextures.Add(TextureObject);
+					AccessedUTextures.Add(Texture2DObject);
 				}
 
 				return TextureResource->Proxy;
@@ -592,7 +587,7 @@ FSlateShaderResourceProxy* FSlateRHIResourceManager::FindOrCreateDynamicTextureR
 
 FSlateShaderResourceProxy* FSlateRHIResourceManager::GetMaterialResource(const FSlateBrush& InBrush)
 {
-	check(IsInGameThread());
+	check(IsThreadSafeForSlateRendering());
 
 	const FName ResourceName = InBrush.GetResourceName();
 
@@ -759,7 +754,7 @@ void FSlateRHIResourceManager::DeleteResources()
 	{
 		delete NonAtlasedTextures[ResourceIndex];
 	}
-	SET_DWORD_STAT(STAT_SlateNumNonAtlasedTextures, 0 );
+	SET_DWORD_STAT(STAT_SlateNumNonAtlasedTextures, 0);
 	SET_DWORD_STAT(STAT_SlateNumTextureAtlases, 0);
 	SET_DWORD_STAT(STAT_SlateNumDynamicTextures, 0);
 

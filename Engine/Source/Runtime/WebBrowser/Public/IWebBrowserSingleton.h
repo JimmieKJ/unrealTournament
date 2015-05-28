@@ -25,7 +25,9 @@ public:
 	 * @param Width Initial width of the browser
 	 * @param Height Initial height of the browser
 	 * @param bUseTransparency Whether to allow transparent rendering of pages
+	 * @param ContentsToLoad Optional string to load as a web page
+	 * @param ShowErrorMessage Whether to show an error message in case of loading errors.
 	 * @return New Web Browser Window Interface (may be null if not supported)
 	 */
-	virtual TSharedPtr<IWebBrowserWindow> CreateBrowserWindow(void* OSWindowHandle, FString InitialURL, uint32 Width, uint32 Height, bool bUseTransparency) = 0;
+	virtual TSharedPtr<IWebBrowserWindow> CreateBrowserWindow(void* OSWindowHandle, FString InitialURL, uint32 Width, uint32 Height, bool bUseTransparency, TOptional<FString> ContentsToLoad = TOptional<FString>(), bool ShowErrorMessage = true) = 0;
 };

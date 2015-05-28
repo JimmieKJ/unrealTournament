@@ -4,7 +4,7 @@
 
 #include "BlueprintGraphDefinitions.h"
 #include "GraphEditorSettings.h"
-
+#include "NiagaraComponent.h"
 
 #include "INiagaraEditor.h"
 #include "INiagaraCompiler.h"
@@ -12,6 +12,11 @@
 #define LOCTEXT_NAMESPACE "NiagaraSchema"
 
 #define SNAP_GRID (16) // @todo ensure this is the same as SNodePanel::GetSnapGridSize()
+
+const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_Attribute = FLinearColor::Green;
+const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_Constant = FLinearColor::Red;
+const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_SystemConstant = FLinearColor::White;
+const FLinearColor UEdGraphSchema_Niagara::NodeTitleColor_FunctionCall = FLinearColor::Blue;
 
 namespace 
 {
@@ -102,6 +107,7 @@ UEdGraphSchema_Niagara::UEdGraphSchema_Niagara(const FObjectInitializer& ObjectI
 	PC_Float = TEXT("float");
 	PC_Vector = TEXT("vector");
 	PC_Matrix = TEXT("matrix");
+	PC_Curve = TEXT("curve");
 }
 
 TSharedPtr<FNiagaraSchemaAction_NewNode> AddNewNodeAction(FGraphContextMenuBuilder& ContextMenuBuilder, const FString& Category, const FText& MenuDesc, const FString& Tooltip)
@@ -114,81 +120,80 @@ TSharedPtr<FNiagaraSchemaAction_NewNode> AddNewNodeAction(FGraphContextMenuBuild
 void UEdGraphSchema_Niagara::GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const
 {
 	const UNiagaraGraph* NiagaraGraph = CastChecked<UNiagaraGraph>(ContextMenuBuilder.CurrentGraph);
-	UNiagaraScriptSource* Source = NiagaraGraph->GetSource();
 
-	TArray<FName> InputAttributeNames;
-	Source->GetParticleAttributes(InputAttributeNames);
-	for(int32 i=0; i<InputAttributeNames.Num(); i++)
+	//Add menu options for Attributes currently defined by the output node.
+	const UNiagaraNodeOutput* OutNode = NiagaraGraph->FindOutputNode();
+	if (OutNode)
 	{
-		const FName AttrName = InputAttributeNames[i];
+		for (int32 i = 0; i < OutNode->Outputs.Num(); i++)
+		{
+			const FNiagaraVariableInfo Attr = OutNode->Outputs[i];
 
-		FFormatNamedArguments Args;
-		Args.Add(TEXT("Attribute"), FText::FromName(AttrName));
-		const FText MenuDesc = FText::Format(NSLOCTEXT("Niagara", "GetAttribute", "Get {Attribute}"), Args);
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("Attribute"), FText::FromName(Attr.Name));
+			const FText MenuDesc = FText::Format(LOCTEXT("GetAttribute", "Get {Attribute}"), Args);
 
-		TSharedPtr<FNiagaraSchemaAction_NewNode> GetAttrAction = AddNewNodeAction(ContextMenuBuilder, TEXT("Get Attribute"), MenuDesc, TEXT(""));
+			TSharedPtr<FNiagaraSchemaAction_NewNode> GetAttrAction = AddNewNodeAction(ContextMenuBuilder, *LOCTEXT("Attributes Menu Title", "Attributes").ToString(), MenuDesc, TEXT(""));
 
-		UNiagaraNodeGetAttr* GetAttrNode = NewObject<UNiagaraNodeGetAttr>(ContextMenuBuilder.OwnerOfTemporaries);
-		GetAttrNode->AttrName = AttrName;
-		GetAttrAction->NodeTemplate = GetAttrNode;
-	}
-
-	TArray<FName> EmitterConstantNames_Vectors;
-	TArray<FName> EmitterConstantNames_Matrices;
-	Source->GetEmitterAttributes(EmitterConstantNames_Vectors, EmitterConstantNames_Matrices);
-	for (int32 i = 0; i < EmitterConstantNames_Vectors.Num(); i++)
-	{
-		const FName ConstName = EmitterConstantNames_Vectors[i];
-
-		FFormatNamedArguments Args;
-		Args.Add(TEXT("Constant"), FText::FromName(ConstName));
-		const FText MenuDesc = FText::Format(NSLOCTEXT("Niagara", "GetConstant", "Get {Constant}"), Args);
-
-		TSharedPtr<FNiagaraSchemaAction_NewNode> GetAttrAction = AddNewNodeAction(ContextMenuBuilder, TEXT("Get Constant"), MenuDesc, TEXT(""));
-
-		UNiagaraNodeConstant* GetConstNode = NewObject<UNiagaraNodeConstant>(ContextMenuBuilder.OwnerOfTemporaries);
-		GetConstNode->ConstName = ConstName;
-		GetConstNode->DataType = ENiagaraDataType::Vector;
-		GetConstNode->bNeedsDefault = false;
-		GetAttrAction->NodeTemplate = GetConstNode;
-	}
-
-	for (int32 i = 0; i < EmitterConstantNames_Matrices.Num(); i++)
-	{
-		const FName ConstName = EmitterConstantNames_Matrices[i];
-
-		FFormatNamedArguments Args;
-		Args.Add(TEXT("Constant"), FText::FromName(ConstName));
-		const FText MenuDesc = FText::Format(NSLOCTEXT("Niagara", "GetConstant", "Get {Constant}"), Args);
-
-		TSharedPtr<FNiagaraSchemaAction_NewNode> GetAttrAction = AddNewNodeAction(ContextMenuBuilder, TEXT("Get Constant"), MenuDesc, TEXT(""));
-
-		UNiagaraNodeConstant* GetConstNode = NewObject<UNiagaraNodeConstant>(ContextMenuBuilder.OwnerOfTemporaries);
-		GetConstNode->ConstName = ConstName;
-		GetConstNode->DataType = ENiagaraDataType::Matrix;
-		GetConstNode->bNeedsDefault = false;
-		GetAttrAction->NodeTemplate = GetConstNode;
+			UNiagaraNodeInput* InputNode = NewObject<UNiagaraNodeInput>(ContextMenuBuilder.OwnerOfTemporaries);
+			InputNode->Input = Attr;
+			GetAttrAction->NodeTemplate = InputNode;
+		}
 	}
 
 #define NiagaraOp(OPNAME) \
 		if(const FNiagaraOpInfo* OpInfo = FNiagaraOpInfo::GetOpInfo(FNiagaraOpInfo::OPNAME))\
 		{\
-			TSharedPtr<FNiagaraSchemaAction_NewNode> AddOpAction = AddNewNodeAction(ContextMenuBuilder, TEXT("Add Operation"), OpInfo->FriendlyName, TEXT(""));\
+		TSharedPtr<FNiagaraSchemaAction_NewNode> AddOpAction = AddNewNodeAction(ContextMenuBuilder, *LOCTEXT("Operations Menu Title", "Operations").ToString(), OpInfo->FriendlyName, TEXT("")); \
 			UNiagaraNodeOp* OpNode = NewObject<UNiagaraNodeOp>(ContextMenuBuilder.OwnerOfTemporaries); \
 			OpNode->OpName = OpInfo->Name; \
 			AddOpAction->NodeTemplate = OpNode; \
 		}
 
-		
 	NiagaraOpList
 
 #undef NiagaraOp
 
-	UNiagaraNodeConstant* ConstantNode = NewObject<UNiagaraNodeConstant>(ContextMenuBuilder.OwnerOfTemporaries);
-	ConstantNode->DataType = ENiagaraDataType::Vector;
-	ConstantNode->bNeedsDefault = true;
-	TSharedPtr<FNiagaraSchemaAction_NewNode> AddOpAction = AddNewNodeAction(ContextMenuBuilder, TEXT("Constants"), ConstantNode->GetNodeTitle(ENodeTitleType::ListView), TEXT(""));
-	AddOpAction->NodeTemplate = ConstantNode;
+	//Emitter constants managed by the system.
+	const TArray<FNiagaraVariableInfo>& SystemConstants = UNiagaraComponent::GetSystemConstants();
+	for (const FNiagaraVariableInfo& SysConst : SystemConstants)
+	{
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("Constant"), FText::FromName(SysConst.Name));
+		const FText MenuDesc = FText::Format(LOCTEXT("GetSystemConstant", "Get {Constant}"), Args);
+
+		TSharedPtr<FNiagaraSchemaAction_NewNode> GetConstAction = AddNewNodeAction(ContextMenuBuilder, *LOCTEXT("System Constants Menu Title", "System Constants").ToString(), MenuDesc, TEXT(""));
+
+		UNiagaraNodeInput* InputNode = NewObject<UNiagaraNodeInput>(ContextMenuBuilder.OwnerOfTemporaries);
+		InputNode->Input = SysConst;
+		InputNode->bExposeWhenConstant = false;
+		InputNode->bCanBeExposed = false;
+		GetConstAction->NodeTemplate = InputNode;
+	}
+
+	//Add a generic Input node to allow getting external constants the current context doesn't know about.
+	{
+		const FText MenuDesc = LOCTEXT("GetInput", "Input");
+
+		//TSharedPtr<FNiagaraSchemaAction_NewNode> GetConstAction = AddNewNodeAction(ContextMenuBuilder, *LOCTEXT("System Constants Menu Title", "System Constants").ToString(), MenuDesc, TEXT(""));
+		TSharedPtr<FNiagaraSchemaAction_NewNode> InputAction = AddNewNodeAction(ContextMenuBuilder, TEXT(""), MenuDesc, TEXT(""));
+
+		UNiagaraNodeInput* InputNode = NewObject<UNiagaraNodeInput>(ContextMenuBuilder.OwnerOfTemporaries);
+		InputNode->Input.Name = NAME_None;
+		InputNode->Input.Type = ENiagaraDataType::Vector;
+		InputAction->NodeTemplate = InputNode;
+	}
+
+	//Add a function call node
+	{
+		const FText MenuDesc = LOCTEXT("NiagaraFunctionCall", "Function Call");
+
+		TSharedPtr<FNiagaraSchemaAction_NewNode> FunctionCallAction = AddNewNodeAction(ContextMenuBuilder, TEXT(""), MenuDesc, TEXT(""));
+
+		UNiagaraNodeFunctionCall* FunctionCallNode = NewObject<UNiagaraNodeFunctionCall>(ContextMenuBuilder.OwnerOfTemporaries);
+		FunctionCallAction->NodeTemplate = FunctionCallNode;
+	}
+	//TODO: Add quick commands for certain UNiagaraStructs and UNiagaraScripts to be added as functions
 }
 
 const FPinConnectionResponse UEdGraphSchema_Niagara::CanCreateConnection(const UEdGraphPin* PinA, const UEdGraphPin* PinB) const
@@ -250,6 +255,10 @@ FLinearColor UEdGraphSchema_Niagara::GetPinTypeColor(const FEdGraphPinType& PinT
 	{
 		return Settings->TransformPinTypeColor;
 	}
+	else if (TypeString == PC_Curve)
+	{
+		return Settings->StructPinTypeColor;
+	}
 
 	return Settings->DefaultPinTypeColor;
 }
@@ -266,7 +275,7 @@ bool UEdGraphSchema_Niagara::ShouldHidePinDefaultValue(UEdGraphPin* Pin) const
 	return false;
 }
 
-ENiagaraDataType UEdGraphSchema_Niagara::GetPinDataType(UEdGraphPin* Pin) const
+ENiagaraDataType UEdGraphSchema_Niagara::GetPinType(UEdGraphPin* Pin) const
 {
 	if (Pin->PinType.PinCategory == PC_Float)
 	{
@@ -280,7 +289,12 @@ ENiagaraDataType UEdGraphSchema_Niagara::GetPinDataType(UEdGraphPin* Pin) const
 	{
 		return ENiagaraDataType::Matrix;
 	}
-	return ENiagaraDataType::Invalid;
+	else if (Pin->PinType.PinCategory == PC_Curve)
+	{
+		return ENiagaraDataType::Curve;
+	}
+	check(0);
+	return ENiagaraDataType::Vector;
 }
 
 void UEdGraphSchema_Niagara::GetPinDefaultValue(UEdGraphPin* Pin, float& OutDefault)const
@@ -299,7 +313,7 @@ void UEdGraphSchema_Niagara::GetPinDefaultValue(UEdGraphPin* Pin, FVector4& OutD
 	FString ValueString = Pin->DefaultValue.IsEmpty() ? Pin->AutogeneratedDefaultValue : Pin->DefaultValue;
 	ValueString.Trim();
 	ValueString.TrimTrailing();
-	ValueString.ParseIntoArray(&ResultString, TEXT(","), true);
+	ValueString.ParseIntoArray(ResultString, TEXT(","), true);
 	if (ResultString.Num() == 4)
 	{
 		OutDefault = FVector4(FCString::Atof(*ResultString[0]), FCString::Atof(*ResultString[1]), FCString::Atof(*ResultString[2]), FCString::Atof(*ResultString[3]));
@@ -312,7 +326,7 @@ void UEdGraphSchema_Niagara::GetPinDefaultValue(UEdGraphPin* Pin, FMatrix& OutDe
 	FString ValueString = Pin->DefaultValue.IsEmpty() ? Pin->AutogeneratedDefaultValue : Pin->DefaultValue;
 	ValueString.Trim();
 	ValueString.TrimTrailing();
-	ValueString.ParseIntoArray(&ResultString, TEXT(","), true);
+	ValueString.ParseIntoArray(ResultString, TEXT(","), true);
 	check(ResultString.Num() == 16);
 	if (ResultString.Num() == 16)
 	{
@@ -321,6 +335,11 @@ void UEdGraphSchema_Niagara::GetPinDefaultValue(UEdGraphPin* Pin, FMatrix& OutDe
 		OutDefault.M[2][0] = FCString::Atof(*ResultString[8]); OutDefault.M[2][1] = FCString::Atof(*ResultString[9]); OutDefault.M[2][2] = FCString::Atof(*ResultString[10]); OutDefault.M[2][3] = FCString::Atof(*ResultString[11]);
 		OutDefault.M[3][0] = FCString::Atof(*ResultString[12]); OutDefault.M[3][1] = FCString::Atof(*ResultString[13]); OutDefault.M[3][2] = FCString::Atof(*ResultString[14]); OutDefault.M[3][3] = FCString::Atof(*ResultString[15]);
 	}
+}
+
+bool UEdGraphSchema_Niagara::IsSystemConstant(const FNiagaraVariableInfo& Variable)const
+{
+	return UNiagaraComponent::GetSystemConstants().Find(Variable) != INDEX_NONE;
 }
 
 #undef LOCTEXT_NAMESPACE

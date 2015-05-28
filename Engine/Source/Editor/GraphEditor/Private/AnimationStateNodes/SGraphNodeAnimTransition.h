@@ -1,6 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
+#include "SGraphNode.h"
+
+class UAnimStateTransitionNode;
 
 class SGraphNodeAnimTransition : public SGraphNode
 {

@@ -280,7 +280,7 @@ TSharedRef<SDockTab> FTranslationEditor::SpawnTab_Untranslated( const FSpawnTabA
 	TSharedRef<SWidget> PropertyTableWidget = UntranslatedPropertyTableWidgetHandle->GetWidget();
 
 	TSharedRef<SDockTab> NewDockTab = SNew(SDockTab)
-		.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
+		//.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
 		.Label( LOCTEXT("UntranslatedTabTitle", "Untranslated") )
 		.TabColorScale( GetTabColorScale() )
 		[
@@ -345,7 +345,7 @@ TSharedRef<SDockTab> FTranslationEditor::SpawnTab_Review( const FSpawnTabArgs& A
 	TSharedRef<SWidget> PropertyTableWidget = ReviewPropertyTableWidgetHandle->GetWidget();
 
 	TSharedRef<SDockTab> NewDockTab = SNew(SDockTab)
-		.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
+		//.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
 		.Label( LOCTEXT("ReviewTabTitle", "Needs Review") )
 		.TabColorScale( GetTabColorScale() )
 		[
@@ -403,7 +403,7 @@ TSharedRef<SDockTab> FTranslationEditor::SpawnTab_Completed( const FSpawnTabArgs
 	TSharedRef<SWidget> PropertyTableWidget = CompletedPropertyTableWidgetHandle->GetWidget();
 
 	TSharedRef<SDockTab> NewDockTab = SNew(SDockTab)
-		.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
+		//.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
 		.Label( LOCTEXT("CompletedTabTitle", "Completed") )
 		.TabColorScale( GetTabColorScale() )
 		[
@@ -541,7 +541,7 @@ TSharedRef<SDockTab> FTranslationEditor::SpawnTab_ChangedOnImport(const FSpawnTa
 	TSharedRef<SWidget> PropertyTableWidget = SearchPropertyTableWidgetHandle->GetWidget();
 
 	TSharedRef<SDockTab> NewDockTab = SNew(SDockTab)
-		.Icon(FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties"))
+		//.Icon(FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties"))
 		.Label(LOCTEXT("ChangedOnImportTabTitle", "Changed on Import"))
 		.TabColorScale(GetTabColorScale())
 		[
@@ -563,7 +563,7 @@ TSharedRef<SDockTab> FTranslationEditor::SpawnTab_Preview( const FSpawnTabArgs& 
 	check( Args.GetTabId().TabType == PreviewTabId );
 
 	TSharedRef<SDockTab> NewDockTab = SNew(SDockTab)
-		.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
+		//.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
 		.Label( LOCTEXT("PreviewTabTitle", "Preview") )
 		.TabColorScale( GetTabColorScale() )
 		[
@@ -629,7 +629,7 @@ TSharedRef<SDockTab> FTranslationEditor::SpawnTab_Context( const FSpawnTabArgs& 
 	TSharedRef<SWidget> PropertyTableWidget = ContextPropertyTableWidgetHandle->GetWidget();
 
 	TSharedRef<SDockTab> NewDockTab = SNew(SDockTab)
-		.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
+		//.Icon( FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties") )
 		.Label( LOCTEXT("ContextTabTitle", "Context") )
 		.TabColorScale( GetTabColorScale() )
 		[
@@ -725,7 +725,7 @@ TSharedRef<SDockTab> FTranslationEditor::SpawnTab_History(const FSpawnTabArgs& A
 	TSharedRef<SWidget> PropertyTableWidget = HistoryPropertyTableWidgetHandle->GetWidget();
 
 	TSharedRef<SDockTab> NewDockTab = SNew(SDockTab)
-		.Icon(FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties"))
+		//.Icon(FEditorStyle::GetBrush("TranslationEditor.Tabs.Properties"))
 		.Label(LOCTEXT("HistoryTabTitle", "History"))
 		.TabColorScale(GetTabColorScale())
 		[
@@ -795,6 +795,10 @@ void FTranslationEditor::MapActions()
 
 	ToolkitCommands->MapAction(FTranslationEditorCommands::Get().OpenSearchTab,
 		FExecuteAction::CreateSP(this, &FTranslationEditor::OpenSearchTab_Execute),
+		FCanExecuteAction());
+
+	ToolkitCommands->MapAction(FTranslationEditorCommands::Get().OpenTranslationPicker,
+		FExecuteAction::CreateStatic(&ITranslationEditor::OpenTranslationPicker),
 		FCanExecuteAction());
 }
 

@@ -16,35 +16,13 @@
 class FMessageTracer
 	: public IMessageTracer
 {
-	/** Holds debug information for message recipients. */
-	struct FRecipientInfo
-	{
-		/** Holds the recipient's unique identifier. */
-		FGuid Id;
-
-		/** Holds the recipient's name. */
-		FName Name;
-
-		/** Holds a flag indicating whether the recipient is a remote endpoint. */
-		bool Remote;
-
-		/** Creates and initializes a new instance. */
-		FRecipientInfo( const FMessageAddress& Address, const IReceiveMessagesRef& Recipient )
-			: Id(Recipient->GetRecipientId())
-			, Name(Recipient->GetDebugName())
-			, Remote(Recipient->IsRemote())
-		{ }
-	};
-
 public:
-
-	DECLARE_DELEGATE(TraceDelegate)
 
 	/** Default constructor. */
 	FMessageTracer();
 
-	/** Destructor. */
-	~FMessageTracer();
+	/** Virtual destructor. */
+	virtual ~FMessageTracer();
 
 public:
 
@@ -54,11 +32,7 @@ public:
 	 * @param Interceptor The added interceptor.
 	 * @param MessageType The type of messages being intercepted.
 	 */
-	void TraceAddedInterceptor( const IMessageInterceptorRef& Interceptor, const FName& MessageType )
-	{
-		FString Name = TEXT("@todo");
-		Traces.Enqueue(FSimpleDelegate::CreateRaw(this, &FMessageTracer::ProcessAddedInterceptor, Name, MessageType, FPlatformTime::Seconds()));
-	}
+	void TraceAddedInterceptor( const IMessageInterceptorRef& Interceptor, const FName& MessageType );
 
 	/**
 	 * Notifies the tracer that a message recipient has been added to the message bus.
@@ -66,25 +40,14 @@ public:
 	 * @param Address The address of the added recipient.
 	 * @param Recipient The added recipient.
 	 */
-	void TraceAddedRecipient( const FMessageAddress& Address, const IReceiveMessagesRef& Recipient )
-	{
-		Traces.Enqueue(FSimpleDelegate::CreateRaw(this, &FMessageTracer::ProcessAddedRecipient, Address, FRecipientInfo(Address, Recipient), FPlatformTime::Seconds()));
-	}
+	void TraceAddedRecipient( const FMessageAddress& Address, const IReceiveMessagesRef& Recipient );
 
 	/**
 	 * Notifies the tracer that a message subscription has been added to the message bus.
 	 *
 	 * @param Subscription The added subscription.
 	 */
-	void TraceAddedSubscription( const IMessageSubscriptionRef& Subscription )
-	{
-		if (!Running)
-		{
-			return;
-		}
-
-		// @todo gmp: trace added subscriptions
-	}
+	void TraceAddedSubscription( const IMessageSubscriptionRef& Subscription );
 
 	/**
 	 * Notifies the tracer that a message has been dispatched.
@@ -93,15 +56,7 @@ public:
 	 * @param Recipient The message recipient.
 	 * @param Async Whether the message was dispatched asynchronously.
 	 */
-	void TraceDispatchedMessage( const IMessageContextRef& Context, const IReceiveMessagesRef& Recipient, bool Async )
-	{
-		if (!Running)
-		{
-			return;
-		}
-
-		Traces.Enqueue(FSimpleDelegate::CreateRaw(this, &FMessageTracer::ProcessDispatchedMessage, Context, FPlatformTime::Seconds(), Recipient->GetRecipientId(), Async));
-	}
+	void TraceDispatchedMessage( const IMessageContextRef& Context, const IReceiveMessagesRef& Recipient, bool Async );
 
 	/**
 	 * Notifies the tracer that a message has been handled.
@@ -109,15 +64,7 @@ public:
 	 * @param Context The context of the dispatched message.
 	 * @param Recipient The message recipient that handled the message.
 	 */
-	void TraceHandledMessage( const IMessageContextRef& Context, const IReceiveMessagesRef& Recipient )
-	{
-		if (!Running)
-		{
-			return;
-		}
-
-		Traces.Enqueue(FSimpleDelegate::CreateRaw(this, &FMessageTracer::ProcessHandledMessage, Context, FPlatformTime::Seconds(), Recipient->GetRecipientId()));
-	}
+	void TraceHandledMessage( const IMessageContextRef& Context, const IReceiveMessagesRef& Recipient );
 
 	/**
 	 * Notifies the tracer that a message has been intercepted.
@@ -125,14 +72,7 @@ public:
 	 * @param Context The context of the intercepted message.
 	 * @param Interceptor The interceptor.
 	 */
-	void TraceInterceptedMessage( const IMessageContextRef& Context, const IMessageInterceptorRef& Interceptor )
-	{
-		if (Running)
-		{
-		}
-
-		// @todo gmp: trace intercepted messages
-	}
+	void TraceInterceptedMessage( const IMessageContextRef& Context, const IMessageInterceptorRef& Interceptor );
 
 	/**
 	 * Notifies the tracer that a message interceptor has been removed from the message bus.
@@ -140,30 +80,14 @@ public:
 	 * @param Interceptor The removed interceptor.
 	 * @param MessageType The type of messages that is no longer being intercepted.
 	 */
-	void TraceRemovedInterceptor( const IMessageInterceptorRef& Interceptor, const FName& MessageType )
-	{
-		if (!Running)
-		{
-			return;
-		}
-
-		// @todo gmp: trace removed interceptors
-	}
+	void TraceRemovedInterceptor( const IMessageInterceptorRef& Interceptor, const FName& MessageType );
 
 	/**
 	 * Notifies the tracer that a recipient has been removed from the message bus.
 	 *
 	 * @param Address The address of the removed recipient.
 	 */
-	void TraceRemovedRecipient( const FMessageAddress& Address )
-	{
-		if (!Running)
-		{
-			return;
-		}
-
-		// @todo gmp: trace removed recipients
-	}
+	void TraceRemovedRecipient( const FMessageAddress& Address );
 
 	/**
 	 * Notifies the tracer that a message subscription has been removed from the message bus.
@@ -171,51 +95,21 @@ public:
 	 * @param Subscriber The removed subscriber.
 	 * @param MessageType The type of messages no longer being subscribed to.
 	 */
-	void TraceRemovedSubscription( const IMessageSubscriptionRef& Subscription, const FName& MessageType )
-	{
-		if (!Running)
-		{
-			return;
-		}
-
-		// @todo gmp: trace removed subscriptions
-	}
+	void TraceRemovedSubscription( const IMessageSubscriptionRef& Subscription, const FName& MessageType );
 
 	/**
 	 * Notifies the tracer that a message has been routed.
 	 *
 	 * @param Context The context of the routed message.
 	 */
-	void TraceRoutedMessage( const IMessageContextRef& Context )
-	{
-		if (!Running)
-		{
-			return;
-		}
-
-		if (ShouldBreak(Context))
-		{
-			Breaking = true;
-			ContinueEvent->Wait();
-		}
-
-		Traces.Enqueue(FSimpleDelegate::CreateRaw(this, &FMessageTracer::ProcessRoutedMessage, Context, FPlatformTime::Seconds()));
-	}
+	void TraceRoutedMessage( const IMessageContextRef& Context );
 
 	/**
 	 * Notifies the tracer that a message has been sent.
 	 *
 	 * @param Context The context of the sent message.
 	 */
-	void TraceSentMessage( const IMessageContextRef& Context )
-	{
-		if (!Running)
-		{
-			return;
-		}
-
-		Traces.Enqueue(FSimpleDelegate::CreateRaw(this, &FMessageTracer::ProcessSentMessage, Context, FPlatformTime::Seconds()));
-	}
+	void TraceSentMessage( const IMessageContextRef& Context );
 
 public:
 
@@ -320,102 +214,6 @@ public:
 protected:
 
 	/**
-	 * Enqueues a trace action for synchronized processing.
-	 *
-	 * @param Trace The action to enqueue.
-	 */
-	FORCEINLINE void EnqueueTrace( TraceDelegate Trace )
-	{
-		Traces.Enqueue(Trace);
-	}
-
-	/**
-	 * Processes traces for added message interceptors.
-	 *
-	 * @param Name The name of the interceptor.
-	 * @param MessageType The type of messages being intercepted.
-	 * @param TimeSecond The time at which the interceptor was added.
-	 */
-	void ProcessAddedInterceptor( FString Name, FName MessageType, double TimeSeconds );
-
-	/**
-	 * Processes traces for added message recipients.
-	 *
-	 * @param Address The address of the added recipient.
-	 * @param RecipientInfo Information about the recipient (name, ID, etc.)
-	 * @param TimeSecond The time at which the recipient was added.
-	 */
-	void ProcessAddedRecipient( FMessageAddress Address, FRecipientInfo RecipientInfo, double TimeSeconds );
-
-	/**
-	 * Processes traces for added message subscriptions.
-	 *
-	 * @param TimeSecond The time at which the subscription was added.
-	 */
-	void ProcessAddedSubscriptionTrace( double TimeSeconds );
-
-	/**
-	 * Processes traces for dispatched messages.
-	 *
-	 * @param Context The context of the dispatched message.
-	 * @param TimeSecond The time at which the message was dispatched.
-	 * @param RecipientId The recipient's unique identifier.
-	 * @param Async Whether the message was dispatched asynchronously.
-	 */
-	void ProcessDispatchedMessage( IMessageContextRef Context, double TimeSeconds, FGuid RecipientId, bool Async );
-
-	/**
-	 * Processes traces for handled messages.
-	 *
-	 * @param Context The context of the handled message.
-	 * @param TimeSecond The time at which the message was handled.
-	 * @param RecipientId The recipient's unique identifier.
-	 */
-	void ProcessHandledMessage( IMessageContextRef Context, double TimeSeconds, FGuid RecipientId );
-
-	/**
-	 * Processes traces for removed message interceptors.
-	 *
-	 * @param Interceptor The removed interceptor.
-	 * @param MessageType The type of messages no longer being intercepted.
-	 * @param TimeSecond The time at which the interceptor was removed.
-	 */
-	void ProcessRemovedInterceptor( IMessageInterceptorRef Interceptor, FName MessageType, double TimeSeconds );
-
-	/**
-	 * Processes traces for removed message recipients.
-	 *
-	 * @param Address The address of the removed recipient.
-	 * @param TimeSecond The time at which the recipient was removed.
-	 */
-	void ProcessRemovedRecipient( FMessageAddress Address, double TimeSeconds );
-
-	/**
-	 * Processes traces for removed message subscriptions.
-	 *
-	 * @param MessageType The type of messages no longer being subscribed to.
-	 * @param TimeSecond The time at which the subscription was removed.
-	 */
-	void ProcessRemovedSubscription( FName MessageType, double TimeSeconds );
-
-	/**
-	 * Processes traces for routed messages.
-	 *
-	 * @param Context The context of the routed message.
-	 * @param TimeSecond The time at which the message was routed.
-	 */
-	void ProcessRoutedMessage( IMessageContextRef Context, double TimeSeconds );
-
-	/**
-	 * Processes traces for sent messages.
-	 *
-	 * @param Context The context of the sent message.
-	 * @param SenderThread The name of the thread from which the message was sent.
-	 * @param TimeSecond The time at which the message was sent.
-	 */
-	void ProcessSentMessage( IMessageContextRef Context, double TimeSeconds );
-
-	/**
 	 * Resets traced messages.
 	 */
 	void ResetMessages();
@@ -459,8 +257,11 @@ private:
 	/** Holds a flag indicating whether the tracer is running. */
 	bool Running;
 
+	/** Handle to the registered TickDelegate. */
+	FDelegateHandle TickDelegateHandle;
+
 	/** Holds the trace actions queue. */
-	TQueue<TraceDelegate, EQueueMode::Mpsc> Traces;
+	TQueue<TFunction<void()>, EQueueMode::Mpsc> Traces;
 
 private:
 

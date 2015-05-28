@@ -13,7 +13,7 @@
 ADestructibleActor::ADestructibleActor(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	DestructibleComponent = ObjectInitializer.CreateDefaultSubobject<UDestructibleComponent>(this, TEXT("DestructibleComponent0"));
+	DestructibleComponent = CreateDefaultSubobject<UDestructibleComponent>(TEXT("DestructibleComponent0"));
 	DestructibleComponent->bCanEverAffectNavigation = bAffectNavigation;
 	RootComponent = DestructibleComponent;
 }

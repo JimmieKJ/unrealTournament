@@ -50,7 +50,7 @@ public:
 		int32 NewSize = 0;
 		Socket->SetSendBufferSize(512*1024, NewSize);
 
-		WorkEvent = FPlatformProcess::CreateSynchEvent();
+		WorkEvent = FPlatformProcess::GetSynchEventFromPool();
 
 		Thread = FRunnableThread::Create(this, ThreadDescription, 128 * 1024, TPri_AboveNormal, FPlatformAffinity::GetPoolThreadMask());
 	}
@@ -66,7 +66,8 @@ public:
 			delete Thread;
 		}
 
-		delete WorkEvent;
+		FPlatformProcess::ReturnSynchEventToPool(WorkEvent);
+		WorkEvent = nullptr;
 	}
 
 public:

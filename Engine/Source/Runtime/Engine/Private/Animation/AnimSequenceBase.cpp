@@ -139,13 +139,17 @@ void FFloatCurve::UpdateOrAddKey(float NewKey, float CurrentTime)
 	FloatCurve.UpdateOrAddKey(CurrentTime, NewKey);
 }
 
+void FFloatCurve::Resize(float NewLength)
+{
+	FloatCurve.ResizeTimeRange(0, NewLength);
+}
 ////////////////////////////////////////////////////
 //  FVectorCurve
 
 // we don't want to have = operator. This only copies curves, but leaving naming and everything else intact. 
 void FVectorCurve::CopyCurve(FVectorCurve& SourceCurve)
 {
-	FMemory::MemCopy(FloatCurves, SourceCurve.FloatCurves);
+	FMemory::Memcpy(FloatCurves, SourceCurve.FloatCurves);
 }
 
 FVector FVectorCurve::Evaluate(float CurrentTime, float BlendWeight) const
@@ -164,6 +168,13 @@ void FVectorCurve::UpdateOrAddKey(const FVector& NewKey, float CurrentTime)
 	FloatCurves[X].UpdateOrAddKey(CurrentTime, NewKey.X);
 	FloatCurves[Y].UpdateOrAddKey(CurrentTime, NewKey.Y);
 	FloatCurves[Z].UpdateOrAddKey(CurrentTime, NewKey.Z);
+}
+
+void FVectorCurve::Resize(float NewLength)
+{
+	FloatCurves[X].ResizeTimeRange(0, NewLength);
+	FloatCurves[Y].ResizeTimeRange(0, NewLength);
+	FloatCurves[Z].ResizeTimeRange(0, NewLength);
 }
 ////////////////////////////////////////////////////
 //  FTransformCurve
@@ -211,6 +222,14 @@ void FTransformCurve::UpdateOrAddKey(const FTransform& NewKey, float CurrentTime
 	RotationCurve.UpdateOrAddKey(RotationAsVector, CurrentTime);
 	ScaleCurve.UpdateOrAddKey(NewKey.GetScale3D(), CurrentTime);
 }
+
+void FTransformCurve::Resize(float NewLength)
+{
+	TranslationCurve.Resize(NewLength);
+	RotationCurve.Resize(NewLength);
+	ScaleCurve.Resize(NewLength);
+}
+
 /////////////////////////////////////////////////////
 // FRawCurveTracks
 
@@ -305,6 +324,26 @@ bool FRawCurveTracks::AddCurveData(USkeleton::AnimCurveUID Uid, int32 CurveFlags
 	default:
 		return AddCurveDataImpl<FFloatCurve>(FloatCurves, Uid, CurveFlags);
 	}
+}
+
+void FRawCurveTracks::Resize(float TotalLength)
+{
+	for (auto& Curve: FloatCurves)
+	{
+		Curve.Resize(TotalLength);
+	}
+
+#if WITH_EDITORONLY_DATA
+	for(auto& Curve: VectorCurves)
+	{
+		Curve.Resize(TotalLength);
+	}
+
+	for(auto& Curve: TransformCurves)
+	{
+		Curve.Resize(TotalLength);
+	}
+#endif
 }
 
 void FRawCurveTracks::Serialize(FArchive& Ar)
@@ -470,12 +509,20 @@ void UAnimSequenceBase::VerifyCurveNames(USkeleton* Skeleton, const FName& NameC
 	TArray<DataType*> UnlinkedCurves;
 	for(DataType& Curve : CurveList)
 	{
-		if(!NameMapping->Exists(Curve.LastObservedName))
+		const FSmartNameMapping::UID* UID = NameMapping->FindUID(Curve.LastObservedName);
+		if(!UID)
 		{
 			// The skeleton doesn't know our name. Use the last observed name that was saved with the
 			// curve to create a new name. This can happen if a user saves an animation but not a skeleton
 			// either when updating the assets or editing the curves within.
 			UnlinkedCurves.Add(&Curve);
+		}
+		else if (Curve.CurveUid != *UID)// we verify if UID is correct
+		{
+			// if UID doesn't match, this is suspicious
+			// because same name but different UID is not idea
+			// so we'll fix up UID
+			Curve.CurveUid = *UID;
 		}
 	}
 
@@ -539,33 +586,8 @@ void UAnimSequenceBase::PostLoad()
 
 void UAnimSequenceBase::SortNotifies()
 {
-	struct FCompareFAnimNotifyEvent
-	{
-		FORCEINLINE bool operator()( const FAnimNotifyEvent& A, const FAnimNotifyEvent& B ) const
-		{
-			float ATime = A.GetTriggerTime();
-			float BTime = B.GetTriggerTime();
-
-#if WITH_EDITORONLY_DATA
-			// this sorting only works if it's saved in editor or loaded with editor data
-			// this is required for gameplay team to have reliable order of notifies
-			// but it was noted that this change will require to resave notifies. 
-			// once you resave, this order will be preserved
-			if(FMath::IsNearlyEqual(ATime, BTime))
-			{
-
-				// if the 2 anim notify events are the same display time sort based off of track index
-				return A.TrackIndex < B.TrackIndex;
-			}
-			else
-#endif // WITH_EDITORONLY_DATA
-			{
-				return ATime < BTime;
-			}
-		}
-	};
-
-	Notifies.Sort( FCompareFAnimNotifyEvent() );
+	// Sorts using FAnimNotifyEvent::operator<()
+	Notifies.Sort();
 }
 
 /** 
@@ -593,7 +615,7 @@ void UAnimSequenceBase::GetAnimNotifies(const float& StartTime, const float& Del
 		const ETypeAdvanceAnim AdvanceType = FAnimationRuntime::AdvanceTime(false, DesiredDeltaMove, CurrentPosition, SequenceLength);
 
 		// Verify position assumptions
-		check( bPlayingBackwards ? (CurrentPosition <= PreviousPosition) : (CurrentPosition >= PreviousPosition));
+		checkf(bPlayingBackwards ? (CurrentPosition <= PreviousPosition) : (CurrentPosition >= PreviousPosition), TEXT("in Animsequence %s"), *GetName());
 		
 		GetAnimNotifiesFromDeltaPositions(PreviousPosition, CurrentPosition, OutActiveNotifies);
 	
@@ -745,9 +767,21 @@ void UAnimSequenceBase::InitializeNotifyTrack()
 	}
 }
 
-int32 UAnimSequenceBase::GetNumberOfFrames()
+int32 UAnimSequenceBase::GetNumberOfFrames() const
 {
 	return (SequenceLength/0.033f);
+}
+
+int32 UAnimSequenceBase::GetFrameAtTime(const float Time) const
+{
+	const float Frac = Time / SequenceLength;
+	return FMath::FloorToInt(Frac * GetNumberOfFrames());
+}
+
+float UAnimSequenceBase::GetTimeAtFrame(const int32 Frame) const
+{
+	const float FrameTime = SequenceLength / GetNumberOfFrames();
+	return FrameTime * Frame;
 }
 
 void UAnimSequenceBase::RegisterOnNotifyChanged(const FOnNotifyChanged& Delegate)
@@ -798,7 +832,7 @@ void UAnimSequenceBase::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags)
 			// only add if not BP anim notify since they're handled separate
 			if(Iter->IsBlueprintNotify() == false)
 			{
-				NotifyList += FString::Printf(TEXT("%s%c"), *Iter->NotifyName.ToString(), USkeleton::AnimNotifyTagDelimiter);
+				NotifyList += FString::Printf(TEXT("%s%s"), *Iter->NotifyName.ToString(), *USkeleton::AnimNotifyTagDelimiter);
 			}
 		}
 		
@@ -816,7 +850,7 @@ void UAnimSequenceBase::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags)
 
 	for(const FFloatCurve& Curve : RawCurveData.FloatCurves)
 	{
-		CurveIdList += FString::Printf(TEXT("%u%c"), Curve.CurveUid, USkeleton::CurveTagDelimiter);
+		CurveIdList += FString::Printf(TEXT("%u%s"), Curve.CurveUid, *USkeleton::CurveTagDelimiter);
 	}
 	OutTags.Add(FAssetRegistryTag(USkeleton::CurveTag, CurveIdList, FAssetRegistryTag::TT_Hidden));
 }

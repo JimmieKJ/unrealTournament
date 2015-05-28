@@ -9,7 +9,6 @@
 #include "AutomationController.h"
 #include "Core.h"
 #include "ModuleInterface.h"
-#include "SessionServices.h"
 #include "SlateBasics.h"
 
 /* Interfaces

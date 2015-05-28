@@ -13,7 +13,7 @@ class FProfilerServiceModule
 public:
 
 	// Begin IModuleInterface interface
-	virtual void ShutdownModule()
+	virtual void ShutdownModule() override
 	{
 		if (ProfilerServiceManager.IsValid())
 		{

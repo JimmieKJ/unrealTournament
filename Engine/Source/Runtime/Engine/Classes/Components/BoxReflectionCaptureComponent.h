@@ -22,8 +22,8 @@ class UBoxReflectionCaptureComponent : public UReflectionCaptureComponent
 	class UBoxComponent* PreviewCaptureBox;
 
 public:
-	virtual void UpdatePreviewShape();
-	virtual float GetInfluenceBoundingRadius() const;
+	virtual void UpdatePreviewShape() override;
+	virtual float GetInfluenceBoundingRadius() const override;
 
 	// Begin UObject Interface
 #if WITH_EDITOR

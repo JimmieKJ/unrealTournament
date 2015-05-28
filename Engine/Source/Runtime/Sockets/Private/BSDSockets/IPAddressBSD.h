@@ -48,7 +48,7 @@ public:
 		FString AddressString = InAddr;
 
 		TArray<FString> PortTokens;
-		AddressString.ParseIntoArray(&PortTokens, TEXT(":"), true);
+		AddressString.ParseIntoArray(PortTokens, TEXT(":"), true);
 		
 		// look for a port number
 		if (PortTokens.Num() > 1)
@@ -58,7 +58,7 @@ public:
 
 		// now split the part before the : into a.b.c.d
 		TArray<FString> AddrTokens;
-		PortTokens[0].ParseIntoArray(&AddrTokens, TEXT("."), true);
+		PortTokens[0].ParseIntoArray(AddrTokens, TEXT("."), true);
 
 		if (AddrTokens.Num() < 4)
 		{

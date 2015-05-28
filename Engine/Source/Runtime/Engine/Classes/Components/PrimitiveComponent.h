@@ -16,6 +16,7 @@ class AController;
 class UTexture;
 struct FEngineShowFlags;
 struct FConvexVolume;
+struct FNavigableGeometryExport;
 
 /** Information about a streaming texture that a primitive uses for rendering. */
 struct FStreamingTexturePrimitiveInfo
@@ -23,6 +24,13 @@ struct FStreamingTexturePrimitiveInfo
 	UTexture* Texture;
 	FSphere Bounds;
 	float TexelFactor;
+
+	FStreamingTexturePrimitiveInfo()
+		: Texture(nullptr)
+		, Bounds(0)
+		, TexelFactor(1.0f)
+	{
+	}
 };
 
 /** Determines whether a Character can attempt to step up onto a component when they walk in to it. */
@@ -41,7 +49,7 @@ enum ECanBeCharacterBase
 	ECB_MAX,
 };
 
-//UENUM()
+UENUM()
 namespace EHasCustomNavigableGeometry
 {
 	enum Type
@@ -54,8 +62,11 @@ namespace EHasCustomNavigableGeometry
 
 		// DoCustomNavigableGeometryExport() should be called even if the mesh is non-collidable and wouldn't normally affect the navmesh
 		EvenIfNotCollidable,
+
+		// Don't export navigable geometry even if primitive is relevant for navigation (can still add modifiers)
+		DontExport,
 	};
-};
+}
 
 /** Information about the sprite category */
 USTRUCT()
@@ -128,7 +139,7 @@ public:
 	 * The distance to cull this primitive at.  
 	 * A CachedMaxDrawDistance of 0 indicates that the primitive should not be culled by distance.
 	 */
-	UPROPERTY(Category=LOD, AdvancedDisplay, VisibleAnywhere, BlueprintReadWrite, meta=(DisplayName="Current Max Draw Distance") )
+	UPROPERTY(Category=LOD, AdvancedDisplay, VisibleAnywhere, BlueprintReadOnly, meta=(DisplayName="Current Max Draw Distance") )
 	float CachedMaxDrawDistance;
 
 	/** The scene depth priority group to draw the primitive in. */
@@ -264,11 +275,11 @@ public:
 	uint32 bAffectDistanceFieldLighting:1;
 
 	/** Controls whether the primitive should cast shadows in the case of non precomputed shadowing.  This flag is only used if CastShadow is true. **/
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, AdvancedDisplay, meta=(EditCondition="CastShadow"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, AdvancedDisplay, meta=(EditCondition="CastShadow", DisplayName = "Dynamic Shadow"))
 	uint32 bCastDynamicShadow:1;
 
 	/** Whether the object should cast a static shadow from shadow casting lights.  This flag is only used if CastShadow is true. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, AdvancedDisplay, meta=(EditCondition="CastShadow"))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Lighting, AdvancedDisplay, meta=(EditCondition="CastShadow", DisplayName = "Static Shadow"))
 	uint32 bCastStaticShadow:1;
 
 	/** 
@@ -276,7 +287,7 @@ public:
 	 * Volumetric translucent shadows are useful for primitives with smoothly changing opacity like particles representing a volume, 
 	 * But have artifacts when used on highly opaque surfaces.
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow", DisplayName = "Volumetric Translucent Shadow"))
 	uint32 bCastVolumetricTranslucentShadow:1;
 
 	/** 
@@ -286,22 +297,35 @@ public:
 	uint32 bSelfShadowOnly:1;
 
 	/** 
+	 * When enabled, the component will be rendering into the far shadow cascades (only for directional lights).
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow", DisplayName = "Far Shadow"))
+	uint32 bCastFarShadow:1;
+
+	/** 
 	 * Whether this component should create a per-object shadow that gives higher effective shadow resolution. 
 	 * Useful for cinematic character shadowing. Assumed to be enabled if bSelfShadowOnly is enabled.
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow", DisplayName = "Dynamic Inset Shadow"))
 	uint32 bCastInsetShadow:1;
+
+	/** 
+	 * Whether this component should cast shadows from lights that have bCastShadowsFromCinematicObjectsOnly enabled.
+	 * This is useful for characters in a cinematic with special cinematic lights, where the cost of shadowmap rendering of the environment is undesired.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow"))
+	uint32 bCastCinematicShadow:1;
 
 	/** 
 	 *	If true, the primitive will cast shadows even if bHidden is true.
 	 *	Controls whether the primitive should cast shadows when hidden.
 	 *	This flag is only used if CastShadow is true.
 	 */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow", DisplayName = "Hidden Shadow"))
 	uint32 bCastHiddenShadow:1;
 
 	/** Whether this primitive should cast dynamic shadows as if it were a two sided material. */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow", DisplayName = "Shadow Two Sided"))
 	uint32 bCastShadowAsTwoSided:1;
 
 	/** 
@@ -396,6 +420,8 @@ public:
 
 protected:
 
+	virtual void UpdateNavigationData() override;
+
 	/** Returns true if all descendant components that we can possibly collide with use relative location and rotation. */
 	virtual bool AreAllCollideableDescendantsRelative(bool bAllowCachedValue = true) const;
 
@@ -406,10 +432,11 @@ protected:
 	float LastCheckedAllCollideableDescendantsTime;
 
 	/** If true then DoCustomNavigableGeometryExport will be called to collect navigable geometry of this component. */
+	UPROPERTY()
 	TEnumAsByte<EHasCustomNavigableGeometry::Type> bHasCustomNavigableGeometry;
 
 	/** Next id to be used by a component. */
-	static uint64 NextComponentId;
+	static FThreadSafeCounter NextComponentId;
 
 public:
 	/** 
@@ -500,16 +527,26 @@ public:
 	 */
 	void EndComponentOverlap(const FOverlapInfo& OtherOverlap, bool bDoNotifies=true, bool bNoNotifySelf=false);
 
-	/** Returns true if this component is overlapping OtherComp, false otherwise. */
-	bool IsOverlappingComponent(UPrimitiveComponent const* OtherComp) const;
+	/**
+	 * Check whether this component is overlapping another component.
+	 * @param OtherComp Component to test this component against.
+	 * @return Whether this component is overlapping another component.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Collision", meta=(UnsafeDuringActorConstruction="true"))
+	bool IsOverlappingComponent(const UPrimitiveComponent* OtherComp) const;
 	
-	/** Returns true if this component is overlapping OtherComp, false otherwise. */
+	/** Check whether this component has the specified overlap. */
 	bool IsOverlappingComponent(const FOverlapInfo& Overlap) const;
 
-	/** Return true if this component is overlapping any component of the given actor, false otherwise. */
+	/**
+	 * Check whether this component is overlapping any component of the given Actor.
+	 * @param Other Actor to test this component against.
+	 * @return Whether this component is overlapping any component of the given Actor.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Collision", meta=(UnsafeDuringActorConstruction="true"))
 	bool IsOverlappingActor(const AActor* Other) const;
 
-	/** Appends list of overlaps with components owned by the given actor to the 'OutOverlaps' array. Returns the number of overlaps that were added. */
+	/** Appends list of overlaps with components owned by the given actor to the 'OutOverlaps' array. Returns true if any overlaps were added. */
 	bool GetOverlapsWithActor(const AActor* Actor, TArray<FOverlapInfo>& OutOverlaps) const;
 
 	/** 
@@ -543,20 +580,33 @@ public:
 
 	/**
 	 *  Test the collision of the supplied component at the supplied location/rotation, and determine the set of components that it overlaps.
+	 *  @note This overload taking rotation as a FQuat is slightly faster than the version using FRotator.
+	 *  @note This simply calls the virtual ComponentOverlapMultiImpl() which can be overridden to implement custom behavior.
 	 *  @param  OutOverlaps     Array of overlaps found between this component in specified pose and the world
 	 *  @param  World			World to use for overlap test
-	 *  @param  Pos             Location to place the component's geometry at to test against the world
-	 *  @param  Rot             Rotation to place components' geometry at to test against the world
+	 *  @param  Pos             Location of component's geometry for the test against the world
+	 *  @param  Rot             Rotation of component's geometry for the test against the world
 	 *  @param  TestChannel		The 'channel' that this ray is in, used to determine which components to hit
-	 *	@param	ObjectQueryParams	List of object types it's looking for. When this enters, we do object query with component shape
+	 *  @param	ObjectQueryParams	List of object types it's looking for. When this enters, we do object query with component shape
 	 *  @return true if OutOverlaps contains any blocking results
 	 */
-	virtual bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* World, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
+	bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* World, const FVector& Pos, const FQuat& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
+	bool ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* World, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
+
+protected:
+
+	// Override this method for custom behavior.
+	virtual bool ComponentOverlapMultiImpl(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* World, const FVector& Pos, const FQuat& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams = FCollisionObjectQueryParams::DefaultObjectQueryParam) const;
+
+public:
 
 	/** 
 	 *	Event called when a component hits (or is hit by) something solid. This could happen due to things like Character movement, using Set Location with 'sweep' enabled, or physics simulation.
 	 *	For events when objects overlap (e.g. walking into a trigger) see the 'Overlap' event.
-	 *	@note For collisions during physics simulation to generate hit events, 'Simulation Generates Hit Events' must be enabled for this component
+	 *
+	 *	@note For collisions during physics simulation to generate hit events, 'Simulation Generates Hit Events' must be enabled for this component.
+	 *	@note When receiving a hit from another object's movement, the directions of 'Hit.Normal' and 'Hit.ImpactNormal'
+	 *	will be adjusted to indicate force from the other object against this object.
 	 */
 	UPROPERTY(BlueprintAssignable, Category="Collision")
 	FComponentHitSignature OnComponentHit;
@@ -564,7 +614,10 @@ public:
 	/** 
 	 *	Event called when something starts to overlaps this component, for example a player walking into a trigger.
 	 *	For events when objects have a blocking collision, for example a player hitting a wall, see 'Hit' events.
+	 *
 	 *	@note Both this component and the other one must have bGenerateOverlapEvents set to true to generate overlap events.
+	 *	@note When receiving an overlap from another object's movement, the directions of 'Hit.Normal' and 'Hit.ImpactNormal'
+	 *	will be adjusted to indicate force from the other object against this object.
 	 */
 	UPROPERTY(BlueprintAssignable, Category="Collision")
 	FComponentBeginOverlapSignature OnComponentBeginOverlap;
@@ -628,14 +681,14 @@ public:
 	 * Creates a Dynamic Material Instance for the specified element index.  The parent of the instance is set to the material being replaced.
 	 * @param ElementIndex - The index of the skin to replace the material for.  If invalid, the material is unchanged and NULL is returned.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "CreateMIDForElement", DeprecatedFunction, DeprecationMessage="Use CreateDynamicMaterialInstance instead."), Category="Rendering|Material")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "CreateMIDForElement", DeprecatedFunction, DeprecationMessage="Use CreateDynamicMaterialInstance instead."), Category="Rendering|Material")
 	virtual class UMaterialInstanceDynamic* CreateAndSetMaterialInstanceDynamic(int32 ElementIndex);
 
 	/**
 	 * Creates a Dynamic Material Instance for the specified element index.  The parent of the instance is set to the material being replaced.
 	 * @param ElementIndex - The index of the skin to replace the material for.  If invalid, the material is unchanged and NULL is returned.
 	 */
-	UFUNCTION(BlueprintCallable, meta=(FriendlyName = "CreateMIDForElementFromMaterial", DeprecatedFunction, DeprecationMessage="Use CreateDynamicMaterialInstance instead."), Category="Rendering|Material")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "CreateMIDForElementFromMaterial", DeprecatedFunction, DeprecationMessage="Use CreateDynamicMaterialInstance instead."), Category="Rendering|Material")
 	virtual class UMaterialInstanceDynamic* CreateAndSetMaterialInstanceDynamicFromMaterial(int32 ElementIndex, class UMaterialInterface* Parent);
 
 	/**
@@ -667,11 +720,19 @@ public:
 	virtual bool CanEditSimulatePhysics();
 
 	/**
-	 * Sets the specified axis as locked, preventing movement along that axis.
-	 * @param LockedAxis	The axis to lock.
+	* Sets the constraint mode of the component.
+	* @param ConstraintMode	The type of constraint to use.
+	*/
+	DEPRECATED(4.8, "This function is deprecated. Please use SetConstraintMode instead.")
+	UFUNCTION(BlueprintCallable, meta = (DeprecatedFunction, DeprecationMessage = "Use SetConstraintMode instead", Keywords = "set locked axis constraint physics"), Category = Physics)
+	virtual void SetLockedAxis(EDOFMode::Type LockedAxis);
+
+	/**
+	 * Sets the constraint mode of the component.
+	 * @param ConstraintMode	The type of constraint to use.
 	 */
-	UFUNCTION(BlueprintCallable, meta = (FriendlyName = "Set Locked Axis", Keywords = "set locked axis constraint physics"), Category = Physics)
-	virtual void SetLockedAxis(ELockedAxis::Type LockedAxis);
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "Set Constraint Mode", Keywords = "set locked axis constraint physics"), Category = Physics)
+	virtual void SetConstraintMode(EDOFMode::Type ConstraintMode);
 
 	/**
 	 *	Add an impulse to a single rigid body. Good for one time instant burst.
@@ -719,11 +780,12 @@ public:
 	 *	Add a force to a single rigid body.
 	 *  This is like a 'thruster'. Good for adding a burst over some (non zero) time. Should be called every frame for the duration of the force.
 	 *
-	 *	@param	Force		Force vector to apply. Magnitude indicates strength of force.
-	 *	@param	BoneName	If a SkeletalMeshComponent, name of body to apply force to. 'None' indicates root body.
+	 *	@param	Force		 Force vector to apply. Magnitude indicates strength of force.
+	 *	@param	BoneName	 If a SkeletalMeshComponent, name of body to apply force to. 'None' indicates root body.
+	 *  @param  bAccelChange If true, Force is taken as a change in acceleration instead of a physical force (i.e. mass will have no affect).
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics")
-	virtual void AddForce(FVector Force, FName BoneName = NAME_None);
+	virtual void AddForce(FVector Force, FName BoneName = NAME_None, bool bAccelChange = false);
 
 	/**
 	 *	Add a force to a single rigid body at a particular location.
@@ -743,17 +805,19 @@ public:
 	 *	@param Radius		Radius within which to apply the force.
 	 *	@param Strength		Strength of force to apply.
 	 *  @param Falloff		Allows you to control the strength of the force as a function of distance from Origin.
+	 *  @param bAccelChange If true, Strength is taken as a change in acceleration instead of a physical force (i.e. mass will have no affect).
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics")
-	virtual void AddRadialForce(FVector Origin, float Radius, float Strength, enum ERadialImpulseFalloff Falloff);
+	virtual void AddRadialForce(FVector Origin, float Radius, float Strength, enum ERadialImpulseFalloff Falloff, bool bAccelChange = false);
 
 	/**
 	 *	Add a torque to a single rigid body.
 	 *	@param Torque		Torque to apply. Direction is axis of rotation and magnitude is strength of torque.
 	 *	@param BoneName		If a SkeletalMeshComponent, name of body to apply torque to. 'None' indicates root body.
+	 *  @param bAccelChange If true, Torque is taken as a change in angular acceleration instead of a physical torque (i.e. mass will have no affect).
 	 */
 	UFUNCTION(BlueprintCallable, Category="Physics")
-	void AddTorque(FVector Torque, FName BoneName = NAME_None);
+	void AddTorque(FVector Torque, FName BoneName = NAME_None, bool bAccelChange = false);
 
 	/**
 	 *	Set the linear velocity of a single body.
@@ -880,7 +944,7 @@ public:
 	void SetCollisionObjectType(ECollisionChannel Channel);
 
 	/** Perform a line trace against a single component */
-	UFUNCTION(BlueprintCallable, Category="Collision", meta=(FriendlyName = "Line Trace Component", bTraceComplex="true"))	
+	UFUNCTION(BlueprintCallable, Category="Collision", meta=(DisplayName = "Line Trace Component", bTraceComplex="true"))	
 	bool K2_LineTraceComponent(FVector TraceStart, FVector TraceEnd, bool bTraceComplex, bool bShowTrace, FVector& HitLocation, FVector& HitNormal, FName& BoneName);
 
 	/** Sets the bRenderCustomDepth property and marks the render state dirty. */
@@ -923,13 +987,19 @@ public:
 	FThreadSafeCounter AttachmentCounter;
 
 	// Scene data
+private:
+	/** LOD parent primitive to draw instead of this one (multiple UPrim's will point to the same LODParent ) */
+	UPROPERTY(duplicatetransient)
+	class UPrimitiveComponent* LODParentPrimitive;
 
-	/** Replacement primitive to draw instead of this one (multiple UPrim's will point to the same Replacement) */
-	UPROPERTY()
-	TLazyObjectPtr<class UPrimitiveComponent> ReplacementPrimitive;
+public:
+	void SetLODParentPrimitive(UPrimitiveComponent * InLODParentPrimitive);
+	UPrimitiveComponent* GetLODParentPrimitive();
 
 #if WITH_EDITOR
-	virtual const int32 GetNumUncachedStaticLightingInteractions() const; // recursive function
+	virtual const int32 GetNumUncachedStaticLightingInteractions() const override; // recursive function
+	/** This function is used to create hierarchical LOD for the level. You can decide to opt out if you don't want. */
+	virtual const bool ShouldGenerateAutoLOD() const;
 #endif
 
 	// Begin UActorComponent Interface
@@ -1008,7 +1078,14 @@ public:
 	 * @param OutStreamingTextures - Upon return, contains a list of the streaming textures used by the primitive.
 	 */
 	virtual void GetStreamingTextureInfo(TArray<struct FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
-	{}
+	{
+	}
+
+	/**
+	 * Call GetStreamingTextureInfo and remove the elements with a NULL texture
+	 * @param OutStreamingTextures - Upon return, contains a list of the non-null streaming textures used by the primitive.
+	 */
+	void GetStreamingTextureInfoWithNULLRemoval(TArray<struct FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const;
 
 	/**
 	 * Determines the DPG the primitive's primary elements are drawn in.
@@ -1090,7 +1167,7 @@ public:
 	 * @return		Success if returns > 0.f, if returns 0.f, it is either not convex or inside of the point
 	 *				If returns < 0.f, this primitive does not have collsion
 	 */
-	float GetDistanceToCollision(const FVector& Point, FVector& ClosestPointOnCollision) const;
+	virtual float GetDistanceToCollision(const FVector& Point, FVector& ClosestPointOnCollision) const;
 
 	/**
 	 * Creates a proxy to represent the primitive to the scene manager in the rendering thread.
@@ -1270,7 +1347,7 @@ public:
 	 * Allow the object to perform any cleanup for properties which shouldn't be duplicated or
 	 * are unsupported by the script serialization
 	 */
-	virtual void PostEditImport();
+	virtual void PostEditImport() override;
 #endif
 
 	virtual void BeginDestroy() override;
@@ -1281,7 +1358,11 @@ public:
 	// End UObject interface.
 
 	//Begin USceneComponent Interface
-	virtual bool MoveComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit = NULL, EMoveComponentFlags MoveFlags = MOVECOMP_NoFlags) override;
+
+protected:
+	virtual bool MoveComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit = NULL, EMoveComponentFlags MoveFlags = MOVECOMP_NoFlags) override;
+	
+public:
 	virtual bool IsWorldGeometry() const override;
 	virtual ECollisionEnabled::Type GetCollisionEnabled() const override;
 	virtual ECollisionResponse GetCollisionResponseToChannel(ECollisionChannel Channel) const override;
@@ -1402,7 +1483,15 @@ public:
 	/** Returns the mass of this component in kg. */
 	UFUNCTION(BlueprintCallable, Category="Physics")
 	virtual float GetMass() const;
-	
+
+	/** Returns the inertia tensor of this component in kg cm^2. The inertia tensor is in local component space.*/
+	UFUNCTION(BlueprintCallable, Category = "Physics", meta =(Keywords = "physics moment of inertia tensor MOI"))
+	virtual FVector GetInertiaTensor(FName BoneName = NAME_None) const;
+
+	/** Scales the given vector by the world space moment of inertia. Useful for computing the torque needed to rotate an object.*/
+	UFUNCTION(BlueprintCallable, Category = "Physics", meta = (Keywords = "physics moment of inertia tensor MOI"))
+	virtual FVector ScaleByMomentOfInertia(FVector InputVector, FName BoneName = NAME_None) const;
+
 	/** Returns the calculated mass in kg. This is not 100% exactly the mass physx will calculate, but it is very close ( difference < 0.1kg ). */
 	virtual float CalculateMass(FName BoneName = NAME_None);
 
@@ -1461,11 +1550,8 @@ private:
 	 */
 	bool ApplyRigidBodyState(const FRigidBodyState& NewState, const FRigidBodyErrorCorrection& ErrorCorrection, FVector& OutDeltaPos, FName BoneName = NAME_None);
 
-	/** Check if mobility is set to non-static. If it's static we trigger a PIE warning and return true*/
-	bool CheckStaticMobilityAndWarn(const FText& ActionText) const;
-
 	/** Check if mobility is set to non-static. If BodyInstanceRequiresSimulation is non-null we check that it is simulated. Triggers a PIE warning if conditions fails */
-	void WarnInvalidPhysicsOperations(const FText& ActionText, const FBodyInstance* BodyInstanceRequiresSimulation = nullptr) const;
+	void WarnInvalidPhysicsOperations_Internal(const FText& ActionText, const FBodyInstance* BodyInstanceRequiresSimulation = nullptr) const;
 
 public:
 
@@ -1487,7 +1573,7 @@ public:
 	 *	Note that if physics is already running on this component, this will _not_ alter its mass/inertia etc,  
 	 *	it will only change its surface properties like friction.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Physics", meta=(FriendlyName="Set PhysicalMaterial Override"))
+	UFUNCTION(BlueprintCallable, Category="Physics", meta=(DisplayName="Set PhysicalMaterial Override"))
 	virtual void SetPhysMaterialOverride(class UPhysicalMaterial* NewPhysMaterial);
 
 	/** 
@@ -1501,9 +1587,14 @@ public:
 	 * Changes the value of CullDistance.
 	 * @param NewCullDistance - The value to assign to CullDistance.
 	 */
-	UFUNCTION(BlueprintCallable, Category="LOD", meta=(FriendlyName="Set Max Draw Distance"))
+	UFUNCTION(BlueprintCallable, Category="LOD", meta=(DisplayName="Set Max Draw Distance"))
 	void SetCullDistance(float NewCullDistance);
 	
+	/**
+	 * Utility to cache the max draw distance based on cull distance volumes or the desired max draw distance
+	 */
+	void SetCachedMaxDrawDistance(const float NewCachedMaxDrawDistance);
+
 	/**
 	 * Changes the value of DepthPriorityGroup.
 	 * @param NewDepthPriorityGroup - The value to assign to DepthPriorityGroup.
@@ -1543,13 +1634,23 @@ public:
 	
 	/** 
 	 *  Test the collision of the supplied component at the supplied location/rotation, and determine if it overlaps this component
+	 *  @note This overload taking rotation as a FQuat is slightly faster than the version using FRotator.
+	 *  @note This simply calls the virtual ComponentOverlapComponentImpl() which can be overridden to implement custom behavior.
 	 *  @param  PrimComp        Component to use geometry from to test against this component. Transform of this component is ignored.
 	 *  @param  Pos             Location to place PrimComp geometry at 
 	 *  @param  Rot             Rotation to place PrimComp geometry at 
 	 *  @param	Params			Parameter for trace. TraceTag is only used.
 	 *  @return true if PrimComp overlaps this component at the specified location/rotation
 	 */
-	virtual bool ComponentOverlapComponent(class UPrimitiveComponent* PrimComp, const FVector Pos, const FRotator Rot, const FCollisionQueryParams& Params);
+	bool ComponentOverlapComponent(class UPrimitiveComponent* PrimComp, const FVector Pos, const FQuat& Rot, const FCollisionQueryParams& Params);
+	bool ComponentOverlapComponent(class UPrimitiveComponent* PrimComp, const FVector Pos, const FRotator Rot, const FCollisionQueryParams& Params);
+
+protected:
+
+	// Override this method for custom behavior.
+	virtual bool ComponentOverlapComponentImpl(class UPrimitiveComponent* PrimComp, const FVector Pos, const FQuat& Rot, const FCollisionQueryParams& Params);
+
+public:
 	
 	/** 
 	 *  Test the collision of the supplied Sphere at the supplied location, and determine if it overlaps this component
@@ -1596,7 +1697,12 @@ public:
 
 	/** set value of bCanEverAffectNavigation flag and update navigation octree if needed */
 	void SetCanEverAffectNavigation(bool bRelevant);
+	
+protected:
+	/** Makes sure navigation system has up to date information regarding component's navigation relevancy and if it can affect navigation at all */
+	void HandleCanEverAffectNavigationChange();
 
+public:
 	DEPRECATED(4.5, "UPrimitiveComponent::DisableNavigationRelevance() is deprecated, use SetCanEverAffectNavigation() instead.")
 	void DisableNavigationRelevance()
 	{
@@ -1604,15 +1710,21 @@ public:
 	}
 
 	// Begin INavRelevantInterface Interface
-	virtual FBox GetNavigationBounds() const;
-	virtual bool IsNavigationRelevant() const;
+	virtual FBox GetNavigationBounds() const override;
+	virtual bool IsNavigationRelevant() const override;
 	// End INavRelevantInterface Interface
 
 	FORCEINLINE EHasCustomNavigableGeometry::Type HasCustomNavigableGeometry() const { return bHasCustomNavigableGeometry; }
 
+	void SetCustomNavigableGeometry(const EHasCustomNavigableGeometry::Type InType);
+
 	/** Collects custom navigable geometry of component.
 	 *	@return true if regular navigable geometry exporting should be run as well */
-	virtual bool DoCustomNavigableGeometryExport(struct FNavigableGeometryExport* GeomExport) const { return true; }
+	DEPRECATED(4.8, "UPrimitiveComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExport* GeomExport) is deprecated, use UPrimitiveComponent::DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) instead (takes ref instead of a pointer)")
+	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport* GeomExport) const { return DoCustomNavigableGeometryExport(*GeomExport); }
+	/** Collects custom navigable geometry of component.
+	*	@return true if regular navigable geometry exporting should be run as well */
+	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const { return true; }
 
 	static void DispatchMouseOverEvents(UPrimitiveComponent* CurrentComponent, UPrimitiveComponent* NewComponent);
 	static void DispatchTouchOverEvents(ETouchIndex::Type FingerIndex, UPrimitiveComponent* CurrentComponent, UPrimitiveComponent* NewComponent);
@@ -1638,3 +1750,27 @@ public:
 
 	bool ContainsData() const;
 };
+
+
+//////////////////////////////////////////////////////////////////////////
+// PrimitiveComponent inlines
+
+FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* World, const FVector& Pos, const FQuat& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
+{
+	return ComponentOverlapMultiImpl(OutOverlaps, World, Pos, Rot, TestChannel, Params, ObjectQueryParams);
+}
+
+FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::ComponentOverlapMulti(TArray<struct FOverlapResult>& OutOverlaps, const class UWorld* World, const FVector& Pos, const FRotator& Rot, ECollisionChannel TestChannel, const struct FComponentQueryParams& Params, const struct FCollisionObjectQueryParams& ObjectQueryParams) const
+{
+	return ComponentOverlapMultiImpl(OutOverlaps, World, Pos, Rot.Quaternion(), TestChannel, Params, ObjectQueryParams);
+}
+
+FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::ComponentOverlapComponent(class UPrimitiveComponent* PrimComp, const FVector Pos, const FQuat& Rot, const FCollisionQueryParams& Params)
+{
+	return ComponentOverlapComponentImpl(PrimComp, Pos, Rot, Params);
+}
+
+FORCEINLINE_DEBUGGABLE bool UPrimitiveComponent::ComponentOverlapComponent(class UPrimitiveComponent* PrimComp, const FVector Pos, const FRotator Rot, const FCollisionQueryParams& Params)
+{
+	return ComponentOverlapComponentImpl(PrimComp, Pos, Rot.Quaternion(), Params);
+}

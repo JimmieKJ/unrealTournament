@@ -3,8 +3,6 @@
 #include "EditorWidgetsPrivatePCH.h"
 #include "STransportControl.h"
 
-
-
 #define LOCTEXT_NAMESPACE "STransportControl"
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
@@ -148,7 +146,27 @@ void STransportControl::Construct( const STransportControl::FArguments& InArgs )
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-/** @return The appropriate icon to draw for the compile status of the selected blueprint */
+bool STransportControl::IsTickable() const
+{
+	// Only bother if an active timer delegate was provided
+	return TransportControlArgs.OnTickPlayback.IsBound() && TransportControlArgs.OnGetPlaybackMode.IsBound();
+}
+
+void STransportControl::Tick( float DeltaTime )
+{
+	const auto PlaybackMode = TransportControlArgs.OnGetPlaybackMode.Execute();
+	const bool bIsPlaying = PlaybackMode == EPlaybackMode::PlayingForward || PlaybackMode == EPlaybackMode::PlayingReverse || PlaybackMode == EPlaybackMode::Recording;
+
+	if ( bIsPlaying && !ActiveTimerHandle.IsValid() )
+	{
+		ActiveTimerHandle = RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &STransportControl::TickPlayback ) );
+	}
+	else if ( !bIsPlaying && ActiveTimerHandle.IsValid() )
+	{
+		UnRegisterActiveTimer( ActiveTimerHandle.Pin().ToSharedRef() );
+	}
+}
+
 const FSlateBrush* STransportControl::GetForwardStatusIcon() const
 {
 	const auto PlaybackMode = TransportControlArgs.OnGetPlaybackMode.Execute();
@@ -203,6 +221,12 @@ FSlateColor STransportControl::GetLoopStatusColor() const
 	}
 
 	return FSlateColor(FLinearColor(1.f, 1.f, 1.f));
+}
+
+EActiveTimerReturnType STransportControl::TickPlayback( double InCurrentTime, float InDeltaTime )
+{
+	TransportControlArgs.OnTickPlayback.Execute( InCurrentTime, InDeltaTime );
+	return EActiveTimerReturnType::Continue;
 }
 
 #undef LOCTEXT_NAMESPACE

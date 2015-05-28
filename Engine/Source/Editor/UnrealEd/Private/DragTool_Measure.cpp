@@ -14,7 +14,8 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 FDragTool_Measure::FDragTool_Measure(FEditorViewportClient* InViewportClient)
-	: ViewportClient(InViewportClient)
+	: FDragTool(InViewportClient->GetModeTools())
+	, ViewportClient(InViewportClient)
 {
 	bUseSnapping = true;
 	bConvertDelta = false;

@@ -6,6 +6,12 @@
 =============================================================================*/
 #pragma once
 
+#include "CoreNet.h"
+#include "Engine/EngineTypes.h"
+
+class FOutBunch;
+class FInBunch;
+
 class FRepChangedParent
 {
 public:
@@ -256,8 +262,7 @@ public:
 		UActorChannel *		OwningChannel,
 		UProperty *			Property, 
 		FOutBunch &			Bunch, 
-		int32				ArrayIndex, 
-		int32 &				LastArrayIndex, 
+		uint32				ArrayIndex, 
 		bool &				bContentBlockWritten ) const;
 
 	bool ReplicateProperties( 
@@ -267,7 +272,6 @@ public:
 		UActorChannel *				OwningChannel,
 		FOutBunch &					Writer, 
 		const FReplicationFlags &	RepFlags,
-		int32 &						LastIndex, 
 		bool &						bContentBlockWritten ) const;
 
 	void SendProperties( 
@@ -278,10 +282,9 @@ public:
 		UActorChannel *				OwningChannel,
 		FOutBunch &					Writer, 
 		TArray< uint16 >	 &		Changed, 
-		int32 &						LastIndex, 
 		bool &						bContentBlockWritten ) const;
 
-	void InitFromObjectClass( UClass * InObjectClass );
+	ENGINE_API void InitFromObjectClass( UClass * InObjectClass );
 
 	bool ReceiveProperties( UClass * InObjectClass, FRepState * RESTRICT RepState, void* RESTRICT Data, FNetBitReader & InBunch, bool & bOutHasUnmapped ) const;
 	void UpdateUnmappedObjects( FRepState *	RepState, UPackageMap * PackageMap, UObject* Object, bool & bOutSomeObjectsWereMapped, bool & bOutHasMoreUnmapped ) const;
@@ -299,7 +302,7 @@ public:
 
 	bool DiffProperties( FRepState * RepState, const void* RESTRICT Data, const bool bSync ) const;
 
-	void GetLifetimeCustomDeltaProperties( TArray< int32 > & OutCustom );
+	void GetLifetimeCustomDeltaProperties(TArray< int32 > & OutCustom, TArray< ELifetimeCondition >	& OutConditions);
 
 	// RPC support
 	void InitFromFunction( UFunction * InFunction );
@@ -309,6 +312,12 @@ public:
 	// Struct support
 	void SerializePropertiesForStruct( UStruct * Struct, FArchive & Ar, UPackageMap	* Map, void* Data, bool & bHasUnmapped ) const;	
 	void InitFromStruct( UStruct * InStruct );
+
+	// Serializes all replicated properties of a UObject in or out of an archive (depending on what type of archive it is)
+	ENGINE_API void SerializeObjectReplicatedProperties(UObject* Object, FArchive & Ar) const;
+
+	void WriteNetworkChecksum( FOutBunch& Bunch );
+	bool ReadNetworkChecksum( FInBunch& Bunch );
 
 private:
 	void RebuildConditionalProperties( FRepState * RESTRICT	RepState, const FRepChangedPropertyTracker& ChangedTracker, const FReplicationFlags& RepFlags ) const;

@@ -5,6 +5,7 @@
 
 class  SGraphActionMenu;
 struct FBlueprintActionContext;
+class  SBlueprintContextTargetMenu;
 
 /*******************************************************************************
 * SBlueprintActionMenu
@@ -42,13 +43,17 @@ protected:
 	FText GetSearchContextDesc() const;
 	void OnContextToggleChanged(ECheckBoxState CheckState);
 	ECheckBoxState ContextToggleIsChecked() const;
+	void OnContextTargetsChanged(uint32 ContextTargetMask);
 
-	void OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedAction );
+	void OnActionSelected( const TArray< TSharedPtr<FEdGraphSchemaAction> >& SelectedAction, ESelectInfo::Type InSelectionType );
 
 	TSharedRef<SWidget> OnCreateWidgetForAction(struct FCreateWidgetForActionData* const InCreateData);
 
 	/** Callback used to populate all actions list in SGraphActionMenu */
 	void CollectAllActions(FGraphActionListBuilderBase& OutAllActions);
+
+	/**  */
+	void ConstructActionContext(FBlueprintActionContext& ContextDescOut);
 
 	/** Functioin to try to insert a promote to variable entry if it is possible to do so. */
 	void TryInsertPromoteToVariable(FBlueprintActionContext const& Context, FGraphActionListBuilderBase& OutAllActions);
@@ -64,6 +69,7 @@ private:
 
 	TSharedPtr<SGraphActionMenu> GraphActionMenu;
 	TWeakPtr<FBlueprintEditor> EditorPtr;
+	TSharedPtr<SBlueprintContextTargetMenu> ContextTargetSubMenu;
 
 	bool bActionExecuted;
 };

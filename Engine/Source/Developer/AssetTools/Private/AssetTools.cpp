@@ -22,7 +22,19 @@
 FAssetTools::FAssetTools()
 	: AssetRenameManager( MakeShareable(new FAssetRenameManager) )
 	, AssetFixUpRedirectors( MakeShareable(new FAssetFixUpRedirectors) )
+	, NextUserCategoryBit( EAssetTypeCategories::FirstUser )
 {
+	// Register the built-in advanced categories
+	AllocatedCategoryBits.Add(TEXT("_BuiltIn_0"), FAdvancedAssetCategory(EAssetTypeCategories::Animation, LOCTEXT("AnimationAssetCategory", "Animation")));
+	AllocatedCategoryBits.Add(TEXT("_BuiltIn_1"), FAdvancedAssetCategory(EAssetTypeCategories::Blueprint, LOCTEXT("BlueprintAssetCategory", "Blueprints")));
+	AllocatedCategoryBits.Add(TEXT("_BuiltIn_2"), FAdvancedAssetCategory(EAssetTypeCategories::MaterialsAndTextures, LOCTEXT("MaterialAssetCategory", "Materials & Textures")));
+	AllocatedCategoryBits.Add(TEXT("_BuiltIn_3"), FAdvancedAssetCategory(EAssetTypeCategories::Sounds, LOCTEXT("SoundAssetCategory", "Sounds")));
+	AllocatedCategoryBits.Add(TEXT("_BuiltIn_4"), FAdvancedAssetCategory(EAssetTypeCategories::Physics, LOCTEXT("PhysicsAssetCategory", "Physics")));
+	AllocatedCategoryBits.Add(TEXT("_BuiltIn_5"), FAdvancedAssetCategory(EAssetTypeCategories::UI, LOCTEXT("UserInterfaceAssetCategory", "User Interface")));
+	AllocatedCategoryBits.Add(TEXT("_BuiltIn_6"), FAdvancedAssetCategory(EAssetTypeCategories::Misc, LOCTEXT("MiscellaneousAssetCategory", "Miscellaneous")));
+	AllocatedCategoryBits.Add(TEXT("_BuiltIn_7"), FAdvancedAssetCategory(EAssetTypeCategories::Gameplay, LOCTEXT("GameplayAssetCategory", "Gameplay")));
+
+	// Register the built-in asset type actions
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_AnimationAsset) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_AnimBlueprint) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_AnimComposite) );
@@ -53,7 +65,8 @@ FAssetTools::FAssetTools()
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_InstancedFoliageSettings) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_InterpData) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_LandscapeLayer) );
-	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Material) );
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_LandscapeGrassType));
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Material));
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialFunction) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialInstanceConstant) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_MaterialInterface) );
@@ -63,6 +76,7 @@ FAssetTools::FAssetTools()
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ParticleSystem) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_PhysicalMaterial) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_PhysicsAsset) );
+	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ProceduralFoliageSpawner) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Redirector) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_ReverbEffect) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_Rig) );
@@ -89,6 +103,9 @@ FAssetTools::FAssetTools()
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_VectorFieldAnimated) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_VectorFieldStatic) );
 	RegisterAssetTypeActions( MakeShareable(new FAssetTypeActions_VertexAnimation) );
+
+	// Note: Please don't add any more actions here!  They belong in an editor-only module that is more tightly
+	// coupled to your new system, and you should not create a dependency on your new system from AssetTools.
 
 	if ( UEditorEngine::IsUsingWorldAssets() )
 	{
@@ -146,6 +163,53 @@ TWeakPtr<IAssetTypeActions> FAssetTools::GetAssetTypeActionsForClass( UClass* Cl
 	}
 
 	return MostDerivedAssetTypeActions;
+}
+
+EAssetTypeCategories::Type FAssetTools::RegisterAdvancedAssetCategory(FName CategoryKey, FText CategoryDisplayName)
+{
+	EAssetTypeCategories::Type Result = FindAdvancedAssetCategory(CategoryKey);
+	if (Result == EAssetTypeCategories::Misc)
+	{
+		if (NextUserCategoryBit != 0)
+		{
+			// Register the category
+			Result = (EAssetTypeCategories::Type)NextUserCategoryBit;
+			AllocatedCategoryBits.Add(CategoryKey, FAdvancedAssetCategory(Result, CategoryDisplayName));
+
+			// Advance to the next bit, or store that we're out
+			if (NextUserCategoryBit == EAssetTypeCategories::LastUser)
+			{
+				NextUserCategoryBit = 0;
+			}
+			else
+			{
+				NextUserCategoryBit = NextUserCategoryBit << 1;
+			}
+		}
+		else
+		{
+			UE_LOG(LogAssetTools, Warning, TEXT("RegisterAssetTypeCategory(\"%s\", \"%s\") failed as all user bits have been exhausted (placing into the Misc category instead)"), *CategoryKey.ToString(), *CategoryDisplayName.ToString());
+		}
+	}
+
+	return Result;
+}
+
+EAssetTypeCategories::Type FAssetTools::FindAdvancedAssetCategory(FName CategoryKey) const
+{
+	if (const FAdvancedAssetCategory* ExistingCategory = AllocatedCategoryBits.Find(CategoryKey))
+	{
+		return ExistingCategory->CategoryType;
+	}
+	else
+	{
+		return EAssetTypeCategories::Misc;
+	}
+}
+
+void FAssetTools::GetAllAdvancedAssetCategories(TArray<FAdvancedAssetCategory>& OutCategoryList) const
+{
+	AllocatedCategoryBits.GenerateValueArray(OutCategoryList);
 }
 
 void FAssetTools::RegisterClassTypeActions(const TSharedRef<IClassTypeActions>& NewActions)
@@ -276,7 +340,7 @@ UObject* FAssetTools::CreateAsset(const FString& AssetName, const FString& Packa
 		return NULL;
 	}
 
-	UClass* ClassToUse = AssetClass ? AssetClass : Factory->GetSupportedClass();
+	UClass* ClassToUse = AssetClass ? AssetClass : (Factory ? Factory->GetSupportedClass() : NULL);
 
 	UPackage* Pkg = CreatePackage(NULL,*PackageName);
 	UObject* NewObj = NULL;
@@ -287,7 +351,7 @@ UObject* FAssetTools::CreateAsset(const FString& AssetName, const FString& Packa
 	}
 	else if ( AssetClass )
 	{
-		NewObj = StaticConstructObject(ClassToUse, Pkg, FName(*AssetName), Flags);
+		NewObj = NewObject<UObject>(Pkg, ClassToUse, FName(*AssetName), Flags);
 	}
 
 	if( NewObj )
@@ -569,7 +633,7 @@ TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const F
 								// We found a factory for this file, it can be imported!
 								// Create a new factory of the same class and make sure it doesn't get GCed.
 								// The object will be removed from the root set at the end of this function.
-								UFactory* NewFactory = ConstructObject<UFactory>( Factory->GetClass() );
+								UFactory* NewFactory = NewObject<UFactory>(GetTransientPackage(), Factory->GetClass());
 								if ( NewFactory->ConfigureProperties() )
 								{
 									NewFactory->AddToRoot();
@@ -614,7 +678,7 @@ TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const F
 						// We found a factory for this file, it can be imported!
 						// Create a new factory of the same class and make sure it doesnt get GCed.
 						// The object will be removed from the root set at the end of this function.
-						UFactory* NewFactory = ConstructObject<UFactory>( SpecifiedFactory->GetClass() );
+						UFactory* NewFactory = NewObject<UFactory>(GetTransientPackage(), SpecifiedFactory->GetClass());
 						if ( NewFactory->ConfigureProperties() )
 						{
 							NewFactory->AddToRoot();
@@ -721,101 +785,110 @@ TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const F
 			UObject* ExistingObject = StaticFindObject( UObject::StaticClass(), Pkg, *Name );
 			if( ExistingObject != NULL )
 			{
-				// If the object is supported by the factory we are using, ask if we want to overwrite the asset
-				// Otherwise, prompt to replace the object
-				if ( Factory->DoesSupportClass(ExistingObject->GetClass()) )
+				// If the existing object is one of the imports we've just created we can't replace or overwrite it
+				if (ReturnObjects.Contains(ExistingObject))
 				{
-					// The factory can overwrite this object, ask if that is okay, unless "Yes To All" or "No To All" was already selected
-					EAppReturnType::Type UserResponse;
-					
-					if ( bOverwriteAll || GIsAutomationTesting)
-					{
-						UserResponse = EAppReturnType::YesAll;
-					}
-					else if ( bDontOverwriteAny )
-					{
-						UserResponse = EAppReturnType::NoAll;
-					}
-					else
-					{
-						UserResponse = FMessageDialog::Open(
-							EAppMsgType::YesNoYesAllNoAll,
-							FText::Format( LOCTEXT("ImportObjectAlreadyExists_SameClass", "Do you want to overwrite the existing asset?\n\nAn asset already exists at the import location: {0}"), FText::FromString( PackageName ) ) );
-
-						bOverwriteAll = UserResponse == EAppReturnType::YesAll;
-						bDontOverwriteAny = UserResponse == EAppReturnType::NoAll;
-					}
-
-					const bool bWantOverwrite = UserResponse == EAppReturnType::Yes || UserResponse == EAppReturnType::YesAll;
-
-					if( !bWantOverwrite )
-					{
-						// User chose not to replace the package
-						bImportWasCancelled = true;
-						OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-						continue;
-					}
+					// generate a unique name for this import
+					Name = MakeUniqueObjectName(Pkg, ImportAssetType, *Name).ToString();
 				}
 				else
 				{
-					// The factory can't overwrite this asset, ask if we should delete the object then import the new one. Only do this if "Yes To All" or "No To All" was not already selected.
-					EAppReturnType::Type UserResponse;
-					
-					if ( bReplaceAll )
+					// If the object is supported by the factory we are using, ask if we want to overwrite the asset
+					// Otherwise, prompt to replace the object
+					if (Factory->DoesSupportClass(ExistingObject->GetClass()))
 					{
-						UserResponse = EAppReturnType::YesAll;
-					}
-					else if ( bDontReplaceAny )
-					{
-						UserResponse = EAppReturnType::NoAll;
-					}
-					else
-					{
-						UserResponse = FMessageDialog::Open(
-							EAppMsgType::YesNoYesAllNoAll,
-							FText::Format( LOCTEXT("ImportObjectAlreadyExists_DifferentClass", "Do you want to replace the existing asset?\n\nAn asset already exists at the import location: {0}"), FText::FromString( PackageName ) ) );
+						// The factory can overwrite this object, ask if that is okay, unless "Yes To All" or "No To All" was already selected
+						EAppReturnType::Type UserResponse;
 
-						bReplaceAll = UserResponse == EAppReturnType::YesAll;
-						bDontReplaceAny = UserResponse == EAppReturnType::NoAll;
-					}
-
-					const bool bWantReplace = UserResponse == EAppReturnType::Yes || UserResponse == EAppReturnType::YesAll;
-
-					if( bWantReplace )
-					{
-						// Delete the existing object
-						int32 NumObjectsDeleted = 0;
-						TArray< UObject* > ObjectsToDelete;
-						ObjectsToDelete.Add(ExistingObject);
-
-						// Dont let the package get garbage collected (just in case we are deleting the last asset in the package)
-						Pkg->AddToRoot();
-						NumObjectsDeleted = ObjectTools::DeleteObjects( ObjectsToDelete, /*bShowConfirmation=*/false );
-						Pkg->RemoveFromRoot();
-
-						const FString QualifiedName = PackageName + TEXT(".") + Name;
-						FText Reason;
-						if( NumObjectsDeleted == 0 || !IsUniqueObjectName( *QualifiedName, ANY_PACKAGE, Reason ) )
+						if (bOverwriteAll || GIsAutomationTesting)
 						{
-							// Original object couldn't be deleted
-							const FText Message = FText::Format( LOCTEXT("ImportDeleteFailed", "Failed to delete '{0}'. The asset is referenced by other content."), FText::FromString( PackageName ) );
-							FMessageDialog::Open( EAppMsgType::Ok, Message );
-							UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString());
-							OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-							continue;
+							UserResponse = EAppReturnType::YesAll;
+						}
+						else if (bDontOverwriteAny)
+						{
+							UserResponse = EAppReturnType::NoAll;
 						}
 						else
 						{
-							// succeed, recreate package since it has been deleted
-							Pkg = CreatePackage(NULL, *PackageName);
+							UserResponse = FMessageDialog::Open(
+								EAppMsgType::YesNoYesAllNoAll,
+								FText::Format(LOCTEXT("ImportObjectAlreadyExists_SameClass", "Do you want to overwrite the existing asset?\n\nAn asset already exists at the import location: {0}"), FText::FromString(PackageName)));
+
+							bOverwriteAll = UserResponse == EAppReturnType::YesAll;
+							bDontOverwriteAny = UserResponse == EAppReturnType::NoAll;
+						}
+
+						const bool bWantOverwrite = UserResponse == EAppReturnType::Yes || UserResponse == EAppReturnType::YesAll;
+
+						if (!bWantOverwrite)
+						{
+							// User chose not to replace the package
+							bImportWasCancelled = true;
+							OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+							continue;
 						}
 					}
 					else
 					{
-						// User chose not to replace the package
-						bImportWasCancelled = true;
-						OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
-						continue;
+						// The factory can't overwrite this asset, ask if we should delete the object then import the new one. Only do this if "Yes To All" or "No To All" was not already selected.
+						EAppReturnType::Type UserResponse;
+
+						if (bReplaceAll)
+						{
+							UserResponse = EAppReturnType::YesAll;
+						}
+						else if (bDontReplaceAny)
+						{
+							UserResponse = EAppReturnType::NoAll;
+						}
+						else
+						{
+							UserResponse = FMessageDialog::Open(
+								EAppMsgType::YesNoYesAllNoAll,
+								FText::Format(LOCTEXT("ImportObjectAlreadyExists_DifferentClass", "Do you want to replace the existing asset?\n\nAn asset already exists at the import location: {0}"), FText::FromString(PackageName)));
+
+							bReplaceAll = UserResponse == EAppReturnType::YesAll;
+							bDontReplaceAny = UserResponse == EAppReturnType::NoAll;
+						}
+
+						const bool bWantReplace = UserResponse == EAppReturnType::Yes || UserResponse == EAppReturnType::YesAll;
+
+						if (bWantReplace)
+						{
+							// Delete the existing object
+							int32 NumObjectsDeleted = 0;
+							TArray< UObject* > ObjectsToDelete;
+							ObjectsToDelete.Add(ExistingObject);
+
+							// Dont let the package get garbage collected (just in case we are deleting the last asset in the package)
+							Pkg->AddToRoot();
+							NumObjectsDeleted = ObjectTools::DeleteObjects(ObjectsToDelete, /*bShowConfirmation=*/false);
+							Pkg->RemoveFromRoot();
+
+							const FString QualifiedName = PackageName + TEXT(".") + Name;
+							FText Reason;
+							if (NumObjectsDeleted == 0 || !IsUniqueObjectName(*QualifiedName, ANY_PACKAGE, Reason))
+							{
+								// Original object couldn't be deleted
+								const FText Message = FText::Format(LOCTEXT("ImportDeleteFailed", "Failed to delete '{0}'. The asset is referenced by other content."), FText::FromString(PackageName));
+								FMessageDialog::Open(EAppMsgType::Ok, Message);
+								UE_LOG(LogAssetTools, Warning, TEXT("%s"), *Message.ToString());
+								OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+								continue;
+							}
+							else
+							{
+								// succeed, recreate package since it has been deleted
+								Pkg = CreatePackage(NULL, *PackageName);
+							}
+						}
+						else
+						{
+							// User chose not to replace the package
+							bImportWasCancelled = true;
+							OnNewImportRecord(ImportAssetType, FileExtension, bImportSucceeded, bImportWasCancelled, ImportStartTime);
+							continue;
+						}
 					}
 				}
 			}
@@ -884,10 +957,34 @@ TArray<UObject*> FAssetTools::ImportAssets(const TArray<FString>& Files, const F
 
 void FAssetTools::CreateUniqueAssetName(const FString& InBasePackageName, const FString& InSuffix, FString& OutPackageName, FString& OutAssetName) const
 {
-	const FString PackagePath = FPackageName::GetLongPackagePath(InBasePackageName);
-	const FString BaseAssetName = FPackageName::GetLongPackageAssetName(InBasePackageName);
+	const FString SanitizedBasePackageName = PackageTools::SanitizePackageName(InBasePackageName);
+
+	const FString PackagePath = FPackageName::GetLongPackagePath(SanitizedBasePackageName);
+	const FString BaseAssetNameWithSuffix = FPackageName::GetLongPackageAssetName(SanitizedBasePackageName) + InSuffix;
+	const FString SanitizedBaseAssetName = ObjectTools::SanitizeObjectName(BaseAssetNameWithSuffix);
+
 	int32 IntSuffix = 1;
 	bool bObjectExists = false;
+
+	int32 CharIndex = SanitizedBaseAssetName.Len() - 1;
+	while (CharIndex >= 0 && SanitizedBaseAssetName[CharIndex] >= TEXT('0') && SanitizedBaseAssetName[CharIndex] <= TEXT('9'))
+	{
+		--CharIndex;
+	}
+	FString TrailingInteger;
+	FString TrimmedBaseAssetName = SanitizedBaseAssetName;
+	if (SanitizedBaseAssetName.Len() > 0 && CharIndex == -1)
+	{
+		// This is the all numeric name, in this case we'd like to append _number, because just adding a number isn't great
+		TrimmedBaseAssetName += TEXT("_");
+		IntSuffix = 2;
+	}
+	if (CharIndex >= 0 && CharIndex < SanitizedBaseAssetName.Len() - 1)
+	{
+		TrailingInteger = SanitizedBaseAssetName.RightChop(CharIndex + 1);
+		TrimmedBaseAssetName = SanitizedBaseAssetName.Left(CharIndex + 1);
+		IntSuffix = FCString::Atoi(*TrailingInteger);
+	}
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 
@@ -896,11 +993,16 @@ void FAssetTools::CreateUniqueAssetName(const FString& InBasePackageName, const 
 		bObjectExists = false;
 		if ( IntSuffix <= 1 )
 		{
-			OutAssetName = FString::Printf( TEXT("%s%s"), *BaseAssetName, *InSuffix);
+			OutAssetName = SanitizedBaseAssetName;
 		}
 		else
 		{
-			OutAssetName = FString::Printf( TEXT("%s%s%d"), *BaseAssetName, *InSuffix, IntSuffix );
+			FString Suffix = FString::Printf(TEXT("%d"), IntSuffix);
+			while (Suffix.Len() < TrailingInteger.Len())
+			{
+				Suffix = TEXT("0") + Suffix;
+			}
+			OutAssetName = FString::Printf(TEXT("%s%s"), *TrimmedBaseAssetName, *Suffix);
 		}
 	
 		OutPackageName = PackagePath + TEXT("/") + OutAssetName;

@@ -72,7 +72,8 @@ struct FKnotNetCollector
 
 
 SGraphPin::SGraphPin()
-	: bShowLabel(true)
+	: GraphPinObj(nullptr)
+	, bShowLabel(true)
 	, bIsMovingLinks(false)
 	, PinColorModifier(FLinearColor::White)
 	, CachedNodeOffset(FVector2D::ZeroVector)
@@ -152,7 +153,7 @@ SGraphPin::SGraphPin()
 void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 {
 	bUsePinColorForText = InArgs._UsePinColorForText;
-	this->SetCursor( EMouseCursor::Default );
+	this->SetCursor(EMouseCursor::Default);
 
 	Visibility = TAttribute<EVisibility>(this, &SGraphPin::GetPinVisiblity);
 
@@ -166,35 +167,35 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 	const bool bIsInput = (GetDirection() == EGPD_Input);
 
 	// Create the pin icon widget
-	TSharedRef<SWidget> ActualPinWidget = 
+	TSharedRef<SWidget> ActualPinWidget =
 		SAssignNew(PinImage, SImage)
-		.Image( this, &SGraphPin::GetPinIcon )
-		.IsEnabled( bCanConnectToPin )
+		.Image(this, &SGraphPin::GetPinIcon)
+		.IsEnabled(bCanConnectToPin)
 		.ColorAndOpacity(this, &SGraphPin::GetPinColor)
-		.OnMouseButtonDown( this, &SGraphPin::OnPinMouseDown )
-		.Cursor( this, &SGraphPin::GetPinCursor );
+		.OnMouseButtonDown(this, &SGraphPin::OnPinMouseDown)
+		.Cursor(this, &SGraphPin::GetPinCursor);
 
 	// Create the pin indicator widget (used for watched values)
 	static const FName NAME_NoBorder("NoBorder");
 	TSharedRef<SWidget> PinStatusIndicator =
 		SNew(SButton)
-		.ButtonStyle( FEditorStyle::Get(), NAME_NoBorder )
-		.Visibility( this, &SGraphPin::GetPinStatusIconVisibility )
+		.ButtonStyle(FEditorStyle::Get(), NAME_NoBorder)
+		.Visibility(this, &SGraphPin::GetPinStatusIconVisibility)
 		.ContentPadding(0)
-		.OnClicked( this, &SGraphPin::ClickedOnPinStatusIcon )
+		.OnClicked(this, &SGraphPin::ClickedOnPinStatusIcon)
 		[
 			SNew(SImage)
-			.Image( this, &SGraphPin::GetPinStatusIcon )
+			.Image(this, &SGraphPin::GetPinStatusIcon)
 		];
 
 	TSharedRef<SWidget> LabelWidget = SNew(STextBlock)
 		.Text(this, &SGraphPin::GetPinLabel)
-		.TextStyle( FEditorStyle::Get(), InArgs._PinLabelStyle )
+		.TextStyle(FEditorStyle::Get(), InArgs._PinLabelStyle)
 		.Visibility(this, &SGraphPin::GetPinLabelVisibility)
 		.ColorAndOpacity(this, &SGraphPin::GetPinTextColor);
 
 	// Create the widget used for the pin body (status indicator, label, and value)
-	TSharedRef<SWrapBox> LabelAndValue = 
+	TSharedRef<SWrapBox> LabelAndValue =
 		SNew(SWrapBox)
 		.PreferredWidth(150.f);
 
@@ -244,18 +245,11 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 			];
 	}
 
-	TAttribute<FText> ToolTipAttribute;
-	if (InArgs._HasToolTip)
-	{
-		ToolTipAttribute = TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SGraphPin::GetTooltip));
-	}
-
 	TSharedPtr<SWidget> PinContent;
 	if (bIsInput)
 	{
 		// Input pin
 		PinContent = SNew(SHorizontalBox)
-			.ToolTipText( ToolTipAttribute )
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
@@ -263,7 +257,7 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 			[
 				ActualPinWidget
 			]
-			+ SHorizontalBox::Slot()
+			+SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
 			[
@@ -274,7 +268,6 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 	{
 		// Output pin
 		PinContent = SNew(SHorizontalBox)
-			.ToolTipText( ToolTipAttribute )
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
@@ -291,10 +284,10 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 	}
 
 	// Set up a hover for pins that is tinted the color of the pin.
-	SBorder::Construct( SBorder::FArguments()
-		.BorderImage( this, &SGraphPin::GetPinBorder )
-		.BorderBackgroundColor( this, &SGraphPin::GetPinColor )
-		.OnMouseButtonDown( this, &SGraphPin::OnPinNameMouseDown )
+	SBorder::Construct(SBorder::FArguments()
+		.BorderImage(this, &SGraphPin::GetPinBorder)
+		.BorderBackgroundColor(this, &SGraphPin::GetPinColor)
+		.OnMouseButtonDown(this, &SGraphPin::OnPinNameMouseDown)
 		[
 			SNew(SLevelOfDetailBranchNode)
 			.UseLowDetailSlot(this, &SGraphPin::UseLowDetailPinNames)
@@ -304,11 +297,14 @@ void SGraphPin::Construct(const FArguments& InArgs, UEdGraphPin* InPin)
 				ActualPinWidget
 			]
 			.HighDetail()
-			[
-				PinContent.ToSharedRef()
-			]
+				[
+					PinContent.ToSharedRef()
+				]
 		]
 	);
+
+	TAttribute<FText> ToolTipAttribute = TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SGraphPin::GetTooltipText));
+	SetToolTipText(ToolTipAttribute);
 }
 
 
@@ -550,13 +546,16 @@ FReply SGraphPin::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEv
 
 void SGraphPin::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	FKnotNetCollector NetCollector(GetPinObj());
-
-	TSharedPtr<SGraphPanel> Panel = OwnerNodePtr.Pin()->GetOwnerPanel();
-	for (UEdGraphPin* PinInNet : NetCollector.VisitedPins)
+	if (!bIsHovered)
 	{
-		Panel->AddPinToHoverSet(PinInNet);
-		HoverPinSet.Add(PinInNet);
+		FKnotNetCollector NetCollector(GetPinObj());
+
+		TSharedPtr<SGraphPanel> Panel = OwnerNodePtr.Pin()->GetOwnerPanel();
+		for (UEdGraphPin* PinInNet : NetCollector.VisitedPins)
+		{
+			Panel->AddPinToHoverSet(PinInNet);
+			HoverPinSet.Add(PinInNet);
+		}
 	}
 
 	SCompoundWidget::OnMouseEnter(MyGeometry, MouseEvent);
@@ -723,8 +722,6 @@ void SGraphPin::Tick( const FGeometry& AllottedGeometry, const double InCurrentT
 {
 	CachedNodeOffset = AllottedGeometry.AbsolutePosition/AllottedGeometry.Scale - OwnerNodePtr.Pin()->GetUnscaledPosition();
 	CachedNodeOffset.Y += AllottedGeometry.Size.Y * 0.5f;
-
-	SBorder::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 UEdGraphPin* SGraphPin::GetPinObj() const
@@ -963,12 +960,11 @@ void SGraphPin::SetShowLabel(bool bNewShowLabel)
 	bShowLabel = bNewShowLabel;
 }
 
-FText SGraphPin::GetTooltip() const
+FText SGraphPin::GetTooltipText() const
 {
 	FText HoverText = FText::GetEmpty();
 
-	check(GraphPinObj != nullptr);
-	UEdGraphNode* GraphNode = GraphPinObj->GetOwningNodeUnchecked();
+	UEdGraphNode* GraphNode = GraphPinObj ? GraphPinObj->GetOwningNodeUnchecked() : nullptr;
 	if (GraphNode != nullptr)
 	{
 		FString HoverStr;

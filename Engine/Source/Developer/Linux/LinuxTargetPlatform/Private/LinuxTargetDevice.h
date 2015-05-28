@@ -47,7 +47,7 @@ public:
 
 	virtual bool Deploy( const FString& SourceFolder, FString& OutAppId ) override;
 
-	virtual void Disconnect( )
+	virtual void Disconnect( ) override
 	{ }
 
 	virtual ETargetDeviceTypes GetDeviceType( ) const override
@@ -77,7 +77,7 @@ public:
 		return TargetPlatform;
 	}
 
-	virtual bool IsConnected( )
+	virtual bool IsConnected( ) override
 	{
 		return true;
 	}

@@ -11,4 +11,5 @@
 UAudioSettings::UAudioSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	SectionName = TEXT("Audio");
 }

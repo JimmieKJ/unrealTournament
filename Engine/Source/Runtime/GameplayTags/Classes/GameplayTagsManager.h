@@ -81,6 +81,13 @@ struct FGameplayTagNode
 	 */
 	GAMEPLAYTAGS_API TWeakPtr<FGameplayTagNode> GetParentTagNode() const;
 
+	/**
+	* Get the net index of this node
+	*
+	* @return The net index of this node
+	*/
+	GAMEPLAYTAGS_API FGameplayTagNetIndex GetNetIndex() const;
+
 	/** Reset the node of all of its values */
 	GAMEPLAYTAGS_API void ResetNode();
 
@@ -99,6 +106,11 @@ private:
 
 	/** Owner gameplay tag node, if any */
 	TWeakPtr<FGameplayTagNode> ParentNode;
+	
+	/** Net Index of this node */
+	FGameplayTagNetIndex NetIndex;
+
+	friend class UGameplayTagsManager;
 };
 
 /** Holds global data loaded at startup, is in a singleton UObject so it works properly with hot reload */
@@ -190,7 +202,7 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	 * 
 	 * @return True if tag was added
 	 */
-	bool AddLeafTagToContainer(FGameplayTagContainer& TagContainer, FGameplayTag& Tag);
+	bool AddLeafTagToContainer(FGameplayTagContainer& TagContainer, const FGameplayTag& Tag);
 
 	/**
 	 * Gets a Tag Container for the supplied tag and all its parents
@@ -241,6 +253,15 @@ class GAMEPLAYTAGS_API UGameplayTagsManager : public UObject
 	/** Returns true if we should import tags from UGameplayTagsSettings objects (configured by INI files) */
 	static bool ShouldImportTagsFromINI();
 
+	/** Should use fast replication */
+	static bool ShouldUseFastReplication();
+
+	void RedirectTagsForContainer(FGameplayTagContainer& Container, TArray<FName>& DeprecatedTagNamesNotFoundInTagMap);
+
+	/** Gets a tag name from net index and vice versa, used for replication efficiency */
+	FName GetTagNameFromNetIndex(FGameplayTagNetIndex Index);
+	FGameplayTagNetIndex GetNetIndexFromTag(const FGameplayTag &InTag);
+
 private:
 
 	friend class FGameplayTagTest;
@@ -270,14 +291,20 @@ private:
 	 */
 	void GetAllParentNodeNames(TSet<FName>& NamesList, const TSharedPtr<FGameplayTagNode> GameplayTag) const;
 
+	/** Constructs the net indices for each tag */
+	void ConstructNetIndex();
+
 	/** Roots of gameplay tag nodes */
 	TSharedPtr<FGameplayTagNode> GameplayRootTag;
 
-	/** Map of Tags to Nodes - Internal use only*/
+	/** Map of Tags to Nodes - Internal use only */
 	TMap<FGameplayTag, TSharedPtr<FGameplayTagNode>> GameplayTagNodeMap;
 
-	/** Map of Names to tags - Internal use only*/
+	/** Map of Names to tags - Internal use only */
 	TMap<FName, FGameplayTag> GameplayTagMap;
+
+	/** Sorted list of nodes, used for network replication */
+	TArray<TSharedPtr<FGameplayTagNode>> NetworkGameplayTagNodeIndex;
 
 	/** Holds all of the valid gameplay-related tags that can be applied to assets */
 	UPROPERTY()
@@ -285,6 +312,10 @@ private:
 
 	/** The delegate to execute when the tag tree changes */
 	FGameplayTagTreeChanged GameplayTagTreeChangedEvent;
+
+	// Prevent spamming about bad tag redirectors.  This flag is used to make all warnings only happen once, rather
+	// than once per every TagContainer that loads data!
+	bool bHasHandledRedirectors;
 
 #if WITH_EDITOR
 	/** Flag to say if we have registered the ObjectReimport, this is needed as use of Tags manager can happen before Editor is ready*/

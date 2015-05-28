@@ -559,8 +559,8 @@ public:
 
 			const int32 TotalBeforeSaving			= TotalRaw - TotalBeforeCompressed;
 			const int32 TotalAfterSaving			= TotalRaw - TotalAfterCompressed;
-			const float OldCompressionRatio			= (TotalBeforeCompressed > 0.f) ? (TotalRaw / TotalBeforeCompressed) : 0.f;
-			const float NewCompressionRatio			= (TotalAfterCompressed > 0.f) ? (TotalRaw / TotalAfterCompressed) : 0.f;
+			const float OldCompressionRatio			= (TotalBeforeCompressed > 0.f) ? (static_cast<float>(TotalRaw) / TotalBeforeCompressed) : 0.f;
+			const float NewCompressionRatio			= (TotalAfterCompressed > 0.f) ? (static_cast<float>(TotalRaw) / TotalAfterCompressed) : 0.f;
 
 			FNumberFormattingOptions Options;
 			Options.MinimumIntegralDigits = 7;

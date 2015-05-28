@@ -13,7 +13,7 @@ public:
 
 	// IAutomationWindowModule interface
 
-	virtual TSharedRef<class SWidget> CreateAutomationWindow( const IAutomationControllerManagerRef& AutomationController, const ISessionManagerRef& SessionManager ) override
+	virtual TSharedRef<class SWidget> CreateAutomationWindow( const IAutomationControllerManagerRef& AutomationController, const TSharedRef<ISessionManager>& SessionManager ) override
 	{
 		return SNew(SAutomationWindow, AutomationController, SessionManager);
 	}

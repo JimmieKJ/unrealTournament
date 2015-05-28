@@ -69,12 +69,12 @@ public:
 
 	// SCompoundWidget interface
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
 private:
 
-	/** Holds a timer for checking whether the device profile configuration file needs to be checked out. */
-	float DefaultConfigCheckOutTimer;
+	/** Holds the last time checking whether the device profile configuration file needs to be checked out. */
+	double LastDefaultConfigCheckOutTime;
 
 	/** Holds a flag indicating whether the section's configuration file needs to be checked out. */
 	bool bIsDefaultConfigCheckOutNeeded;
@@ -92,7 +92,7 @@ SDeviceProfileSourceControl::~SDeviceProfileSourceControl()
 
 FReply SDeviceProfileSourceControl::HandleSaveDefaultsButtonPressed()
 {
-	GEngine->GetDeviceProfileManager()->SaveProfiles(true);
+	UDeviceProfileManager::Get().SaveProfiles(true);
 
 	return FReply::Handled();
 }
@@ -132,7 +132,7 @@ bool SDeviceProfileSourceControl::IsCheckOutAvailable() const
 
 void SDeviceProfileSourceControl::Construct(const FArguments& InArgs)
 {
-	DefaultConfigCheckOutTimer = 0.0f;
+	LastDefaultConfigCheckOutTime = 0.0;
 	bIsDefaultConfigCheckOutNeeded = true;
 
 	const FString RelativeConfigFilePath = FString::Printf(TEXT("%sDefault%ss.ini"), *FPaths::SourceConfigDir(), *UDeviceProfile::StaticClass()->GetName());
@@ -212,25 +212,21 @@ void SDeviceProfileSourceControl::Construct(const FArguments& InArgs)
 }
 
 
-void SDeviceProfileSourceControl::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void SDeviceProfileSourceControl::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 	// cache selected settings object's configuration file state
-	DefaultConfigCheckOutTimer += InDeltaTime;
-
-	if(DefaultConfigCheckOutTimer >= 1.0f)
+	if(InCurrentTime - LastDefaultConfigCheckOutTime >= 1.0f)
 	{
 		bIsDefaultConfigCheckOutNeeded = (FPaths::FileExists(AbsoluteConfigFilePath) && IFileManager::Get().IsReadOnly(*AbsoluteConfigFilePath));
 
-		DefaultConfigCheckOutTimer = 0.0f;
+		LastDefaultConfigCheckOutTime = InCurrentTime;
 	}
 }
 
 
 void SDeviceProfileEditor::Construct( const FArguments& InArgs )
 {
-	DeviceProfileManager = GEngine->GetDeviceProfileManager();
+	DeviceProfileManager = &UDeviceProfileManager::Get();
 
 	// Setup the tab layout for the editor.
 	TSharedRef<FWorkspaceItem> RootMenuGroup = FWorkspaceItem::NewGroup( LOCTEXT("RootMenuGroupName", "Root") );
@@ -518,9 +514,14 @@ TSharedRef< SWidget > SDeviceProfileEditor::SetupPropertyEditor()
 	// Bind our action to open a single editor when requested from the property table
 	CVarsColumn->OnEditCVarsRequest().BindRaw(this, &SDeviceProfileEditor::HandleDeviceProfileViewAlone);
 
+	// Adapt the TextureLODSettings column as a button to open a single editor which will allow better control of the Texture Groups
+	TSharedRef<FDeviceProfileTextureLODSettingsColumn> TextureLODSettingsColumn = MakeShareable(new FDeviceProfileTextureLODSettingsColumn());
+	TextureLODSettingsColumn->OnEditTextureLODSettingsRequest().BindRaw(this, &SDeviceProfileEditor::HandleDeviceProfileViewAlone);
+
 	// Add our Custom Rows to the table
 	TArray<TSharedRef<IPropertyTableCustomColumn>> CustomColumns;
 	CustomColumns.Add(CVarsColumn);
+	CustomColumns.Add(TextureLODSettingsColumn);
 
 	return PropertyEditorModule.CreatePropertyTableWidget(PropertyTable.ToSharedRef(), CustomColumns);
 }

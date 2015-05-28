@@ -322,12 +322,7 @@ void LoadVorbisLibraries()
 #if PLATFORM_WINDOWS  && WITH_OGGVORBIS
 		//@todo if ogg is every ported to another platform, then use the platform abstraction to load these DLLs
 		// Load the Ogg dlls
-		#if _MSC_VER >= 1800
-			FString VSVersion = TEXT("VS2013/");
-		#else
-		FString VSVersion = TEXT("VS2012/");
-		#endif
-
+		FString VSVersion = TEXT("VS2013/");
 		FString PlatformString = TEXT("Win32");
 		FString DLLNameStub = TEXT(".dll");
 #if PLATFORM_64BITS

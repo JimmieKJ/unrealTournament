@@ -22,6 +22,9 @@ class GAMEPLAYABILITIES_API IGameplayCueInterface
 
 	virtual void HandleGameplayCues(AActor *Self, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
 
+	/** Return the cue sets used by this object. This is optional and it is possible to leave this list empty. */
+	virtual void GetGameplayCueSets(TArray<class UGameplayCueSet*>& OutSets) const {}
+
 	/** Default native handler, called if no tag matches found */
 	virtual void GameplayCueDefaultHandler(EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
 
@@ -63,6 +66,9 @@ struct FActiveGameplayCue : public FFastArraySerializerItem
 	UPROPERTY()
 	FGameplayTag GameplayCueTag;
 
+	UPROPERTY()
+	FPredictionKey PredictionKey;
+
 	void PreReplicatedRemove(const struct FActiveGameplayCueContainer &InArray);
 	void PostReplicatedAdd(const struct FActiveGameplayCueContainer &InArray);
 	void PostReplicatedChange(const struct FActiveGameplayCueContainer &InArray) { }
@@ -79,7 +85,7 @@ struct FActiveGameplayCueContainer : public FFastArraySerializer
 	UPROPERTY()
 	class UAbilitySystemComponent*	Owner;
 
-	void AddCue(const FGameplayTag& Tag);
+	void AddCue(const FGameplayTag& Tag, const FPredictionKey& PredictionKey);
 	void RemoveCue(const FGameplayTag& Tag);
 
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)

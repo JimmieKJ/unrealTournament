@@ -202,7 +202,7 @@ public:
 	 *	@param	InMaxHullCount			The max hull count allowed. 
 	 *	@param	InMaxHullVerts			The max number of verts per hull allowed. 
 	 */
-	virtual void DoDecomp(int32 InMaxHullCount, int32 InMaxHullVerts) = 0;
+	virtual void DoDecomp(float InAccuracy, int32 InMaxHullVerts) = 0;
 
 	/** Retrieves the selected edge set. */
 	virtual TSet< int32 >& GetSelectedEdges() = 0;

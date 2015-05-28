@@ -47,12 +47,22 @@ float3 Diffuse_Lambert( float3 DiffuseColor )
 }
 
 // [Burley 2012, "Physically-Based Shading at Disney"]
+// [Lagrade et al. 2014, "Moving Frostbite to Physically Based Rendering"]
 float3 Diffuse_Burley( float3 DiffuseColor, float Roughness, float NoV, float NoL, float VoH )
 {
-	float FD90 = 0.5 + 2 * VoH * VoH * Roughness;
-	float FdV = 1 + (FD90 - 1) * pow( 1 - NoV, 5 );
-	float FdL = 1 + (FD90 - 1) * pow( 1 - NoL, 5 );
-	return DiffuseColor * ( 1 / PI * FdV * FdL );
+	float FD90 = ( 0.5 + 2 * VoH * VoH ) * Roughness;
+	
+	float InvNov = 1- NoV;
+	float NoVPow5 = InvNov * InvNov;
+	NoVPow5 = NoVPow5 * NoVPow5 * InvNov;
+
+	float InvNoL = 1 - NoL;
+	float NoLPow5 = InvNoL * InvNoL;
+	NoLPow5 = NoLPow5 * NoLPow5 * InvNoL;
+
+	float FdV = 1 + (FD90 - 1) * NoVPow5;
+	float FdL = 1 + (FD90 - 1) * NoLPow5;
+	return DiffuseColor * ( 1 / PI * FdV * FdL ) * ( 1 - 0.3333 * Roughness );	// TODO premultiply DiffuseColor
 }
 
 // [Gotanda 2012, "Beyond a Simple Physically Based Blinn-Phong Model in Real-Time"]

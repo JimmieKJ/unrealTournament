@@ -290,11 +290,11 @@ void RemapPaintedVertexColors(
 				// iterator for future consideration.
 				else
 				{
-					FOREACH_OCTREE_CHILD_NODE( ChildRef )
+					FOREACH_OCTREE_CHILD_NODE( OctreeChildRef )
 					{
-						if( CurNode.HasChild( ChildRef ) && CurNode.GetChild( ChildRef )->GetInclusiveElementCount() > 0 )
+						if( CurNode.HasChild( OctreeChildRef ) && CurNode.GetChild( OctreeChildRef )->GetInclusiveElementCount() > 0 )
 						{
-							OctreeIter.PushChild( ChildRef );
+							OctreeIter.PushChild( OctreeChildRef );
 						}
 					}
 				}

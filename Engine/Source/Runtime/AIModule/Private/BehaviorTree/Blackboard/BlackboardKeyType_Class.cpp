@@ -12,21 +12,30 @@ UBlackboardKeyType_Class::UBlackboardKeyType_Class(const FObjectInitializer& Obj
 	SupportedOp = EBlackboardKeyOperation::Basic;
 }
 
-UClass* UBlackboardKeyType_Class::GetValue(const uint8* RawData)
+UClass* UBlackboardKeyType_Class::GetValue(const UBlackboardKeyType_Class* KeyOb, const uint8* RawData)
 {
 	TWeakObjectPtr<UClass> WeakObjPtr = GetValueFromMemory< TWeakObjectPtr<UClass> >(RawData);
 	return WeakObjPtr.Get();
 }
 
-bool UBlackboardKeyType_Class::SetValue(uint8* RawData, UClass* Value)
+bool UBlackboardKeyType_Class::SetValue(UBlackboardKeyType_Class* KeyOb, uint8* RawData, UClass* Value)
 {
 	TWeakObjectPtr<UClass> WeakObjPtr(Value);
 	return SetWeakObjectInMemory<UClass>(RawData, WeakObjPtr);
 }
 
-FString UBlackboardKeyType_Class::DescribeValue(const uint8* RawData) const
+EBlackboardCompare::Type UBlackboardKeyType_Class::CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+	const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const
 {
-	return *GetNameSafe(GetValue(RawData));
+	const UClass* MyValue = GetValue(this, MemoryBlock);
+	const UClass* OtherValue = GetValue((UBlackboardKeyType_Class*)OtherKeyOb, OtherMemoryBlock);
+
+	return (MyValue == OtherValue) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
+}
+
+FString UBlackboardKeyType_Class::DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
+{
+	return *GetNameSafe(GetValue(this, RawData));
 }
 
 FString UBlackboardKeyType_Class::DescribeSelf() const
@@ -40,12 +49,7 @@ bool UBlackboardKeyType_Class::IsAllowedByFilter(UBlackboardKeyType* FilterOb) c
 	return (FilterClass && (FilterClass->BaseClass == BaseClass || BaseClass->IsChildOf(FilterClass->BaseClass)));
 }
 
-EBlackboardCompare::Type UBlackboardKeyType_Class::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
-{
-	return (FMemory::Memcmp(MemoryBlockA, MemoryBlockB, ValueSize) == 0) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
-}
-
-bool UBlackboardKeyType_Class::TestBasicOperation(const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
+bool UBlackboardKeyType_Class::TestBasicOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, EBasicKeyOperation::Type Op) const
 {
 	TWeakObjectPtr<UClass> WeakObjPtr = GetValueFromMemory< TWeakObjectPtr<UClass> >(MemoryBlock);
 	return (Op == EBasicKeyOperation::Set) ? WeakObjPtr.IsValid() : !WeakObjPtr.IsValid();

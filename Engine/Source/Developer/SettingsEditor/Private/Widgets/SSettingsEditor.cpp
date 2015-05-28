@@ -31,8 +31,10 @@ SSettingsEditor::~SSettingsEditor()
 
 void SSettingsEditor::Construct( const FArguments& InArgs, const ISettingsEditorModelRef& InModel )
 {
+	bIsActiveTimerRegistered = false;
 	Model = InModel;
 	SettingsContainer = InModel->GetSettingsContainer();
+	OnApplicationRestartRequiredDelegate = InArgs._OnApplicationRestartRequired;
 
 	// initialize settings view
 	FDetailsViewArgs DetailsViewArgs;
@@ -243,6 +245,12 @@ void SSettingsEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 		RecordPreferenceChangedAnalytics( SelectedSection, PropertyChangedEvent );
 
 		SelectedSection->Save();
+
+		static const FName ConfigRestartRequiredKey = "ConfigRestartRequired";
+		if (PropertyChangedEvent.Property->GetBoolMetaData(ConfigRestartRequiredKey))
+		{
+			OnApplicationRestartRequiredDelegate.ExecuteIfBound();
+		}
 	}
 }
 
@@ -550,7 +558,7 @@ FReply SSettingsEditor::HandleExportButtonClicked()
 	{
 		if (LastExportDir.IsEmpty())
 		{
-			LastExportDir = FPaths::GetPath(GEditorUserSettingsIni);
+			LastExportDir = FPaths::GetPath(GEditorPerProjectIni);
 		}
 
 		FString DefaultFileName = FString::Printf(TEXT("%s Backup %s.ini"), *SelectedSection->GetDisplayName().ToString(), *FDateTime::Now().ToString(TEXT("%Y-%m-%d %H%M%S")));
@@ -600,7 +608,7 @@ FReply SSettingsEditor::HandleImportButtonClicked()
 		TSharedPtr<SWindow> ParentWindow = FSlateApplication::Get().FindWidgetWindow(AsShared());
 		void* ParentWindowHandle = (ParentWindow.IsValid() && ParentWindow->GetNativeWindow().IsValid()) ? ParentWindow->GetNativeWindow()->GetOSWindowHandle() : nullptr;
 
-		if (FDesktopPlatformModule::Get()->OpenFileDialog(ParentWindowHandle, LOCTEXT("ImportSettingsDialogTitle", "Import settings...").ToString(), FPaths::GetPath(GEditorUserSettingsIni), TEXT(""), TEXT("Config files (*.ini)|*.ini"), EFileDialogFlags::None, OutFiles))
+		if (FDesktopPlatformModule::Get()->OpenFileDialog(ParentWindowHandle, LOCTEXT("ImportSettingsDialogTitle", "Import settings...").ToString(), FPaths::GetPath(GEditorPerProjectIni), TEXT(""), TEXT("Config files (*.ini)|*.ini"), EFileDialogFlags::None, OutFiles))
 		{
 			if (SelectedSection->Import(OutFiles[0]) && SelectedSection->Save())
 			{
@@ -736,6 +744,11 @@ FReply SSettingsEditor::HandleSetAsDefaultButtonClicked()
 
 	if (SelectedSection.IsValid())
 	{
+		if (FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("SaveAsDefaultUserConfirm", "Are you sure you want to update the default settings?")) != EAppReturnType::Yes)
+		{
+			return FReply::Handled();
+		}
+
 		if (IsDefaultConfigCheckOutNeeded())
 		{
 			if (ISourceControlModule::Get().IsEnabled())
@@ -822,9 +835,21 @@ EVisibility SSettingsEditor::HandleSettingsBoxVisibility() const
 
 void SSettingsEditor::HandleSettingsContainerCategoryModified( const FName& CategoryName )
 {
-	ReloadCategories();
+	if ( !bIsActiveTimerRegistered )
+	{
+		bIsActiveTimerRegistered = true;
+		RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SSettingsEditor::UpdateCategoriesCallback));
+	}
 }
 
+EActiveTimerReturnType SSettingsEditor::UpdateCategoriesCallback(double InCurrentTime, float InDeltaTime)
+{
+	bIsActiveTimerRegistered = false;
+
+	ReloadCategories();
+
+	return EActiveTimerReturnType::Stop;
+}
 
 bool SSettingsEditor::HandleSettingsViewEnabled() const
 {

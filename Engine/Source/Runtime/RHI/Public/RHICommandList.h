@@ -133,9 +133,7 @@ public:
 
 	void SetContext(IRHICommandContext* InContext)
 	{
-#if PLATFORM_RHI_USES_CONTEXT_OBJECT
 		check(InContext);
-#endif
 		Context = InContext;
 	}
 
@@ -508,19 +506,18 @@ struct FRHICommandSetRenderTargets : public FRHICommand<FRHICommandSetRenderTarg
 {
 	uint32 NewNumSimultaneousRenderTargets;
 	FRHIRenderTargetView NewRenderTargetsRHI[MaxSimultaneousRenderTargets];
-	FTextureRHIParamRef NewDepthStencilTargetRHI;
+	FRHIDepthRenderTargetView NewDepthStencilTarget;
 	uint32 NewNumUAVs;
 	FUnorderedAccessViewRHIParamRef UAVs[MaxSimultaneousUAVs];
 
 	FORCEINLINE_DEBUGGABLE FRHICommandSetRenderTargets(
 		uint32 InNewNumSimultaneousRenderTargets,
 		const FRHIRenderTargetView* InNewRenderTargetsRHI,
-		FTextureRHIParamRef InNewDepthStencilTargetRHI,
+		const FRHIDepthRenderTargetView* InNewDepthStencilTargetRHI,
 		uint32 InNewNumUAVs,
 		const FUnorderedAccessViewRHIParamRef* InUAVs
 		)
 		: NewNumSimultaneousRenderTargets(InNewNumSimultaneousRenderTargets)
-		, NewDepthStencilTargetRHI(InNewDepthStencilTargetRHI)
 		, NewNumUAVs(InNewNumUAVs)
 
 	{
@@ -533,6 +530,10 @@ struct FRHICommandSetRenderTargets : public FRHICommand<FRHICommandSetRenderTarg
 		{
 			UAVs[Index] = InUAVs[Index];
 		}
+		if (InNewDepthStencilTargetRHI)
+		{
+			NewDepthStencilTarget = *InNewDepthStencilTargetRHI;
+		}		
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
@@ -545,6 +546,42 @@ struct FRHICommandSetRenderTargetsAndClear : public FRHICommand<FRHICommandSetRe
 		RenderTargetsInfo(InRenderTargetsInfo)
 	{
 	}
+
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandBindClearMRTValues : public FRHICommand<FRHICommandBindClearMRTValues>
+{
+	FLinearColor ColorArray[MaxSimultaneousRenderTargets];	
+	float Depth;
+	uint32 Stencil;
+	int32 NumClearColors;
+	bool bClearColor;
+	bool bClearDepth;
+	bool bClearStencil;
+
+	FORCEINLINE_DEBUGGABLE FRHICommandBindClearMRTValues(
+		bool InbClearColor,
+		int32 InNumClearColors,
+		const FLinearColor* InColorArray,
+		bool InbClearDepth,
+		float InDepth,
+		bool InbClearStencil,
+		uint32 InStencil		
+		) 
+		: Depth(InDepth)
+		, Stencil(InStencil)
+		, NumClearColors(InNumClearColors)
+		, bClearColor(InbClearColor)
+		, bClearDepth(InbClearDepth)
+		, bClearStencil(InbClearStencil)
+	{
+		check(InNumClearColors < MaxSimultaneousRenderTargets);
+		for (int32 Index = 0; Index < InNumClearColors; Index++)
+		{
+			ColorArray[Index] = InColorArray[Index];
+		}
+	}	
 
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
@@ -649,12 +686,12 @@ struct FRHICommandFlushComputeShaderCache : public FRHICommand<FRHICommandFlushC
 
 struct FRHICommandDrawPrimitiveIndirect : public FRHICommand<FRHICommandDrawPrimitiveIndirect>
 {
-	uint32 PrimitiveType;
 	FVertexBufferRHIParamRef ArgumentBuffer;
+	uint32 PrimitiveType;
 	uint32 ArgumentOffset;
 	FORCEINLINE_DEBUGGABLE FRHICommandDrawPrimitiveIndirect(uint32 InPrimitiveType, FVertexBufferRHIParamRef InArgumentBuffer, uint32 InArgumentOffset)
-		: PrimitiveType(InPrimitiveType)
-		, ArgumentBuffer(InArgumentBuffer)
+		: ArgumentBuffer(InArgumentBuffer)
+		, PrimitiveType(InPrimitiveType)
 		, ArgumentOffset(InArgumentOffset)
 	{
 	}
@@ -682,15 +719,15 @@ struct FRHICommandDrawIndexedIndirect : public FRHICommand<FRHICommandDrawIndexe
 
 struct FRHICommandDrawIndexedPrimitiveIndirect : public FRHICommand<FRHICommandDrawIndexedPrimitiveIndirect>
 {
-	uint32 PrimitiveType;
 	FIndexBufferRHIParamRef IndexBuffer;
 	FVertexBufferRHIParamRef ArgumentsBuffer;
+	uint32 PrimitiveType;
 	uint32 ArgumentOffset;
 
 	FORCEINLINE_DEBUGGABLE FRHICommandDrawIndexedPrimitiveIndirect(uint32 InPrimitiveType, FIndexBufferRHIParamRef InIndexBuffer, FVertexBufferRHIParamRef InArgumentsBuffer, uint32 InArgumentOffset)
-		: PrimitiveType(InPrimitiveType)
-		, IndexBuffer(InIndexBuffer)
+		: IndexBuffer(InIndexBuffer)
 		, ArgumentsBuffer(InArgumentsBuffer)
+		, PrimitiveType(InPrimitiveType)
 		, ArgumentOffset(InArgumentOffset)
 	{
 	}
@@ -730,16 +767,16 @@ struct FRHICommandClearUAV : public FRHICommand<FRHICommandClearUAV>
 
 struct FRHICommandCopyToResolveTarget : public FRHICommand<FRHICommandCopyToResolveTarget>
 {
+	FResolveParams ResolveParams;
 	FTextureRHIParamRef SourceTexture;
 	FTextureRHIParamRef DestTexture;
 	bool bKeepOriginalSurface;
-	FResolveParams ResolveParams;
 
 	FORCEINLINE_DEBUGGABLE FRHICommandCopyToResolveTarget(FTextureRHIParamRef InSourceTexture, FTextureRHIParamRef InDestTexture, bool InbKeepOriginalSurface, const FResolveParams& InResolveParams)
-		: SourceTexture(InSourceTexture)
+		: ResolveParams(InResolveParams)
+		, SourceTexture(InSourceTexture)
 		, DestTexture(InDestTexture)
 		, bKeepOriginalSurface(InbKeepOriginalSurface)
-		, ResolveParams(InResolveParams)
 	{
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
@@ -1041,18 +1078,29 @@ struct FRHICommandEndRenderQuery : public FRHICommand<FRHICommandEndRenderQuery>
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
-#if !PLATFORM_SUPPORTS_RHI_THREAD
-struct FRHICommandResetRenderQuery : public FRHICommand<FRHICommandResetRenderQuery>
+struct FRHICommandBeginOcclusionQueryBatch : public FRHICommand<FRHICommandBeginOcclusionQueryBatch>
 {
-	FRenderQueryRHIParamRef RenderQuery;
-
-	FORCEINLINE_DEBUGGABLE FRHICommandResetRenderQuery(FRenderQueryRHIParamRef InRenderQuery)
-		: RenderQuery(InRenderQuery)
+	FORCEINLINE_DEBUGGABLE FRHICommandBeginOcclusionQueryBatch()
 	{
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
-#endif
+
+struct FRHICommandEndOcclusionQueryBatch : public FRHICommand<FRHICommandEndOcclusionQueryBatch>
+{
+	FORCEINLINE_DEBUGGABLE FRHICommandEndOcclusionQueryBatch()
+	{
+	}
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
+
+struct FRHICommandSubmitCommandsHint : public FRHICommand<FRHICommandSubmitCommandsHint>
+{
+	FORCEINLINE_DEBUGGABLE FRHICommandSubmitCommandsHint()
+	{
+	}
+	RHI_API void Execute(FRHICommandListBase& CmdList);
+};
 
 struct FRHICommandBeginScene : public FRHICommand<FRHICommandBeginScene>
 {
@@ -1101,7 +1149,6 @@ struct FRHICommandEndFrame : public FRHICommand<FRHICommandEndFrame>
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
 
-#if PLATFORM_SUPPORTS_RHI_THREAD
 struct FRHICommandBeginDrawingViewport : public FRHICommand<FRHICommandBeginDrawingViewport>
 {
 	FViewportRHIParamRef Viewport;
@@ -1129,7 +1176,6 @@ struct FRHICommandEndDrawingViewport : public FRHICommand<FRHICommandEndDrawingV
 	}
 	RHI_API void Execute(FRHICommandListBase& CmdList);
 };
-#endif
 
 struct FRHICommandPushEvent : public FRHICommand<FRHICommandPushEvent>
 {
@@ -1158,11 +1204,7 @@ struct FRHICommandDebugBreak : public FRHICommand<FRHICommandDebugBreak>
 	}
 };
 
-#if PLATFORM_RHI_USES_CONTEXT_OBJECT
 #define CMD_CONTEXT(Method) GetContext().RHI##Method
-#else
-#define CMD_CONTEXT(Method) Method##_Internal
-#endif
 
 
 class RHI_API FRHICommandList : public FRHICommandListBase
@@ -1220,11 +1262,7 @@ public:
 		FLocalBoundShaderState Result;
 		if (Bypass())
 		{
-#if HAS_THREADSAFE_CreateBoundShaderState
 			Result.BypassBSS = RHICreateBoundShaderState(VertexDeclarationRHI, VertexShaderRHI, HullShaderRHI, DomainShaderRHI, PixelShaderRHI, GeometryShaderRHI);
-#else
-			Result.BypassBSS = CreateBoundShaderState_Internal(VertexDeclarationRHI, VertexShaderRHI, HullShaderRHI, DomainShaderRHI, PixelShaderRHI, GeometryShaderRHI);
-#endif
 		}
 		else
 		{
@@ -1255,11 +1293,7 @@ public:
 		FLocalUniformBuffer Result;
 		if (Bypass())
 		{
-#if PLATFORM_SUPPORTS_RHI_THREAD
 			Result.BypassUniform = RHICreateUniformBuffer(Contents, Layout, UniformBuffer_SingleFrame);
-#else
-			Result.BypassUniform = CreateUniformBuffer_Internal(Contents, Layout, UniformBuffer_SingleFrame);
-#endif
 		}
 		else
 		{
@@ -1493,7 +1527,7 @@ public:
 	FORCEINLINE_DEBUGGABLE void SetRenderTargets(
 		uint32 NewNumSimultaneousRenderTargets,
 		const FRHIRenderTargetView* NewRenderTargetsRHI,
-		FTextureRHIParamRef NewDepthStencilTargetRHI,
+		const FRHIDepthRenderTargetView* NewDepthStencilTargetRHI,
 		uint32 NewNumUAVs,
 		const FUnorderedAccessViewRHIParamRef* UAVs
 		)
@@ -1524,7 +1558,17 @@ public:
 			return;
 		}
 		new (AllocCommand<FRHICommandSetRenderTargetsAndClear>()) FRHICommandSetRenderTargetsAndClear(RenderTargetsInfo);
-	}
+	}	
+
+	FORCEINLINE_DEBUGGABLE void BindClearMRTValues(bool bClearColor, int32 NumClearColors, const FLinearColor* ColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil)
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(BindClearMRTValues)(bClearColor, NumClearColors, ColorArray, bClearDepth, Depth, bClearStencil, Stencil);
+			return;
+		}
+		new (AllocCommand<FRHICommandBindClearMRTValues>()) FRHICommandBindClearMRTValues(bClearColor, NumClearColors, ColorArray, bClearDepth, Depth, bClearStencil, Stencil);
+	}	
 
 	FORCEINLINE_DEBUGGABLE void BeginDrawPrimitiveUP(uint32 PrimitiveType, uint32 NumPrimitives, uint32 NumVertices, uint32 VertexDataStride, void*& OutVertexData)
 	{
@@ -1766,42 +1810,44 @@ public:
 		}
 		new (AllocCommand<FRHICommandEndRenderQuery>()) FRHICommandEndRenderQuery(RenderQuery);
 	}
-#if !PLATFORM_SUPPORTS_RHI_THREAD
-	FORCEINLINE_DEBUGGABLE void ResetRenderQuery(FRenderQueryRHIParamRef RenderQuery)
-	{
-		if (Bypass())
-		{
-			CMD_CONTEXT(ResetRenderQuery)(RenderQuery);
-			return;
-		}
-		new (AllocCommand<FRHICommandResetRenderQuery>()) FRHICommandResetRenderQuery(RenderQuery);
-	}
-#endif
 
-#if PLATFORM_SUPPORTS_RHI_THREAD
-	FORCEINLINE_DEBUGGABLE void BeginScene()
+	FORCEINLINE_DEBUGGABLE void BeginOcclusionQueryBatch()
 	{
 		if (Bypass())
 		{
-			CMD_CONTEXT(BeginScene)();
+			CMD_CONTEXT(BeginOcclusionQueryBatch)();
 			return;
 		}
-		new (AllocCommand<FRHICommandBeginScene>()) FRHICommandBeginScene();
+		new (AllocCommand<FRHICommandBeginOcclusionQueryBatch>()) FRHICommandBeginOcclusionQueryBatch();
 	}
-	FORCEINLINE_DEBUGGABLE void EndScene()
+
+	FORCEINLINE_DEBUGGABLE void EndOcclusionQueryBatch()
 	{
 		if (Bypass())
 		{
-			CMD_CONTEXT(EndScene)();
+			CMD_CONTEXT(EndOcclusionQueryBatch)();
 			return;
 		}
-		new (AllocCommand<FRHICommandEndScene>()) FRHICommandEndScene();
+		new (AllocCommand<FRHICommandEndOcclusionQueryBatch>()) FRHICommandEndOcclusionQueryBatch();
 	}
+
+	FORCEINLINE_DEBUGGABLE void SubmitCommandsHint()
+	{
+		if (Bypass())
+		{
+			CMD_CONTEXT(SubmitCommandsHint)();
+			return;
+		}
+		new (AllocCommand<FRHICommandSubmitCommandsHint>()) FRHICommandSubmitCommandsHint();
+	}	
+
+// These 6 are special in that they must be called on the immediate command list and they force a flush only when we are not doing RHI thread
+	void BeginScene();
+	void EndScene();
 	void BeginDrawingViewport(FViewportRHIParamRef Viewport, FTextureRHIParamRef RenderTargetRHI);
 	void EndDrawingViewport(FViewportRHIParamRef Viewport, bool bPresent, bool bLockToVsync);
 	void BeginFrame();
 	void EndFrame();
-#endif
 
 	FORCEINLINE_DEBUGGABLE void PushEvent(const TCHAR* Name)
 	{
@@ -1849,6 +1895,7 @@ namespace EImmediateFlushType
 		WaitForOutstandingTasksOnly = 0, 
 		DispatchToRHIThread, 
 		WaitForRHIThread, 
+		WaitForDispatchToRHIThread,
 		FlushRHIThread,
 		FlushRHIThreadFlushResources
 	};
@@ -1864,11 +1911,10 @@ class RHI_API FRHICommandListImmediate : public FRHICommandList
 	{
 		check(!HasCommands());
 	}
-
-	static bool bFlushedGlobal;
-
 public:
 
+	static bool bFlushedGlobal;	
+	
 	inline void ImmediateFlush(EImmediateFlushType::Type FlushType);
 
 	void SetCurrentStat(TStatId Stat);
@@ -1906,9 +1952,8 @@ public:
 		{ \
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_##Name##_Flush); \
 			ImmediateFlush(EImmediateFlushType::FlushRHIThread); \
-			bFlushedGlobal = true;\
+			TGuardValue<bool> GuardIsFlushedGlobal( bFlushedGlobal, true ); \
 			ReturnStatement Name##_Internal ParameterNames; \
-			bFlushedGlobal = false;\
 		}
 	#include "RHIMethods.h"
 	#undef DEFINE_RHIMETHOD
@@ -1922,7 +1967,6 @@ public:
 
 // typedef to mark the recursive use of commandlists in the RHI implementations
 
-#if PLATFORM_RHI_USES_CONTEXT_OBJECT
 class RHI_API FRHICommandList_RecursiveHazardous : public FRHICommandList
 {
 	FRHICommandList_RecursiveHazardous()
@@ -1935,9 +1979,6 @@ public:
 		SetContext(Context);
 	}
 };
-#else
-typedef FRHICommandList FRHICommandList_RecursiveHazardous;
-#endif
 
 
 class RHI_API FRHICommandListExecutor

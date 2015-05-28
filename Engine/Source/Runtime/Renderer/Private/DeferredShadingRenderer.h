@@ -67,8 +67,8 @@ public:
 	 */
 	void RenderPrePassViewParallel(const FViewInfo& View, FRHICommandList& ParentCmdList, bool& OutDirty);
 
-    /** Renders the basepass for the static data of a given View. */
-    bool RenderBasePassStaticData(FRHICommandList& RHICmdList, FViewInfo& View);
+	/** Renders the basepass for the static data of a given View. */
+	bool RenderBasePassStaticData(FRHICommandList& RHICmdList, FViewInfo& View);
 	bool RenderBasePassStaticDataMasked(FRHICommandList& RHICmdList, FViewInfo& View);
 	bool RenderBasePassStaticDataDefault(FRHICommandList& RHICmdList, FViewInfo& View);
 
@@ -86,7 +86,7 @@ public:
 	/** Renders the basepass for the dynamic data of a given View, in parallel. */
 	void RenderBasePassDynamicDataParallel(FParallelCommandListSet& ParallelCommandListSet);
 
-    /** Renders the basepass for a given View, in parallel */
+	/** Renders the basepass for a given View, in parallel */
 	void RenderBasePassViewParallel(FViewInfo& View, FRHICommandList& ParentCmdList, bool& OutDirty);
 
 	/** Renders the basepass for a given View. */
@@ -100,6 +100,8 @@ public:
 
 	/** Finishes the view family rendering. */
 	void RenderFinish(FRHICommandListImmediate& RHICmdList);
+
+	void RenderOcclusion(FRHICommandListImmediate& RHICmdList, bool bRenderQueries, bool bRenderHZB);
 
 	/** Renders the view family. */
 	virtual void Render(FRHICommandListImmediate& RHICmdList) override;
@@ -116,6 +118,8 @@ public:
 	static FGlobalBoundShaderState OcclusionTestBoundShaderState;
 
 private:
+
+	static FGraphEventRef OcclusionSubmittedFence;
 
 	/** Creates a per object projected shadow for the given interaction. */
 	void CreatePerObjectProjectedShadow(
@@ -172,7 +176,7 @@ private:
 	bool RenderPrePass(FRHICommandListImmediate& RHICmdList);
 
 	/** Issues occlusion queries. */
-	void BeginOcclusionTests(FRHICommandListImmediate& RHICmdList);
+	void BeginOcclusionTests(FRHICommandListImmediate& RHICmdList, bool bRenderQueries, bool bRenderHZB);
 
 	/** Renders the scene's fogging. */
 	bool RenderFog(FRHICommandListImmediate& RHICmdList, FLightShaftsOutput LightShaftsOutput);
@@ -184,15 +188,17 @@ private:
 	void RenderDeferredReflections(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
 
 	/** Render dynamic sky lighting from Movable sky lights. */
-	void RenderDynamicSkyLighting(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
+	void RenderDynamicSkyLighting(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& VelocityTexture, TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
 
 	/** Render Ambient Occlusion using mesh distance fields and the surface cache, which supports dynamic rigid meshes. */
 	bool RenderDistanceFieldAOSurfaceCache(
 		FRHICommandListImmediate& RHICmdList, 
 		const class FDistanceFieldAOParameters& Parameters, 
+		const TRefCountPtr<IPooledRenderTarget>& VelocityTexture,
 		TRefCountPtr<IPooledRenderTarget>& OutDynamicBentNormalAO, 
 		TRefCountPtr<IPooledRenderTarget>& OutDynamicIrradiance,
-		bool bApplyToSceneColor);
+		bool bVisualizeAmbientOcclusion,
+		bool bVisualizeGlobalIllumination);
 
 	void RenderMeshDistanceFieldVisualization(FRHICommandListImmediate& RHICmdList, const FDistanceFieldAOParameters& Parameters);
 
@@ -231,6 +237,8 @@ private:
 
 	/** Reuses an existing translucent shadow map if possible or re-renders one if necessary. */
 	const FProjectedShadowInfo* PrepareTranslucentShadowMap(FRHICommandList& RHICmdList, const FViewInfo& View, FPrimitiveSceneInfo* PrimitiveSceneInfo, bool bSeparateTranslucencyPass);
+
+	bool ShouldRenderVelocities() const;
 
 	/** Renders the velocities of movable objects for the motion blur effect. */
 	void RenderVelocities(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
@@ -337,7 +345,7 @@ private:
 
 	bool ShouldDoReflectionEnvironment() const;
 	
-	bool ShouldRenderDynamicSkyLight() const;
+	bool ShouldRenderDistanceFieldAO() const;
 
 	/** Whether distance field global data structures should be prepared for features that use it. */
 	bool ShouldPrepareForDistanceFieldShadows() const;

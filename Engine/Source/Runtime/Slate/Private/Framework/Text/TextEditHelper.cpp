@@ -55,7 +55,7 @@ FReply FTextEditHelper::OnKeyChar( const FCharacterEvent& InCharacterEvent, cons
 		break;
 
 
-		// Newline (Ctrl+Enter - handled correctly outside this function)
+		// Newline (Ctrl+Enter), we handle adding new lines via SMultiLineEditableText::OnEnter rather than processing \n characters
 	case TCHAR( '\n' ):
 		{
 			Reply = FReply::Handled();
@@ -160,6 +160,24 @@ FReply FTextEditHelper::OnKeyDown( const FKeyEvent& InKeyEvent, const TSharedRef
 		// Go to the end of the document; select text if Shift is down.
 		TextEditor->JumpTo(
 			(InKeyEvent.IsControlDown() ) ? ETextLocation::EndOfDocument : ETextLocation::EndOfLine,
+			(InKeyEvent.IsShiftDown()) ? ECursorAction::SelectText : ECursorAction::MoveCursor );
+
+		return FReply::Handled();
+	}
+	else if( Key == EKeys::PageUp )
+	{
+		// Go to the previous page of the document document; select text if Shift is down.
+		TextEditor->JumpTo(
+			ETextLocation::PreviousPage,
+			(InKeyEvent.IsShiftDown()) ? ECursorAction::SelectText : ECursorAction::MoveCursor );
+
+		return FReply::Handled();
+	}
+	else if ( Key == EKeys::PageDown )
+	{
+		// Go to the next page of the document document; select text if Shift is down.
+		TextEditor->JumpTo(
+			ETextLocation::NextPage,
 			(InKeyEvent.IsShiftDown()) ? ECursorAction::SelectText : ECursorAction::MoveCursor );
 
 		return FReply::Handled();
@@ -403,7 +421,7 @@ FReply FTextEditHelper::OnMouseButtonUp( const FGeometry& MyGeometry, const FPoi
 			if ( MyGeometry.IsUnderLocation( InMouseEvent.GetScreenSpacePosition() ) )
 			{
 				// Right clicked, so summon a context menu if the cursor is within the widget
-				TextEditor->SummonContextMenu( InMouseEvent.GetScreenSpacePosition() );
+				TextEditor->SummonContextMenu(InMouseEvent.GetScreenSpacePosition(), InMouseEvent.GetWindow());
 			}
 
 			// Release mouse capture

@@ -20,8 +20,8 @@ public:
 		, BufferUsageSize(0)
 	{}
 
-	TSlateElementVertexBuffer( uint32 BufferSize )
-		: BufferSize(BufferSize)
+	TSlateElementVertexBuffer( uint32 InBufferSize )
+		: BufferSize(InBufferSize)
 		, BufferUsageSize(0)
 	{}
 
@@ -141,7 +141,7 @@ public:
 	virtual void ReleaseDynamicRHI() override;
 
 	/** Returns a friendly name for this buffer. */
-	virtual FString GetFriendlyName() const { return TEXT("SlateElementIndices"); }
+	virtual FString GetFriendlyName() const override { return TEXT("SlateElementIndices"); }
 
 	/** Returns the size of this buffer */
 	uint32 GetBufferSize() const { return BufferSize; }
@@ -177,7 +177,7 @@ public:
 	~FSlateRHIRenderingPolicy();
 
 	virtual void UpdateBuffers( const FSlateWindowElementList& WindowElementList ) override;
-	virtual void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches);
+	virtual void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches, bool bAllowSwtichVerticalAxis=true);
 
 	virtual TSharedRef<FSlateFontCache> GetFontCache() override { return FontCache.ToSharedRef(); }
 	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() override { return ResourceManager; }

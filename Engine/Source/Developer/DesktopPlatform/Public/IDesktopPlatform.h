@@ -2,6 +2,9 @@
 
 #pragma once
 
+#include "EngineVersion.h"
+
+
 namespace EFileDialogFlags
 {
 	enum Type
@@ -233,12 +236,29 @@ public:
 	virtual bool GetDefaultEngineRootDir(FString &OutRootDir) = 0;
 
 	/**
+	* Gets the root directory for the engine's saved config files
+	*
+	* @param	Identifier		Identifier for the engine
+	* @return	The absoluate path to the engines Saved/Config directory
+	*/
+	virtual FString GetEngineSavedConfigDirectory(const FString& Identifier) = 0;
+
+	/**
 	* Checks if the given engine identifier is for an stock engine release.
 	*
 	* @param	Identifier			Engine identifier to check
 	* @return	true if the identifier is for a binary engine release
 	*/
 	virtual bool IsStockEngineRelease(const FString &Identifier) = 0;
+
+	/**
+	 * Attempt to get the engine version from the supplied identifier
+	 *
+	 * @param	Identifier			Engine identifier to check
+	 * @param	OutVersion			Engine version obtained from identifier
+	 * @return	true if the engine version was successfully obtained
+	 */
+	virtual bool TryParseStockEngineVersion(const FString& Identifier, FEngineVersion& OutVersion) = 0;
 
 	/**
 	* Tests whether an engine installation is a source distribution.
@@ -328,6 +348,16 @@ public:
 	* @return true if project files were generated successfully.
 	*/
 	virtual bool GenerateProjectFiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn) = 0;
+
+	/**
+	* Invalidate makefiles for project (to UBT regenerate them at startup).
+	*
+	* @param RootDir			Engine root directory for the project to use.
+	* @param ProjectFileName	Filename of the project to update
+	* @param Warn				Feedback context to use for progress updates
+	* @return true if project files were generated successfully.
+	*/
+	virtual bool InvalidateMakefiles(const FString& RootDir, const FString& ProjectFileName, FFeedbackContext* Warn) = 0;
 
 	/**
 	* Determines whether UnrealBuildTool is available

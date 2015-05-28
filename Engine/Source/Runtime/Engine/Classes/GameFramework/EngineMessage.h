@@ -10,35 +10,35 @@ class  UEngineMessage : public ULocalMessage
 	GENERATED_UCLASS_BODY()
 
 	/** Message displayed in message dialog when player pawn fails to spawn because no playerstart was available. */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString FailedPlaceMessage;
 
 	/** Message when player join attempt is refused because the server is at capacity. */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString MaxedOutMessage;
 
 	/** Message when a new player enters the game. */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString EnteredMessage;
 
 	/** Message when a player leaves the game. */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString LeftMessage;
 
 	/** Message when a player changes his name. */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString GlobalNameChange;
 
 	/** Message when a new spectator enters the server (if spectator has a player name). */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString SpecEnteredMessage;
 
 	/** Message when a new player enters the server (if player is unnamed). */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString NewPlayerMessage;
 
 	/** Message when a new spectator enters the server (if spectator is unnamed). */
-	UPROPERTY(localized)
+	UPROPERTY()
 	FString NewSpecMessage;
 
 	// Begin ULocalMessage interface

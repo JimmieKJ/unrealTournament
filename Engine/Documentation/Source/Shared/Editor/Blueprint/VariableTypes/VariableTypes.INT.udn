@@ -46,21 +46,21 @@ Engine/Blueprints/UserGuide/Variables
 [/EXCERPT:Text]
 
 [EXCERPT:Vector]
-A Vector describes a position or direction in 3D space and is made up of X, Y and Z components.
+A Vector describes a position or direction in 3D space and is made up of X, Y, and Z components.
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Variables
 [/VAR]
 [/EXCERPT:Vector]
 
 [EXCERPT:Rotator]
-A Rotator describes an orientation in 3D space, and is mode up of X (Roll), Y (Pitch) and Z (Yaw) components.
+A Rotator describes an orientation in 3D space, and is mode up of X (Roll), Y (Pitch), and Z (Yaw) components.
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Variables
 [/VAR]
 [/EXCERPT:Rotator]
 
 [EXCERPT:Transform]
-A Transform is a 3D affine transformation containing translation, rotation and 3D scale.
+A Transform is a 3D affine transformation containing translation, rotation, and 3D scale.
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Variables
 [/VAR]

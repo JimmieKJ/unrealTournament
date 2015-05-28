@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"MinEngineVersion" : 1579795,
 	"Description" : "Supports playback of ProTracker (MOD),  Scream Tracker 3 (S3M), Fast Tracker II (XM), and Impulse Tracker (IT) files.",
-	"CategoryPath" : "Audio.Playback",
+	"CategoryPath" : "Audio",
 	
     "Modules" :
 	[

@@ -6,7 +6,7 @@
 #define LOCTEXT_NAMESPACE "SInputBindingEditorPanel"
 
 
-/* SGestureEditor interface
+/* SChordEditor interface
  *****************************************************************************/
 
 void SInputBindingEditorPanel::Construct(const FArguments& InArgs)
@@ -32,7 +32,7 @@ void SInputBindingEditorPanel::Construct(const FArguments& InArgs)
 			+ SVerticalBox::Slot()
 			.FillHeight(1)
 			[
-				SAssignNew( GestureTree, SGestureTree )
+				SAssignNew( ChordTree, SChordTree )
 				.TreeItemsSource( &ContextVisibleList )
 				.OnGetChildren( this, &SInputBindingEditorPanel::OnGetChildrenForTreeItem )
 				.OnGenerateRow( this, &SInputBindingEditorPanel::OnGenerateWidgetForTreeItem )
@@ -84,12 +84,12 @@ void SInputBindingEditorPanel::Construct(const FArguments& InArgs)
 		for( auto CurContextIt( ContextVisibleList.CreateConstIterator() ); CurContextIt; ++CurContextIt )
 		{
 			const bool bShouldExpand = true;
-			GestureTree->SetItemExpansion( *CurContextIt, bShouldExpand );
+			ChordTree->SetItemExpansion( *CurContextIt, bShouldExpand );
 		}
 	}
 
 
-	GestureTree->RequestTreeRefresh();
+	ChordTree->RequestTreeRefresh();
 }
 
 
@@ -123,7 +123,7 @@ void SInputBindingEditorPanel::OnSearchChanged( const FText& NewSearch )
 	// Remove whitespace from the front and back of the string
 	ParseString.Trim();
 	ParseString.TrimTrailing();
-	ParseString.ParseIntoArray(&FilterStrings, TEXT(" "), true);
+	ParseString.ParseIntoArray(FilterStrings, TEXT(" "), true);
 
 	FilterVisibleContextList();
 }
@@ -136,8 +136,8 @@ FReply SInputBindingEditorPanel::OnBindingColumnClicked()
 
 	const bool bSortName = false;
 
-	GestureSortMode = FGestureSort( bSortName, bSortUp );
-	GestureTree->RequestTreeRefresh();
+	ChordSortMode = FChordSort( bSortName, bSortUp );
+	ChordTree->RequestTreeRefresh();
 	return FReply::Handled();
 }
 
@@ -149,8 +149,8 @@ FReply SInputBindingEditorPanel::OnNameColumnClicked()
 
 	const bool bSortName = true;
 
-	GestureSortMode = FGestureSort( bSortName, bSortUp );
-	GestureTree->RequestTreeRefresh();
+	ChordSortMode = FChordSort( bSortName, bSortUp );
+	ChordTree->RequestTreeRefresh();
 
 	return FReply::Handled();
 }
@@ -179,7 +179,7 @@ void SInputBindingEditorPanel::UpdateContextMasterList()
 	{
 		const auto& Context = Contexts[ListIndex];
 
-		TSharedRef<FGestureTreeItem> TreeItem( new FGestureTreeItem );
+		TSharedRef<FChordTreeItem> TreeItem( new FChordTreeItem );
 		TreeItem->BindingContext = Context;
 		ContextMasterList.Add( TreeItem );
 	}
@@ -227,12 +227,12 @@ void SInputBindingEditorPanel::FilterVisibleContextList()
 				ContextVisibleList.Add( ContextMasterList[Context] );
 
 				// Expand all filtered contexts
-				GestureTree->SetItemExpansion( ContextMasterList[Context], true );
+				ChordTree->SetItemExpansion( ContextMasterList[Context], true );
 			}
 		}
 	}
 
-	GestureTree->RequestTreeRefresh();
+	ChordTree->RequestTreeRefresh();
 }
 
 
@@ -240,18 +240,23 @@ void SInputBindingEditorPanel::OnCommandsChanged()
 {
 	UpdateContextMasterList();
 
-	FilterVisibleContextList();
+	// Make sure we aren't restarting after importing/resetting to default
+	if (FSlateApplication::IsInitialized())
+	{
+		FilterVisibleContextList();
+	}
+	
 }
 
 
-TSharedRef< ITableRow > SInputBindingEditorPanel::OnGenerateWidgetForTreeItem( TSharedPtr<FGestureTreeItem> InTreeItem, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef< ITableRow > SInputBindingEditorPanel::OnGenerateWidgetForTreeItem( TSharedPtr<FChordTreeItem> InTreeItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	if( InTreeItem->IsContext() )
 	{
 		static const FName InvertedForegroundName("InvertedForeground");
 		// contexts do not need columns
 		return
-			SNew( STableRow< TSharedPtr<FGestureTreeItem> >, OwnerTable )
+			SNew( STableRow< TSharedPtr<FChordTreeItem> >, OwnerTable )
 			.Padding(3)
 			[
 				SNew( SBorder )
@@ -281,12 +286,12 @@ TSharedRef< ITableRow > SInputBindingEditorPanel::OnGenerateWidgetForTreeItem( T
 	}
 	else
 	{
-		return SNew( SGestureTreeItem, OwnerTable, InTreeItem );
+		return SNew( SChordTreeItem, OwnerTable, InTreeItem );
 	}
 }
 
 
-void SInputBindingEditorPanel::OnGetChildrenForTreeItem( TSharedPtr<FGestureTreeItem> InTreeItem, TArray< TSharedPtr< FGestureTreeItem > >& OutChildren )
+void SInputBindingEditorPanel::OnGetChildrenForTreeItem( TSharedPtr<FChordTreeItem> InTreeItem, TArray< TSharedPtr< FChordTreeItem > >& OutChildren )
 {
 	if( InTreeItem->IsContext() )
 	{
@@ -299,13 +304,13 @@ void SInputBindingEditorPanel::OnGetChildrenForTreeItem( TSharedPtr<FGestureTree
 		{
 			if( FilterStrings.Num() == 0 || bContextPassesFilter || StringPassesFilter( CommandInfos[CommandIndex]->GetLabel(), FilterStrings ) || StringPassesFilter( CommandInfos[CommandIndex]->GetInputText(), FilterStrings ) )
 			{
-				TSharedPtr<FGestureTreeItem> NewItem( new FGestureTreeItem );
+				TSharedPtr<FChordTreeItem> NewItem( new FChordTreeItem );
 				NewItem->CommandInfo = CommandInfos[ CommandIndex ];
 				OutChildren.Add( NewItem );
 			}
 		}
 
-		OutChildren.Sort( GestureSortMode );
+		OutChildren.Sort( ChordSortMode );
 	}
 }
 

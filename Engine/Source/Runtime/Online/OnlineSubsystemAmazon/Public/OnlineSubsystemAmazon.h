@@ -14,8 +14,7 @@ typedef TSharedPtr<class FOnlineIdentityAmazon, ESPMode::ThreadSafe> FOnlineIden
  * Amazon subsystem
  */
 class ONLINESUBSYSTEMAMAZON_API FOnlineSubsystemAmazon :
-	public FOnlineSubsystemImpl,
-	public FTickerObjectBase
+	public FOnlineSubsystemImpl
 
 {
 	class FOnlineFactoryAmazon* AmazonFactory;
@@ -42,11 +41,23 @@ public:
 	{
 		return NULL;
 	}
+	virtual IOnlinePartyPtr GetPartyInterface() const override
+	{
+		return NULL;
+	}
+	virtual IOnlineGroupsPtr GetGroupsInterface() const override
+	{
+		return nullptr;
+	}
 	virtual IOnlineSharedCloudPtr GetSharedCloudInterface() const override
 	{
 		return NULL;
 	}
 	virtual IOnlineUserCloudPtr GetUserCloudInterface() const override
+	{
+		return NULL;
+	}
+	virtual IOnlineUserCloudPtr GetUserCloudInterface(const FString& Key) const override
 	{
 		return NULL;
 	}
@@ -63,10 +74,6 @@ public:
 		return NULL;
 	}
 	virtual IOnlineTimePtr GetTimeInterface() const override
-	{
-		return NULL;
-	}
-	virtual IOnlinePartyPtr GetPartyInterface() const override
 	{
 		return NULL;
 	}
@@ -122,6 +129,11 @@ public:
 		return NULL;
 	}
 
+    virtual IOnlineTurnBasedPtr GetTurnBasedInterface() const override
+    {
+        return NULL;
+    }
+	
 	virtual bool Init() override;
 	virtual bool Shutdown() override;
 	virtual FString GetAppId() const override;

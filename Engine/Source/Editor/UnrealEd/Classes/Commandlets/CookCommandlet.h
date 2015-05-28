@@ -34,6 +34,10 @@ class UCookCommandlet
 	bool bUnversioned;
 	/** Generate manifests for building streaming install packages */
 	bool bGenerateStreamingInstallManifests;
+	/** Error if we access engine content (useful for dlc) */
+	bool bErrorOnEngineContentUse;
+	/** Use historical serialization system for generating package dependencies (use for historical reasons only this method has been depricated, only affects cooked manifests) */
+	bool bUseSerializationForGeneratingPackageDependencies;
 	/** All commandline tokens */
 	TArray<FString> Tokens;
 	/** All commandline switches */
@@ -115,6 +119,9 @@ private:
 	TSet<FWeakObjectPtr> LastGCItems;
 
 	void MaybeMarkPackageAsAlreadyLoaded(UPackage *Package);
+
+	/** See if the cooker has exceeded max memory allowance in this case the cooker should force a garbage collection */
+	bool HasExceededMaxMemory(uint64 MaxMemoryAllowance) const;
 
 	/** Gets the output directory respecting any command line overrides */
 	FString GetOutputDirectoryOverride() const;

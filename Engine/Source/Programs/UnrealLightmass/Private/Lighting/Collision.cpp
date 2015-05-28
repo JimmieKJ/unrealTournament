@@ -76,6 +76,8 @@ void FStaticLightingAggregateMesh::AddMesh(const FStaticLightingMesh* Mesh, cons
 			int32 I2 = 0;
 			Mesh->GetTriangleIndices(TriangleIndex,I0,I1,I2);
 
+			check(I0 <= Mesh->NumVertices && I1 <= Mesh->NumVertices && I2 <= Mesh->NumVertices);
+
 			const bool bTwoSided = Mesh->IsTwoSided(ElementIndex) || Mesh->IsCastingShadowAsTwoSided();
 			const bool bStaticAndOpaque = !Mesh->IsMasked(ElementIndex) && !Mesh->IsTranslucent(ElementIndex) && !Mesh->bMovable;
 

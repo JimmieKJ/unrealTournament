@@ -303,17 +303,17 @@ public:
 	/**
 	 * Called by the SteamAPI when a server has successfully responded
 	 */
-	void ServerResponded(HServerListRequest Request, int iServer);
+	void ServerResponded(HServerListRequest Request, int iServer) override;
 
 	/**
 	 * Called by the SteamAPI when a server has failed to respond
 	 */
-	void ServerFailedToRespond(HServerListRequest Request, int iServer);
+	void ServerFailedToRespond(HServerListRequest Request, int iServer) override;
 
 	/**
 	 * Called by the SteamAPI when all server requests for the list have completed
 	 */
-	void RefreshComplete(HServerListRequest Request, EMatchMakingServerResponse Response);
+	void RefreshComplete(HServerListRequest Request, EMatchMakingServerResponse Response) override;
 
 	/**
 	 * Give the async task a chance to marshal its data back to the game thread
@@ -321,6 +321,10 @@ public:
 	 */
 	virtual void Finalize() override;
 };
+
+
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnAsyncFindServerInviteCompleteWithNetId, const bool, const int32, TSharedPtr< FUniqueNetId >, const class FOnlineSessionSearchResult&);
+typedef FOnAsyncFindServerInviteCompleteWithNetId::FDelegate FOnAsyncFindServerInviteCompleteWithNetIdDelegate;
 
 /**
  *	Async task for finding a single server and returning that search result to a properly defined delegate
@@ -330,16 +334,30 @@ class FOnlineAsyncTaskSteamFindServer : public FOnlineAsyncTaskSteamFindServerBa
 protected:
 	/** User initiating the request */
 	int32 LocalUserNum;
-	/** User initiated session invite delegates */
+
+	/** Delegates that are called when the find server request completes. Only one is used at a time, depending on which constructor is used.*/
 	FOnSingleSessionResultComplete FindServerInviteCompleteDelegates;
+	FOnAsyncFindServerInviteCompleteWithNetId FindServerInviteCompleteWithUserIdDelegates;
+
+	/** Set to true if the constructor with the FOnAsyncFindServerInviteCompleteWithNetId delegate is called, false if not */
+	bool bIsUsingNetIdDelegate;
 
 public:
 
 	FOnlineAsyncTaskSteamFindServer(class FOnlineSubsystemSteam* InSubsystem, const TSharedPtr<class FOnlineSessionSearch>& InSearchSettings, int32 InLocalUserNum, FOnSingleSessionResultComplete& InDelegates) :
 		FOnlineAsyncTaskSteamFindServerBase(InSubsystem, InSearchSettings),
 		LocalUserNum(InLocalUserNum),
-		FindServerInviteCompleteDelegates(InDelegates)
+		FindServerInviteCompleteDelegates(InDelegates),
+		bIsUsingNetIdDelegate(false)
 	{	
+	}
+
+	FOnlineAsyncTaskSteamFindServer(class FOnlineSubsystemSteam* InSubsystem, const TSharedPtr<class FOnlineSessionSearch>& InSearchSettings, int32 InLocalUserNum, FOnAsyncFindServerInviteCompleteWithNetId& InDelegates) :
+		FOnlineAsyncTaskSteamFindServerBase(InSubsystem, InSearchSettings),
+		LocalUserNum(InLocalUserNum),
+		FindServerInviteCompleteWithUserIdDelegates(InDelegates),
+		bIsUsingNetIdDelegate(true)
+	{
 	}
 
 	/**

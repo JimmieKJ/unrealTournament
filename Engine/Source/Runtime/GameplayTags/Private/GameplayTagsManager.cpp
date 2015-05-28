@@ -10,7 +10,8 @@
 #endif
 
 UGameplayTagsManager::UGameplayTagsManager(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+	: Super(ObjectInitializer),
+	bHasHandledRedirectors(false)
 {
 #if WITH_EDITOR
 	RegisteredObjectReimport = false;
@@ -31,7 +32,7 @@ void UGameplayTagsManager::LoadGameplayTagTables(TArray<FString>& TagTableNames)
 			// will not be initialized correctly.
 			if (TagTable && IsLoading())
 			{
-				ULinkerLoad* TagLinker = TagTable->GetLinker();
+				FLinkerLoad* TagLinker = TagTable->GetLinker();
 				if (TagLinker)
 				{
 					TagTable->GetLinker()->Preload(TagTable);
@@ -78,7 +79,7 @@ void UGameplayTagsManager::GetAllNodesForTag( const FString& Tag, TArray< TShare
 	TArray<FString> Tags;
 	TArray<TSharedPtr<FGameplayTagNode>>& GameplayRootTags = GameplayRootTag->GetChildTagNodes();
 	OutTagArray.Empty();
-	if(Tag.ParseIntoArray( &Tags, TEXT( "." ), true ) > 0)
+	if(Tag.ParseIntoArray( Tags, TEXT( "." ), true ) > 0)
 	{
 		int32 CurrentTagDepth = 0;
 		// find the first node of the tag
@@ -118,7 +119,10 @@ void UGameplayTagsManager::ConstructGameplayTagTree()
 		
 		for (auto It(GameplayTagTables.CreateIterator()); It; It++)
 		{
-			PopulateTreeFromDataTable(*It);
+			if (*It)
+			{
+				PopulateTreeFromDataTable(*It);
+			}
 		}
 
 		if (ShouldImportTagsFromINI())
@@ -144,8 +148,61 @@ void UGameplayTagsManager::ConstructGameplayTagTree()
 			GameplayRootTag->GetChildTagNodes().Sort(FCompareFGameplayTagNodeByTag());
 		}
 
+		if (ShouldUseFastReplication())
+		{
+			ConstructNetIndex();
+		}
+
 		GameplayTagTreeChangedEvent.Broadcast();
 	}
+}
+
+void UGameplayTagsManager::ConstructNetIndex()
+{
+	NetworkGameplayTagNodeIndex.Empty();
+
+	GameplayTagNodeMap.GenerateValueArray(NetworkGameplayTagNodeIndex);
+
+	NetworkGameplayTagNodeIndex.Sort(FCompareFGameplayTagNodeByTag());
+
+	// This is now sorted and it should be the same on both client and server
+
+	if (NetworkGameplayTagNodeIndex.Num() >= INVALID_TAGNETINDEX)
+	{
+		ensureMsgf(false, TEXT("Too many tags in dictionary for networking! Remove tags or increase tag net index size"));
+
+		NetworkGameplayTagNodeIndex.SetNum(INVALID_TAGNETINDEX - 1);
+	}
+
+	for (FGameplayTagNetIndex i = 0; i < NetworkGameplayTagNodeIndex.Num(); i++)
+	{
+		if (NetworkGameplayTagNodeIndex[i].IsValid())
+		{
+			NetworkGameplayTagNodeIndex[i]->NetIndex = i;
+		}
+	}
+}
+
+FName UGameplayTagsManager::GetTagNameFromNetIndex(FGameplayTagNetIndex Index)
+{
+	if (Index >= NetworkGameplayTagNodeIndex.Num())
+	{
+		ensureMsgf(false, TEXT("Received invalid tag net index %d! Tag index is out of sync on client!"), Index);
+
+		return NAME_None;
+	}
+	return NetworkGameplayTagNodeIndex[Index]->GetCompleteTag();
+}
+
+FGameplayTagNetIndex UGameplayTagsManager::GetNetIndexFromTag(const FGameplayTag &InTag)
+{
+	const TSharedPtr<FGameplayTagNode>* GameplayTagNode = GameplayTagNodeMap.Find(InTag);
+
+	if (GameplayTagNode && GameplayTagNode->IsValid())
+	{
+		return (*GameplayTagNode)->GetNetIndex();
+	}
+	return INVALID_TAGNETINDEX;
 }
 
 bool UGameplayTagsManager::ShouldImportTagsFromINI()
@@ -153,6 +210,94 @@ bool UGameplayTagsManager::ShouldImportTagsFromINI()
 	bool ImportFromINI = false;
 	GConfig->GetBool(TEXT("GameplayTags"), TEXT("ImportTagsFromConfig"), ImportFromINI, GEngineIni);
 	return ImportFromINI;
+}
+
+bool UGameplayTagsManager::ShouldUseFastReplication()
+{
+	bool ImportFromINI = false;
+	GConfig->GetBool(TEXT("GameplayTags"), TEXT("FastReplication"), ImportFromINI, GEngineIni);
+	return ImportFromINI;
+}
+
+void UGameplayTagsManager::RedirectTagsForContainer(FGameplayTagContainer& Container, TArray<FName>& DeprecatedTagNamesNotFoundInTagMap)
+{
+	FConfigSection* PackageRedirects = GConfig->GetSectionPrivate( TEXT("/Script/Engine.Engine"), false, true, GEngineIni );
+	for (FConfigSection::TIterator It(*PackageRedirects); It; ++It)
+	{
+		if (It.Key() == TEXT("GameplayTagRedirects"))
+		{
+			FName OldTagName = NAME_None;
+			FName NewTagName;
+
+			FParse::Value( *It.Value(), TEXT("OldTagName="), OldTagName );
+			FParse::Value( *It.Value(), TEXT("NewTagName="), NewTagName );
+
+			bool bNeedToSearchForTagName = false;
+			const bool bEnsureIfNotFound = false;
+			FGameplayTag OldTag = RequestGameplayTag(OldTagName, bEnsureIfNotFound); //< This only succeeds if OldTag is in the Table!
+			if (OldTag.IsValid())
+			{
+				if (!bHasHandledRedirectors)
+				{
+					UE_LOG(LogGameplayTags, Warning,
+						TEXT("Old tag (%s) which is being redirected still exists in the table!  Generally you should "
+							 TEXT("remove the old tags from the table when you are redirecting to new tags, or else users will ")
+							 TEXT("still be able to add the old tags to containers.")), *OldTagName.ToString()
+						  );
+				}
+			}
+			else
+			{	// Create the old tag from scratch in order to be able to find and remove it.
+				// WARNING!  This tag CANNOT be used for parent checking because it is NOT in the gameplay tag
+				// table/tree for lookup.
+				bNeedToSearchForTagName = true;
+			}
+
+			FGameplayTag NewTag = RequestGameplayTag(NewTagName, bEnsureIfNotFound);
+			if (NewTag.IsValid())
+			{
+				bool bTagReplaced = false;
+				if (!bNeedToSearchForTagName && Container.HasTag(OldTag, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit))
+				{
+					Container.RemoveTag(OldTag);
+					Container.AddTag(NewTag);
+					bTagReplaced = true;
+				}
+				else if (bNeedToSearchForTagName)
+				{
+					bool bSuccess = FGameplayTagRedirectHelper::RemoveTagByExplicitName(Container, OldTagName);
+					if (bSuccess)
+					{
+						Container.AddTag(NewTag);
+						bTagReplaced = true;
+					}
+				}
+
+				// Handle backwards compatibility to old file formats that may have the tag in an array of names
+				// rather than correctly having it in the container.
+				if (!bTagReplaced && DeprecatedTagNamesNotFoundInTagMap.Contains(OldTagName))
+				{
+					DeprecatedTagNamesNotFoundInTagMap.Remove(OldTagName);
+					Container.AddTag(NewTag);
+				}
+			}
+			else if (NewTagName == NAME_None)
+			{	// Redirected to "None", so remove the old tag
+				Container.RemoveTag(OldTag);
+			}
+			else // !NewTag.IsValid(), and NewTagName is not NAME_None
+			{
+				if (!bHasHandledRedirectors)
+				{
+					UE_LOG(LogGameplayTags, Warning, TEXT("Invalid new tag %s!  Cannot replace old tag %s."),
+						*NewTagName.ToString(), *OldTagName.ToString());
+				}
+			}
+		}
+	}
+
+	// Cache that this has run once so we don't spam warnings for every Tag Container.
+	bHasHandledRedirectors = true;
 }
 
 void UGameplayTagsManager::PopulateTreeFromDataTable(class UDataTable* InTable)
@@ -179,7 +324,7 @@ void UGameplayTagsManager::AddTagTableRow(const FGameplayTagTableRow& TagRow)
 	// Split the tag text on the "." delimiter to establish tag depth and then insert each tag into the
 	// gameplay tag tree
 	TArray<FString> SubTags;
-	TagRow.Tag.ParseIntoArray(&SubTags, TEXT("."), true);
+	TagRow.Tag.ParseIntoArray(SubTags, TEXT("."), true);
 
 	if (SubTags.Num() > 0)
 	{
@@ -239,6 +384,11 @@ int32 UGameplayTagsManager::InsertTagIntoNodeArray(FName Tag, TWeakPtr<FGameplay
 		GameplayTagMap.Add(TagNode->GetCompleteTag(), GameplayTag);
 		GameplayTagNodeMap.Add(GameplayTag, TagNode);
 	}
+	else if (NodeArray[InsertionIdx]->CategoryDescription.IsEmpty() && !CategoryDescription.IsEmpty())
+	{
+		// Fill in category description for nodes that were added by virtue of being a parent node
+		NodeArray[InsertionIdx]->CategoryDescription = CategoryDescription;
+	}
 
 	return InsertionIdx;
 }
@@ -265,26 +415,47 @@ int32 UGameplayTagsManager::GetBestTagCategoryDescription(FString Tag, FText& Ou
 }
 
 #if WITH_EDITOR
+
+static void RecursiveRootTagSearch(const FString& InFilterString, const TArray<TSharedPtr<FGameplayTagNode> >& GameplayRootTags, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray)
+{
+	FString CurrentFilter, RestOfFilter;
+	if (!InFilterString.Split(TEXT("."), &CurrentFilter, &RestOfFilter))
+	{
+		CurrentFilter = InFilterString;
+	}
+
+	for (int32 iTag = 0; iTag < GameplayRootTags.Num(); ++iTag)
+	{
+		FString RootTagName = GameplayRootTags[iTag].Get()->GetSimpleTag().ToString();
+
+		if (RootTagName.Equals(CurrentFilter) == true)
+		{
+			if (RestOfFilter.IsEmpty())
+			{
+				// We've reached the end of the filter, add tags
+				OutTagArray.Add(GameplayRootTags[iTag]);
+			}
+			else
+			{
+				// Recurse into our children
+				RecursiveRootTagSearch(RestOfFilter, GameplayRootTags[iTag]->GetChildTagNodes(), OutTagArray);
+			}
+		}		
+	}
+}
+
 void UGameplayTagsManager::GetFilteredGameplayRootTags( const FString& InFilterString, TArray< TSharedPtr<FGameplayTagNode> >& OutTagArray )
 {
 	TArray<FString> Filters;
 	TArray<TSharedPtr<FGameplayTagNode>>& GameplayRootTags = GameplayRootTag->GetChildTagNodes();
 
 	OutTagArray.Empty();
-	if( InFilterString.ParseIntoArray( &Filters, TEXT( "," ), true ) > 0 )
+	if( InFilterString.ParseIntoArray( Filters, TEXT( "," ), true ) > 0 )
 	{
-		for( int32 iTag = 0; iTag < GameplayRootTags.Num(); ++iTag )
+		// Check all filters in the list
+		for (int32 iFilter = 0; iFilter < Filters.Num(); ++iFilter)
 		{
-			FString RootTagName = GameplayRootTags[iTag].Get()->GetSimpleTag().ToString();
-
-			// Check if this Tag is in the filter list
-			for( int32 iFilter = 0; iFilter < Filters.Num(); ++iFilter )
-			{
-				if( RootTagName.Equals( Filters[iFilter] ) == true )
-				{
-					OutTagArray.Add( GameplayRootTags[iTag] );
-				}
-			}
+			RecursiveRootTagSearch(Filters[iFilter], GameplayRootTags, OutTagArray);
 		}
 	}
 	else
@@ -353,7 +524,7 @@ FGameplayTag UGameplayTagsManager::RequestGameplayTagDirectParent(const FGamepla
 	return FGameplayTag();
 }
 
-bool UGameplayTagsManager::AddLeafTagToContainer(FGameplayTagContainer& TagContainer, FGameplayTag& Tag)
+bool UGameplayTagsManager::AddLeafTagToContainer(FGameplayTagContainer& TagContainer, const FGameplayTag& Tag)
 {
 	// Check tag is not already in container
 	if (TagContainer.HasTag(Tag, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit))
@@ -536,6 +707,7 @@ FGameplayTagNode::FGameplayTagNode(FName InTag, TWeakPtr<FGameplayTagNode> InPar
 	, CompleteTag(NAME_None)
 	, CategoryDescription(InCategoryDescription)
 	, ParentNode(InParentNode)
+	, NetIndex(INVALID_TAGNETINDEX)
 {
 	TArray<FName> Tags;
 
@@ -591,10 +763,16 @@ TWeakPtr<FGameplayTagNode> FGameplayTagNode::GetParentTagNode() const
 	return ParentNode;
 }
 
+FGameplayTagNetIndex FGameplayTagNode::GetNetIndex() const
+{
+	return NetIndex;
+}
+
 void FGameplayTagNode::ResetNode()
 {
 	Tag = NAME_None;
 	CompleteTag = NAME_None;
+	NetIndex = INVALID_TAGNETINDEX;
 
 	for (int32 ChildIdx = 0; ChildIdx < ChildTags.Num(); ++ChildIdx)
 	{

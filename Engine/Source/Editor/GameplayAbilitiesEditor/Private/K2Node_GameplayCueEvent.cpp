@@ -4,7 +4,6 @@
 #include "AbilitySystemEditorPrivatePCH.h"
 #include "K2Node_GameplayCueEvent.h"
 #include "CompilerResultsLog.h"
-#include "K2ActionMenuBuilder.h"
 #include "GameplayTagsModule.h"
 #include "GameplayCueInterface.h"
 #include "BlueprintEventNodeSpawner.h"
@@ -16,8 +15,20 @@
 UK2Node_GameplayCueEvent::UK2Node_GameplayCueEvent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	EventSignatureName = GAMEPLAYABILITIES_BlueprintCustomHandler;
-	EventSignatureClass = UGameplayCueInterface::StaticClass();
+	EventReference.SetExternalMember(GAMEPLAYABILITIES_BlueprintCustomHandler, UGameplayCueInterface::StaticClass());
+}
+
+void UK2Node_GameplayCueEvent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if(Ar.IsLoading())
+	{
+		if(Ar.UE4Ver() < VER_UE4_K2NODE_EVENT_MEMBER_REFERENCE && EventSignatureName_DEPRECATED.IsNone() && EventSignatureClass_DEPRECATED == nullptr)
+		{
+			EventReference.SetExternalMember(GAMEPLAYABILITIES_BlueprintCustomHandler, UGameplayCueInterface::StaticClass());
+		}
+	}
 }
 
 FText UK2Node_GameplayCueEvent::GetTooltipText() const
@@ -40,50 +51,6 @@ bool UK2Node_GameplayCueEvent::IsCompatibleWithGraph(UEdGraph const* TargetGraph
 		bIsCompatible = Blueprint->GeneratedClass->ImplementsInterface(UGameplayCueInterface::StaticClass());
 	}	
 	return bIsCompatible && Super::IsCompatibleWithGraph(TargetGraph);
-}
-
-void UK2Node_GameplayCueEvent::GetMenuEntries(FGraphContextMenuBuilder& Context) const
-{
-	Super::GetMenuEntries(Context);
-
-	if (!IsCompatibleWithGraph(Context.CurrentGraph))
-	{
-		return;
-	}
-
-	const FString FunctionCategory(TEXT("GameplayCue Event"));
-
-	IGameplayTagsModule& GameplayTagsModule = IGameplayTagsModule::Get();
-	FGameplayTag RootTag = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(FName(TEXT("GameplayCue")));
-
-	FGameplayTagContainer CueTags = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTagChildren(RootTag);
-	// Add a root GameplayCue function as a default
-	CueTags.AddTag(RootTag);
-
-	// Fixme: need to check if this function is already defined so that it can be reimplemented
-	//	-Checking MyBlueprint->GeneratedClass isn't enough since they may have added an event and not recompiled
-	//	-FEdGraphSchemaAction_K2AddCustomEvent does not check names/always ensures a valid name
-	//	-FEdGraphSchemaAction_K2AddEvent does check and recenters - but it looks at EventSignatureName/EventSignatureClass for equality and that
-	//		won't work here.
-	//	
-	//	Probably need a new EdGraphSchemaAction to do this properly. For now this is ok since they will get a compile error if they do drop in
-	//	two of the same GameplayCue even Nodes and it should be pretty clear that they can't do that.
-
-	for (auto It = CueTags.CreateConstIterator(); It; ++It)
-	{
-		FGameplayTag Tag = *It;
-		UK2Node_GameplayCueEvent* NodeTemplate = Context.CreateTemplateNode<UK2Node_GameplayCueEvent>();
-
-		NodeTemplate->CustomFunctionName = Tag.GetTagName();
-
-		const FString Category = FunctionCategory;
-		const FText MenuDesc = NodeTemplate->GetNodeTitle(ENodeTitleType::ListView);
-		const FString Tooltip = NodeTemplate->GetTooltipText().ToString();
-		const FString Keywords = NodeTemplate->GetKeywords();
-
-		TSharedPtr<FEdGraphSchemaAction_K2NewNode> NodeAction = FK2ActionMenuBuilder::AddNewNodeAction(Context, Category, MenuDesc, Tooltip, 0, Keywords);
-		NodeAction->NodeTemplate = NodeTemplate;
-	}	
 }
 
 void UK2Node_GameplayCueEvent::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const

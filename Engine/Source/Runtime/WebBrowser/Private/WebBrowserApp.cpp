@@ -11,19 +11,24 @@ FWebBrowserApp::FWebBrowserApp()
 void FWebBrowserApp::OnContextInitialized()
 {
 	// Called on the browser process UI thread immediately after the CEF context
- 	// has been initialized.
+	// has been initialized.
 }
 
 void FWebBrowserApp::OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> CommandLine)
 {
-	std::string x = CommandLine->GetCommandLineString();
-	std::string a = "d" + x;
+    std::string x = CommandLine->GetCommandLineString();
+    std::string a = "d"+x;
 }
 
-bool FWebBrowserApp::OnBeforeNavigation(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefRequest> Request, NavigationType Navigation_Type, bool Is_redirect)
+
+/*void FWebBrowserApp::OnContextCreated(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefV8Context> Context)
 {
-	return false;
-}
-
+    // Retrieve the context's window object.
+    CefRefPtr<CefV8Value> Object = Context->GetGlobal();
+    
+    Object->SetValue("answer",
+                     CefV8Value::CreateUInt(42),
+                     V8_PROPERTY_ATTRIBUTE_READONLY);
+}*/
 
 #endif

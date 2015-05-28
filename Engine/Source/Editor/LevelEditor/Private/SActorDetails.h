@@ -9,10 +9,9 @@ class SActorDetails : public SCompoundWidget, public FEditorUndoClient
 {
 public:
 	SLATE_BEGIN_ARGS(SActorDetails) {}
-		SLATE_ARGUMENT( TSharedPtr<FExtender>, ActorMenuExtender )
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, const FName TabIdentifier);
+	void Construct(const FArguments& InArgs, const FName TabIdentifier, TSharedPtr<FUICommandList> InCommandList);
 	~SActorDetails();
 
 	/**
@@ -20,7 +19,7 @@ public:
 	 *
 	 * @param InObjects	The objects to set
 	 */
-	void SetObjects(const TArray<UObject*>& InObjects);
+	void SetObjects(const TArray<UObject*>& InObjects, bool bForceRefresh = false);
 
 	/** FEditorUndoClient Interface */
 	virtual void PostUndo(bool bSuccess) override;
@@ -29,15 +28,24 @@ public:
 private:
 	AActor* GetSelectedActorInEditor() const;
 	AActor* GetActorContext() const;
+	bool GetAllowComponentTreeEditing() const;
 
 	void OnComponentsEditedInWorld();
 	void OnEditorSelectionChanged(UObject* Object);
 	void OnSCSEditorRootSelected(AActor* Actor);
 	void OnSCSEditorTreeViewSelectionChanged(const TArray<TSharedPtr<class FSCSEditorTreeNode> >& SelectedNodes);
+	void OnSCSEditorTreeViewItemDoubleClicked(const TSharedPtr<class FSCSEditorTreeNode> ClickedNode);
 	void UpdateComponentTreeFromEditorSelection();
+
+	bool IsPropertyReadOnly(const struct FPropertyAndParent& PropertyAndParent) const;
 	bool IsPropertyEditingEnabled() const;
-	void OnBlueprintWarningHyperlinkClicked( const FSlateHyperlinkRun::FMetadata& Metadata );
-	EVisibility GetBlueprintComponentWarningVisibility() const;
+	EVisibility GetUCSComponentWarningVisibility() const;
+	EVisibility GetInheritedBlueprintComponentWarningVisibility() const;
+	EVisibility GetNativeComponentWarningVisibility() const;
+	void OnBlueprintedComponentWarningHyperlinkClicked(const FSlateHyperlinkRun::FMetadata& Metadata);
+	void OnNativeComponentWarningHyperlinkClicked(const FSlateHyperlinkRun::FMetadata& Metadata);
+	void OnBlueprintRecompiled(UBlueprint* CompiledBlueprint);
+	void ClearNotificationDelegates();
 
 private:
 	TSharedPtr<SSplitter> DetailsSplitter;
@@ -47,6 +55,7 @@ private:
 
 	// The actor selected when the details panel was locked
 	TWeakObjectPtr<AActor> LockedActorSelection;
+	uint32 CrcLastCompiledSignature;
 
 	// Used to prevent reentrant changes
 	bool bSelectionGuard;

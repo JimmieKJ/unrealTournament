@@ -185,7 +185,7 @@ FCursorReply FScrollyZoomy::OnCursorQuery( ) const
 
 bool FScrollyZoomy::IsRightClickScrolling( ) const
 {
-	return (AmountScrolledWhileRightMouseDown >= FSlateApplication::Get().GetDragTriggerDistnace());
+	return (AmountScrolledWhileRightMouseDown >= FSlateApplication::Get().GetDragTriggerDistance());
 }
 
 

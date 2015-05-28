@@ -226,13 +226,23 @@ WIN_WarpMouse(SDL_Window * window, int x, int y)
     POINT pt;
 
     /* Don't warp the mouse while we're doing a modal interaction */
-    if (data->in_title_click || data->in_modal_loop) {
+    if (data->in_title_click || data->focus_click_pending) {
         return;
     }
 
     pt.x = x;
     pt.y = y;
     ClientToScreen(hwnd, &pt);
+    SetCursorPos(pt.x, pt.y);
+}
+
+static void
+WIN_WarpMouseGlobal(int x, int y)
+{
+    POINT pt;
+
+    pt.x = x;
+    pt.y = y;
     SetCursorPos(pt.x, pt.y);
 }
 
@@ -248,7 +258,6 @@ WIN_CaptureMouse(SDL_Window *window)
     if (!window) {
         SDL_Window *focusWin = SDL_GetKeyboardFocus();
         if (focusWin) {
-            SDL_WindowData *data = (SDL_WindowData *)focusWin->driverdata;
             WIN_OnWindowEnter(SDL_GetVideoDevice(), focusWin);  /* make sure WM_MOUSELEAVE messages are (re)enabled. */
         }
     }
@@ -272,8 +281,8 @@ WIN_GetGlobalMouseState(int *x, int *y)
     retval |= GetAsyncKeyState(VK_LBUTTON) & 0x8000 ? SDL_BUTTON_LMASK : 0;
     retval |= GetAsyncKeyState(VK_RBUTTON) & 0x8000 ? SDL_BUTTON_RMASK : 0;
     retval |= GetAsyncKeyState(VK_MBUTTON) & 0x8000 ? SDL_BUTTON_MMASK : 0;
-    retval |= GetAsyncKeyState(VK_X1BUTTON) & 0x8000 ? SDL_BUTTON_X1MASK : 0;
-    retval |= GetAsyncKeyState(VK_X2BUTTON) & 0x8000 ? SDL_BUTTON_X2MASK : 0;
+    retval |= GetAsyncKeyState(VK_XBUTTON1) & 0x8000 ? SDL_BUTTON_X1MASK : 0;
+    retval |= GetAsyncKeyState(VK_XBUTTON2) & 0x8000 ? SDL_BUTTON_X2MASK : 0;
 
     return retval;
 }
@@ -288,6 +297,7 @@ WIN_InitMouse(_THIS)
     mouse->ShowCursor = WIN_ShowCursor;
     mouse->FreeCursor = WIN_FreeCursor;
     mouse->WarpMouse = WIN_WarpMouse;
+    mouse->WarpMouseGlobal = WIN_WarpMouseGlobal;
     mouse->SetRelativeMouseMode = WIN_SetRelativeMouseMode;
     mouse->CaptureMouse = WIN_CaptureMouse;
     mouse->GetGlobalMouseState = WIN_GetGlobalMouseState;

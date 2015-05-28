@@ -222,6 +222,10 @@ public:
 	/** Serialize the registry to/from a file, skipping editor only data */
 	virtual void Serialize(FArchive& Ar) = 0;
 
-	/** Serialize raw registry data to/from a file, skipping editor only data */
-	virtual void SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data, int32 AssetCount) = 0;
+	/** Serialize raw registry data to a file, skipping editor only data */
+	virtual void SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data) = 0;
+
+
+	/** Serialize registry data from a file */
+	virtual void LoadRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data) = 0;
 };

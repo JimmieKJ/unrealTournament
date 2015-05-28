@@ -45,12 +45,20 @@ class UNREALED_API UFbxAnimSequenceImportData : public UFbxAssetImportData
 	FString SourceAnimationName;
 
 	/** Import if custom attribute as a curve within the animation **/
-	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings, meta = (DisplayName = "Import Custom Attribute"))
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category=ImportSettings)
 	bool bImportCustomAttribute;
+
+	/** Type of asset to import from the FBX file */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category=ImportSettings)
+	bool bPreserveLocalTransform;
+
+	/** Type of asset to import from the FBX file */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category=ImportSettings)
+	bool bDeleteExistingMorphTargetCurves;
 
 	/** Gets or creates fbx import data for the specified anim sequence */
 	static UFbxAnimSequenceImportData* GetImportDataForAnimSequence(UAnimSequence* AnimSequence, UFbxAnimSequenceImportData* TemplateForCreation);
 
-	virtual bool CanEditChange(const UProperty* InProperty) const;
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
 
 };

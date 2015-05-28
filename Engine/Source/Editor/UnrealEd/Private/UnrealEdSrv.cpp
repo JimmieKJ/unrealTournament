@@ -276,7 +276,7 @@ UPackage* UUnrealEdEngine::GeneratePackageThumbnailsIfRequired( const TCHAR* Str
 				}
 
 				bool bPrintThumbnailDiagnostics = false;
-				GConfig->GetBool(TEXT("Thumbnails"), TEXT("Debug"), bPrintThumbnailDiagnostics, GEditorUserSettingsIni);
+				GConfig->GetBool(TEXT("Thumbnails"), TEXT("Debug"), bPrintThumbnailDiagnostics, GEditorPerProjectIni);
 
 				const FObjectThumbnail* ExistingThumbnail = ThumbnailTools::FindCachedThumbnail( CurObject->GetFullName() );
 				if (bPrintThumbnailDiagnostics)
@@ -784,27 +784,6 @@ bool UUnrealEdEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice&
 		HandleDumpSelectionCommand( Str, Ar );
 	}
 
-#if ENABLE_LOC_TESTING
-	{
-		FString CultureName;
-		if( FParse::Value(Str,TEXT("CULTURE="), CultureName) )
-		{
-			FInternationalization::Get().SetCurrentCulture( CultureName );
-		}
-	}
-
-	{
-		FString ConfigFilePath;
-		if(FParse::Value(Str,TEXT("REGENLOC="), ConfigFilePath))
-		{
-			FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-			FJsonInternationalizationManifestSerializer ManifestSerializer;
-
-			FTextLocalizationManager::Get().RegenerateResources(ConfigFilePath, ArchiveSerializer, ManifestSerializer);
-		}
-	}
-#endif
-
 	//----------------------------------------------------------------------------------
 	// EDIT
 	//
@@ -1147,7 +1126,7 @@ bool UUnrealEdEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice&
 		if (FParse::Value(Str, TEXT("Find="), SearchTermStr, false))
 		{
 			TArray<FString> SearchTerms;
-			SearchTermStr.ParseIntoArray( &SearchTerms, TEXT(","), true );
+			SearchTermStr.ParseIntoArray( SearchTerms, TEXT(","), true );
 
 			TArray<UObject*> ModifiedObjects;
 			if( SearchTerms.Num() )
@@ -1453,24 +1432,42 @@ void UUnrealEdEngine::AttemptModifiedPackageNotification()
 
 		if( bCanPrompt )
 		{
+			bool bNeedWarningDialog = false;
+			for (const auto& Entry : PackageToNotifyState)
+			{
+				if (Entry.Value == NS_PendingWarning)
+				{
+					bNeedWarningDialog = true;
+					break;
+				}
+			}
+
 			// The user is not interacting with anything, prompt to checkout packages that have been modified
 			
 			struct Local
 			{
-				static void OpenMessageLog()
+				static void OpenCheckOutDialog()
 				{
 					GUnrealEd->PromptToCheckoutModifiedPackages();
 				}
 			};
-			FNotificationInfo ErrorNotification( NSLOCTEXT("SourceControl", "CheckOutNotification", "Files need check-out!") );
-			ErrorNotification.bFireAndForget = true;
-			ErrorNotification.Hyperlink = FSimpleDelegate::CreateStatic(&Local::OpenMessageLog);
-			ErrorNotification.HyperlinkText = NSLOCTEXT("SourceControl", "CheckOutHyperlinkText", "Check-Out");
-			ErrorNotification.ExpireDuration = 3.0f; // Need this message to last a little longer than normal since the user may want to "Show Log"
-			ErrorNotification.bUseThrobber = true;
 
-			// For adding notifications.
-			FSlateNotificationManager::Get().AddNotification(ErrorNotification);
+			if (bNeedWarningDialog)
+			{
+				Local::OpenCheckOutDialog();
+			}
+			else
+			{
+				FNotificationInfo ErrorNotification(NSLOCTEXT("SourceControl", "CheckOutNotification", "Files need check-out!"));
+				ErrorNotification.bFireAndForget = true;
+				ErrorNotification.Hyperlink = FSimpleDelegate::CreateStatic(&Local::OpenCheckOutDialog);
+				ErrorNotification.HyperlinkText = NSLOCTEXT("SourceControl", "CheckOutHyperlinkText", "Check-Out");
+				ErrorNotification.ExpireDuration = 10.0f; // Need this message to last a little longer than normal since the user will probably want to click the hyperlink to check out files
+				ErrorNotification.bUseThrobber = true;
+
+				// For adding notifications.
+				FSlateNotificationManager::Get().AddNotification(ErrorNotification);
+			}
 
 			// No longer have a pending prompt.
 			bNeedToPromptForCheckout = false;
@@ -1550,7 +1547,7 @@ void UUnrealEdEngine::PromptToCheckoutModifiedPackages( bool bPromptAll )
 	{
 		for( TMap<TWeakObjectPtr<UPackage>,uint8>::TIterator It(PackageToNotifyState); It; ++It )
 		{
-			if( It.Key().IsValid() && (It.Value() == NS_BalloonPrompted || It.Value() == NS_PendingPrompt) )
+			if( It.Key().IsValid() && (It.Value() == NS_PendingWarning || It.Value() == NS_PendingPrompt) )
 			{
 				PackagesToCheckout.Add( It.Key().Get() );
 				It.Value() = NS_DialogPrompted;
@@ -1558,7 +1555,9 @@ void UUnrealEdEngine::PromptToCheckoutModifiedPackages( bool bPromptAll )
 		}
 	}
 
-	FEditorFileUtils::PromptToCheckoutPackages( true, PackagesToCheckout, NULL, NULL, true );
+	const bool bCheckDirty = true;
+	const bool bPromptingAfterModify = true;
+	FEditorFileUtils::PromptToCheckoutPackages( bCheckDirty, PackagesToCheckout, NULL, NULL, bPromptingAfterModify );
 }
 
 
@@ -1715,7 +1714,9 @@ bool UUnrealEdEngine::Exec_Pivot( const TCHAR* Str, FOutputDevice& Ar )
 
 		if( Count > 0 )
 		{
-			ClickLocation = Center / Count;
+			FVector CenterLocation = Center / Count;
+			UnsnappedClickLocation = CenterLocation;
+			ClickLocation = CenterLocation;
 			ClickPlane = FPlane(0.f,0.f,0.f,0.f);
 
 			SetPivot( ClickLocation, false, false );
@@ -1742,9 +1743,11 @@ static void MirrorActors(const FVector& MirrorScale)
 
 		const FVector PivotLocation = GLevelEditorModeTools().PivotLocation;
 		ABrush* Brush = Cast< ABrush >( Actor );
-		if( Brush )
+		if( Brush && Brush->Brush )
 		{
+			Brush->Modify();
 			Brush->Brush->Modify();
+			Brush->Brush->Polys->Modify();
 
 			const FVector LocalToWorldOffset = ( Brush->GetActorLocation() - PivotLocation );
 			const FVector LocationOffset = ( LocalToWorldOffset * MirrorScale ) - LocalToWorldOffset;
@@ -1775,8 +1778,6 @@ static void MirrorActors(const FVector& MirrorScale)
 				Poly->Reverse();
 				Poly->CalcNormal();
 			}
-
-			Brush->UnregisterAllComponents();
 		}
 		else
 		{
@@ -1935,7 +1936,7 @@ void CreateBoundingBoxBuilderBrush( UWorld* InWorld, const TArray<FPoly*> Select
 	{
 		const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "BrushSet", "Brush Set"));
 
-		UCubeBuilder* CubeBuilder = ConstructObject<UCubeBuilder>(UCubeBuilder::StaticClass(), GetTransientPackage(), NAME_None, RF_Transactional);
+		UCubeBuilder* CubeBuilder = NewObject<UCubeBuilder>(GetTransientPackage(), NAME_None, RF_Transactional);
 		FVector Extent = BBox.GetExtent();
 		CubeBuilder->X = Extent.X * 2;
 		CubeBuilder->Y = Extent.Y * 2;
@@ -2298,12 +2299,15 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		if( !MirrorScale.X )		MirrorScale.X = 1;
 		if( !MirrorScale.Y )		MirrorScale.Y = 1;
 		if( !MirrorScale.Z )		MirrorScale.Z = 1;
-		MirrorActors( MirrorScale );
+
+		const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "MirroringActors", "Mirroring Actors"));
+		MirrorActors(MirrorScale);
 		RebuildAlteredBSP(); // Update the Bsp of any levels containing a modified brush
 		return true;
 	}
 	else if( FParse::Command(&Str,TEXT("DELTAMOVE")) )
 	{
+		const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "DeltaMoveActors", "Move Actors by Delta"));
 		FVector DeltaMove = FVector::ZeroVector;
 		GetFVECTOR( Str, DeltaMove );
 
@@ -2988,23 +2992,6 @@ bool UUnrealEdEngine::Exec_Mode( const TCHAR* Str, FOutputDevice& Ar )
 
 		Word1 = MAX_uint16;
 	}
-
-#if ENABLE_LOC_TESTING
-	FString CultureName;
-	if( FParse::Value(Str,TEXT("CULTURE="), CultureName) )
-	{
-		FInternationalization::Get().SetCurrentCulture( CultureName );
-	}
-
-	FString ConfigFilePath;
-	if( FParse::Value(Str,TEXT("REGENLOC="), ConfigFilePath) )
-	{
-		FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-		FJsonInternationalizationManifestSerializer ManifestSerializer;
-
-		FTextLocalizationManager::Get().RegenerateResources(ConfigFilePath, ArchiveSerializer, ManifestSerializer);
-	}
-#endif
 
 	if( FParse::Value(Str,TEXT("USESIZINGBOX="), DWord1) )
 	{

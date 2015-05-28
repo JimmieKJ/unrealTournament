@@ -126,7 +126,7 @@ create_buffer_from_shm(Wayland_CursorData *d,
                        MAP_SHARED,
                        shm_fd,
                        0);
-    if (data == MAP_FAILED) {
+    if (d->shm_data == MAP_FAILED) {
         d->shm_data = NULL;
         fprintf (stderr, "mmap () failed\n");
         close (shm_fd);
@@ -345,14 +345,18 @@ static void
 Wayland_WarpMouse(SDL_Window *window, int x, int y)
 {
     SDL_Unsupported();
-    return;
+}
+
+static void
+Wayland_WarpMouseGlobal(int x, int y)
+{
+    SDL_Unsupported();
 }
 
 static int
 Wayland_SetRelativeMouseMode(SDL_bool enabled)
 {
-    SDL_Unsupported();
-    return -1;
+    return SDL_Unsupported();
 }
 
 void
@@ -365,6 +369,7 @@ Wayland_InitMouse(void)
     mouse->ShowCursor = Wayland_ShowCursor;
     mouse->FreeCursor = Wayland_FreeCursor;
     mouse->WarpMouse = Wayland_WarpMouse;
+    mouse->WarpMouseGlobal = Wayland_WarpMouseGlobal;
     mouse->SetRelativeMouseMode = Wayland_SetRelativeMouseMode;
 
     SDL_SetDefaultCursor(Wayland_CreateDefaultCursor());

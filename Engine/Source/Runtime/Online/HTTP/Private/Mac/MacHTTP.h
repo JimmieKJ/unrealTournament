@@ -45,6 +45,7 @@ public:
 	virtual EHttpRequestStatus::Type GetStatus() override;
 	virtual const FHttpResponsePtr GetResponse() const override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual float GetElapsedTime() override;
 	// End IHttpRequest interface
 
 
@@ -98,8 +99,13 @@ private:
 
 	/** Number of bytes sent to progress update */
 	int32 ProgressBytesSent;
-};
 
+	/** Start of the request */
+	double StartRequestTime;
+
+	/** Time taken to complete/cancel the request. */
+	float ElapsedTime;
+};
 
 
 /**
@@ -116,7 +122,11 @@ private:
 @property BOOL bIsReady;
 /** When the response is complete, indicates whether the response was received without error. */
 @property BOOL bHadError;
+/** The total number of bytes written out during the request/response */
+@property int32 BytesWritten;
 
+/** Delegate called when we send data. See Mac docs for when/how this should be used. */
+-(void) connection:(NSURLConnection *)connection didSendBodyData:(NSInteger)bytesWritten totalBytesWritten:(NSInteger)totalBytesWritten totalBytesExpectedToWrite:(NSInteger)totalBytesExpectedToWrite;
 /** Delegate called with we receive a response. See Mac docs for when/how this should be used. */
 -(void) connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response;
 /** Delegate called with we receive data. See Mac docs for when/how this should be used. */
@@ -126,7 +136,8 @@ private:
 /** Delegate called with we complete successfully. See Mac docs for when/how this should be used. */
 -(void) connectionDidFinishLoading:(NSURLConnection *)connection;
 
--(TArray<uint8>&)getPayload;
+- (TArray<uint8>&)getPayload;
+- (int32)getBytesWritten;
 @end
 
 
@@ -179,6 +190,11 @@ public:
 	 * Get the number of bytes received so far
 	 */
 	const int32 GetNumBytesReceived() const;
+
+	/**
+	* Get the number of bytes sent so far
+	*/
+	const int32 GetNumBytesWritten() const;
 
 	/**
 	 * Constructor

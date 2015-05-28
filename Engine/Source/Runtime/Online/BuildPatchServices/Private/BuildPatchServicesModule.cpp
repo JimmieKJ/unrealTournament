@@ -141,8 +141,30 @@ IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstall( IBuildManifestP
 	{
 		return NULL;
 	}
+	// Make sure the http wrapper is already created
+	FBuildPatchHTTP::Initialize();
 	// Run the install thread
-	BuildPatchInstallers.Add( MakeShareable( new FBuildPatchInstaller( OnCompleteDelegate, CurrentManifestInternal, InstallManifestInternal.ToSharedRef(), InstallDirectory, GetStagingDirectory(), InstallationInfo ) ) );
+	BuildPatchInstallers.Add( MakeShareable( new FBuildPatchInstaller( OnCompleteDelegate, CurrentManifestInternal, InstallManifestInternal.ToSharedRef(), InstallDirectory, GetStagingDirectory(), InstallationInfo, false ) ) );
+	return BuildPatchInstallers.Top();
+}
+
+IBuildInstallerPtr FBuildPatchServicesModule::StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate)
+{
+	// Using a local bool for this check will improve the assert message that gets displayed
+	const bool bIsCalledFromMainThread = IsInGameThread();
+	check( bIsCalledFromMainThread );
+	// Cast manifest parameters
+	FBuildPatchAppManifestPtr CurrentManifestInternal = StaticCastSharedPtr< FBuildPatchAppManifest >( CurrentManifest );
+	FBuildPatchAppManifestPtr InstallManifestInternal = StaticCastSharedPtr< FBuildPatchAppManifest >( InstallManifest );
+	if( !InstallManifestInternal.IsValid() )
+	{
+		// We must have an install manifest to continue
+		return NULL;
+	}
+	// Make sure the http wrapper is already created
+	FBuildPatchHTTP::Initialize();
+	// Run the install thread
+	BuildPatchInstallers.Add( MakeShareable( new FBuildPatchInstaller( OnCompleteDelegate, CurrentManifestInternal, InstallManifestInternal.ToSharedRef(), InstallDirectory, GetStagingDirectory(), InstallationInfo, true ) ) );
 	return BuildPatchInstallers.Top();
 }
 
@@ -195,9 +217,9 @@ bool FBuildPatchServicesModule::CompactifyCloudDirectory(const TArray<FString>& 
 	return FBuildDataCompactifier::CompactifyCloudDirectory(ManifestsToKeep, DataAgeThreshold, bPreview, bNoPatchDelete);
 }
 
-bool FBuildPatchServicesModule::EnumerateManifestData(FString ManifestFilePath, FString OutputFile)
+bool FBuildPatchServicesModule::EnumerateManifestData(FString ManifestFilePath, FString OutputFile, const bool bIncludeSizes)
 {
-	return FBuildDataEnumeration::EnumerateManifestData(MoveTemp(ManifestFilePath), MoveTemp(OutputFile));
+	return FBuildDataEnumeration::EnumerateManifestData(MoveTemp(ManifestFilePath), MoveTemp(OutputFile), bIncludeSizes);
 }
 
 #endif //WITH_BUILDPATCHGENERATION
@@ -222,6 +244,11 @@ void FBuildPatchServicesModule::SetAnalyticsProvider( TSharedPtr< IAnalyticsProv
 	FBuildPatchAnalytics::SetAnalyticsProvider( AnalyticsProvider );
 }
 
+void FBuildPatchServicesModule::SetHttpTracker( TSharedPtr< FHttpServiceTracker > HttpTracker )
+{
+	FBuildPatchAnalytics::SetHttpTracker( HttpTracker );
+}
+
 void FBuildPatchServicesModule::RegisterAppInstallation(IBuildManifestRef AppManifest, const FString AppInstallDirectory)
 {
 	InstallationInfo.RegisterAppInstallation(AppManifest, AppInstallDirectory);
@@ -234,6 +261,7 @@ void FBuildPatchServicesModule::PreExit()
 
 	// Release our ptr to analytics
 	FBuildPatchAnalytics::SetAnalyticsProvider(NULL);
+	FBuildPatchAnalytics::SetHttpTracker(nullptr);
 
 	// Cleanup installers
 	for (auto& BuildPatchInstaller : BuildPatchInstallers)

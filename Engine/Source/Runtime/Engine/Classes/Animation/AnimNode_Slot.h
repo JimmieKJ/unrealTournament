@@ -28,6 +28,11 @@ protected:
 	/** Weight of Slot Node. Determined by Montages weight playing on this slot */
 	float SlotNodeWeight;
 
+private:
+	/** Counter to register slot node just once per initialization */
+	UPROPERTY(transient)
+	int16 LastSlotNodeInitializationCounter;
+
 public:	
 	FAnimNode_Slot();
 

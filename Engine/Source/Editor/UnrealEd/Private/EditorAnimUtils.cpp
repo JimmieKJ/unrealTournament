@@ -156,10 +156,14 @@ namespace EditorAnimUtils
 		{
 			// we need to update reference pose before retargeting. 
 			// this is to ensure the skeleton has the latest pose you're looking at. 
-			USkeletalMesh * PreviewMesh = OldSkeleton->GetPreviewMesh(true);
-			if (PreviewMesh)
+			USkeletalMesh * PreviewMesh = NULL;
+			if (OldSkeleton != NULL)
 			{
-				OldSkeleton->UpdateReferencePoseFromMesh(PreviewMesh);
+				PreviewMesh = OldSkeleton->GetPreviewMesh(true);
+				if (PreviewMesh)
+				{
+					OldSkeleton->UpdateReferencePoseFromMesh(PreviewMesh);
+				}
 			}
 			
 			PreviewMesh = NewSkeleton->GetPreviewMesh(true);

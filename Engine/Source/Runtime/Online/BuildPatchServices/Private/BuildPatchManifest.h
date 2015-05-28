@@ -10,9 +10,6 @@
 
 #pragma once
 
-// A delegate returning a bool. Used to pass a paused state
-DECLARE_DELEGATE_RetVal( bool, FBuildPatchBoolRetDelegate );
-
 typedef TSharedPtr< class FBuildPatchCustomField, ESPMode::ThreadSafe > FBuildPatchCustomFieldPtr;
 typedef TSharedRef< class FBuildPatchCustomField, ESPMode::ThreadSafe > FBuildPatchCustomFieldRef;
 typedef TSharedPtr< class FBuildPatchAppManifest, ESPMode::ThreadSafe > FBuildPatchAppManifestPtr;
@@ -61,10 +58,10 @@ namespace EBuildPatchAppManifestVersion
 namespace EBuildPatchAppManifestVersion
 {
 	/** @return The last known manifest feature of this code base. Handy for manifest constructor */
-	const Type GetLatestVersion();
+	Type GetLatestVersion();
 
 	/** @return The latest version of a manifest support by JSON serialization */
-	const Type GetLatestJsonVersion();
+	Type GetLatestJsonVersion();
 
 	/**
 	 * Get the chunk subdirectory for used for a specific manifest version, e.g. Chunks, ChunksV2 etc
@@ -193,7 +190,7 @@ struct FFileManifestData
 
 	void Init();
 
-	const int64& GetFileSize() const;
+	int64 GetFileSize() const;
 
 	FORCEINLINE bool operator<(const FFileManifestData& Other) const;
 
@@ -293,9 +290,9 @@ public:
 	FBuildPatchCustomField(const FString& Value);
 
 	// START IBuildManifest Interface
-	virtual const FString AsString() const override;
-	virtual const double AsDouble() const override;
-	virtual const int64 AsInteger() const override;
+	virtual FString AsString() const override;
+	virtual double AsDouble() const override;
+	virtual int64 AsInteger() const override;
 	// END IBuildManifest Interface
 };
 
@@ -355,7 +352,7 @@ public:
 	~FBuildPatchAppManifest();
 
 	// START IBuildManifest Interface
-	virtual const uint32&  GetAppID() const override;
+	virtual uint32  GetAppID() const override;
 	virtual const FString& GetAppName() const override;
 	virtual const FString& GetVersionString() const override;
 	virtual const FString& GetLaunchExe() const override;
@@ -363,8 +360,8 @@ public:
 	virtual const FString& GetPrereqName() const override;
 	virtual const FString& GetPrereqPath() const override;
 	virtual const FString& GetPrereqArgs() const override;
-	virtual const int64 GetDownloadSize() const override;
-	virtual const int64 GetBuildSize() const override;
+	virtual int64 GetDownloadSize() const override;
+	virtual int64 GetBuildSize() const override;
 	virtual void GetRemovableFiles(IBuildManifestRef OldManifest, TArray< FString >& RemovableFiles) const override;
 	virtual void GetRemovableFiles(const TCHAR* InstallPath, TArray< FString >& RemovableFiles) const override;
 	virtual bool NeedsResaving() const override;
@@ -415,7 +412,7 @@ public:
 	 * Gets the version for this manifest. Useful for manifests that were loaded from JSON.
 	 * @return		The highest available feature support
 	 */
-	const EBuildPatchAppManifestVersion::Type GetManifestVersion() const;
+	EBuildPatchAppManifestVersion::Type GetManifestVersion() const;
 
 	/**
 	 * Provides a list of chunks required to produce the list of given files.
@@ -429,21 +426,21 @@ public:
 	 * @param ChunkGuid		The chunk GUID
 	 * @return	The number of references to this chunk
 	 */
-	const uint32 GetNumberOfChunkReferences(const FGuid& ChunkGuid) const;
+	uint32 GetNumberOfChunkReferences(const FGuid& ChunkGuid) const;
 
 	/**
 	 * Returns the size of a particular data file by it's GUID.
 	 * @param DataGuid		The GUID for the data
 	 * @return		File size.
 	 */
-	const int64 GetDataSize(const FGuid& DataGuid) const;
+	int64 GetDataSize(const FGuid& DataGuid) const;
 
 	/**
 	 * Returns the total size of all data files in it's list.
 	 * @param DataGuids		The GUID array for the data
 	 * @return		File size.
 	 */
-	const int64 GetDataSize(const TArray< FGuid >& DataGuids) const;
+	int64 GetDataSize(const TArray< FGuid >& DataGuids) const;
 
 	/**
 	 * Returns the size of a particular file in the build
@@ -451,7 +448,7 @@ public:
 	 * @param Filename		The file.
 	 * @return		File size.
 	 */
-	const int64 GetFileSize(const FString& Filename) const;
+	int64 GetFileSize(const FString& Filename) const;
 
 	/**
 	 * Returns the total size of all files in the array
@@ -459,13 +456,13 @@ public:
 	 * @param Filenames		The array of files.
 	 * @return		Total size of files in array.
 	 */
-	const int64 GetFileSize(const TArray< FString >& Filenames) const;
+	int64 GetFileSize(const TArray< FString >& Filenames) const;
 
 	/**
 	 * Returns the number of files in this build.
 	 * @return		The number of files.
 	 */
-	const uint32 GetNumFiles() const;
+	uint32 GetNumFiles() const;
 
 	/**
 	 * Get the list of files described by this manifest
@@ -490,7 +487,7 @@ public:
 	 * Gets whether this manifest is made up of file data instead of chunk data
 	 * @return	True if the build is made from file data. False if the build is constructed from chunk data.
 	 */
-	const bool IsFileDataManifest() const;
+	bool IsFileDataManifest() const;
 
 	/**
 	 * Gets the chunk hash for a given chunk
@@ -498,7 +495,7 @@ public:
 	 * @param OutHash		OUT		Receives the hash value if found
 	 * @return	true if we had the hash for this chunk
 	 */
-	const bool GetChunkHash(const FGuid& ChunkGuid, uint64& OutHash) const;
+	bool GetChunkHash(const FGuid& ChunkGuid, uint64& OutHash) const;
 
 	/**
 	 * Gets the file hash for given file data
@@ -506,7 +503,7 @@ public:
 	 * @param OutHash		OUT		Receives the hash value if found
 	 * @return	true if we had the hash for this file
 	 */
-	const bool GetFileHash(const FGuid& FileGuid, FSHAHashData& OutHash) const; // DEPRECATE ME
+	bool GetFileHash(const FGuid& FileGuid, FSHAHashData& OutHash) const; // DEPRECATE ME
 
 	/**
 	 * Gets the file hash for a given file
@@ -514,7 +511,7 @@ public:
 	 * @param OutHash		OUT		Receives the hash value if found
 	 * @return	true if we had the hash for this file
 	 */
-	const bool GetFileHash(const FString& Filename, FSHAHashData& OutHash) const;
+	bool GetFileHash(const FString& Filename, FSHAHashData& OutHash) const;
 
 	/**
 	 * Gets the file hash for given file data. Valid for non-chunked manifest
@@ -522,7 +519,7 @@ public:
 	 * @param OutHash		OUT		Receives the hash value if found
 	 * @return	true if we had the hash for this file
 	 */
-	const bool GetFilePartHash(const FGuid& FilePartGuid, uint64& OutHash) const;
+	bool GetFilePartHash(const FGuid& FilePartGuid, uint64& OutHash) const;
 
 	/**
 	 * Populates an array of chunks that should be producible from this local build, given the list of chunks needed. Also checks source files exist and match size.
@@ -531,18 +528,6 @@ public:
 	 * @param ChunksAvailable	OUT		A list to receive the chunks that could be constructed locally.
 	 */
 	void EnumerateProducibleChunks(const FString& InstallDirectory, const TArray<FGuid>& ChunksRequired, TArray<FGuid>& ChunksAvailable) const;
-
-	/**
-	 * Verifies a local directory structure against a given manifest.
-	 * NOTE: This function is blocking and will not return until finished. Don't run on main thread.
-	 * @param VerifyDirectory		IN		The directory to analyze.
-	 * @param OutDatedFiles			OUT		The array of files that do not match or are locally missing.
-	 * @param ProgressDelegate		IN		Delegate to receive progress updates in the form of a float range 0.0f to 1.0f
-	 * @param ShouldPauseDelegate	IN		Delegate that returns a bool, which if true will pause the process
-	 * @param TimeSpentPaused		OUT		The amount of time we were paused for, in seconds.
-	 * @return		true if no file errors occurred AND the verification was successful
-	 */
-	bool VerifyAgainstDirectory(const FString& VerifyDirectory, TArray < FString >& OutDatedFiles, FBuildPatchFloatDelegate ProgressDelegate, FBuildPatchBoolRetDelegate ShouldPauseDelegate, double& TimeSpentPaused);
 
 	/**
 	 * Gets a list of files that were installed with the Old Manifest, but no longer required by the New Manifest.
@@ -575,6 +560,9 @@ public:
 	 * @param ChunkPartsAvailable	OUT		A map to receive the FFileChunkParts keyed by chunk guid.
 	 */
 	void EnumerateChunkPartInventory(const TArray< FGuid >& ChunksRequired, TMap< FGuid, TArray< FFileChunkPart > >& ChunkPartsAvailable) const;
+
+	/** @return True if this manifest is for the same build, i.e. same ID, Name, and Version */
+	bool IsSameAs(FBuildPatchAppManifestRef InstallManifest) const;
 
 private:
 

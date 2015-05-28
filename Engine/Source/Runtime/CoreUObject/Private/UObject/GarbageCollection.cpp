@@ -51,6 +51,125 @@ static volatile bool GIsRunningParallelReachability = false;
 /** Whether we are currently purging an object in the GC purge pass. */
 static bool GIsPurgingObject = false;
 
+/** Helpful constant for determining how many token slots we need to store a pointer **/
+static const uint32 GNumTokensPerPointer = sizeof(void*) / sizeof(uint32);
+
+/** Locks all UObject hash tables when performing GC */
+class FGCScopeLock
+{
+	/** Previous value of the GetGarbageCollectingFlag() */
+	bool bPreviousGabageCollectingFlagValue;
+public:
+
+	static FThreadSafeBool& GetGarbageCollectingFlag();
+
+	/** 
+	 * We're storing the value of GetGarbageCollectingFlag in the constructor, it's safe as only 
+	 * one thread is ever going to be setting it and calling this code - the game thread.
+	 **/
+	FORCEINLINE FGCScopeLock()
+		: bPreviousGabageCollectingFlagValue(GetGarbageCollectingFlag())
+	{		
+		void LockUObjectHashTablesForGC();
+		LockUObjectHashTablesForGC();		
+		GetGarbageCollectingFlag() = true;
+	}
+	FORCEINLINE ~FGCScopeLock()
+	{		
+		GetGarbageCollectingFlag() = bPreviousGabageCollectingFlagValue;
+		void UnlockUObjectHashTablesForGC();
+		UnlockUObjectHashTablesForGC();		
+	}
+};
+FThreadSafeBool& FGCScopeLock::GetGarbageCollectingFlag()
+{
+	static FThreadSafeBool IsGarbageCollecting(false);
+	return IsGarbageCollecting;
+}
+
+/**
+ * Garbage Collection synchronization objects
+ * Will not lock other threads if GC is not running.
+ * Has the ability to only lock for GC if no other locks are present.
+ */
+class FGCCSyncObject
+{
+	FThreadSafeCounter AsyncCounter;
+	FThreadSafeCounter GCCounter;
+	FCriticalSection Critical;
+public:
+	/** Lock on non-game thread. Will block if GC is running. */
+	void LockAsync()
+	{
+		if (!IsInGameThread())
+		{
+			FScopeLock CriticalLock(&Critical);
+			
+			// Wait until GC is done if it's currently running
+			FPlatformProcess::ConditionalSleep([&]()
+			{
+				return GCCounter.GetValue() == 0;
+			});
+
+			AsyncCounter.Increment();
+		}
+	}
+	/** Release lock from non-game thread */
+	void UnlockAsync()
+	{
+		if (!IsInGameThread())
+		{
+			AsyncCounter.Decrement();
+		}
+	}
+	/** Lock for GC. Will block if any other thread has locked. */
+	void GCLock()
+	{
+		FScopeLock CriticalLock(&Critical);
+
+		// Wait until all other threads are done if they're currently holding the lock
+		FPlatformProcess::ConditionalSleep([&]()
+		{
+			return AsyncCounter.GetValue() == 0;
+		});
+
+		GCCounter.Increment();
+	}
+	/** Lock for GC. Will not block and return false if any other thread has already locked. */
+	bool TryGCLock()
+	{		
+		bool bSuccess = false;
+		FScopeLock CriticalLock(&Critical);
+		// If any other thread is currently locking we just exit
+		if (AsyncCounter.GetValue() == 0)
+		{
+			GCCounter.Increment();
+			bSuccess = true;
+		}
+		return bSuccess;
+	}
+	/** Unlock GC */
+	void GCUnlock()
+	{
+		GCCounter.Decrement();
+	}
+};
+
+static FGCCSyncObject GGarbageCollectionGuardCritical;
+FGCScopeGuard::FGCScopeGuard()
+{
+	GGarbageCollectionGuardCritical.LockAsync();
+}
+FGCScopeGuard::~FGCScopeGuard()
+{
+	GGarbageCollectionGuardCritical.UnlockAsync();
+}
+
+bool IsGarbageCollecting()
+{
+	return FGCScopeLock::GetGarbageCollectingFlag();
+}
+
 /**
  * If set and VERIFY_DISREGARD_GC_ASSUMPTIONS is true, we verify GC assumptions about "Disregard For GC" objects. We also
  * verify that no unreachable actors/ components are referenced if VERIFY_NO_UNREACHABLE_OBJECTS_ARE_REFERENCED
@@ -263,7 +382,7 @@ public:
 	{
 	}
 
-	virtual void HandleObjectReference(UObject*& Object, const UObject* ReferencingObject, const UObject* ReferencingProperty) override
+	virtual void HandleObjectReference(UObject*& Object, const UObject* ReferencingObject, const UProperty* ReferencingProperty) override
 	{
 #if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
 		if (Object && !Object->IsValidLowLevelFast())
@@ -315,7 +434,7 @@ FReferenceFinder::FReferenceFinder( TArray<UObject*>& InObjectArray, UObject* In
 	}
 }
 
-void FReferenceFinder::FindReferences(UObject* Object, UObject* InReferencingObject, UObject* InReferencingProperty)
+void FReferenceFinder::FindReferences(UObject* Object, UObject* InReferencingObject, UProperty* InReferencingProperty)
 {
 	check(Object != NULL);
 
@@ -328,7 +447,7 @@ void FReferenceFinder::FindReferences(UObject* Object, UObject* InReferencingObj
 	Object->CallAddReferencedObjects(*this);
 }
 
-void FReferenceFinder::HandleObjectReference( UObject*& InObject, const UObject* InReferencingObject /*= NULL*/, const UObject* InReferencingProperty /*= NULL*/ )
+void FReferenceFinder::HandleObjectReference( UObject*& InObject, const UObject* InReferencingObject /*= NULL*/, const UProperty* InReferencingProperty /*= NULL*/ )
 {
 	// Avoid duplicate entries.
 	if ( InObject != NULL )
@@ -348,7 +467,7 @@ void FReferenceFinder::HandleObjectReference( UObject*& InObject, const UObject*
 			if ( bSerializeRecursively == true && !SerializedObjects.Find(Object) )
 			{
 				SerializedObjects.Add(Object);
-				FindReferences(Object, const_cast<UObject*>(InReferencingObject), const_cast<UObject*>(InReferencingProperty));
+				FindReferences(Object, const_cast<UObject*>(InReferencingObject), const_cast<UProperty*>(InReferencingProperty));
 			}
 		}
 	}
@@ -436,7 +555,12 @@ public:
 		GObjectCountDuringLastMarkPhase = 0;
 
 		// Presize array and add a bit of extra slack for prefetching.
-		ObjectsToSerialize.Empty( GUObjectArray.GetObjectArrayNumMinusPermanent() + 2 );
+		ObjectsToSerialize.Empty( GetUObjectArray().GetObjectArrayNumMinusPermanent() + 3 );
+		// Make sure GC referencer object is checked for references to other objects even if it resides in permanent object pool
+		if (FPlatformProperties::RequiresCookedData() && FGCObject::GGCObjectReferencer && GetUObjectArray().IsDisregardForGC(FGCObject::GGCObjectReferencer))
+		{
+			ObjectsToSerialize.Add(FGCObject::GGCObjectReferencer);
+		}
 
 		for ( FRawObjectIterator It(true); It; ++It )
 		{
@@ -511,6 +635,7 @@ public:
 					ChunkTasks.Add(TGraphTask<FGCTask>::CreateTask().ConstructAndDispatchWhenReady(this, &ObjectsToSerialize, StartIndex, NumPerChunk));
 					StartIndex += NumPerChunk;
 				}
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_GC_Subtask_Wait);
 				FTaskGraphInterface::Get().WaitUntilTasksComplete(ChunkTasks, ENamedThreads::GameThread_Local);
 				GIsRunningParallelReachability = false;
 			}
@@ -704,6 +829,14 @@ public:
 						TokenReturnCount = REFERENCE_INFO.ReturnCount;
 						AddReferencedObjects(CurrentObject, ReferenceCollector);
 					}
+					else if( REFERENCE_INFO.Type == GCRT_AddTMapReferencedObjects )
+					{
+						void*         Map         = StackEntryData + REFERENCE_INFO.Offset;
+						UMapProperty* MapProperty = (UMapProperty*)TokenStream->ReadPointer( TokenStreamIndex );
+						TokenReturnCount = REFERENCE_INFO.ReturnCount;
+						FSimpleObjectReferenceCollectorArchive CollectorArchive(CurrentObject, ReferenceCollector);
+						MapProperty->SerializeItem(CollectorArchive, Map, nullptr);
+					}
 					else if( REFERENCE_INFO.Type == GCRT_EndOfStream )
 					{
 						// Break out of loop.
@@ -784,7 +917,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 	if (GExitPurge)
 	{
 		GObjPurgeIsRequired = true;
-		GUObjectArray.DisableDisregardForGC();
+		GetUObjectArray().DisableDisregardForGC();
 		GObjCurrentPurgeObjectIndexNeedsReset = true;
 		GObjCurrentPurgeObjectIndexResetPastPermanent = false;
 	}
@@ -795,7 +928,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 	}
 
 	// Set 'I'm garbage collecting' flag - might be checked inside UObject::Destroy etc.
-	TGuardValue<bool> GuardIsGarbageCollecting(GIsGarbageCollecting, true);
+	FGCScopeLock GCLock;
 
 	// Incremental purge is now in progress.
 	GObjIncrementalPurgeIsInProgress						= true;
@@ -950,10 +1083,9 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 				GGCObjectsPendingDestruction.Empty( 256 );
 
 				// Destroy has been routed to all objects so it's safe to delete objects now.
-				GObjFinishDestroyHasBeenRoutedToAllObjects		= true;
-				GObjCurrentPurgeObjectIndexNeedsReset			= true;
-				GObjCurrentPurgeObjectIndexResetPastPermanent	= true;
-
+				GObjFinishDestroyHasBeenRoutedToAllObjects = true;
+				GObjCurrentPurgeObjectIndexNeedsReset = true;
+				GObjCurrentPurgeObjectIndexResetPastPermanent = !GExitPurge;
 			}
 		}
 	}		
@@ -1047,18 +1179,38 @@ static const auto CVarAllowParallelGC =
  * @param	KeepFlags			objects with those flags will be kept regardless of being referenced or not
  * @param	bPerformFullPurge	if true, perform a full purge after the mark pass
  */
-
-void CollectGarbage( EObjectFlags KeepFlags, bool bPerformFullPurge )
+void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 {
 	// We can't collect garbage while there's a load in progress. E.g. one potential issue is Import.XObject
-	check( !IsLoading() );
+	check(!IsLoading());
+
+	// Helper class to register FlushAsyncLoadingCallback on first GC run.
+	struct FAddFlushAsyncLoadingCallback
+	{
+		FAddFlushAsyncLoadingCallback()
+		{
+			bool bFlushStreaming = false;
+			GConfig->GetBool(TEXT("Core.System"), TEXT("FlushStreamingOnGC"), bFlushStreaming, GEngineIni);
+			if (bFlushStreaming)
+			{
+				FCoreUObjectDelegates::PreGarbageCollect.AddStatic(FlushAsyncLoadingCallback);
+			}
+		}
+		/** Wrapper function to handle default parameter when used as function pointer */
+		static void FlushAsyncLoadingCallback()
+		{
+			FlushAsyncLoading();
+		}
+	};
+	// Add FlushAsyncLoadingCallback the first time CollectGarbage is called if requested by ini settings
+	static FAddFlushAsyncLoadingCallback MaybeAddFlushAsyncLoadingCallback;
 
 	// Route callbacks so we can ensure that we are e.g. not in the middle of loading something by flushing
 	// the async loading, etc...
 	FCoreUObjectDelegates::PreGarbageCollect.Broadcast();
-	
+
 	// Set 'I'm garbage collecting' flag - might be checked inside various functions.
-	GIsGarbageCollecting = true; 
+	FGCScopeLock GCLock;
 
 	UE_LOG(LogGarbage, Log, TEXT("Collecting garbage") );
 
@@ -1073,9 +1225,8 @@ void CollectGarbage( EObjectFlags KeepFlags, bool bPerformFullPurge )
 
 #if VERIFY_DISREGARD_GC_ASSUMPTIONS
 	// Only verify assumptions if option is enabled. This avoids false positives in the Editor or commandlets.
-	if( GUObjectArray.DisregardForGCEnabled() && GShouldVerifyGCAssumptions )
+	if( GetUObjectArray().DisregardForGCEnabled() && GShouldVerifyGCAssumptions )
 	{
-		UE_LOG(LogGarbage, Verbose, TEXT("--- verifying GC assumptions --- "))
 		// Verify that objects marked to be disregarded for GC are not referencing objects that are not part of the root set.
 		for( FObjectIterator It; It; ++It )
 		{
@@ -1084,7 +1235,7 @@ void CollectGarbage( EObjectFlags KeepFlags, bool bPerformFullPurge )
 			// Don't require UGCObjectReferencer's references to adhere to the assumptions.
 			// Although we want the referencer itself to sit in the disregard for gc set, most of the objects
 			// it's referencing will not be in the root set.
-			if (GUObjectArray.IsDisregardForGC(Object) && !Object->IsA(UGCObjectReferencer::StaticClass()))
+			if (GetUObjectArray().IsDisregardForGC(Object) && !Object->IsA(UGCObjectReferencer::StaticClass()))
 			{
 				// Serialize object with reference collector.
 				TArray<UObject*> CollectedReferences;
@@ -1095,15 +1246,12 @@ void CollectGarbage( EObjectFlags KeepFlags, bool bPerformFullPurge )
 				for( int32 ReferenceIndex=0; ReferenceIndex<CollectedReferences.Num(); ReferenceIndex++ )
 				{
 					UObject* ReferencedObject = CollectedReferences[ReferenceIndex];
-					if( ReferencedObject && !(ReferencedObject->HasAnyFlags(RF_RootSet) || GUObjectArray.IsDisregardForGC(ReferencedObject)))
+					if( ReferencedObject && !(ReferencedObject->HasAnyFlags(RF_RootSet) || GetUObjectArray().IsDisregardForGC(ReferencedObject)))
 					{
-						if( !ReferencedObject->IsA(ULinkerLoad::StaticClass()) || ReferencedObject->HasAnyFlags(RF_ClassDefaultObject) )
-						{
-							UE_LOG(LogGarbage, Warning, TEXT("Disregard for GC object %s referencing %s which is not part of root set"),
-								*Object->GetFullName(),
-								*ReferencedObject->GetFullName());
-							bShouldAssert = true;
-						}
+						UE_LOG(LogGarbage, Warning, TEXT("Disregard for GC object %s referencing %s which is not part of root set"),
+							*Object->GetFullName(),
+							*ReferencedObject->GetFullName());
+						bShouldAssert = true;
 					}
 				}
 			}
@@ -1167,12 +1315,37 @@ void CollectGarbage( EObjectFlags KeepFlags, bool bPerformFullPurge )
 		IncrementalPurgeGarbage( false );	
 	}
 
-	// We're done collecting garbage. Note that IncrementalPurgeGarbage above might already clear it internally.
-	GIsGarbageCollecting = false;
-
 	// Route callbacks to verify GC assumptions
 	FCoreUObjectDelegates::PostGarbageCollect.Broadcast();
 }
+
+void CollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
+{
+	// No other thread may be performing UOBject operations while we're running
+	GGarbageCollectionGuardCritical.GCLock();
+
+	// Perform actual garbage collection
+	CollectGarbageInternal(KeepFlags, bPerformFullPurge);
+
+	// Other threads are free to use UObjects
+	GGarbageCollectionGuardCritical.GCUnlock();
+}
+
+bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge)
+{
+	// No other thread may be performing UOBject operations while we're running
+	bool bCanRunGC = GGarbageCollectionGuardCritical.TryGCLock();
+	if (bCanRunGC)
+	{
+		// Perform actual garbage collection
+		CollectGarbageInternal(KeepFlags, bPerformFullPurge);
+
+		// Other threads are free to use UObjects
+		GGarbageCollectionGuardCritical.GCUnlock();
+	}
+	return bCanRunGC;
+}
+
 
 /**
  * Helper function to add referenced objects via serialization
@@ -1199,10 +1372,10 @@ void UObject::AddReferencedObjects(UObject* This, FReferenceCollector& Collector
 {
 #if WITH_EDITOR
 	//@todo UE4 - This seems to be required and it should not be. Seems to be related to the texture streamer.
-	ULinkerLoad* LinkerLoad = This->GetLinker();	
+	FLinkerLoad* LinkerLoad = This->GetLinker();	
 	if (LinkerLoad)
 	{
-		Collector.AddReferencedObject( LinkerLoad, This );
+		LinkerLoad->AddReferencedObjects(Collector);
 	}
 	// Required by the unified GC when running in the editor
 	if (GIsEditor)
@@ -1213,17 +1386,6 @@ void UObject::AddReferencedObjects(UObject* This, FReferenceCollector& Collector
 		Collector.AddReferencedObject( LoadOuter, This );
 		Collector.AllowEliminatingReferences(true);
 		Collector.AddReferencedObject( Class, This );
-
-		// Serialize object properties which are defined in the class.
-		// Note: This check is intentionally excluding UClass objects but including subclasses like UBlueprintGeneratedClass
-		// @TODO: is it right to also exclude ULinkerPlaceholderClass here (it was causing a crash in here).
-		if (Class != UClass::StaticClass() && Class != ULinkerPlaceholderClass::StaticClass())
-		{
-			// Script properties
-			FSimpleObjectReferenceCollectorArchive ObjectReferenceCollector( This, Collector );
-			ObjectReferenceCollector.SetSerializedProperty(Collector.GetSerializedProperty());
-			This->SerializeScriptProperties( ObjectReferenceCollector );
-		}
 
 #if TEST_ARO_FINDS_ALL_OBJECTS
 		TArray<UObject*> SerializedObjects;
@@ -1267,6 +1429,19 @@ bool UArrayProperty::ContainsObjectReference() const
 {
 	check(Inner);
 	return Inner->ContainsObjectReference();
+}
+
+/**
+ * Returns true if this property, or in the case of e.g. array or struct properties any sub- property, contains a
+ * UObject reference.
+ *
+ * @return true if property (or sub- properties) contain a UObject reference, false otherwise
+ */
+bool UMapProperty::ContainsObjectReference() const
+{
+	check(KeyProp);
+	check(ValueProp);
+	return KeyProp->ContainsObjectReference() || ValueProp->ContainsObjectReference();
 }
 
 /**
@@ -1319,6 +1494,14 @@ bool UArrayProperty::ContainsWeakObjectReference() const
 {
 	check(Inner);
 	return Inner->ContainsWeakObjectReference();
+}
+
+// Returns true if this property contains a weak UObject reference.
+bool UMapProperty::ContainsWeakObjectReference() const
+{
+	check(KeyProp);
+	check(ValueProp);
+	return KeyProp->ContainsWeakObjectReference() || ValueProp->ContainsWeakObjectReference();
 }
 
 // Returns true if this property contains a weak UObject reference.
@@ -1466,6 +1649,20 @@ void UArrayProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
 		{
 			UE_LOG(LogGarbage, Fatal, TEXT("Encountered unknown property containing object or name reference: %s in %s"), *Inner->GetFullName(), *GetFullName() );
 		}
+	}
+}
+
+
+/**
+ * Emits tokens used by realtime garbage collection code to passed in OwnerClass' ReferenceTokenStream. The offset emitted is relative
+ * to the passed in BaseOffset which is used by e.g. arrays of structs.
+ */
+void UMapProperty::EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset)
+{
+	if (ContainsObjectReference())
+	{
+		OwnerClass.ReferenceTokenStream.EmitReferenceInfo(FGCReferenceInfo(GCRT_AddTMapReferencedObjects, BaseOffset + GetOffset_ForGC()));
+		OwnerClass.ReferenceTokenStream.EmitPointer((const void*)this);
 	}
 }
 
@@ -1678,7 +1875,7 @@ void FGCReferenceTokenStream::ReplaceOrAddAddReferencedObjectsCall(void (*AddRef
 		case GCRT_AddStructReferencedObjects:
 			{
 				// Skip pointer
-				TokenIndex++; 
+				TokenIndex += GNumTokensPerPointer;
 			}
 			break;
 		case GCRT_AddReferencedObjects:
@@ -1755,7 +1952,7 @@ void FGCReferenceTokenStream::EmitCount( uint32 Count )
 void FGCReferenceTokenStream::EmitPointer( void const* Ptr )
 {
 	const int32 StoreIndex = Tokens.Num();
-	Tokens.AddUninitialized(sizeof(void*) / sizeof(uint32));
+	Tokens.AddUninitialized(GNumTokensPerPointer);
 	StorePointer(&Tokens[StoreIndex], Ptr);
 }
 

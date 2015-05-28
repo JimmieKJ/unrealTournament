@@ -177,7 +177,7 @@ bool FSettingsSection::ResetDefaults()
 		GConfig->EmptySection(*SettingsObject->GetClass()->GetPathName(), ConfigName);
 		GConfig->Flush(false);
 
-		FConfigCacheIni::LoadGlobalIniFile(ConfigName, *FPaths::GetBaseFilename(ConfigName), nullptr, nullptr, true);
+		FConfigCacheIni::LoadGlobalIniFile(ConfigName, *FPaths::GetBaseFilename(ConfigName), nullptr, true);
 
 		SettingsObject->ReloadConfig(nullptr, nullptr, UE4::LCPF_PropagateToInstances|UE4::LCPF_PropagateToChildDefaultObjects);
 

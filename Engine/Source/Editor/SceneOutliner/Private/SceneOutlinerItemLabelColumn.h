@@ -46,7 +46,6 @@ private:
 
 	TSharedRef<SWidget> GenerateWidget( FActorTreeItem& TreeItem, const STableRow<FTreeItemPtr>& InRow );
 	TSharedRef<SWidget> GenerateWidget( FWorldTreeItem& TreeItem, const STableRow<FTreeItemPtr>& InRow );
-	TSharedRef<SWidget> GenerateWidget( FLevelBlueprintTreeItem& TreeItem, const STableRow<FTreeItemPtr>& InRow );
 	TSharedRef<SWidget> GenerateWidget( FFolderTreeItem& TreeItem, const STableRow<FTreeItemPtr>& InRow );
 
 	struct FColumnWidgetGenerator : FColumnGenerator
@@ -58,7 +57,6 @@ private:
 
 		virtual TSharedRef<SWidget> GenerateWidget(FFolderTreeItem& Item) const override { return Column.GenerateWidget(Item, Row); }
 		virtual TSharedRef<SWidget> GenerateWidget(FWorldTreeItem& Item) const override { return Column.GenerateWidget(Item, Row); }
-		virtual TSharedRef<SWidget> GenerateWidget(FLevelBlueprintTreeItem& Item) const override { return Column.GenerateWidget(Item, Row); }
 		virtual TSharedRef<SWidget> GenerateWidget(FActorTreeItem& Item) const override { return Column.GenerateWidget(Item, Row); }
 	};
 	friend FColumnWidgetGenerator;

@@ -79,7 +79,7 @@ public:
 
 		TSharedRef<SOverlay> OverlayWidget = SNew(SOverlay);
 
-		UpdateThumbnailClass(AssetData.AssetName, Class);
+		UpdateThumbnailClass();
 
 		ClassThumbnailBrushOverride = InArgs._ClassThumbnailBrushOverride;
 
@@ -123,10 +123,11 @@ public:
 
 			TSharedPtr<SViewport> Viewport = 
 				SNew( SViewport )
-				.EnableGammaCorrection(false);
+				.EnableGammaCorrection(false)
+				.EnableBlending(true);
 
 			Viewport->SetViewportInterface( AssetThumbnail.ToSharedRef() );
-			AssetThumbnail->GetViewportRenderTargetTexture(); // Access the render texture to push it on the stack if it isnt already rendered
+			AssetThumbnail->GetViewportRenderTargetTexture(); // Access the render texture to push it on the stack if it isn't already rendered
 
 			InArgs._ThumbnailPool->OnThumbnailRendered().AddSP(this, &SAssetThumbnail::OnThumbnailRendered);
 			InArgs._ThumbnailPool->OnThumbnailRenderFailed().AddSP(this, &SAssetThumbnail::OnThumbnailRenderFailed);
@@ -224,38 +225,10 @@ public:
 
 	}
 
-	void UpdateThumbnailClass(const FName& InAssetName, UClass* InAssetClass)
+	void UpdateThumbnailClass()
 	{
-		ThumbnailClass = InAssetClass;
-		bIsClassType = false;
-
-		if( InAssetClass == UClass::StaticClass() )
-		{
-			ThumbnailClass = FindObject<UClass>(ANY_PACKAGE, *InAssetName.ToString());
-			bIsClassType = true;
-		}
-		else if( InAssetClass == UBlueprint::StaticClass() )
-		{
-			static const FName NativeParentClassTag = "NativeParentClass";
-			static const FName ParentClassTag = "ParentClass";
-
-			// We need to use the asset data to get the parent class as the blueprint may not be loaded
-			const FAssetData& AssetData = AssetThumbnail->GetAssetData();
-			const FString* ParentClassNamePtr = AssetData.TagsAndValues.Find(NativeParentClassTag);
-			if(!ParentClassNamePtr)
-			{
-				ParentClassNamePtr = AssetData.TagsAndValues.Find(ParentClassTag);
-			}
-			if(ParentClassNamePtr && !ParentClassNamePtr->IsEmpty())
-			{
-				UObject* Outer = nullptr;
-				FString ParentClassName = *ParentClassNamePtr;
-				ResolveName(Outer, ParentClassName, false, false);
-				ThumbnailClass = FindObject<UClass>(ANY_PACKAGE, *ParentClassName);
-			}
-
-			bIsClassType = true;
-		}
+		const FAssetData& AssetData = AssetThumbnail->GetAssetData();
+		ThumbnailClass = FClassIconFinder::GetIconClassForAssetData(AssetData, &bIsClassType);
 	}
 
 	FSlateColor GetHintBackgroundColor() const
@@ -278,8 +251,6 @@ public:
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override
 	{
-		SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
 		if ( WidthLastFrame != AllottedGeometry.Size.X )
 		{
 			WidthLastFrame = AllottedGeometry.Size.X;
@@ -338,7 +309,7 @@ private:
 			AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(Class);
 		}
 
-		UpdateThumbnailClass(AssetData.AssetName, Class);
+		UpdateThumbnailClass();
 
 		AssetColor = FLinearColor(1.f, 1.f, 1.f, 1.f);
 		if ( AssetTypeActions.IsValid() )
@@ -466,7 +437,7 @@ private:
 		if ( !bHasRenderedThumbnail && AssetData == AssetThumbnail->GetAssetData() && ShouldRender() )
 		{
 			OnRenderedThumbnailChanged( true );
-			ViewportFadeAnimation.Play();
+			ViewportFadeAnimation.Play( this->AsShared() );
 		}
 	}
 
@@ -883,6 +854,16 @@ void FAssetThumbnailPool::ReleaseResources()
 			ensureMsgf(0, TEXT("Thumbnail info for '%s' is still referenced by '%d' other objects"), *Thumb->AssetData.ObjectPath.ToString(), Thumb.GetSharedReferenceCount());
 		}
 	}
+}
+
+TStatId FAssetThumbnailPool::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT( FAssetThumbnailPool, STATGROUP_Tickables );
+}
+
+bool FAssetThumbnailPool::IsTickable() const
+{
+	return RecentlyLoadedAssets.Num() > 0 || ThumbnailsToRenderStack.Num() > 0 || RealTimeThumbnails.Num() > 0;
 }
 
 void FAssetThumbnailPool::Tick( float DeltaTime )

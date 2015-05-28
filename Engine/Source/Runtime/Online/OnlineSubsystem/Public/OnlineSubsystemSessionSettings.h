@@ -33,3 +33,14 @@
 #define SETTING_MULTIPLAYER_VISIBILITY FName(TEXT("MULTIPLAYERVISIBILITY"))
 /** Session template name, must match a session template name from the service config. */
 #define SETTING_SESSION_TEMPLATE_NAME FName(TEXT("SESSIONTEMPLATENAME"))
+/** Session change number from shoulder tapped version */
+#define SETTING_CHANGE_NUMBER FName(TEXT("CHANGENUMBER"))
+/** Session can attempt arbiter migration */
+#define SETTING_ALLOW_ARBITER_MIGRATION FName(TEXT("ALLOWARBITERMIGRATION"))
+/** Session preservation type for matchmaking */
+#define SETTING_MATCHING_PRESERVE_SESSION FName(TEXT("PRESERVESESSIONALWAYS"))
+/** Matchmade game session URI for join in progress/invites */
+#define  SETTING_GAME_SESSION_URI FName(TEXT("GAMESESSIONURI"))
+/** Session member group identifier (value is FString) - This is to be used with FString::Printf, populated with user xuid - Field required with Team Based matchmaking*/
+#define SETTING_GROUP_NAME FName(TEXT("USERGROUPNAME%s"))
+

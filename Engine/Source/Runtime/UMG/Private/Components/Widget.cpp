@@ -4,12 +4,91 @@
 
 #include "ReflectionMetadata.h"
 
-#include "TextBinding.h"
-#include "FloatBinding.h"
-#include "BoolBinding.h"
-#include "BrushBinding.h"
-#include "ColorBinding.h"
-#include "Int32Binding.h"
+/**
+* Interface for tool tips.
+*/
+class FDelegateToolTip : public IToolTip
+{
+public:
+
+	/**
+	* Gets the widget that this tool tip represents.
+	*
+	* @return The tool tip widget.
+	*/
+	virtual TSharedRef<class SWidget> AsWidget() override
+	{
+		return GetContentWidget();
+	}
+
+	/**
+	* Gets the tool tip's content widget.
+	*
+	* @return The content widget.
+	*/
+	virtual TSharedRef<SWidget> GetContentWidget() override
+	{
+		if ( CachedToolTip.IsValid() )
+		{
+			return CachedToolTip.ToSharedRef();
+		}
+
+		UWidget* Widget = ToolTipWidgetDelegate.Execute();
+		if ( Widget )
+		{
+			CachedToolTip = Widget->TakeWidget();
+			return CachedToolTip.ToSharedRef();
+		}
+
+		return SNullWidget::NullWidget;
+	}
+
+	/**
+	* Sets the tool tip's content widget.
+	*
+	* @param InContentWidget The new content widget to set.
+	*/
+	virtual void SetContentWidget(const TSharedRef<SWidget>& InContentWidget) override
+	{
+		CachedToolTip = InContentWidget;
+	}
+
+	/**
+	* Checks whether this tool tip has no content to display right now.
+	*
+	* @return true if the tool tip has no content to display, false otherwise.
+	*/
+	virtual bool IsEmpty() const override
+	{
+		return !ToolTipWidgetDelegate.IsBound();
+	}
+
+	/**
+	* Checks whether this tool tip can be made interactive by the user (by holding Ctrl).
+	*
+	* @return true if it is an interactive tool tip, false otherwise.
+	*/
+	virtual bool IsInteractive() const override
+	{
+		return false;
+	}
+
+	virtual void OnClosed() override
+	{
+		CachedToolTip.Reset();
+	}
+
+	virtual void OnOpening() override
+	{
+	}
+
+public:
+	UWidget::FGetWidget ToolTipWidgetDelegate;
+
+private:
+	TSharedPtr<SWidget> CachedToolTip;
+};
+
 
 /////////////////////////////////////////////////////
 // UWidget
@@ -148,6 +227,31 @@ void UWidget::SetToolTipText(const FText& InToolTipText)
 	}
 }
 
+void UWidget::SetToolTip(UWidget* InToolTipWidget)
+{
+	ToolTipWidget = InToolTipWidget;
+
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		if ( ToolTipWidget )
+		{
+			TSharedRef<SToolTip> ToolTip = SNew(SToolTip)
+				.TextMargin(FMargin(0))
+				.BorderImage(nullptr)
+				[
+					ToolTipWidget->TakeWidget()
+				];
+
+			SafeWidget->SetToolTip(ToolTip);
+		}
+		else
+		{
+			SafeWidget->SetToolTip(TSharedPtr<IToolTip>());
+		}
+	}
+}
+
 bool UWidget::IsHovered() const
 {
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
@@ -192,12 +296,71 @@ bool UWidget::HasMouseCapture() const
 	return false;
 }
 
-void UWidget::SetKeyboardFocus() const
+void UWidget::SetKeyboardFocus()
 {
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
 	if (SafeWidget.IsValid())
 	{
 		FSlateApplication::Get().SetKeyboardFocus(SafeWidget);
+	}
+}
+
+bool UWidget::HasUserFocus(APlayerController* PlayerController) const
+{
+	if ( PlayerController == nullptr || !PlayerController->IsLocalPlayerController() )
+	{
+		return false;
+	}
+
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		FLocalPlayerContext Context(PlayerController);
+
+		if ( ULocalPlayer* LocalPlayer = Context.GetLocalPlayer() )
+		{
+			// HACK: We use the controller Id as the local player index for focusing widgets in Slate.
+			int32 UserIndex = LocalPlayer->GetControllerId();
+
+			TOptional<EFocusCause> FocusCause = SafeWidget->HasUserFocus(UserIndex);
+			return FocusCause.IsSet();
+		}
+	}
+
+	return false;
+}
+
+bool UWidget::HasAnyUserFocus() const
+{
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		TOptional<EFocusCause> FocusCause = SafeWidget->HasAnyUserFocus();
+		return FocusCause.IsSet();
+	}
+
+	return false;
+}
+
+void UWidget::SetUserFocus(APlayerController* PlayerController)
+{
+	if ( PlayerController == nullptr || !PlayerController->IsLocalPlayerController() )
+	{
+		return;
+	}
+
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		FLocalPlayerContext Context(PlayerController);
+
+		if ( ULocalPlayer* LocalPlayer = Context.GetLocalPlayer() )
+		{
+			// HACK: We use the controller Id as the local player index for focusing widgets in Slate.
+			int32 UserIndex = LocalPlayer->GetControllerId();
+
+			FSlateApplication::Get().SetUserFocus(UserIndex, SafeWidget);
+		}
 	}
 }
 
@@ -251,8 +414,6 @@ TSharedRef<SWidget> UWidget::TakeWidget()
 		SafeWidget = RebuildWidget();
 		MyWidget = SafeWidget;
 
-		OnWidgetRebuilt();
-
 		bNewlyCreated = true;
 	}
 	else
@@ -263,22 +424,27 @@ TSharedRef<SWidget> UWidget::TakeWidget()
 	// If it is a user widget wrap it in a SObjectWidget to keep the instance from being GC'ed
 	if ( IsA(UUserWidget::StaticClass()) )
 	{
+		TSharedPtr<SObjectWidget> SafeGCWidget = MyGCWidget.Pin();
+
 		// If the GC Widget is still valid we still exist in the slate hierarchy, so just return the GC Widget.
-		if ( MyGCWidget.IsValid() )
+		if ( SafeGCWidget.IsValid() )
 		{
-			return MyGCWidget.Pin().ToSharedRef();
+			return SafeGCWidget.ToSharedRef();
 		}
 		// Otherwise we need to recreate the wrapper widget
 		else
 		{
-			TSharedPtr<SObjectWidget> SafeGCWidget = SNew(SObjectWidget, Cast<UUserWidget>(this))
+			SafeGCWidget = SNew(SObjectWidget, Cast<UUserWidget>(this))
 				[
 					SafeWidget.ToSharedRef()
 				];
 
 			MyGCWidget = SafeGCWidget;
 
+			// Always synchronize properties of a user widget and call construct AFTER we've
+			// properly setup the GCWidget and synced all the properties.
 			SynchronizeProperties();
+			OnWidgetRebuilt();
 
 			return SafeGCWidget.ToSharedRef();
 		}
@@ -288,6 +454,7 @@ TSharedRef<SWidget> UWidget::TakeWidget()
 		if ( bNewlyCreated )
 		{
 			SynchronizeProperties();
+			OnWidgetRebuilt();
 		}
 
 		return SafeWidget.ToSharedRef();
@@ -359,14 +526,27 @@ FString UWidget::GetLabelMetadata() const
 
 FString UWidget::GetLabel() const
 {
-	if ( IsGeneratedName() && !bIsVariable )
+	return GetLabelText().ToString();
+}
+
+FText UWidget::GetLabelText() const
+{
+	FText Label = GetDisplayNameBase();
+
+	if (IsGeneratedName() && !bIsVariable)
 	{
-		return TEXT("[") + GetClass()->GetName() + TEXT("]") + GetLabelMetadata();
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("BaseName"), Label);
+		Args.Add(TEXT("Metadata"), FText::FromString(GetLabelMetadata()));
+		Label = FText::Format(LOCTEXT("NonVariableLabelFormat", "[{BaseName}]{Metadata}"), Args);
 	}
-	else
-	{
-		return GetName();
-	}
+
+	return Label;
+}
+
+FText UWidget::GetDisplayNameBase() const
+{
+	return IsGeneratedName() ? GetClass()->GetDisplayNameText() : FText::FromString(GetName());
 }
 
 const FText UWidget::GetPaletteCategory()
@@ -467,27 +647,56 @@ void UWidget::SynchronizeProperties()
 	if ( IsDesignTime() )
 	{
 		SafeWidget->SetEnabled(true);
-		SafeWidget->SetVisibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UWidget::GetVisibilityInDesigner)));
+		SafeWidget->SetVisibility(BIND_UOBJECT_ATTRIBUTE(EVisibility, GetVisibilityInDesigner));
 	}
 	else
 #endif
 	{
-		SafeWidget->SetEnabled(OPTIONAL_BINDING(bool, bIsEnabled));
+		SafeWidget->SetEnabled(GAME_SAFE_OPTIONAL_BINDING( bool, bIsEnabled ));
 		SafeWidget->SetVisibility(OPTIONAL_BINDING_CONVERT(ESlateVisibility, Visibility, EVisibility, ConvertVisibility));
 	}
 
 	UpdateRenderTransform();
 	SafeWidget->SetRenderTransformPivot(RenderTransformPivot);
 
-	if ( !ToolTipText.IsEmpty() )
+	if ( ToolTipWidgetDelegate.IsBound() && !IsDesignTime() )
 	{
-		SafeWidget->SetToolTipText(OPTIONAL_BINDING(FText, ToolTipText));
+		TSharedRef<FDelegateToolTip> ToolTip = MakeShareable(new FDelegateToolTip());
+		ToolTip->ToolTipWidgetDelegate = ToolTipWidgetDelegate;
+		SafeWidget->SetToolTip(ToolTip);
+	}
+	else if ( ToolTipWidget != nullptr )
+	{
+		TSharedRef<SToolTip> ToolTip = SNew(SToolTip)
+			.TextMargin(FMargin(0))
+			.BorderImage(nullptr)
+			[
+				ToolTipWidget->TakeWidget()
+			];
+
+		SafeWidget->SetToolTip(ToolTip);
+	}
+	else if ( !ToolTipText.IsEmpty() || ToolTipTextDelegate.IsBound() )
+	{
+		SafeWidget->SetToolTipText(GAME_SAFE_OPTIONAL_BINDING(FText, ToolTipText));
 	}
 
-	if (Navigation != nullptr)
+#if WITH_EDITOR
+	// In editor builds we add metadata to the widget so that once hit with the widget reflector it can report
+	// where it comes from, what blueprint, what the name of the widget was...etc.
+	SafeWidget->AddMetadata<FReflectionMetaData>(MakeShareable(new FReflectionMetaData(GetFName(), GetClass(), WidgetGeneratedBy)));
+#endif
+}
+
+void UWidget::BuildNavigation()
+{
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	check(SafeWidget.IsValid());
+
+	if ( Navigation != nullptr )
 	{
 		TSharedPtr<FNavigationMetaData> MetaData = SafeWidget->GetMetaData<FNavigationMetaData>();
-		if (!MetaData.IsValid())
+		if ( !MetaData.IsValid() )
 		{
 			MetaData = MakeShareable(new FNavigationMetaData());
 			SafeWidget->AddMetadata(MetaData.ToSharedRef());
@@ -495,16 +704,14 @@ void UWidget::SynchronizeProperties()
 
 		Navigation->UpdateMetaData(MetaData.ToSharedRef());
 	}
-
-#if WITH_EDITOR
-	SafeWidget->AddMetadata<FReflectionMetaData>(MakeShareable(new FReflectionMetaData(GetFName(), GetClass(), WidgetGeneratedBy)));
-#endif
 }
 
+#if WITH_EDITOR
 bool UWidget::IsDesignTime() const
 {
 	return bDesignTime;
 }
+#endif
 
 void UWidget::SetIsDesignTime(bool bInDesignTime)
 {
@@ -596,36 +803,13 @@ FSizeParam UWidget::ConvertSerializedSizeParamToRuntime(const FSlateChildSize& I
 	return FAuto();
 }
 
-void UWidget::GatherChildren(UWidget* Root, TSet<UWidget*>& Children)
-{
-	UPanelWidget* PanelRoot = Cast<UPanelWidget>(Root);
-	if ( PanelRoot )
-	{
-		for ( int32 ChildIndex = 0; ChildIndex < PanelRoot->GetChildrenCount(); ChildIndex++ )
-		{
-			UWidget* ChildWidget = PanelRoot->GetChildAt(ChildIndex);
-			Children.Add(ChildWidget);
-		}
-	}
-}
-
-void UWidget::GatherAllChildren(UWidget* Root, TSet<UWidget*>& Children)
-{
-	UPanelWidget* PanelRoot = Cast<UPanelWidget>(Root);
-	if ( PanelRoot )
-	{
-		for ( int32 ChildIndex = 0; ChildIndex < PanelRoot->GetChildrenCount(); ChildIndex++ )
-		{
-			UWidget* ChildWidget = PanelRoot->GetChildAt(ChildIndex);
-			Children.Add(ChildWidget);
-
-			GatherAllChildren(ChildWidget, Children);
-		}
-	}
-}
-
 UWidget* UWidget::FindChildContainingDescendant(UWidget* Root, UWidget* Descendant)
 {
+	if ( Root == nullptr )
+	{
+		return nullptr;
+	}
+
 	UWidget* Parent = Descendant->GetParent();
 
 	while ( Parent != nullptr )
@@ -685,17 +869,22 @@ static UPropertyBinding* GenerateBinder(UDelegateProperty* DelegateProperty, UOb
 	FScriptDelegate* ScriptDelegate = DelegateProperty->GetPropertyValuePtr_InContainer(Container);
 	if ( ScriptDelegate )
 	{
-		if ( UProperty* ReturnProperty = DelegateProperty->SignatureFunction->GetReturnProperty() )
+		// Only delegates that take no parameters have native binders.
+		UFunction* SignatureFunction = DelegateProperty->SignatureFunction;
+		if ( SignatureFunction->NumParms == 1 )
 		{
-			TSubclassOf<UPropertyBinding> BinderClass = UWidget::FindBinderClassForDestination(ReturnProperty);
-			if ( BinderClass != nullptr )
+			if ( UProperty* ReturnProperty = SignatureFunction->GetReturnProperty() )
 			{
-				UPropertyBinding* Binder = ConstructObject<UPropertyBinding>(BinderClass, Container);
-				Binder->SourceObject = SourceObject;
-				Binder->SourcePath = BindingPath;
-				Binder->Bind(ReturnProperty, ScriptDelegate);
+				TSubclassOf<UPropertyBinding> BinderClass = UWidget::FindBinderClassForDestination(ReturnProperty);
+				if ( BinderClass != nullptr )
+				{
+					UPropertyBinding* Binder = NewObject<UPropertyBinding>(Container, BinderClass);
+					Binder->SourceObject = SourceObject;
+					Binder->SourcePath = BindingPath;
+					Binder->Bind(ReturnProperty, ScriptDelegate);
 
-				return Binder;
+					return Binder;
+				}
 			}
 		}
 	}

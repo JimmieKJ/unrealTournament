@@ -7,42 +7,63 @@ const UBlackboardKeyType_String::FDataType UBlackboardKeyType_String::InvalidVal
 
 UBlackboardKeyType_String::UBlackboardKeyType_String(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	ValueSize = sizeof(FString);
+	ValueSize = 0;
+	bCreateKeyInstance = true;
+
 	SupportedOp = EBlackboardKeyOperation::Text;
 }
 
-FString UBlackboardKeyType_String::GetValue(const uint8* RawData)
+FString UBlackboardKeyType_String::GetValue(const UBlackboardKeyType_String* KeyOb, const uint8* RawData)
 {
-	return GetValueFromMemory<FString>(RawData);
+	return KeyOb->StringValue;
 }
 
-bool UBlackboardKeyType_String::SetValue(uint8* RawData, const FString& Value)
+bool UBlackboardKeyType_String::SetValue(UBlackboardKeyType_String* KeyOb, uint8* RawData, const FString& Value)
 {
-	return SetValueInMemory<FString>(RawData, Value);
+	const bool bChanged = !KeyOb->StringValue.Equals(Value);
+	KeyOb->StringValue = Value;
+	return bChanged;
 }
 
-FString UBlackboardKeyType_String::DescribeValue(const uint8* RawData) const
+EBlackboardCompare::Type UBlackboardKeyType_String::CompareValues(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock,
+	const UBlackboardKeyType* OtherKeyOb, const uint8* OtherMemoryBlock) const
 {
-	return GetValue(RawData);
+	const FString MyValue = GetValue(this, MemoryBlock);
+	const FString OtherValue = GetValue((UBlackboardKeyType_String*)OtherKeyOb, OtherMemoryBlock);
+
+	return MyValue.Equals(OtherValue) ? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
 }
 
-EBlackboardCompare::Type UBlackboardKeyType_String::Compare(const uint8* MemoryBlockA, const uint8* MemoryBlockB) const
+void UBlackboardKeyType_String::CopyValues(UBlackboardComponent& OwnerComp, uint8* MemoryBlock, const UBlackboardKeyType* SourceKeyOb, const uint8* SourceBlock)
 {
-	return GetValueFromMemory<FString>(MemoryBlockA) == GetValueFromMemory<FString>(MemoryBlockB)
-		? EBlackboardCompare::Equal : EBlackboardCompare::NotEqual;
+	StringValue = ((UBlackboardKeyType_String*)SourceKeyOb)->StringValue;
 }
 
-bool UBlackboardKeyType_String::TestTextOperation(const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const
+FString UBlackboardKeyType_String::DescribeValue(const UBlackboardComponent& OwnerComp, const uint8* RawData) const
 {
-	const FString Value = GetValue(MemoryBlock);
+	return StringValue;
+}
+
+bool UBlackboardKeyType_String::TestTextOperation(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock, ETextKeyOperation::Type Op, const FString& OtherString) const
+{
 	switch (Op)
 	{
-	case ETextKeyOperation::Equal:			return (Value == OtherString);
-	case ETextKeyOperation::NotEqual:		return (Value != OtherString);
-	case ETextKeyOperation::Contain:		return (Value.Contains(OtherString) == true);
-	case ETextKeyOperation::NotContain:		return (Value.Contains(OtherString) == false);
+	case ETextKeyOperation::Equal:			return (StringValue == OtherString);
+	case ETextKeyOperation::NotEqual:		return (StringValue != OtherString);
+	case ETextKeyOperation::Contain:		return (StringValue.Contains(OtherString) == true);
+	case ETextKeyOperation::NotContain:		return (StringValue.Contains(OtherString) == false);
 	default: break;
 	}
 
 	return false;
+}
+
+void UBlackboardKeyType_String::Clear(UBlackboardComponent& OwnerComp, uint8* MemoryBlock)
+{
+	StringValue.Empty();
+}
+
+bool UBlackboardKeyType_String::IsEmpty(const UBlackboardComponent& OwnerComp, const uint8* MemoryBlock) const
+{
+	return StringValue.IsEmpty();
 }

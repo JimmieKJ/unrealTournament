@@ -173,8 +173,8 @@ struct FCPUTimeDump
 
 		FTicker::GetCoreTicker().RemoveTicker( GetCPUTimeDelegateHandle );
 		FTicker::GetCoreTicker().RemoveTicker( CPUTimeDumpDelegateHandle );
-		GetCPUTimeDelegateHandle   = FDelegateHandle();
-		CPUTimeDumpDelegateHandle  = FDelegateHandle();
+		GetCPUTimeDelegateHandle .Reset();
+		CPUTimeDumpDelegateHandle.Reset();
 
 		if( Delay == 0 )
 		{

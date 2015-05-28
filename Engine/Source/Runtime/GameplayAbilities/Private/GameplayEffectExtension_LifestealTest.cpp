@@ -36,7 +36,7 @@ void UGameplayEffectExtension_LifestealTest::PostGameplayEffectExecute(const FGa
 			UProperty *HealthProperty = FindFieldChecked<UProperty>(UAbilitySystemTestAttributeSet::StaticClass(), GET_MEMBER_NAME_CHECKED(UAbilitySystemTestAttributeSet, Health));
 
 			// Since this is a test class and we don't want to tie it any actual content assets, just construct a GameplayEffect here.
-			LocalHealthRestore = Cast<UGameplayEffect>(StaticConstructObject(UGameplayEffect::StaticClass(), GetTransientPackage(), FName(TEXT("LifestealHealthRestore"))));
+			LocalHealthRestore = NewObject<UGameplayEffect>(GetTransientPackage(), FName(TEXT("LifestealHealthRestore")));
 			LocalHealthRestore->Modifiers.SetNum(1);
 			LocalHealthRestore->Modifiers[0].Magnitude.SetValue(HealthToRestore);
 			LocalHealthRestore->Modifiers[0].ModifierOp = EGameplayModOp::Additive;

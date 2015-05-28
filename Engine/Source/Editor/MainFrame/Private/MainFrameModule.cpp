@@ -62,11 +62,9 @@ void FMainFrameModule::CreateDefaultMainFrame( const bool bStartImmersivePIE )
 			DefaultWindowLocation.InitiallyMaximized = false;
 
 			DefaultWindowLocation.WindowSize = GetProjectBrowserWindowSize();
+			DefaultWindowLocation.ScreenPosition = DefaultWindowLocation.GetCenteredScreenPosition();
 
-			// Do not let the user adjust the fixed size
 			bIsUserSizable = true;
-
-			// Since this will appear to be a dialog, there is no need to allow maximizing or minimizing
 			bSupportsMaximize = true;
 			bSupportsMinimize = true;
 
@@ -273,7 +271,7 @@ TSharedRef<SWidget> FMainFrameModule::MakeDeveloperTools() const
 
 		static FText GetUObjectCountAsString() 
 		{
-			return FText::AsNumber(GUObjectArray.GetObjectArrayNumMinusAvailable());
+			return FText::AsNumber(GetUObjectArray().GetObjectArrayNumMinusAvailable());
 		}
 
 		static void OpenVideo( FString SourceFilePath )
@@ -349,7 +347,7 @@ TSharedRef<SWidget> FMainFrameModule::MakeDeveloperTools() const
 		/** @return Returns true if frame rate and memory should be displayed in the UI */
 		static EVisibility ShouldShowFrameRateAndMemory()
 		{
-			return GEditor->GetEditorUserSettings().bShowFrameRateAndMemory ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed;
+			return GetDefault<UEditorPerProjectUserSettings>()->bShowFrameRateAndMemory ? EVisibility::SelfHitTestInvisible : EVisibility::Collapsed;
 		}
 	};
 
@@ -640,7 +638,7 @@ void FMainFrameModule::StartupModule( )
 	ModuleCompileStartTime = 0.0f;
 
 	// migrate old layout settings
-	FLayoutSaveRestore::MigrateConfig(GEditorUserSettingsIni, GEditorLayoutIni);
+	FLayoutSaveRestore::MigrateConfig(GEditorPerProjectIni, GEditorLayoutIni);
 }
 
 
@@ -725,7 +723,10 @@ void FMainFrameModule::HandleLevelEditorModuleCompileStarted( bool bIsAsyncCompi
 		CompileNotificationPtr.Pin()->ExpireAndFadeout();
 	}
 
-	GEditor->PlayPreviewSound(CompileStartSound);
+	if ( GEditor )
+	{
+		GEditor->PlayPreviewSound(CompileStartSound);
+	}
 
 	FNotificationInfo Info( NSLOCTEXT("MainFrame", "RecompileInProgress", "Compiling C++ Code") );
 	Info.Image = FEditorStyle::GetBrush(TEXT("LevelEditor.RecompileGameCode"));
@@ -773,7 +774,11 @@ void FMainFrameModule::HandleLevelEditorModuleCompileFinished(const FString& Log
 	{
 		if (!ECompilationResult::Failed(CompilationResult))
 		{
-			GEditor->PlayPreviewSound(CompileSuccessSound);
+			if ( GEditor )
+			{
+				GEditor->PlayPreviewSound(CompileSuccessSound);
+			}
+
 			NotificationItem->SetText(NSLOCTEXT("MainFrame", "RecompileComplete", "Compile Complete!"));
 			NotificationItem->SetExpireDuration( 5.0f );
 			NotificationItem->SetCompletionState(SNotificationItem::CS_Success);
@@ -789,7 +794,11 @@ void FMainFrameModule::HandleLevelEditorModuleCompileFinished(const FString& Log
 				}
 			};
 
-			GEditor->PlayPreviewSound(CompileFailSound);
+			if ( GEditor )
+			{
+				GEditor->PlayPreviewSound(CompileFailSound);
+			}
+
 			if (CompilationResult == ECompilationResult::FailedDueToHeaderChange)
 			{
 				NotificationItem->SetText(NSLOCTEXT("MainFrame", "RecompileFailedDueToHeaderChange", "Compile failed due to the header changes. Close the editor and recompile project in IDE to apply changes."));

@@ -181,6 +181,21 @@ TMetalBaseShader<BaseResourceType, ShaderType>::~TMetalBaseShader()
 	[GlslCodeNSString release];
 }
 
+FMetalComputeShader::FMetalComputeShader(const TArray<uint8>& InCode)
+	: TMetalBaseShader<FRHIComputeShader, SF_Compute>(InCode)
+//	, NumThreadsX(0)
+//	, NumThreadsY(0)
+//	, NumThreadsZ(0)
+{
+	NSError* Error;
+	Kernel = [FMetalManager::GetDevice() newComputePipelineStateWithFunction:Function error:&Error];
+	
+	if (Kernel == nil)
+	{
+		NSLog(@"Failed to create compute kernel: %@", Error);
+	}
+}
+
 
 FVertexShaderRHIRef FMetalDynamicRHI::RHICreateVertexShader(const TArray<uint8>& Code)
 {
@@ -234,12 +249,12 @@ FMetalBoundShaderState::FMetalBoundShaderState(
 			FGeometryShaderRHIParamRef InGeometryShaderRHI)
 	:	CacheLink(InVertexDeclarationRHI,InVertexShaderRHI,InPixelShaderRHI,InHullShaderRHI,InDomainShaderRHI,InGeometryShaderRHI,this)
 {
-	DYNAMIC_CAST_METALRESOURCE(VertexDeclaration,InVertexDeclaration);
-	DYNAMIC_CAST_METALRESOURCE(VertexShader,InVertexShader);
-	DYNAMIC_CAST_METALRESOURCE(PixelShader,InPixelShader);
-	DYNAMIC_CAST_METALRESOURCE(HullShader,InHullShader);
-	DYNAMIC_CAST_METALRESOURCE(DomainShader,InDomainShader);
-	DYNAMIC_CAST_METALRESOURCE(GeometryShader,InGeometryShader);
+	FMetalVertexDeclaration* InVertexDeclaration = FMetalDynamicRHI::ResourceCast(InVertexDeclarationRHI);
+	FMetalVertexShader* InVertexShader = FMetalDynamicRHI::ResourceCast(InVertexShaderRHI);
+	FMetalPixelShader* InPixelShader = FMetalDynamicRHI::ResourceCast(InPixelShaderRHI);
+	FMetalHullShader* InHullShader = FMetalDynamicRHI::ResourceCast(InHullShaderRHI);
+	FMetalDomainShader* InDomainShader = FMetalDynamicRHI::ResourceCast(InDomainShaderRHI);
+	FMetalGeometryShader* InGeometryShader = FMetalDynamicRHI::ResourceCast(InGeometryShaderRHI);
 
 	// cache everything
 	VertexDeclaration = InVertexDeclaration;
@@ -319,6 +334,7 @@ FBoundShaderStateRHIRef FMetalDynamicRHI::RHICreateBoundShaderState(
 	FGeometryShaderRHIParamRef GeometryShaderRHI
 	)
 {
+	check(IsInRenderingThread());
 	// Check for an existing bound shader state which matches the parameters
 	FCachedBoundShaderStateLink* CachedBoundShaderStateLink = GetCachedBoundShaderState(
 		VertexDeclarationRHI,
@@ -392,8 +408,8 @@ FMetalShaderParameterCache::~FMetalShaderParameterCache()
 		FMemory::Free(PackedGlobalUniforms[0]);
 	}
 	
-	FMemory::MemZero(PackedUniformsScratch);
-	FMemory::MemZero(PackedGlobalUniforms);
+	FMemory::Memzero(PackedUniformsScratch);
+	FMemory::Memzero(PackedGlobalUniforms);
 	
 	GlobalUniformArraySize = -1;
 }

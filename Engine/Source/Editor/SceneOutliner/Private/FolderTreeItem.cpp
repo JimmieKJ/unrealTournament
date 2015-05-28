@@ -74,8 +74,11 @@ FDragValidationInfo FFolderDropTarget::ValidateDrop(FDragDropPayload& DraggedObj
 		for (auto WeakActor : DraggedObjects.Actors.GetValue())
 		{
 			AActor* Actor = WeakActor.Get();
-
-			if (Actor->GetFolderPath() == DestinationPath)
+			if (Actor->ParentComponentActor.Get())
+			{
+				return FDragValidationInfo(FActorDragDropGraphEdOp::ToolTip_IncompatibleGeneric, FText::Format(LOCTEXT("Error_AttachChildActor", "Cannot move {0} as it is a child actor."), FText::FromString(Actor->GetActorLabel())));
+			}
+			else if (Actor->GetFolderPath() == DestinationPath && !Actor->GetAttachParentActor())
 			{
 				FFormatNamedArguments Args;
 				Args.Add(TEXT("SourceName"), FText::FromString(Actor->GetActorLabel()));
@@ -210,27 +213,29 @@ void FFolderTreeItem::Delete()
 
 	struct FResetActorFolders : IMutableTreeItemVisitor
 	{
+		explicit FResetActorFolders(FName InParentPath) : ParentPath(InParentPath) {}
+
 		virtual void Visit(FActorTreeItem& ActorItem) const override
 		{
 			if (AActor* Actor = ActorItem.Actor.Get())
 			{
-				Actor->SetFolderPath(FName());
+				Actor->SetFolderPath(ParentPath);
 			}	
 		}
 		virtual void Visit(FFolderTreeItem& FolderItem) const override
 		{
-			FResetActorFolders ResetFolders;
-			for (auto& Child : FolderItem.GetChildren())
-			{
-				Child.Pin()->Visit(ResetFolders);
-			}
-			FolderItem.Delete();
+			UWorld* World = FolderItem.SharedData->RepresentingWorld;
+			check(World != nullptr);
+
+			MoveFolderTo(FolderItem.Path, ParentPath, *World);
 		}
+
+		FName ParentPath;
 	};
 
 	const FScopedTransaction Transaction( LOCTEXT("DeleteFolder", "Delete Folder") );
 
-	FResetActorFolders ResetFolders;
+	FResetActorFolders ResetFolders(GetParentPath(Path));
 	for (auto& Child : GetChildren())
 	{
 		Child.Pin()->Visit(ResetFolders);

@@ -9,6 +9,7 @@
 #if WITH_ENGINE
 #include "StaticMeshResources.h"
 #endif // WITH_ENGINE
+#include "IProjectManager.h"
 
 #define LOCTEXT_NAMESPACE "TLinuxTargetPlatform"
 
@@ -37,7 +38,7 @@ public:
 	
 #if WITH_ENGINE
 		FConfigCacheIni::LoadLocalIniFile(EngineSettings, TEXT("Engine"), true, *this->PlatformName());
-		TextureLODSettings.Initialize(EngineSettings, TEXT("SystemSettings"));
+		TextureLODSettings = nullptr;
 		StaticMeshLODSettings.Initialize(EngineSettings);
 
 		// Get the Target RHIs for this platform, we do not always want all those that are supported.
@@ -52,7 +53,7 @@ public:
 			FString ShaderFormat = TargetedShaderFormats[ShaderFormatIdx];
 			if(PossibleShaderFormats.Contains(FName(*ShaderFormat)) == false)
 			{
-				TargetedShaderFormats.Remove(ShaderFormat);
+				TargetedShaderFormats.RemoveAt(ShaderFormatIdx);
 			}
 		}
 #endif // WITH_ENGINE
@@ -67,12 +68,17 @@ public:
 
 	virtual bool AddDevice(const FString& DeviceName, bool bDefault) override
 	{
-		FTargetDeviceId UATFriendlyId(TEXT("Linux"), DeviceName);
-		FLinuxTargetDevicePtr Device = MakeShareable(new FLinuxTargetDevice(*this, UATFriendlyId, DeviceName));
+		FLinuxTargetDevicePtr& Device = Devices.FindOrAdd(DeviceName);
+
 		if (Device.IsValid())
 		{
-			DeviceDiscoveredEvent.Broadcast(Device.ToSharedRef());
+			// do not allow duplicates
+			return false;
 		}
+
+		FTargetDeviceId UATFriendlyId(TEXT("Linux"), DeviceName);
+		Device = MakeShareable(new FLinuxTargetDevice(*this, UATFriendlyId, DeviceName));
+		DeviceDiscoveredEvent.Broadcast(Device.ToSharedRef());
 		return true;
 	}
 
@@ -83,6 +89,11 @@ public:
 		if (LocalDevice.IsValid())
 		{
 			OutDevices.Add(LocalDevice);
+		}
+
+		for (const auto & DeviceIter : Devices)
+		{
+			OutDevices.Add(DeviceIter.Value);
 		}
 	}
 
@@ -112,6 +123,15 @@ public:
 		{
 			return LocalDevice;
 		}
+
+		for (const auto & DeviceIter : Devices)
+		{
+			if (DeviceId == DeviceIter.Value->GetId())
+			{
+				return DeviceIter.Value;
+			}
+		}
+
 		return nullptr;
 	}
 
@@ -130,6 +150,57 @@ public:
 
 		return TTargetPlatformBase<FLinuxPlatformProperties<HAS_EDITOR_DATA, IS_DEDICATED_SERVER, IS_CLIENT_ONLY>>::SupportsFeature(Feature);
 	}
+
+	virtual bool IsSdkInstalled(bool bProjectHasCode, FString& OutDocumentationPath) const override
+	{
+		if (!PLATFORM_LINUX)
+		{
+			// check for LINUX_ROOT when targeting Linux from Win/Mac
+			TCHAR ToolchainRoot[32768] = { 0 };
+			FPlatformMisc::GetEnvironmentVariable(TEXT("LINUX_ROOT"), ToolchainRoot, ARRAY_COUNT(ToolchainRoot));
+
+			FString ToolchainCompiler = ToolchainRoot;
+			if (PLATFORM_WINDOWS)
+			{
+				ToolchainCompiler += "/bin/clang++.exe";
+			}
+			else if (PLATFORM_MAC)
+			{
+				ToolchainCompiler += "/bin/clang++";
+			}
+			else
+			{
+				checkf(false, TEXT("Unable to target Linux on an unknown platform."));
+				return false;
+			}
+
+			return FPaths::FileExists(ToolchainCompiler);
+		}
+
+		return true;
+	}
+
+	virtual int32 CheckRequirements(const FString& ProjectPath, bool bProjectHasCode, FString& OutDocumentationPath) const override
+	{
+		int32 ReadyToBuild = TSuper::CheckRequirements(ProjectPath, bProjectHasCode, OutDocumentationPath);
+
+		// do not support code/plugins in Rocket as the required libs aren't bundled (on Windows/Mac)
+		if (!PLATFORM_LINUX && FRocketSupport::IsRocket())
+		{
+			if (bProjectHasCode)
+			{
+				ReadyToBuild |= ETargetPlatformReadyStatus::CodeUnsupported;
+			}
+
+			if (IProjectManager::Get().IsNonDefaultPluginEnabled())
+			{
+				ReadyToBuild |= ETargetPlatformReadyStatus::PluginsUnsupported;
+			}
+		}
+
+		return ReadyToBuild;
+	}
+
 
 #if WITH_ENGINE
 	virtual void GetAllPossibleShaderFormats( TArray<FName>& OutFormats ) const override
@@ -161,29 +232,22 @@ public:
 
 	virtual void GetTextureFormats( const UTexture* InTexture, TArray<FName>& OutFormats ) const override
 	{
-		static FName NameBC6H(TEXT("BC6H"));
-		static FName NameBC7(TEXT("BC7"));
-		static FName NameRGBA16F(TEXT("RGBA16F"));
-		static FName NameAutoDXT(TEXT("AutoDXT"));
 		if (!IS_DEDICATED_SERVER)
 		{
 			// just use the standard texture format name for this texture
-			FName TextureFormatName = this->GetDefaultTextureFormatName(InTexture, EngineSettings);
-			if (TextureFormatName == NameBC6H)
-			{
-				TextureFormatName = NameRGBA16F;
-			}
-			else if (TextureFormatName == NameBC7)
-			{
-				TextureFormatName = NameAutoDXT;
-			}
+			FName TextureFormatName = this->GetDefaultTextureFormatName(InTexture, EngineSettings, false);
 			OutFormats.Add(TextureFormatName);
 		}
 	}
 
-	virtual const struct FTextureLODSettings& GetTextureLODSettings( ) const override
+	virtual const UTextureLODSettings& GetTextureLODSettings() const override
 	{
-		return TextureLODSettings;
+		return *TextureLODSettings;
+	}
+
+	virtual void RegisterTextureLODSettings(const UTextureLODSettings* InTextureLODSettings) override
+	{
+		TextureLODSettings = InTextureLODSettings;
 	}
 
 	virtual FName GetWaveFormat( const class USoundWave* Wave ) const override
@@ -253,13 +317,16 @@ private:
 
 	// Holds the local device.
 	FLinuxTargetDevicePtr LocalDevice;
+	// Holds a map of valid devices.
+	TMap<FString, FLinuxTargetDevicePtr> Devices;
+
 
 #if WITH_ENGINE
 	// Holds the Engine INI settings for quick use.
 	FConfigFile EngineSettings;
 
 	// Holds the texture LOD settings.
-	FTextureLODSettings TextureLODSettings;
+	const UTextureLODSettings* TextureLODSettings;
 
 	// Holds static mesh LOD settings.
 	FStaticMeshLODSettings StaticMeshLODSettings;

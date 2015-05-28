@@ -8,6 +8,8 @@
 #endif
 #include <SDL.h>
 
+DEFINE_LOG_CATEGORY_STATIC(LogHTML5Window, Log, All);
+
 FHTML5Window::~FHTML5Window()
 {
 	//    Use NativeWindow_Destroy() instead.
@@ -48,9 +50,11 @@ FPlatformRect FHTML5Window::GetScreenRect()
 #if !PLATFORM_HTML5_WIN32
 	int fs;
 	emscripten_get_canvas_size(&Width, &Height, &fs);
+	UE_LOG(LogHTML5Window, Verbose, TEXT("emscripten_get_canvas_size: Width:%d, Height:%d, Fullscreen:%d"), Width, Height, fs);
 #else
 	SDL_Window* WindowHandle= SDL_GL_GetCurrentWindow();
 	SDL_GetWindowSize(WindowHandle, &Width, &Height);
+	UE_LOG(LogHTML5Window, Verbose, TEXT("SDL_GetWindowSize: Width:%d, Height:%d"), Width, Height);
 #endif 
 	CalculateSurfaceSize(NULL,Width,Height);
 	ScreenRect.Right = Width;

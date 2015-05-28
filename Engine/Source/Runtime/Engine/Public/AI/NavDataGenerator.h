@@ -2,9 +2,11 @@
 
 #pragma once 
 
+#include "Templates/SharedPointer.h"
+
 struct FNavigationDirtyArea;
 
-class ENGINE_API FNavDataGenerator
+class ENGINE_API FNavDataGenerator : public TSharedFromThis<FNavDataGenerator, ESPMode::ThreadSafe>
 {
 public:
 	virtual ~FNavDataGenerator() {}

@@ -73,6 +73,7 @@ public:
 	virtual FName GetAssetName() const override;
 	virtual FName GetLongPackageName() const override;
 	virtual void Update() override;
+	virtual void UpdateAsset(const FAssetData& AssetData) override;
 	virtual void LoadLevel() override;
 	virtual void SetVisible(bool bVisible) override;
 	virtual FVector2D GetLevelPosition2D() const override;
@@ -82,6 +83,7 @@ public:
 	virtual void OnLevelAddedToWorld(ULevel* InLevel) override;
 	virtual void OnLevelRemovedFromWorld() override;
 	virtual void OnParentChanged() override;
+	virtual bool IsVisibleInCompositionView() const override;
 	// FLevelModel interface end
 	
 	/** Adds new streaming level*/
@@ -133,7 +135,7 @@ public:
 	FIntPoint CalcAbsoluteLevelPosition() const;
 		
 	/** @return ULevel bounding box in shifted space*/
-	FBox GetLevelBounds() const;
+	FBox GetLevelBounds() const override;
 	
 	/** @return Landscape component world size */
 	FVector2D GetLandscapeComponentSize() const;
@@ -154,7 +156,7 @@ public:
 	bool CreateAdjacentLandscapeProxy(ALandscapeProxy* SourceLandscape, FIntPoint SourceTileOffset, FWorldTileModel::EWorldDirections InWhere);
 
 	/**  */
-	ALandscapeProxy* ImportLandscape(const FLandscapeImportSettings& Settings);
+	ALandscapeProxy* ImportLandscapeTile(const FLandscapeImportSettings& Settings);
 
 private:
 	/** Flush world info to package and level objects */
@@ -181,9 +183,15 @@ private:
 	/** Handler for LOD settings changes event from Tile details object  */
 	void OnLODSettingsPropertyChanged();
 	
-	/** Handler for ZOrder chnages event from Tile details object  */
+	/** Handler for ZOrder changes event from Tile details object  */
 	void OnZOrderPropertyChanged();
-	
+
+	/** Handler for bHideInTileView changes event from Tile details object  */
+	void OnHideInTileViewChanged();
+
+	/** Set the asset name based on the passed in package name */
+	void SetAssetName(const FName& PackageName);
+
 public:
 	/** This tile index in world composition tile list */
 	int32									TileIdx;

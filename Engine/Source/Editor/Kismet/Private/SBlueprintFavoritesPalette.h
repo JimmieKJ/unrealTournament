@@ -3,7 +3,6 @@
 #pragma once
 
 #include "SBlueprintSubPalette.h"
-#include "K2ActionMenuBuilder.h"
 
 /*******************************************************************************
 * SBlueprintFavoritesPalette

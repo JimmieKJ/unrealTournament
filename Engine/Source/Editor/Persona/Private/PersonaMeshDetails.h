@@ -209,7 +209,9 @@ private:
 public:
 
 	bool IsApplyNeeded() const;
-	void ApplyChanges();
+	bool IsGenerateAvailable() const;
+	void ApplyChanges(bool bForceUpdate);
+	FText GetApplyButtonText() const;
 
 	USkeletalMesh* GetMesh()
 	{ 

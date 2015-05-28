@@ -36,13 +36,19 @@ namespace NetworkProfiler
 		 * @param	TokenReplicateActor		Actor token
 		 * @param	LastProperties			Properties to be copied to the actor
 		 */
-		private static void FinishActorProperties(TokenReplicateActor TokenReplicateActor, List<TokenReplicateProperty> LastProperties)
+		private static void FinishActorProperties(TokenReplicateActor TokenReplicateActor, List<TokenReplicateProperty> LastProperties, List<TokenWritePropertyHeader> LastPropertyHeaders)
 		{
 			for (int i = 0; i < LastProperties.Count; i++ )
 			{
 				TokenReplicateActor.Properties.Add(LastProperties[i]);
 			}
 			LastProperties.Clear();
+
+			for (int i = 0; i < LastPropertyHeaders.Count; i++ )
+			{
+				TokenReplicateActor.PropertyHeaders.Add(LastPropertyHeaders[i]);
+			}
+			LastPropertyHeaders.Clear();
 		}
 
 		/**
@@ -88,6 +94,7 @@ namespace NetworkProfiler
 			var CurrentFrameTokens = new List<TokenBase>();
 			TokenReplicateActor LastActorToken = null;
             List<TokenReplicateProperty> LastProperties = new List<TokenReplicateProperty>();
+			List<TokenWritePropertyHeader> LastPropertyHeaders = new List<TokenWritePropertyHeader>();
 
 			TokenFrameMarker LastFrameMarker = null;
 			
@@ -117,6 +124,7 @@ namespace NetworkProfiler
 					CurrentFrameTokens.Clear();
 
 					Debug.Assert(LastProperties.Count == 0);		// We shouldn't have any properties now
+					Debug.Assert(LastPropertyHeaders.Count == 0);	// We shouldn't have any property headers now either
 
 					// Finish up actor summary of last pending actor before switching frames.
 					HandleActorSummary(NetworkStream, LastActorToken);
@@ -132,6 +140,7 @@ namespace NetworkProfiler
 				if( Token.TokenType == ETokenTypes.EndOfStreamMarker )
 				{
 					Debug.Assert(LastProperties.Count == 0);		// We shouldn't have any properties now
+					Debug.Assert(LastPropertyHeaders.Count == 0);	// We shouldn't have any property headers now either
 					bHasReachedEndOfStream = true;
 					// Finish up actor summary of last pending actor at end of stream
 					HandleActorSummary(NetworkStream, LastActorToken);
@@ -143,8 +152,9 @@ namespace NetworkProfiler
 					if( Token.TokenType == ETokenTypes.ReplicateActor )
 					{
 						// Encountered a new actor so we can finish up existing one for summary.
-						FinishActorProperties(Token as TokenReplicateActor, LastProperties );
+						FinishActorProperties(Token as TokenReplicateActor, LastProperties, LastPropertyHeaders );
 						Debug.Assert(LastProperties.Count == 0);		// We shouldn't have any properties now
+						Debug.Assert(LastPropertyHeaders.Count == 0);	// We shouldn't have any property headers now either
 						HandleActorSummary(NetworkStream, LastActorToken);
 						LastActorToken = Token as TokenReplicateActor;
 					}
@@ -152,7 +162,7 @@ namespace NetworkProfiler
 					else if( Token.TokenType == ETokenTypes.SendRPC )
 					{
 						var TokenSendRPC = Token as TokenSendRPC;
-						NetworkStream.UpdateSummary( ref NetworkStream.RPCNameToSummary, TokenSendRPC.FunctionNameIndex, TokenSendRPC.NumBits, 0.0f );
+						NetworkStream.UpdateSummary( ref NetworkStream.RPCNameToSummary, TokenSendRPC.FunctionNameIndex, TokenSendRPC.GetNumTotalBits(), 0.0f );
 					}
 
 					// Add properties to the actor token instead of network stream and keep track of summary.
@@ -162,7 +172,12 @@ namespace NetworkProfiler
 						NetworkStream.UpdateSummary(ref NetworkStream.PropertyNameToSummary, TokenReplicateProperty.PropertyNameIndex, TokenReplicateProperty.NumBits, 0 );
 						//LastActorToken.Properties.Add(TokenReplicateProperty);
                         LastProperties.Add(TokenReplicateProperty);
-					}					
+					}
+					else if( Token.TokenType == ETokenTypes.WritePropertyHeader )
+					{
+						var TokenWritePropertyHeader = Token as TokenWritePropertyHeader;
+                        LastPropertyHeaders.Add(TokenWritePropertyHeader);
+					}
 					else
 					{
 						CurrentFrameTokens.Add(Token);

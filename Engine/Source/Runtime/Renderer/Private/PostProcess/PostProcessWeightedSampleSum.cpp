@@ -58,7 +58,7 @@ public:
 	}
 
 	/** Serializer */
-	virtual bool Serialize(FArchive& Ar)
+	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << FilterTexture << FilterTextureSampler << AdditiveTexture << AdditiveTextureSampler << SampleWeights;
@@ -253,9 +253,6 @@ void SetFilterShaders(
 #undef SET_FILTER_SHADER_TYPE
 }
 
-
-
-
 /**
  * Evaluates a normal distribution PDF at given X.
  * This function misses the math for scaling the result (faster, not needed if the resulting values are renormalized).
@@ -264,16 +261,31 @@ void SetFilterShaders(
  * @param Variance - The normal distribution's variance.
  * @return The value of the normal distribution at X. (unscaled)
  */
-static float NormalDistributionUnscaled(float X,float Mean,float Variance)
+static float NormalDistributionUnscaled(float X,float Mean,float Variance, EFilterShape FilterShape, float CrossCenterWeight)
 {
-	return FMath::Exp(-FMath::Square(X - Mean) / (2.0f * Variance));
+	float dx = FMath::Abs(X - Mean);
+
+	float Ret = FMath::Exp(-FMath::Square(dx) / (2.0f * Variance));
+
+	// tweak the gaussian shape e.g. "r.Bloom.Cross 3.5"
+	if(CrossCenterWeight > 1.0f)
+	{
+		Ret = FMath::Max(0.0f, 1.0f - dx / Variance);
+		Ret = FMath::Pow(Ret, CrossCenterWeight);
+	}
+	else
+	{
+		Ret = FMath::Lerp(Ret, FMath::Max(0.0f, 1.0f - dx / Variance), CrossCenterWeight);
+	}
+
+	return Ret;
 }
 
 /**
  * @return NumSamples >0
  */
 
-static uint32 Compute1DGaussianFilterKernel(ERHIFeatureLevel::Type InFeatureLevel, float KernelRadius, FVector2D OutOffsetAndWeight[MAX_FILTER_SAMPLES], uint32 MaxFilterSamples)
+static uint32 Compute1DGaussianFilterKernel(ERHIFeatureLevel::Type InFeatureLevel, float KernelRadius, FVector2D OutOffsetAndWeight[MAX_FILTER_SAMPLES], uint32 MaxFilterSamples, EFilterShape FilterShape, float CrossCenterWeight)
 {
 	float ClampedKernelRadius = FRCPassPostProcessWeightedSampleSum::GetClampedKernelRadius( InFeatureLevel, KernelRadius );
 	int32 IntegerKernelRadius = FRCPassPostProcessWeightedSampleSum::GetIntegerKernelRadius( InFeatureLevel, KernelRadius );
@@ -284,7 +296,7 @@ static uint32 Compute1DGaussianFilterKernel(ERHIFeatureLevel::Type InFeatureLeve
 	float WeightSum = 0.0f;
 	for(int32 SampleIndex = -IntegerKernelRadius; SampleIndex <= IntegerKernelRadius; SampleIndex += 2)
 	{
-		float Weight0 = NormalDistributionUnscaled(SampleIndex, 0, ClampedKernelRadius);
+		float Weight0 = NormalDistributionUnscaled(SampleIndex, 0, ClampedKernelRadius, FilterShape, CrossCenterWeight);
 		float Weight1 = 0.0f;
 
 		// Because we use bilinear filtering we only require half the sample count.
@@ -294,7 +306,7 @@ static uint32 Compute1DGaussianFilterKernel(ERHIFeatureLevel::Type InFeatureLeve
 		//    c * .. but another texel to the right would accidentially leak into this computation.
 		if(SampleIndex != IntegerKernelRadius)
 		{
-			Weight1 = NormalDistributionUnscaled(SampleIndex + 1, 0, ClampedKernelRadius);
+			Weight1 = NormalDistributionUnscaled(SampleIndex + 1, 0, ClampedKernelRadius, FilterShape, CrossCenterWeight);
 		}
 
 		float TotalWeight = Weight0 + Weight1;
@@ -320,6 +332,7 @@ FRCPassPostProcessWeightedSampleSum::FRCPassPostProcessWeightedSampleSum(EFilter
 	, SizeScale(InSizeScale)
 	, TintValue(InTintValue)
 	, DebugName(InDebugName)
+	, CrossCenterWeight(0.0f)
 {
 }
 
@@ -353,11 +366,11 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	FVector2D InvSrcSize(1.0f / SrcSize.X, 1.0f / SrcSize.Y);
-	int32 SrcSizeForThisAxis = (FilterShape == EFS_Horiz) ? SrcSize.X : SrcSize.Y;
-
-	// in texel (input resolution), *2 as we use the diameter
 	// we scale by width because FOV is defined horizontally
-	float EffectiveBlurRadius = SizeScale * SrcSizeForThisAxis  * 2 / 100.0f;
+	float SrcSizeForThisAxis = View.ViewRect.Width() / (float)SrcScaleFactor.X;
+
+	// in texel (input resolution), /2 as we use the diameter, 100 as we use percent
+	float EffectiveBlurRadius = SizeScale * SrcSizeForThisAxis  / 2 / 100.0f;
 
 	FVector2D BlurOffsets[MAX_FILTER_SAMPLES];
 	FLinearColor BlurWeights[MAX_FILTER_SAMPLES];
@@ -368,7 +381,7 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 	// compute 1D filtered samples
 	uint32 MaxNumSamples = GetMaxNumSamples(FeatureLevel);
 
-	uint32 NumSamples = Compute1DGaussianFilterKernel(FeatureLevel, EffectiveBlurRadius, OffsetAndWeight, MaxNumSamples);
+	uint32 NumSamples = Compute1DGaussianFilterKernel(FeatureLevel, EffectiveBlurRadius, OffsetAndWeight, MaxNumSamples, FilterShape, CrossCenterWeight);
 
 	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessWeightedSampleSum, TEXT("PostProcessWeightedSampleSum#%d"), NumSamples);
 
@@ -453,8 +466,8 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 		bRequiresClear = false;
 	}
 
-	FIntRect SrcRect =  View.ViewRect / SrcScaleFactor;
-	FIntRect DestRect = View.ViewRect / DstScaleFactor;
+	FIntRect SrcRect =  FIntRect::DivideAndRoundUp(View.ViewRect, SrcScaleFactor);
+	FIntRect DestRect = FIntRect::DivideAndRoundUp(View.ViewRect, DstScaleFactor);
 
 	DrawQuad(Context.RHICmdList, bDoFastBlur, SrcRect, DestRect, bRequiresClear, DestSize, SrcSize, VertexShader);
 

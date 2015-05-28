@@ -12,7 +12,9 @@ FPluginDescriptor::FPluginDescriptor()
 	, bEnabledByDefault(false)
 	, bCanContainContent(false)
 	, bIsBetaVersion(false)
-{ }
+	, bInstalled(false)
+{ 
+}
 
 
 bool FPluginDescriptor::Load( const FString& FileName, FText& OutFailReason )
@@ -26,23 +28,23 @@ bool FPluginDescriptor::Load( const FString& FileName, FText& OutFailReason )
 		return false;
 	}
 
+	// Parse it as a plug-in descriptor
+	return Read(FileContents, OutFailReason);
+}
+
+
+bool FPluginDescriptor::Read(const FString& Text, FText& OutFailReason)
+{
 	// Deserialize a JSON object from the string
-	TSharedPtr< FJsonObject > Object;
-	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(FileContents);
-	
-	if (!FJsonSerializer::Deserialize(Reader, Object) || !Object.IsValid() )
+	TSharedPtr< FJsonObject > ObjectPtr;
+	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(Text);
+	if (!FJsonSerializer::Deserialize(Reader, ObjectPtr) || !ObjectPtr.IsValid() )
 	{
 		OutFailReason = FText::Format(LOCTEXT("FailedToReadDescriptorFile", "Failed to read file. {0}"), FText::FromString(Reader->GetErrorMessage()));
 		return false;
 	}
+	FJsonObject& Object = *ObjectPtr.Get();
 
-	// Parse it as a plug-in descriptor
-	return Read(*Object.Get(), OutFailReason);
-}
-
-
-bool FPluginDescriptor::Read( const FJsonObject& Object, FText& OutFailReason )
-{
 	// Read the file version
 	int32 FileVersionInt32;
 
@@ -56,10 +58,10 @@ bool FPluginDescriptor::Read( const FJsonObject& Object, FText& OutFailReason )
 	}
 
 	// Check that it's within range
-	EPluginDescriptorVersion::Type FileVersion = (EPluginDescriptorVersion::Type)FileVersionInt32;
-	if ((FileVersion <= EPluginDescriptorVersion::Invalid) || (FileVersion > EPluginDescriptorVersion::Latest))
+	EPluginDescriptorVersion::Type PluginFileVersion = (EPluginDescriptorVersion::Type)FileVersionInt32;
+	if ((PluginFileVersion <= EPluginDescriptorVersion::Invalid) || (PluginFileVersion > EPluginDescriptorVersion::Latest))
 	{
-		FText ReadVersionText = FText::FromString(FString::Printf(TEXT("%d"), (int32)FileVersion));
+		FText ReadVersionText = FText::FromString(FString::Printf(TEXT("%d"), (int32)PluginFileVersion));
 		FText LatestVersionText = FText::FromString(FString::Printf(TEXT("%d"), (int32)EPluginDescriptorVersion::Latest));
 		OutFailReason = FText::Format( LOCTEXT("ProjectFileVersionTooLarge", "File appears to be in a newer version ({0}) of the file format that we can load (max version: {1})."), ReadVersionText, LatestVersionText);
 		return false;
@@ -87,6 +89,7 @@ bool FPluginDescriptor::Read( const FJsonObject& Object, FText& OutFailReason )
 	Object.TryGetStringField(TEXT("CreatedBy"), CreatedBy);
 	Object.TryGetStringField(TEXT("CreatedByURL"), CreatedByURL);
 	Object.TryGetStringField(TEXT("DocsURL"), DocsURL);
+	Object.TryGetStringField(TEXT("MarketplaceURL"), MarketplaceURL);
 
 	if (!FModuleDescriptor::ReadArray(Object, TEXT("Modules"), Modules, OutFailReason))
 	{
@@ -96,14 +99,64 @@ bool FPluginDescriptor::Read( const FJsonObject& Object, FText& OutFailReason )
 	Object.TryGetBoolField(TEXT("EnabledByDefault"), bEnabledByDefault);
 	Object.TryGetBoolField(TEXT("CanContainContent"), bCanContainContent);
 	Object.TryGetBoolField(TEXT("IsBetaVersion"), bIsBetaVersion);
+	Object.TryGetBoolField(TEXT("Installed"), bInstalled);
 
 	return true;
 }
 
+bool FPluginDescriptor::Save(const FString& FileName, FText& OutFailReason) const
+{
+	// Write the contents of the descriptor to a string. Make sure the writer is destroyed so that the contents are flushed to the string.
+	FString Text = ToString();
+	if ( FFileHelper::SaveStringToFile(Text, *FileName) )
+	{
+		return true;
+	}
+	else
+	{
+		OutFailReason = FText::Format( LOCTEXT("FailedToWriteOutputFile", "Failed to write output file '{0}'. Perhaps the file is Read-Only?"), FText::FromString(FileName) );
+		return false;
+	}
+}
 
-FPluginReferenceDescriptor::FPluginReferenceDescriptor( const FString &InName, bool bInEnabled )
+FString FPluginDescriptor::ToString() const
+{
+	FString Text;
+	TSharedRef< TJsonWriter<> > WriterRef = TJsonWriterFactory<>::Create(&Text);
+	TJsonWriter<>& Writer = WriterRef.Get();
+
+	Writer.WriteObjectStart();
+
+	Writer.WriteValue(TEXT("FileVersion"), EProjectDescriptorVersion::Latest);
+	Writer.WriteValue(TEXT("Version"), Version);
+	Writer.WriteValue(TEXT("VersionName"), VersionName);
+	Writer.WriteValue(TEXT("FriendlyName"), FriendlyName);
+	Writer.WriteValue(TEXT("Description"), Description);
+	Writer.WriteValue(TEXT("Category"), Category);
+	Writer.WriteValue(TEXT("CreatedBy"), CreatedBy);
+	Writer.WriteValue(TEXT("CreatedByURL"), CreatedByURL);
+	Writer.WriteValue(TEXT("DocsURL"), DocsURL);
+	Writer.WriteValue(TEXT("MarketplaceURL"), MarketplaceURL);
+
+	FModuleDescriptor::WriteArray(Writer, TEXT("Modules"), Modules);
+
+	Writer.WriteValue(TEXT("EnabledByDefault"), bEnabledByDefault);
+	Writer.WriteValue(TEXT("CanContainContent"), bCanContainContent);
+	Writer.WriteValue(TEXT("IsBetaVersion"), bIsBetaVersion);
+	Writer.WriteValue(TEXT("Installed"), bInstalled);
+
+	Writer.WriteObjectEnd();
+	Writer.Close();
+
+	return Text;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+FPluginReferenceDescriptor::FPluginReferenceDescriptor( const FString& InName, bool bInEnabled, const FString& InMarketplaceURL )
 	: Name(InName)
 	, bEnabled(bInEnabled)
+	, MarketplaceURL(InMarketplaceURL)
 { }
 
 
@@ -147,8 +200,9 @@ bool FPluginReferenceDescriptor::Read( const FJsonObject& Object, FText& OutFail
 		return false;
 	}
 
-	// Read the description
+	// Read the metadata for users that don't have the plugin installed
 	Object.TryGetStringField(TEXT("Description"), Description);
+	Object.TryGetStringField(TEXT("MarketplaceURL"), MarketplaceURL);
 
 	// Get the platform lists
 	Object.TryGetStringArrayField(TEXT("WhitelistPlatforms"), WhitelistPlatforms);
@@ -166,13 +220,13 @@ bool FPluginReferenceDescriptor::ReadArray( const FJsonObject& Object, const TCH
 	{
 		for (const TSharedPtr<FJsonValue> &Item : *Array)
 		{
-			const TSharedPtr<FJsonObject> *Object;
+			const TSharedPtr<FJsonObject> *ObjectPtr;
 
-			if (Item.IsValid() && Item->TryGetObject(Object))
+			if (Item.IsValid() && Item->TryGetObject(ObjectPtr))
 			{
 				FPluginReferenceDescriptor Plugin;
 
-				if (!Plugin.Read(*Object->Get(), OutFailReason))
+				if (!Plugin.Read(*ObjectPtr->Get(), OutFailReason))
 				{
 					return false;
 				}
@@ -195,6 +249,11 @@ void FPluginReferenceDescriptor::Write( TJsonWriter<>& Writer ) const
 	if (Description.Len() > 0)
 	{
 		Writer.WriteValue(TEXT("Description"), Description);
+	}
+
+	if (MarketplaceURL.Len() > 0)
+	{
+		Writer.WriteValue(TEXT("MarketplaceURL"), MarketplaceURL);
 	}
 
 	if (WhitelistPlatforms.Num() > 0)

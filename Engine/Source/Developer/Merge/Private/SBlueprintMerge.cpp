@@ -522,6 +522,7 @@ void SBlueprintMerge::ResolveMerge(UBlueprint* ResultantBlueprint)
 	// this scenario... we need to open the result to take its place)
 	if (ResultantBlueprint != GetTargetBlueprint())
 	{
+		FAssetEditorManager::Get().CloseAllEditorsForAsset(GetTargetBlueprint());
 		FAssetEditorManager::Get().OpenEditorForAsset(ResultantBlueprint);
 	}
 	

@@ -14,7 +14,7 @@ void SWeakWidget::Construct(const FArguments& InArgs)
 }
 
 
-FVector2D SWeakWidget::ComputeDesiredSize() const
+FVector2D SWeakWidget::ComputeDesiredSize( float ) const
 {	
 	TSharedRef<SWidget> ReferencedWidget = WeakChild.GetWidget();
 

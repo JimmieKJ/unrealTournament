@@ -27,8 +27,8 @@ public:
 	/** Default constructor. */
 	TAttribute()
 		: Value()         // NOTE: Potentially uninitialized for atomics!!
-		, Getter()
 		, bIsSet(false)
+		, Getter()
 	{ }
 
 	/**
@@ -38,9 +38,9 @@ public:
 	 */
 	template< typename OtherType >
 	TAttribute( const OtherType& InInitialValue )
-		: Value( InInitialValue )
-		, Getter()
+		: Value( InInitialValue )		
 		, bIsSet(true)
+		, Getter()
 	{ }
 
 	/**
@@ -53,9 +53,9 @@ public:
 	 */
 	template< class SourceType >	
 	TAttribute( TSharedRef< SourceType > InUserObject, typename FGetter::template TSPMethodDelegate_Const< SourceType >::FMethodPtr InMethodPtr )
-		: Value()
-		, Getter( FGetter::CreateSP( InUserObject, InMethodPtr ) )
+		: Value()		
 		, bIsSet(true)
+		, Getter(FGetter::CreateSP(InUserObject, InMethodPtr))
 	{ }
 	
 	/**
@@ -68,9 +68,9 @@ public:
 	 */
 	template< class SourceType >	
 	TAttribute( SourceType* InUserObject, typename FGetter::template TSPMethodDelegate_Const< SourceType >::FMethodPtr InMethodPtr )
-		: Value()
-		, Getter( FGetter::CreateSP( InUserObject, InMethodPtr ) )	
+		: Value()		
 		, bIsSet(true)
+		, Getter(FGetter::CreateSP(InUserObject, InMethodPtr))
 	{ }
 
 	/**
@@ -312,9 +312,9 @@ private:
 
 	/** Special explicit constructor for TAttribute::Create() */
 	TAttribute( const FGetter& InGetter, bool bExplicitConstructor )
-		: Value()
-		, Getter( InGetter )
+		: Value()		
 		, bIsSet( true )
+		, Getter(InGetter)
 	{ }
 
 	// We declare ourselves as a friend (templated using OtherType) so we can access members as needed
@@ -323,11 +323,11 @@ private:
 	/** Current value.  Mutable so that we can cache the value locally when using a bound Getter (allows const ref return value.) */
 	mutable ObjectType Value;
 
+	/** true when this attribute was explicitly set by a consumer, false when the attribute's value is set to the default*/
+	bool bIsSet;
+
 	/** Bound member function for this attribute (may be NULL if no function is bound.)  When set, all attempts
 		to read the attribute's value will instead call this delegate to generate the value. */
 	/** Our attribute's 'getter' delegate */
 	FGetter Getter;
-
-	/** true when this attribute was explicitly set by a consumer, false when the attribute's value is set to the default*/
-	bool bIsSet;
 };

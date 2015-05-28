@@ -15,6 +15,7 @@
 #include "XAudio2Effects.h"
 #include "Engine.h"
 #include "XAudio2Support.h"
+#include "IAudioExtensionPlugin.h"
 
 /*------------------------------------------------------------------------------------
 	For muting user soundtracks during cinematics
@@ -38,7 +39,9 @@ FXAudio2SoundSource::FXAudio2SoundSource(FAudioDevice* InAudioDevice)
 	CurrentBuffer( 0 ),
 	bBuffersToFlush( false ),
 	bLoopCallback( false ),
-	bResourcesNeedFreeing( false )
+	bResourcesNeedFreeing(false),
+	VoiceId(-1),
+	bUsingDefaultSpatialization(true)
 {
 	AudioDevice = ( FXAudio2Device* )InAudioDevice;
 	check( AudioDevice );
@@ -62,6 +65,15 @@ FXAudio2SoundSource::FXAudio2SoundSource(FAudioDevice* InAudioDevice)
 FXAudio2SoundSource::~FXAudio2SoundSource( void )
 {
 	FreeResources();
+}
+
+void FXAudio2SoundSource::InitializeSourceEffects(uint32 InVoiceId)
+{
+	VoiceId = InVoiceId;
+	if (AudioDevice->SpatializeProcessor != nullptr)
+	{
+		AudioDevice->SpatializeProcessor->CreateSpatializationEffect(VoiceId);
+	}
 }
 
 /**
@@ -310,18 +322,61 @@ bool FXAudio2SoundSource::CreateSource( void )
 #endif	//XAUDIO2_SUPPORTS_MUSIC
 	Flags |= XAUDIO2_VOICE_USEFILTER;
 
-	// All sound formats start with the WAVEFORMATEX structure (PCM, XMA2, XWMA)
-	if( !AudioDevice->ValidateAPICall( TEXT( "CreateSourceVoice (source)" ), 
-#if XAUDIO2_SUPPORTS_SENDLIST
-		FXAudioDeviceProperties::XAudio2->CreateSourceVoice( &Source, ( WAVEFORMATEX* )&XAudio2Buffer->PCM, Flags, MAX_PITCH, &SourceCallback, &SourceSendList, NULL ) ) )
-#else	//XAUDIO2_SUPPORTS_SENDLIST
-		FXAudioDeviceProperties::XAudio2->CreateSourceVoice( &Source, ( WAVEFORMATEX* )&XAudio2Buffer->PCM, Flags, MAX_PITCH, &SourceCallback ) ) )
-#endif	//XAUDIO2_SUPPORTS_SENDLIST
+	// Reset the bUsingSpatializationEffect flag
+	bUsingDefaultSpatialization = true;
+	bool bCreatedWithSpatializationEffect = false;
+
+	if (CreateWithSpatializationEffect())
 	{
-		return( false );
+		check(AudioDevice->SpatializeProcessor != nullptr);
+		IUnknown* Effect = (IUnknown*)AudioDevice->SpatializeProcessor->GetSpatializationEffect(VoiceId);
+		if (Effect)
+		{
+			// Indicate that this source is currently using the 3d spatialization effect. We can't stop using it
+			// for the lifetime of this sound, so if this if the spatialization effect is toggled off, we're still 
+			// going to hear the sound for the duration of this sound.
+			bUsingDefaultSpatialization = false;
+
+			XAUDIO2_EFFECT_DESCRIPTOR EffectDescriptor[1];
+			EffectDescriptor[0].pEffect = Effect;
+			EffectDescriptor[0].OutputChannels = 2;
+			EffectDescriptor[0].InitialState = true;
+
+			const XAUDIO2_EFFECT_CHAIN EffectChain = { 1, EffectDescriptor };
+
+			// All sound formats start with the WAVEFORMATEX structure (PCM, XMA2, XWMA)
+			if (!AudioDevice->ValidateAPICall(TEXT("CreateSourceVoice (mono source)"),
+#if XAUDIO2_SUPPORTS_SENDLIST
+				AudioDevice->DeviceProperties->XAudio2->CreateSourceVoice(&Source, (WAVEFORMATEX*)&XAudio2Buffer->PCM, Flags, MAX_PITCH, &SourceCallback, &SourceSendList, &EffectChain)))
+#else	//XAUDIO2_SUPPORTS_SENDLIST
+				AudioDevice->DeviceProperties->XAudio2->CreateSourceVoice(&Source, (WAVEFORMATEX*)&XAudio2Buffer->PCM, Flags, MAX_PITCH, &SourceCallback, nullptr, &EffectChain)))
+#endif	//XAUDIO2_SUPPORTS_SENDLIST
+			{
+				return(false);
+			}
+
+			// We succeeded, then return
+			bCreatedWithSpatializationEffect = true;
+		}
 	}
 
-	return( true );
+	if (!bCreatedWithSpatializationEffect)
+	{
+		check(AudioDevice->DeviceProperties != nullptr);
+		check(AudioDevice->DeviceProperties->XAudio2 != nullptr);
+		// All sound formats start with the WAVEFORMATEX structure (PCM, XMA2, XWMA)
+		if (!AudioDevice->ValidateAPICall(TEXT("CreateSourceVoice (source)"),
+#if XAUDIO2_SUPPORTS_SENDLIST
+			AudioDevice->DeviceProperties->XAudio2->CreateSourceVoice(&Source, (WAVEFORMATEX*)&XAudio2Buffer->PCM, Flags, MAX_PITCH, &SourceCallback, &SourceSendList, nullptr)))
+#else	//XAUDIO2_SUPPORTS_SENDLIST
+			AudioDevice->DeviceProperties->XAudio2->CreateSourceVoice(&Source, (WAVEFORMATEX*)&XAudio2Buffer->PCM, Flags, MAX_PITCH, &SourceCallback)))
+#endif	//XAUDIO2_SUPPORTS_SENDLIST
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 /**
@@ -330,28 +385,39 @@ bool FXAudio2SoundSource::CreateSource( void )
  * @param	WaveInstance	wave instace being primed for playback
  * @return	true if initialization was successful, false otherwise
  */
-bool FXAudio2SoundSource::Init( FWaveInstance* InWaveInstance )
+bool FXAudio2SoundSource::Init(FWaveInstance* InWaveInstance)
 {
 	if (InWaveInstance->OutputTarget != EAudioOutputTarget::Controller)
 	{
 		// Find matching buffer.
-		XAudio2Buffer = FXAudio2SoundBuffer::Init( AudioDevice, InWaveInstance->WaveData, InWaveInstance->StartTime > 0.f );
+		FAudioDevice* AudioDevice = nullptr;
+		if (InWaveInstance->ActiveSound->AudioComponent.IsValid())
+		{
+			AudioDevice = InWaveInstance->ActiveSound->AudioComponent->GetAudioDevice();
+		}
+		else
+		{
+			AudioDevice = GEngine->GetMainAudioDevice();
+		}
+		check(AudioDevice);
+
+		XAudio2Buffer = FXAudio2SoundBuffer::Init(AudioDevice, InWaveInstance->WaveData, InWaveInstance->StartTime > 0.f);
 		Buffer = XAudio2Buffer;
 
 		// Buffer failed to be created, or there was an error with the compressed data
-		if( Buffer && Buffer->NumChannels > 0 )
+		if (Buffer && Buffer->NumChannels > 0)
 		{
 			SCOPE_CYCLE_COUNTER( STAT_AudioSourceInitTime );
 
 			WaveInstance = InWaveInstance;
 
 			// Set whether to apply reverb
-			SetReverbApplied( Effects->ReverbEffectVoice != NULL );
+			SetReverbApplied(Effects->ReverbEffectVoice != nullptr);
 
 			// Create a new source
-			if( !CreateSource() )
+			if (!CreateSource())
 			{
-				return( false );
+				return false;
 			}
 
 			if (WaveInstance->StartTime > 0.f)
@@ -360,7 +426,7 @@ bool FXAudio2SoundSource::Init( FWaveInstance* InWaveInstance )
 			}
 
 			// Submit audio buffers
-			switch( XAudio2Buffer->SoundFormat )
+			switch (XAudio2Buffer->SoundFormat)
 			{
 			case SoundFormat_PCM:
 			case SoundFormat_PCMPreview:
@@ -385,12 +451,12 @@ bool FXAudio2SoundSource::Init( FWaveInstance* InWaveInstance )
 			Update();
 		
 			// Initialization succeeded.
-			return( true );
+			return true;
 		}
 	}
 
 	// Initialization failed.
-	return( false );
+	return false;
 }
 
 /**
@@ -398,7 +464,7 @@ bool FXAudio2SoundSource::Init( FWaveInstance* InWaveInstance )
  */
 void FXAudio2SoundSource::GetChannelVolumes( float ChannelVolumes[CHANNELOUT_COUNT], float AttenuatedVolume )
 {
-	if (FApp::GetVolumeMultiplier() == 0.0f)
+	if (FApp::GetVolumeMultiplier() == 0.0f || AudioDevice->bIsDeviceMuted)
 	{
 		for( int32 i = 0; i < CHANNELOUT_COUNT; i++ )
 		{
@@ -407,153 +473,30 @@ void FXAudio2SoundSource::GetChannelVolumes( float ChannelVolumes[CHANNELOUT_COU
 		return;
 	}
 
-	switch( Buffer->NumChannels )
+	switch (Buffer->NumChannels)
 	{
-	case 1:
-		{
-			// Calculate direction from listener to sound, where the sound is at the origin if unspatialised.
-			FVector Direction = FVector::ZeroVector;
-			float NormalizedOmniRadius = 0;
-			if( WaveInstance->bUseSpatialization )
-			{
-				FVector UnnormalizedDirection = AudioDevice->InverseTransform.TransformPosition( WaveInstance->Location );
-				Direction = UnnormalizedDirection.GetSafeNormal();
-				float Distance = UnnormalizedDirection.Size();
-				NormalizedOmniRadius = (Distance > 0) ? (WaveInstance->OmniRadius / Distance) : FLT_MAX;
-			}
+		case 1:
+			GetMonoChannelVolumes(ChannelVolumes, AttenuatedVolume);
+			break;
 
-			// Calculate 5.1 channel volume
-			FVector OrientFront;
-			OrientFront.X = 0.0f;
-			OrientFront.Y = 0.0f;
-			OrientFront.Z = 1.0f;
+		case 2:
+			GetStereoChannelVolumes(ChannelVolumes, AttenuatedVolume);
+			break;
 
-			FVector ListenerPosition;
-			ListenerPosition.X = 0.0f;
-			ListenerPosition.Y = 0.0f;
-			ListenerPosition.Z = 0.0f;
+		case 4:
+			GetQuadChannelVolumes(ChannelVolumes, AttenuatedVolume);
+			break;
 
-			FVector EmitterPosition;
-			EmitterPosition.X = Direction.Y;
-			EmitterPosition.Y = Direction.X;
-			EmitterPosition.Z = -Direction.Z;
+		case 6:
+			GetHexChannelVolumes(ChannelVolumes, AttenuatedVolume);
+			break;
 
-			// Calculate 5.1 channel dolby surround rate/multipliers.
-			ChannelVolumes[CHANNELOUT_FRONTLEFT] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_FRONTRIGHT] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_FRONTCENTER] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_LEFTSURROUND] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_RIGHTSURROUND] = AttenuatedVolume;
-
-			if( bReverbApplied )
-			{
-				ChannelVolumes[CHANNELOUT_REVERB] = AttenuatedVolume;
-			}
-
-			ChannelVolumes[CHANNELOUT_RADIO] = 0.0f;
-
-			// Call the spatialisation magic
-			AudioDevice->SpatializationHelper.CalculateDolbySurroundRate( OrientFront, ListenerPosition, EmitterPosition, NormalizedOmniRadius, ChannelVolumes );
-
-			// Handle any special post volume processing
-			if( WaveInstance->bApplyRadioFilter )
-			{
-				// If radio filter applied, output on radio channel only (no reverb)
-				FMemory::Memzero( ChannelVolumes, CHANNELOUT_COUNT * sizeof( float ) );
-
-				ChannelVolumes[CHANNELOUT_RADIO] = WaveInstance->RadioFilterVolume;	
-			}
-			else if( WaveInstance->bCenterChannelOnly )
-			{
-				// If center channel only applied, output on center channel only (no reverb)
-				FMemory::Memzero( ChannelVolumes, CHANNELOUT_COUNT * sizeof( float ) );
-
-				ChannelVolumes[CHANNELOUT_FRONTCENTER] = WaveInstance->VoiceCenterChannelVolume * AttenuatedVolume;
-			}
-			else
-			{
-				if( FXAudioDeviceProperties::NumSpeakers == 6 )
-				{
-					ChannelVolumes[CHANNELOUT_LOWFREQUENCY] = AttenuatedVolume * LFEBleed;
-
-					// Smooth out the left and right channels with the center channel
-					if( ChannelVolumes[CHANNELOUT_FRONTCENTER] > ChannelVolumes[CHANNELOUT_FRONTLEFT] )
-					{
-						ChannelVolumes[CHANNELOUT_FRONTLEFT] = ( ChannelVolumes[CHANNELOUT_FRONTCENTER] + ChannelVolumes[CHANNELOUT_FRONTLEFT] ) / 2;
-					} 
-
-					if( ChannelVolumes[CHANNELOUT_FRONTCENTER] > ChannelVolumes[CHANNELOUT_FRONTRIGHT] )
-					{
-						ChannelVolumes[CHANNELOUT_FRONTRIGHT] = ( ChannelVolumes[CHANNELOUT_FRONTCENTER] + ChannelVolumes[CHANNELOUT_FRONTRIGHT] ) / 2;
-					}
-				}
-
-				// Weight some of the sound to the center channel
-				ChannelVolumes[CHANNELOUT_FRONTCENTER] = FMath::Max( ChannelVolumes[CHANNELOUT_FRONTCENTER], WaveInstance->VoiceCenterChannelVolume * AttenuatedVolume );
-			}
-		}
-		break;
-
-	case 2:
-		{
-			// Stereo is always treated as unspatialized
-			ChannelVolumes[CHANNELOUT_FRONTLEFT] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_FRONTRIGHT] = AttenuatedVolume;
-
-			// Potentially bleed to the rear speakers from 2.0 channel to simulated 4.0 channel
-			if( FXAudioDeviceProperties::NumSpeakers == 6 )
-			{
-				ChannelVolumes[CHANNELOUT_LEFTSURROUND] = AttenuatedVolume * StereoBleed;
-				ChannelVolumes[CHANNELOUT_RIGHTSURROUND] = AttenuatedVolume * StereoBleed;
-
-				ChannelVolumes[CHANNELOUT_LOWFREQUENCY] = AttenuatedVolume * LFEBleed * 0.5f;
-			}
-
-			if( bReverbApplied )
-			{
-				ChannelVolumes[CHANNELOUT_REVERB] = AttenuatedVolume;
-			}
-
-			// Handle radio distortion if the sound can handle it. 
-			ChannelVolumes[CHANNELOUT_RADIO] = 0.0f;
-			if( WaveInstance->bApplyRadioFilter )
-			{
-				ChannelVolumes[CHANNELOUT_RADIO] = WaveInstance->RadioFilterVolume;
-			}
-		}
-		break;
-
-	case 4:
-		{
-			ChannelVolumes[CHANNELOUT_FRONTLEFT] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_FRONTRIGHT] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_LEFTSURROUND] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_RIGHTSURROUND] = AttenuatedVolume;
-
-			if( FXAudioDeviceProperties::NumSpeakers == 6 )
-			{
-				ChannelVolumes[CHANNELOUT_LOWFREQUENCY] = AttenuatedVolume * LFEBleed * 0.25f;
-			}
-		}
-		break;
-
-	case 6:
-		{
-			ChannelVolumes[CHANNELOUT_FRONTLEFT] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_FRONTRIGHT] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_FRONTCENTER] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_LOWFREQUENCY] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_LEFTSURROUND] = AttenuatedVolume;
-			ChannelVolumes[CHANNELOUT_RIGHTSURROUND] = AttenuatedVolume;
-		}
-		break;
-
-	default:
-		break;
+		default:
+			break;
 	};
 
 	// Apply any debug settings
-	switch( AudioDevice->GetMixDebugState() )
+	switch (AudioDevice->GetMixDebugState())
 	{
 	case DEBUGSTATE_IsolateReverb:
 		for( int32 i = 0; i < SPEAKER_COUNT; i++ )
@@ -568,24 +511,175 @@ void FXAudio2SoundSource::GetChannelVolumes( float ChannelVolumes[CHANNELOUT_COU
 		break;
 	};
 
-	for( int32 i = 0; i < CHANNELOUT_COUNT; i++ )
+	for (int32 i = 0; i < CHANNELOUT_COUNT; i++)
 	{
 		// Detect and warn about NaN and INF volumes. XAudio does not do this internally and behavior is undefined.
 		// This is known to happen in X3DAudioCalculate in channel 0 and the cause is unknown.
-		if ( !FMath::IsFinite(ChannelVolumes[i]) )
+		if (!FMath::IsFinite(ChannelVolumes[i]))
 		{
 			const FString NaNorINF = FMath::IsNaN(ChannelVolumes[i]) ? TEXT("NaN") : TEXT("INF");
 			UE_LOG(LogXAudio2, Warning, TEXT("FXAudio2SoundSource contains %s in channel %d: %s"), *NaNorINF, i, *Describe_Internal(true, false));
 			ChannelVolumes[i] = 0;
 		}
 		// Detect and warn about unreasonable volumes. These are clamped anyway, but are good to know about.
-		else if ( ChannelVolumes[i] > FLT_MAX / 2.f || ChannelVolumes[i] < -FLT_MAX / 2.f )
+		else if (ChannelVolumes[i] > FLT_MAX / 2.f || ChannelVolumes[i] < -FLT_MAX / 2.f)
 		{
 			UE_LOG(LogXAudio2, Warning, TEXT("FXAudio2SoundSource contains unreasonble value %f in channel %d: %s"), ChannelVolumes[i], i, *Describe_Internal(true, false));
 		}
 
 		ChannelVolumes[i] = FMath::Clamp<float>(ChannelVolumes[i] * FApp::GetVolumeMultiplier(), 0.0f, MAX_VOLUME);
 	}
+}
+
+void FXAudio2SoundSource::GetMonoChannelVolumes(float ChannelVolumes[CHANNELOUT_COUNT], float AttenuatedVolume)
+{
+	if (IsUsingDefaultSpatializer())
+	{
+		// Calculate direction from listener to sound, where the sound is at the origin if unspatialised.
+		FVector Direction = FVector::ZeroVector;
+		float NormalizedOmniRadius = 0;
+		if (WaveInstance->bUseSpatialization)
+		{
+			FVector UnnormalizedDirection = AudioDevice->InverseTransform.TransformPosition(WaveInstance->Location);
+			Direction = UnnormalizedDirection.GetSafeNormal();
+			float Distance = UnnormalizedDirection.Size();
+			NormalizedOmniRadius = (Distance > 0) ? (WaveInstance->OmniRadius / Distance) : FLT_MAX;
+		}
+
+		// Calculate 5.1 channel volume
+		FVector OrientFront;
+		OrientFront.X = 0.0f;
+		OrientFront.Y = 0.0f;
+		OrientFront.Z = 1.0f;
+
+		FVector ListenerPosition;
+		ListenerPosition.X = 0.0f;
+		ListenerPosition.Y = 0.0f;
+		ListenerPosition.Z = 0.0f;
+
+		FVector EmitterPosition;
+		EmitterPosition.X = Direction.Y;
+		EmitterPosition.Y = Direction.X;
+		EmitterPosition.Z = -Direction.Z;
+
+		// Calculate 5.1 channel dolby surround rate/multipliers.
+		ChannelVolumes[CHANNELOUT_FRONTLEFT] = AttenuatedVolume;
+		ChannelVolumes[CHANNELOUT_FRONTRIGHT] = AttenuatedVolume;
+		ChannelVolumes[CHANNELOUT_FRONTCENTER] = AttenuatedVolume;
+		ChannelVolumes[CHANNELOUT_LEFTSURROUND] = AttenuatedVolume;
+		ChannelVolumes[CHANNELOUT_RIGHTSURROUND] = AttenuatedVolume;
+
+		if (bReverbApplied)
+		{
+			ChannelVolumes[CHANNELOUT_REVERB] = AttenuatedVolume;
+		}
+
+		ChannelVolumes[CHANNELOUT_RADIO] = 0.0f;
+
+		// Call the spatialisation magic
+		AudioDevice->SpatializationHelper.CalculateDolbySurroundRate(OrientFront, ListenerPosition, EmitterPosition, NormalizedOmniRadius, ChannelVolumes);
+
+		// Handle any special post volume processing
+		if (WaveInstance->bApplyRadioFilter)
+		{
+			// If radio filter applied, output on radio channel only (no reverb)
+			FMemory::Memzero(ChannelVolumes, CHANNELOUT_COUNT * sizeof(float));
+
+			ChannelVolumes[CHANNELOUT_RADIO] = WaveInstance->RadioFilterVolume;
+		}
+		else if (WaveInstance->bCenterChannelOnly)
+		{
+			// If center channel only applied, output on center channel only (no reverb)
+			FMemory::Memzero(ChannelVolumes, CHANNELOUT_COUNT * sizeof(float));
+
+			ChannelVolumes[CHANNELOUT_FRONTCENTER] = WaveInstance->VoiceCenterChannelVolume * AttenuatedVolume;
+		}
+		else
+		{
+			if (FXAudioDeviceProperties::NumSpeakers == 6)
+			{
+				ChannelVolumes[CHANNELOUT_LOWFREQUENCY] = AttenuatedVolume * LFEBleed;
+
+				// Smooth out the left and right channels with the center channel
+				if (ChannelVolumes[CHANNELOUT_FRONTCENTER] > ChannelVolumes[CHANNELOUT_FRONTLEFT])
+				{
+					ChannelVolumes[CHANNELOUT_FRONTLEFT] = (ChannelVolumes[CHANNELOUT_FRONTCENTER] + ChannelVolumes[CHANNELOUT_FRONTLEFT]) / 2;
+				}
+
+				if (ChannelVolumes[CHANNELOUT_FRONTCENTER] > ChannelVolumes[CHANNELOUT_FRONTRIGHT])
+				{
+					ChannelVolumes[CHANNELOUT_FRONTRIGHT] = (ChannelVolumes[CHANNELOUT_FRONTCENTER] + ChannelVolumes[CHANNELOUT_FRONTRIGHT]) / 2;
+				}
+			}
+
+			// Weight some of the sound to the center channel
+			ChannelVolumes[CHANNELOUT_FRONTCENTER] = FMath::Max(ChannelVolumes[CHANNELOUT_FRONTCENTER], WaveInstance->VoiceCenterChannelVolume * AttenuatedVolume);
+		}
+	}
+	else if (WaveInstance->bUseSpatialization)
+	{
+		check(WaveInstance->SpatializationAlgorithm == SPATIALIZATION_HRTF);
+		check(AudioDevice->SpatializeProcessor != nullptr);
+
+		// If we're using an HRTF spatialization algorithm, we need to find the position of the emitter and set it as a parameter
+		FVector EmitterPosition = FVector::ZeroVector;
+		FVector UnnormalizedDirection = AudioDevice->InverseTransform.TransformPosition(WaveInstance->Location);
+		EmitterPosition = UnnormalizedDirection.GetSafeNormal();
+
+		AudioDevice->SpatializeProcessor->SetSpatializationParameters(VoiceId, EmitterPosition, (ESpatializationEffectType)WaveInstance->SpatializationAlgorithm);
+		GetStereoChannelVolumes(ChannelVolumes, AttenuatedVolume);
+	}
+}
+
+void FXAudio2SoundSource::GetStereoChannelVolumes(float ChannelVolumes[CHANNELOUT_COUNT], float AttenuatedVolume)
+{
+	// Stereo is always treated as unspatialized (except when the oculus stereo effect is being used)
+	ChannelVolumes[CHANNELOUT_FRONTLEFT] = AttenuatedVolume;
+	ChannelVolumes[CHANNELOUT_FRONTRIGHT] = AttenuatedVolume;
+
+	// Potentially bleed to the rear speakers from 2.0 channel to simulated 4.0 channel
+	if (IsUsingDefaultSpatializer() && FXAudioDeviceProperties::NumSpeakers == 6)
+	{
+		ChannelVolumes[CHANNELOUT_LEFTSURROUND] = AttenuatedVolume * StereoBleed;
+		ChannelVolumes[CHANNELOUT_RIGHTSURROUND] = AttenuatedVolume * StereoBleed;
+
+		ChannelVolumes[CHANNELOUT_LOWFREQUENCY] = AttenuatedVolume * LFEBleed * 0.5f;
+	}
+
+	if (bReverbApplied)
+	{
+		ChannelVolumes[CHANNELOUT_REVERB] = AttenuatedVolume;
+	}
+
+	// Handle radio distortion if the sound can handle it. 
+	ChannelVolumes[CHANNELOUT_RADIO] = 0.0f;
+	if (WaveInstance->bApplyRadioFilter)
+	{
+		ChannelVolumes[CHANNELOUT_RADIO] = WaveInstance->RadioFilterVolume;
+	}
+}
+
+void FXAudio2SoundSource::GetQuadChannelVolumes(float ChannelVolumes[CHANNELOUT_COUNT], float AttenuatedVolume)
+{
+	ChannelVolumes[CHANNELOUT_FRONTLEFT] = AttenuatedVolume;
+	ChannelVolumes[CHANNELOUT_FRONTRIGHT] = AttenuatedVolume;
+	ChannelVolumes[CHANNELOUT_LEFTSURROUND] = AttenuatedVolume;
+	ChannelVolumes[CHANNELOUT_RIGHTSURROUND] = AttenuatedVolume;
+
+	if (FXAudioDeviceProperties::NumSpeakers == 6)
+	{
+		ChannelVolumes[CHANNELOUT_LOWFREQUENCY] = AttenuatedVolume * LFEBleed * 0.25f;
+	}
+}
+
+void FXAudio2SoundSource::GetHexChannelVolumes(float ChannelVolumes[CHANNELOUT_COUNT], float AttenuatedVolume)
+{
+	ChannelVolumes[CHANNELOUT_FRONTLEFT] = AttenuatedVolume;
+	ChannelVolumes[CHANNELOUT_FRONTRIGHT] = AttenuatedVolume;
+	ChannelVolumes[CHANNELOUT_FRONTCENTER] = AttenuatedVolume;
+	ChannelVolumes[CHANNELOUT_LOWFREQUENCY] = AttenuatedVolume;
+	ChannelVolumes[CHANNELOUT_LEFTSURROUND] = AttenuatedVolume;
+	ChannelVolumes[CHANNELOUT_RIGHTSURROUND] = AttenuatedVolume;
 }
 
 /** 
@@ -596,103 +690,139 @@ void FXAudio2SoundSource::RouteDryToSpeakers( float ChannelVolumes[CHANNELOUT_CO
 	// Only need to account to the special cases that are not a simple match of channel to speaker
 	switch( Buffer->NumChannels )
 	{
-	case 1:
-		{
-			// Spatialised audio maps 1 channel to 6 speakers
-			float SpatialisationMatrix[SPEAKER_COUNT * 1] = 
-			{			
-				ChannelVolumes[CHANNELOUT_FRONTLEFT],
-				ChannelVolumes[CHANNELOUT_FRONTRIGHT],
-				ChannelVolumes[CHANNELOUT_FRONTCENTER],
-				ChannelVolumes[CHANNELOUT_LOWFREQUENCY],
-				ChannelVolumes[CHANNELOUT_LEFTSURROUND],
-				ChannelVolumes[CHANNELOUT_RIGHTSURROUND]
-			};
-
-			// Update the dry output to the mastering voice
-			AudioDevice->ValidateAPICall( TEXT( "SetOutputMatrix (mono)" ), 
-				Source->SetOutputMatrix( Destinations[DEST_DRY].pOutputVoice, 1, SPEAKER_COUNT, SpatialisationMatrix ) );
-		}
+		case 1:
+		RouteMonoToDry(ChannelVolumes);
 		break;
 
-	case 2:
-		{
-			float SpatialisationMatrix[SPEAKER_COUNT * 2] = 
-			{ 
-				ChannelVolumes[CHANNELOUT_FRONTLEFT], 0.0f,
-				0.0f, ChannelVolumes[CHANNELOUT_FRONTRIGHT],
-				0.0f, 0.0f,
-				ChannelVolumes[CHANNELOUT_LOWFREQUENCY], ChannelVolumes[CHANNELOUT_LOWFREQUENCY],
-				ChannelVolumes[CHANNELOUT_LEFTSURROUND], 0.0f,
-				0.0f, ChannelVolumes[CHANNELOUT_RIGHTSURROUND]
-			};
-
-			// Stereo sounds map 2 channels to 6 speakers
-			AudioDevice->ValidateAPICall( TEXT( "SetOutputMatrix (stereo)" ), 
-				Source->SetOutputMatrix( Destinations[DEST_DRY].pOutputVoice, 2, SPEAKER_COUNT, SpatialisationMatrix ) );
-		}
+		case 2:
+		RouteStereoToDry(ChannelVolumes);
 		break;
 
-	case 4:
-		{
-			float SpatialisationMatrix[SPEAKER_COUNT * 4] = 
-			{ 
-				ChannelVolumes[CHANNELOUT_FRONTLEFT], 0.0f, 0.0f, 0.0f,
-				0.0f, ChannelVolumes[CHANNELOUT_FRONTRIGHT], 0.0f, 0.0f,
-				0.0f, 0.0f, 0.0f, 0.0f,
-				ChannelVolumes[CHANNELOUT_LOWFREQUENCY], ChannelVolumes[CHANNELOUT_LOWFREQUENCY], ChannelVolumes[CHANNELOUT_LOWFREQUENCY], ChannelVolumes[CHANNELOUT_LOWFREQUENCY], 
-				0.0f, 0.0f, ChannelVolumes[CHANNELOUT_LEFTSURROUND], 0.0f,
-				0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_RIGHTSURROUND]
-			};
-
-			// Quad sounds map 4 channels to 6 speakers
-			AudioDevice->ValidateAPICall( TEXT( "SetOutputMatrix (4 channel)" ), 
-				Source->SetOutputMatrix( Destinations[DEST_DRY].pOutputVoice, 4, SPEAKER_COUNT, SpatialisationMatrix ) );
-		}
+		case 4:
+		RouteQuadToDry(ChannelVolumes);
 		break;
 
-	case 6:
-		{
-			if ((XAudio2Buffer->DecompressionState && XAudio2Buffer->DecompressionState->UsesVorbisChannelOrdering())
-			||	WaveInstance->WaveData->bDecompressedFromOgg)
-			{
-				// Ordering of channels is different for 6 channel OGG
-				float SpatialisationMatrix[SPEAKER_COUNT * 6] = 
-				{
-					ChannelVolumes[CHANNELOUT_FRONTLEFT], 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 
-					0.0f, 0.0f, ChannelVolumes[CHANNELOUT_FRONTRIGHT], 0.0f, 0.0f, 0.0f, 
-					0.0f, ChannelVolumes[CHANNELOUT_FRONTCENTER], 0.0f, 0.0f, 0.0f, 0.0f, 
-					0.0f, 0.0f, 0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_LOWFREQUENCY], 
-					0.0f, 0.0f, 0.0f,ChannelVolumes[CHANNELOUT_LEFTSURROUND],  0.0f, 0.0f, 
-					0.0f, 0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_RIGHTSURROUND], 0.0f
-				};
-
-				// 5.1 sounds map 6 channels to 6 speakers
-				AudioDevice->ValidateAPICall( TEXT( "SetOutputMatrix (6 channel OGG)" ), 
-					Source->SetOutputMatrix( Destinations[DEST_DRY].pOutputVoice, 6, SPEAKER_COUNT, SpatialisationMatrix ) );
-			}
-			else
-			{
-				float SpatialisationMatrix[SPEAKER_COUNT * 6] = 
-				{
-					ChannelVolumes[CHANNELOUT_FRONTLEFT], 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 
-					0.0f, ChannelVolumes[CHANNELOUT_FRONTRIGHT], 0.0f, 0.0f, 0.0f, 0.0f, 
-					0.0f, 0.0f, ChannelVolumes[CHANNELOUT_FRONTCENTER], 0.0f, 0.0f, 0.0f, 
-					0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_LOWFREQUENCY], 0.0f, 0.0f, 
-					0.0f, 0.0f, 0.0f, 0.0f,ChannelVolumes[CHANNELOUT_LEFTSURROUND],  0.0f, 
-					0.0f, 0.0f, 0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_RIGHTSURROUND]
-				};
-
-				// 5.1 sounds map 6 channels to 6 speakers
-				AudioDevice->ValidateAPICall( TEXT( "SetOutputMatrix (6 channel)" ), 
-					Source->SetOutputMatrix( Destinations[DEST_DRY].pOutputVoice, 6, SPEAKER_COUNT, SpatialisationMatrix ) );
-			}
-		}
+		case 6:
+		RouteHexToDry(ChannelVolumes);
 		break;
 
-	default:
-		break;
+		default:
+			break;
 	};
+}
+
+void FXAudio2SoundSource::RouteMonoToDry(float ChannelVolumes[CHANNELOUT_COUNT])
+{
+	if (IsUsingDefaultSpatializer())
+	{
+		// Spatialised audio maps 1 channel to 6 speakers
+		float SpatialisationMatrix[SPEAKER_COUNT * 1] =
+		{
+			ChannelVolumes[CHANNELOUT_FRONTLEFT],
+			ChannelVolumes[CHANNELOUT_FRONTRIGHT],
+			ChannelVolumes[CHANNELOUT_FRONTCENTER],
+			ChannelVolumes[CHANNELOUT_LOWFREQUENCY],
+			ChannelVolumes[CHANNELOUT_LEFTSURROUND],
+			ChannelVolumes[CHANNELOUT_RIGHTSURROUND]
+		};
+
+		// Update the dry output to the mastering voice
+		AudioDevice->ValidateAPICall(TEXT("SetOutputMatrix (mono)"), Source->SetOutputMatrix(Destinations[DEST_DRY].pOutputVoice, 1, SPEAKER_COUNT, SpatialisationMatrix));
+	}
+	else
+	{
+		// If we're spatializing using HRTF algorithms, then our output is actually stereo
+		RouteStereoToDry(ChannelVolumes);
+	}
+}
+
+void FXAudio2SoundSource::RouteStereoToDry(float ChannelVolumes[CHANNELOUT_COUNT])
+{
+	if (IsUsingDefaultSpatializer())
+	{
+		float SpatialisationMatrix[SPEAKER_COUNT * 2] =
+		{
+			ChannelVolumes[CHANNELOUT_FRONTLEFT], 0.0f,
+			0.0f, ChannelVolumes[CHANNELOUT_FRONTRIGHT],
+			0.0f, 0.0f,
+			ChannelVolumes[CHANNELOUT_LOWFREQUENCY], ChannelVolumes[CHANNELOUT_LOWFREQUENCY],
+			ChannelVolumes[CHANNELOUT_LEFTSURROUND], 0.0f,
+			0.0f, ChannelVolumes[CHANNELOUT_RIGHTSURROUND]
+		};
+
+		// Stereo sounds map 2 channels to 6 speakers
+		AudioDevice->ValidateAPICall(TEXT("SetOutputMatrix (stereo)"), Source->SetOutputMatrix(Destinations[DEST_DRY].pOutputVoice, 2, SPEAKER_COUNT, SpatialisationMatrix));
+	}
+	else
+	{
+		float SpatialisationMatrix[SPEAKER_COUNT * 2] =
+		{
+			ChannelVolumes[CHANNELOUT_FRONTLEFT], 0.0f,
+			0.0f, ChannelVolumes[CHANNELOUT_FRONTRIGHT],
+			0.0f, 0.0f,
+			0.0f, 0.0f,
+			0.0f, 0.0f,
+			0.0f, 0.0f
+		};
+
+		// Stereo sounds map 2 channels to 6 speakers
+		AudioDevice->ValidateAPICall(TEXT("SetOutputMatrix (stereo)"), Source->SetOutputMatrix(Destinations[DEST_DRY].pOutputVoice, 2, SPEAKER_COUNT, SpatialisationMatrix));
+	}
+}
+
+void FXAudio2SoundSource::RouteQuadToDry(float ChannelVolumes[CHANNELOUT_COUNT])
+{
+	float SpatialisationMatrix[SPEAKER_COUNT * 4] =
+	{
+		ChannelVolumes[CHANNELOUT_FRONTLEFT], 0.0f, 0.0f, 0.0f,
+		0.0f, ChannelVolumes[CHANNELOUT_FRONTRIGHT], 0.0f, 0.0f,
+		0.0f, 0.0f, 0.0f, 0.0f,
+		ChannelVolumes[CHANNELOUT_LOWFREQUENCY], ChannelVolumes[CHANNELOUT_LOWFREQUENCY], ChannelVolumes[CHANNELOUT_LOWFREQUENCY], ChannelVolumes[CHANNELOUT_LOWFREQUENCY],
+		0.0f, 0.0f, ChannelVolumes[CHANNELOUT_LEFTSURROUND], 0.0f,
+		0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_RIGHTSURROUND]
+	};
+
+	// Quad sounds map 4 channels to 6 speakers
+	AudioDevice->ValidateAPICall(TEXT("SetOutputMatrix (4 channel)"),
+		Source->SetOutputMatrix(Destinations[DEST_DRY].pOutputVoice, 4, SPEAKER_COUNT, SpatialisationMatrix));
+}
+
+void FXAudio2SoundSource::RouteHexToDry(float ChannelVolumes[CHANNELOUT_COUNT])
+{
+	if ((XAudio2Buffer->DecompressionState && XAudio2Buffer->DecompressionState->UsesVorbisChannelOrdering())
+		|| WaveInstance->WaveData->bDecompressedFromOgg)
+	{
+		// Ordering of channels is different for 6 channel OGG
+		float SpatialisationMatrix[SPEAKER_COUNT * 6] =
+		{
+			ChannelVolumes[CHANNELOUT_FRONTLEFT], 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+			0.0f, 0.0f, ChannelVolumes[CHANNELOUT_FRONTRIGHT], 0.0f, 0.0f, 0.0f,
+			0.0f, ChannelVolumes[CHANNELOUT_FRONTCENTER], 0.0f, 0.0f, 0.0f, 0.0f,
+			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_LOWFREQUENCY],
+			0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_LEFTSURROUND], 0.0f, 0.0f,
+			0.0f, 0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_RIGHTSURROUND], 0.0f
+		};
+
+		// 5.1 sounds map 6 channels to 6 speakers
+		AudioDevice->ValidateAPICall(TEXT("SetOutputMatrix (6 channel OGG)"),
+			Source->SetOutputMatrix(Destinations[DEST_DRY].pOutputVoice, 6, SPEAKER_COUNT, SpatialisationMatrix));
+	}
+	else
+	{
+		float SpatialisationMatrix[SPEAKER_COUNT * 6] =
+		{
+			ChannelVolumes[CHANNELOUT_FRONTLEFT], 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+			0.0f, ChannelVolumes[CHANNELOUT_FRONTRIGHT], 0.0f, 0.0f, 0.0f, 0.0f,
+			0.0f, 0.0f, ChannelVolumes[CHANNELOUT_FRONTCENTER], 0.0f, 0.0f, 0.0f,
+			0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_LOWFREQUENCY], 0.0f, 0.0f,
+			0.0f, 0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_LEFTSURROUND], 0.0f,
+			0.0f, 0.0f, 0.0f, 0.0f, 0.0f, ChannelVolumes[CHANNELOUT_RIGHTSURROUND]
+		};
+
+		// 5.1 sounds map 6 channels to 6 speakers
+		AudioDevice->ValidateAPICall(TEXT("SetOutputMatrix (6 channel)"),
+			Source->SetOutputMatrix(Destinations[DEST_DRY].pOutputVoice, 6, SPEAKER_COUNT, SpatialisationMatrix));
+	}
 }
 
 /** 
@@ -707,34 +837,48 @@ void FXAudio2SoundSource::RouteToReverb( float ChannelVolumes[CHANNELOUT_COUNT] 
 	switch( Buffer->NumChannels )
 	{
 	case 1:
-		{
-			float SpatialisationMatrix[2] = 
-			{			
-				ChannelVolumes[CHANNELOUT_REVERB],
-				ChannelVolumes[CHANNELOUT_REVERB],
-			};
-
-			// Update the dry output to the mastering voice
-			AudioDevice->ValidateAPICall( TEXT( "SetOutputMatrix (Mono reverb)" ), 
-				Source->SetOutputMatrix( Destinations[DEST_REVERB].pOutputVoice, 1, 2, SpatialisationMatrix ) );
-		}
+		RouteMonoToReverb(ChannelVolumes);
 		break;
 
 	case 2:
-		{
-			float SpatialisationMatrix[4] = 
-			{ 
-				ChannelVolumes[CHANNELOUT_REVERB], 0.0f,
-				0.0f, ChannelVolumes[CHANNELOUT_REVERB]
-			};
-
-			// Stereo sounds map 2 channels to 6 speakers
-			AudioDevice->ValidateAPICall( TEXT( "SetOutputMatrix (Stereo reverb)" ), 
-				Source->SetOutputMatrix( Destinations[DEST_REVERB].pOutputVoice, 2, 2, SpatialisationMatrix ) );
-		}
+		RouteStereoToReverb(ChannelVolumes);
 		break;
 	}
 }
+
+void FXAudio2SoundSource::RouteMonoToReverb(float ChannelVolumes[CHANNELOUT_COUNT])
+{
+	if (IsUsingDefaultSpatializer())
+	{
+		float SpatialisationMatrix[2] =
+		{
+			ChannelVolumes[CHANNELOUT_REVERB],
+			ChannelVolumes[CHANNELOUT_REVERB],
+		};
+
+		// Update the dry output to the mastering voice
+		AudioDevice->ValidateAPICall(TEXT("SetOutputMatrix (Mono reverb)"),
+			Source->SetOutputMatrix(Destinations[DEST_REVERB].pOutputVoice, 1, 2, SpatialisationMatrix));
+	}
+	else
+	{
+		RouteStereoToReverb(ChannelVolumes);
+	}
+}
+
+void FXAudio2SoundSource::RouteStereoToReverb(float ChannelVolumes[CHANNELOUT_COUNT])
+{
+	float SpatialisationMatrix[4] =
+	{
+		ChannelVolumes[CHANNELOUT_REVERB], 0.0f,
+		0.0f, ChannelVolumes[CHANNELOUT_REVERB]
+	};
+
+	// Stereo sounds map 2 channels to 6 speakers
+	AudioDevice->ValidateAPICall(TEXT("SetOutputMatrix (Stereo reverb)"),
+		Source->SetOutputMatrix(Destinations[DEST_REVERB].pOutputVoice, 2, 2, SpatialisationMatrix));
+}
+
 
 /** 
  * Maps the sound to the relevant radio effect.
@@ -1136,6 +1280,18 @@ bool FXAudio2SoundSource::IsFinished( void )
 	return( true );
 }
 
+bool FXAudio2SoundSource::IsUsingDefaultSpatializer()
+{
+	return bUsingDefaultSpatialization;
+}
+
+bool FXAudio2SoundSource::CreateWithSpatializationEffect()
+{
+	return (Buffer->NumChannels == 1 &&
+			AudioDevice->SpatializationPlugin != nullptr &&
+			AudioDevice->IsSpatializationPluginEnabled() &&
+			WaveInstance->SpatializationAlgorithm != SPATIALIZATION_Default);
+}
 
 /*------------------------------------------------------------------------------------
 	FSpatializationHelper.

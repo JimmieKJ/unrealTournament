@@ -70,7 +70,7 @@ private:
 	void LoadHistory();
 
 	/** Update what is tracked for this reports history. */
-	void MaintainHistory();
+	void MaintainHistory(TArray<FString> &InLogFiles);
 
 private:
 
@@ -97,6 +97,9 @@ private:
 	
 	/** All child tests */
 	TArray<TSharedPtr<IAutomationReport> >ChildReports;
+
+	/** Map of all Report Name hashes to avoid iterating all items to test for existance*/
+	TMap<uint32, uint32> ChildReportNameHashes;
 
 	/** Filtered child tests */
 	TArray<TSharedPtr<IAutomationReport> >FilteredChildReports;

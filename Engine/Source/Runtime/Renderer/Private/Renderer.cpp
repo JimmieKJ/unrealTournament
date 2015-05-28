@@ -137,11 +137,12 @@ void FRendererModule::GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScal
 	// Initialize Projection Matrix and ViewMatrix since FSceneView initialization is doing some math on them.
 	// Otherwise it trips NaN checks.
 	const FVector ViewPoint = LevelBox.GetCenter();
-	ViewInitOptions.ViewMatrix = FMatrix(
+	ViewInitOptions.ViewOrigin = FVector(ViewPoint.X, ViewPoint.Y, 0.0f);
+	ViewInitOptions.ViewRotationMatrix = FMatrix(
 		FPlane(1, 0, 0, 0),
 		FPlane(0, -1, 0, 0),
 		FPlane(0, 0, -1, 0),
-		FPlane(-ViewPoint.X, ViewPoint.Y, 0, 1));
+		FPlane(0, 0, 0, 1));
 
 	const float ZOffset = WORLD_MAX;
 	ViewInitOptions.ProjectionMatrix = FReversedZOrthoMatrix(

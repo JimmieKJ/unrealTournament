@@ -18,7 +18,6 @@ AGameplayAbilityTargetActor_Radius::AGameplayAbilityTargetActor_Radius(const FOb
 {
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.TickGroup = TG_PrePhysics;
-	StaticTargetFunction = false;
 	ShouldProduceTargetDataOnServer = true;
 }
 
@@ -56,12 +55,12 @@ TArray<TWeakObjectPtr<AActor> >	AGameplayAbilityTargetActor_Radius::PerformOverl
 	bool bTraceComplex = false;
 	
 	FCollisionQueryParams Params(RadiusTargetingOverlap, bTraceComplex);
-	Params.bReturnPhysicalMaterial = true;
-	Params.bTraceAsyncScene = true;
+	Params.bReturnPhysicalMaterial = false;
+	Params.bTraceAsyncScene = false;
 
 	TArray<FOverlapResult> Overlaps;
 
-	SourceActor->GetWorld()->OverlapMulti(Overlaps, Origin, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(Radius), Params);
+	SourceActor->GetWorld()->OverlapMultiByChannel(Overlaps, Origin, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(Radius), Params);
 
 	TArray<TWeakObjectPtr<AActor>>	HitActors;
 

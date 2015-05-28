@@ -94,17 +94,17 @@ TSharedRef<FInternetAddr> FSocketSubsystemLinux::GetLocalHostAddr(FOutputDevice&
 	// get parent address first
 	TSharedRef<FInternetAddr> Addr = FSocketSubsystemBSD::GetLocalHostAddr(Out, bCanBindAll);
 
-	// if the address is not a loopback one (or none), return it
+	// If the address is not a loopback one (or none), return it.
 	uint32 ParentIp = 0;
 	Addr->GetIp(ParentIp); // will return in host order
 	if (ParentIp != 0 && (ParentIp & 0xff000000) != 0x7f000000)
 	{
 		return Addr;
 	}
-	
+
 	// If superclass got the address from command line, honor that override
-	TCHAR Home[256] = TEXT("");
-	if (FParse::Value(FCommandLine::Get(), TEXT("MULTIHOME="), Home, ARRAY_COUNT(Home)))
+	TCHAR Home[256]=TEXT("");
+	if (FParse::Value(FCommandLine::Get(),TEXT("MULTIHOME="),Home,ARRAY_COUNT(Home)))
 	{
 		TSharedRef<FInternetAddr> TempAddr = CreateInternetAddr();
 		bool bIsValid = false;
@@ -122,7 +122,7 @@ TSharedRef<FInternetAddr> FSocketSubsystemLinux::GetLocalHostAddr(FOutputDevice&
 		ifreq IfReqs[8];
 		
 		ifconf IfConfig;
-		FMemory::MemZero(IfConfig);
+		FMemory::Memzero(IfConfig);
 		IfConfig.ifc_req = IfReqs;
 		IfConfig.ifc_len = sizeof(IfReqs);
 		

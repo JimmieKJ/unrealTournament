@@ -166,7 +166,7 @@ class ENGINE_API APlayerCameraManager : public AActor
 	GENERATED_UCLASS_BODY()
 
 	/** PlayerController that owns this Camera actor */
-	UPROPERTY()
+	UPROPERTY(transient)
 	class APlayerController* PCOwner;
 
 private_subobject:
@@ -177,88 +177,85 @@ private_subobject:
 
 public:
 	/** Usable to define different camera behaviors. A few simple styles are implemented by default. */
-	UPROPERTY()
 	FName CameraStyle;
 
 	/** FOV to use by default. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerCameraManager)
 	float DefaultFOV;
 
-	/** Value to lock FOV at, if bLockedFOV == true. Ignored otherwise. */
-	UPROPERTY()
+protected:
+	/** Value to lock FOV to, in degrees. Ignored if <= 0, utilized if > 0. */
 	float LockedFOV;
+
+public:
+	
+	float GetLockedFOV() const { return LockedFOV; }
 
 	/** The default desired width (in world units) of the orthographic view (ignored in Perspective mode) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerCameraManager)
 	float DefaultOrthoWidth;
 
-	/** Value OrthoWidth is locked at, if bLockedOrthoWidth == true. Ignored otherwise. */
-	UPROPERTY()
+protected:
+	/** Value OrthoWidth is locked at, if > 0. Ignored if <= 0. */
 	float LockedOrthoWidth;
 
-	/** True when this camera should use an orthographic perspective instead of FOV */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerCameraManager)
-	bool bIsOrthographic;
-
+public:
 	/** Default aspect ratio */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerCameraManager)
 	float DefaultAspectRatio;
 
 	/** Color to fade to (when bEnableFading == true). */
-	UPROPERTY()
-	FColor FadeColor;
+	FLinearColor FadeColor;
 
 	/** Amount of fading to apply (when bEnableFading == true). */
-	UPROPERTY()
 	float FadeAmount;
 
 	/** Allows control over scaling individual color channels in the final image (when bEnableColorScaling == true). */
-	UPROPERTY()
 	FVector ColorScale;
 
 	/** Desired color scale which ColorScale will interpolate to (when bEnableColorScaling and bEnableColorScaleInterp == true) */
-	UPROPERTY()
 	FVector DesiredColorScale;
 
 	/** Color scale value at start of interpolation (when bEnableColorScaling and bEnableColorScaleInterp == true) */
-	UPROPERTY()
 	FVector OriginalColorScale;
 
 	/** Total time for color scale interpolation to complete (when bEnableColorScaling and bEnableColorScaleInterp == true) */
-	UPROPERTY()
 	float ColorScaleInterpDuration;
 
 	/** Time at which interpolation started (when bEnableColorScaling and bEnableColorScaleInterp == true) */
-	UPROPERTY()
 	float ColorScaleInterpStartTime;
 
 	/** Cached camera properties. */
-	UPROPERTY()
+	UPROPERTY(transient)
 	struct FCameraCacheEntry CameraCache;
 
-	/** Cached camera properties. */
-	UPROPERTY()
+	/** Cached camera properties, one frame old. */
+	UPROPERTY(transient)
 	struct FCameraCacheEntry LastFrameCameraCache;
 
 	/** Current ViewTarget */
-	UPROPERTY()
+	UPROPERTY(transient)
 	struct FTViewTarget ViewTarget;
 
 	/** Pending view target for blending */
-	UPROPERTY()
+	UPROPERTY(transient)
 	struct FTViewTarget PendingViewTarget;
 
 	/** Time remaining in viewtarget blend. */
-	UPROPERTY()
 	float BlendTimeToGo;
 
 	/** Current view target transition blend parameters. */
-	UPROPERTY()
 	struct FViewTargetTransitionParams BlendParams;
 
-	/** List of active camera modifiers that have a chance to update the final camera POV */
-	UPROPERTY()
+protected:
+	/** List of active camera modifier instances that have a chance to update the final camera POV */
+	UPROPERTY(transient)
 	TArray<class UCameraModifier*> ModifierList;
+
+public:
+	/** List of modifiers to create by default for this camera */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = CameraModifier)
+	TArray< TSubclassOf<class UCameraModifier> > DefaultModifiers;
 
 	/** Distance to place free camera from view target (used in certain CameraStyles) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Debug)
@@ -268,16 +265,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Debug)
 	FVector FreeCamOffset;
 
-	/** Current camera fade alpha value (when bEnableFading == true) */
-	UPROPERTY()
+	/** Current camera fade alpha range, where X = starting alpha and Y = final alpha (when bEnableFading == true) */
 	FVector2D FadeAlpha;
 
 	/** Total duration of the camera fade (when bEnableFading == true) */
-	UPROPERTY()
 	float FadeTime;
 
 	/** Time remaining in camera fade (when bEnableFading == true) */
-	UPROPERTY()
 	float FadeTimeRemaining;
 
 protected:
@@ -286,24 +280,15 @@ protected:
 	UPROPERTY(transient)
 	TArray<class AEmitterCameraLensEffectBase*> CameraLensEffects;
 
-public:
 	/////////////////////
 	// Camera Modifiers
 	/////////////////////
-	
-	/** Camera modifier for cone-driven screen shakes */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Instanced, transient, Category = PlayerCameraManager)
-	class UCameraModifier_CameraShake* CameraShakeCamMod;
 
-protected:
-	/** Class to use when instantiating screenshake modifier object. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerCameraManager)
-	TSubclassOf<class UCameraModifier_CameraShake> CameraShakeCamModClass;
+	/** Cached ref to modifier for code-driven screen shakes */
+	UPROPERTY(transient)
+	class UCameraModifier_CameraShake* CachedCameraShakeMod;
 
-	/** By default camera modifiers are not applied to stock debug cameras (e.g. CameraStyle == "FreeCam"). Setting to true will always apply modifiers. */
-	UPROPERTY()
-	bool bAlwaysApplyModifiers;
-	
+
 	////////////////////////
 	// CameraAnim support
 	////////////////////////
@@ -311,22 +296,26 @@ protected:
 	static const int32 MAX_ACTIVE_CAMERA_ANIMS = 8;
 
 	/** Internal pool of camera anim instance objects available for playing camera animations. Defines the max number of camera anims that can play simultaneously. */
-	UPROPERTY()
+	UPROPERTY(transient)
 	class UCameraAnimInst* AnimInstPool[8];    /*MAX_ACTIVE_CAMERA_ANIMS @fixme constant */
 
 	/** Internal list of active post process effects. Parallel array to PostProcessBlendCacheWeights. */
+	UPROPERTY(transient)
 	TArray<struct FPostProcessSettings> PostProcessBlendCache;
+
 	/** Internal list of weights for active post process effects. Parallel array to PostProcessBlendCache. */
 	TArray<float> PostProcessBlendCacheWeights;
 
+public:
 	/** Adds a postprocess effect at the given weight. */
 	void AddCachedPPBlend(struct FPostProcessSettings& PPSettings, float BlendWeight);
+protected:
 	/** Removes all postprocess effects. */
 	void ClearCachedPPBlends();
 
 public:
 	/** Array of camera anim instances that are currently playing and in-use */
-	UPROPERTY()
+	UPROPERTY(transient)
 	TArray<class UCameraAnimInst*> ActiveAnims;
 
 	/** Returns active post process info. */
@@ -334,64 +323,67 @@ public:
 	
 protected:
 	/** Array of camera anim instances that are not playing and available to be used. */
-	UPROPERTY()
+	UPROPERTY(transient)
 	TArray<class UCameraAnimInst*> FreeAnims;
 
 	/** Internal. Receives the output of individual camera animations. */
 	UPROPERTY(transient)
 	class ACameraActor* AnimCameraActor;
 
-	/** Tuue if FOV is locked to a constant value (@see LockedFOV) */
-	UPROPERTY()
-	uint32 bLockedFOV:1;
 
-	/** true if OrthoWidth is locked to a constant value (@see LockedOrthoWidth) */
-	UPROPERTY()
-	uint32 bLockedOrthoWidth:1;
+	////////////////////////
+	// Flags
+	////////////////////////
 
 public:
+	/** True when this camera should use an orthographic perspective instead of FOV */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PlayerCameraManager)
+	uint32 bIsOrthographic : 1;
+
 	/** True if we should apply FadeColor/FadeAmount to the screen. */
-	UPROPERTY()
-	uint32 bEnableFading:1;
+	uint32 bEnableFading : 1;
 
 	/** True to apply fading of audio alongside the video. */
-	UPROPERTY()
-	uint32 bFadeAudio:1;
+	uint32 bFadeAudio : 1;
 
 	/** True to turn on scaling of color channels in final image using ColorScale property. */
-	UPROPERTY()
-	uint32 bEnableColorScaling:1;
+	uint32 bEnableColorScaling : 1;
 
 	/** True to smoothly interpolate color scale values when they change. */
-	UPROPERTY()
-	uint32 bEnableColorScaleInterp:1;
+	uint32 bEnableColorScaleInterp : 1;
 
 	/** True if clients are handling setting their own viewtarget and the server should not replicate it (e.g. during certain Matinee sequences) */
-	UPROPERTY()
-	uint32 bClientSimulatingViewTarget:1;
+	uint32 bClientSimulatingViewTarget : 1;
 
 	/** True if server will use camera positions replicated from the client instead of calculating them locally. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PlayerCameraManager)
-	uint32 bUseClientSideCameraUpdates:1;
+	uint32 bUseClientSideCameraUpdates : 1;
 
 	/** For debugging. If true, replicate the client side camera position but don't use it, and draw the positions on the server */
-	UPROPERTY()
-	uint32 bDebugClientSideCamera:1;
+	uint32 bDebugClientSideCamera : 1;
 
 	/** If true, send a camera update to the server on next update. */
-	UPROPERTY(transient)
-	uint32 bShouldSendClientSideCameraUpdate:1;
+	uint32 bShouldSendClientSideCameraUpdate : 1;
 
 	/** 
 	 * True if we did a camera cut this frame. Automatically reset to false every frame.
 	 * This flag affects various things in the renderer (such as whether to use the occlusion queries from last frame, and motion blur).
 	 */
-	UPROPERTY(transient)
-	uint32 bGameCameraCutThisFrame:1;
+	uint32 bGameCameraCutThisFrame : 1;
 
+protected:
+	/** True if camera fade hold at it's final value when finished. */
+	uint32 bHoldFadeWhenFinished : 1;
+
+	uint32 bAutoAnimateFade : 1;
+
+	/** By default camera modifiers are not applied to stock debug cameras (e.g. CameraStyle == "FreeCam"). Setting to true will always apply modifiers. */
+	uint32 bAlwaysApplyModifiers : 1;
+
+public:
 	/** True if camera's orientation should be updated by most recent HMD orientation. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PlayerCameraManager)
-	uint32 bFollowHmdOrientation:1;
+	uint32 bFollowHmdOrientation : 1;
 
 	/** Minimum view pitch, in degrees. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PlayerCameraManager)
@@ -423,7 +415,7 @@ public:
 	 * final camera POV. 
 	 */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
-	virtual bool BlueprintUpdateCamera(AActor* CameraTarget, FVector& NewCameraLocation, FRotator& NewCameraRotation, float& NewCameraFOV);
+	bool BlueprintUpdateCamera(AActor* CameraTarget, FVector& NewCameraLocation, FRotator& NewCameraRotation, float& NewCameraFOV);
 
 	/** Returns the PlayerController that owns this camera. */
 	UFUNCTION(BlueprintCallable, Category="Game|Player")
@@ -474,12 +466,32 @@ public:
 	virtual void UpdateCamera(float DeltaTime);
 
 	/** 
-	 * Internal. Creates and initializes a new camera modifier of the specified class. 
+	 * Creates and initializes a new camera modifier of the specified class. 
 	 * @param ModifierClass - The class of camera modifier to create.
 	 * @return Returns the newly created camera modifier.
 	 */
-	virtual class UCameraModifier* CreateCameraModifier(TSubclassOf<class UCameraModifier> ModifierClass);
-	
+	UFUNCTION(BlueprintCallable, Category = "Game|Player")
+	virtual class UCameraModifier* AddNewCameraModifier(TSubclassOf<class UCameraModifier> ModifierClass);
+
+	/** 
+	 * Returns camera modifier for this camera of the given class, if it exists. 
+	 * Exact class match only. If there are multiple modifiers of the same class, the first one is returned.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game|Player")
+	virtual class UCameraModifier* FindCameraModifierByClass(TSubclassOf<class UCameraModifier> ModifierClass);
+
+	/** 
+	 * Removes the given camera modifier from this camera (if it's on the camera in the first place) and discards it. 
+	 * @return True if successfully removed, false otherwise.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Game|Player")
+	virtual bool RemoveCameraModifier(class UCameraModifier* ModifierToRemove);
+
+protected:
+	/** Internal. Places the given modifier in the ModifierList at the appropriate priority. */
+	virtual bool AddCameraModifierToList(class UCameraModifier* NewModifier);
+
+public:	
 	/**
 	 * Applies the current set of camera modifiers to the given camera POV.
 	 * @param	DeltaTime	Time in seconds since last update
@@ -494,6 +506,7 @@ public:
 	virtual void InitializeFor(class APlayerController* PC);
 	
 	/** @return Returns the camera's current full FOV angle, in degrees. */
+	UFUNCTION(BlueprintCallable, Category = "Camera")
 	virtual float GetFOVAngle() const;
 	
 	/** 
@@ -551,6 +564,7 @@ protected:
 	
 	/** Internal. Applies appropriate audio fading to the audio system. */
 	virtual void ApplyAudioFade();
+	virtual void StopAudioFade();
 	
 	/**
 	 * Internal helper to blend two viewtargets.
@@ -626,17 +640,54 @@ public:
 	/** 
 	 * Plays a camera shake on this camera.
 	 * @param Shake - The class of camera shake to play.
-	 * @param Scale - Scalar defining how "intense" to play the anim. 1.0 is normal or as authored.
-	 * @param PlaySpace - Which coordinate system to play the shake in.
+	 * @param Scale - Scalar defining how "intense" to play the shake. 1.0 is normal (as authored).
+	 * @param PlaySpace - Which coordinate system to play the shake in (affects oscillations and camera anims)
 	 * @param UserPlaySpaceRot - Coordinate system to play shake when PlaySpace == CAPS_UserDefined.
 	 */
-	virtual void PlayCameraShake(TSubclassOf<class UCameraShake> Shake, float Scale, enum ECameraAnimPlaySpace::Type PlaySpace=ECameraAnimPlaySpace::CameraLocal, FRotator UserPlaySpaceRot = FRotator::ZeroRotator);
+	UFUNCTION(BlueprintCallable, Category = "Camera Shakes")
+	virtual class UCameraShake* PlayCameraShake(TSubclassOf<class UCameraShake> ShakeClass, float Scale=1.f, enum ECameraAnimPlaySpace::Type PlaySpace = ECameraAnimPlaySpace::CameraLocal, FRotator UserPlaySpaceRot = FRotator::ZeroRotator);
 	
-	/** Stops playing CameraShake of the given class. */
-	virtual void StopCameraShake(TSubclassOf<class UCameraShake> Shake);
+	/** Immediately stops the given shake instance and invalidates it. */
+	UFUNCTION(BlueprintCallable, Category = "Camera Shakes")
+	virtual void StopCameraShake(class UCameraShake* ShakeInstance);
 
-	/** Stops playing all camera shakes. */
-	virtual void ClearAllCameraShakes();
+	/** Stops playing CameraShake of the given class. */
+	UFUNCTION(BlueprintCallable, Category = "Camera Shakes")
+	virtual void StopAllInstancesOfCameraShake(TSubclassOf<class UCameraShake> Shake);
+
+	/** Stops all active camera shakes on this camera. */
+	UFUNCTION(BlueprintCallable, Category = "Camera Shakes")
+	virtual void StopAllCameraShakes();
+
+	//
+	//  CameraAnim fades.
+	//
+
+	/** 
+	 * Does a camera fade to/from a solid color.  Animates automatically.
+	 * @param FromAlpha - Alpha at which to begin the fade. Range [0..1], where 0 is fully transparent and 1 is fully opaque solid color.
+	 * @param ToAlpha - Alpha at which to finish the fade.
+	 * @param Duration - How long the fade should take, in seconds.
+	 * @param Color - Color to fade to/from.
+	 * @param bShouldFadeAudio - True to fade audio volume along with the alpha of the solid color.
+	 * @param bHoldWhenFinished - True for fade to hold at the ToAlpha until explicitly stopped (e.g. with StopCameraFade)
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Camera Fades")
+	virtual void StartCameraFade(float FromAlpha, float ToAlpha, float Duration, FLinearColor Color, bool bShouldFadeAudio = false, bool bHoldWhenFinished = false);
+
+	/** 
+	 * Stops camera fading.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Camera Fades")
+	virtual void StopCameraFade();
+
+	/** 
+	 * Turns on camera fading at the given opacity. Does not auto-animate, allowing user to animate themselves.
+	 * Call StopCameraFade to turn fading back off.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Camera Fades")
+	virtual void SetManualCameraFade(float InFadeAmount, FLinearColor Color, bool bInFadeAudio);
+
 
 	//
 	//  CameraAnim support.

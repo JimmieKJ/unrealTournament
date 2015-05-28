@@ -3,12 +3,14 @@
 #include "EnginePrivate.h"
 #include "AI/NavigationModifier.h"
 #include "AI/Navigation/NavModifierVolume.h"
+#include "AI/Navigation/NavAreas/NavArea_Null.h"
 
 //----------------------------------------------------------------------//
 // ANavModifierVolume
 //----------------------------------------------------------------------//
 ANavModifierVolume::ANavModifierVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, AreaClass(UNavArea_Null::StaticClass())
 {
 }
 
@@ -24,6 +26,20 @@ void ANavModifierVolume::GetNavigationData(FNavigationRelevantData& Data) const
 FBox ANavModifierVolume::GetNavigationBounds() const
 {
 	return GetComponentsBoundingBox();
+}
+
+void ANavModifierVolume::SetAreaClass(TSubclassOf<UNavArea> NewAreaClass)
+{
+	if (NewAreaClass != AreaClass)
+	{
+		AreaClass = NewAreaClass;
+
+		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+		if (NavSys != nullptr)
+		{
+			NavSys->UpdateNavOctree(this);
+		}
+	}
 }
 
 #if WITH_EDITOR

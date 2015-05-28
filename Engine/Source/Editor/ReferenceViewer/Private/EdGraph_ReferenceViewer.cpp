@@ -316,9 +316,10 @@ UEdGraphNode_Reference* UEdGraph_ReferenceViewer::RecursivelyConstructNodes(bool
 			RefNodeLoc.X = ReferenceNodeLoc.X;
 			RefNodeLoc.Y = ReferenceNodeLoc.Y;
 
-			ReferenceNode->SetReferenceNodeCollapsed(RefNodeLoc, NumReferencesExceedingMax);
 			if ( ensure(ReferenceNode) )
 			{
+				ReferenceNode->SetReferenceNodeCollapsed(RefNodeLoc, NumReferencesExceedingMax);
+
 				if ( bReferencers )
 				{
 					NewNode->AddReferencer( ReferenceNode );

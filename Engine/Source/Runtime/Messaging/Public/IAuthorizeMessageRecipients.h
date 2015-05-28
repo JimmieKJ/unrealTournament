@@ -3,7 +3,6 @@
 #pragma once
 
 
-// forward declarations
 struct FMessageAddress;
 class IMessageInterceptor;
 class IReceiveMessages;

@@ -3,6 +3,7 @@
 #include "UnrealEd.h"
 
 #include "AssetRegistryModule.h"
+#include "ClassIconFinder.h"
 #include "ComponentTypeRegistry.h"
 #include "EdGraphSchema_K2.h"
 #include "KismetEditorUtilities.h"
@@ -27,7 +28,7 @@ struct FComponentTypeRegistryData
 	/** Implementation of FTickableEditorObject */
 	virtual void Tick(float) override;
 	virtual bool IsTickable() const override { return true; }
-	virtual TStatId GetStatId() const { RETURN_QUICK_DECLARE_CYCLE_STAT(FTypeDatabaseUpdater, STATGROUP_Tickables); }
+	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(FTypeDatabaseUpdater, STATGROUP_Tickables); }
 
 	// Request a refresh of the components list next frame
 	void Invalidate()
@@ -213,7 +214,10 @@ void FComponentTypeRegistryData::ForceRefreshComponentList()
 		if (Class->IsChildOf(UActorComponent::StaticClass()))
 		{
 			InMemoryClasses.Push(Class->GetFName());
-			if (!Class->HasAnyClassFlags(CLASS_Abstract) && Class->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent) && !FKismetEditorUtilities::IsClassABlueprintSkeleton(Class)) //@TODO: Fold this logic together with the one in UEdGraphSchema_K2::GetAddComponentClasses
+
+			bool const bOutOfDateClass = Class->HasAnyClassFlags(CLASS_NewerVersionExists);
+			bool const bBlueprintSkeletonClass = FKismetEditorUtilities::IsClassABlueprintSkeleton(Class);
+			if (!Class->HasAnyClassFlags(CLASS_Abstract) && Class->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent) && !bOutOfDateClass && !bBlueprintSkeletonClass) //@TODO: Fold this logic together with the one in UEdGraphSchema_K2::GetAddComponentClasses
 			{
 				TArray<FString> ClassGroupNames;
 				Class->GetClassGroupNames(ClassGroupNames);
@@ -232,10 +236,18 @@ void FComponentTypeRegistryData::ForceRefreshComponentList()
 					FComponentClassComboEntryPtr NewEntry(new FComponentClassComboEntry(ClassGroup, Class, bIncludeInFilter, EComponentCreateAction::SpawnExistingClass));
 					SortedClassList.Add(NewEntry);
 				}
+				else if(ClassGroupNames.Num() == 0 )
+				{
+					// No class group name found. Just add it to a "custom" category
+					
+					const bool bIncludeInFilter = true;
+					FString ClassGroup = LOCTEXT("CustomClassGroup", "Custom").ToString();
+					FComponentClassComboEntryPtr NewEntry(new FComponentClassComboEntry(ClassGroup, Class, bIncludeInFilter, EComponentCreateAction::SpawnExistingClass));
+					SortedClassList.Add(NewEntry);
+				}
 			}
-
-			bool const bOutOfDateClass = Class->HasAnyClassFlags(CLASS_NewerVersionExists);
-			if (!bOutOfDateClass && !FKismetEditorUtilities::IsClassABlueprintSkeleton(Class))
+			
+			if (!bOutOfDateClass && !bBlueprintSkeletonClass)
 			{
 				FComponentTypeEntry Entry = { Class->GetName(), FString(), Class };
 				ComponentTypeList.Add(Entry);
@@ -264,22 +276,25 @@ void FComponentTypeRegistryData::ForceRefreshComponentList()
 
 		for (auto OnDiskClass : OnDiskClasses)
 		{
-			FName AssetPath;
+			FAssetData AssetData;
 			FString FixedString = OnDiskClass.ToString();
 			FixedString.RemoveFromEnd(TEXT("_C"));
 			for (auto Blueprint : BlueprintAssetData)
 			{
 				if (Blueprint.AssetName.ToString() == FixedString)
 				{
-					AssetPath = Blueprint.ObjectPath;
+					AssetData = Blueprint;
 					break;
 				}
 			}
 
-			FComponentTypeEntry Entry = { FixedString, AssetPath.ToString(), nullptr };
+			FComponentTypeEntry Entry = { FixedString, AssetData.ObjectPath.ToString(), nullptr };
 			ComponentTypeList.Add(Entry);
 
-			FComponentClassComboEntryPtr NewEntry(new FComponentClassComboEntry(BlueprintComponents, FixedString, AssetPath, bIncludeInFilter));
+			// The blueprint is unloaded, so we need to work out which icon to use for it using its asset data
+			const UClass* BlueprintIconClass = FClassIconFinder::GetIconClassForAssetData(AssetData);
+
+			FComponentClassComboEntryPtr NewEntry(new FComponentClassComboEntry(BlueprintComponents, FixedString, AssetData.ObjectPath, BlueprintIconClass, bIncludeInFilter));
 			SortedClassList.Add(NewEntry);
 		}
 	}

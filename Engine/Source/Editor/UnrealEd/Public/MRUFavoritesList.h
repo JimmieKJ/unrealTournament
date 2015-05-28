@@ -77,6 +77,13 @@ public:
 	 */
 	UNREALED_API bool VerifyFavoritesFile( int32 ItemIndex );
 
+	/**
+	 * Moves the specified favorites item to the head of the list
+	 *
+	 * @param	Item	Filename of the item to move
+	 */
+	UNREALED_API void MoveFavoritesItemToHead( const FString& Item );
+
 private:
 
 	/** Favorited items */

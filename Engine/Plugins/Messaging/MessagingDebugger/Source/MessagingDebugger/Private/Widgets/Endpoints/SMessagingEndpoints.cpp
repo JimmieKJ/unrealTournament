@@ -113,12 +113,6 @@ void SMessagingEndpoints::Construct( const FArguments& InArgs, const FMessagingD
 	Filter->OnChanged().AddRaw(this, &SMessagingEndpoints::HandleFilterChanged);
 	Model->OnSelectedMessageChanged().AddRaw(this, &SMessagingEndpoints::HandleModelSelectedMessageChanged);
 }
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
-
-
-/* SCompoundWidget overrides
- *****************************************************************************/
-
 void SMessagingEndpoints::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	// @todo gmp: fix this

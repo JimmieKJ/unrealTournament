@@ -231,7 +231,9 @@ namespace UnrealBuildTool
 					TotalThreadSeconds += ThreadSeconds;
 				}
 
-				Log.TraceInformation("-------- End Detailed Actions Stats -----------------------------------------------------------");
+				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats || BuildConfiguration.bPrintDebugInfo,
+					TraceEventType.Information, 
+					"-------- End Detailed Actions Stats -----------------------------------------------------------");
 
 				// Log total CPU seconds and numbers of processors involved in tasks.
 				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats || BuildConfiguration.bPrintDebugInfo, 

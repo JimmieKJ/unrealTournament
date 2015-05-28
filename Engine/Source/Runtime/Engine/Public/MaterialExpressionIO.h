@@ -112,5 +112,19 @@ struct FVector2MaterialInput : FMaterialInput<FVector2D>
 };
 struct FMaterialAttributesInput : FMaterialInput<int32>
 {
+	FMaterialAttributesInput() : FMaterialInput<int32>(), PropertyConnectedBitmask(0)
+	{ 
+		// ensure PropertyConnectedBitmask can contain all properties.
+		static_assert((uint32)(MP_MAX)-1 <= (8 * sizeof(PropertyConnectedBitmask)), "PropertyConnectedBitmask cannot contain entire EMaterialProperty enumeration.");
+	}
+
 	ENGINE_API int32 CompileWithDefault(class FMaterialCompiler* Compiler, EMaterialProperty Property);
+	ENGINE_API bool IsConnected(EMaterialProperty Property) { return ((PropertyConnectedBitmask >> (uint32)Property) & 0x1) != 0; }
+	ENGINE_API void SetConnectedProperty(EMaterialProperty Property, bool bIsConnected) 
+	{
+		PropertyConnectedBitmask = bIsConnected ? PropertyConnectedBitmask | (1 << (uint32)Property) : PropertyConnectedBitmask & ~(1 << (uint32)Property);
+	}
+
+	// each bit corresponds to EMaterialProperty connection status.
+	uint32 PropertyConnectedBitmask;
 };

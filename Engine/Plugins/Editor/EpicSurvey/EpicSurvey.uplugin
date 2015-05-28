@@ -8,7 +8,7 @@
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.2.0",
 	"Description" : "Send your feedback to Epic to improve Unreal Engine.",
-	"Category" : "Editor.Feedback",
+	"Category" : "Misc",
 	"EnabledByDefault" : true,
 	
 	"Modules" :

@@ -4,6 +4,9 @@
 #include "PropertyEditorConstants.h"
 #include "SNumericEntryBox.h"
 
+#include "UnitConversion.h"
+#include "NumericUnitTypeInterface.inl"
+
 #define LOCTEXT_NAMESPACE "PropertyEditor"
 
 template <typename NumericType>
@@ -89,6 +92,25 @@ public:
 		const bool bAllowSpin = (!ObjectPropertyNode || (1 == ObjectPropertyNode->GetNumObjects()))
 			&& !PropertyNode->GetProperty()->GetBoolMetaData("NoSpinbox");
 
+		// Set up the correct type interface if we want to display units on the property editor
+		if (FUnitConversion::Settings().ShouldDisplayUnits())
+		{
+			const FString& Units = InPropertyEditor->GetProperty()->GetMetaData(TEXT("Units"));
+			auto PropertyUnits = FUnitConversion::UnitFromString(*Units);
+
+			if (PropertyUnits.IsSet())
+			{
+				// Create the type interface and set up the default input units if they are compatible
+				TypeInterface = MakeShareable(new TNumericUnitTypeInterface<NumericType>(PropertyUnits.GetValue()));
+
+				auto Value = OnGetValue();
+				if (Value.IsSet())
+				{
+					TypeInterface->SetupFixedDisplay(Value.GetValue());
+				}
+			}
+		}
+
 		ChildSlot
 			[
 				SAssignNew(PrimaryWidget, SNumericEntryBox<NumericType>)
@@ -107,6 +129,7 @@ public:
 				.OnValueCommitted(this, &SPropertyEditorNumeric<NumericType>::OnValueCommitted)
 				.OnBeginSliderMovement(this, &SPropertyEditorNumeric<NumericType>::OnBeginSliderMovement)
 				.OnEndSliderMovement(this, &SPropertyEditorNumeric<NumericType>::OnEndSliderMovement)
+				.TypeInterface(TypeInterface)
 			];
 
 		SetEnabled(TAttribute<bool>(this, &SPropertyEditorNumeric<NumericType>::CanEdit));
@@ -215,6 +238,11 @@ private:
 			// We don't create a transaction for each property change when using the slider.  Only once when the slider first is moved
 			EPropertyValueSetFlags::Type Flags = (EPropertyValueSetFlags::InteractiveChange | EPropertyValueSetFlags::NotTransactable);
 			PropertyHandle->SetValue( NewValue, Flags );
+
+			if (TypeInterface.IsValid() && !TypeInterface->FixedDisplayUnits.IsSet())
+			{
+				TypeInterface->SetupFixedDisplay(NewValue);
+			}
 		}
 	}
 
@@ -222,6 +250,11 @@ private:
 	{
 		const TSharedRef< IPropertyHandle > PropertyHandle = PropertyEditor->GetPropertyHandle();
 		PropertyHandle->SetValue( NewValue );
+
+		if (TypeInterface.IsValid() && !TypeInterface->FixedDisplayUnits.IsSet())
+		{
+			TypeInterface->SetupFixedDisplay(NewValue);
+		}
 	}
 	
 	/**
@@ -252,6 +285,9 @@ private:
 	}
 
 private:
+
+	TSharedPtr<TNumericUnitTypeInterface<NumericType>> TypeInterface;	
+
 	TSharedPtr< class FPropertyEditor > PropertyEditor;
 
 	TSharedPtr< class SWidget > PrimaryWidget;

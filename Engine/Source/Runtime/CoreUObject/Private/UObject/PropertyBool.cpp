@@ -17,6 +17,16 @@ UBoolProperty::UBoolProperty( const FObjectInitializer& ObjectInitializer )
 	SetBoolSize( 1, false, 1 );
 }
 
+UBoolProperty::UBoolProperty(ECppProperty, int32 InOffset, uint64 InFlags, uint32 InBitMask, uint32 InElementSize, bool bIsNativeBool)
+	: UProperty(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+	, FieldSize(0)
+	, ByteOffset(0)
+	, ByteMask(1)
+	, FieldMask(1)
+{
+	SetBoolSize(InElementSize, bIsNativeBool, InBitMask);
+}
+
 UBoolProperty::UBoolProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, uint32 InBitMask, uint32 InElementSize, bool bIsNativeBool )
 : UProperty( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
 , FieldSize(0)
@@ -216,7 +226,7 @@ bool UBoolProperty::Identical( const void* A, const void* B, uint32 PortFlags ) 
 	return ((*ByteValueA ^ (B ? *ByteValueB : 0)) & FieldMask) == 0;
 }
 
-void UBoolProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const
+void UBoolProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
 {
 	check(FieldSize != 0);
 	uint8* ByteValue = (uint8*)Value + ByteOffset;

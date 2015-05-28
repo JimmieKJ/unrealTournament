@@ -451,6 +451,9 @@ bool FVariantData::FromString(const FString& NewValue)
 			SetValue(Val);
 			return true;
 		}
+		case EOnlineKeyValuePairDataType::Blob:
+		case EOnlineKeyValuePairDataType::Empty:
+			break;
 	}
 	return false;
 }
@@ -468,30 +471,30 @@ TSharedRef<class FJsonObject> FVariantData::ToJson() const
 	{
 		case EOnlineKeyValuePairDataType::Int32:
 		{
-			int32 Value;
-			GetValue(Value);
-			JsonObject->SetNumberField(ValueStr, (double)Value);
+			int32 FieldValue;
+			GetValue(FieldValue);
+			JsonObject->SetNumberField(ValueStr, (double)FieldValue);
 			break;
 		}
 		case EOnlineKeyValuePairDataType::Float:
 		{
-			float Value;
-			GetValue(Value);
-			JsonObject->SetNumberField(ValueStr, (double)Value);
+			float FieldValue;
+			GetValue(FieldValue);
+			JsonObject->SetNumberField(ValueStr, (double)FieldValue);
 			break;
 		}
 		case EOnlineKeyValuePairDataType::String:
 		{
-			FString Value;
-			GetValue(Value);
-			JsonObject->SetStringField(ValueStr, Value);
+			FString FieldValue;
+			GetValue(FieldValue);
+			JsonObject->SetStringField(ValueStr, FieldValue);
 			break;
 		}
 		case EOnlineKeyValuePairDataType::Bool:
 		{
-			bool Value;
-			GetValue(Value);
-			JsonObject->SetBoolField(ValueStr, Value);
+			bool FieldValue;
+			GetValue(FieldValue);
+			JsonObject->SetBoolField(ValueStr, FieldValue);
 			break;
 		}
 		case EOnlineKeyValuePairDataType::Int64:
@@ -501,9 +504,9 @@ TSharedRef<class FJsonObject> FVariantData::ToJson() const
 		}
 		case EOnlineKeyValuePairDataType::Double:
 		{
-			double Value;
-			GetValue(Value);
-			JsonObject->SetNumberField(ValueStr, (double)Value);
+			double FieldValue;
+			GetValue(FieldValue);
+			JsonObject->SetNumberField(ValueStr, (double)FieldValue);
 			break;
 		}
 		case EOnlineKeyValuePairDataType::Empty:
@@ -531,55 +534,55 @@ bool FVariantData::FromJson(const TSharedRef<FJsonObject>& JsonObject)
 	{
 		if (VariantTypeStr.Equals(EOnlineKeyValuePairDataType::ToString(EOnlineKeyValuePairDataType::Int32)))
 		{
-			int32 Value;
-			if (JsonObject->TryGetNumberField(ValueStr, Value))
+			int32 FieldValue;
+			if (JsonObject->TryGetNumberField(ValueStr, FieldValue))
 			{
-				SetValue(Value);
+				SetValue(FieldValue);
 				bResult = true;
 			}
 		}
 		else if (VariantTypeStr.Equals(EOnlineKeyValuePairDataType::ToString(EOnlineKeyValuePairDataType::Float)))
 		{
-			double Value;
-			if (JsonObject->TryGetNumberField(ValueStr, Value))
+			double FieldValue;
+			if (JsonObject->TryGetNumberField(ValueStr, FieldValue))
 			{
-				SetValue((float)Value);
+				SetValue((float)FieldValue);
 				bResult = true;
 			}
 		}
 		else if (VariantTypeStr.Equals(EOnlineKeyValuePairDataType::ToString(EOnlineKeyValuePairDataType::String)))
 		{
-			FString Value;
-			if (JsonObject->TryGetStringField(ValueStr, Value))
+			FString FieldValue;
+			if (JsonObject->TryGetStringField(ValueStr, FieldValue))
 			{
-				SetValue(Value);
+				SetValue(FieldValue);
 				bResult = true;
 			}
 		}
 		else if (VariantTypeStr.Equals(EOnlineKeyValuePairDataType::ToString(EOnlineKeyValuePairDataType::Bool)))
 		{
-			bool Value;
-			if (JsonObject->TryGetBoolField(ValueStr, Value))
+			bool FieldValue;
+			if (JsonObject->TryGetBoolField(ValueStr, FieldValue))
 			{
-				SetValue(Value);
+				SetValue(FieldValue);
 				bResult = true;
 			}
 		}
 		else if (VariantTypeStr.Equals(EOnlineKeyValuePairDataType::ToString(EOnlineKeyValuePairDataType::Int64)))
 		{
-			FString Value;
-			if (JsonObject->TryGetStringField(ValueStr, Value))
+			FString FieldValue;
+			if (JsonObject->TryGetStringField(ValueStr, FieldValue))
 			{
 				Type = EOnlineKeyValuePairDataType::Int64;
-				bResult = FromString(Value);
+				bResult = FromString(FieldValue);
 			}
 		}
 		else if (VariantTypeStr.Equals(EOnlineKeyValuePairDataType::ToString(EOnlineKeyValuePairDataType::Double)))
 		{
-			double Value;
-			if (JsonObject->TryGetNumberField(ValueStr, Value))
+			double FieldValue;
+			if (JsonObject->TryGetNumberField(ValueStr, FieldValue))
 			{
-				SetValue(Value);
+				SetValue(FieldValue);
 				bResult = true;
 			}
 		}

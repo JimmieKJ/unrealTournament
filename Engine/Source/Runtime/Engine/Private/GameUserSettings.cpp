@@ -279,7 +279,7 @@ void UGameUserSettings::SaveSettings()
 void UGameUserSettings::LoadConfigIni( bool bForceReload/*=false*/ )
 {
 	// Load .ini, allowing merging
-	FConfigCacheIni::LoadGlobalIniFile(GGameUserSettingsIni, TEXT("GameUserSettings"), NULL, NULL, bForceReload);
+	FConfigCacheIni::LoadGlobalIniFile(GGameUserSettingsIni, TEXT("GameUserSettings"), NULL, bForceReload);
 }
 
 void UGameUserSettings::PreloadResolutionSettings()

@@ -142,7 +142,7 @@ void UPlatformInterfaceBase::ClearDelegate(int32 DelegateType, FPlatformInterfac
 			} \
  \
 			/* make the singleton object */ \
-			Singleton = ConstructObject<Class>(SingletonClass); \
+			Singleton = NewObject<Class>(GetTransientPackage(), SingletonClass); \
 			check(Singleton); \
  \
 			/* initialize it */ \
@@ -208,6 +208,8 @@ bool UCloudStorageBase::ReadKeyValue(const FString& KeyName, EPlatformInterfaceD
 			{
 				UE_LOG(LogScriptPlatformInterface, Log, TEXT("CONVERT SOME uint8 ARRAY TO UOBJECT HERE?"));
 			}
+			break;
+		case PIDT_Custom:
 			break;
 	}
 	GConfig->DisableFileOperations();
@@ -388,7 +390,7 @@ UObject* UCloudStorageBase::ParseDocumentAsObject(int32 Index, TSubclassOf<class
 
 	// NOTE: The following should be in shared functionality in UCloudStorageBase
 	// create the object
-	UObject* Obj = StaticConstructObject(ObjectClass);
+	UObject* Obj = NewObject<UObject>(GetTransientPackage(), ObjectClass);
 
 	// serialize the object
 	Obj->Serialize(Ar);

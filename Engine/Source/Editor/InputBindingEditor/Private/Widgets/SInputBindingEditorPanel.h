@@ -6,14 +6,14 @@
 /**
  * A gesture sort functor.  Sorts by name or gesture and ascending or descending
  */
-struct FGestureSort
+struct FChordSort
 {
-	FGestureSort( bool bInSortName, bool bInSortUp )
+	FChordSort( bool bInSortName, bool bInSortUp )
 		: bSortName( bInSortName )
 		, bSortUp( bInSortUp )
 	{ }
 
-	bool operator()( const TSharedPtr<FGestureTreeItem>& A, const TSharedPtr<FGestureTreeItem>& B ) const
+	bool operator()( const TSharedPtr<FChordTreeItem>& A, const TSharedPtr<FChordTreeItem>& B ) const
 	{
 		if( bSortName )
 		{
@@ -52,7 +52,7 @@ public:
 
 	/** Default constructor. */
 	SInputBindingEditorPanel()
-		: GestureSortMode( true, false )
+		: ChordSortMode( true, false )
 	{ }
 
 	/** Destructor. */
@@ -90,12 +90,12 @@ private:
 	/**
 	 * Generates widget for an item in the gesture tree.
 	 */
-	TSharedRef< ITableRow > OnGenerateWidgetForTreeItem( TSharedPtr<FGestureTreeItem> InTreeItem, const TSharedRef<STableViewBase>& OwnerTable );
+	TSharedRef< ITableRow > OnGenerateWidgetForTreeItem( TSharedPtr<FChordTreeItem> InTreeItem, const TSharedRef<STableViewBase>& OwnerTable );
 
 	/**
-	 * Gets children FGestureTreeItems from the passed in tree item.  Note: Only contexts have children and those children are the actual gestures.
+	 * Gets children FChordTreeItems from the passed in tree item.  Note: Only contexts have children and those children are the actual gestures.
 	 */
-	void OnGetChildrenForTreeItem( TSharedPtr<FGestureTreeItem> InTreeItem, TArray< TSharedPtr< FGestureTreeItem > >& OutChildren );
+	void OnGetChildrenForTreeItem( TSharedPtr<FChordTreeItem> InTreeItem, TArray< TSharedPtr< FChordTreeItem > >& OutChildren );
 
 	/**
 	 * Called when the binding column is clicked.  We sort by binding in this case .
@@ -119,19 +119,19 @@ private:
 private:
 
 	/** List of all known contexts. */
-	TArray< TSharedPtr<FGestureTreeItem> > ContextMasterList;
+	TArray< TSharedPtr<FChordTreeItem> > ContextMasterList;
 	
 	/** List of contexts visible in the tree. */
-	TArray< TSharedPtr<FGestureTreeItem> > ContextVisibleList;
+	TArray< TSharedPtr<FChordTreeItem> > ContextVisibleList;
 	
 	/** Search box */
 	TSharedPtr<SWidget> SearchBox;
 
-	/** Gesture tree widget. */
-	TSharedPtr< SGestureTree > GestureTree;
+	/** Chord tree widget. */
+	TSharedPtr< SChordTree > ChordTree;
 	
 	/** The current gesture sort to use. */
-	FGestureSort GestureSortMode;
+	FChordSort ChordSortMode;
 	
 	/** The current list of filter strings to filter gestures by. */
 	TArray<FString> FilterStrings;

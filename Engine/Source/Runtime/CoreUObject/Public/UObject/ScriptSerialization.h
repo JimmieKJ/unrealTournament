@@ -182,6 +182,7 @@
 		case EX_EndFunctionParms:
 		case EX_EndStructConst:
 		case EX_EndArray:
+		case EX_EndArrayConst:
 		case EX_IntZero:
 		case EX_IntOne:
 		case EX_True:
@@ -217,6 +218,7 @@
 		case EX_FinalFunction:
 		{
 			XFER_FUNC_POINTER;											// Stack node.
+			FIXUP_EXPR_OBJECT_POINTER(UStruct*);
 			while( SerializeExpr( iCode, Ar ) != EX_EndFunctionParms ); // Parms.
 			break;
 		}
@@ -229,6 +231,7 @@
 		case EX_CallMulticastDelegate:
 		{
 			XFER_FUNC_POINTER;											// Stack node.
+			FIXUP_EXPR_OBJECT_POINTER(UStruct*);
 			while( SerializeExpr( iCode, Ar ) != EX_EndFunctionParms ); // Parms.
 			break;
 		}
@@ -328,7 +331,7 @@
 		case EX_SetArray:
 		{
 			// If not loading, or its a newer version
-			if((GetLinker() == NULL) || !Ar.IsLoading() || (Ar.UE4Ver() >= VER_UE4_CHANGE_SETARRAY_BYTECODE))
+			if((!GetLinker()) || !Ar.IsLoading() || (Ar.UE4Ver() >= VER_UE4_CHANGE_SETARRAY_BYTECODE))
 			{
 				// Array property to assign to
 				EExprToken TargetToken = SerializeExpr( iCode, Ar );
@@ -340,6 +343,13 @@
 			}
 		
 			while( SerializeExpr( iCode, Ar) != EX_EndArray );
+			break;
+		}
+		case EX_ArrayConst:
+		{
+			XFERPTR(UProperty*);	// Inner property
+			XFER(int32);			// Number of elements
+			while (SerializeExpr(iCode, Ar) != EX_EndArrayConst);
 			break;
 		}
 		case EX_ByteConst:

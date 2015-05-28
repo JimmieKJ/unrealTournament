@@ -10,7 +10,7 @@ class SStaticMeshEditorViewport;
 class FStaticMeshEditorViewportClient : public FEditorViewportClient, public TSharedFromThis<FStaticMeshEditorViewportClient>
 {
 public:
-	FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, TWeakPtr<SStaticMeshEditorViewport> InStaticMeshEditorViewport, FPreviewScene& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent);
+	FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, const TSharedRef<SStaticMeshEditorViewport>& InStaticMeshEditorViewport, FPreviewScene& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent);
 
 	// FEditorViewportClient interface
 	virtual void MouseMove(FViewport* Viewport,int32 x, int32 y) override;
@@ -27,9 +27,9 @@ public:
 	virtual void SetWidgetMode(FWidget::EWidgetMode NewMode) override;
 	virtual bool CanSetWidgetMode(FWidget::EWidgetMode NewMode) const override;
 	virtual bool CanCycleWidgetMode() const override;
-	virtual FVector GetWidgetLocation() const;
-	virtual FMatrix GetWidgetCoordSystem() const;
-	virtual ECoordSystem GetWidgetCoordSystemSpace() const { return COORD_Local; }
+	virtual FVector GetWidgetLocation() const override;
+	virtual FMatrix GetWidgetCoordSystem() const override;
+	virtual ECoordSystem GetWidgetCoordSystemSpace() const override { return COORD_Local; }
 	virtual bool ShouldOrbitCamera() const override;
 	virtual FSceneView* CalcSceneView(FSceneViewFamily* ViewFamily) override;
 
@@ -111,6 +111,12 @@ public:
 	/** Callback for checking the additional data drawing flag. */
 	bool IsSetDrawAdditionalData() const;
 
+	/** Callback for toggling the vertices drawing flag. */
+	void SetDrawVertices();
+
+	/** Callback for checking the vertices drawing flag. */
+	bool IsSetDrawVerticesChecked() const;
+
 protected:
 	// FEditorViewportClient interface
 	virtual void PerspectiveCameraMoved() override;
@@ -137,6 +143,7 @@ private:
 	bool bDrawBinormals;
 	bool bShowPivot;
 	bool bDrawAdditionalData;
+	bool bDrawVertices;
 
 	/** true when the user is manipulating a socket widget. */
 	bool bManipulating;

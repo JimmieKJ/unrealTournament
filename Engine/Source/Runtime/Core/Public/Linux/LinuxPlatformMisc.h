@@ -23,6 +23,8 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	static void SetGracefulTerminationHandler();
 	static void SetCrashHandler(void (* CrashHandler)(const FGenericCrashContext& Context));
 	static class GenericApplication* CreateApplication();
+	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
+	static void SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value);
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();
 	FORCEINLINE static void DebugBreak()
@@ -40,6 +42,21 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 #if !UE_BUILD_SHIPPING
 		DebugBreak();
 #endif
+		return false;
+	}
+
+	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
+	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse()
+	{
+#if !UE_BUILD_SHIPPING
+		if (!IsDebuggerPresent())
+		{
+			PromptForRemoteDebugging(false);
+		}
+
+		DebugBreak();
+#endif
+
 		return false;
 	}
 
@@ -71,6 +88,7 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	static int32 NumberOfCoresIncludingHyperthreads();
 	static void LoadPreInitModules();
 	static void LoadStartupModules();
+	static FString GetOperatingSystemId();
 
 	/**
 	 * Determines the shader format for the platform

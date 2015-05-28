@@ -48,7 +48,6 @@ public:
 
 	// SWidget interface
 	virtual FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	// End of SWidget interface
 
 	/**
@@ -59,7 +58,7 @@ public:
 	/**
 	 * Focuses the viewport on the currently selected components
 	 */
-	virtual void OnFocusViewportToSelection();
+	virtual void OnFocusViewportToSelection() override;
 
 	/**
 	 * Returns true if simulation is enabled for the viewport
@@ -76,7 +75,7 @@ protected:
 	 *
 	 * @return true if the viewport is visible; false otherwise.
 	 */
-	bool IsVisible() const;
+	bool IsVisible() const override;
 
 	/** Called when the simulation toggle command is fired */
 	void ToggleIsSimulateEnabled();
@@ -84,7 +83,12 @@ protected:
 	/** SEditorViewport interface */
 	virtual TSharedRef<class FEditorViewportClient> MakeEditorViewportClient() override;
 	virtual TSharedPtr<class SWidget> MakeViewportToolbar() override;
-	virtual void BindCommands();
+	virtual void BindCommands() override;
+
+private:
+	/** One-off active timer to update the preview */
+	EActiveTimerReturnType DeferredUpdatePreview(double InCurrentTime, float InDeltaTime, bool bResetCamera);
+
 private:
 	/** Pointer back to editor tool (owner) */
 	TWeakPtr<class FBlueprintEditor> BlueprintEditorPtr;
@@ -92,11 +96,8 @@ private:
 	/** Viewport client */
 	TSharedPtr<class FSCSEditorViewportClient> ViewportClient;
 
-	/** If true, update the preview scene */
-	bool bPreviewNeedsUpdating;
-
-	/** If true, reset the camera on the next preview scene update */
-	bool bResetCameraOnNextPreviewUpdate;
+	/** Whether the active timer (for updating the preview) is registered */
+	bool bIsActiveTimerRegistered;
 
 	/** The owner dock tab for this viewport. */
 	TWeakPtr<SDockTab> OwnerTab;

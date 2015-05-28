@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	TextBuffer.h: UObject class for storing text
-=============================================================================*/
-
 #pragma once
 
 #include "ObjectBase.h"
@@ -25,11 +21,17 @@ public:
 	/**
 	 * Creates and initializes a new text buffer.
 	 *
-	 * @param ObjectInitializer - Initialization properties.
-	 * @param InText - The initial text.
+	 * @param ObjectInitializer Initialization properties.
+	 * @param InText The initial text.
 	 */
 	COREUOBJECT_API UTextBuffer (const FObjectInitializer& ObjectInitializer, const TCHAR* InText);
 
+	/**
+	 * Creates and initializes a new text buffer.
+	 *
+	 * @param InText - The initial text.
+	 */
+	COREUOBJECT_API UTextBuffer(const TCHAR* InText);
 
 public:
 
@@ -43,18 +45,15 @@ public:
 		return Text;
 	}
 
-
 public:
 
-	virtual void Serialize (FArchive& Ar);
-
+	virtual void Serialize (FArchive& Ar) override;
 	virtual void Serialize (const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category ) override;
-
 
 private:
 
 	int32 Pos, Top;
 
-	// Holds the text.
+	/** Holds the text. */
 	FString Text;
 };

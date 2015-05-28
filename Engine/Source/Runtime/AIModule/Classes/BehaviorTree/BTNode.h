@@ -140,8 +140,6 @@ class AIMODULE_API UBTNode : public UObject
 	/** Gets called only for instanced nodes(bCreateNodeInstance == true). In practive overriden by BP-implemented BT nodes */
 	virtual void SetOwner(AActor* ActorOwner) {}
 
-protected:
-
 	/** node name */
 	UPROPERTY(Category=Description, EditAnywhere)
 	FString NodeName;
@@ -225,11 +223,6 @@ FORCEINLINE UBTNode* UBTNode::GetNextNode() const
 }
 #endif
 
-FORCEINLINE FString UBTNode::GetNodeName() const
-{
-	return NodeName.Len() ? NodeName : GetClass()->GetName();
-}
-
 FORCEINLINE uint16 UBTNode::GetExecutionIndex() const
 {
 	return ExecutionIndex;
@@ -300,5 +293,6 @@ const T* UBTNode::GetNodeMemory(const FBehaviorTreeInstance& BTInstance) const
 template<typename T>
 T* UBTNode::GetSpecialNodeMemory(uint8* NodeMemory) const
 {
-	return (T*)(NodeMemory - ((GetSpecialMemorySize() + 3) & ~3));
+	const int32 SpecialMemorySize = GetSpecialMemorySize();
+	return SpecialMemorySize ? (T*)(NodeMemory - ((SpecialMemorySize + 3) & ~3)) : nullptr;
 }

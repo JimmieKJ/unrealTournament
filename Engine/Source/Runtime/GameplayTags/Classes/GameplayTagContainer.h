@@ -21,6 +21,9 @@ enum class EGameplayContainerMatchType : uint8
 	All		//	Means the filter is only populated if all of the tags in this container match.
 };
 
+typedef uint16 FGameplayTagNetIndex;
+#define INVALID_TAGNETINDEX MAX_uint16
+
 USTRUCT(BlueprintType)
 struct GAMEPLAYTAGS_API FGameplayTag
 {
@@ -86,16 +89,28 @@ struct GAMEPLAYTAGS_API FGameplayTag
 	/** Returns direct parent GameplayTag of this GameplayTag */
 	FGameplayTag RequestDirectParent() const;
 
+	/** Overridden for fast serialize */
+	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
+
 private:
 
 	/** Intentionally private so only the tag manager can use */
 	explicit FGameplayTag(FName InTagName);
 
 	/** This Tags Name */
-	UPROPERTY()
+	UPROPERTY(VisibleAnywhere, Category = GameplayTags)
 	FName TagName;
 
 	friend class UGameplayTagsManager;
+};
+
+template<>
+struct TStructOpsTypeTraits< FGameplayTag > : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithNetSerializer = true,
+	};
 };
 
 /** Simple struct for a gameplay tag container */
@@ -108,10 +123,12 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 	FGameplayTagContainer();
 	FGameplayTagContainer(FGameplayTagContainer const& Other);
 	FGameplayTagContainer(const FGameplayTag& Tag);
+	FGameplayTagContainer(FGameplayTagContainer&& Other);
 	virtual ~FGameplayTagContainer() {}
 
 	/** Assignment/Equality operators */
 	FGameplayTagContainer& operator=(FGameplayTagContainer const& Other);
+	FGameplayTagContainer & operator=(FGameplayTagContainer&& Other);
 	bool operator==(FGameplayTagContainer const& Other) const;
 	bool operator!=(FGameplayTagContainer const& Other) const;
 
@@ -205,9 +222,6 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 	 */
 	bool Serialize(FArchive& Ar);
 
-	/** Renames any tags that may have changed by the ini file */
-	void RedirectTags();
-
 	/**
 	 * Returns the Tag Count
 	 *
@@ -256,16 +270,28 @@ protected:
 	*/
 	bool DoesTagContainerMatch(const FGameplayTagContainer& OtherContainer, TEnumAsByte<EGameplayTagMatchType::Type> TagMatchType, TEnumAsByte<EGameplayTagMatchType::Type> OtherTagMatchType, EGameplayContainerMatchType ContainerMatchType) const;
 
+	/** Array of gameplay tags */
+	UPROPERTY(BlueprintReadWrite, Category=GameplayTags)
+	TArray<FGameplayTag> GameplayTags;
+
+	/**
+	 * If a Tag with the specified tag name explicitly exists, it will remove that tag and return true.  Otherwise, it 
+	   returns false.  It does NOT check the TagName for validity (i.e. the tag could be obsolete and so not exist in
+	   the table). It also does NOT check parents (because it cannot do so for a tag that isn't in the table).
+	   NOTE: This function should ONLY ever be used by GameplayTagsManager when redirecting tags.  Do NOT make this
+	   function public!
+	 */
+	bool RemoveTagByExplicitName(const FName& TagName);
+
+	// Allow the redirection helper class access to RemoveTagByExplicitName.  It can then (through friendship) allow
+	// access to others without exposing everything the Container has privately to everyone.
+	friend class FGameplayTagRedirectHelper;
 
 private:
 
 	/** Array of gameplay tags */
 	UPROPERTY()
 	TArray<FName> Tags_DEPRECATED;
-
-	/** Array of gameplay tags */
-	UPROPERTY(VisibleAnywhere, Category=GameplayTags)
-	TArray<FGameplayTag> GameplayTags;
 
 	/**
 	 * DO NOT USE DIRECTLY
@@ -274,6 +300,16 @@ private:
 	
 	FORCEINLINE friend TArray<FGameplayTag>::TConstIterator begin(const FGameplayTagContainer& Array) { return Array.CreateConstIterator(); }
 	FORCEINLINE friend TArray<FGameplayTag>::TConstIterator end(const FGameplayTagContainer& Array) { return TArray<FGameplayTag>::TConstIterator(Array.GameplayTags, Array.GameplayTags.Num()); }
+};
+
+// This helper class exists to keep FGameplayTagContainers protected and private fields appropriately private while
+// exposing only necessary features to the GameplayTagsManager.
+class FGameplayTagRedirectHelper
+{
+private:
+	FORCEINLINE static bool RemoveTagByExplicitName(FGameplayTagContainer& Container, const FName& TagName) { return Container.RemoveTagByExplicitName(TagName); }
+
+	friend class UGameplayTagsManager;
 };
 
 template<>

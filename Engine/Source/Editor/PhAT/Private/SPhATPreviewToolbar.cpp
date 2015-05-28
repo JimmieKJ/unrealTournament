@@ -3,12 +3,15 @@
 #include "PhATModule.h"
 #include "PhAT.h"
 #include "Editor/UnrealEd/Public/SViewportToolBar.h"
+#include "Editor/UnrealEd/Public/STransformViewportToolbar.h"
 #include "Editor/UnrealEd/Public/SEditorViewportToolBarMenu.h"
+#include "Editor/UnrealEd/Public/SEditorViewportViewMenu.h"
 #include "PhATActions.h"
 #include "SPhATPreviewToolbar.h"
+#include "Editor/UnrealEd//Public/SEditorViewport.h"
 
 
-void SPhATPreviewViewportToolBar::Construct(const FArguments& InArgs)
+void SPhATPreviewViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr<class SEditorViewport> InRealViewport)
 {
 	PhATPtr = InArgs._PhATPtr;
 	
@@ -53,6 +56,15 @@ void SPhATPreviewViewportToolBar::Construct(const FArguments& InArgs)
 				.Label(NSLOCTEXT("PhAT", "ModesMenuTitle_Default", "Modes"))
 				.OnGetMenuContent(this, &SPhATPreviewViewportToolBar::GenerateModesMenu) 
 			]
+
+			+ SHorizontalBox::Slot()
+			.Padding(3.0f, 1.0f)
+			.HAlign(HAlign_Right)
+			[
+				SNew(STransformViewportToolBar)
+				.Viewport(InRealViewport)
+				.CommandList(InRealViewport->GetCommandList())
+			]
 		]
 	];
 
@@ -68,8 +80,11 @@ TSharedRef<SWidget> SPhATPreviewViewportToolBar::GeneratePerspectiveMenu() const
 	{
 		PerspectiveMenuBuilder.AddMenuEntry(Actions.PerspectiveView);
 		PerspectiveMenuBuilder.AddMenuEntry(Actions.TopView);
-		PerspectiveMenuBuilder.AddMenuEntry(Actions.SideView);
+		PerspectiveMenuBuilder.AddMenuEntry(Actions.BottomView);
+		PerspectiveMenuBuilder.AddMenuEntry(Actions.LeftView);
+		PerspectiveMenuBuilder.AddMenuEntry(Actions.RightView);
 		PerspectiveMenuBuilder.AddMenuEntry(Actions.FrontView);
+		PerspectiveMenuBuilder.AddMenuEntry(Actions.BackView);
 	}
 
 	return PerspectiveMenuBuilder.MakeWidget();
@@ -101,30 +116,6 @@ TSharedRef<SWidget> SPhATPreviewViewportToolBar::GenerateModesMenu() const
 	const bool bInShouldCloseWindowAfterMenuSelection = true;
 	FMenuBuilder ModesMenuBuilder(bInShouldCloseWindowAfterMenuSelection, PhATPtr.Pin()->GetToolkitCommands());
 	{
-		// Editing and movement modes
-		{
-			struct Local
-			{
-				static void BuildMovementModeMenu(FMenuBuilder& Menu)
-				{
-					const FPhATCommands& Commands = FPhATCommands::Get();
-
-					Menu.BeginSection("PhATMovementMode", NSLOCTEXT("PhAT", "MovementModeHeader", "Movement Mode"));
-					{
-						Menu.AddMenuEntry(Commands.MovementSpace_Local);
-						Menu.AddMenuEntry(Commands.MovementSpace_World);
-					}
-					Menu.EndSection();
-				}
-			};
-
-			ModesMenuBuilder.BeginSection("PhATSubMenus");
-			{
-				ModesMenuBuilder.AddSubMenu(NSLOCTEXT("PhAT", "MovementModeSubMenu", "Movement Mode"), FText::GetEmpty(), FNewMenuDelegate::CreateStatic(&Local::BuildMovementModeMenu));
-			}
-			ModesMenuBuilder.EndSection();
-		}
-
 		// Mesh, collision and constraint rendering modes
 		{
 			struct Local

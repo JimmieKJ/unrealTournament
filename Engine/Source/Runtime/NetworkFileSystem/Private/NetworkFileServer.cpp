@@ -28,12 +28,12 @@ public:
 	}
 
 
-	virtual bool Init()
+	virtual bool Init() override
 	{
 		return true; 
 	}
 
-	virtual uint32 Run()
+	virtual uint32 Run() override
 	{
 		while (!StopRequested.GetValue())
 		{
@@ -63,12 +63,12 @@ public:
 #endif
 	}
 
-	virtual void Stop() 
+	virtual void Stop() override
 	{
 		StopRequested.Set(true);
 	}
 
-	virtual void Exit()
+	virtual void Exit() override
 	{
 		Socket->Close();
 		ISocketSubsystem::Get()->DestroySocket(Socket);
@@ -80,9 +80,14 @@ public:
 		return  (Running.GetValue() != 0); 
 	}
 
-	void GetAddress( FInternetAddr &Addr )
+	void GetAddress( FInternetAddr& Addr )
 	{
 		Socket->GetAddress(Addr);
+	}
+
+	void GetPeerAddress( FInternetAddr& Addr )
+	{
+		Socket->GetPeerAddress(Addr);
 	}
 
 	~FNetworkFileServerClientConnectionThreaded()
@@ -225,18 +230,23 @@ uint32 FNetworkFileServer::Run( )
 
 			if (ClientSocket != NULL)
 			{
-				TSharedPtr<FInternetAddr> Addr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();;
+				TSharedPtr<FInternetAddr> Addr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
 				ClientSocket->GetAddress(*Addr);
+				TSharedPtr<FInternetAddr> PeerAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();
+				ClientSocket->GetPeerAddress(*PeerAddr);
 
 				for ( auto PreviousConnection : Connections )
 				{
 					TSharedPtr<FInternetAddr> PreviousAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();;
 					PreviousConnection->GetAddress( *PreviousAddr );
-					if ( *Addr == *PreviousAddr)
+					TSharedPtr<FInternetAddr> PreviousPeerAddr = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->CreateInternetAddr();;
+					PreviousConnection->GetPeerAddress( *PreviousPeerAddr );
+					if ( ( *Addr == *PreviousAddr ) &&
+						(*PeerAddr == *PreviousPeerAddr ) )
 					{
 						// kill hte connection 
 						PreviousConnection->Stop();
-						UE_LOG(LogFileServer, Display, TEXT( "Killing client connection %s because new client connected from same address." ), *PreviousConnection->GetDescription() );
+						UE_LOG(LogFileServer, Warning, TEXT( "Killing client connection %s because new client connected from same address." ), *PreviousConnection->GetDescription() );
 					}
 				}
 

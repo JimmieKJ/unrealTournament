@@ -12,8 +12,8 @@
 COREUOBJECT_API DECLARE_LOG_CATEGORY_EXTERN(LogUObjectGlobals, Log, All);
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("ConstructObject"),STAT_ConstructObject,STATGROUP_Object, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("AllocateObject"),STAT_AllocateObject,STATGROUP_Object, );
-DECLARE_CYCLE_STAT_EXTERN(TEXT("PostConstructInitializeProperties"),STAT_PostConstructInitializeProperties,STATGROUP_Object, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("AllocateObject"),STAT_AllocateObject,STATGROUP_ObjectVerbose, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("PostConstructInitializeProperties"),STAT_PostConstructInitializeProperties,STATGROUP_ObjectVerbose, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("LoadConfig"),STAT_LoadConfig,STATGROUP_Object, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("LoadObject"),STAT_LoadObject,STATGROUP_Object, );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("InitProperties"),STAT_InitProperties,STATGROUP_Object, );
@@ -30,7 +30,8 @@ DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("FindObjectFast"),STAT_FindObjectFast,STA
  * Network stats counters
  */
 
-DECLARE_CYCLE_STAT_EXTERN(TEXT("NetSerializeFast Array"),STAT_NetSerializeFast_Array,STATGROUP_ServerCPU, COREUOBJECT_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("NetSerializeFast Array"),STAT_NetSerializeFastArray,STATGROUP_ServerCPU, COREUOBJECT_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("NetSerializeFast Array BuildMap"),STAT_NetSerializeFastArray_BuildMap,STATGROUP_ServerCPU, COREUOBJECT_API);
 
 
 
@@ -45,19 +46,6 @@ typedef void (UObject::*Native)( FFrame& TheStack, RESULT_DECL );
 
 /** set while in SavePackage() to detect certain operations that are illegal while saving */
 extern COREUOBJECT_API bool					GIsSavingPackage;
-/** Imports for EndLoad optimization.									*/
-extern int32						GImportCount;
-/** Forced exports for EndLoad optimization.							*/
-extern int32						GForcedExportCount;
-/** Objects that might need preloading.									*/
-extern TArray<UObject*>			GObjLoaded;
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-/** Used to verify that the Super::Serialize chain is intact.			*/
-extern TArray<UObject*,TInlineAllocator<16> >		DebugSerialize;
-#endif
-
-
 
 /*-----------------------------------------------------------------------------
 	FObjectDuplicationParameters.
@@ -134,7 +122,7 @@ COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags);
 COREUOBJECT_API UPackage* GetTransientPackage();
 
 COREUOBJECT_API bool ResolveName( UObject*& Outer, FString& Name, bool Create, bool Throw );
-COREUOBJECT_API void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* Error, const TCHAR* Fmt, ... );
+COREUOBJECT_API void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* ErrorMessage);
 
 /**
  * Fast version of StaticFindObject that relies on the passed in FName being the object name
@@ -183,6 +171,26 @@ COREUOBJECT_API bool ParseObject( const TCHAR* Stream, const TCHAR* Match, UClas
  */
 COREUOBJECT_API UObject* StaticLoadObject( UClass* Class, UObject* InOuter, const TCHAR* Name, const TCHAR* Filename = NULL, uint32 LoadFlags = LOAD_None, UPackageMap* Sandbox = NULL, bool bAllowObjectReconciliation = true );
 COREUOBJECT_API UClass* StaticLoadClass(UClass* BaseClass, UObject* InOuter, const TCHAR* Name, const TCHAR* Filename = NULL, uint32 LoadFlags = LOAD_None, UPackageMap* Sandbox = NULL);
+
+/**
+* Create a new instance of an object.  The returned object will be fully initialized.  If InFlags contains RF_NeedsLoad (indicating that the object still needs to load its object data from disk), components
+* are not instanced (this will instead occur in PostLoad()).  The different between StaticConstructObject and StaticAllocateObject is that StaticConstructObject will also call the class constructor on the object
+* and instance any components.
+*
+* @param	Class		the class of the object to create
+* @param	InOuter		the object to create this object within (the Outer property for the new object will be set to the value specified here).
+* @param	Name		the name to give the new object. If no value (NAME_None) is specified, the object will be given a unique name in the form of ClassName_#.
+* @param	SetFlags	the ObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
+* @param	Template	if specified, the property values from this object will be copied to the new object, and the new object's ObjectArchetype value will be set to this object.
+*						If NULL, the class default object is used instead.
+* @param	bInCopyTransientsFromClassDefaults - if true, copy transient from the class defaults instead of the pass in archetype ptr (often these are the same)
+* @param	InstanceGraph
+*						contains the mappings of instanced objects and components to their templates
+*
+* @return	a pointer to a fully initialized object of the specified class.
+*/
+COREUOBJECT_API UObject* StaticConstructObject_Internal(UClass* Class, UObject* InOuter = (UObject*)GetTransientPackage(), FName Name = NAME_None, EObjectFlags SetFlags = RF_NoFlags, UObject* Template = NULL, bool bCopyTransientsFromClassDefaults = false, struct FObjectInstancingGraph* InstanceGraph = NULL);
+
 /**
  * Create a new instance of an object.  The returned object will be fully initialized.  If InFlags contains RF_NeedsLoad (indicating that the object still needs to load its object data from disk), components
  * are not instanced (this will instead occur in PostLoad()).  The different between StaticConstructObject and StaticAllocateObject is that StaticConstructObject will also call the class constructor on the object
@@ -200,7 +208,9 @@ COREUOBJECT_API UClass* StaticLoadClass(UClass* BaseClass, UObject* InOuter, con
  *
  * @return	a pointer to a fully initialized object of the specified class.
  */
+DEPRECATED(4.8, "StaticConstructObject is deprecated, please use NewObject instead. For internal CoreUObject module usage, please use StaticConstructObject_Internal.")
 COREUOBJECT_API UObject* StaticConstructObject( UClass* Class, UObject* InOuter=(UObject*)GetTransientPackage(), FName Name=NAME_None, EObjectFlags SetFlags=RF_NoFlags, UObject* Template=NULL, bool bCopyTransientsFromClassDefaults=false, struct FObjectInstancingGraph* InstanceGraph=NULL );
+
 /**
  * Creates a copy of SourceObject using the Outer and Name specified, as well as copies of all objects contained by SourceObject.  
  * Any objects referenced by SourceOuter or RootObject and contained by SourceOuter are also copied, maintaining their name relative to SourceOuter.  Any
@@ -248,52 +258,85 @@ COREUOBJECT_API void StaticTick( float DeltaTime, bool bUseFullTimeLimit = true,
  */
 COREUOBJECT_API UPackage* LoadPackage( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags );
 
+/* Async package loading result */
+namespace EAsyncLoadingResult
+{
+	enum Type
+	{
+		/** Package failed to load */
+		Failed,
+		/** Package loaded successfully */
+		Succeeded,
+		/** Async loading was canceled */
+		Canceled
+	};
+}
+
 /**
  * Delegate called on completion of async package loading
  * @param	PackageName			Package name we were trying to load
  * @param	LoadedPackage		Loaded package if successful, NULL otherwise	
+ * @param	Result		Result of async loading.
  */
-DECLARE_DELEGATE_TwoParams(FLoadPackageAsyncDelegate, const FName& /*PackageName*/, UPackage* /*LoadedPackage*/)
-struct FAsyncPackage;
-/**
- * Asynchronously load a package and all contained objects that match context flags. Non- blocking.
- *
- * @param	PackageName			Name of package to load
- * @param	CompletionDelegate	Delegate called on completion of loading
- * @param	PackageGuid			GUID of the package to load, or NULL for "don't care"
- * @param	PackageType			A type name associated with this package for later use
- * @param	PackageToLoadFrom	If non-null, this is another package name. We load from this package name, into a (probably new) package named PackageName
- * @return	Handle for this async loading request
- */
-COREUOBJECT_API FAsyncPackage& LoadPackageAsync( const FString& PackageName, FLoadPackageAsyncDelegate CompletionDelegate, const FGuid* RequiredGuid = NULL, FName PackageType = NAME_None, const TCHAR* PackageToLoadFrom = NULL );
+DECLARE_DELEGATE_ThreeParams(FLoadPackageAsyncDelegate, const FName& /*PackageName*/, UPackage* /*LoadedPackage*/, EAsyncLoadingResult::Type /*Result*/)
 
 /**
  * Asynchronously load a package and all contained objects that match context flags. Non- blocking.
  *
- * @param	PackageName			Name of package to load
- * @param	PackageGuid			GUID of the package to load, or NULL for "don't care"
- * @param	PackageType			A type name associated with this package for later use
- * @param	PackageToLoadFrom	If non-null, this is another package name. We load from this package name, into a (probably new) package named PackageName
- * @return	Handle for this async loading request
+ * @param	InName					Name of package to load
+ * @param	InGuid					GUID of the package to load, or NULL for "don't care"
+ * @param	InType					A type name associated with this package for later use
+ * @param	InPackageToLoadFrom		If non-null, this is another package name. We load from this package name, into a (probably new) package named PackageName
+ * @param	InCompletionDelegate	Delegate to be invoked when the packages has finished streaming
+ * @param	InFlags					Package flags
+ * @param	InPIEInstanceID			PIE instance ID
+ * @param	InPackagePriority		Loading priority
  */
-COREUOBJECT_API FAsyncPackage& LoadPackageAsync( const FString& PackageName, const FGuid* RequiredGuid = NULL, FName PackageType = NAME_None, const TCHAR* PackageToLoadFrom = NULL );
+COREUOBJECT_API void LoadPackageAsync(const FString& InName, const FGuid* InGuid = nullptr, FName InType = NAME_None, const TCHAR* InPackageToLoadFrom = nullptr, FLoadPackageAsyncDelegate InCompletionDelegate = FLoadPackageAsyncDelegate(), EPackageFlags InPackageFlags = PKG_None, int32 InPIEInstanceID = INDEX_NONE, uint32 InPackagePriority = 0);
+
+/**
+* Asynchronously load a package and all contained objects that match context flags. Non- blocking.
+*
+* @param	InName					Name of package to load
+* @param	InCompletionDelegate	Delegate to be invoked when the packages has finished streaming
+* @param	InPackagePriority		Loading priority
+*/
+COREUOBJECT_API void LoadPackageAsync(const FString& InName, FLoadPackageAsyncDelegate InCompletionDelegate, uint32 InPackagePriority = 0, EPackageFlags InPackageFlags = PKG_None);
+
+/**
+* Cancels all async package loading requests.
+*/
+COREUOBJECT_API void CancelAsyncLoading();
 
 /**
  * Returns the async load percentage for a package in flight with the passed in name or -1 if there isn't one.
+ * THIS IS SLOW. MAY BLOCK ASYNC LOADING.
  *
  * @param	PackageName			Name of package to query load percentage for
  * @return	Async load percentage if package is currently being loaded, -1 otherwise
  */
 COREUOBJECT_API float GetAsyncLoadPercentage( const FName& PackageName );
 
+/**
+* Whether we are inside garbage collection
+*/
+COREUOBJECT_API bool IsGarbageCollecting();
+
 /** 
- * Deletes all unreferenced objects, keeping objects that have any of the passed in KeepFlags set
+ * Deletes all unreferenced objects, keeping objects that have any of the passed in KeepFlags set. Will wait for other threads to unlock GC.
  *
  * @param	KeepFlags			objects with those flags will be kept regardless of being referenced or not
  * @param	bPerformFullPurge	if true, perform a full purge after the mark pass
  */
-COREUOBJECT_API void CollectGarbage( EObjectFlags KeepFlags, bool bPerformFullPurge = true );
-COREUOBJECT_API void SerializeRootSet( FArchive& Ar, EObjectFlags KeepFlags );
+COREUOBJECT_API void CollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge = true);
+/**
+* Performs garbage collection only if no other thread holds a lock on GC
+*
+* @param	KeepFlags			objects with those flags will be kept regardless of being referenced or not
+* @param	bPerformFullPurge	if true, perform a full purge after the mark pass
+*/
+COREUOBJECT_API bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge = true);
+COREUOBJECT_API void SerializeRootSet(FArchive& Ar, EObjectFlags KeepFlags);
 
 /**
  * Returns whether an incremental purge is still pending/ in progress.
@@ -355,12 +398,6 @@ COREUOBJECT_API bool IsReferenced( UObject*& Res, EObjectFlags KeepFlags, bool b
  * @param	ExcludeType		Do not flush packages associated with this specific type name
  */
 COREUOBJECT_API void FlushAsyncLoading( FName ExcludeType = NAME_None );
-/**
- * Returns whether we are currently async loading a package.
- *
- * @return true if we are async loading a package, false otherwise
- */
-COREUOBJECT_API bool IsAsyncLoading();
 
 /**
  * @return number of active async load package requests
@@ -386,7 +423,7 @@ namespace EAsyncPackageState
 		/** Package has pending import packages that need to be streamed in. */
 		PendingImports,
 		/** Package has finished loading. */
-		Complete
+		Complete,
 	};
 }
 /**
@@ -556,7 +593,7 @@ public:
 	TSubobjectPtrDeprecated(TSubobjectPtrDeprecated<DerivedSubobjectType>& Other)
 		: FSubobjectPtr(Other.Object)
 	{
-		static_assert((CanConvertPointerFromTo<DerivedSubobjectType, SubobjectType>::Result), "Subobject pointers must be compatible.");
+		static_assert(TPointerIsConvertibleFromTo<DerivedSubobjectType, const SubobjectType>::Value, "Subobject pointers must be compatible.");
 	}
 	/** Gets the sub-object pointer. */
 	FORCEINLINE SubobjectType* Get() const
@@ -827,6 +864,13 @@ private:
 	 * @return	Returns true if that property was a non-native one, otherwise false
 	 */
 	static bool InitNonNativeProperty(UProperty* Property, UObject* Data);
+	
+	/**
+	 * Finalizes a constructed UObject by initializing properties, 
+	 * instancing/initializing sub-objects, etc.
+	 */
+	void PostConstructInit();
+
 private:
 
 	/**  Littel helper struct to manage overrides from dervied classes **/
@@ -939,6 +983,11 @@ private:
 	mutable FSubobjectsToInit ComponentInits;
 	/**  Previously constructed object in the callstack */
 	UObject* LastConstructedObject;
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	/**  */
+	bool bIsDeferredInitializer : 1;
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 };
 
 #define FPostConstructInitializeProperties \
@@ -985,6 +1034,17 @@ public:
 	{
 		ObjectInitializer.InstanceSubobjects(Class, bNeedInstancing, bNeedSubobjectInstancing);
 	}
+
+	/**
+	 * Finalizes a constructed UObject by initializing properties, instancing &
+	 * initializing sub-objects, etc.
+	 * 
+	 * @param  ObjectInitializer    The initializer to run PostConstructInit() on.
+	 */
+	inline static void PostConstructInitObject(FObjectInitializer& ObjectInitializer)
+	{
+		ObjectInitializer.PostConstructInit();
+	}
 };
 
 /**
@@ -1008,7 +1068,19 @@ public:
  * @return	a pointer of type T to a new object of the specified class
  */
 template< class T >
+DEPRECATED(4.8, "ConstructObject is deprecated. Use NewObject instead")
 T* ConstructObject(UClass* Class, UObject* Outer = (UObject*)GetTransientPackage(), FName Name=NAME_None, EObjectFlags SetFlags=RF_NoFlags, UObject* Template=NULL, bool bCopyTransientsFromClassDefaults=false, struct FObjectInstancingGraph* InstanceGraph=NULL );
+
+/*
+ * Check if class is child of another class.
+ * 
+ * @param Parent	Parent class
+ * @param Child		Child class
+ * 
+ * @return True if Child is a child of Parent, false otherwise.
+ *
+ **/
+COREUOBJECT_API bool DebugIsClassChildOf_Internal(UClass* Parent, UClass* Child);
 
 /**
  * Convenience template for constructing a gameplay object
@@ -1017,10 +1089,21 @@ T* ConstructObject(UClass* Class, UObject* Outer = (UObject*)GetTransientPackage
  * @param	Class		the class of object to construct
  */
 template< class T >
-T* NewObject(UObject* Outer=(UObject*)GetTransientPackage(),UClass* Class=T::StaticClass() )
+T* NewObject(UObject* Outer = (UObject*)GetTransientPackage(), UClass* Class = T::StaticClass(), FName Name = NAME_None, EObjectFlags Flags = RF_NoFlags, UObject* Template = nullptr, bool bCopyTransientsFromClassDefaults = false, FObjectInstancingGraph* InInstanceGraph = nullptr)
 {
-	FObjectInitializer::AssertIfInConstructor(Outer, TEXT("NewObject can't be used to create default subobjects (inside of UObject derived class constructor) as it produces inconsistent object names. Use ObjectInitializer.CreateDefaultSuobject<> instead."));
-	return ConstructObject<T>(Class,Outer);
+	if (Name == NAME_None)
+	{
+		FObjectInitializer::AssertIfInConstructor(Outer, TEXT("NewObject with empty name can't be used to create default subobjects (inside of UObject derived class constructor) as it produces inconsistent object names. Use ObjectInitializer.CreateDefaultSuobject<> instead."));
+	}
+	checkf(Class, TEXT("NewObject called with a nullptr class object"));
+	checkSlow(DebugIsClassChildOf_Internal(T::StaticClass(), Class));
+	return static_cast<T*>(StaticConstructObject_Internal(Class, Outer, Name, Flags, Template, bCopyTransientsFromClassDefaults, InInstanceGraph));
+}
+
+template< class T >
+T* NewObject(UObject* Outer, FName Name, EObjectFlags Flags = RF_NoFlags, UObject* Template = nullptr, bool bCopyTransientsFromClassDefaults = false, FObjectInstancingGraph* InInstanceGraph = nullptr)
+{
+	return NewObject<T>(Outer, T::StaticClass(), Name, Flags, Template, bCopyTransientsFromClassDefaults, InInstanceGraph);
 }
 
 /**
@@ -1031,9 +1114,10 @@ T* NewObject(UObject* Outer=(UObject*)GetTransientPackage(),UClass* Class=T::Sta
  * @param	Flags	The object flags for the new object.
  */
 template< class TClass >
+DEPRECATED(4.8, "NewNamedObject is deprecated. Use NewObject instead")
 TClass* NewNamedObject(UObject* Outer, FName Name, EObjectFlags Flags = RF_NoFlags, UObject* Template=NULL)
 {
-	return ConstructObject<TClass>(TClass::StaticClass(), Outer, Name, Flags, Template);
+	return NewObject<TClass>(Outer, Name, Flags, Template);
 }
 
 
@@ -1059,6 +1143,16 @@ T* DuplicateObject(T const* SourceObject,UObject* Outer,const TCHAR* Name = TEXT
 	}
 	return NULL;
 }
+
+/**
+ * Determines whether the specified object should load values using PerObjectConfig rules
+ */
+COREUOBJECT_API bool UsesPerObjectConfig( UObject* SourceObject );
+
+/**
+ * Returns the file to load ini values from for the specified object, taking into account PerObjectConfig-ness
+ */
+COREUOBJECT_API FString GetConfigFilename( UObject* SourceObject );
 
 /*----------------------------------------------------------------------------
 	Core templates.
@@ -1092,7 +1186,7 @@ inline T* FindObjectChecked( UObject* Outer, const TCHAR* Name, bool ExactClass=
 	return (T*)StaticFindObjectChecked( T::StaticClass(), Outer, Name, ExactClass );
 }
 
-// Find an object without asserting on GIsSavingPackage or GIsGarbageCollecting
+// Find an object without asserting on GIsSavingPackage or IsGarbageCollecting()
 template< class T > 
 inline T* FindObjectSafe( UObject* Outer, const TCHAR* Name, bool ExactClass=false )
 {
@@ -1135,6 +1229,11 @@ inline T* GetMutableDefault()
 // Get default object of a class (mutable).
 template< class T > 
 inline T* GetMutableDefault(UClass *Class);
+
+/**
+ * Looks for delegate signature with given name.
+ */
+COREUOBJECT_API UFunction* FindDelegateSignature(FName DelegateSignatureName);
 
 /**
  * Determines whether the specified array contains objects of the specified class.
@@ -1353,7 +1452,7 @@ public:
 	 * @param ReferencingProperty Referencing property (if available).
 	 */
 	template<class UObjectType>
-	void AddReferencedObject(UObjectType*& Object, const UObject* ReferencingObject = NULL, const UObject* ReferencingProperty = NULL)
+	void AddReferencedObject(UObjectType*& Object, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
 	{
 		HandleObjectReference(*(UObject**)&Object, ReferencingObject, ReferencingProperty);
 	}
@@ -1366,7 +1465,7 @@ public:
 	* @param ReferencingProperty Referencing property (if available).
 	*/
 	template<class UObjectType>
-	void AddReferencedObjects(TArray<UObjectType>& ObjectArray, const UObject* ReferencingObject = NULL, const UObject* ReferencingProperty = NULL)
+	void AddReferencedObjects(TArray<UObjectType>& ObjectArray, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
 	{
 		for (auto& Object : ObjectArray)
 		{
@@ -1382,7 +1481,7 @@ public:
 	* @param ReferencingProperty Referencing property (if available).
 	*/
 	template<class UObjectType>
-	void AddReferencedObjects(TSet<UObjectType>& ObjectSet, const UObject* ReferencingObject = NULL, const UObject* ReferencingProperty = NULL)
+	void AddReferencedObjects(TSet<UObjectType>& ObjectSet, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
 	{
 		for (auto& Object : ObjectSet)
 		{
@@ -1409,11 +1508,11 @@ private:
 	* Functions used by AddReferencedObject (TMap version). Adds references to UObjects, ignores value types
 	*/
 	template<class UObjectType>
-	void AddReferencedObjectOrIgnoreValue(UObjectType& Object, const UObject* ReferencingObject, const UObject* ReferencingProperty)
+	void AddReferencedObjectOrIgnoreValue(UObjectType& Object, const UObject* ReferencingObject, const UProperty* ReferencingProperty)
 	{
 	}
 	template<class UObjectType>
-	void AddReferencedObjectOrIgnoreValue(UObjectType*& Object, const UObject* ReferencingObject, const UObject* ReferencingProperty)
+	void AddReferencedObjectOrIgnoreValue(UObjectType*& Object, const UObject* ReferencingObject, const UProperty* ReferencingProperty)
 	{
 		HandleObjectReference(*(UObject**)&Object, ReferencingObject, ReferencingProperty);
 	}
@@ -1428,7 +1527,7 @@ public:
 	* @param ReferencingProperty Referencing property (if available).
 	*/
 	template <typename TKeyType, typename TValueType>
-	void AddReferencedObjects(TMap<TKeyType, TValueType>& Map, const UObject* ReferencingObject = NULL, const UObject* ReferencingProperty = NULL)
+	void AddReferencedObjects(TMap<TKeyType, TValueType>& Map, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
 	{
 		static_assert(CanConverFromTo<TKeyType, UObjectBase*>::Result || CanConverFromTo<TValueType, UObjectBase*>::Result, "At least one of TMap template types must be derived from UObject");
 		for (auto& It : Map)
@@ -1472,7 +1571,7 @@ protected:
 	 * @param ReferencingObject Referencing object (if available).
 	 * @param ReferencingProperty Referencing property (if available).
 	 */
-	virtual void HandleObjectReference(UObject*& Object, const UObject* ReferencingObject, const UObject* ReferencingProperty) = 0;
+	virtual void HandleObjectReference(UObject*& InObject, const UObject* InReferencingObject, const UProperty* InReferencingProperty) = 0;
 };
 
 /**
@@ -1504,10 +1603,10 @@ public:
 	 * @param ReferencingObject object that's referencing the current object.
 	 * @param ReferencingProperty property the current object is being referenced through.
 	 */
-	virtual void FindReferences(UObject* Object, UObject* ReferencingObject = nullptr, UObject* ReferencingProperty = nullptr);	
+	virtual void FindReferences(UObject* Object, UObject* ReferencingObject = nullptr, UProperty* ReferencingProperty = nullptr);
 
 	// FReferenceCollector interface.
-	virtual void HandleObjectReference(UObject*& Object, const UObject* ReferencingObject, const UObject* InReferencingProperty) override;
+	virtual void HandleObjectReference(UObject*& Object, const UObject* ReferencingObject, const UProperty* InReferencingProperty) override;
 	virtual bool IsIgnoringArchetypeRef() const override { return bShouldIgnoreArchetype; }
 	virtual bool IsIgnoringTransient() const override { return bShouldIgnoreTransient; }
 	virtual void SetSerializedProperty(class UProperty* Inproperty) override

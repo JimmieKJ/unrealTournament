@@ -1,9 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	CircularQueue.h: Declares the TCircularQueue template.
-=============================================================================*/
-
 #pragma once
 
 
@@ -35,10 +31,8 @@ public:
 		, Tail(0)
 	{ }
 
-	/**
-	 * Destructor.
-	 */
-	virtual ~TCircularQueue( ) { }
+	/** Virtual destructor. */
+	virtual ~TCircularQueue() { }
 
 public:
 
@@ -47,7 +41,7 @@ public:
 	 *
 	 * @return Number of queued elements.
 	 */
-	uint32 Count( ) const
+	uint32 Count() const
 	{
 		int32 Count = Head - Tail;
 
@@ -83,7 +77,7 @@ public:
 	 *
 	 * @see IsEmpty
 	 */
-	void Empty( )
+	void Empty()
 	{
 		Head = Tail;
 	}
@@ -115,7 +109,7 @@ public:
 	 * @return true if the queue is empty, false otherwise.
 	 * @see Empty, IsFull
 	 */
-	FORCEINLINE bool IsEmpty( ) const
+	FORCEINLINE bool IsEmpty() const
 	{
 		return (Head == Tail);
 	}
@@ -126,7 +120,7 @@ public:
 	 * @return true if the queue is full, false otherwise.
 	 * @see IsEmpty
 	 */
-	bool IsFull( ) const
+	bool IsFull() const
 	{
 		return (Buffer.GetNextIndex(Tail) == Head);
 	}
@@ -151,12 +145,12 @@ public:
 
 private:
 
-	// Holds the buffer.
+	/** Holds the buffer. */
 	TCircularBuffer<ElementType> Buffer;
 
-	// Holds the index to the first item in the buffer.
+	/** Holds the index to the first item in the buffer. */
 	MS_ALIGN(CACHE_LINE_SIZE) volatile uint32 Head GCC_ALIGN(CACHE_LINE_SIZE);
 
-	// Holds the index to the last item in the buffer.
+	/** Holds the index to the last item in the buffer. */
 	MS_ALIGN(CACHE_LINE_SIZE) volatile uint32 Tail GCC_ALIGN(CACHE_LINE_SIZE);
 };

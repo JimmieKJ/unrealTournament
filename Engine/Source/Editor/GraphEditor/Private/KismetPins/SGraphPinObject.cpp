@@ -5,6 +5,8 @@
 #include "SGraphPinClass.h"
 #include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
 #include "AssetData.h"
+#include "Editor/UnrealEd/Public/ScopedTransaction.h"
+#include "Engine/Selection.h"
 
 #define LOCTEXT_NAMESPACE "SGraphPinObject"
 
@@ -184,6 +186,22 @@ TSharedRef<SWidget> SGraphPinObject::GenerateAssetPicker()
 	AssetPickerConfig.InitialAssetViewType = EAssetViewType::List;
 	AssetPickerConfig.bAllowDragging = false;
 
+	// Check with the node to see if there is any "AllowClasses" metadata for the pin
+	FString ClassFilterString = GraphPinObj->GetOwningNode()->GetPinMetaData(GraphPinObj->PinName, FName(TEXT("AllowedClasses")));
+	if( !ClassFilterString.IsEmpty() )
+	{
+		// Clear out the allowed class names and have the pin's metadata override.
+		AssetPickerConfig.Filter.ClassNames.Empty();
+
+		// Parse and add the classes from the metadata
+		TArray<FString> CustomClassFilterNames;
+		ClassFilterString.ParseIntoArray(CustomClassFilterNames, TEXT(","), true);
+		for(auto It = CustomClassFilterNames.CreateConstIterator(); It; ++It)
+		{
+			AssetPickerConfig.Filter.ClassNames.Add(FName(**It));
+		}
+	}
+
 	return
 		SNew(SBox)
 		.HeightOverride(300)
@@ -199,11 +217,18 @@ TSharedRef<SWidget> SGraphPinObject::GenerateAssetPicker()
 
 void SGraphPinObject::OnAssetSelectedFromPicker(const class FAssetData& AssetData)
 {
-	// Close the asset picker
-	AssetPickerAnchor->SetIsOpen(false);
+	UObject* AssetObject = AssetData.GetAsset();
+	if(GraphPinObj->DefaultObject != AssetObject)
+	{
+		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeObjectPinValue", "Change Object Pin Value" ) );
+		GraphPinObj->Modify();
 
-	// Set the object found from the asset picker
-	GraphPinObj->GetSchema()->TrySetDefaultObject(*GraphPinObj, AssetData.GetAsset());
+		// Close the asset picker
+		AssetPickerAnchor->SetIsOpen(false);
+
+		// Set the object found from the asset picker
+		GraphPinObj->GetSchema()->TrySetDefaultObject(*GraphPinObj, AssetObject);
+	}
 }
 
 

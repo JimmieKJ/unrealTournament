@@ -76,8 +76,8 @@ namespace EConstraintTransform
 {
 	enum Type
 	{
-		/** Absoluate value. */
-		Absoluate,
+		/** Absolute value. */
+		Absolute,
 		/** Apply relative transform from ref pose. */
 		Relative,
 	};

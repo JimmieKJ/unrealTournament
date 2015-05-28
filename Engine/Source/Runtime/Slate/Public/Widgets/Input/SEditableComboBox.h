@@ -170,7 +170,7 @@ public:
 										.ForegroundColor(FSlateColor::UseForeground())
 										.ButtonStyle( FCoreStyle::Get(), "NoBorder" )
 										.OnClicked(this, &SEditableComboBox::HandleAcceptButtonClicked)
-										.ToolTipText(LOCTEXT("AcceptButtonTooltip", "Accept").ToString())
+										.ToolTipText(LOCTEXT("AcceptButtonTooltip", "Accept"))
 										.VAlign(VAlign_Center)
 										.Content()
 										[

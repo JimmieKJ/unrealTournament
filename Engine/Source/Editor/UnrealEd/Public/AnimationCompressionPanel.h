@@ -38,6 +38,9 @@ public:
 		/** The anim sequences to compress */
 		SLATE_ARGUMENT( TArray<TWeakObjectPtr<UAnimSequence>>, AnimSequences )
 
+		/** Window in which this widget resides */
+		SLATE_ATTRIBUTE(TSharedPtr<SWindow>, ParentWindow)
+
 	SLATE_END_ARGS()	
 
 	/**
@@ -112,4 +115,7 @@ private:
 	TArray< TWeakObjectPtr<UAnimSequence> >	AnimSequences;
 
 	int32 CurrentCompressionChoice;
+
+	/** Pointer to the window which holds this Widget, required for modal control */
+	TSharedPtr<SWindow> ParentWindow;
 };

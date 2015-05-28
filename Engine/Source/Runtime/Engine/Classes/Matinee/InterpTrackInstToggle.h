@@ -2,6 +2,9 @@
 
 
 #pragma once
+
+#include "Matinee/InterpTrackToggle.h"
+
 #include "InterpTrackInstToggle.generated.h"
 
 UCLASS()

@@ -6,10 +6,6 @@ public class Paper2DEditor : ModuleRules
 {
 	public Paper2DEditor(TargetInfo Target)
 	{
-		//Example path:
-		//D:\BaseUE4\Engine\Source\Editor\Persona\Private\Persona.cpp
-		//PrivateIncludePaths.Add("Editor/Persona/Private");	// For PCH includes (because they don't work with relative paths, yet)
-
 		PrivateIncludePaths.Add("Paper2DEditor/Private");
 
 		PrivateDependencyModuleNames.AddRange(
@@ -23,15 +19,16 @@ public class Paper2DEditor : ModuleRules
                 "InputCore",
 				"UnrealEd", // for FAssetEditorManager
 				"KismetWidgets",
-				"GraphEditor",
 				"Kismet",  // for FWorkflowCentricApplication
 				"PropertyEditor",
 				"RenderCore",
-				"LevelEditor", // for EdModes to get a toolkit host  //@TODO: PAPER: Should be a better way to do this (see the @todo in EdModeTileMap.cpp)
 				"Paper2D",
 				"ContentBrowser",
 				"WorkspaceMenuStructure",
-				"EditorStyle"
+				"EditorStyle",
+				"MeshPaint",
+				"EditorWidgets",
+				"Projects"
 			}
 			);
 

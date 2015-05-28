@@ -150,7 +150,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 		if (foundObj != NULL)
 		{
 			// not allowed in the editor unless it is a PIE object as this command can have far reaching effects such as impacting serialization
-			if (!GIsEditor || ((!foundObj->IsTemplate() && (foundObj->GetOutermost()->PackageFlags & PKG_PlayInEditor))))
+			if (!GIsEditor || (!foundObj->IsTemplate() && (foundObj->GetOutermost()->PackageFlags & PKG_PlayInEditor)))
 			{
 				EditObject(foundObj, true);
 			}
@@ -175,7 +175,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 		if (foundObj != NULL)
 		{
 			// not allowed in the editor unless it is a PIE object as this command can have far reaching effects such as impacting serialization
-			if (!GIsEditor || ((!foundObj->IsTemplate() && (foundObj->GetOutermost()->PackageFlags & PKG_PlayInEditor))))
+			if (!GIsEditor || (!foundObj->IsTemplate() && (foundObj->GetOutermost()->PackageFlags & PKG_PlayInEditor)))
 			{
 				EditObject(foundObj, false);
 			}
@@ -202,7 +202,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 				FRotator PlayerRotation;
 				PlayerController->GetPlayerViewPoint(PlayerLocation, PlayerRotation);
 				FHitResult Hit(1.0f);
-				PlayerController->GetWorld()->LineTraceSingle(Hit, PlayerLocation, PlayerLocation + PlayerRotation.Vector() * 10000.f, ECC_Pawn, FCollisionQueryParams(NAME_None, true, PlayerController->GetPawn()));
+				PlayerController->GetWorld()->LineTraceSingleByChannel(Hit, PlayerLocation, PlayerLocation + PlayerRotation.Vector() * 10000.f, ECC_Pawn, FCollisionQueryParams(NAME_None, true, PlayerController->GetPawn()));
 				Found = Hit.GetActor();
 			}
 		}
@@ -256,7 +256,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 		if( Found )
 		{
 			// not allowed in the editor unless it is a PIE object as this command can have far reaching effects such as impacting serialization
-			if (!GIsEditor || ((!Found->IsTemplate() && (Found->GetOutermost()->PackageFlags & PKG_PlayInEditor))))
+			if (!GIsEditor || (!Found->IsTemplate() && (Found->GetOutermost()->PackageFlags & PKG_PlayInEditor)))
 			{
 				EditObject(Found, true);
 			}

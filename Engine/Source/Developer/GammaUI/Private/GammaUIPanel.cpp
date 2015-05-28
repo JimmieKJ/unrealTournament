@@ -44,8 +44,7 @@ void SGammaUIPanel::Construct(const SGammaUIPanel::FArguments& InArgs)
 
 float SGammaUIPanel::OnGetGamma() const
 {
-	float DisplayGamma = GEngine->DisplayGamma;
-	return GEngine ? DisplayGamma : 2.2f;
+	return GEngine ? GEngine->DisplayGamma : 2.2f;
 }
 
 void SGammaUIPanel::OnGammaChanged(float NewValue)

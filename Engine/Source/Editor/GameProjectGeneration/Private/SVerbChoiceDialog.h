@@ -8,12 +8,16 @@ public:
 	SLATE_BEGIN_ARGS( SVerbChoiceDialog )	{}
 		SLATE_ATTRIBUTE(TSharedPtr<SWindow>, ParentWindow)
 		SLATE_ATTRIBUTE(FText, Message)	
+		SLATE_ATTRIBUTE(TArray<FText>, Hyperlinks)
 		SLATE_ATTRIBUTE(TArray<FText>, Buttons)
 		SLATE_ATTRIBUTE(float, WrapMessageAt)
 	SLATE_END_ARGS()
 
 	/** Displays the modal dialog box */
 	static int32 ShowModal(const FText& InTitle, const FText& InText, const TArray<FText>& InButtons);
+
+	/** Displays the modal dialog box, also allowing customization of the hyperlinks */
+	static int32 ShowModal(const FText& InTitle, const FText& InText, const TArray<FText>& InHyperlinks, const TArray<FText>& InButtons);
 
 	/** Constructs the dialog */
 	void Construct( const FArguments& InArgs );
@@ -29,14 +33,18 @@ protected:
 	void CopyMessageToClipboard( );
 
 private:
+	/** Handles clicking the 'Copy Message' hyperlink. */
+	void HandleCopyMessageHyperlinkNavigate( );
+
+	/** Handles clicking on a hyperlink. */
+	void HandleHyperlinkClicked( int32 InResponse );
+
 	/** Handles clicking a message box button. */
 	FReply HandleButtonClicked( int32 InResponse );
-
-	/** Handles clicking the 'Copy Message' hyper link. */
-	void HandleCopyMessageHyperlinkNavigate( );
 
 	int32 Response;
 	TSharedPtr<SWindow> ParentWindow;
 	TAttribute<FText> Message;
 	TAttribute< TArray<FText> > Buttons;
+	TAttribute< TArray<FText> > Hyperlinks;
 };

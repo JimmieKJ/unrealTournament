@@ -1,23 +1,115 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "Paper2DPrivatePCH.h"
-#include "PaperSprite.h"
+#include "SpriteEditorOnlyTypes.h"
 #include "ComponentReregisterContext.h"
+#include "PhysicsEngine/BoxElem.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "PaperTileMap.h"
+#include "PaperTileLayer.h"
+#include "PaperTileMapComponent.h"
+
+// Handles the rotation and flipping of collision geometry from a tile
+// 0,5,6,3 are clockwise rotations of a regular tile
+// 4,7,2,1 are clockwise rotations of a horizontally flipped tile
+const static FTransform TilePermutationTransforms[8] =
+{
+	// 000 - normal
+	FTransform::Identity,
+
+	// 001 - diagonal
+	FTransform(FRotator(  90.0f, 0.0f, 0.0f), FVector::ZeroVector, -PaperAxisX.GetAbs() + PaperAxisY.GetAbs() + PaperAxisZ.GetAbs()),
+
+	// 010 - flip Y
+	FTransform(FRotator(-180.0f, 0.0f, 0.0f), FVector::ZeroVector, -PaperAxisX.GetAbs() + PaperAxisY.GetAbs() + PaperAxisZ.GetAbs()),
+
+	// 011 - diagonal then flip Y (rotate 270 clockwise)
+	FTransform(FRotator(  90.0f, 0.0f, 0.0f)),
+
+	// 100 - flip X
+	FTransform(FRotator::ZeroRotator, FVector::ZeroVector, -PaperAxisX.GetAbs() + PaperAxisY.GetAbs() + PaperAxisZ.GetAbs()),
+
+	// 101 - diagonal then flip X (clockwise 90)
+	FTransform(FRotator( -90.0f, 0.0f, 0.0f)),
+
+	// 110 - flip X and flip Y (rotate 180 either way)
+	FTransform(FRotator(-180.0f, 0.0f, 0.0f)),
+
+	// 111 - diagonal then flip X and Y
+	FTransform(FRotator(-90.0f, 0.0f, 0.0f), FVector::ZeroVector, -PaperAxisX.GetAbs() + PaperAxisY.GetAbs() + PaperAxisZ.GetAbs()),
+};
+
+//////////////////////////////////////////////////////////////////////////
+// FPaperTileLayerToBodySetupBuilder
+
+class FPaperTileLayerToBodySetupBuilder : public FSpriteGeometryCollisionBuilderBase
+{
+public:
+	FPaperTileLayerToBodySetupBuilder(UPaperTileMap* InTileMap, UBodySetup* InBodySetup, float InZOffset, float InThickness)
+		: FSpriteGeometryCollisionBuilderBase(InBodySetup)
+	{
+		UnrealUnitsPerPixel = InTileMap->GetUnrealUnitsPerPixel();
+		CollisionThickness = InThickness;
+		CollisionDomain = InTileMap->GetSpriteCollisionDomain();
+		CurrentCellOffset = FVector2D::ZeroVector;
+		ZOffsetAmount = InZOffset;
+	}
+
+	void SetCellOffset(const FVector2D& NewOffset, const FTransform& NewTransform)
+	{
+		CurrentCellOffset = NewOffset;
+		MyTransform = NewTransform;
+	}
+
+protected:
+	// FSpriteGeometryCollisionBuilderBase interface
+	virtual FVector2D ConvertTextureSpaceToPivotSpace(const FVector2D& Input) const override
+	{
+		const FVector LocalPos3D = (Input.X * PaperAxisX) - (Input.Y * PaperAxisY);
+		const FVector RotatedLocalPos3D = MyTransform.TransformPosition(LocalPos3D);
+
+		const float OutputX = CurrentCellOffset.X + FVector::DotProduct(RotatedLocalPos3D, PaperAxisX);
+		const float OutputY = CurrentCellOffset.Y + FVector::DotProduct(RotatedLocalPos3D, PaperAxisY);
+
+		return FVector2D(OutputX, OutputY);
+	}
+
+	virtual FVector2D ConvertTextureSpaceToPivotSpaceNoTranslation(const FVector2D& Input) const override
+	{
+		const FVector LocalPos3D = (Input.X * PaperAxisX) + (Input.Y * PaperAxisY);
+		const FVector RotatedLocalPos3D = MyTransform.TransformVector(LocalPos3D);
+
+		const float OutputX = FVector::DotProduct(RotatedLocalPos3D, PaperAxisX);
+		const float OutputY = FVector::DotProduct(RotatedLocalPos3D, PaperAxisY);
+
+		return FVector2D(OutputX, OutputY);
+	}
+	// End of FSpriteGeometryCollisionBuilderBase
+
+protected:
+	FTransform MyTransform;
+	UPaperTileLayer* MySprite;
+	FVector2D CurrentCellOffset;
+};
 
 //////////////////////////////////////////////////////////////////////////
 // UPaperTileLayer
 
 UPaperTileLayer::UPaperTileLayer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-{
-	LayerWidth = 4;
-	LayerHeight = 4;
-
+	, LayerWidth(4)
+	, LayerHeight(4)
 #if WITH_EDITORONLY_DATA
-	LayerOpacity = 1.0f;
-
-	bHiddenInEditor = false;
+	, bHiddenInEditor(false)
 #endif
+	, bHiddenInGame(false)
+	, bLayerCollides(true)
+	, bOverrideCollisionThickness(false)
+	, bOverrideCollisionOffset(false)
+	, CollisionThicknessOverride(50.0f)
+	, CollisionOffsetOverride(0.0f)
+	, LayerColor(FLinearColor::White)
+{
 
 	DestructiveAllocateMap(LayerWidth, LayerHeight);
 }
@@ -25,10 +117,12 @@ UPaperTileLayer::UPaperTileLayer(const FObjectInitializer& ObjectInitializer)
 void UPaperTileLayer::DestructiveAllocateMap(int32 NewWidth, int32 NewHeight)
 {
 	check((NewWidth > 0) && (NewHeight > 0));
+	LayerWidth = NewWidth;
+	LayerHeight = NewHeight;
 
 	const int32 NumCells = NewWidth * NewHeight;
 	AllocatedCells.Empty(NumCells);
-	AllocatedCells.AddZeroed(NumCells);
+	AllocatedCells.AddDefaulted(NumCells);
 
 	AllocatedWidth = NewWidth;
 	AllocatedHeight = NewHeight;
@@ -65,55 +159,12 @@ void UPaperTileLayer::ReallocateAndCopyMap()
 			AllocatedCells[DstIndex] = SavedDesignedMap[SrcIndex];
 		}
 	}
-
-//	BakeMap();
 }
 
 #if WITH_EDITOR
 
-/** Removes all components that use the specified tile map layer from their scenes for the lifetime of the class. */
-class FTileMapLayerReregisterContext
-{
-public:
-	/** Initialization constructor. */
-	FTileMapLayerReregisterContext(UPaperTileLayer* TargetAsset)
-	{
-		// Look at tile map components
-		for (TObjectIterator<UPaperTileMapComponent> MapIt; MapIt; ++MapIt)
-		{
-			if (UPaperTileMap* TestMap = (*MapIt)->TileMap)
-			{
-				if (TestMap->TileLayers.Contains(TargetAsset))
-				{
-					AddComponentToRefresh(*MapIt);
-				}
-			}
-		}
-	}
-
-protected:
-	void AddComponentToRefresh(UActorComponent* Component)
-	{
-		if (ComponentContexts.Num() == 0)
-		{
-			// wait until resources are released
-			FlushRenderingCommands();
-		}
-
-		new (ComponentContexts) FComponentReregisterContext(Component);
-	}
-
-private:
-	/** The recreate contexts for the individual components. */
-	TIndirectArray<FComponentReregisterContext> ComponentContexts;
-};
-
-
-
 void UPaperTileLayer::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {
-	FTileMapLayerReregisterContext ReregisterExistingComponents(this);
-
 	FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
 
 	if ((PropertyName == GET_MEMBER_NAME_CHECKED(UPaperTileLayer, LayerWidth)) || (PropertyName == GET_MEMBER_NAME_CHECKED(UPaperTileLayer, LayerHeight)))
@@ -125,12 +176,11 @@ void UPaperTileLayer::PostEditChangeProperty(struct FPropertyChangedEvent& Prope
 		// Resize the map, trying to preserve existing data
 		ReallocateAndCopyMap();
 	}
-// 	else if (PropertyName == TEXT("AllocatedCells"))
-// 	{
-// 		BakeMap();
-// 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	// Force our owning tile map to recreate any component instances
+	GetTileMap()->PostEditChange();
 }
 #endif
 
@@ -139,63 +189,77 @@ UPaperTileMap* UPaperTileLayer::GetTileMap() const
 	return CastChecked<UPaperTileMap>(GetOuter());
 }
 
+int32 UPaperTileLayer::GetLayerIndex() const
+{
+	return GetTileMap()->TileLayers.Find(const_cast<UPaperTileLayer*>(this));
+}
+
+bool UPaperTileLayer::InBounds(int32 X, int32 Y) const
+{
+	return (X >= 0) && (X < LayerWidth) && (Y >= 0) && (Y < LayerHeight);
+}
+
 FPaperTileInfo UPaperTileLayer::GetCell(int32 X, int32 Y) const
 {
-	if ((X < 0) || (X >= LayerWidth) || (Y < 0) || (Y >= LayerHeight))
-	{
-		return FPaperTileInfo();
-	}
-	else
-	{
-		return AllocatedCells[X + (Y*LayerWidth)];
-	}
+	return InBounds(X, Y) ? AllocatedCells[X + (Y*LayerWidth)] : FPaperTileInfo();
 }
 
 void UPaperTileLayer::SetCell(int32 X, int32 Y, const FPaperTileInfo& NewValue)
 {
-	if ((X < 0) || (X >= LayerWidth) || (Y < 0) || (Y >= LayerHeight))
-	{
-	}
-	else
+	if (InBounds(X, Y))
 	{
 		AllocatedCells[X + (Y*LayerWidth)] = NewValue;
 	}
 }
 
-void UPaperTileLayer::AugmentBodySetup(UBodySetup* ShapeBodySetup)
+void UPaperTileLayer::AugmentBodySetup(UBodySetup* ShapeBodySetup, float RenderSeparation)
 {
-	if (bCollisionLayer)
+	if (!bLayerCollides)
 	{
-		//@TODO: Tile pivot issue
-		//@TODO: Layer thickness issue
-		const float TileWidth = GetTileMap()->TileWidth;
-		const float TileHeight = GetTileMap()->TileHeight;
-		const float TileThickness = 64.0f;
+		return;
+	}
 
-		//@TODO: When the origin of the component changes, this logic will need to be adjusted as well
-		// The origin is currently the top left
-		const float XOrigin = 0;
-		const float YOrigin = 0;
+	UPaperTileMap* TileMap = GetTileMap();
+	const float TileWidth = TileMap->TileWidth;
+	const float TileHeight = TileMap->TileHeight;
 
-		// Create a box element for every non-zero value in the layer
-		for (int32 XValue = 0; XValue < LayerWidth; ++XValue)
+	const float EffectiveCollisionOffset = bOverrideCollisionOffset ? CollisionOffsetOverride : RenderSeparation;
+	const float EffectiveCollisionThickness = bOverrideCollisionThickness ? CollisionThicknessOverride : TileMap->GetCollisionThickness();
+
+	// Generate collision for all cells that contain a tile with collision metadata
+	FPaperTileLayerToBodySetupBuilder CollisionBuilder(TileMap, ShapeBodySetup, EffectiveCollisionOffset, EffectiveCollisionThickness);
+
+	for (int32 CellY = 0; CellY < LayerHeight; ++CellY)
+	{
+		for (int32 CellX = 0; CellX < LayerWidth; ++CellX)
 		{
-			for (int32 YValue = 0; YValue < LayerHeight; ++YValue)
+			const FPaperTileInfo CellInfo = GetCell(CellX, CellY);
+
+			if (CellInfo.IsValid())
 			{
-				if (GetCell(XValue, YValue).PackedTileIndex != 0)
+				if (const FPaperTileMetadata* CellMetadata = CellInfo.TileSet->GetTileMetadata(CellInfo.GetTileIndex()))
 				{
-					FKBoxElem* NewBox = new(ShapeBodySetup->AggGeom.BoxElems) FKBoxElem(TileWidth, TileThickness, TileHeight);
+					const int32 Flags = CellInfo.GetFlagsAsIndex();
 
-					FVector BoxPosition;
-					BoxPosition.X = XOrigin + XValue * TileWidth;
-					BoxPosition.Y = TileThickness * 0.5f;
-					BoxPosition.Z = YOrigin - YValue * TileHeight;
+					const FTransform& LocalTransform = TilePermutationTransforms[Flags];
+					const FVector2D CellOffset(TileWidth * CellX, TileHeight * -CellY);
+					CollisionBuilder.SetCellOffset(CellOffset, LocalTransform);
 
-					NewBox->Center = BoxPosition;
+					CollisionBuilder.ProcessGeometry(CellMetadata->CollisionData);
 				}
 			}
 		}
 	}
+}
+
+FLinearColor UPaperTileLayer::GetLayerColor() const
+{
+	return LayerColor;
+}
+
+void UPaperTileLayer::SetLayerColor(FLinearColor NewColor)
+{
+	LayerColor = NewColor;
 }
 
 void UPaperTileLayer::ConvertToTileSetPerCell()
@@ -209,4 +273,41 @@ void UPaperTileLayer::ConvertToTileSetPerCell()
 		Info->TileSet = TileSet_DEPRECATED;
 		Info->PackedTileIndex = AllocatedGrid_DEPRECATED[Index];
 	}
+}
+
+bool UPaperTileLayer::UsesTileSet(UPaperTileSet* TileSet) const
+{
+	for (const FPaperTileInfo& TileInfo : AllocatedCells)
+	{
+		if (TileInfo.TileSet == TileSet)
+		{
+			if (TileInfo.IsValid())
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+FTransform UPaperTileLayer::GetTileTransform(int32 FlagIndex)
+{
+	checkSlow((FlagIndex >= 0) && (FlagIndex < 8));
+	return TilePermutationTransforms[FlagIndex];
+}
+
+int32 UPaperTileLayer::GetNumOccupiedCells() const
+{
+	int32 NumOccupiedCells = 0;
+
+	for (const FPaperTileInfo& TileInfo : AllocatedCells)
+	{
+		if (TileInfo.IsValid())
+		{
+			++NumOccupiedCells;
+		}
+	}
+
+	return NumOccupiedCells;
 }

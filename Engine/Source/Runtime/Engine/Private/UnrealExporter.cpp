@@ -77,13 +77,14 @@ UExporter* UExporter::FindExporter( UObject* Object, const TCHAR* FileType )
 	}
 
 	UClass** E;
+	auto TransientPackage = GetTransientPackage();
 	for (UClass* TempClass = Object->GetClass(); TempClass != NULL; TempClass = TempClass->GetSuperClass())
 	{
 		const bool bFoundExporter = ((E = Exporters.Find( TempClass )) != NULL);
 
 		if( bFoundExporter )
 		{
-			return ConstructObject<UExporter>( *E );
+			return NewObject<UExporter>(TransientPackage, *E);
 		}
 	}
 		
@@ -491,7 +492,8 @@ void UExporter::EmitBeginObject( FOutputDevice& Ar, UObject* Obj, uint32 PortFla
 		// do we want the archetype string?
 		if (!bIsExportingDefaultObject)
 		{
-			Ar.Logf(TEXT(" Archetype=%s'%s'"), *Obj->GetArchetype()->GetClass()->GetName(), *Obj->GetArchetype()->GetPathName());
+			UObject* Archetype = Obj->GetArchetype();
+			Ar.Logf(TEXT(" Archetype=%s"), *UObjectPropertyBase::GetExportPath(Archetype, Archetype->GetOutermost(), Archetype->GetOuter(), PortFlags));
 		}
 	}
 
@@ -602,7 +604,7 @@ void UExporter::ExportObjectInner(const FExportObjectInnerContext* Context, UObj
 	{
 		for (UObject* Obj : ObjectInners)
 		{
-			if (!Obj->HasAnyFlags(RF_TextExportTransient) && Obj->GetClass() != UModel::StaticClass())
+			if (!Obj->HasAnyFlags(RF_TextExportTransient))
 			{
 				// export the object
 				UExporter::ExportToOutputDevice( Context, Obj, NULL, Ar, (PortFlags & PPF_Copy) ? TEXT("Copy") : TEXT("T3D"), TextIndent, PortFlags | PPF_SeparateDeclare, false, ExportRootScope );

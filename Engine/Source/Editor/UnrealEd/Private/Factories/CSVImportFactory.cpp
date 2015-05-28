@@ -12,355 +12,11 @@
 #include "Engine/DataTable.h"
 #include "Engine/CurveTable.h"
 #include "Engine/UserDefinedStruct.h"
+#include "SCSVImportOptions.h"
 #include "DataTableEditorUtils.h"
 DEFINE_LOG_CATEGORY(LogCSVImportFactory);
 
 #define LOCTEXT_NAMESPACE "CSVImportFactory"
-
-/** Enum to indicate what to import CSV as */
-enum ECSVImportType
-{
-	/** Import as UDataTable */
-	ECSV_DataTable,
-	/** Import as UCurveTable */
-	ECSV_CurveTable,
-	/** Import as a UCurveFloat */
-	ECSV_CurveFloat,
-	/** Import as a UCurveVector */
-	ECSV_CurveVector,
-	/** Import as a UCurveLinearColor */
-	ECSV_CurveLinearColor,
-};
-
-/** UI to pick options when importing data table */
-class SCSVImportOptions : public SCompoundWidget
-{
-private:
-	/** Whether we should go ahead with import */
-	bool										bImport;
-
-	/** Window that owns us */
-	TWeakPtr< SWindow >							WidgetWindow;
-
-	// Import type
-
-	/** List of import types to pick from, drives combo box */
-	TArray< TSharedPtr<ECSVImportType> >						ImportTypes;
-
-	/** The combo box */
-	TSharedPtr< SComboBox< TSharedPtr<ECSVImportType> > >		ImportTypeCombo;
-
-	/** Indicates what kind of asset we want to make from the CSV file */
-	ECSVImportType												SelectedImportType;
-
-
-	// Row type
-
-	/** Array of row struct options */
-	TArray< UScriptStruct* >						RowStructs;
-
-	/** The row struct combo box */
-	TSharedPtr< SComboBox<UScriptStruct*> >			RowStructCombo;
-
-	/** The selected row struct */
-	UScriptStruct*									SelectedStruct;
-
-	/** Typedef for curve enum pointers */
-	typedef TSharedPtr<ERichCurveInterpMode>		CurveInterpModePtr;
-
-	/** The curve interpolation combo box */
-	TSharedPtr< SComboBox<CurveInterpModePtr> >		CurveInterpCombo;
-
-	/** All available curve interpolation modes */
-	TArray< CurveInterpModePtr >					CurveInterpModes;
-
-	/** The selected curve interpolation type */
-	ERichCurveInterpMode							SelectedCurveInterpMode;
-
-public:
-	SLATE_BEGIN_ARGS( SCSVImportOptions ) 
-		: _WidgetWindow()
-		{}
-
-		SLATE_ARGUMENT( TSharedPtr<SWindow>, WidgetWindow )
-	SLATE_END_ARGS()
-
-	SCSVImportOptions()
-	: bImport(false)
-	, SelectedImportType(ECSV_DataTable)
-	, SelectedStruct(NULL)
-	{}
-
-	void Construct( const FArguments& InArgs )
-	{
-		WidgetWindow = InArgs._WidgetWindow;
-
-		// Make array of enum pointers
-		TSharedPtr<ECSVImportType> DataTableTypePtr = MakeShareable(new ECSVImportType(ECSV_DataTable));
-		ImportTypes.Add( DataTableTypePtr );
-		ImportTypes.Add( MakeShareable(new ECSVImportType(ECSV_CurveTable)) );
-		ImportTypes.Add( MakeShareable(new ECSVImportType(ECSV_CurveFloat)) );
-		ImportTypes.Add( MakeShareable(new ECSVImportType(ECSV_CurveVector)) );
-
-		// Find table row struct info
-		RowStructs = FDataTableEditorUtils::GetPossibleStructs();
-
-		// Create widget
-		this->ChildSlot
-		[
-			SNew(SBorder)
-			. BorderImage(FEditorStyle::GetBrush(TEXT("Menu.Background")))
-			. Padding(10)
-			[
-				SNew(SVerticalBox)
-				// Import type
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(STextBlock)
-					.Text( LOCTEXT("ChooseAssetType", "Import As:") )
-				]
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SAssignNew(ImportTypeCombo, SComboBox< TSharedPtr<ECSVImportType> >)
-					.OptionsSource( &ImportTypes )
-					.OnGenerateWidget( this, &SCSVImportOptions::MakeImportTypeItemWidget )
-					[
-						SNew(STextBlock)
-						.Text(this, &SCSVImportOptions::GetSelectedItemText)
-					]
-				]
-				// Data row struct
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(STextBlock)
-					.Text( LOCTEXT("ChooseRowType", "Choose DataTable Row Type:") )
-					.Visibility( this, &SCSVImportOptions::GetTableRowOptionVis )
-				]
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SAssignNew(RowStructCombo, SComboBox<UScriptStruct*>)
-					.OptionsSource( &RowStructs )
-					.OnGenerateWidget( this, &SCSVImportOptions::MakeRowStructItemWidget )
-					.Visibility( this, &SCSVImportOptions::GetTableRowOptionVis )
-					[
-						SNew(STextBlock)
-						.Text(this, &SCSVImportOptions::GetSelectedRowOptionText)
-					]
-				]
-				// Curve interpolation
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(STextBlock)
-					.Text( LOCTEXT("ChooseCurveType", "Choose Curve Interpolation Type:") )
-					.Visibility( this, &SCSVImportOptions::GetCurveTypeVis )
-				]
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SAssignNew(CurveInterpCombo, SComboBox<CurveInterpModePtr>)
-					.OptionsSource( &CurveInterpModes )
-					.OnGenerateWidget( this, &SCSVImportOptions::MakeCurveTypeWidget )
-					.Visibility( this, &SCSVImportOptions::GetCurveTypeVis )
-					[
-						SNew(STextBlock)
-						.Text(this, &SCSVImportOptions::GetSelectedCurveTypeText)
-					]
-				]
-				// Ok/Cancel
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SNew(SButton)
-						.Text(LOCTEXT("OK", "OK"))
-						.OnClicked( this, &SCSVImportOptions::OnImport )
-					]
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SNew(SButton)
-						.Text(LOCTEXT("Cancel", "Cancel"))
-						.OnClicked( this, &SCSVImportOptions::OnCancel )
-					]
-				]
-			]
-		];
-
-		// set-up selection
-		ImportTypeCombo->SetSelectedItem(DataTableTypePtr);
-
-		// Populate the valid interploation modes
-		{
-			CurveInterpModes.Add( MakeShareable( new ERichCurveInterpMode(ERichCurveInterpMode::RCIM_Constant) ) );
-			CurveInterpModes.Add( MakeShareable( new ERichCurveInterpMode(ERichCurveInterpMode::RCIM_Linear) ) );
-			CurveInterpModes.Add( MakeShareable( new ERichCurveInterpMode(ERichCurveInterpMode::RCIM_Cubic) ) );
-		}
-
-		// NB: Both combo boxes default to first item in their options lists as initially selected item
-	}
-
-	/** If we should import */
-	bool ShouldImport()
-	{
-		return ((SelectedStruct != NULL) || GetSelectedImportType() != ECSV_DataTable) && bImport;
-	}
-
-	/** Get the row struct we selected */
-	UScriptStruct* GetSelectedRowStruct()
-	{
-		return SelectedStruct;
-	}
-
-	/** Get the import type we selected */
-	ECSVImportType GetSelectedImportType()
-	{
-		return SelectedImportType;
-	}
-
-	/** Get the interpolation mode we selected */
-	ERichCurveInterpMode GetSelectedCurveIterpMode()
-	{
-		return SelectedCurveInterpMode;
-	}
-	
-	/** Whether to show table row options */
-	EVisibility GetTableRowOptionVis() const
-	{
-		return (ImportTypeCombo.IsValid() && *ImportTypeCombo->GetSelectedItem() == ECSV_DataTable) ? EVisibility::Visible : EVisibility::Collapsed;
-	}
-
-	/** Whether to show table row options */
-	EVisibility GetCurveTypeVis() const
-	{
-		return (ImportTypeCombo.IsValid() && *ImportTypeCombo->GetSelectedItem() == ECSV_CurveTable) ? EVisibility::Visible : EVisibility::Collapsed;
-	}
-
-	FString GetImportTypeText(TSharedPtr<ECSVImportType> Type ) const
-	{
-		FString EnumString;
-		if(*Type == ECSV_DataTable)
-		{
-			EnumString = TEXT("DataTable");
-		}
-		else if(*Type == ECSV_CurveTable)
-		{
-			EnumString = TEXT("CurveTable");
-		}
-		else if(*Type == ECSV_CurveFloat)
-		{
-			EnumString = TEXT("Float Curve");
-		}
-		else if(*Type == ECSV_CurveVector)
-		{
-			EnumString = TEXT("Vector Curve");
-		}
-		return EnumString;
-	}
-
-	/** Called to create a widget for each struct */
-	TSharedRef<SWidget> MakeImportTypeItemWidget( TSharedPtr<ECSVImportType> Type )
-	{
-		return	SNew(STextBlock)
-				.Text(FText::FromString(GetImportTypeText(Type)));
-	}
-
-	/** Called to create a widget for each struct */
-	TSharedRef<SWidget> MakeRowStructItemWidget( UScriptStruct* Struct )
-	{
-		check( Struct != NULL );
-		return	SNew(STextBlock)
-				.Text(FText::FromString(Struct->GetName()));
-	}
-
-	FString GetCurveTypeText (CurveInterpModePtr InterpMode) const
-	{
-		FString EnumString;
-
-		switch(*InterpMode)
-		{
-			case ERichCurveInterpMode::RCIM_Constant : 
-				EnumString = TEXT("Constant");
-				break;
-
-			case ERichCurveInterpMode::RCIM_Linear : 
-				EnumString = TEXT("Linear");
-				break;
-
-			case ERichCurveInterpMode::RCIM_Cubic : 
-				EnumString = TEXT("Cubic");
-				break;
-		}
-		return EnumString;
-	}
-
-	/** Called to create a widget for each curve interpolation enum */
-	TSharedRef<SWidget> MakeCurveTypeWidget( CurveInterpModePtr InterpMode )
-	{
-		FString Label = GetCurveTypeText(InterpMode);
-		return SNew(STextBlock) .Text( FText::FromString(Label) );
-	}
-
-	/** Called when 'OK' button is pressed */
-	FReply OnImport()
-	{
-		SelectedStruct = RowStructCombo->GetSelectedItem();
-		SelectedImportType = *ImportTypeCombo->GetSelectedItem();
-		if(CurveInterpCombo->GetSelectedItem().IsValid())
-		{
-			SelectedCurveInterpMode = *CurveInterpCombo->GetSelectedItem();
-		}
-		bImport = true;
-		if ( WidgetWindow.IsValid() )
-		{
-			WidgetWindow.Pin()->RequestDestroyWindow();
-		}
-		return FReply::Handled();
-	}
-
-	/** Called when 'Cancel' button is pressed */
-	FReply OnCancel()
-	{
-		bImport = false;
-		if ( WidgetWindow.IsValid() )
-		{
-			WidgetWindow.Pin()->RequestDestroyWindow();
-		}
-		return FReply::Handled();
-	}
-
-	FText GetSelectedItemText() const
-	{
-		TSharedPtr<ECSVImportType> SelectedType = ImportTypeCombo->GetSelectedItem();
-
-		return (SelectedType.IsValid())
-			? FText::FromString(GetImportTypeText(SelectedType))
-			: FText::GetEmpty();
-	}
-
-	FText GetSelectedRowOptionText() const
-	{
-		UScriptStruct* SelectedScript = RowStructCombo->GetSelectedItem();
-		return (SelectedScript)
-			? FText::FromString(SelectedScript->GetName())
-			: FText::GetEmpty();
-	}
-
-	FText GetSelectedCurveTypeText() const
-	{
-		CurveInterpModePtr CurveModePtr = CurveInterpCombo->GetSelectedItem();
-		return (CurveModePtr.IsValid())
-			? FText::FromString(GetCurveTypeText(CurveModePtr))
-			: FText::GetEmpty();
-	}
-};
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -368,13 +24,13 @@ static UClass* GetCurveClass( ECSVImportType ImportType )
 {
 	switch( ImportType )
 	{
-	case ECSV_CurveFloat:
+	case ECSVImportType::ECSV_CurveFloat:
 		return UCurveFloat::StaticClass();
 		break;
-	case ECSV_CurveVector:
+	case ECSVImportType::ECSV_CurveVector:
 		return UCurveVector::StaticClass();
 		break;
-	case ECSV_CurveLinearColor:
+	case ECSVImportType::ECSV_CurveLinearColor:
 		return UCurveLinearColor::StaticClass();
 		break;
 	default:
@@ -423,7 +79,7 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 	UScriptStruct* ImportRowStruct = NULL;
 	ERichCurveInterpMode ImportCurveInterpMode = RCIM_Linear;
 
-	ECSVImportType ImportType = ECSV_DataTable;
+	ECSVImportType ImportType = ECSVImportType::ECSV_DataTable;
 	if(ExistingTable != NULL)
 	{
 		ImportRowStruct = ExistingTable->RowStruct;
@@ -431,12 +87,12 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 	}
 	else if(ExistingCurveTable != NULL)
 	{
-		ImportType = ECSV_CurveTable;
+		ImportType = ECSVImportType::ECSV_CurveTable;
 		bHaveInfo = true;
 	}
 	else if(ExistingCurve != NULL)
 	{
-		ImportType = ExistingCurve->IsA(UCurveFloat::StaticClass()) ? ECSV_CurveFloat : ECSV_CurveVector;
+		ImportType = ExistingCurve->IsA(UCurveFloat::StaticClass()) ? ECSVImportType::ECSV_CurveFloat : ECSVImportType::ECSV_CurveVector;
 		bHaveInfo = true;
 	}
 
@@ -488,7 +144,7 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 
 		TArray<FString> Problems;
 
-		if(ImportType == ECSV_DataTable)
+		if (ImportType == ECSVImportType::ECSV_DataTable)
 		{
 			// If there is an existing table, need to call this to free data memory before recreating object
 			if(ExistingTable != NULL)
@@ -497,17 +153,17 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 			}
 
 			// Create/reset table
-			UDataTable* NewTable = CastChecked<UDataTable>(StaticConstructObject(UDataTable::StaticClass(), InParent, InName, Flags));
+			UDataTable* NewTable = NewObject<UDataTable>(InParent, InName, Flags);
 			NewTable->RowStruct = ImportRowStruct;
 			NewTable->ImportPath = FReimportManager::SanitizeImportFilename(CurrentFilename, NewTable);
 			// Go ahead and create table from string
-			Problems = NewTable->CreateTableFromCSVString(String);
+			Problems = DoImportDataTable(NewTable, String);
 
 			// Print out
 			UE_LOG(LogCSVImportFactory, Log, TEXT("Imported DataTable '%s' - %d Problems"), *InName.ToString(), Problems.Num());
 			NewAsset = NewTable;
 		}
-		else if(ImportType == ECSV_CurveTable)
+		else if (ImportType == ECSVImportType::ECSV_CurveTable)
 		{
 			// If there is an existing table, need to call this to free data memory before recreating object
 			if(ExistingCurveTable != NULL)
@@ -516,24 +172,24 @@ UObject* UCSVImportFactory::FactoryCreateText( UClass* InClass, UObject* InParen
 			}
 
 			// Create/reset table
-			UCurveTable* NewTable = CastChecked<UCurveTable>(StaticConstructObject(UCurveTable::StaticClass(), InParent, InName, Flags));
+			UCurveTable* NewTable = NewObject<UCurveTable>(InParent, InName, Flags);
 			NewTable->ImportPath = FReimportManager::SanitizeImportFilename(CurrentFilename, NewTable);
 
 			// Go ahead and create table from string
-			Problems = NewTable->CreateTableFromCSVString(String, ImportCurveInterpMode);
+			Problems = DoImportCurveTable(NewTable, String, ImportCurveInterpMode);
 
 			// Print out
 			UE_LOG(LogCSVImportFactory, Log, TEXT("Imported CurveTable '%s' - %d Problems"), *InName.ToString(), Problems.Num());
 			NewAsset = NewTable;
 		}
-		else if(ImportType == ECSV_CurveFloat || ImportType == ECSV_CurveVector || ImportType == ECSV_CurveLinearColor)
+		else if (ImportType == ECSVImportType::ECSV_CurveFloat || ImportType == ECSVImportType::ECSV_CurveVector || ImportType == ECSVImportType::ECSV_CurveLinearColor)
 		{
 			UClass* CurveClass = GetCurveClass( ImportType );
 
 			// Create/reset curve
-			UCurveBase* NewCurve = CastChecked<UCurveBase>(StaticConstructObject(CurveClass, InParent, InName, Flags));
+			UCurveBase* NewCurve = NewObject<UCurveBase>(InParent, CurveClass, InName, Flags);
 
-			Problems = NewCurve->CreateCurveFromCSVString(String);
+			Problems = DoImportCurve(NewCurve, String);
 
 			UE_LOG(LogCSVImportFactory, Log, TEXT("Imported Curve '%s' - %d Problems"), *InName.ToString(), Problems.Num());
 			NewCurve->ImportPath = FReimportManager::SanitizeImportFilename(CurrentFilename, NewCurve);
@@ -598,11 +254,50 @@ bool UCSVImportFactory::Reimport( UObject* Obj, const FString& Path )
 	return false;
 }
 
+TArray<FString> UCSVImportFactory::DoImportDataTable(UDataTable* TargetDataTable, const FString& DataToImport)
+{
+	// Are we importing JSON data?
+	const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
+	if (bIsJSON)
+	{
+		return TargetDataTable->CreateTableFromJSONString(DataToImport);
+	}
+
+	return TargetDataTable->CreateTableFromCSVString(DataToImport);
+}
+
+TArray<FString> UCSVImportFactory::DoImportCurveTable(UCurveTable* TargetCurveTable, const FString& DataToImport, const ERichCurveInterpMode ImportCurveInterpMode)
+{
+	// Are we importing JSON data?
+	const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
+	if (bIsJSON)
+	{
+		return TargetCurveTable->CreateTableFromJSONString(DataToImport, ImportCurveInterpMode);
+	}
+
+	return TargetCurveTable->CreateTableFromCSVString(DataToImport, ImportCurveInterpMode);
+}
+
+TArray<FString> UCSVImportFactory::DoImportCurve(UCurveBase* TargetCurve, const FString& DataToImport)
+{
+	// Are we importing JSON data?
+	const bool bIsJSON = CurrentFilename.EndsWith(TEXT(".json"));
+	if (bIsJSON)
+	{
+		TArray<FString> Result;
+		Result.Add(LOCTEXT("Error_CannotImportCurveFromJSON", "Cannot import a curve from JSON. Please use CSV instead.").ToString());
+		return Result;
+	}
+
+	return TargetCurve->CreateCurveFromCSVString(DataToImport);
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 UReimportDataTableFactory::UReimportDataTableFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	Formats.Add(TEXT("json;JavaScript Object Notation"));
 }
 
 bool UReimportDataTableFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )
@@ -647,6 +342,7 @@ int32 UReimportDataTableFactory::GetPriority() const
 UReimportCurveTableFactory::UReimportCurveTableFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	Formats.Add(TEXT("json;JavaScript Object Notation"));
 }
 
 bool UReimportCurveTableFactory::CanReimport( UObject* Obj, TArray<FString>& OutFilenames )

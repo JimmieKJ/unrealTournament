@@ -631,6 +631,9 @@ class SLATE_API FTabManager : public TSharedFromThis<FTabManager>
 		/** @return true if the tab has a factory registered for it that allows it to be spawned. */
 		bool CanSpawnTab( FName TabId );
 
+		/** Returns the owner tab (if it exists) */
+		TSharedPtr<SDockTab> GetOwnerTab() { return OwnerTabPtr.Pin(); }
+
 	protected:
 		void InvokeTabForMenu( FName TabId );
 
@@ -774,6 +777,9 @@ public:
 	/** @return the currently active tab; NULL pointer if there is no active tab */
 	TSharedPtr<SDockTab> GetActiveTab() const;
 
+	/** Can the manager activate this Tab as the new active tab? */
+	bool CanSetAsActiveTab(const TSharedPtr<SDockTab>& Tab);
+
 	/** Activate the NewActiveTab. If NewActiveTab is NULL, the active tab is cleared. */
 	void SetActiveTab( const TSharedPtr<SDockTab>& NewActiveTab );
 
@@ -838,7 +844,7 @@ protected:
 	virtual void UpdateStats() override;
 
 public:
-	virtual void OnTabManagerClosing();
+	virtual void OnTabManagerClosing() override;
 
 
 private:

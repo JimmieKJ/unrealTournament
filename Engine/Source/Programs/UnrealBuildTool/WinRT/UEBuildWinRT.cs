@@ -54,7 +54,7 @@ namespace UnrealBuildTool
         protected override void RegisterBuildPlatformInternal()
         {
             //@todo.Rocket: Add platform support
-            if (UnrealBuildTool.RunningRocket() || UnrealBuildTool.BuildingRocket() || Utils.IsRunningOnMono)
+            if (UnrealBuildTool.RunningRocket() || Utils.IsRunningOnMono)
             {
                 return;
             }

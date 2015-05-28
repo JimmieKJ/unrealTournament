@@ -23,10 +23,9 @@ private:
 		/** FCurveOwnerInterface interface */
 		virtual TArray<FRichCurveEditInfoConst> GetCurves() const override;
 		virtual TArray<FRichCurveEditInfo> GetCurves() override;
-		virtual UObject* GetOwner() override;
 		virtual void ModifyOwner() override;
 		virtual void MakeTransactional() override;
-		virtual void OnCurveChanged() override { }
+		virtual void OnCurveChanged( const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos ) override { }
 		virtual bool IsValidCurve(FRichCurveEditInfo CurveInfo) override;
 
 	private:
@@ -41,10 +40,9 @@ private:
 		/** FCurveOwnerInterface interface */
 		virtual TArray<FRichCurveEditInfoConst> GetCurves() const override;
 		virtual TArray<FRichCurveEditInfo> GetCurves() override;
-		virtual UObject* GetOwner() override;
 		virtual void ModifyOwner() override;
 		virtual void MakeTransactional() override;
-		virtual void OnCurveChanged() override { }
+		virtual void OnCurveChanged( const TArray<FRichCurveEditInfo>& ChangedCurveEditInfos ) override { }
 		virtual bool IsValidCurve( FRichCurveEditInfo CurveInfo ) override;
 
 	private:

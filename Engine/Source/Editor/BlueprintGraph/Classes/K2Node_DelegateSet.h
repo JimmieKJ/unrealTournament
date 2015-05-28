@@ -23,7 +23,7 @@ class UK2Node_DelegateSet : public UK2Node
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
-	virtual FLinearColor GetNodeTitleColor() const { return FColor(216,88,88); }
+	virtual FLinearColor GetNodeTitleColor() const override { return FColor(216,88,88); }
 	// End UEdGraphNode interface
 
 

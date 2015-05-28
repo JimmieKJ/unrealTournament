@@ -6,6 +6,7 @@
 
 #include "CorePrivatePCH.h"
 #include "Apple/ApplePlatformCrashContext.h"
+#include "Apple/ApplePlatformSymbolication.h"
 
 FApplePlatformCrashContext::FApplePlatformCrashContext()
 :	Signal(0)

@@ -13,8 +13,14 @@ TLinkedList<FGlobalBoundShaderStateResource*>*& FGlobalBoundShaderStateResource:
 	return List;
 }
 
-FGlobalBoundShaderStateResource::FGlobalBoundShaderStateResource():
-	GlobalListLink(this)
+FGlobalBoundShaderStateResource::FGlobalBoundShaderStateResource()
+	: GlobalListLink(this)
+#if DO_CHECK
+	, BoundVertexDeclaration(nullptr)
+	, BoundVertexShader(nullptr)
+	, BoundPixelShader(nullptr)
+	, BoundGeometryShader(nullptr)
+#endif 
 {
 	// Add this resource to the global list in the rendering thread.
 	if(IsInRenderingThread())
@@ -56,6 +62,12 @@ FBoundShaderStateRHIParamRef FGlobalBoundShaderStateResource::GetInitializedRHI(
 	// Create the bound shader state if it hasn't been cached yet.
 	if(!IsValidRef(BoundShaderState))
 	{
+#if DO_CHECK
+		BoundVertexDeclaration = VertexDeclaration;
+		BoundVertexShader = VertexShader;
+		BoundPixelShader = PixelShader;
+		BoundGeometryShader = GeometryShader;
+#endif 
 		BoundShaderState = 
 			RHICreateBoundShaderState(
 			VertexDeclaration,
@@ -65,25 +77,15 @@ FBoundShaderStateRHIParamRef FGlobalBoundShaderStateResource::GetInitializedRHI(
 			PixelShader,
 			GeometryShader);
 	}
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	// Only people working on shaders (and therefore have LogShaders unsuppressed) will want to see these errors
-	else if (!GUsingNullRHI && UE_LOG_ACTIVE(LogShaders, Warning))
-	{
-		FBoundShaderStateRHIRef TempBoundShaderState = 
-			RHICreateBoundShaderState(
-			VertexDeclaration,
-			VertexShader,
-			FHullShaderRHIRef(),
-			FDomainShaderRHIRef(),
-			PixelShader,
-			GeometryShader);
-		// Verify that bound shader state caching is working and that the passed in shaders will actually be used
-		// This will catch cases where one bound shader state is being used with more than one combination of shaders
-		// Otherwise setting the shader will just silently fail once the bound shader state has been initialized with a different shader 
-		// The catch is that this uses the caching mechanism to test for equality, instead of comparing the actual platform dependent shader references.
-		check(TempBoundShaderState == BoundShaderState);
-	}
-#endif
+#if DO_CHECK
+	// Verify that the passed in shaders will actually be used
+	// This will catch cases where one bound shader state is being used with more than one combination of shaders
+	// Otherwise setting the shader will just silently fail once the bound shader state has been initialized with a different shader 
+	check(BoundVertexDeclaration == VertexDeclaration &&
+		BoundVertexShader == VertexShader &&
+		BoundPixelShader == PixelShader &&
+		BoundGeometryShader == GeometryShader);
+#endif 
 
 	return BoundShaderState;
 }

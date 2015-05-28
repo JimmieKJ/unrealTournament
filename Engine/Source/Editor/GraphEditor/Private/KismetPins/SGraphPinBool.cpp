@@ -3,6 +3,7 @@
 
 #include "GraphEditorCommon.h"
 #include "SGraphPinBool.h"
+#include "Editor/UnrealEd/Public/ScopedTransaction.h"
 
 void SGraphPinBool::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {
@@ -27,5 +28,11 @@ ECheckBoxState SGraphPinBool::IsDefaultValueChecked() const
 void SGraphPinBool::OnDefaultValueCheckBoxChanged(ECheckBoxState InIsChecked)
 {
 	const FString BoolString = (InIsChecked == ECheckBoxState::Checked) ? TEXT("true") : TEXT("false");
-	GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, BoolString);
+	if(GraphPinObj->GetDefaultAsString() != BoolString)
+	{
+		const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeBoolPinValue", "Change Bool Pin Value" ) );
+		GraphPinObj->Modify();
+
+		GraphPinObj->GetSchema()->TrySetDefaultValue(*GraphPinObj, BoolString);
+	}
 }

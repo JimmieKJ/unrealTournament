@@ -166,8 +166,11 @@ enum EMenuPlacement
 	/** Place the menu to the right of the anchor */
 	MenuPlacement_MenuRight UMETA(DisplayName="Right"),
 
-	/** Place the menu immediately above the anchor, not transition effect */
+	/** Place the menu immediately above the anchor, no transition effect */
 	MenuPlacement_AboveAnchor UMETA(DisplayName="Above"),
+
+	/** Place the menu immediately centered above the anchor, no transition effect */
+	MenuPlacement_CenteredAboveAnchor UMETA(DisplayName="Centered Above"),
 
 	/** Place the menu to the left of the anchor */
 	MenuPlacement_MenuLeft UMETA(DisplayName="Left"),
@@ -240,3 +243,16 @@ namespace ESelectInfo
 		Direct
 	};
 }
+
+
+/**
+* Return type for FWidgetActiveTimerDelegate.
+* Don't expose to blueprints.
+*/
+enum class EActiveTimerReturnType : uint8
+{
+	/** If this value is returned, the widget's active timer will be unregistered automatically. No need to call UnRegisterActiveTimer. */
+	Stop,
+	/** If this value is returned, the widget will continue to have its timer delegate called on it. */
+	Continue,
+};

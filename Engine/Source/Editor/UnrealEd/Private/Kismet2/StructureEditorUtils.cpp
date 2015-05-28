@@ -13,6 +13,7 @@
 #include "Toolkits/AssetEditorManager.h"
 #include "Editor/DataTableEditor/Public/IDataTableEditor.h"
 #include "Engine/UserDefinedStruct.h"
+#include "Engine/DataTable.h"
 
 #define LOCTEXT_NAMESPACE "Structure"
 
@@ -32,11 +33,12 @@ UUserDefinedStruct* FStructureEditorUtils::CreateUserDefinedStruct(UObject* InPa
 	
 	if (UserDefinedStructEnabled())
 	{
-		Struct = NewNamedObject<UUserDefinedStruct>(InParent, Name, Flags);
+		Struct = NewObject<UUserDefinedStruct>(InParent, Name, Flags);
 		check(Struct);
-		Struct->EditorData = NewNamedObject<UUserDefinedStructEditorData>(Struct, NAME_None, RF_Transactional);
+		Struct->EditorData = NewObject<UUserDefinedStructEditorData>(Struct, NAME_None, RF_Transactional);
 		check(Struct->EditorData);
 
+		Struct->Guid = FGuid::NewGuid();
 		Struct->SetMetaData(TEXT("BlueprintType"), TEXT("true"));
 		Struct->Bind();
 		Struct->StaticLink(true);
@@ -364,11 +366,32 @@ bool FStructureEditorUtils::ChangeVariableType(UUserDefinedStruct* Struct, FGuid
 
 bool FStructureEditorUtils::ChangeVariableDefaultValue(UUserDefinedStruct* Struct, FGuid VarGuid, const FString& NewDefaultValue)
 {
-	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+	auto ValidateDefaultValue = [](const FStructVariableDescription& VarDesc, const FString& InNewDefaultValue) -> bool
+	{
+		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+		const FEdGraphPinType PinType = VarDesc.ToPinType();
+
+		bool bResult = false;
+		//TODO: validation for values, that are not passed by string
+		if (PinType.PinCategory == K2Schema->PC_Text)
+		{
+			bResult = true;
+		}
+		else if ((PinType.PinCategory == K2Schema->PC_Object) || (PinType.PinCategory == K2Schema->PC_Interface) || (PinType.PinCategory == K2Schema->PC_Class))
+		{
+			bResult = true;
+		}
+		else
+		{
+			bResult = K2Schema->DefaultValueSimpleValidation(PinType, FString(), InNewDefaultValue, NULL, FText::GetEmpty());
+		}
+		return bResult;
+	};
+
 	auto VarDesc = GetVarDescByGuid(Struct, VarGuid);
 	if (VarDesc 
 		&& (NewDefaultValue != VarDesc->DefaultValue)
-		&& K2Schema->DefaultValueSimpleValidation(VarDesc->ToPinType(), FString(), NewDefaultValue, NULL, FText::GetEmpty()))
+		&& ValidateDefaultValue(*VarDesc, NewDefaultValue))
 	{
 		bool bAdvancedValidation = true;
 		if (!NewDefaultValue.IsEmpty())
@@ -420,26 +443,32 @@ bool FStructureEditorUtils::UserDefinedStructEnabled()
 	return UseUserDefinedStructure;
 }
 
+void FStructureEditorUtils::RecreateDefaultInstanceInEditorData(UUserDefinedStruct* Struct)
+{
+	auto StructEditorData = Struct ? CastChecked<UUserDefinedStructEditorData>(Struct->EditorData) : nullptr;
+	if (StructEditorData)
+	{
+		StructEditorData->RecreateDefaultInstance();
+	}
+}
+
 bool FStructureEditorUtils::Fill_MakeStructureDefaultValue(const UUserDefinedStruct* Struct, uint8* StructData)
 {
 	bool bResult = true;
-	for (TFieldIterator<UProperty> It(Struct); It; ++It)
+	if (Struct && StructData)
 	{
-		if (const UProperty* Property = *It)
+		auto StructEditorData = CastChecked<UUserDefinedStructEditorData>(Struct->EditorData);
+		const uint8* DefaultInstance = StructEditorData->GetDefaultInstance();
+		if (DefaultInstance)
 		{
-			auto VarDesc = GetVarDesc(Struct).FindByPredicate(FFindByNameHelper<FStructVariableDescription>(Property->GetFName()));
-			if (VarDesc && !VarDesc->CurrentDefaultValue.IsEmpty())
-			{
-				bResult &= FBlueprintEditorUtils::PropertyValueFromString(Property, VarDesc->CurrentDefaultValue, StructData);
-			}
-			else
-			{
-				uint8* const InnerData = Property->ContainerPtrToValuePtr<uint8>(StructData);
-				bResult &= Fill_MakeStructureDefaultValue(Property, InnerData);
-			}
+			Struct->CopyScriptStruct(StructData, DefaultInstance);
+		}
+		else
+		{
+			bResult = false;
 		}
 	}
-
+	
 	return bResult;
 }
 
@@ -633,7 +662,7 @@ bool FStructureEditorUtils::MoveVariable(UUserDefinedStruct* Struct, FGuid VarGu
 		{
 			if (DescArray[Index].VarGuid == VarGuid)
 			{
-				const FScopedTransaction Transaction(LOCTEXT("ChangeVariableDefaultValue", "Varaibles reordered"));
+				const FScopedTransaction Transaction(LOCTEXT("ReorderVariables", "Varaibles reordered"));
 				ModifyStructData(Struct);
 
 				DescArray.Swap(Index, Index + (bMoveUp ? -1 : 1));
@@ -668,7 +697,7 @@ bool FStructureEditorUtils::Change3dWidgetEnabled(UUserDefinedStruct* Struct, FG
 	const auto PropertyStruct = VarDesc ? Cast<const UStruct>(VarDesc->SubCategoryObject.Get()) : NULL;
 	if (FEdMode::CanCreateWidgetForStructure(PropertyStruct) && (VarDesc->bEnable3dWidget != bIsEnabled))
 	{
-		const FScopedTransaction Transaction(LOCTEXT("ChangeVariableDefaultValue", "Change Variable Default Value"));
+		const FScopedTransaction Transaction(LOCTEXT("Change3dWidgetEnabled", "Change 3d Widget Enabled"));
 		ModifyStructData(Struct);
 
 		VarDesc->bEnable3dWidget = bIsEnabled;

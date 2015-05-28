@@ -10,6 +10,16 @@ namespace SuperSearchModule
 	static const FName FNameSuperSearchApp = FName(TEXT("SuperSearchApp"));
 }
 
+FSearchEntry * FSearchEntry::MakeCategoryEntry(const FString & InTitle)
+{
+	FSearchEntry * SearchEntry = new FSearchEntry();
+	SearchEntry->Title = InTitle;
+	SearchEntry->bCategory = true;
+
+	return SearchEntry;
+}
+
+
 void FSuperSearchModule::StartupModule()
 {
 }

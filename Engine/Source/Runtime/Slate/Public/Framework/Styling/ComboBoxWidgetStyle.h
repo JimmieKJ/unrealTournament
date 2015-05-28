@@ -10,7 +10,7 @@
 UCLASS(hidecategories=Object, MinimalAPI)
 class UComboBoxWidgetStyle : public USlateWidgetStyleContainerBase
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
 public:
 	/** The actual data describing the combo box's appearance. */

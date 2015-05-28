@@ -9,6 +9,7 @@ public class EnvironmentQueryEditor : ModuleRules
         PrivateIncludePaths.AddRange(
             new string[] {
 				"Editor/GraphEditor/Private",
+				"Editor/AIGraph/Private",
 				"Editor/EnvironmentQueryEditor/Private",
 			}
 		);
@@ -37,6 +38,7 @@ public class EnvironmentQueryEditor : ModuleRules
                 "PropertyEditor",
 				"AnimGraph",
 				"BlueprintGraph",
+                "AIGraph",
                 "AIModule",
 			}
 		);

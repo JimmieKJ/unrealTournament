@@ -35,10 +35,6 @@ public:
 		return Object;
 	}
 
-	void BindObjectToThread();
-
-	void UnbindObjectFromThread();
-
 	static jstring GetJString(const FString& String);
 
 	void VerifyException();
@@ -46,10 +42,8 @@ public:
 protected:
 
 	FName			ClassName;
-	JNIEnv*			JEnv;
 	jobject			Object;
 	jclass			Class;
-	uint32			BoundThread;
 
 private:
 	FJavaClassObject(const FJavaClassObject& rhs);

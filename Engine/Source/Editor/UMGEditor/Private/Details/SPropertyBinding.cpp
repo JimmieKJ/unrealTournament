@@ -356,17 +356,32 @@ void SPropertyBinding::FillPropertyMenu(FMenuBuilder& MenuBuilder, TSharedRef<IP
 					if ( Property->HasAllPropertyFlags(CPF_BlueprintVisible) )
 					{
 						UObjectProperty* ObjectProperty = Cast<UObjectProperty>(Property);
+						UWeakObjectProperty* WeakObjectProperty = Cast<UWeakObjectProperty>(Property);
 						UStructProperty* StructProperty = Cast<UStructProperty>(Property);
 
-						if ( ObjectProperty || StructProperty )
-						{
-							UStruct* Struct = ObjectProperty ? (UStruct*)ObjectProperty->PropertyClass : (UStruct*)StructProperty->Struct;
+						UStruct* Struct = nullptr;
+						UClass* Class = nullptr;
 
-							// Ignore any properties that are widgets, we don't want users binding widgets to other widgets.
-							// also ignore any class that is explicitly on the black list.
-							if ( ObjectProperty )
+						if ( ObjectProperty )
+						{
+							Struct = Class = ObjectProperty->PropertyClass;
+						}
+						else if ( WeakObjectProperty )
+						{
+							Struct = Class = WeakObjectProperty->PropertyClass;
+						}
+						else if ( StructProperty )
+						{
+							Struct = StructProperty->Struct;
+						}
+
+						if ( Struct )
+						{
+							if ( Class )
 							{
-								if ( IsClassBlackListed(ObjectProperty->PropertyClass) || ObjectProperty->PropertyClass->IsChildOf(UWidget::StaticClass()) )
+								// Ignore any properties that are widgets, we don't want users binding widgets to other widgets.
+								// also ignore any class that is explicitly on the black list.
+								if ( IsClassBlackListed(Class) || Class->IsChildOf(UWidget::StaticClass()) )
 								{
 									continue;
 								}
@@ -730,14 +745,19 @@ FReply SPropertyBinding::HandleGotoBindingClicked(TSharedRef<IPropertyHandle> Pr
 					TArray<UEdGraph*> AllGraphs;
 					Blueprint->GetAllGraphs(AllGraphs);
 
+					FGuid SearchForGuid = Binding.MemberGuid;
+					if ( !Binding.SourcePath.IsEmpty() )
+					{
+						SearchForGuid = Binding.SourcePath.Segments.Last().GetMemberGuid();
+					}
+
 					for ( UEdGraph* Graph : AllGraphs )
 					{
-						if ( Graph->GraphGuid == Binding.MemberGuid )
+						if ( Graph->GraphGuid == SearchForGuid )
 						{
 							GotoFunction(Graph);
 						}
 					}
-
 
 					// Either way return
 					return FReply::Handled();

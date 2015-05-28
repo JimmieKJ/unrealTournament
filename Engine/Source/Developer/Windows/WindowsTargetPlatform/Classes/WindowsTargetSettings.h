@@ -36,6 +36,6 @@ public:
 	/**
 	 * Determine the minimum supported 
 	 */
-	UPROPERTY(EditAnywhere, config, Category=OSInfo)
+	UPROPERTY(EditAnywhere, config, Category="OS Info", Meta=(DisplayName = "Minimum OS Version"))
 	TEnumAsByte<EMinimumSupportedOS> MinimumOSVersion;
 };

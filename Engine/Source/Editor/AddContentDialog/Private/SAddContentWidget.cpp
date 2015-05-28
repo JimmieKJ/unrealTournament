@@ -236,7 +236,7 @@ TSharedRef<SWidget> SAddContentWidget::CreateContentSourceDetail(TSharedPtr<FCon
 			.Padding(FMargin(0, 0, 0, 5))
 			[
 				SNew(STextBlock)
-				.Text(ContentSource->GetClassTypes())
+				.Text(FText::FromString(ContentSource->GetClassTypes()))
 				.Visibility(ContentSource->GetClassTypes().IsEmpty() == false ? EVisibility::Visible : EVisibility::Collapsed)
 				.AutoWrapText(true)
 			]
@@ -244,13 +244,35 @@ TSharedRef<SWidget> SAddContentWidget::CreateContentSourceDetail(TSharedPtr<FCon
 	
 		VerticalBox->AddSlot()
 		.AutoHeight()
+		.Padding(0, 10, 0, 0)
+		.HAlign(HAlign_Right)
 		[
 			SNew(SButton)
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
 			.OnClicked(this, &SAddContentWidget::AddButtonClicked)
+			.ContentPadding(FMargin(5, 5, 5, 5))
 			.HAlign(EHorizontalAlignment::HAlign_Center)
 			[
-				SNew(STextBlock)
-				.Text(LOCTEXT("AddToProjectButton", "Add to Project"))
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				.Padding(0, 0, 2, 0)
+				[
+					SNew(STextBlock)
+					.TextStyle(FEditorStyle::Get(), "NormalText.Important")
+					.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+					.Text(FText::FromString(FString(TEXT("\xf067"))) /*fa-plus*/)
+				]
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.TextStyle(FAddContentDialogStyle::Get(), "AddContentDialog.AddButton.TextStyle")
+					.Text(LOCTEXT("AddToProjectButton", "Add to Project"))
+				]
 			]
 		];
 	}

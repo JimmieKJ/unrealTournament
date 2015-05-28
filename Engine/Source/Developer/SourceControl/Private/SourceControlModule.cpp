@@ -8,6 +8,8 @@
 #include "SSourceControlLogin.h"
 
 #if WITH_EDITOR
+
+	#include "Settings/EditorLoadingSavingSettings.h"
 	#include "Runtime/Engine/Public/EngineAnalytics.h"
 	#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #endif
@@ -115,9 +117,9 @@ void FSourceControlModule::ShowLoginDialog(const FSourceControlLoginClosed& InOn
 		// Create the window
 		SourceControlLoginWindowPtr = SNew(SWindow)
 			.Title( LOCTEXT("SourceControlLoginTitle", "Source Control Login") )
+			.HasCloseButton(false)
 			.SupportsMaximize(false) 
 			.SupportsMinimize(false)
-			.CreateTitleBar(false)
 			.SizingRule( ESizingRule::Autosized );
 
 		// Set the closed callback
@@ -170,6 +172,8 @@ void FSourceControlModule::OnSourceControlDialogClosed(const TSharedRef<SWindow>
 	bTemporarilyDisabled = false;
 
 #if WITH_EDITOR
+	GetMutableDefault<UEditorLoadingSavingSettings>()->CheckSourceControlCompatability();
+
 	FString NewProvider = CurrentSourceControlProvider->GetName().ToString();
 	if( FEngineAnalytics::IsAvailable() && !ActiveProviderName.Equals( NewProvider, ESearchCase::IgnoreCase ))
 	{
@@ -179,23 +183,8 @@ void FSourceControlModule::OnSourceControlDialogClosed(const TSharedRef<SWindow>
 #endif
 }
 
-void FSourceControlModule::RefreshSourceControlProviders() const
-{
-	TArray<FName> ModuleNames;
-	FModuleManager::Get().FindModules(TEXT("*SourceControl"), ModuleNames);
-	ModuleNames.Remove(FName(TEXT("SourceControl")));
-
-	for(int32 ModuleIndex = 0; ModuleIndex < ModuleNames.Num(); ModuleIndex++)
-	{
-		FModuleManager::Get().LoadModule(ModuleNames[ModuleIndex]);
-	}
-}
-
 void FSourceControlModule::InitializeSourceControlProviders()
 {
-	// Look for valid SourceControl modules - they will register themselves as editor features
-	RefreshSourceControlProviders();
-
 	int32 SourceControlCount = IModularFeatures::Get().GetModularFeatureImplementationCount(SourceControlFeatureName);
 	if( SourceControlCount > 0 )
 	{

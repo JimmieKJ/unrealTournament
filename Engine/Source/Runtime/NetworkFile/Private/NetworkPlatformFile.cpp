@@ -61,7 +61,7 @@ bool FNetworkPlatformFile::Initialize(IPlatformFile* Inner, const TCHAR* CmdLine
 	if (FParse::Value(CmdLine, TEXT("-FileHostIP="), HostIpString))
 	{
 		TArray<FString> HostIpList;
-		if (HostIpString.ParseIntoArray(&HostIpList, TEXT("+"), true) > 0)
+		if (HostIpString.ParseIntoArray(HostIpList, TEXT("+"), true) > 0)
 		{
 			for (int32 HostIpIndex = 0; !bResult && HostIpIndex < HostIpList.Num(); ++HostIpIndex)
 			{
@@ -172,6 +172,11 @@ void FNetworkPlatformFile::InitializeAfterSetActive()
 			int32 ServerPackageLicenseeVersion = 0;
 			ProcessServerInitialResponse(Response, ServerPackageVersion, ServerPackageLicenseeVersion);
 
+
+			/* The server root content directories */
+			TArray<FString> ServerRootContentDirectories;
+			Response << ServerRootContentDirectories;
+
 			// receive a list of the cache files and their timestamps
 			TMap<FString, FDateTime> ServerCachedFiles;
 			Response << ServerCachedFiles;
@@ -234,13 +239,13 @@ void FNetworkPlatformFile::InitializeAfterSetActive()
 			// use the timestamp grabbing visitor to get all the content times
 			FLocalTimestampDirectoryVisitor Visitor(*InnerPlatformFile, DirectoriesToSkip, DirectoriesToNotRecurse, false);
 
-			TArray<FString> RootContentPaths;
-			FPackageName::QueryRootContentPaths( RootContentPaths );
-			for( TArray<FString>::TConstIterator RootPathIt( RootContentPaths ); RootPathIt; ++RootPathIt )
+			/*TArray<FString> RootContentPaths;
+			FPackageName::QueryRootContentPaths(RootContentPaths); */
+			for (TArray<FString>::TConstIterator RootPathIt(ServerRootContentDirectories); RootPathIt; ++RootPathIt)
 			{
-				const FString& RootPath = *RootPathIt;
-				const FString& ContentFolder = FPackageName::LongPackageNameToFilename(RootPath);
-
+				/*const FString& RootPath = *RootPathIt;
+				const FString& ContentFolder = FPackageName::LongPackageNameToFilename(RootPath);*/
+				const FString& ContentFolder = *RootPathIt;
 				InnerPlatformFile->IterateDirectory( *ContentFolder, Visitor);
 			}
 
@@ -396,7 +401,7 @@ void FNetworkPlatformFile::SetTimeStamp(const TCHAR* Filename, FDateTime DateTim
 	InnerPlatformFile->SetTimeStamp(Filename, DateTime);
 }
 
-IFileHandle* FNetworkPlatformFile::OpenRead(const TCHAR* Filename)
+IFileHandle* FNetworkPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrite)
 {
 //	FScopeLock ScopeLock(&SynchronizationObject);
 
@@ -625,10 +630,15 @@ void FNetworkPlatformFile::FillGetFileList(FNetworkFileArchive& Payload, bool bI
 	}
 
 	FString EngineRelPath = FPaths::EngineDir();
+	FString EngineRelPluginPath = FPaths::EnginePluginsDir();
 	FString GameRelPath = FPaths::GameDir();
+	FString GameRelPluginPath = FPaths::GamePluginsDir();
+
 	TArray<FString> Directories;
 	Directories.Add(EngineRelPath);
+	Directories.Add(EngineRelPluginPath);
 	Directories.Add(GameRelPath);
+	Directories.Add(GameRelPluginPath);
 
 	Payload << TargetPlatformNames;
 	Payload << GameName;
@@ -822,12 +832,11 @@ public:
 			}
 		}
 	}
-	/** Give the name for external event viewers
-	* @return	the name to display in external event viewers
-	*/
-	static const TCHAR *Name()
+
+	FORCEINLINE TStatId GetStatId() const
 	{
-		return TEXT("FAsyncNetworkWriteWorker");
+		return TStatId();
+		//RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncNetworkWriteWorker, STATGROUP_ThreadPoolAsyncTasks);
 	}
 };
 
@@ -858,14 +867,14 @@ void AsyncReadUnsolicitedFiles(int32 InNumUnsolictedFiles, FNetworkPlatformFile&
 		FScopedEvent* NetworkDoneEvent; // finished using the network
 		FScopedEvent* WritingDoneEvent; // finished writing the files to disk
 
-		FAsyncReadUnsolicitedFile(int32 In_NumUnsolictedFiles, FNetworkPlatformFile* In_NetworkFile, IPlatformFile* In_InnerPlatformFile, FString& In_ServerEngineDir, FString& In_ServerGameDir, FScopedEvent *InNetworkDoneEvent, FScopedEvent *InWritingDoneEvent )
+		FAsyncReadUnsolicitedFile(int32 In_NumUnsolictedFiles, FNetworkPlatformFile* In_NetworkFile, IPlatformFile* In_InnerPlatformFile, FString& In_ServerEngineDir, FString& In_ServerGameDir, FScopedEvent *In_NetworkDoneEvent, FScopedEvent *In_WritingDoneEvent )
 			: NumUnsolictedFiles(In_NumUnsolictedFiles)
 			, NetworkFile(*In_NetworkFile)
 			, InnerPlatformFile(*In_InnerPlatformFile)
 			, ServerEngineDir(In_ServerEngineDir)
 			, ServerGameDir(In_ServerGameDir)
-			, NetworkDoneEvent(InNetworkDoneEvent)
-			, WritingDoneEvent(InWritingDoneEvent)
+			, NetworkDoneEvent(In_NetworkDoneEvent)
+			, WritingDoneEvent(In_WritingDoneEvent)
 		{
 		}
 		
@@ -897,12 +906,10 @@ void AsyncReadUnsolicitedFiles(int32 InNumUnsolictedFiles, FNetworkPlatformFile&
 			}
 			NetworkDoneEvent->Trigger();
 		}
-		/** Give the name for external event viewers
-		* @return	the name to display in external event viewers
-		*/
-		static const TCHAR *Name()
+
+		FORCEINLINE TStatId GetStatId() const
 		{
-			return TEXT("FAsyncReadUnsolicitedFile");
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncReadUnsolicitedFile, STATGROUP_ThreadPoolAsyncTasks);
 		}
 	};
 

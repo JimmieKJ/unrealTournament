@@ -14,6 +14,8 @@ DECLARE_DELEGATE_RetVal_OneParam(bool, FTickerDelegate, float);
 
 /**
  * Ticker class. Fires delegates after a delay.
+ * 
+ * Note: Do not try to add the same delegate instance twice, as there is no way to remove only a single instance (see member RemoveTicker).
  */
 class FTicker
 {
@@ -22,81 +24,50 @@ public:
 	/** Singleton used for the ticker in Core / Launch. If you add a new ticker for a different subsystem, do not put that singleton here! **/
 	CORE_API static FTicker& GetCoreTicker();
 
-	FTicker()
-		: CurrentTime(0.0)
-	{
-	}
+	CORE_API FTicker();
+	CORE_API ~FTicker();
 
 	/**
 	 * Add a new ticker with a given delay / interval
-	 * @param InDelegate	delegate to fire after the delay
-	 * @param InDelay		Delay until next fire; 0 means "next frame"
+	 * 
+	 * @param InDelegate Delegate to fire after the delay
+	 * @param InDelay Delay until next fire; 0 means "next frame"
 	 */
-	FDelegateHandle AddTicker(const FTickerDelegate& InDelegate, float InDelay = 0.0f)
-	{
-		FElement Ticker(CurrentTime + InDelay, InDelay, InDelegate);
-		PriorityQueue.HeapPush(Ticker);
-		return InDelegate.GetHandle();
-	}
+	CORE_API FDelegateHandle AddTicker(const FTickerDelegate& InDelegate, float InDelay = 0.0f);
+
+	/**
+	 * Removes a previously added ticker delegate.
+	 * 
+	 * Note: will remove ALL tickers that use this handle, as there's no way to uniquely identify which one you are trying to remove.
+	 *
+	 * @param Handle The handle of the ticker to remove.
+	 */
+	CORE_API void RemoveTicker(FDelegateHandle Handle);
 
 	/**
 	 * Removes a previously added ticker delegate.
 	 *
-	 * @param Handle - The handle of the ticker to remove.
-	 */
-	void RemoveTicker(FDelegateHandle Handle)
-	{
-		PriorityQueue.RemoveAll([=](const FElement& Element){ return Element.Delegate.GetHandle() == Handle; });
-	}
-
-	/**
-	 * Removes a previously added ticker delegate.
+	 * Note: will remove ALL tickers that use this handle, as there's no way to uniquely identify which one you are trying to remove.
 	 *
-	 * @param Delegate - The delegate to remove.
+	 * @param Delegate The delegate to remove.
 	 */
 	DELEGATE_DEPRECATED("This RemoveTicker overload is deprecated - please remove tickers using the FDelegateHandle returned by the AddTicker function.")
-	void RemoveTicker(const FTickerDelegate& Delegate)
-	{
-		for (int32 Index = 0; Index < PriorityQueue.Num(); ++Index)
-		{
-			if (PriorityQueue[Index].Delegate.DEPRECATED_Compare(Delegate))
-			{
-				PriorityQueue.RemoveAt(Index);
-			}
-		}
-	}
+	CORE_API void RemoveTicker(const FTickerDelegate& Delegate);
 
 	/**
 	 * Fire all tickers who have passed their delay and reschedule the ones that return true
+	 * 
+	 * Note: This reschedule has timer skew, meaning we always wait a full Delay period after 
+	 * each invocation even if we missed the last interval by a bit. For instance, setting a 
+	 * delay of 0.1 seconds will not necessarily fire the delegate 10 times per second, depending 
+	 * on the Tick() rate. What this DOES guarantee is that a delegate will never be called MORE
+	 * FREQUENTLY than the Delay interval, regardless of how far we miss the scheduled interval.
+	 * 
 	 * @param DeltaTime	time that has passed since the last tick call
 	 */
-	void Tick(float DeltaTime)
-	{
-		if (!PriorityQueue.Num())
-		{
-			return;
-		}
-		double Now = CurrentTime + DeltaTime;
-		TArray<FElement> ToFire;
-		while (PriorityQueue.Num() && PriorityQueue.HeapTop().FireTime <= Now)
-		{
-			ToFire.Add(PriorityQueue.HeapTop());
-			PriorityQueue.HeapPopDiscard();
-		}
-		CurrentTime = Now;
-		for (int32 Index = 0; Index < ToFire.Num(); Index++)
-		{
-			FElement& FireIt = ToFire[Index];
-			if (FireIt.Fire(DeltaTime))
-			{
-				FireIt.FireTime = CurrentTime + FireIt.DelayTime;
-				PriorityQueue.HeapPush(FireIt);
-			}
-		}
-	}
+	CORE_API void Tick(float DeltaTime);
 
 private:
-
 	/**
 	 * Element of the priority queue
 	 */
@@ -109,33 +80,29 @@ private:
 		/** Delegate to fire **/
 		FTickerDelegate Delegate;
 
-		FElement(double InFireTime, float InDelayTime, const FTickerDelegate& InDelegate)
-			: FireTime(InFireTime)
-			, DelayTime(InDelayTime)
-			, Delegate(InDelegate)
-		{
-		}
-		/** operator less, used to sort the heap based on fire time **/
-		bool operator<(const FElement& Other) const
-		{
-			return FireTime < Other.FireTime;
-		}
+		/** Default ctor is only required to implement CurrentElement handling without making it a pointer. */
+		CORE_API FElement();
+		/** This is the ctor that the code will generally use. */
+		CORE_API FElement(double InFireTime, float InDelayTime, const FTickerDelegate& InDelegate);
+		
 		/** Fire the delegate if it is fireable **/
-		bool Fire(float DeltaTime)
-		{
-			if (Delegate.IsBound())
-			{
-				return Delegate.Execute(DeltaTime);
-			}
-			return false;
-		}
+		CORE_API bool Fire(float DeltaTime);
 	};
 
 	/** Current time of the ticker **/
 	double CurrentTime;
 	/** Future delegates to fire **/
-	TArray<FElement> PriorityQueue;
+	TArray<FElement> Elements;
+	/** List of delegates that have been considered during Tick. Either they been fired or are not yet ready.*/
+	TArray<FElement> TickedElements;
+	/** Current element being ticked (only valid during tick). */
+	FElement CurrentElement;
+	/** State to track whether CurrentElement is valid. */
+	bool bInTick;
+	/** State to track whether the CurrentElement removed itself during its own delegate execution. */
+	bool bCurrentElementRemoved;
 };
+
 
 /**
  * Base class for ticker objects
@@ -148,22 +115,12 @@ public:
 	 * Constructor
 	 *
 	 * @param InDelay Delay until next fire; 0 means "next frame"
+	 * @param Ticker the ticker to register with. Defaults to FTicker::GetCoreTicker().
 	 */
-	FTickerObjectBase(float InDelay = 0.0f)
-	{
-		// Register delegate for ticker callback
-		FTickerDelegate TickDelegate = FTickerDelegate::CreateRaw(this, &FTickerObjectBase::Tick);
-		TickHandle = FTicker::GetCoreTicker().AddTicker(TickDelegate, InDelay);
-	}
+	CORE_API FTickerObjectBase(float InDelay = 0.0f, FTicker& Ticker = FTicker::GetCoreTicker());
 
-	/**
-	 * Destructor
-	 */
-	virtual ~FTickerObjectBase()
-	{
-		// Unregister ticker delegate
-		FTicker::GetCoreTicker().RemoveTicker(TickHandle);
-	}
+	/** Virtual destructor. */
+	CORE_API virtual ~FTickerObjectBase();
 
 	/**
 	 * Pure virtual that must be overloaded by the inheriting class.
@@ -173,8 +130,13 @@ public:
 	 */
 	virtual bool Tick(float DeltaTime) = 0;
 
-private:	
+private:
+	// noncopyable idiom
+	FTickerObjectBase(const FTickerObjectBase&);
+	FTickerObjectBase& operator=(const FTickerObjectBase&);
 
+	/** Ticker to register with */
+	FTicker& Ticker;
 	/** Delegate for callbacks to Tick */
 	FDelegateHandle TickHandle;
 };

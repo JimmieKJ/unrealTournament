@@ -24,6 +24,9 @@ private:
 	/** Handler for when CreateDestructibleMesh is selected */
 	void ExecuteCreateDestructibleMesh(TArray<TWeakObjectPtr<UStaticMesh>> Objects);
 
+	// Handler for when SaveGeneratedLODsInPackage is selected
+	void ExecuteSaveGeneratedLODsInPackage(TArray<TWeakObjectPtr<UStaticMesh>> Objects);
+
 	/** Handler to provide the list of LODs that can be imported or reimported */
 	void GetImportLODMenu(class FMenuBuilder& MenuBuilder,TArray<TWeakObjectPtr<UStaticMesh>> Objects);
 };

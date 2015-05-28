@@ -19,7 +19,7 @@ public:
 
 public:
 	/** The text content for this editable text box widget */
-	UPROPERTY(EditDefaultsOnly, Category=Content, meta=(MultiLine="true"))
+	UPROPERTY(EditAnywhere, Category=Content, meta=(MultiLine="true"))
 	FText Text;
 
 public:
@@ -33,11 +33,11 @@ public:
 	TEnumAsByte<ETextJustify::Type> Justification;
 
 	/** Whether to wrap text automatically based on the widget's computed horizontal space.*/
-	UPROPERTY(EditDefaultsOnly, Category=Content)
+	UPROPERTY(EditAnywhere, Category=Content)
 	bool bAutoWrapText;
 
 	/** Whether text wraps onto a new line when it's length exceeds this width; if this value is zero or negative, no wrapping occurs. */
-	UPROPERTY(EditDefaultsOnly, AdvancedDisplay, Category=Content)
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Content)
 	float WrapTextAt;
 
 	/** Font color and opacity (overrides Style) */
@@ -55,11 +55,11 @@ public:
 public:
 
 	/**  */
-	UFUNCTION(BlueprintCallable, Category="Widget", meta=(FriendlyName="GetText (Multi-Line Editable Text)"))
+	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="GetText (Multi-Line Editable Text)"))
 	FText GetText() const;
 
 	/**  */
-	UFUNCTION(BlueprintCallable, Category="Widget", meta=(FriendlyName="SetText (Multi-Line Editable Text)"))
+	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="SetText (Multi-Line Editable Text)"))
 	void SetText(FText InText);
 	
 	// UWidget interface

@@ -41,12 +41,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Appearance")
 	void SetShadowOffset(FVector2D InShadowOffset);
 
+	/**
+	 *  Set the text justification for this text block
+	 *
+	 *  @param Justification new justification
+	 */
+	UFUNCTION( BlueprintCallable, Category = "Appearance" )
+	void SetJustification( ETextJustify::Type InJustification );
+
 public:
 	UPROPERTY()
 	USlateWidgetStyleAsset* Style_DEPRECATED;
 
 	/** The text to display */
-	UPROPERTY(EditDefaultsOnly, Category=Content, meta=( MultiLine="true" ))
+	UPROPERTY(EditAnywhere, Category=Content, meta=( MultiLine="true" ))
 	FText Text;
 	
 	/** A bindable delegate to allow logic to drive the text of the widget */
@@ -54,7 +62,7 @@ public:
 	FGetText TextDelegate;
 
 	/** The color of the text */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FSlateColor ColorAndOpacity;
 
 	/** A bindable delegate for the ColorAndOpacity. */
@@ -62,15 +70,15 @@ public:
 	FGetSlateColor ColorAndOpacityDelegate;
 	
 	/** The font to render the text with */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FSlateFontInfo Font;
 
 	/** The direction the shadow is cast */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	FVector2D ShadowOffset;
 
 	/** The color of the shadow */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance, meta=( DisplayName="Shadow Color" ))
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, meta=( DisplayName="Shadow Color" ))
 	FLinearColor ShadowColorAndOpacity;
 
 	/** A bindable delegate for the ShadowColorAndOpacity. */
@@ -78,27 +86,27 @@ public:
 	FGetLinearColor ShadowColorAndOpacityDelegate;
 
 	/** How the text should be aligned with the margin. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	TEnumAsByte<ETextJustify::Type> Justification;
 
 	/** True if we're wrapping text automatically based on the computed horizontal space for this widget */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
 	bool AutoWrapText;
 
 	/** Whether text wraps onto a new line when it's length exceeds this width; if this value is zero or negative, no wrapping occurs. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
 	float WrapTextAt;
 
 	/** The minimum desired size for the text */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
 	float MinDesiredWidth;
 
 	/** The amount of blank space left around the edges of text area. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
 	FMargin Margin;
 
 	/** The amount to scale each lines height by. */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
 	float LineHeightPercentage;
 
 	///** Called when this text is double clicked */
@@ -108,7 +116,7 @@ public:
 	 * Gets the widget text
 	 * @return The widget text
 	 */
-	UFUNCTION(BlueprintCallable, Category="Widget", meta=(FriendlyName="GetText (Text)"))
+	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="GetText (Text)"))
 	FText GetText() const;
 
 	/**
@@ -116,7 +124,7 @@ public:
 	 * Warning: This will wipe any binding created for the Text property!
 	 * @param InText The text to assign to the widget
 	 */
-	UFUNCTION(BlueprintCallable, Category="Widget", meta=(FriendlyName="SetText (Text)"))
+	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="SetText (Text)"))
 	void SetText(FText InText);
 
 	// UWidget interface
@@ -135,6 +143,7 @@ public:
 	// UWidget interface
 	virtual const FSlateBrush* GetEditorIcon() override;
 	virtual const FText GetPaletteCategory() override;
+	virtual void OnCreationFromPalette() override;
 	// End UWidget interface
 
 	virtual FString GetLabelMetadata() const override;

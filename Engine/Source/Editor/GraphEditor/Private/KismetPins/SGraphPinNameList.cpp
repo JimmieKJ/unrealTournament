@@ -4,6 +4,7 @@
 #include "GraphEditorCommon.h"
 #include "SGraphPinComboBox.h"
 #include "SGraphPinNameList.h"
+#include "Editor/UnrealEd/Public/ScopedTransaction.h"
 
 void SGraphPinNameList::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj, const TArray<TSharedPtr<FName>>& InNameList)
 {
@@ -44,7 +45,14 @@ void SGraphPinNameList::ComboBoxSelectionChanged(TSharedPtr<FName> NameItem, ESe
 	FName Name = NameItem.IsValid() ? *NameItem : NAME_None;
 	if (auto Schema = (GraphPinObj ? GraphPinObj->GetSchema() : NULL))
 	{
-		Schema->TrySetDefaultValue(*GraphPinObj, *Name.ToString());
+		FString NameAsString = Name.ToString();
+		if(GraphPinObj->GetDefaultAsString() != NameAsString)
+		{
+			const FScopedTransaction Transaction( NSLOCTEXT("GraphEditor", "ChangeNameListPinValue", "Change Name List Pin Value" ) );
+			GraphPinObj->Modify();
+
+			Schema->TrySetDefaultValue(*GraphPinObj, NameAsString);
+		}
 	}
 }
 

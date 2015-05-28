@@ -32,7 +32,7 @@ EChunkProgressReportingType::Type GetChunkAvailabilityProgressType(EAssetAvailab
 }
 
 FAssetRegistry::FAssetRegistry()
-	: PathTreeRoot(TEXT(""))
+	: PathTreeRoot(FString())
 	, PreallocatedAssetDataBuffer(NULL)
 {
 	const double StartupStartTime = FPlatformTime::Seconds();
@@ -45,6 +45,9 @@ FAssetRegistry::FAssetRegistry()
 	
 
 	MaxSecondsPerFrame = 0.015;
+
+	// Collect all code generator classes (currently BlueprintCore-derived ones)
+	CollectCodeGeneratorClasses();
 
 	// If in the editor, we scan all content right now
 	// If in the game, we expect user to make explicit sync queries using ScanPathsSynchronous
@@ -96,9 +99,6 @@ FAssetRegistry::FAssetRegistry()
 	// will be loaded a bit later on.
 	FPackageName::OnContentPathMounted().AddRaw( this, &FAssetRegistry::OnContentPathMounted );
 	FPackageName::OnContentPathDismounted().AddRaw( this, &FAssetRegistry::OnContentPathDismounted );
-
-	// Now collect all code generator classes (currently BlueprintCore-derived ones)
-	CollectCodeGeneratorClasses();
 }
 
 void FAssetRegistry::CollectCodeGeneratorClasses()
@@ -1111,9 +1111,24 @@ void FAssetRegistry::ScanPathsSynchronous(const TArray<FString>& InPaths, bool b
 
 void FAssetRegistry::PrioritizeSearchPath(const FString& PathToPrioritize)
 {
+	// Prioritize the background search
 	if (BackgroundAssetSearch.IsValid())
 	{
 		BackgroundAssetSearch->PrioritizeSearchPath(PathToPrioritize);
+	}
+
+	// Also prioritize the queue of background search results
+	{
+		// Swap all priority files to the top of the list
+		int32 LowestNonPriorityFileIdx = 0;
+		for (int32 ResultIdx = 0; ResultIdx < BackgroundAssetResults.Num(); ++ResultIdx)
+		{
+			if (BackgroundAssetResults[ResultIdx]->PackagePath.StartsWith(PathToPrioritize))
+			{
+				BackgroundAssetResults.Swap(ResultIdx, LowestNonPriorityFileIdx);
+				LowestNonPriorityFileIdx++;
+			}
+		}
 	}
 }
 
@@ -1125,6 +1140,10 @@ void FAssetRegistry::AssetCreated(UObject* NewAsset)
 		// determined by its long package name.
 		// @todo AssetRegistry We are assuming it will be saved in a single asset package.
 		UPackage* NewPackage = NewAsset->GetOutermost();
+
+		// Mark this package as newly created.
+		NewPackage->PackageFlags |= PKG_NewlyCreated;
+
 		const FString NewPackageName = NewPackage->GetName();
 		const FString Filename = FPackageName::LongPackageNameToFilename(NewPackageName, FPackageName::GetAssetPackageExtension());
 
@@ -1294,7 +1313,8 @@ void FAssetRegistry::Serialize(FArchive& Ar)
 {
 	if (Ar.IsSaving())
 	{
-		SaveRegistryData(Ar, CachedAssetsByObjectPath, NumAssets);
+		check(CachedAssetsByObjectPath.Num() == NumAssets);
+		SaveRegistryData(Ar, CachedAssetsByObjectPath);
 	}
 	// load in by building the TMap
 	else
@@ -1321,15 +1341,35 @@ void FAssetRegistry::Serialize(FArchive& Ar)
 	}
 }
 
-void FAssetRegistry::SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data, int32 AssetCount)
+void FAssetRegistry::SaveRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data )
 {
 	// serialize number of objects
+	int32 AssetCount = Data.Num();
 	Ar << AssetCount;
 
 	// save out by walking the TMap
 	for (TMap<FName, FAssetData*>::TIterator It(Data); It; ++It)
 	{
 		Ar << *It.Value();
+	}
+}
+
+void FAssetRegistry::LoadRegistryData(FArchive& Ar, TMap<FName, FAssetData*>& Data )
+{
+	check(Ar.IsLoading());
+	// serialize number of objects
+	int AssetCount = 0;
+	Ar << AssetCount;
+
+	for (int32 AssetIndex = 0; AssetIndex < AssetCount; AssetIndex++)
+	{
+		// make a new asset data object
+		FAssetData *NewAssetData = new FAssetData();
+
+		// load it
+		Ar << *NewAssetData;
+
+		Data.Add(NewAssetData->ObjectPath, NewAssetData);
 	}
 }
 
@@ -1488,7 +1528,7 @@ void FAssetRegistry::DependencyDataGathered(const double TickStartTime, TArray<F
 		for (int32 StringAssetRefIdx = 0; StringAssetRefIdx < Result.StringAssetReferencesMap.Num(); ++StringAssetRefIdx)
 		{
 			FString PackageName, ObjName;
-			Result.StringAssetReferencesMap[StringAssetRefIdx].Split(".", &PackageName, &ObjName);
+			Result.StringAssetReferencesMap[StringAssetRefIdx].Split(".", &PackageName, &ObjName, ESearchCase::CaseSensitive);
 			PackageDependencies.Add(*PackageName);
 		}
 
@@ -1649,8 +1689,8 @@ void FAssetRegistry::AddAssetData(FAssetData* AssetData)
 		// Don't check FName number so we still accumulate them even if there are multiple
 		if (GIsEditor && TagIt.Key().IsEqual(UObject::SourceFileTagName(), ENameCase::IgnoreCase, false))
 		{
-			auto& SourceFiles = CachedAssetsBySourceFileName.FindOrAdd(*FPaths::GetCleanFilename(TagIt.Value()));
-			SourceFiles.Add(AssetData);
+			auto& Assets = CachedAssetsBySourceFileName.FindOrAdd(*FPaths::GetCleanFilename(TagIt.Value()));
+			Assets.Add(AssetData);
 		}
 #endif
 	}
@@ -1674,22 +1714,6 @@ void FAssetRegistry::AddAssetData(FAssetData* AssetData)
 
 void FAssetRegistry::UpdateAssetData(FAssetData* AssetData, const FAssetData& NewAssetData)
 {
-	// Determine if tags need to be remapped
-	bool bTagsChanged = AssetData->TagsAndValues.Num() != NewAssetData.TagsAndValues.Num();
-	
-	// If the old and new asset data has the same number of tags, see if any are different (its ok if values are different)
-	if (!bTagsChanged)
-	{
-		for (TMap<FName, FString>::TConstIterator TagIt(AssetData->TagsAndValues); TagIt; ++TagIt)
-		{
-			if ( !NewAssetData.TagsAndValues.Contains(TagIt.Key()) )
-			{
-				bTagsChanged = true;
-				break;
-			}
-		}
-	}
-
 	// Update ObjectPath
 	if ( AssetData->PackageName != NewAssetData.PackageName || AssetData->AssetName != NewAssetData.AssetName)
 	{
@@ -1728,43 +1752,71 @@ void FAssetRegistry::UpdateAssetData(FAssetData* AssetData, const FAssetData& Ne
 	}
 
 	// Update Tags
-	if (bTagsChanged)
 	{
 		const FName& SourceFileTagName = UObject::SourceFileTagName();
+		TArray<FString> OldSourcePaths, NewSourcePaths;
 
-		for (TMap<FName, FString>::TConstIterator TagIt(AssetData->TagsAndValues); TagIt; ++TagIt)
+		// Remove any tags that no longer exist
+		for (const auto& Pair : AssetData->TagsAndValues)
 		{
-			const FName FNameKey = TagIt.Key();
-			auto OldTagAssets = CachedAssetsByTag.Find(FNameKey);
-
-			OldTagAssets->Remove(AssetData);
-
 #if WITH_EDITORONLY_DATA
-			// Don't check FName number so we still remove them even if there are multiple
-			if (GIsEditor && TagIt.Key().IsEqual(SourceFileTagName, ENameCase::IgnoreCase, false))
+			// Accumulate a list of old source filenames
+			if (GIsEditor && Pair.Key.IsEqual(SourceFileTagName, ENameCase::IgnoreCase, false))
 			{
-				auto* SourceFiles = CachedAssetsBySourceFileName.Find(*FPaths::GetCleanFilename(TagIt.Value()));
-				SourceFiles->Remove(AssetData);
+				OldSourcePaths.Add(Pair.Value);
 			}
 #endif
+			if (!NewAssetData.TagsAndValues.Contains(Pair.Key))
+			{
+				auto OldTagAssets = CachedAssetsByTag.Find(Pair.Key);
+				OldTagAssets->Remove(AssetData);
+			}
 		}
 
-		for (TMap<FName, FString>::TConstIterator TagIt(NewAssetData.TagsAndValues); TagIt; ++TagIt)
+		// Add new tags
+		for (const auto& Pair : NewAssetData.TagsAndValues)
 		{
-			const FName FNameKey = TagIt.Key();
-			auto& NewTagAssets = CachedAssetsByTag.FindOrAdd(FNameKey);
-
-			NewTagAssets.Add(AssetData);
-
 #if WITH_EDITORONLY_DATA
-			// Don't check FName number so we still add them even if there are multiple
-			if (GIsEditor && TagIt.Key().IsEqual(SourceFileTagName, ENameCase::IgnoreCase, false))
+			// Accumulate a list of old source filenames
+			if (GIsEditor && Pair.Key.IsEqual(SourceFileTagName, ENameCase::IgnoreCase, false))
 			{
-				auto& SourceFiles = CachedAssetsBySourceFileName.FindOrAdd(*FPaths::GetCleanFilename(TagIt.Value()));
-				SourceFiles.Add(AssetData);
+				NewSourcePaths.Add(Pair.Value);
 			}
 #endif
+			if (!AssetData->TagsAndValues.Contains(Pair.Key))
+			{
+				auto& NewTagAssets = CachedAssetsByTag.FindOrAdd(Pair.Key);
+				NewTagAssets.Add(AssetData);
+			}
 		}
+
+#if WITH_EDITORONLY_DATA
+		// Fixup source file -> asset mappings
+		for (const auto& SourcePath : OldSourcePaths)
+		{
+			if (!NewSourcePaths.Contains(SourcePath))
+			{
+				FName CleanFilename = *FPaths::GetCleanFilename(SourcePath);
+				auto* Assets = CachedAssetsBySourceFileName.Find(CleanFilename);
+				if (Assets)
+				{
+					Assets->Remove(AssetData);
+					if (Assets->Num() == 0)
+					{
+						CachedAssetsBySourceFileName.Remove(CleanFilename);
+					}
+				}
+			}
+		}
+		for (const auto& SourcePath : NewSourcePaths)
+		{
+			if (!OldSourcePaths.Contains(SourcePath))
+			{
+				auto& Assets = CachedAssetsBySourceFileName.FindOrAdd(*FPaths::GetCleanFilename(SourcePath));
+				Assets.Add(AssetData);
+			}
+		}
+#endif
 	}
 
 	// Update the class map if updating a blueprint
@@ -1833,8 +1885,16 @@ bool FAssetRegistry::RemoveAssetData(FAssetData* AssetData)
 			// Don't check FName number so we still remove them even if there are multiple
 			if (GIsEditor && TagIt.Key().IsEqual(SourceFileTagName, ENameCase::IgnoreCase, false))
 			{
-				auto* SourceFiles = CachedAssetsBySourceFileName.Find(*FPaths::GetCleanFilename(TagIt.Value()));
-				SourceFiles->Remove(AssetData);
+				FName CleanFilename = *FPaths::GetCleanFilename(TagIt.Value());
+				auto* Assets = CachedAssetsBySourceFileName.Find(CleanFilename);
+				if (Assets)
+				{
+					Assets->Remove(AssetData);
+					if (Assets->Num() == 0)
+					{
+						CachedAssetsBySourceFileName.Remove(CleanFilename);
+					}
+				}
 			}
 #endif
 		}

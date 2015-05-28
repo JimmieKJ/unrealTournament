@@ -8,9 +8,10 @@
 class FSequencerDragOperation
 {
 public:
-	FSequencerDragOperation()
+	FSequencerDragOperation( FSequencer& InSequencer )
+		: Sequencer(InSequencer)
 	{
-		SnapSettings = GetDefault<USequencerSnapSettings>();
+		Settings = GetDefault<USequencerSettings>();
 	}
 
 	virtual ~FSequencerDragOperation(){}
@@ -75,8 +76,10 @@ protected:
 	 */
 	TOptional<float> SnapToTimes(float InitialTimes, const TArray<float>& SnapTimes, const FTimeToPixel& TimeToPixelConverter);
 
-	/** The current snap settings */
-	const USequencerSnapSettings* SnapSettings;
+	/** The current sequencer settings */
+	const USequencerSettings* Settings;
+
+	FSequencer& Sequencer;
 };
 
 
@@ -87,7 +90,7 @@ protected:
 class FResizeSection : public FSequencerDragOperation
 {
 public:
-	FResizeSection( UMovieSceneSection& InSection, bool bInDraggingByEnd );
+	FResizeSection( FSequencer& Sequencer, UMovieSceneSection& InSection, bool bInDraggingByEnd );
 
 	/** FSequencerDragOperation interface */
 	virtual void OnBeginDrag(const FVector2D& LocalMousePos, TSharedPtr<FTrackNode> SequencerNode) override;
@@ -107,7 +110,7 @@ private:
 class FMoveSection : public FSequencerDragOperation
 {
 public:
-	FMoveSection( UMovieSceneSection& InSection );
+	FMoveSection( FSequencer& Sequencer, UMovieSceneSection& InSection );
 
 	/** FSequencerDragOperation interface */
 	virtual void OnBeginDrag(const FVector2D& LocalMousePos, TSharedPtr<FTrackNode> SequencerNode) override;
@@ -132,8 +135,9 @@ private:
 class FMoveKeys : public FSequencerDragOperation
 {
 public:
-	FMoveKeys( TSet<FSelectedKey>& InSelectedKeys, FSelectedKey& PressedKey )
-		: SelectedKeys( InSelectedKeys )
+	FMoveKeys( FSequencer& Sequencer,  const TSet<FSelectedKey>* InSelectedKeys, FSelectedKey& PressedKey )
+		: FSequencerDragOperation(Sequencer)
+		, SelectedKeys( InSelectedKeys )
 		, DraggedKey( PressedKey )
 	{}
 
@@ -148,7 +152,7 @@ protected:
 
 private:
 	/** The selected keys being moved. */
-	TSet<FSelectedKey>& SelectedKeys;
+	const TSet<FSelectedKey>* SelectedKeys;
 	/** The exact key that we're dragging */
 	FSelectedKey DraggedKey;
 };

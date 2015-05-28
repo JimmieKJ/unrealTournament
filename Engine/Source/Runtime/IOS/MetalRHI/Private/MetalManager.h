@@ -103,7 +103,7 @@ public:
 	void SetBoundShaderState(FMetalBoundShaderState* BoundShaderState);
 	void SetCurrentRenderTarget(FMetalSurface* RenderSurface, int32 RenderTargetIndex, uint32 MipIndex, uint32 ArraySliceIndex, MTLLoadAction LoadAction, MTLStoreAction StoreAction, int32 TotalNumRenderTargets);
 	void SetCurrentDepthStencilTarget(FMetalSurface* RenderSurface, MTLLoadAction DepthLoadAction=MTLLoadActionDontCare, MTLStoreAction DepthStoreAction=MTLStoreActionDontCare, float ClearDepthValue=0, 
-		MTLLoadAction StencilLoadAction=MTLLoadActionDontCare, MTLStoreAction StencilStoreAction=MTLStoreActionDontCare, uint8 ClearStencilValue=0);
+		MTLLoadAction StencilLoadAction=MTLLoadActionDontCare, MTLStoreAction InStencilStoreAction=MTLStoreActionDontCare, uint8 ClearStencilValue=0);
 	
 	/**
 	 * Set the color, depth and stencil render targets, and then make the new command buffer/encoder
@@ -160,8 +160,11 @@ public:
 	void CreateAutoreleasePool();
 	void DrainAutoreleasePool();
 
-	void SetComputeShader(FComputeShaderRHIParamRef InComputeShader) { CurrentComputeShader = InComputeShader; }
+	void SetComputeShader(FMetalComputeShader* InComputeShader);
 	void Dispatch(uint32 ThreadGroupCountX, uint32 ThreadGroupCountY, uint32 ThreadGroupCountZ);
+
+	void ResizeBackBuffer(uint32 InSizeX, uint32 InSizeY);
+	FIntPoint GetBoundRenderTargetDimensions() { return BoundRenderTargetDimensions; }
 
 protected:
 	FMetalManager();
@@ -180,6 +183,16 @@ protected:
 	 */
 	bool NeedsToSetRenderTarget(const FRHISetRenderTargetsInfo& RenderTargetsInfo);
 
+	/**
+	 * Possibly switch from compute to graphics
+	 */
+	void ConditionalSwitchToGraphics();
+	
+	/**
+	 * Possibly switch from graphics to compute
+	 */
+	void ConditionalSwitchToCompute();
+	
 
 	id<MTLDevice> Device;
 
@@ -232,7 +245,7 @@ protected:
 	
 	class FMetalShaderParameterCache*	ShaderParameters;
 
-	FComputeShaderRHIParamRef CurrentComputeShader;
+	TRefCountPtr<FMetalComputeShader> CurrentComputeShader;
 
 	// the running pipeline state descriptor object
 	FPipelineShadow Pipeline;
@@ -274,6 +287,9 @@ protected:
 	void CommitGraphicsResourceTables();
 
 	void CommitNonComputeShaderConstants();
+
+	/** The dimensions of the currently bound RT */
+	FIntPoint BoundRenderTargetDimensions;
 
 private:
 	

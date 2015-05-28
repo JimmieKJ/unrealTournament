@@ -38,9 +38,9 @@ FBlueprintNodeSignature UBlueprintFieldNodeSpawner::GetSpawnerSignature() const
 //------------------------------------------------------------------------------
 UEdGraphNode* UBlueprintFieldNodeSpawner::Invoke(UEdGraph* ParentGraph, FBindingSet const& Bindings, FVector2D const Location) const
 {
-	auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, UField const* Field, FSetNodeFieldDelegate SetFieldDelegate, FCustomizeNodeDelegate UserDelegate)
+	auto PostSpawnSetupLambda = [](UEdGraphNode* NewNode, bool bIsTemplateNode, UField const* InField, FSetNodeFieldDelegate SetFieldDelegate, FCustomizeNodeDelegate UserDelegate)
 	{
-		SetFieldDelegate.ExecuteIfBound(NewNode, Field);
+		SetFieldDelegate.ExecuteIfBound(NewNode, InField);
 		UserDelegate.ExecuteIfBound(NewNode, bIsTemplateNode);
 	};
 

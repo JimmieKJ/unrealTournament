@@ -10,8 +10,6 @@
 
 UMediaPlayer::UMediaPlayer( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
-	, AutoPlay(false)
-	, AutoPlayRate(1.0f)
 	, Looping(true)
 	, StreamMode(MASM_FromUrl)
 	, Player(nullptr)
@@ -250,53 +248,53 @@ void UMediaPlayer::InitializePlayer()
 		Player->OnOpened().AddUObject(this, &UMediaPlayer::HandleMediaPlayerMediaOpened);
 
 		// open the new media file
-		const FString FullUrl = FPaths::ConvertRelativePathToFull(FPaths::IsRelative(URL) ? FPaths::GameContentDir() / URL : URL);
 		bool OpenedSuccessfully = false;
 
-		if (StreamMode == EMediaPlayerStreamModes::MASM_FromUrl)
+		if (URL.Contains(TEXT("://")))
 		{
-			OpenedSuccessfully = Player->Open(FPaths::ConvertRelativePathToFull(FullUrl));
+			OpenedSuccessfully = Player->Open(URL);
 		}
-		else if (FPaths::FileExists(FullUrl))
+		else
 		{
-			FArchive* FileReader = IFileManager::Get().CreateFileReader(*FullUrl);
+			const FString FullUrl = FPaths::ConvertRelativePathToFull(FPaths::IsRelative(URL) ? FPaths::GameContentDir() / URL : URL);
+
+			if (StreamMode == EMediaPlayerStreamModes::MASM_FromUrl)
+			{
+				OpenedSuccessfully = Player->Open(FullUrl);
+			}
+			else if (FPaths::FileExists(FullUrl))
+			{
+				FArchive* FileReader = IFileManager::Get().CreateFileReader(*FullUrl);
 		
-			if (FileReader == nullptr)
-			{
-				return;
+				if (FileReader == nullptr)
+				{
+					return;
+				}
+
+				if (FileReader->TotalSize() > 0)
+				{
+					TArray<uint8>* FileData = new TArray<uint8>();
+
+					FileData->AddUninitialized(FileReader->TotalSize());
+					FileReader->Serialize(FileData->GetData(), FileReader->TotalSize());
+
+					OpenedSuccessfully = Player->Open(MakeShareable(FileData), FullUrl);
+				}
+
+				delete FileReader;
 			}
-
-			if (FileReader->TotalSize() > 0)
-			{
-				TArray<uint8>* FileData = new TArray<uint8>();
-
-				FileData->AddUninitialized(FileReader->TotalSize());
-				FileReader->Serialize(FileData->GetData(), FileReader->TotalSize());
-
-				OpenedSuccessfully = Player->Open(MakeShareable(FileData), FullUrl);
-			}
-
-			delete FileReader;
 		}
 
 		// finish initialization
 		if (OpenedSuccessfully)
 		{
-			CurrentUrl = FullUrl;
+			CurrentUrl = URL;
 		}
 	}
 
-	if (!Player.IsValid())
+	if (Player.IsValid())
 	{
-		return;
-	}
-
-	// start playback, if desired
-	Player->SetLooping(Looping);
-    
-	if (AutoPlay)
-	{
-		Player->SetRate(AutoPlayRate);
+		Player->SetLooping(Looping);
 	}
 }
 

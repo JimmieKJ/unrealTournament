@@ -257,9 +257,9 @@ struct glsl_switch_state
 struct _mesa_glsl_parse_state
 {
 	_mesa_glsl_parse_state(
-	void *mem_ctx,
-	_mesa_glsl_parser_targets target,
-	struct ILanguageSpec* InBackendLanguage,
+		void *mem_ctx,
+		_mesa_glsl_parser_targets target,
+		struct ILanguageSpec* InBackendLanguage,
 		int glsl_version);
 
 	/* Callers of this ralloc-based new need not call delete. It's
@@ -292,9 +292,7 @@ struct _mesa_glsl_parse_state
 	bool bGenerateES;		// Did we requested to compile FOR ES
 	bool bSeparateShaderObjects;
 	
-	bool es_shader;	// Should we process the input code as ES (legacy mesa)
 	unsigned language_version;
-	const char *version_string;
 	enum _mesa_glsl_parser_targets target;
 
 	/** Information for geometry shaders, used only if maxvertexcount>0 */
@@ -318,16 +316,6 @@ struct _mesa_glsl_parse_state
 	* spaces between OpenGL and DX11?
 	*/
 	bool adjust_clip_space_dx11_to_opengl;
-
-	/**
-	* Printable list of GLSL versions supported by the current context
-	*
-	* \note
-	* This string should probably be generated per-context instead of per
-	* invokation of the compiler.  This should be changed when the method of
-	* tracking supported GLSL versions changes.
-	*/
-	const char *supported_version_string;
 
 	/**
 	* During AST to IR conversion, pointer to current IR function
@@ -389,29 +377,6 @@ struct _mesa_glsl_parse_state
 
 	// Information for extracting sampler/texture names
 	TStringToSetMap TextureToSamplerMap;
-
-	/**
-	* \name Enable bits for GLSL extensions
-	*/
-	/*@{*/
-	bool ARB_explicit_attrib_location_enable;
-	bool ARB_explicit_attrib_location_warn;
-	bool ARB_fragment_coord_conventions_enable;
-	bool ARB_fragment_coord_conventions_warn;
-	bool ARB_texture_rectangle_enable;
-	bool ARB_texture_rectangle_warn;
-	bool EXT_texture_array_enable;
-	bool EXT_texture_array_warn;
-	bool ARB_shader_texture_lod_warn;
-	bool AMD_conservative_depth_enable;
-	bool AMD_conservative_depth_warn;
-	bool ARB_conservative_depth_enable;
-	bool ARB_conservative_depth_warn;
-	bool OES_texture_3D_enable;
-	bool OES_texture_3D_warn;
-	bool OES_EGL_image_external_enable;
-	bool OES_EGL_image_external_warn;
-	/*@}*/
 };
 
 typedef struct YYLTYPE
@@ -482,19 +447,6 @@ extern int _mesa_hlsl_lex(union YYSTYPE *yylval, YYLTYPE *yylloc,
 
 extern int _mesa_hlsl_parse(struct _mesa_glsl_parse_state *);
 
-
-/**
-* Process elements of the #extension directive
-*
-* \return
-* If \c name and \c behavior are valid, \c true is returned.  Otherwise
-* \c false is returned.
-*/
-extern bool _mesa_glsl_process_extension(const char *name, YYLTYPE *name_locp,
-	const char *behavior,
-	YYLTYPE *behavior_locp,
-	_mesa_glsl_parse_state *state);
-
 /**
 * Get the textual name of the specified shader target
 */
@@ -508,9 +460,6 @@ extern const char * _mesa_glsl_shader_target_name(enum _mesa_glsl_parser_targets
 * These definitions apply to C and C++
 */
 extern int preprocess(void *ctx, const char **shader, char **info_log);
-
-extern void _mesa_destroy_shader_compiler(void);
-extern void _mesa_destroy_shader_compiler_caches(void);
 
 #define FRAMEBUFFER_FETCH_ES2	"FramebufferFetchES2"
 #define FRAMEBUFFER_FETCH_MRT	"FramebufferFetchMRT"

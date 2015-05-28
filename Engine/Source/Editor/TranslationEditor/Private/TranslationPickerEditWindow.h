@@ -12,9 +12,14 @@ class STranslationPickerEditWidget : public SCompoundWidget
 
 	SLATE_ARGUMENT(FText, PickedText)
 
+	SLATE_ARGUMENT(bool, bAllowEditing)
+
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+
+	/** Return the translation unit for this text, with any modifications */
+	UTranslationUnit* GetTranslationUnitWithAnyChanges();
 
 private:
 
@@ -32,7 +37,10 @@ private:
 	UTranslationUnit* TranslationUnit;
 
 	/** The text box for entering/modifying a translation */
-	TSharedPtr<SEditableTextBox> TextBox;
+	TSharedPtr<SMultiLineEditableTextBox> TextBox;
+
+	/** Whether or not to show the save button*/
+	bool bAllowEditing;
 };
 
 /** Translation picker edit window to allow you to translate selected FTexts in place */
@@ -47,6 +55,10 @@ class STranslationPickerEditWindow : public SCompoundWidget
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
+
+	// Default dimensions of the Translation Picker edit window (floating window also uses these sizes, so it matches roughly)
+	static const int32 DefaultEditWindowWidth;
+	static const int32 DefaultEditWindowHeight;
 
 private:
 
@@ -68,6 +80,12 @@ private:
 
 	/** The FTexts that we have found under the cursor */
 	TArray<FText> PickedTexts;
+
+	/** All of our current edit widgets */
+	TArray<TSharedRef<STranslationPickerEditWidget>> EditWidgets;
+
+	/** Save all translations and close */
+	FReply SaveAllAndClose();
 };
 
 #undef LOCTEXT_NAMESPACE

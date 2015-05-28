@@ -24,6 +24,9 @@ struct FCreateTexture2DParameters
 	/** If texture should be set as SRGB */
 	bool						bSRGB;
 
+	/* The Guid hash to use part of the texture source's DDC key */
+	FGuid						SourceGuidHash;
+
 	FCreateTexture2DParameters()
 		:	bUseAlpha(false),
 			CompressionSettings(TC_Default),

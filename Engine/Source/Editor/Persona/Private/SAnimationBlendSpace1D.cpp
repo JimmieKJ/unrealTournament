@@ -239,7 +239,7 @@ void SBlendSpace1DWidget::Construct(const FArguments& InArgs)
 	check (BlendSpace);
 }
 
-FVector2D SBlendSpace1DWidget::ComputeDesiredSize() const
+FVector2D SBlendSpace1DWidget::ComputeDesiredSize( float ) const
 {
 	return FVector2D( 150.0f, 150.0f );
 }

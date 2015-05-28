@@ -92,7 +92,7 @@ void UGameplayDebuggerSettings::PostEditChangeProperty(FPropertyChangedEvent& Pr
 	UPDATE_GAMEVIEW_DISPLAYNAME(GameView5);
 #undef UPDATE_GAMEVIEW_DISPLAYNAME
 
-	GEditor->SaveEditorUserSettings();
+	SaveConfig();
 
 	SettingChangedEvent.Broadcast(Name);
 }

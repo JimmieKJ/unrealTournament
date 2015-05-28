@@ -458,7 +458,7 @@ void FMetalDynamicRHI::RHIGenerateMips(FTextureRHIParamRef SourceSurfaceRHI)
 
 FTexture2DRHIRef FMetalDynamicRHI::RHIAsyncReallocateTexture2D(FTexture2DRHIParamRef OldTextureRHI, int32 NewMipCount, int32 NewSizeX, int32 NewSizeY, FThreadSafeCounter* RequestStatus)
 {
-	DYNAMIC_CAST_METALRESOURCE(Texture2D,OldTexture);
+	FMetalTexture2D* OldTexture = ResourceCast(OldTextureRHI);
 
 	FMetalTexture2D* NewTexture = new FMetalTexture2D(OldTexture->GetFormat(), NewSizeX, NewSizeY, NewMipCount, OldTexture->GetNumSamples(), OldTexture->GetFlags(), NULL);
 
@@ -521,37 +521,37 @@ ETextureReallocationStatus FMetalDynamicRHI::RHICancelAsyncReallocateTexture2D( 
 
 void* FMetalDynamicRHI::RHILockTexture2D(FTexture2DRHIParamRef TextureRHI,uint32 MipIndex,EResourceLockMode LockMode,uint32& DestStride,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_METALRESOURCE(Texture2D,Texture);
+	FMetalTexture2D* Texture = ResourceCast(TextureRHI);
 	return Texture->Surface.Lock(MipIndex, 0, LockMode, DestStride);
 }
 
 void FMetalDynamicRHI::RHIUnlockTexture2D(FTexture2DRHIParamRef TextureRHI,uint32 MipIndex,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_METALRESOURCE(Texture2D,Texture);
+	FMetalTexture2D* Texture = ResourceCast(TextureRHI);
 	Texture->Surface.Unlock(MipIndex, 0);
 }
 
 void* FMetalDynamicRHI::RHILockTexture2DArray(FTexture2DArrayRHIParamRef TextureRHI,uint32 TextureIndex,uint32 MipIndex,EResourceLockMode LockMode,uint32& DestStride,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_METALRESOURCE(Texture2DArray,Texture);
+	FMetalTexture2DArray* Texture = ResourceCast(TextureRHI);
 	return Texture->Surface.Lock(MipIndex, TextureIndex, LockMode, DestStride);
 }
 
 void FMetalDynamicRHI::RHIUnlockTexture2DArray(FTexture2DArrayRHIParamRef TextureRHI,uint32 TextureIndex,uint32 MipIndex,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_METALRESOURCE(Texture2DArray,Texture);
+	FMetalTexture2DArray* Texture = ResourceCast(TextureRHI);
 	Texture->Surface.Unlock(MipIndex, TextureIndex);
 }
 
 void FMetalDynamicRHI::RHIUpdateTexture2D(FTexture2DRHIParamRef TextureRHI, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
 {	
-	DYNAMIC_CAST_METALRESOURCE(Texture3D,Texture);
+	FMetalTexture2D* Texture = ResourceCast(TextureRHI);
 
 }
 
 void FMetalDynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI,uint32 MipIndex,const FUpdateTextureRegion3D& UpdateRegion,uint32 SourceRowPitch,uint32 SourceDepthPitch,const uint8* SourceData)
 {	
-	DYNAMIC_CAST_METALRESOURCE(Texture3D,Texture);
+	FMetalTexture3D* Texture = ResourceCast(TextureRHI);
 
 }
 
@@ -571,14 +571,14 @@ FTextureCubeRHIRef FMetalDynamicRHI::RHICreateTextureCubeArray(uint32 Size, uint
 
 void* FMetalDynamicRHI::RHILockTextureCubeFace(FTextureCubeRHIParamRef TextureCubeRHI,uint32 FaceIndex,uint32 ArrayIndex,uint32 MipIndex,EResourceLockMode LockMode,uint32& DestStride,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_METALRESOURCE(TextureCube,TextureCube);
+	FMetalTextureCube* TextureCube = ResourceCast(TextureCubeRHI);
 	uint32 MetalFace = GetMetalCubeFace((ECubeFace)FaceIndex);
 	return TextureCube->Surface.Lock(MipIndex, FaceIndex + 6 * ArrayIndex, LockMode, DestStride);
 }
 
 void FMetalDynamicRHI::RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef TextureCubeRHI,uint32 FaceIndex,uint32 ArrayIndex,uint32 MipIndex,bool bLockWithinMiptail)
 {
-	DYNAMIC_CAST_METALRESOURCE(TextureCube,TextureCube);
+	FMetalTextureCube* TextureCube = ResourceCast(TextureCubeRHI);
 	uint32 MetalFace = GetMetalCubeFace((ECubeFace)FaceIndex);
 	TextureCube->Surface.Unlock(MipIndex, FaceIndex + ArrayIndex * 6);
 }

@@ -1,11 +1,11 @@
-﻿INTSourceChangelist:2284525
+﻿INTSourceChangelist:2419450
 Availability:NoPublish
 Title:UBlueprint
 Crumbs:
 Description:Blueprint 클래스 개요입니다.
 
 [EXCERPT:UBlueprint]
-클래스 블루프린트는 콘텐츠 제작자가 기존 게임플레이 클래스 위에 함수성을 쉽게 추가할 수 있도록 해 주는 애셋입니다. 종종 그냥 블루프린트라 줄여 부르기도 합니다. 블루프린트는 코드 입력 방식이 아닌 언리얼 에디터 안에서 비주얼 방식으로 만들어지며, 콘텐츠 패키지에 애셋으로 저장됩니다. 본질적으로 새로운 클래스 또는 액터 유형을 정의하며, 그것을 맵에 인스턴스로 배치하면 다른 액터 유형과 마찬가지로 동작합니다.
+Blueprint (블루프린트) 클래스는 콘텐츠 제작자가 기존 게임플레이 클래스 위에 함수성을 쉽게 추가할 수 있도록 해 주는 애셋입니다. 종종 그냥 블루프린트라 줄여 부르기도 합니다. 블루프린트는 코드 입력 방식이 아닌 언리얼 에디터 안에서 비주얼 방식으로 만들어지며, 콘텐츠 패키지에 애셋으로 저장됩니다. 본질적으로 새로운 클래스 또는 액터 유형을 정의하며, 그것을 맵에 인스턴스로 배치하면 다른 액터 유형과 마찬가지로 동작합니다.
 [VAR:ToolTipFullLink]
 Engine/Blueprints/UserGuide/Types/ClassBlueprint
 [/VAR]

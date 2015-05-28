@@ -26,7 +26,7 @@ TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FGitSourceControlS
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FGitSourceControlState::FindHistoryRevision(const FString& InRevision) const
@@ -39,33 +39,40 @@ TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FGitSourceControlS
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FGitSourceControlState::GetBaseRevForMerge() const
 {
-	// @todo get revision of the merge-base (https://www.kernel.org/pub/software/scm/git/docs/git-merge-base.html)
+	for(const auto& Revision : History)
+	{
+		// look for the the SHA1 id of the file, not the commit id (revision)
+		if(Revision->FileHash == PendingMergeBaseFileHash)
+		{
+			return Revision;
+		}
+	}
+
 	return nullptr;
 }
 
 // @todo add Slate icons for git specific states (Added vs Modified, Copied vs Conflicted...)
 FName FGitSourceControlState::GetIconName() const
 {
-	switch(WorkingCopyState)
+	switch(WorkingCopyState) //-V719
 	{
 	case EWorkingCopyState::Modified:
 		return FName("Subversion.CheckedOut");
 	case EWorkingCopyState::Added:
 	case EWorkingCopyState::Renamed:
 	case EWorkingCopyState::Copied:
-	case EWorkingCopyState::Deleted: // @todo New dedicated icon for removed/deleted (MarkedForDelete) files : Deleted files does not always show in Editor (but need to be checked-in) : only when deleted externaly !
 		return FName("Subversion.OpenForAdd");
+	case EWorkingCopyState::Deleted:
+		return FName("Subversion.MarkedForDelete");
 	case EWorkingCopyState::Conflicted:
 		return FName("Subversion.NotAtHeadRevision");
 	case EWorkingCopyState::NotControlled:
 		return FName("Subversion.NotInDepot");
-		UE_LOG(LogSourceControl, Log, TEXT("EWorkingCopyState::Deleted"));
-
 	case EWorkingCopyState::Missing: // @todo Missing files does not currently show in Editor (but should probably)
 		UE_LOG(LogSourceControl, Log, TEXT("EWorkingCopyState::Missing"));
 //	case EWorkingCopyState::Unchanged:
@@ -77,20 +84,20 @@ FName FGitSourceControlState::GetIconName() const
 
 FName FGitSourceControlState::GetSmallIconName() const
 {
-	switch(WorkingCopyState)
+	switch(WorkingCopyState) //-V719
 	{
 	case EWorkingCopyState::Unchanged:
 		return FName("Subversion.CheckedOut_Small");
 	case EWorkingCopyState::Added:
 	case EWorkingCopyState::Renamed:
 	case EWorkingCopyState::Copied:
-	case EWorkingCopyState::Deleted: // @todo New dedicated icon for removed/deleted (MarkedForDelete) files : Deleted files does not always show in Editor (but need to be checked-in) : only when deleted externaly !
 		return FName("Subversion.OpenForAdd_Small");
+	case EWorkingCopyState::Deleted:
+		return FName("Subversion.MarkedForDelete_Small");
 	case EWorkingCopyState::Conflicted:
 		return FName("Subversion.NotAtHeadRevision_Small");
 	case EWorkingCopyState::NotControlled:
 		return FName("Subversion.NotInDepot_Small");
-
 	case EWorkingCopyState::Missing: // @todo Missing files does not currently show in Editor (but should probably)
 		UE_LOG(LogSourceControl, Log, TEXT("EWorkingCopyState::Missing"));
 //	case EWorkingCopyState::Unchanged:
@@ -135,7 +142,7 @@ FText FGitSourceControlState::GetDisplayName() const
 
 FText FGitSourceControlState::GetDisplayTooltip() const
 {
-	switch(WorkingCopyState)
+	switch(WorkingCopyState) //-V719
 	{
 	case EWorkingCopyState::Unknown:
 		return LOCTEXT("Unknown_Tooltip", "Unknown source control state");

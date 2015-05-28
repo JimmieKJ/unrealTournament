@@ -31,6 +31,7 @@ public:
 	TSharedPtr< FUICommandInfo > OpenIDE;
 	TSharedPtr< FUICommandInfo > RefreshCodeProject;
 	TSharedPtr< FUICommandInfo > PackagingSettings;
+	TSharedPtr< FUICommandInfo > LocalizeProject;
 	TArray< TSharedPtr< FUICommandInfo > > SwitchProjectCommands;
 
 	TSharedPtr< FUICommandInfo > OpenContentBrowser;
@@ -45,14 +46,11 @@ public:
 	TSharedPtr< FUICommandInfo > OpenClassViewer;
 	TSharedPtr< FUICommandInfo > OpenWidgetReflector;
 
-	TSharedPtr< FUICommandInfo > VisitUTWiki;
 	TSharedPtr< FUICommandInfo > VisitWiki;
-	TSharedPtr< FUICommandInfo > VisitUTForums;
 	TSharedPtr< FUICommandInfo > VisitForums;
 	TSharedPtr< FUICommandInfo > VisitAskAQuestionPage;
 	TSharedPtr< FUICommandInfo > VisitSearchForAnswersPage;
 	TSharedPtr< FUICommandInfo > VisitSupportWebSite;
-	TSharedPtr< FUICommandInfo > VisitUTDotCom;
 	TSharedPtr< FUICommandInfo > VisitEpicGamesDotCom;
 	TSharedPtr< FUICommandInfo > AboutUnrealEd;
 	TSharedPtr< FUICommandInfo > CreditsUnrealEd;
@@ -138,10 +136,6 @@ public:
 	/** Visits the UDN support web site */
 	static void VisitSupportWebSite();
 
-	static void VisitUTDotCom();
-	static void VisitUTWiki();
-	static void VisitUTForums();
-
 	/** Visits EpicGames.com */
 	static void VisitEpicGamesDotCom();
 
@@ -191,6 +185,9 @@ public:
 	/** Opens the Packaging settings tab */
 	static void PackagingSettings();
 
+	/** Opens the Project Localization Dashboard */
+	static void LocalizeProject();
+	
 	/** Restarts the editor and switches projects */
 	static void SwitchProjectByIndex( int32 ProjectIndex );
 

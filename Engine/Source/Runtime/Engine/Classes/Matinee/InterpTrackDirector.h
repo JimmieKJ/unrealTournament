@@ -65,7 +65,7 @@ private:
 
 public:
 	// Begin UObject interface
-	virtual void PostLoad();
+	virtual void PostLoad() override;
 	// End UObject interface
 	
 	// Begin UInterpTrack Interface

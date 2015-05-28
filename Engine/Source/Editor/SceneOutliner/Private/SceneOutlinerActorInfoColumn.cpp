@@ -86,25 +86,6 @@ struct FGetInfo : TTreeItemGetter<FString>
 			return FString();
 		}
 	}
-
-	virtual FString Get(const FLevelBlueprintTreeItem& Item) const override
-	{
-		switch(CurrentMode)
-		{
-		case ECustomColumnMode::Class:
-			return LOCTEXT("LevelBlueprintTypeName", "Level Blueprint").ToString();
-
-		case ECustomColumnMode::Level:
-			if (ULevel* Level = Item.Handle.ParentLevel.Get())
-			{
-				return FPackageName::GetShortName(Level->GetOutermost()->GetName());
-			}
-			return FString();
-
-		default:
-			return FString();
-		}
-	}
 };
 
 
@@ -197,8 +178,8 @@ const TSharedRef< SWidget > FActorInfoColumn::ConstructRowWidget( FTreeItemRef T
 			SNew(SBorder)
 			.BorderImage(FEditorStyle::GetBrush("NoBorder"))
 			.ColorAndOpacity_Static([](TWeakPtr<const STableRow<FTreeItemPtr>> WeakRow)->FLinearColor{
-				auto Row = WeakRow.Pin();
-				return Row.IsValid() && Row->IsSelected() ? FLinearColor::Black : FLinearColor::White;
+				auto TableRow = WeakRow.Pin();
+				return TableRow.IsValid() && TableRow->IsSelected() ? FLinearColor::Black : FLinearColor::White;
 			}, TWeakPtr<const STableRow<FTreeItemPtr>>(StaticCastSharedRef<const STableRow<FTreeItemPtr>>(Row.AsShared())))
 			[
 				Hyperlink.ToSharedRef()
@@ -252,10 +233,12 @@ TSharedPtr<SWidget> FActorInfoColumn::ConstructClassHyperlink( ITreeItem& TreeIt
 
 void FActorInfoColumn::PopulateSearchStrings( const ITreeItem& Item, TArray< FString >& OutSearchStrings ) const
 {
-	FString String = Item.Get(FGetInfo(CurrentMode));
-	if (String.Len())
 	{
-		OutSearchStrings.Add(String);
+		FString String = Item.Get(FGetInfo(CurrentMode));
+		if (String.Len())
+		{
+			OutSearchStrings.Add(String);
+		}
 	}
 
 	// We always add the class

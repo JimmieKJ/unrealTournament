@@ -1,7 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
+#include "EventPool.h"
 #include "Public/Modules/ModuleVersion.h"
+#include "Templates/Function.h"
 
 
 #if PLATFORM_HAS_BSD_TIME 
@@ -9,6 +11,7 @@
 	#include <sched.h>  // for sched_yield
 #endif
 
+DEFINE_STAT(STAT_Sleep);
 
 void* FGenericPlatformProcess::GetDllHandle( const TCHAR* Filename )
 {
@@ -177,12 +180,7 @@ void FGenericPlatformProcess::WaitForProc( FProcHandle & ProcessHandle )
 
 void FGenericPlatformProcess::CloseProc(FProcHandle & ProcessHandle)
 {
-	// make sure we don't leave running processes (this is especially important for Linux)
-	check(!FPlatformProcess::IsProcRunning(ProcessHandle));
-
-	// Wait() should return instantly if the process isn't running (which it shouldn't).
-	// However, this is important that we wait for it on Linux/Unix platforms so we don't leave zombies.
-	FPlatformProcess::WaitForProc(ProcessHandle);
+	UE_LOG(LogHAL, Fatal, TEXT("FGenericPlatformProcess::CloseProc not implemented on this platform"));
 }
 
 void FGenericPlatformProcess::TerminateProc( FProcHandle & ProcessHandle, bool KillTree )
@@ -251,12 +249,16 @@ void FGenericPlatformProcess::ExploreFolder( const TCHAR* FilePath )
 
 
 #if PLATFORM_HAS_BSD_TIME
-DECLARE_CYCLE_STAT(TEXT("CPU Stall - Sleep"),STAT_Sleep,STATGROUP_CPUStalls);
 
 void FGenericPlatformProcess::Sleep( float Seconds )
 {
 	SCOPE_CYCLE_COUNTER(STAT_Sleep);
 	FThreadIdleStats::FScopeIdle Scope;
+	SleepNoStats(Seconds);
+}
+
+void FGenericPlatformProcess::SleepNoStats( float Seconds )
+{
 	const int32 usec = FPlatformMath::TruncToInt(Seconds * 1000000.0f);
 	if (usec > 0)
 	{
@@ -276,6 +278,21 @@ void FGenericPlatformProcess::SleepInfinite()
 
 #endif // PLATFORM_HAS_BSD_TIME 
 
+void FGenericPlatformProcess::ConditionalSleep(const TFunction<bool()>& Condition)
+{
+	if (Condition())
+	{
+		return;
+	}
+
+	SCOPE_CYCLE_COUNTER(STAT_Sleep);
+	FThreadIdleStats::FScopeIdle Scope;
+	do
+	{
+		FPlatformProcess::SleepNoStats(0.0f);
+	} while (!Condition());
+}
+
 #if PLATFORM_USE_PTHREADS
 
 #include "PThreadEvent.h"
@@ -284,7 +301,7 @@ DECLARE_CYCLE_STAT(TEXT("CPU Stall - Wait For Event"),STAT_EventWait,STATGROUP_C
 
 bool FPThreadEvent::Wait(uint32 WaitTime, const bool bIgnoreThreadIdleStats /*= false*/)
 {
-	SCOPE_CYCLE_COUNTER(STAT_EventWait);
+	FScopeCycleCounter Counter(StatID);
 	FThreadIdleStats::FScopeIdle Scope(bIgnoreThreadIdleStats);
 
 	check(bInitialized);
@@ -385,6 +402,30 @@ FEvent* FGenericPlatformProcess::CreateSynchEvent(bool bIsManualReset)
 }
 
 
+FEvent* FGenericPlatformProcess::GetSynchEventFromPool(bool bIsManualReset)
+{
+	return bIsManualReset
+		? FEventPool<EEventPoolTypes::ManualReset>::Get().GetEventFromPool()
+		: FEventPool<EEventPoolTypes::AutoReset>::Get().GetEventFromPool();
+}
+
+
+void FGenericPlatformProcess::ReturnSynchEventToPool(FEvent* Event)
+{
+	if( !Event )
+	{
+		return;
+	}
+
+	if (Event->IsManualReset())
+	{
+		FEventPool<EEventPoolTypes::ManualReset>::Get().ReturnToPool(Event);
+	}
+	else
+	{
+		FEventPool<EEventPoolTypes::AutoReset>::Get().ReturnToPool(Event);
+	}
+}
 
 
 #if PLATFORM_USE_PTHREADS

@@ -17,6 +17,7 @@ public:
 
 	// SGraphNode implementation
 	virtual void UpdateGraphNode() override;
+	virtual bool IsNodeEditable() const override { return false; }
 	// End SGraphNode implementation
 
 private:

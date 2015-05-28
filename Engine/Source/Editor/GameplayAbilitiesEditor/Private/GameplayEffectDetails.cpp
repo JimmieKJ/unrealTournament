@@ -72,7 +72,9 @@ void FGameplayEffectDetails::CustomizeDetails(IDetailLayoutBuilder& DetailLayout
 		if (Obj->DurationPolicy == EGameplayEffectDurationType::Instant)
 		{
 			TSharedPtr<IPropertyHandle> PeriodProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UGameplayEffect, Period), UGameplayEffect::StaticClass());
+			TSharedPtr<IPropertyHandle> ExecutePeriodicEffectOnApplicationProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UGameplayEffect, bExecutePeriodicEffectOnApplication), UGameplayEffect::StaticClass());
 			DetailLayout.HideProperty(PeriodProperty);
+			DetailLayout.HideProperty(ExecutePeriodicEffectOnApplicationProperty);
 		}
 	}
 }

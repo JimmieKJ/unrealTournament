@@ -16,7 +16,7 @@ FString GetClassNameWithPrefixRemoved(const FString InClassName)
 FString GetClassNameWithoutPrefix( const FString& InClassNameOrFilename )
 {
 	// Check for header names (they don't come with a full path so we only search for the first dot)
-	const int32 DotIndex = InClassNameOrFilename.Find(TEXT("."));
+	const int32 DotIndex = InClassNameOrFilename.Find(TEXT("."), ESearchCase::CaseSensitive);
 	if (DotIndex == INDEX_NONE)
 	{
 		const FString ClassPrefix = GetClassPrefix( InClassNameOrFilename );
@@ -39,22 +39,33 @@ FString GetClassPrefix( const FString InClassName, bool& bIsLabeledDeprecated )
 	FString ClassPrefix = InClassName.Left(1);
 
 	bIsLabeledDeprecated = false;
-	// First make sure the class name starts with a valid prefix
-	if( ClassPrefix == TEXT("I") ||
-		ClassPrefix == TEXT("A") || 
-		ClassPrefix == TEXT("U") )
+
+	if (!ClassPrefix.IsEmpty())
 	{
-		// If it is a class prefix, check for deprecated class prefix
-		if( InClassName.Mid(1, 11) == TEXT("DEPRECATED_") )
+		const TCHAR ClassPrefixChar = ClassPrefix[0];
+		switch (ClassPrefixChar)
 		{
-			bIsLabeledDeprecated = true;
-			return InClassName.Left(12);
+		case TEXT('I'):
+		case TEXT('A'):
+		case TEXT('U'):
+			// If it is a class prefix, check for deprecated class prefix also
+			if (InClassName.Mid(1, 11).Compare(TEXT("DEPRECATED_"), ESearchCase::CaseSensitive) == 0)
+			{
+				bIsLabeledDeprecated = true;
+				ClassPrefix = InClassName.Left(12);
+			}
+			break;
+
+		case TEXT('F'):
+		case TEXT('T'):
+			// Struct prefixes are also fine.
+			break;
+
+		default:
+			// If it's not a class or struct prefix, it's invalid
+			ClassPrefix.Empty();
+			break;
 		}
-	}
-	// Otherwise check for struct prefix. If it's not a class or struct prefix, it's invalid
-	else if( ClassPrefix != TEXT("F") && ClassPrefix != TEXT("T") )
-	{
-		ClassPrefix = TEXT("");
 	}
 	return ClassPrefix;
 }

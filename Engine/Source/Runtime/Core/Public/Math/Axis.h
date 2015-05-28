@@ -32,7 +32,11 @@ namespace EAxisList
 		YZ			= Y | Z,
 		XYZ			= X | Y | Z,
 		All			= XYZ | Screen,
+
 		//alias over Axis YZ since it isn't used when the z-rotation widget is being used
 		ZRotation	= YZ,
+		
+		// alias over Screen since it isn't used when the 2d translate rotate widget is being used
+		Rotate2D	= Screen,
 	};
 }

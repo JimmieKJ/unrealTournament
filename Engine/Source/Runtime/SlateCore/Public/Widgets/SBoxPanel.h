@@ -73,7 +73,7 @@ public:
 
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const;
 	
-	virtual FVector2D ComputeDesiredSize() const;
+	virtual FVector2D ComputeDesiredSize(float) const;
 
 	virtual FChildren* GetChildren();
 

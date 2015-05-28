@@ -1,8 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #ifndef _UNBULKDATA_H
 #define _UNBULKDATA_H
+
+#include "Async/Async.h"
 
 /**
  * Flags serialized with the bulk data.
@@ -25,6 +26,8 @@ enum EBulkDataFlags
 	BULKDATA_ForceInlinePayload					= 1<<6,
 	/** Flag to check if either compression mode is specified						*/
 	BULKDATA_SerializeCompressed				= (BULKDATA_SerializeCompressedZLIB),
+	/** Forces the payload to be always streamed, regardless of its size */
+	BULKDATA_ForceStreamPayload = 1 << 7,
 
 };
 
@@ -59,7 +62,7 @@ enum EBulkDataLockFlags
  */
 struct COREUOBJECT_API FUntypedBulkData
 {
-	friend class ULinkerLoad;
+	friend class FLinkerLoad;
 
 	/*-----------------------------------------------------------------------------
 		Constructors and operators
@@ -178,6 +181,13 @@ struct COREUOBJECT_API FUntypedBulkData
 	bool IsBulkDataLoaded() const;
 
 	/**
+	* Returns whether the bulk data asynchronous load has completed.
+	*
+	* @return true if bulk data has been loaded or async loading was not used to load this data, false otherwise
+	*/
+	bool IsAsyncLoadingComplete();
+
+	/**
 	* Returns whether this bulk data is used
 	* @return true if BULKDATA_Unused is not set
 	*/
@@ -196,6 +206,20 @@ struct COREUOBJECT_API FUntypedBulkData
 	* @return Bulk data flags currently set
 	*/
 	uint32 GetBulkDataFlags() const;
+
+	/**
+	 * Sets the passed in bulk data alignment.
+	 *
+	 * @param BulkDataAlignmentToSet	Bulk data alignment to set
+	 */
+	void SetBulkDataAlignment( uint32 BulkDataAlignmentToSet );
+
+	/**
+	* Gets the current bulk data alignment.
+	*
+	* @return Bulk data alignment currently set
+	*/
+	uint32 GetBulkDataAlignment() const;
 
 	/**
 	 * Clears the passed in bulk data flags.
@@ -304,6 +328,16 @@ struct COREUOBJECT_API FUntypedBulkData
 	-----------------------------------------------------------------------------*/
 
 protected:
+
+	/**
+	* Serializes all elements, a single element at a time, allowing backward compatible serialization
+	* and endian swapping to be performed.
+	*
+	* @param Ar			Archive to serialize with
+	* @param Data			Base pointer to data
+	*/
+	virtual void SerializeElements(FArchive& Ar, void* Data);
+
 	/**
 	 * Serializes a single element at a time, allowing backward compatible serialization
 	 * and endian swapping to be performed. Needs to be overloaded by derived classes.
@@ -362,6 +396,21 @@ private:
 	 */
 	void LoadDataIntoMemory( void* Dest );
 
+	/** Starts serializing bulk data asynchronously */
+	void StartSerializingBulkData(FArchive& Ar, UObject* Owner, int32 Idx, bool bPayloadInline);
+
+	/** Flushes any pending async load of bulk data  and copies the data to Dest buffer*/
+	bool FlushAsyncLoading(void* Dest);
+
+	/** Waits until pending async load finishes */
+	void WaitForAsyncLoading();
+
+	/** Resets async loading state */
+	void ResetAsyncData();
+	
+	/** Returns true if bulk data should be loaded asynchronously */
+	bool ShouldStreamBulkData();
+
 	/*-----------------------------------------------------------------------------
 		Member variables.
 	-----------------------------------------------------------------------------*/
@@ -374,12 +423,18 @@ private:
 	int64					BulkDataOffsetInFile;
 	/** Size of bulk data on disk or INDEX_NONE if no association														*/
 	int32					BulkDataSizeOnDisk;
+	/** Alignment of bulk data																							*/
+	int32					BulkDataAlignment;
 
 	/** Pointer to cached bulk data																						*/
 	void*				BulkData;
+	/** Pointer to cached async bulk data																						*/
+	void*				BulkDataAsync;
 	/** Current lock status																								*/
 	uint32				LockStatus;
-	
+	/** Async helper for loading bulk data on a separate thread */
+	TFuture<bool> SerializeFuture;
+
 protected:
 	/** true when data has been allocated internally by the bulk data and does not come from a preallocated resource	*/
 	bool				bShouldFreeOnEmpty;
@@ -389,10 +444,10 @@ protected:
 	/** Archive associated with bulk data for serialization																*/
 	FArchive*			AttachedAr;
 	/** Used to make sure the linker doesn't get garbage collected at runtime for things with attached archives			*/
-	ULinkerLoad*		Linker;
+	FLinkerLoad*		Linker;
 #else
 	/** weak pointer to the linker this bulk data originally belonged to. */
-	TWeakObjectPtr<ULinkerLoad> Linker;
+	TWeakObjectPtr<UPackage> Package;
 #endif // WITH_EDITOR
 };
 
@@ -492,6 +547,7 @@ struct COREUOBJECT_API FFloatBulkData : public FUntypedBulkData
 class FFormatContainer
 {
 	TMap<FName, FByteBulkData*> Formats;
+	uint32 Alignment;
 public:
 	~FFormatContainer()
 	{
@@ -519,7 +575,7 @@ public:
 		}
 		Formats.Empty();
 	}
-	COREUOBJECT_API void Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave = NULL);
+	COREUOBJECT_API void Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave = NULL, bool bSingleUse = true, uint32 Alignment = DEFAULT_ALIGNMENT);
 };
 
 #endif

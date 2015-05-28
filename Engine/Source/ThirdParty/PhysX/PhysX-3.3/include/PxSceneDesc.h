@@ -1,29 +1,12 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2013 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
 // Copyright (c) 2004-2008 AGEIA Technologies, Inc. All rights reserved.
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
@@ -51,27 +34,27 @@ class PxGpuDispatcher;
 class PxSpuDispatcher;
 
 /**
-\brief Pruning structure used to accelerate scene queries (raycast, sweep tests, etc)
+\brief Pruning structure used to accelerate scene queries.
 
-eNONE can be used without defining extra parameters. It typically doesn't provide
-fast scene queries, but on the other hand it doesn't consume much memory. It is useful when
-you don't use the SDK's scene queries at all.
+eNONE uses a simple data structure that consumes less memory than the alternatives,
+but generally has slower query performance.
 
 eDYNAMIC_AABB_TREE usually provides the fastest queries. However there is a
-constant per-frame management cost associated with this structure. You have the option to
-give a hint on how much work should be done per frame by setting the parameter
-#PxSceneDesc::dynamicTreeRebuildRateHint.
+constant per-frame management cost associated with this structure. How much work should
+be done per frame can be tuned via the #PxSceneDesc::dynamicTreeRebuildRateHint
+parameter.
 
 eSTATIC_AABB_TREE is typically used for static objects. It is the same as the
-dynamic AABB tree, without the per-frame overhead. This is the default choice for static
-objects. However, if you are streaming parts of the world in and out, you may want to use
-the dynamic version even for static objects.
+dynamic AABB tree, without the per-frame overhead. This can be a good choice for static
+objects, if no static objects are added, moved or removed after the scene has been
+created. If there is no such guarantee (e.g. when streaming parts of the world in and out),
+then the dynamic version is a better choice even for static objects.
 */
 struct PxPruningStructure
 {
 	enum Enum
 	{
-		eNONE,					//!< No structure, using a linear list of objects
+		eNONE,					//!< Using a simple data structure
 		eDYNAMIC_AABB_TREE,		//!< Using a dynamic AABB tree
 		eSTATIC_AABB_TREE,		//!< Using a static AABB tree
 
@@ -102,13 +85,13 @@ struct PxSimulationOrder
 /**
 \brief Enum for selecting the friction algorithm used for simulation.
 
-::ePATCH selects the patch friction model which typically leads to the most stable results at low solver iteration counts and is also quite inexpensive, as it uses only
+#PxFrictionType::ePATCH selects the patch friction model which typically leads to the most stable results at low solver iteration counts and is also quite inexpensive, as it uses only
 up to four scalar solver constraints per pair of touching objects.  The patch friction model is the same basic strong friction algorithm as PhysX 3.2 and before.  
 
-::eONE_DIRECTIONAL is a simplification of the Coulomb friction model, in which the friction for a given point of contact is applied in the alternating tangent directions of
+#PxFrictionType::eONE_DIRECTIONAL is a simplification of the Coulomb friction model, in which the friction for a given point of contact is applied in the alternating tangent directions of
 the contact's normal.  This simplification allows us to reduce the number of iterations required for convergence but is not as accurate as the two directional model.
 
-::eTWO_DIRECTIONAL is identical to the one directional model, but it applies friction in both tangent directions simultaneously.  This hurts convergence a bit so it 
+#PxFrictionType::eTWO_DIRECTIONAL is identical to the one directional model, but it applies friction in both tangent directions simultaneously.  This hurts convergence a bit so it 
 requires more solver iterations, but is more accurate.  Like the one directional model, it is applied at every contact point, which makes it potentially more expensive
 than patch friction for scenarios with many contact points.
 */
@@ -149,7 +132,7 @@ struct PxSceneFlag
 		/**
 		\brief Enables a second broad phase check after integration that makes it possible to prevent objects from tunneling through eachother.
 
-		PxPairFlag::eDETECT_CCD_CONTACT, requires this flag to be specified.
+		PxPairFlag::eDETECT_CCD_CONTACT requires this flag to be specified.
 
 		\note For this feature to be effective for bodies that can move at a significant velocity, the user should raise the flag PxRigidBodyFlag::eENABLE_CCD for them.
 		\note This flag is not mutable, and must be set in PxSceneDesc at scene creation.
@@ -169,7 +152,7 @@ struct PxSceneFlag
 		faster than a full swept integration because it will perform significantly fewer sweeps in non-trivial scenes involving many fast-moving objects. This approach 
 		should successfully resist objects passing through the static environment.
 
-		PxPairFlag::eDETECT_CCD_CONTACT, requires this flag to be specified.
+		PxPairFlag::eDETECT_CCD_CONTACT requires this flag to be specified.
 
 		\note This scene flag requires eENABLE_CCD to be enabled as well. If it is not, this scene flag will do nothing.
 		\note For this feature to be effective for bodies that can move at a significant velocity, the user should raise the flag PxRigidBodyFlag::eENABLE_CCD for them.
@@ -365,7 +348,7 @@ PX_INLINE bool PxSceneLimits::isValid() const
 /**
 \brief Descriptor class for scenes. See #PxScene.
 
-This struct should be initialized with the PxTolerancesScale values used to initialize PxPhysics.
+This struct must be initialized with the same PxTolerancesScale values used to initialize PxPhysics.
 
 @see PxScene PxPhysics.createScene PxTolerancesScale
 */
@@ -552,7 +535,6 @@ public:
 	<b>Range:</b> [0, PX_MAX_F32)<br>
 	<b>Default:</b> 0.04 * PxTolerancesScale::length
 	*/
-
 	PxReal frictionOffsetThreshold;
 
 	/**
@@ -634,7 +616,7 @@ public:
 	detrimentally affect performance if some bodies in the scene have large solver iteration counts because all constraints in a given island are solved by the 
 	maximum number of solver iterations requested by any body in the island.
 
-	<b>Default:</b> 128
+	<b>Default:</b> 32
 
 	<b>Platform specific:</b> Not applicable on PS3. All bodies are batched into one island.
 
@@ -714,7 +696,6 @@ public:
 
 	<b>Default:</b> eCOLLIDE_SOLVE
 	*/
-
 	PxSimulationOrder::Enum		simulationOrder;
 
 	/**
@@ -727,31 +708,52 @@ public:
 
 	@see PxRigidDynamic::wakeUp() PxArticulation::wakeUp() PxCloth::wakeUp()
 	*/
-
 	PxReal					wakeCounterResetValue;
 
+
+	/**
+	\brief The bounds used to sanity check user-set positions of actors and articulation links
+
+	These bounds are used to check the position values of rigid actors inserted into the scene, and positions set for rigid actors
+	already within the scene.
+
+	<b>Range:</b> any valid PxBounds3 <br> 
+	<b>Default:</b> (-PX_MAX_BOUNDS_EXTENTS, PX_MAX_BOUNDS_EXTENTS) on each axis
+	*/
+	PxBounds3				sanityBounds;
+
+private:
+	/**
+	\cond
+	*/
+	// For internal use only
+	PxTolerancesScale		tolerancesScale;
+	/**
+	\endcond
+	*/
+
+
+public:
 	/**
 	\brief constructor sets to default.
 
-	\param[in] scale scale values for the tolerances in the scene, typically these should be the values passed into
+	\param[in] scale scale values for the tolerances in the scene, these must be the same values passed into
 	PxCreatePhysics(). The affected tolerances are meshContactMargin, contactCorrelationDistance, bounceThresholdVelocity
 	and frictionOffsetThreshold.
 
 	@see PxCreatePhysics() PxTolerancesScale meshContactMargin contactCorrelationDistance bounceThresholdVelocity frictionOffsetThreshold
 	*/	
-
 	PX_INLINE PxSceneDesc(const PxTolerancesScale& scale);
 
 	/**
 	\brief (re)sets the structure to the default.
 
-	\param[in] scale scale values for the tolerances in the scene, typically these should be the values passed into
+	\param[in] scale scale values for the tolerances in the scene, these must be the same values passed into
 	PxCreatePhysics(). The affected tolerances are meshContactMargin, contactCorrelationDistance, bounceThresholdVelocity
 	and frictionOffsetThreshold.
 
 	@see PxCreatePhysics() PxTolerancesScale meshContactMargin contactCorrelationDistance bounceThresholdVelocity frictionOffsetThreshold
 	*/
-
 	PX_INLINE void setToDefault(const PxTolerancesScale& scale);
 
 	/**
@@ -760,6 +762,14 @@ public:
 	*/
 	PX_INLINE bool isValid() const;
 
+	/**
+	\cond
+	*/
+	// For internal use only
+	PX_INLINE const PxTolerancesScale& getTolerancesScale() const { return tolerancesScale; }
+	/**
+	\endcond
+	*/
 };
 
 PX_INLINE PxSceneDesc::PxSceneDesc(const PxTolerancesScale& scale):
@@ -787,13 +797,13 @@ PX_INLINE PxSceneDesc::PxSceneDesc(const PxTolerancesScale& scale):
 	gpuDispatcher						(NULL),
 	spuDispatcher						(NULL),
 
-	staticStructure						(PxPruningStructure::eSTATIC_AABB_TREE),
+	staticStructure						(PxPruningStructure::eDYNAMIC_AABB_TREE),
 	dynamicStructure					(PxPruningStructure::eDYNAMIC_AABB_TREE),
 	dynamicTreeRebuildRateHint			(100),
 
 	userData							(NULL),
 
-	solverBatchSize						(128),
+	solverBatchSize						(32),
 
 #ifdef PX_PS3
 	nbContactDataBlocks					(256),
@@ -805,7 +815,10 @@ PX_INLINE PxSceneDesc::PxSceneDesc(const PxTolerancesScale& scale):
 	contactReportStreamBufferSize		(8192),
 	ccdMaxPasses						(1),
 	simulationOrder						(PxSimulationOrder::eCOLLIDE_SOLVE),
-	wakeCounterResetValue				(20.0f*0.02f)
+	wakeCounterResetValue				(20.0f*0.02f),
+	sanityBounds						(PxBounds3(PxVec3(-PX_MAX_BOUNDS_EXTENTS, -PX_MAX_BOUNDS_EXTENTS, -PX_MAX_BOUNDS_EXTENTS),
+												   PxVec3(PX_MAX_BOUNDS_EXTENTS, PX_MAX_BOUNDS_EXTENTS, PX_MAX_BOUNDS_EXTENTS))),
+	tolerancesScale						(scale)
 {
 }
 
@@ -862,8 +875,12 @@ PX_INLINE bool PxSceneDesc::isValid() const
 	if((flags & (PxSceneFlag::eADAPTIVE_FORCE | PxSceneFlag::eENABLE_STABILIZATION)) == (PxSceneFlag::eADAPTIVE_FORCE | PxSceneFlag::eENABLE_STABILIZATION))
 		return false;
 
+	if(!sanityBounds.isValid())
+		return false;
+
 	return true;
 }
+
 
 #ifndef PX_DOXYGEN
 } // namespace physx

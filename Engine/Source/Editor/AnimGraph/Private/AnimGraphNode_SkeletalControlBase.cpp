@@ -3,7 +3,6 @@
 #include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_SkeletalControlBase.h"
 #include "AnimationGraphSchema.h"
-#include "K2ActionMenuBuilder.h" // for FK2ActionMenuBuilder::AddNewNodeAction()
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_SkeletalControlBase
@@ -55,19 +54,6 @@ void UAnimGraphNode_SkeletalControlBase::CreateOutputPins()
 {
 	const UAnimationGraphSchema* Schema = GetDefault<UAnimationGraphSchema>();
 	CreatePin(EGPD_Output, Schema->PC_Struct, TEXT(""), FComponentSpacePoseLink::StaticStruct(), /*bIsArray=*/ false, /*bIsReference=*/ false, TEXT("Pose"));
-}
-
-void UAnimGraphNode_SkeletalControlBase::GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const
-{
-	UAnimGraphNode_Base* TemplateNode = NewObject<UAnimGraphNode_Base>(GetTransientPackage(), GetClass());
-
-	FString Category = TemplateNode->GetNodeCategory();
-	FText MenuDesc = GetControllerDescription();
-	FString Tooltip = GetControllerDescription().ToString();
-	FString Keywords = TemplateNode->GetKeywords();
-
-	TSharedPtr<FEdGraphSchemaAction_K2NewNode> NodeAction = FK2ActionMenuBuilder::AddNewNodeAction(ContextMenuBuilder, Category, MenuDesc, Tooltip, 0, Keywords);
-	NodeAction->NodeTemplate = TemplateNode;
 }
 
 void UAnimGraphNode_SkeletalControlBase::ConvertToComponentSpaceTransform(const USkeletalMeshComponent* SkelComp, const FTransform & InTransform, FTransform & OutCSTransform, int32 BoneIndex, EBoneControlSpace Space) const
@@ -288,21 +274,26 @@ void UAnimGraphNode_SkeletalControlBase::GetDefaultValue(const FString& UpdateDe
 			if (GetSchema()->IsCurrentPinDefaultValid(Pin).IsEmpty())
 			{
 				FString DefaultString = Pin->GetDefaultAsString();
-				TArray<FString> ResultString;
 
-				//Parse string to split its contents separated by ','
-				DefaultString.Trim();
-				DefaultString.TrimTrailing();
-				DefaultString.ParseIntoArray(&ResultString, TEXT(","), true);
+				// Existing nodes (from older versions) might have an empty default value string; in that case we just fall through and return the zero vector below (which is the default value in that case).
+				if(!DefaultString.IsEmpty())
+				{
+					TArray<FString> ResultString;
 
-				check(ResultString.Num() == 3);
+					//Parse string to split its contents separated by ','
+					DefaultString.Trim();
+					DefaultString.TrimTrailing();
+					DefaultString.ParseIntoArray(ResultString, TEXT(","), true);
 
-				OutVec.Set(
-							FCString::Atof(*ResultString[0]),
-							FCString::Atof(*ResultString[1]),
-							FCString::Atof(*ResultString[2])
-							);
-				return;
+					check(ResultString.Num() == 3);
+
+					OutVec.Set(
+						FCString::Atof(*ResultString[0]),
+						FCString::Atof(*ResultString[1]),
+						FCString::Atof(*ResultString[2])
+						);
+					return;
+				}
 			}
 		}
 	}

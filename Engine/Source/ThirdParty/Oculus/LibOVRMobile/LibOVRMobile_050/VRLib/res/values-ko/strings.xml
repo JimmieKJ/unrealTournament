@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- See https://www.facebook.com/groups/303159406399348/permalink/410968105618477/ -->
+<!-- @generated SignedSource<<6e259d811d484e9f22a8dfcbc17eb74b>> -->
+<!-- @nolint -->
+<!-- @mobile export_name="fbandroid 2015-03-14 at 04:58:55 GMT" locale="ko_KR" lib_name="vr-lib" -->
+
+<resources>
+    <string name="swipe_to_browse">검색하려면 살짝 미세요</string>
+    <string name="out_of_memory">Oculus 360 Photos를 사용하려면 %1$sKB 이상의 휴대폰 저장 공간이 필요합니다.</string>
+</resources>

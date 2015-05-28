@@ -7,22 +7,21 @@
 
 void SGraphPinMaterialInput::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj)
 {
-	UMaterialGraph* MaterialGraph = CastChecked<UMaterialGraph>(InGraphPinObj->GetOwningNode()->GetGraph());
-	const UMaterialGraphSchema* Schema = CastChecked<UMaterialGraphSchema>(MaterialGraph->GetSchema());
-
-	if (MaterialGraph->IsInputActive(InGraphPinObj))
-	{
-		CachedPinColor = Schema->ActivePinColor;
-	}
-	else
-	{
-		CachedPinColor = Schema->InactivePinColor;
-	}
-
 	SGraphPin::Construct(SGraphPin::FArguments().UsePinColorForText(true), InGraphPinObj);
 }
 
 FSlateColor SGraphPinMaterialInput::GetPinColor() const
 {
-	return CachedPinColor;
+	check(GraphPinObj);
+	UMaterialGraph* MaterialGraph = CastChecked<UMaterialGraph>(GraphPinObj->GetOwningNode()->GetGraph());
+	const UMaterialGraphSchema* Schema = CastChecked<UMaterialGraphSchema>(MaterialGraph->GetSchema());
+
+	if (MaterialGraph->IsInputActive(GraphPinObj))
+	{
+		return Schema->ActivePinColor;
+	}
+	else
+	{
+		return Schema->InactivePinColor;
+	}
 }

@@ -22,7 +22,7 @@ FName ULazyObjectProperty::GetID() const
 	return NAME_LazyObjectProperty;
 }
 
-void ULazyObjectProperty::SerializeItem( FArchive& Ar, void* Value, int32 MaxReadBytes, void const* Defaults ) const
+void ULazyObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const
 {
 	// We never serialize our reference while the garbage collector is harvesting references
 	// to objects, because we don't want lazy pointers to keep objects from being garbage collected

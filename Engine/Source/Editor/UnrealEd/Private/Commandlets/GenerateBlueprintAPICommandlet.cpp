@@ -3,7 +3,6 @@
 #include "UnrealEd.h"
 #include "ObjectEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
-#include "K2ActionMenuBuilder.h"
 #include "EdGraphSchema_K2_Actions.h"
 #include "K2Node.h"
 #include "K2Node_CommutativeAssociativeBinaryOperator.h"
@@ -183,7 +182,7 @@ GenerateBlueprintAPI commandlet params: \n\
 	 *
 	 * @return The amount of time (in seconds) that the menu building took.
 	 */
-	static double GetPaletteMenuActions(FBlueprintPaletteListBuilder& ActionListBuilder, UClass* PaletteFilter);
+	static double GetPaletteMenuActions(FCategorizedGraphActionListBuilder& PaletteBuilder, UBlueprint* Blueprint, UClass* PaletteFilter);
 
 	/**
 	 * Dumps all palette actions listed for the specified blueprint. Determines
@@ -613,31 +612,23 @@ static void GenerateBlueprintAPIUtils::DumpCategoryInfo(uint32 Indent, FArchive*
 }
 
 //------------------------------------------------------------------------------
-static double GenerateBlueprintAPIUtils::GetPaletteMenuActions(FBlueprintPaletteListBuilder& PaletteBuilder, UClass* PaletteFilter)
+static double GenerateBlueprintAPIUtils::GetPaletteMenuActions(FCategorizedGraphActionListBuilder& PaletteBuilder, UBlueprint* Blueprint, UClass* PaletteFilter)
 {
 	PaletteBuilder.Empty();
 	UEdGraphSchema_K2 const* K2Schema = GetDefault<UEdGraphSchema_K2>();
 
 	double MenuBuildDuration = 0.0;
 	
-	if (CommandOptions.DumpFlags & BPDUMP_UseLegacyMenuBuilder)
+	FBlueprintActionContext FilterContext;
+	FilterContext.Blueprints.Add(const_cast<UBlueprint*>(Blueprint));
+
+	FBlueprintActionMenuBuilder MenuBuilder(nullptr);
 	{
+		// prime the database so it's not recorded in our timing capture
+		FBlueprintActionDatabase::Get();
+
 		FScopedDurationTimer DurationTimer(MenuBuildDuration);
-		FK2ActionMenuBuilder(K2Schema).GetPaletteActions(PaletteBuilder, PaletteFilter);
-	}
-	else
-	{
-		FBlueprintActionContext FilterContext;
-		FilterContext.Blueprints.Add(const_cast<UBlueprint*>(PaletteBuilder.Blueprint));
-		
-		FBlueprintActionMenuBuilder MenuBuilder(nullptr);
-		{
-			// prime the database so it's not recorded in our timing capture
-			FBlueprintActionDatabase::Get();
-			
-			FScopedDurationTimer DurationTimer(MenuBuildDuration);
-			FBlueprintActionMenuUtils::MakePaletteMenu(FilterContext, PaletteFilter, MenuBuilder);
-		}
+		FBlueprintActionMenuUtils::MakePaletteMenu(FilterContext, PaletteFilter, MenuBuilder);
 		PaletteBuilder.Append(MenuBuilder);
 	}
 
@@ -696,8 +687,12 @@ static void GenerateBlueprintAPIUtils::DumpPalette(uint32 Indent, UBlueprint* Bl
 	}
 	else
 	{
-		FBlueprintPaletteListBuilder PaletteBuilder(Blueprint, TEXT("Library"));
-		double MenuBuildDuration = GetPaletteMenuActions(PaletteBuilder, ClassFilter);
+		FCategorizedGraphActionListBuilder PaletteBuilder;
+		PaletteBuilder.OwnerOfTemporaries = NewObject<UEdGraph>((UObject*)Blueprint);
+		PaletteBuilder.OwnerOfTemporaries->Schema = UEdGraphSchema_K2::StaticClass();
+		PaletteBuilder.OwnerOfTemporaries->SetFlags(RF_Transient);
+
+		double MenuBuildDuration = GetPaletteMenuActions(PaletteBuilder, Blueprint, ClassFilter);
 
 		BeginPaletteEntry += NestedIndent + "\"FilterClass\" : \"" + FilterClassName + "\",\n";
 		if (CommandOptions.DumpFlags & BPDUMP_RecordTiming)
@@ -791,7 +786,7 @@ static void GenerateBlueprintAPIUtils::DumpActionMenuItem(uint32 Indent, FGraphA
 	}
 
 	TArray<FString> Categories;
-	ActionCategory.ParseIntoArray(&Categories, TEXT("|"), true);
+	ActionCategory.ParseIntoArray(Categories, TEXT("|"), true);
 
 	for (const FString& Category : Categories)
 	{
@@ -981,14 +976,14 @@ int32 UGenerateBlueprintAPICommandlet::Main(FString const& Params)
 	// closing out the writer (and diffing the resultant file if the user deigns us to do so)
 	auto CloseFileStream = [](FArchive** FileOutPtr)
 	{
-		FArchive*& FileOut = (*FileOutPtr);
-		if (FileOut != nullptr)
+		FArchive*& FileOutAr = (*FileOutPtr);
+		if (FileOutAr != nullptr)
 		{
-			FileOut->Serialize(TCHAR_TO_ANSI(TEXT("\n}")), 2);
-			FileOut->Close();
+			FileOutAr->Serialize(TCHAR_TO_ANSI(TEXT("\n}")), 2);
+			FileOutAr->Close();
 
-			delete FileOut;
-			FileOut = nullptr;
+			delete FileOutAr;
+			FileOutAr = nullptr;
 		}
 	};
 

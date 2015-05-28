@@ -15,7 +15,7 @@ inline bool FAndroidTargetDevice::Deploy( const FString& SourceFolder, FString& 
 	FProcHandle RunningProc = FPlatformProcess::CreateProc(TEXT("../DotNet/Android/AndroidPackager"), *RepackageCommand, true, false, false, NULL, 0, TEXT("../DotNET/"), NULL);
 	FPlatformProcess::WaitForProc(RunningProc);
 	FPlatformProcess::GetProcReturnCode(RunningProc, &ReturnCode);
-	RunningProc.Close();
+	FPlatformProcess::CloseProc(RunningProc);
 
 	return 0 == ReturnCode;
 }

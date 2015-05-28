@@ -1,29 +1,13 @@
-// This code contains NVIDIA Confidential Information and is disclosed to you
-// under a form of NVIDIA software license agreement provided separately to you.
-//
-// Notice
-// NVIDIA Corporation and its licensors retain all intellectual property and
-// proprietary rights in and to this software and related documentation and
-// any modifications thereto. Any use, reproduction, disclosure, or
-// distribution of this software and related documentation without an express
-// license agreement from NVIDIA Corporation is strictly prohibited.
-//
-// ALL NVIDIA DESIGN SPECIFICATIONS, CODE ARE PROVIDED "AS IS.". NVIDIA MAKES
-// NO WARRANTIES, EXPRESSED, IMPLIED, STATUTORY, OR OTHERWISE WITH RESPECT TO
-// THE MATERIALS, AND EXPRESSLY DISCLAIMS ALL IMPLIED WARRANTIES OF NONINFRINGEMENT,
-// MERCHANTABILITY, AND FITNESS FOR A PARTICULAR PURPOSE.
-//
-// Information and code furnished is believed to be accurate and reliable.
-// However, NVIDIA Corporation assumes no responsibility for the consequences of use of such
-// information or for any infringement of patents or other rights of third parties that may
-// result from its use. No license is granted by implication or otherwise under any patent
-// or patent rights of NVIDIA Corporation. Details are subject to change without notice.
-// This code supersedes and replaces all information previously supplied.
-// NVIDIA Corporation products are not authorized for use as critical
-// components in life support devices or systems without express written approval of
-// NVIDIA Corporation.
-//
-// Copyright (c) 2008-2014 NVIDIA Corporation. All rights reserved.
+/*
+ * Copyright (c) 2008-2015, NVIDIA CORPORATION.  All rights reserved.
+ *
+ * NVIDIA CORPORATION and its licensors retain all intellectual property
+ * and proprietary rights in and to this software, related documentation
+ * and any modifications thereto.  Any use, reproduction, disclosure or
+ * distribution of this software and related documentation without an express
+ * license agreement from NVIDIA CORPORATION is strictly prohibited.
+ */
+
 
 #ifndef NX_MODULE_H
 #define NX_MODULE_H
@@ -45,6 +29,33 @@ namespace apex
 PX_PUSH_PACK_DEFAULT
 
 class NxApexRenderableIterator;
+
+/**
+\brief Render lock modes.  These are used per-module to determine how render locking is done.
+*/
+struct NxApexRenderLockMode
+{
+	/**
+	\brief Enum of render lock modes
+	*/
+	enum Enum
+	{
+		/**
+		\brief	Disables render locking in the module scene.
+		*/
+		NO_RENDER_LOCK					= 0,
+
+		/**
+		\brief	Locks all apex actors in the module scene individually.
+		*/
+		PER_ACTOR_RENDER_LOCK			= 1,
+
+		/**
+		\brief	Locks an entire module scene with one lock.
+		*/
+		PER_MODULE_SCENE_RENDER_LOCK	= 2,
+	};
+};
 
 /**
 \brief A structure that holds two templated values, a min and a max
@@ -207,6 +218,32 @@ public:
 	\brief Set enabled/disabled state of automatic LOD system.
 	*/
 	virtual void setLODEnabled(bool) = 0;
+
+	/**
+	\brief Choose the locking mode for the module scene.  See NxApexRenderLockMode.
+
+	Returns true if successful.
+	*/
+	virtual bool setRenderLockMode(NxApexRenderLockMode::Enum, NxApexScene&) { return false; }
+
+	/**
+	\brief Returns the current render lock mode for the module scene.
+	*/
+	virtual NxApexRenderLockMode::Enum getRenderLockMode(const NxApexScene&) const { return NxApexRenderLockMode::NO_RENDER_LOCK; }
+
+	/**
+	\brief Sets a render lock for the module scene.  Used when the SDK render lock mode is NxApexRenderLockMode::PER_MODULE_SCENE_RENDER_LOCK.  See NxApexSDK::setRenderLockMode().
+	
+	Returns true iff successful.
+	*/
+	virtual	bool lockModuleSceneRenderLock(NxApexScene&) { return false; }
+
+	/**
+	\brief Releases the render lock for the module scene.  See lockModuleSceneRenderLock().
+
+	Returns true iff successful.
+	*/
+	virtual	bool unlockModuleSceneRenderLock(NxApexScene&) { return false; }
 };
 
 PX_POP_PACK

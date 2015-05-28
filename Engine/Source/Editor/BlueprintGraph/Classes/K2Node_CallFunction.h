@@ -4,6 +4,7 @@
 
 #include "K2Node.h"
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
+#include "Engine/MemberReference.h"
 #include "K2Node_CallFunction.generated.h"
 
 UCLASS()
@@ -136,7 +137,7 @@ public:
 	virtual void PostParameterPinCreated(UEdGraphPin *Pin) {}
 
 	/** Gets the user-facing name for the function */
-	static FString GetUserFacingFunctionName(const UFunction* Function);
+	static FText GetUserFacingFunctionName(const UFunction* Function);
 
 	/** Set up a pins tooltip from a function's tooltip */
 	static void GeneratePinTooltipFromFunction(UEdGraphPin& Pin, const UFunction* Function);
@@ -145,14 +146,14 @@ public:
 	/** Get default category for this function in action menu */
 	static FString GetDefaultCategoryForFunction(const UFunction* Function, const FString& BaseCategory);
 	/** Get keywords for this function in the action menu */
-	static FString GetKeywordsForFunction(const UFunction* Function);
+	static FText GetKeywordsForFunction(const UFunction* Function);
 	/** Should be drawn compact for this function */
 	static bool ShouldDrawCompact(const UFunction* Function);
 	/** Get the compact name for this function */
 	static FString GetCompactNodeTitle(const UFunction* Function);
 
-	/** Get the string to use to explain the context for this function (used on node title) */
-	virtual FString GetFunctionContextString() const;
+	/** Get the text to use to explain the context for this function (used on node title) */
+	virtual FText GetFunctionContextString() const;
 
 	/** Set properties of this node from a supplied function (does not save ref to function) */
 	virtual void SetFromFunction(const UFunction* Function);

@@ -5,6 +5,8 @@
 #include "AnimGraphNode_Base.h"
 #include "AnimGraphNode_SkeletalControlBase.generated.h"
 
+struct HActor;
+
 UCLASS(Abstract, MinimalAPI)
 class UAnimGraphNode_SkeletalControlBase : public UAnimGraphNode_Base
 {
@@ -19,7 +21,6 @@ public:
 	// UAnimGraphNode_Base interface
 	ANIMGRAPH_API virtual FString GetNodeCategory() const override;
 	ANIMGRAPH_API virtual void CreateOutputPins() override;
-	ANIMGRAPH_API virtual void GetMenuEntries(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	// End of UAnimGraphNode_Base interface
 
 	// Draw function for supporting visualization

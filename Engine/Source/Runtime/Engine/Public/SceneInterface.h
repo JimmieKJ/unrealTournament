@@ -8,6 +8,7 @@ class FMaterialShaderMap;
 class ULightComponent;
 class USkyLightComponent;
 class FAtmosphericFogSceneInfo;
+class FPrimitiveComponentId;
 
 /**
  * An interface to the private scene manager implementation of a scene.  Use GetRendererModule().AllocateScene to create.
@@ -60,6 +61,7 @@ public:
 	 */
 	virtual void AddInvisibleLight(ULightComponent* Light) = 0;
 	virtual void SetSkyLight(FSkyLightSceneProxy* Light) = 0;
+	virtual void DisableSkyLight(FSkyLightSceneProxy* Light) = 0;
 	/** 
 	 * Adds a new decal component to the scene
 	 * 
@@ -169,6 +171,13 @@ public:
 	 */	
 	virtual void RemoveAtmosphericFog(class UAtmosphericFogComponent* FogComponent) = 0;
 
+	/** 
+	 * Removes a atmospheric fog resource from the scene...this is just a double check to make sure we don't have stale stuff hanging around; should already be gone.
+	 * 
+	 * @param FogResource - fog resource to remove
+	 */	
+	virtual void RemoveAtmosphericFogResource_RenderThread(FRenderResource* FogResource) = 0;
+
 	/**
 	 * Returns the scene's FAtmosphericFogSceneInfo if it exists
 	 */
@@ -191,10 +200,10 @@ public:
 	virtual const TArray<class FWindSourceSceneProxy*>& GetWindSources_RenderThread() const = 0;
 
 	/** Accesses wind parameters.  XYZ will contain wind direction * Strength, W contains wind speed. */
-	virtual FVector4 GetWindParameters(const FVector& Position) const = 0;
+	virtual void GetWindParameters(const FVector& Position, FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const = 0;
 
 	/** Same as GetWindParameters, but ignores point wind sources. */
-	virtual FVector4 GetDirectionalWindParameters() const = 0;
+	virtual void GetDirectionalWindParameters(FVector& OutDirection, float& OutSpeed, float& OutMinGustAmt, float& OutMaxGustAmt) const = 0;
 
 	/** 
 	 * Adds a SpeedTree wind computation object to the scene.
@@ -312,6 +321,11 @@ public:
 	{
 		return GetFeatureLevel() >= ERHIFeatureLevel::SM4;
 	}
+
+	/**
+	 * Returns the FPrimitiveComponentId for all primitives in the scene
+	 */
+	virtual TArray<FPrimitiveComponentId> GetScenePrimitiveComponentIds() const { return TArray<FPrimitiveComponentId>(); }
 
 protected:
 	virtual ~FSceneInterface() {}

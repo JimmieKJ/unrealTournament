@@ -135,21 +135,21 @@ FText UK2Node_MacroInstance::GetTooltipText() const
 	{
 		return NSLOCTEXT("K2Node", "Macro_Tooltip", "Macro");
 	}
-	else if (CachedTooltip.IsOutOfDate())
+	else if (CachedTooltip.IsOutOfDate(this))
 	{
 		// FText::Format() is slow, so we cache this to save on performance
-		CachedTooltip = FText::Format(NSLOCTEXT("K2Node", "MacroGraphInstance_Tooltip", "{0} instance"), FText::FromName(MacroGraph->GetFName()));
+		CachedTooltip.SetCachedText(FText::Format(NSLOCTEXT("K2Node", "MacroGraphInstance_Tooltip", "{0} instance"), FText::FromName(MacroGraph->GetFName())), this);
 	}
 	return CachedTooltip;
 }
 
-FString UK2Node_MacroInstance::GetKeywords() const
+FText UK2Node_MacroInstance::GetKeywords() const
 {
 	// This might need to be refined, but seems better than providing no keywords:
 	UBlueprint* MacroBP = MacroGraphReference.GetBlueprint();
 	if (MacroBP)
 	{
-		return MacroBP->BlueprintDescription;
+		return FText::FromString(MacroBP->BlueprintDescription);
 	}
 	return UK2Node_Tunnel::GetKeywords();
 }
@@ -288,6 +288,8 @@ void UK2Node_MacroInstance::NotifyPinConnectionListChanged(UEdGraphPin* ChangedP
 
 void UK2Node_MacroInstance::NodeConnectionListChanged()
 {
+	Super::NodeConnectionListChanged();
+
 	if (bReconstructNode)
 	{
 		ReconstructNode();
@@ -367,6 +369,56 @@ FName UK2Node_MacroInstance::GetPaletteIcon(FLinearColor& OutColor) const
 	return TEXT("GraphEditor.Macro_16x");
 }
 
+FText UK2Node_MacroInstance::GetCompactNodeTitle() const
+{
+	// Special case handling for standard macros
+	// @TODO Change this to use metadata by allowing macros to specify CompactNodeTitle metadata
+	UEdGraph* MacroGraph = MacroGraphReference.GetGraph();
+	if(MacroGraph != nullptr && MacroGraph->GetOuter()->GetName() == TEXT("StandardMacros"))
+	{
+		FName MacroName = FName(*MacroGraph->GetName());
+		if(	MacroName == TEXT("IncrementFloat" ) ||
+			MacroName == TEXT("IncrementInt"))
+		{
+			return LOCTEXT("IncrementCompactNodeTitle", "++");
+		}
+		else if( MacroName == TEXT("DecrementFloat") || 
+				 MacroName == TEXT("DecrementInt"))
+		{
+			return LOCTEXT("DecrementCompactNodeTitle", "--");
+		}
+		else if( MacroName == TEXT("NegateFloat") || 
+				 MacroName == TEXT("NegateInt") )
+		{
+			return LOCTEXT("DecrementCompactNodeTitle", "-");
+		}
+	}	
+
+	return Super::GetCompactNodeTitle();
+}
+
+bool UK2Node_MacroInstance::ShouldDrawCompact() const
+{
+	// Special case handling for standard macros
+	// @TODO Change this to use metadata by allowing macros to specify CompactNodeTitle metadata
+	UEdGraph* MacroGraph = MacroGraphReference.GetGraph();
+	if(MacroGraph != nullptr && MacroGraph->GetOuter()->GetName() == TEXT("StandardMacros"))
+	{
+		FName MacroName = FName(*MacroGraph->GetName());
+		if(	MacroName == TEXT("IncrementFloat" ) ||
+			MacroName == TEXT("IncrementInt") || 
+			MacroName == TEXT("DecrementFloat") || 
+			MacroName == TEXT("DecrementInt") || 
+			MacroName == TEXT("NegateFloat") || 
+			MacroName == TEXT("NegateInt") )
+		{
+			return true;
+		}
+	}
+
+	return Super::ShouldDrawCompact();
+}
+
 bool UK2Node_MacroInstance::CanPasteHere(const UEdGraph* TargetGraph) const
 {
 	bool bCanPaste = false;
@@ -376,14 +428,9 @@ bool UK2Node_MacroInstance::CanPasteHere(const UEdGraph* TargetGraph) const
 
 	if ((MacroBlueprint != nullptr) && (TargetBlueprint != nullptr))
 	{
-		UClass* TargetClass = (TargetBlueprint->GeneratedClass != nullptr) ? TargetBlueprint->GeneratedClass : TargetBlueprint->ParentClass;
-		UClass* MacroBaseClass = ((MacroBlueprint->BlueprintType == BPTYPE_MacroLibrary) || (MacroBlueprint->GeneratedClass == nullptr)) ? 
-			MacroBlueprint->ParentClass : MacroBlueprint->GeneratedClass;
-		
-		if ((MacroBaseClass != nullptr) && (TargetClass != nullptr))
-		{
-			bCanPaste = TargetClass->IsChildOf(MacroBaseClass);
-		}
+		// Only allow "local" macro instances or instances from a macro library blueprint with the same parent class
+		check(MacroBlueprint->ParentClass != nullptr && TargetBlueprint->ParentClass != nullptr);
+		bCanPaste = (MacroBlueprint == TargetBlueprint) || (MacroBlueprint->BlueprintType == BPTYPE_MacroLibrary && TargetBlueprint->ParentClass->IsChildOf(MacroBlueprint->ParentClass));
 	}
 
 	// Macro Instances are not allowed in it's own graph

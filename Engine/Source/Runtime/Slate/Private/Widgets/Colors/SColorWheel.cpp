@@ -22,7 +22,7 @@ void SColorWheel::Construct( const FArguments& InArgs )
 /* SWidget overrides
  *****************************************************************************/
 
-FVector2D SColorWheel::ComputeDesiredSize( ) const
+FVector2D SColorWheel::ComputeDesiredSize( float ) const
 {
 	return Image->ImageSize + SelectorImage->ImageSize;
 }
@@ -38,12 +38,13 @@ FReply SColorWheel::OnMouseButtonDown( const FGeometry& MyGeometry, const FPoint
 {
 	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
+		OnMouseCaptureBegin.ExecuteIfBound();
+
 		if (!ProcessMouseAction(MyGeometry, MouseEvent, false))
 		{
+			OnMouseCaptureEnd.ExecuteIfBound();
 			return FReply::Unhandled();
 		}
-
-		OnMouseCaptureBegin.ExecuteIfBound();
 
 		return FReply::Handled().CaptureMouse(SharedThis(this));
 	}

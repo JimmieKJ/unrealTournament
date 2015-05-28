@@ -83,6 +83,28 @@
 			Serializer.EndObject(); \
 		}
 
+#define ONLINE_JSON_SERIALIZE_OBJECT_SERIALIZABLE(JsonName, JsonSerializableObject) \
+		/* Process the JsonName field differently because it is an object */ \
+		if (Serializer.IsLoading()) \
+		{ \
+			/* Read in the value from the JsonName field */ \
+			if (Serializer.GetObject()->HasTypedField<EJson::Object>(JsonName)) \
+			{ \
+				TSharedPtr<FJsonObject> JsonObj = Serializer.GetObject()->GetObjectField(JsonName); \
+				if (JsonObj.IsValid()) \
+				{ \
+					JsonSerializableObject.FromJson(JsonObj); \
+				} \
+			} \
+		} \
+		else \
+		{ \
+			/* Write the value to the JsonName field */ \
+			Serializer.StartObject(JsonName); \
+			JsonSerializableObject.Serialize(Serializer); \
+			Serializer.EndObject(); \
+		}
+
 /** Array of string data */
 typedef TArray<FString> FJsonSerializableArray;
 
@@ -145,7 +167,7 @@ public:
     /** Is the JSON being written to */
 	virtual bool IsSaving() const override { return true; }
 	/** Access to the root object */
-	virtual TSharedPtr<FJsonObject> GetObject() { return TSharedPtr<FJsonObject>(); }
+	virtual TSharedPtr<FJsonObject> GetObject() override { return TSharedPtr<FJsonObject>(); }
 
 	/**
 	 * Starts a new object "{"
@@ -192,7 +214,7 @@ public:
 	 */
 	virtual void Serialize(const TCHAR* Name, int32& Value) override
 	{
-		JsonWriter->WriteValue(Name, (const float)Value);
+		JsonWriter->WriteValue(Name, Value);
 	}
 	/**
 	 * Writes the field name and the corresponding value to the JSON data
@@ -202,7 +224,7 @@ public:
 	 */
 	virtual void Serialize(const TCHAR* Name, uint32& Value) override
 	{
-		JsonWriter->WriteValue(Name, (const float)Value);
+		JsonWriter->WriteValue(Name, static_cast<int64>(Value));
 	}
 	/**
 	 * Writes the field name and the corresponding value to the JSON data
@@ -212,7 +234,7 @@ public:
 	 */
 	virtual void Serialize(const TCHAR* Name, bool& Value) override
 	{
-		JsonWriter->WriteValue(Name, (const bool)Value);
+		JsonWriter->WriteValue(Name, Value);
 	}
 	/**
 	 * Writes the field name and the corresponding value to the JSON data
@@ -242,7 +264,7 @@ public:
 	 */
 	virtual void Serialize(const TCHAR* Name, float& Value) override
 	{
-		JsonWriter->WriteValue(Name, (const float)Value);
+		JsonWriter->WriteValue(Name, Value);
 	}
 	/**
 	* Writes the field name and the corresponding value to the JSON data
@@ -252,7 +274,7 @@ public:
 	*/
 	virtual void Serialize(const TCHAR* Name, double& Value) override
 	{
-		JsonWriter->WriteValue(Name, (const double)Value);
+		JsonWriter->WriteValue(Name, Value);
 	}
 	/**
 	* Writes the field name and the corresponding value to the JSON data
@@ -358,7 +380,7 @@ public:
     /** Is the JSON being written to */
 	virtual bool IsSaving() const override { return false; }
 	/** Access to the root Json object being read */
-	virtual TSharedPtr<FJsonObject> GetObject() { return JsonObject; }
+	virtual TSharedPtr<FJsonObject> GetObject() override { return JsonObject; }
 
 	/** Ignored */
 	virtual void StartObject() override
@@ -400,7 +422,7 @@ public:
 	{
 		if (JsonObject->HasTypedField<EJson::Number>(Name))
 		{
-			Value = FMath::TruncToInt(JsonObject->GetNumberField(Name));
+			JsonObject->TryGetNumberField(Name, Value);
 		}
 	}
 	/**
@@ -413,7 +435,7 @@ public:
 	{
 		if (JsonObject->HasTypedField<EJson::Number>(Name))
 		{
-			Value = FMath::TruncToInt(JsonObject->GetNumberField(Name));
+			JsonObject->TryGetNumberField(Name, Value);
 		}
 	}
 	/**
