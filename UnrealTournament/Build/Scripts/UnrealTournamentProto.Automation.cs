@@ -657,7 +657,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			Filter.Include("/UnrealTournament/Config/...");
 			Filter.Include("/UnrealTournament/Releases/...");
 
-			RequiredFiles.UnionWith(Filter.ApplyToDirectory(CommandUtils.CmdEnv.LocalRoot));
+			RequiredFiles.UnionWith(Filter.ApplyToDirectory(CommandUtils.CmdEnv.LocalRoot, true));
 		}
 
 		static void RemoveUnusedPlugins(SortedSet<string> RequiredFiles)
@@ -737,7 +737,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			// Generate the DDC
 			string OutputFileName = CommandUtils.CombinePaths(StageDirectory, "Engine", "DerivedDataCache", "Compressed.ddp");
 			CommandUtils.DeleteFile(OutputFileName);
-			CommandUtils.DDCCommandlet(CommandUtils.MakeRerootedFilePath(GameProj.FilePath, CommandUtils.CmdEnv.LocalRoot, StageDirectory), CommandUtils.GetEditorExeForCommandlets(StageDirectory, HostPlatform), null, TargetPlatforms, "-fill -DDC=CreateRocketPak -Map=Example_Map");
+            CommandUtils.DDCCommandlet(CommandUtils.MakeRerootedFilePath(GameProj.FilePath, CommandUtils.CmdEnv.LocalRoot, StageDirectory), CommandUtils.GetEditorCommandletExe(StageDirectory, HostPlatform), null, TargetPlatforms, "-fill -DDC=CreateRocketPak -Map=Example_Map");
 			RequiredFiles.Add(OutputFileName);
 
 			// Clean up the directory from everything else
@@ -1073,7 +1073,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         //if (!bp.BranchOptions.ExcludeNodes.Contains("UnrealTournament"))
         {            
             var GameProj = bp.Branch.FindGame("UnrealTournament");
-            if (GameProj != null && !GUBP.bBuildRocket)
+            if (GameProj != null)
             {
                 CommandUtils.Log("*** Adding UT-specific nodes to the GUBP");
 
