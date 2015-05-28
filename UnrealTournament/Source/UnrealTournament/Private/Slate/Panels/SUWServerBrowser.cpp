@@ -1357,8 +1357,6 @@ void SUWServerBrowser::PingServer(TSharedPtr<FServerData> ServerToPing)
 	AUTServerBeaconClient* Beacon = PlayerOwner->GetWorld()->SpawnActor<AUTServerBeaconClient>(AUTServerBeaconClient::StaticClass());
 	if (Beacon)
 	{
-		FString BeaconNetDriverName = FString::Printf(TEXT("BeaconDriver%s"), *ServerToPing->BeaconIP);
-		Beacon->SetBeaconNetDriverName(BeaconNetDriverName);
 		Beacon->OnServerRequestResults = FServerRequestResultsDelegate::CreateSP(this, &SUWServerBrowser::OnServerBeaconResult );
 		Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUWServerBrowser::OnServerBeaconFailure);
 		FURL BeaconURL(nullptr, *ServerToPing->BeaconIP, TRAVEL_Absolute);
@@ -1441,7 +1439,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			PingTrackers[i].Server->Players.Empty();
 			TArray<FString> PlayerData;
-			int32 Cnt = ServerInfo.ServerPlayers.ParseIntoArray(&PlayerData, TEXT("\t"), true);
+			int32 Cnt = ServerInfo.ServerPlayers.ParseIntoArray(PlayerData, TEXT("\t"), true);
 			for (int32 p=0;p+2 < Cnt; p+=3)
 			{
 				FString Name = PlayerData[p];
@@ -1453,7 +1451,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			PingTrackers[i].Server->Rules.Empty();
 			TArray<FString> RulesData;
-			Cnt = ServerInfo.ServerRules.ParseIntoArray(&RulesData, TEXT("\t"), true);
+			Cnt = ServerInfo.ServerRules.ParseIntoArray(RulesData, TEXT("\t"), true);
 			for (int32 r=0; r+1 < Cnt; r+=2)
 			{
 				FString Rule = RulesData[r];
@@ -1463,7 +1461,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			}
 
 			TArray<FString> BrokenIP;
-			if (PingTrackers[i].Server->IP.ParseIntoArray(&BrokenIP,TEXT(":"),true) == 2)
+			if (PingTrackers[i].Server->IP.ParseIntoArray(BrokenIP,TEXT(":"),true) == 2)
 			{
 				PingTrackers[i].Server->AddRule(TEXT("IP"), BrokenIP[0]);
 				PingTrackers[i].Server->AddRule(TEXT("Port"), BrokenIP[1]);

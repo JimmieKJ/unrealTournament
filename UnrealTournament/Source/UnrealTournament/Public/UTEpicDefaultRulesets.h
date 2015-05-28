@@ -220,13 +220,13 @@ public:
 
 
 			TArray<FString> StrArray;
-			inCategoryList.ParseIntoArray(&StrArray, TEXT(","), true);
+			inCategoryList.ParseIntoArray(StrArray, TEXT(","), true);
 			for (int32 i=0;i<StrArray.Num();i++)
 			{
 				NewReplicatedRuleset->Categories.Add(FName(*StrArray[i]));
 			}
 
-			inMapPlaylist.ParseIntoArray(&StrArray, TEXT(","), true);
+			inMapPlaylist.ParseIntoArray(StrArray, TEXT(","), true);
 			for (int32 i=0;i<StrArray.Num();i++)
 			{
 				NewReplicatedRuleset->MapPlaylist.Add(StrArray[i]);

@@ -161,7 +161,8 @@ public:
 
 	virtual void FadeImpactEffects(float DeltaTime);
 
-	const float ImpactEffectFadeTime;
+	UPROPERTY()
+	float ImpactEffectFadeTime;
 	
 	UPROPERTY()
 	float ImpactEffectFadeSpeed;

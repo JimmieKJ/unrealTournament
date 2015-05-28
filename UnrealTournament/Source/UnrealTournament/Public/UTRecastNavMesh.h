@@ -179,7 +179,7 @@ struct UNREALTOURNAMENT_API FSingleEndpointEval : public FUTNodeEvaluator
 struct UNREALTOURNAMENT_API FSingleEndpointEvalWeighted : public FSingleEndpointEval
 {
 	/** map of additional node costs to bias the path taken to the target */
-	TMap< TWeakObjectPtr<UUTPathNode>, uint32 > ExtraCosts;
+	TMap< TWeakObjectPtr<const UUTPathNode>, uint32 > ExtraCosts;
 
 	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance)
 	{
@@ -558,7 +558,6 @@ public:
 	/** builds nonstandard (jumping, teleporting, etc) links between nodes */
 	virtual void BuildSpecialLinks(int32 NumToProcess);
 
-	virtual void TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void PreSave() override;
 

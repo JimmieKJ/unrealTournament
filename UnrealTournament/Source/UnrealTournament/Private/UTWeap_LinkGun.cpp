@@ -150,7 +150,7 @@ bool AUTWeap_LinkGun::IsLinkValid_Implementation()
 	// do a trace to prevent link through objects
 	FCollisionQueryParams TraceParams;
 	FHitResult HitResult;
-	if (GetWorld()->LineTraceSingle(HitResult, GetFireStartLoc(), LinkTarget->GetActorLocation(), ECC_Visibility, TraceParams))
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, GetFireStartLoc(), LinkTarget->GetActorLocation(), ECC_Visibility, TraceParams))
 	{
 		if (HitResult.GetActor() != LinkTarget)
 		{
@@ -352,7 +352,7 @@ void AUTWeap_LinkGun::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode
 			// verify line of sight
 			FHitResult Hit;
 			static FName NAME_BioLinkTrace(TEXT("BioLinkTrace"));
-			bool bBlockingHit = GetWorld()->LineTraceSingle(Hit, SpawnLocation, LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, true, UTOwner));
+			bool bBlockingHit = GetWorld()->LineTraceSingleByChannel(Hit, SpawnLocation, LinkedBio->GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(NAME_BioLinkTrace, true, UTOwner));
 			if ((bBlockingHit || (Hit.Actor != NULL)) && !Cast<AUTProj_BioShot>(Hit.Actor.Get()))
 			{
 				LinkedBio = NULL;

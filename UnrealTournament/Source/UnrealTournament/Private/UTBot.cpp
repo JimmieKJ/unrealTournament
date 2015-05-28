@@ -3795,7 +3795,7 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 
 		for (int32 i = 0; i < 4; i++)
 		{
-			if (i != imin && i != imax && !GetWorld()->LineTraceTest(ViewPoint, Points[i], ECC_Visibility, CollisionParams))
+			if (i != imin && i != imax && !GetWorld()->LineTraceTestByChannel(ViewPoint, Points[i], ECC_Visibility, CollisionParams))
 			{
 				return true;
 			}

@@ -626,7 +626,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 			if (FParse::Value(FCommandLine::Get(), TEXT("invitesession="), SessionId) && !SessionId.IsEmpty() &&
 				FParse::Value(FCommandLine::Get(), TEXT("invitefrom="), FriendId) && !FriendId.IsEmpty())
 			{
-				JoinFriendSession(FUniqueNetIdString(FriendId), SessionId);
+				JoinFriendSession(FUniqueNetIdString(FriendId), FUniqueNetIdString(SessionId));
 			}
 		}
 	}
@@ -913,7 +913,7 @@ FString UUTLocalPlayer::GetProfileFilename()
 {
 	if (IsLoggedIn())
 	{
-		return TEXT("user_profile");
+		return TEXT("user_profile_1");
 	}
 
 	return TEXT("local_user_profile");
@@ -1728,7 +1728,7 @@ void UUTLocalPlayer::OnPresenceReceived(const FUniqueNetId& UserId, const TShare
 	UE_LOG(UT,Verbose,TEXT("Presence Received %s %i %i"), *UserId.ToString(), Presence->bIsJoinable);
 }
 
-void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId)
+void UUTLocalPlayer::HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId)
 {
 	JoinFriendSession(FriendId, SessionId);
 }
@@ -1754,14 +1754,14 @@ void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatM
 	}
 }
 
-void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FString& SessionId)
+void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId)
 {
 	UE_LOG(UT, Log, TEXT("##########################"));
 	UE_LOG(UT, Log, TEXT("Joining a Friend Session"));
 	UE_LOG(UT, Log, TEXT("##########################"));
 
 	//@todo samz - use FindSessionById instead of FindFriendSession with a pending SessionId
-	PendingFriendInviteSessionId = SessionId;
+	PendingFriendInviteSessionId = SessionId.ToString();
 	PendingFriendInviteFriendId = FriendId.ToString();
 	OnFindFriendSessionCompleteDelegate = OnlineSessionInterface->AddOnFindFriendSessionCompleteDelegate_Handle(0, FOnFindFriendSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnFindFriendSessionComplete));
 	OnlineSessionInterface->FindFriendSession(0, FriendId);

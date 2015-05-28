@@ -92,7 +92,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
 	virtual void AdvancePage(int32 Increment);
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")
-	virtual void SetPage(uint32 NewPage);
+	virtual void SetPage(int32 NewPage);
 
 	FTimerHandle OpenScoringPlaysHandle;
 
@@ -123,13 +123,13 @@ protected:
 
 	/** number of 'pages' that can be flipped through on the scoreboard */
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
-	uint32 NumPages;
+	int32 NumPages;
 
 	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
 	void PageChanged();
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
-	uint32 ActualPlayerCount;
+	int32 ActualPlayerCount;
 
 	virtual AUTPlayerState* GetNextScoringPlayer(int32 dir);
 

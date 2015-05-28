@@ -105,7 +105,7 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 		HitParams.AddObjectTypesToQuery(ECC_WorldDynamic);
 
 		FHitResult Hit;
-		if (GetWorld()->SweepSingle(Hit, GetPawn()->GetActorLocation(), MinDest, FQuat::Identity, FCollisionShape::MakeCapsule(Extent), TraceParams, HitParams) && !bWantJump)
+		if (GetWorld()->SweepSingleByObjectType(Hit, GetPawn()->GetActorLocation(), MinDest, FQuat::Identity, HitParams, FCollisionShape::MakeCapsule(Extent), TraceParams) && !bWantJump)
 		{
 			return false;
 		}
@@ -115,7 +115,7 @@ bool UUTAIAction_TacticalMove::EngageDirection(const FVector& StrafeDir, bool bF
 			{
 				Extent.X = FMath::Min<float>(30.0f, 0.5f * GetPawn()->GetSimpleCollisionRadius());
 				Extent.Y = Extent.X;
-				if (!GetWorld()->SweepSingle(Hit, MinDest, MinDest - (3.0f * GetPawn()->GetNavAgentPropertiesRef().AgentStepHeight) * FVector(0.0f, 0.0f, 1.0f), FQuat::Identity, FCollisionShape::MakeCapsule(Extent), TraceParams, HitParams))
+				if (!GetWorld()->SweepSingleByObjectType(Hit, MinDest, MinDest - (3.0f * GetPawn()->GetNavAgentPropertiesRef().AgentStepHeight) * FVector(0.0f, 0.0f, 1.0f), FQuat::Identity, HitParams, FCollisionShape::MakeCapsule(Extent), TraceParams))
 				{
 					return false;
 				}

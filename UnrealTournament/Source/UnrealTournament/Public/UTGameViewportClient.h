@@ -83,7 +83,7 @@ protected:
 	// if there are pending redirects, this function is called each tick.  NOTE: it will only be called if there are pending directs.
 	virtual void UpdateRedirects(float DeltaTime);
 
-	void HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes);
+	void HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytesSent, int32 NumBytesRecv);
 	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
 

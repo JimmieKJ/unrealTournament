@@ -154,7 +154,7 @@ void AUTWeap_Translocator::FireShot()
 					FVector WarpLocation = TransDisk->GetActorLocation();
 					FHitResult Hit;
 					FVector EndTrace = WarpLocation - FVector(0.0f, 0.0f, PlayerCapsule.GetCapsuleHalfHeight());
-					bool bHitFloor = GetWorld()->SweepSingle(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(TransDisk->CollisionComp->GetCollisionShape().GetSphereRadius()), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->GetCapsuleComponent()->GetCollisionResponseToChannels());
+					bool bHitFloor = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, EndTrace, FQuat::Identity, UTOwner->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(TransDisk->CollisionComp->GetCollisionShape().GetSphereRadius()), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTOwner), UTOwner->GetCapsuleComponent()->GetCollisionResponseToChannels());
 					if (bHitFloor)
 					{
 						// need to more teleport destination up

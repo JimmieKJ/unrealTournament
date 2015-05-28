@@ -19,9 +19,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	virtual void InitLobbyBeacon(FURL LobbyURL, uint32 LobbyInstanceID, FGuid InstanceGUID);
 	virtual void OnConnected();
 	virtual void OnFailure();
-
-	virtual void SetBeaconNetDriverName(FString InBeaconName);
-
+	
 	virtual void UpdateMatch(FString Update);
 	virtual void UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore);
 	virtual void EndGame(FString FinalUpdate);

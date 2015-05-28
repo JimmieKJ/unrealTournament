@@ -431,7 +431,7 @@ void AUTRemoteRedeemer::ForceReplication_Implementation()
 {
 }
 
-bool AUTRemoteRedeemer::IsRelevancyOwnerFor(AActor* ReplicatedActor, AActor* ActorOwner, AActor* ConnectionActor)
+bool AUTRemoteRedeemer::IsRelevancyOwnerFor(const AActor* ReplicatedActor, const AActor* ActorOwner, const AActor* ConnectionActor) const
 {
 	if (ReplicatedActor == ActorOwner)
 	{

@@ -59,7 +59,7 @@ void AUTLift::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp,
 	}
 }
 
-void AUTLift::ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other, class UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit)
+void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, class UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit)
 {
 	if (bSelfMoved && EncroachComponent)
 	{
@@ -318,7 +318,7 @@ void AUTLift::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh*
 					// check that we can place the exit loc there without XY adjustments and trace to there from lift center is clear
 					// TODO: using Scout here only because FindTeleportSpot()/EncroachingWorldGeometry() won't accept standalone collision shapes
 					if ( GetWorld()->FindTeleportSpot(ScoutType.GetDefaultObject(), AdjustedLoc, FRotator::ZeroRotator) && (ExitLoc - AdjustedLoc).Size2D() < 1.0f &&
-						!GetWorld()->SweepTest(NextStop + FVector(0.0f, 0.0f, ZOffset + NavData->AgentHeight * 0.5f), AdjustedLoc + FVector(0.0f, 0.0f, NavData->AgentHeight * 0.5f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(NavData->AgentRadius, NavData->AgentHeight * 0.25f), FCollisionQueryParams()) )
+						!GetWorld()->SweepTestByChannel(NextStop + FVector(0.0f, 0.0f, ZOffset + NavData->AgentHeight * 0.5f), AdjustedLoc + FVector(0.0f, 0.0f, NavData->AgentHeight * 0.5f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(NavData->AgentRadius, NavData->AgentHeight * 0.25f), FCollisionQueryParams()) )
 					{
 						// make sure to account for differences in Z between test capsule and nav height that it's expecting for poly finding
 						ExitLoc = AdjustedLoc - FVector(0.0f, 0.0f, ScoutType.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - NavData->AgentHeight * 0.5f);

@@ -1002,7 +1002,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 
 					float SegmentVerts[36];
 					int32 NumSegments = 0;
-					InternalQuery.getPolyWallSegments(PolyRef, GetDefaultDetourFilter(), NULL, 0, SegmentVerts, NULL, &NumSegments, 6);
+					InternalQuery.getPolyWallSegments(PolyRef, GetDefaultDetourFilter(), SegmentVerts, nullptr, &NumSegments, 6);
 					for (int32 i = 0; i < NumSegments; i++)
 					{
 						// wall
@@ -1213,102 +1213,6 @@ void AUTRecastNavMesh::DeletePaths()
 #endif
 }
 
-void AUTRecastNavMesh::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFunction& ThisTickFunction)
-{
-#if WITH_EDITOR
-	if (EditorTick != NULL)
-	{
-		EditorTick->bWasTicked = true;
-	}
-#endif
-	if (!GetWorld()->IsPaused())
-	{
-		// ANavigationData::TickActor(), included because that version doesn't call Super
-		PurgeUnusedPaths();
-		if (NextObservedPathsTickInSeconds >= 0.f)
-		{
-			NextObservedPathsTickInSeconds -= DeltaTime;
-			if (NextObservedPathsTickInSeconds <= 0.f)
-			{
-				RepathRequests.Reserve(ObservedPaths.Num());
-
-				for (int32 PathIndex = ObservedPaths.Num() - 1; PathIndex >= 0; --PathIndex)
-				{
-					if (ObservedPaths[PathIndex].IsValid())
-					{
-						FNavPathSharedPtr SharedPath = ObservedPaths[PathIndex].Pin();
-						FNavigationPath* Path = SharedPath.Get();
-						EPathObservationResult::Type Result = Path->TickPathObservation();
-						switch (Result)
-						{
-						case EPathObservationResult::NoLongerObserving:
-							ObservedPaths.RemoveAtSwap(PathIndex, 1, /*bAllowShrinking=*/false);
-							break;
-
-						case EPathObservationResult::NoChange:
-							// do nothing
-							break;
-
-						case EPathObservationResult::RequestRepath:
-							RepathRequests.Add(FNavPathRecalculationRequest(SharedPath, ENavPathUpdateType::GoalMoved));
-							break;
-
-						default:
-							check(false && "unhandled EPathObservationResult::Type in ANavigationData::TickActor");
-							break;
-						}
-					}
-					else
-					{
-						ObservedPaths.RemoveAtSwap(PathIndex, 1, /*bAllowShrinking=*/false);
-					}
-				}
-
-				if (ObservedPaths.Num() > 0)
-				{
-					NextObservedPathsTickInSeconds = ObservedPathsTickInterval;
-				}
-			}
-		}
-
-		if (RepathRequests.Num() > 0)
-		{
-			// @todo batch-process it!
-			for (auto RecalcRequest : RepathRequests)
-			{
-				FPathFindingQuery Query(RecalcRequest.Path);
-				// @todo consider supplying NavAgentPropertied from path's querier
-				const FPathFindingResult Result = FindPath(FNavAgentProperties(), Query.SetPathInstanceToUpdate(RecalcRequest.Path));
-
-				if (Result.IsSuccessful())
-				{
-					RecalcRequest.Path->DoneUpdating(RecalcRequest.Reason);
-					if (RecalcRequest.Reason == ENavPathUpdateType::NavigationChanged)
-					{
-						RegisterActivePath(RecalcRequest.Path);
-					}
-				}
-				else
-				{
-					RecalcRequest.Path->RePathFailed();
-				}
-			}
-
-			RepathRequests.Reset();
-		}
-
-		// AActor::TickActor(), included directly since ANavigationData::TickActor() doesn't call Super
-		const bool bShouldTick = ((TickType != LEVELTICK_ViewportsOnly) || ShouldTickIfViewportsOnly());
-		if (bShouldTick)
-		{
-			if (!IsPendingKill())
-			{
-				Tick(DeltaTime);	// perform any tick functions unique to an actor subclass
-			}
-		}
-	}
-}
-
 void AUTRecastNavMesh::RebuildAll()
 {
 	bIsBuilding = true;
@@ -1458,7 +1362,7 @@ TArray<FLine> AUTRecastNavMesh::GetPolyWalls(NavNodeRef PolyRef) const
 
 	float SegmentVerts[36];
 	int32 NumSegments = 0;
-	GetRecastNavMeshImpl()->SharedNavQuery.getPolyWallSegments(PolyRef, GetDefaultDetourFilter(), NULL, 0, SegmentVerts, NULL, &NumSegments, 6);
+	GetRecastNavMeshImpl()->SharedNavQuery.getPolyWallSegments(PolyRef, GetDefaultDetourFilter(), SegmentVerts, nullptr, &NumSegments, 6);
 	for (int32 i = 0; i < NumSegments; i++)
 	{
 		// wall

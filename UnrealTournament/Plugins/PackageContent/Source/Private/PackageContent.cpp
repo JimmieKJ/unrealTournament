@@ -83,7 +83,7 @@ public:
 						SNew(SHyperlink)
 						.OnNavigate(this, &SPackageCompleteChoiceDialog::HandleFilePathHyperlinkNaviate)
 						.Text(FilePathLinkText)
-						.ToolTipText(FilePath)
+						.ToolTipText(FText::FromString(FilePath))
 					]
 
 					+ SHorizontalBox::Slot()

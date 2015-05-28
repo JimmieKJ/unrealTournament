@@ -365,9 +365,9 @@ protected:
 	FOnlineSessionSearchResult PendingSession;
 
 	// friend join functionality
-	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FString& SessionId);
+	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId);
 	virtual void OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult);
-	virtual void HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FString& SessionId);
+	virtual void HandleFriendsJoinGame(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId);
 	virtual bool AllowFriendsJoinGame();
 	virtual void HandleFriendsNotificationAvail(bool bAvailable);
 	virtual void HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage);

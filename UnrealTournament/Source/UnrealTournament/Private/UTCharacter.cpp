@@ -184,7 +184,7 @@ void AUTCharacter::PlayWaterSound(USoundBase* WaterSound)
 }
 
 
-void AUTCharacter::OnWalkingOffLedge_Implementation()
+void AUTCharacter::OnWalkingOffLedge_Implementation(const FVector& PreviousFloorImpactNormal, const FVector& PreviousFloorContactNormal, const FVector& PreviousLocation, float TimeDelta)
 {
 	AUTBot* B = Cast<AUTBot>(Controller);
 	if (B != NULL)
@@ -1186,7 +1186,7 @@ void AUTCharacter::StartRagdoll()
 	GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	GetMesh()->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
-	GetMesh()->UpdateKinematicBonesToPhysics(GetMesh()->GetSpaceBases(), true, true, true);
+	GetMesh()->UpdateKinematicBonesToAnim(GetMesh()->GetSpaceBases(), true, true, true);
 	GetMesh()->SetSimulatePhysics(true);
 	GetMesh()->RefreshBoneTransforms();
 	GetMesh()->SetAllBodiesPhysicsBlendWeight(1.0f);

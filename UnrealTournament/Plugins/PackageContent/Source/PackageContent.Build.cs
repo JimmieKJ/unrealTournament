@@ -23,6 +23,7 @@ namespace UnrealBuildTool.Rules
                     "UnrealTournament",
                     "UnrealTournamentEditor",
                     "TargetPlatform",
+                    "ClassViewer"
 				}
 			);	// @todo Mac: for some reason CoreUObject and Engine are needed to link in debug on Mac
 

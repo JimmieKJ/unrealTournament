@@ -79,7 +79,7 @@ void AUTLobbyGameMode::InitGameState()
 
 		// Break the MOTD up in to strings to be sent to clients when they login.
 		FString Converted = UTLobbyGameState->ServerMOTD.Replace( TEXT("\\n"), TEXT("\n"));
-		Converted.ParseIntoArray(&ParsedMOTD,TEXT("\n"),true);
+		Converted.ParseIntoArray(ParsedMOTD,TEXT("\n"),true);
 	}
 	else
 	{

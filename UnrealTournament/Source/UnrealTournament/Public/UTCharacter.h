@@ -454,7 +454,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 		return InventoryList;
 	}
 
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn|Inventory", meta = (FriendlyName = "CreateInventory", AdvancedDisplay = "bAutoActivate"))
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn|Inventory", meta = (DisplayName = "CreateInventory", AdvancedDisplay = "bAutoActivate"))
 	virtual AUTInventory* K2_CreateInventory(TSubclassOf<AUTInventory> NewInvClass, bool bAutoActivate = true);
 	
 	template<typename InvClass>
@@ -752,7 +752,7 @@ public:
 	virtual bool IsFeigningDeath();
 
 	// AI hooks
-	virtual void OnWalkingOffLedge_Implementation() override;
+	virtual void OnWalkingOffLedge_Implementation(const FVector& PreviousFloorImpactNormal, const FVector& PreviousFloorContactNormal, const FVector& PreviousLocation, float TimeDelta) override;
 
 protected:
 	/** set when feigning death or other forms of non-fatal ragdoll (knockdowns, etc) */

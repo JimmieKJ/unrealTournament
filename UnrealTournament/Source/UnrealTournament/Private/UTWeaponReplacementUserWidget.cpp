@@ -68,7 +68,7 @@ FString UUTWeaponReplacementUserWidget::GetUniqueDisplayName(const AUTWeapon* We
 		{
 			// postfix plugin name if not in core game, so plugins don't have to worry about name conflicts with anything but themselves
 			TArray<FString> Pieces;
-			PackageName.ParseIntoArray(&Pieces, TEXT("/"), true);
+			PackageName.ParseIntoArray(Pieces, TEXT("/"), true);
 			DisplayName += TEXT(" (") + Pieces[0] + TEXT(")");
 		}
 		return DisplayName;

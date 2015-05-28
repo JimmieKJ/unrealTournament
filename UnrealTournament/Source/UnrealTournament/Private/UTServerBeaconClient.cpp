@@ -9,13 +9,6 @@ Super(ObjectInitializer)
 	PingStartTime = -1;
 }
 
-void AUTServerBeaconClient::SetBeaconNetDriverName(FString InBeaconName)
-{
-	BeaconNetDriverName = FName(*InBeaconName);
-	NetDriverName = BeaconNetDriverName;
-}
-
-
 void AUTServerBeaconClient::OnConnected()
 {
 	Super::OnConnected();

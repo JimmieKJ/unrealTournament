@@ -156,12 +156,12 @@ void SUWRedirectDialog::Tick(const FGeometry & AllottedGeometry, const double In
 }
 
 
-void SUWRedirectDialog::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes)
+void SUWRedirectDialog::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytesSent, int32 NumBytesRecv)
 {
 	if (HttpRequest.IsValid())
 	{
 		AssetsTotalSize = HttpRequest->GetResponse()->GetContentLength();
-		AssetsDownloadedAmount = NumBytes;
+		AssetsDownloadedAmount = NumBytesRecv;
 	}
 }
 

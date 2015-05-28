@@ -68,7 +68,7 @@ protected:
 
 	bool bDownloadCanceled;
 
-	void HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes);
+	void HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytesSent, int32 NumBytesRecv);
 	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	FHttpRequestPtr HttpRequest;
 

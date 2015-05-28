@@ -67,12 +67,6 @@ void AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Implementation(uint
 	}
 }
 
-void AUTServerBeaconLobbyClient::SetBeaconNetDriverName(FString InBeaconName)
-{
-	BeaconNetDriverName = FName(*InBeaconName);
-	NetDriverName = BeaconNetDriverName;
-}
-
 bool AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Validate(uint32 InstanceID, const FString& Update) { return true; }
 void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 InstanceID, const FString& Update)
 {

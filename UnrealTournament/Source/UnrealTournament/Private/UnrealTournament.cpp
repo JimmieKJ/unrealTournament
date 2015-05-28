@@ -216,7 +216,7 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	{
 		ARFilter.ClassNames.Add(BaseClass->GetFName());
 		// Add any old names to the list in case things haven't been resaved
-		TArray<FName> OldNames = ULinkerLoad::FindPreviousNamesForClass(BaseClass->GetPathName(), false);
+		TArray<FName> OldNames = FLinkerLoad::FindPreviousNamesForClass(BaseClass->GetPathName(), false);
 		ARFilter.ClassNames.Append(OldNames);
 	}
 	ARFilter.bRecursivePaths = true;

@@ -118,9 +118,9 @@ AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir)
 	return ScoreBreakdownPS;
 }
 
-void UUTScoreboard::SetPage(uint32 NewPage)
+void UUTScoreboard::SetPage(int32 NewPage)
 {
-	UTHUDOwner->ScoreboardPage = FMath::Min<uint32>(NewPage, NumPages - 1);
+	UTHUDOwner->ScoreboardPage = FMath::Min<int32>(NewPage, NumPages - 1);
 	PageChanged();
 }
 

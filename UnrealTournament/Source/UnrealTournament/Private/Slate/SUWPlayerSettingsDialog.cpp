@@ -321,7 +321,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 									.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 									[
 										SAssignNew(SelectedFlag, STextBlock)
-										.Text(FString(TEXT("Unreal")))
+										.Text(FText::FromString(TEXT("Unreal")))
 										.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 									]
 								]
@@ -352,7 +352,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SAssignNew(SelectedHat, STextBlock)
-								.Text(FString(TEXT("No Hats Available")))
+								.Text(FText::FromString(TEXT("No Hats Available")))
 								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 							]
 						]
@@ -371,7 +371,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SAssignNew(SelectedHatVariant, STextBlock)
-								.Text(FString(TEXT("Default")))
+								.Text(FText::FromString(TEXT("Default")))
 								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 							]
 						]
@@ -403,7 +403,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 								[
 									SAssignNew(SelectedEyewear, STextBlock)
-									.Text(FString(TEXT("No Glasses Available")))
+									.Text(FText::FromString(TEXT("No Glasses Available")))
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 								]
 							]
@@ -423,7 +423,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Content()
 							[
 								SAssignNew(SelectedEyewearVariant, STextBlock)
-								.Text(FString(TEXT("Default")))
+								.Text(FText::FromString(TEXT("Default")))
 								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 							]
 						]
@@ -455,7 +455,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 								[
 									SAssignNew(SelectedTaunt, STextBlock)
-									.Text(FString(TEXT("No Taunts Available")))
+									.Text(FText::FromString(TEXT("No Taunts Available")))
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 								]
 							]
@@ -488,7 +488,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 								[
 									SAssignNew(SelectedTaunt2, STextBlock)
-									.Text(FString(TEXT("No Taunts Available")))
+									.Text(FText::FromString(TEXT("No Taunts Available")))
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 								]
 							]
@@ -521,7 +521,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 								.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 								[
 									SAssignNew(SelectedCharacter, STextBlock)
-									.Text(FString(TEXT("No Characters Available")))
+									.Text(FText::FromString(TEXT("No Characters Available")))
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 								]
 							]
@@ -632,7 +632,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(FOVLabel, STextBlock)
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(GetFOVLabelText(FOVSliderSetting))
+							.Text(FText::FromString(GetFOVLabelText(FOVSliderSetting)))
 						]
 
 						+ SGridPanel::Slot(1, 2)
@@ -1243,8 +1243,8 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 
 	FSceneViewInitOptions PlayerPreviewInitOptions;
 	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
-	// YZ Ortho view
-	PlayerPreviewInitOptions.ViewMatrix = FTranslationMatrix(CameraPosition) * FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
+	PlayerPreviewInitOptions.ViewOrigin = CameraPosition;
+	PlayerPreviewInitOptions.ViewRotationMatrix = FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
 	PlayerPreviewInitOptions.ProjectionMatrix = 
 		FReversedZPerspectiveMatrix(
 			FMath::Max(0.001f, FOV) * (float)PI / 360.0f,

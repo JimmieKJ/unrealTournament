@@ -44,7 +44,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_ChangeTeam","CHANGE TEAM").ToString())
+						.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_ChangeTeam","CHANGE TEAM"))
 						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 					]
 				]
@@ -82,7 +82,7 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPt
 		SNew(SButton)
 		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 		.ContentPadding(FMargin(10.0f, 5.0f))
-		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu").ToString())
+		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu"))
 		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 		.OnClicked(this, &SUTInGameMenu::OnCloseMenu, ExitButton)
 	];
@@ -308,7 +308,7 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear Game Settings").ToString())
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear Game Settings"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUTMenuBase::ClearCloud, DropDownButton)
 			]

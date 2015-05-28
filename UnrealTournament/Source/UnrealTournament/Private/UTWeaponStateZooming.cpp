@@ -197,7 +197,7 @@ void UUTWeaponStateZooming::TickZoom(float DeltaTime)
 			float StartFOV = (ZoomStartFOV > 0.0f) ? FMath::Min<float>(Camera->DefaultFOV, ZoomStartFOV) : Camera->DefaultFOV;
 			Camera->SetFOV(StartFOV - (StartFOV - MinFOV) * FMath::Min<float>((GetWorld()->TimeSeconds - StartZoomTime) / ZoomTime, 1.0f));
 
-			if (Camera->LockedFOV <= MinFOV)
+			if (Camera->GetLockedFOV() <= MinFOV)
 			{
 				OnZoomingFinished();
 			}

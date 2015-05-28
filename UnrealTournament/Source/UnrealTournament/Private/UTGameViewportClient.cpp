@@ -368,7 +368,7 @@ void UUTGameViewportClient::FinalizeViews(FSceneViewFamily* ViewFamily, const TM
 			if (PC != NULL && PC->bCastingGuide)
 			{
 				ViewFamily->EngineShowFlags.PostProcessing = 0;
-				ViewFamily->EngineShowFlags.Atmosphere = 0;
+				ViewFamily->EngineShowFlags.AtmosphericFog = 0;
 				ViewFamily->EngineShowFlags.DynamicShadows = 0;
 				ViewFamily->EngineShowFlags.LightFunctions = 0;
 				ViewFamily->EngineShowFlags.ScreenSpaceReflections = 0;
@@ -619,7 +619,7 @@ void UUTGameViewportClient::UpdateRedirects(float DeltaTime)
 				}
 				else
 				{
-					HttpRequestProgress(PendingDownloads[0].HttpRequest, 0);
+					HttpRequestProgress(PendingDownloads[0].HttpRequest, 0, 0);
 				}
 			}
 		}
@@ -701,13 +701,13 @@ void UUTGameViewportClient::CancelAllRedirectDownloads()
 	PendingDownloads.Empty();
 }
 
-void UUTGameViewportClient::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytes)
+void UUTGameViewportClient::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytesSent, int32 NumBytesRecv)
 {
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	
 	if (FirstPlayer && PendingDownloads.Num() > 0)
 	{
-		float Perc = HttpRequest->GetResponse()->GetContentLength() > 0 ? (NumBytes / HttpRequest->GetResponse()->GetContentLength()) : 0.0f;
-		FirstPlayer->UpdateRedirect(PendingDownloads[0].FileURL, NumBytes, Perc, PendingDownloads.Num());
+		float Perc = HttpRequest->GetResponse()->GetContentLength() > 0 ? (NumBytesRecv / HttpRequest->GetResponse()->GetContentLength()) : 0.0f;
+		FirstPlayer->UpdateRedirect(PendingDownloads[0].FileURL, NumBytesRecv, Perc, PendingDownloads.Num());
 	}
 }
 

@@ -1307,9 +1307,9 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.bAllowSpatialization = false;
 
 			// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
-			if (GEngine->GetAudioDevice() != NULL)
+			if (GEngine->GetMainAudioDevice() != NULL)
 			{
-				GEngine->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
+				GEngine->GetMainAudioDevice()->AddNewActiveSound(NewActiveSound);
 			}
 		}
 		else
@@ -3002,7 +3002,7 @@ int32 AUTPlayerController::ParseWeaponBind(FString ActionName)
 	if (ActionName.Left(12).Equals(TEXT("switchweapon"), ESearchCase::IgnoreCase))
 	{
 		TArray<FString> Parsed;
-		ActionName.ParseIntoArray(&Parsed, TEXT(" "),true);
+		ActionName.ParseIntoArray(Parsed, TEXT(" "),true);
 		if (Parsed.Num() == 2)
 		{
 			return FCString::Atoi(*Parsed[1]);

@@ -39,21 +39,21 @@ void AUTProj_ShockBall::SetForwardTicked(bool bWasForwardTicked)
 	bUsingClientSideHits = bWasForwardTicked;
 }
 
-void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, class AActor* DamageCauser)
+float AUTProj_ShockBall::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	if (bFakeClientProjectile)
 	{
 		if (MasterProjectile && !MasterProjectile->IsPendingKillPending())
 		{
-			MasterProjectile->ReceiveAnyDamage(Damage, DamageType, InstigatedBy, DamageCauser);
+			MasterProjectile->TakeDamage(Damage, DamageEvent, EventInstigator, DamageCauser);
 		}
-		return;
+		return Damage;
 	}
-	if (ComboTriggerType != NULL && DamageType != NULL && DamageType->IsA(ComboTriggerType))
+	if (ComboTriggerType != NULL && DamageEvent.DamageTypeClass != NULL && DamageEvent.DamageTypeClass->IsChildOf(ComboTriggerType))
 	{
 		if (Role != ROLE_Authority)
 		{
-			AUTPlayerController* UTPC = Cast<AUTPlayerController>(InstigatedBy);
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(EventInstigator);
 			if (UTPC)
 			{
 				UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
@@ -61,9 +61,11 @@ void AUTProj_ShockBall::ReceiveAnyDamage(float Damage, const class UDamageType* 
 		}
 		else if (!bUsingClientSideHits)
 		{
-			PerformCombo(InstigatedBy, DamageCauser);
+			PerformCombo(EventInstigator, DamageCauser);
 		}
 	}
+
+	return Damage;
 }
 
 void AUTProj_ShockBall::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)

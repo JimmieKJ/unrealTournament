@@ -68,7 +68,7 @@ bool UUTAIAction_RangedAttack::FindStrafeDest()
 					// and that we can still hit target from
 					float Dist = (TestLoc - TargetLoc).Size();
 					if ( (Dist <= MaxRange || Dist < TargetDist) && (bAllowBackwards || Dist <= TargetDist + 250.0) &&
-						!GetWorld()->LineTraceTest(TestLoc + FVector(0.0f, 0.0f, GetPawn()->GetSimpleCollisionHalfHeight()), TargetLoc, ECC_Visibility, TraceParams) )
+						!GetWorld()->LineTraceTestByChannel(TestLoc + FVector(0.0f, 0.0f, GetPawn()->GetSimpleCollisionHalfHeight()), TargetLoc, ECC_Visibility, TraceParams) )
 					{
 						GetOuterAUTBot()->SetMoveTargetDirect(FRouteCacheItem(TestLoc, AdjacentPolys[i]));
 						return true;

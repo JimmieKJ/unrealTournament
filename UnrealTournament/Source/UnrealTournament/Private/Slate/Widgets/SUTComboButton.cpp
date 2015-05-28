@@ -81,7 +81,7 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 	if (!InArgs._DefaultMenuItems.IsEmpty() && InArgs._DefaultMenuItems != TEXT(""))
 	{
 		TArray<FString> MenuItems;
-		InArgs._DefaultMenuItems.ParseIntoArray(&MenuItems, TEXT(","), true);
+		InArgs._DefaultMenuItems.ParseIntoArray(MenuItems, TEXT(","), true);
 		for (int32 i=0; i < MenuItems.Num(); i++)
 		{
 			SubMenuItems.Add(FText::FromString(*MenuItems[i]));

@@ -26,9 +26,9 @@ class UNREALTOURNAMENT_API AUTLift : public AActor, public INavRelevantInterface
 	/** Event when encroach an actor (Overlap that can't be handled gracefully) */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = "Lift")
 	virtual void OnEncroachActor(class AActor* EncroachedActor);
-
-	virtual void ReceiveHit(class UPrimitiveComponent* MyComp, class AActor* Other, class UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit) override;
-
+	
+	virtual void NotifyHit(class UPrimitiveComponent* MyComp, AActor* Other, class UPrimitiveComponent* OtherComp, bool bSelfMoved, FVector HitLocation, FVector HitNormal, FVector NormalImpulse, const FHitResult& Hit) override;
+	
 	// UTMovementBaseInterface
 	virtual void AddBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) {};
 	virtual	void RemoveBasedCharacter_Implementation(class AUTCharacter* BasedCharacter) {};

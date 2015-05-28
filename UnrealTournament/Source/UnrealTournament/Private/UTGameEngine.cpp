@@ -723,7 +723,7 @@ UUTLevelSummary* UUTGameEngine::LoadLevelSummary(const FString& MapName)
 		{
 			// LoadObject() actually forces the whole package to be loaded for some reason so we need to take the long way around
 			BeginLoad();
-			ULinkerLoad* Linker = GetPackageLinker(Pkg, NULL, LOAD_NoWarn | LOAD_Quiet, NULL, NULL);
+			FLinkerLoad* Linker = GetPackageLinker(Pkg, NULL, LOAD_NoWarn | LOAD_Quiet, NULL, NULL);
 			if (Linker != NULL)
 			{
 				//UUTLevelSummary* Summary = Cast<UUTLevelSummary>(Linker->Create(UUTLevelSummary::StaticClass(), FName(TEXT("LevelSummary")), Pkg, LOAD_NoWarn | LOAD_Quiet, false));
