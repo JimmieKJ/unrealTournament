@@ -8,6 +8,7 @@
 #include "UTWorldSettings.h"
 
 static FName NAME_Progress(TEXT("Progress"));
+static FName NAME_RespawnTime(TEXT("RespawnTime"));
 
 void AUTPickup::PostEditImport()
 {
@@ -215,6 +216,7 @@ void AUTPickup::StartSleeping_Implementation()
 			TimerEffect->SetWorldScale3D(FixedScale);
 
 			TimerEffect->SetFloatParameter(NAME_Progress, 0.0f);
+			TimerEffect->SetFloatParameter(NAME_RespawnTime, RespawnTime);
 			TimerEffect->SetHiddenInGame(false);
 			PrimaryActorTick.SetTickFunctionEnable(true);
 		}
