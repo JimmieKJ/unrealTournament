@@ -76,7 +76,7 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 
 			const FVector EndTrace = SpawnLocation + FireDir * TraceDist;
 			
-			if (!GetWorld()->LineTraceSingle(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, TraceParams))
+			if (!GetWorld()->LineTraceSingleByChannel(Hit, SpawnLocation, EndTrace, COLLISION_TRACE_WEAPON, TraceParams))
 			{
 				Hit.Location = EndTrace;
 			}
@@ -374,7 +374,7 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 				{
 					float DesiredSpeed = DesiredVel2D.Size2D();
 					// if low speed and not going to bump head on ceiling, do normal jump
-					if (DesiredSpeed < UTOwner->UTCharacterMovement->GetMaxSpeed() && !GetWorld()->LineTraceTest(UTOwner->GetActorLocation(), UTOwner->GetActorLocation() + FVector(0.0f, 0.0f, ZSpeed * 0.5f), ECC_Pawn, FCollisionQueryParams(FName(TEXT("ImpactJump")), false, UTOwner)))
+					if (DesiredSpeed < UTOwner->UTCharacterMovement->GetMaxSpeed() && !GetWorld()->LineTraceTestByChannel(UTOwner->GetActorLocation(), UTOwner->GetActorLocation() + FVector(0.0f, 0.0f, ZSpeed * 0.5f), ECC_Pawn, FCollisionQueryParams(FName(TEXT("ImpactJump")), false, UTOwner)))
 					{
 						UTOwner->UTCharacterMovement->Velocity = DesiredVel2D;
 					}

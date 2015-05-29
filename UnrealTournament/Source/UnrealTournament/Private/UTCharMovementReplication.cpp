@@ -417,7 +417,7 @@ void UUTCharacterMovement::MoveSmooth(const FVector& InVelocity, const float Del
 		InitCollisionParams(CapsuleQuery, ResponseParam);
 		const FVector PawnLocation = CharacterOwner->GetActorLocation();
 		const ECollisionChannel CollisionChannel = UpdatedComponent->GetCollisionObjectType();
-		const bool bHit = GetWorld()->SweepSingle(Hit, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
+		const bool bHit = GetWorld()->SweepSingleByChannel(Hit, PawnLocation, PawnLocation + TestWalk, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
 		bIsAgainstWall = bHit;
 		if (bHit)
 		{

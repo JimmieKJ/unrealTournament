@@ -71,7 +71,7 @@ AUTRecastNavMesh::~AUTRecastNavMesh()
 
 UPrimitiveComponent* AUTRecastNavMesh::ConstructRenderingComponent()
 {
-	return NewNamedObject<UUTNavMeshRenderingComponent>(this, TEXT("NavMeshRenderer"));
+	return NewObject<UUTNavMeshRenderingComponent>(this, TEXT("NavMeshRenderer"));
 }
 
 const dtQueryFilter* AUTRecastNavMesh::GetDefaultDetourFilter() const
@@ -121,12 +121,12 @@ FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(NavNodeRef PolyRef, const stru
 				// find floor
 				FHitResult Hit;
 				FCollisionShape TestCapsule = FCollisionShape::MakeCapsule(AgentRadius, 1.0f);
-				if (GetWorld()->SweepSingle(Hit, PolyCenter + FVector(0.0f, 0.0f, AgentHalfHeight * 0.75f), PolyCenter - FVector(0.0f, 0.0f, AgentHalfHeight), FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
+				if (GetWorld()->SweepSingleByChannel(Hit, PolyCenter + FVector(0.0f, 0.0f, AgentHalfHeight * 0.75f), PolyCenter - FVector(0.0f, 0.0f, AgentHalfHeight), FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
 				{
 					TestCapsule.Capsule.HalfHeight = TestSize.Height;
 					// make sure capsule fits here
 					FVector StartLoc = Hit.Location + FVector(0.0f, 0.0f, TestSize.Height + 1.0f);
-					if (GetWorld()->OverlapTest(StartLoc, FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
+					if (GetWorld()->OverlapBlockingTestByChannel(StartLoc, FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
 					{
 						bFailed = true;
 						break;
@@ -272,7 +272,7 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 			ZSpeed += GravityZ * TimeStep;
 			FVector NewLoc = CurrentLoc + NewVelocity * TimeStep;
 			FHitResult Hit;
-			if (GetWorld()->SweepSingle(Hit, CurrentLoc, NewLoc, FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
+			if (GetWorld()->SweepSingleByChannel(Hit, CurrentLoc, NewLoc, FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
 			{
 				if (Hit.Time > KINDA_SMALL_NUMBER && CurrentLoc != Hit.Location)
 				{
@@ -283,7 +283,7 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 				{
 					// try Z only
 					CurrentLoc -= Diff.GetSafeNormal2D(); // avoid float precision penetration issues
-					if ((NewVelocity.X == 0.0f && NewVelocity.Y == 0.0f) || GetWorld()->SweepSingle(Hit, CurrentLoc, FVector(CurrentLoc.X, CurrentLoc.Y, NewLoc.Z), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
+					if ((NewVelocity.X == 0.0f && NewVelocity.Y == 0.0f) || GetWorld()->SweepSingleByChannel(Hit, CurrentLoc, FVector(CurrentLoc.X, CurrentLoc.Y, NewLoc.Z), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
 					{
 						if (NewVelocity.Z > 0.0f && Hit.Normal.Z < -0.99f)
 						{
@@ -367,9 +367,9 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 			FVector MoveSlice = (End - Start).GetSafeNormal2D() * ScoutShape.GetCapsuleRadius();
 			FHitResult Hit;
 			bool bAnyHit = false;
-			while ( !GetWorld()->SweepSingle(Hit, Start, Start + FVector(0.0f, 0.0f, AgentMaxStepHeight), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
-					!GetWorld()->SweepSingle(Hit, Start + FVector(0.0f, 0.0f, AgentMaxStepHeight), Start + MoveSlice + FVector(0.0f, 0.0f, AgentMaxStepHeight), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
-					GetWorld()->SweepSingle(Hit, Start + MoveSlice + FVector(0.0f, 0.0f, AgentMaxStepHeight), Start + MoveSlice - FVector(0.0f, 0.0f, 50.0f), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
+			while (!GetWorld()->SweepSingleByChannel(Hit, Start, Start + FVector(0.0f, 0.0f, AgentMaxStepHeight), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
+					!GetWorld()->SweepSingleByChannel(Hit, Start + FVector(0.0f, 0.0f, AgentMaxStepHeight), Start + MoveSlice + FVector(0.0f, 0.0f, AgentMaxStepHeight), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
+					GetWorld()->SweepSingleByChannel(Hit, Start + MoveSlice + FVector(0.0f, 0.0f, AgentMaxStepHeight), Start + MoveSlice - FVector(0.0f, 0.0f, 50.0f), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
 					!Hit.bStartPenetrating )
 			{
 				bAnyHit = true;
@@ -388,7 +388,7 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 					return false;
 				}
 			}
-			if (bAnyHit && !GetWorld()->SweepTest(Start, Start + MoveSlice * 0.1f, FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
+			if (bAnyHit && !GetWorld()->SweepTestByChannel(Start, Start + MoveSlice * 0.1f, FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
 			{
 				// this slight extra nudge is meant to make sure minor floating point discrepancies don't cause the zero JumpZ fall test to fail unnecessarily
 				Start += MoveSlice * 0.1f;
@@ -403,7 +403,7 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 static bool IsInPain(UWorld* World, const FVector& TestLoc)
 {
 	TArray<FOverlapResult> Hits;
-	World->OverlapMulti(Hits, TestLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(0.f), FComponentQueryParams());
+	World->OverlapMultiByChannel(Hits, TestLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(0.f), FComponentQueryParams());
 	
 	for (const FOverlapResult& Result : Hits)
 	{
@@ -914,7 +914,7 @@ bool AUTRecastNavMesh::IsValidJumpPoint(const FVector& TestPolyCenter) const
 		// TODO: workaround for Recast generating polys (and therefore nodes) in the internal geometry of some meshes
 		//		poly is not in walkable space
 		TArray<FOverlapResult> Overlaps;
-		if (GetWorld()->OverlapMulti(Overlaps, TestPolyCenter + FVector(0.0f, 0.0f, AgentHeight * 0.5f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(1.0f), FCollisionQueryParams(), WorldResponseParams))
+		if (GetWorld()->OverlapMultiByChannel(Overlaps, TestPolyCenter + FVector(0.0f, 0.0f, AgentHeight * 0.5f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(1.0f), FCollisionQueryParams(), WorldResponseParams))
 		{
 			return false;
 		}
@@ -1884,7 +1884,7 @@ bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, 
 		// we're off the navmesh, but FindBestPath() may have suggested a re-entry point to get us in here
 		// try moving directly to target, checking simple trace to make sure we don't have something completely invalid
 		FCollisionQueryParams Params(FName(TEXT("GetMovePointsFallback")), false, Asker);
-		if (!GetWorld()->SweepTest(OrigStartLoc + FVector(0.0f, 0.0f, AgentProps.AgentHeight), Target.GetLocation(Asker) + FVector(0.0f, 0.0f, AgentProps.AgentHeight), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeBox(FVector(10.0f, 10.0f, 5.0f)), Params))
+		if (!GetWorld()->SweepTestByChannel(OrigStartLoc + FVector(0.0f, 0.0f, AgentProps.AgentHeight), Target.GetLocation(Asker) + FVector(0.0f, 0.0f, AgentProps.AgentHeight), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeBox(FVector(10.0f, 10.0f, 5.0f)), Params))
 		{
 			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 			if (TotalDistance != NULL)

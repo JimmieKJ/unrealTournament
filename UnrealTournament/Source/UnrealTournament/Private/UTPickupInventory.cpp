@@ -110,7 +110,7 @@ static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* Current
 	{
 		if (NativeCompList[i]->AttachParent == CurrentAttachment)
 		{
-			USceneComponent* NewComp = ConstructObject<USceneComponent>(NativeCompList[i]->GetClass(), Pickup, NAME_None, RF_NoFlags, NativeCompList[i]);
+			USceneComponent* NewComp = NewObject<USceneComponent>(Pickup, NativeCompList[i]->GetClass(), NAME_None, RF_NoFlags, NativeCompList[i]);
 			NewComp->AttachParent = NULL;
 			NewComp->AttachChildren.Empty();
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
@@ -128,7 +128,7 @@ static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* Current
 	{
 		if (BPNodes[i]->ComponentTemplate != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName)
 		{
-			USceneComponent* NewComp = ConstructObject<USceneComponent>(BPNodes[i]->ComponentTemplate->GetClass(), Pickup, NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
+			USceneComponent* NewComp = NewObject<USceneComponent>(Pickup, BPNodes[i]->ComponentTemplate->GetClass(), NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
 			NewComp->AttachParent = NULL;
 			NewComp->AttachChildren.Empty();
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
@@ -179,7 +179,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 					UnregisterComponentTree(PickupMesh);
 					PickupMesh = NULL;
 				}
-				PickupMesh = ConstructObject<UMeshComponent>(NewMesh->GetClass(), Pickup, NAME_None, RF_NoFlags, NewMesh);
+				PickupMesh = NewObject<UMeshComponent>(Pickup, NewMesh->GetClass(), NAME_None, RF_NoFlags, NewMesh);
 				PickupMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 				PickupMesh->AttachParent = NULL;
 				PickupMesh->AttachChildren.Empty();

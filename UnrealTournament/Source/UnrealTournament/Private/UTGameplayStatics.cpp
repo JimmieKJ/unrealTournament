@@ -164,7 +164,7 @@ static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector cons
 		// tiny nudge so LineTraceSingle doesn't early out with no hits
 		TraceStart.Z += 0.01f;
 	}
-	bool const bHadBlockingHit = World->LineTraceSingle(OutHitResult, TraceStart, TraceEnd, COLLISION_TRACE_WEAPON, LineParams, ResponseParams);
+	bool const bHadBlockingHit = World->LineTraceSingleByChannel(OutHitResult, TraceStart, TraceEnd, COLLISION_TRACE_WEAPON, LineParams, ResponseParams);
 
 	// If there was a blocking hit, it will be the last one
 	if (bHadBlockingHit)
@@ -210,7 +210,7 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 	TArray<FOverlapResult> Overlaps;
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
 	AUTGameState* GS = World->GetGameState<AUTGameState>();
-	World->OverlapMulti(Overlaps, Origin, FQuat::Identity, COLLISION_TRACE_WEAPON,  FCollisionShape::MakeSphere(DamageOuterRadius), SphereParams);
+	World->OverlapMultiByChannel(Overlaps, Origin, FQuat::Identity, COLLISION_TRACE_WEAPON, FCollisionShape::MakeSphere(DamageOuterRadius), SphereParams);
 
 	// collate into per-actor list of hit components
 	TMap< AActor*, TArray<FHitResult> > OverlapComponentMap;
@@ -351,10 +351,10 @@ APawn* UUTGameplayStatics::PickBestAimTarget(AController* AskingC, FVector Start
 								if (bPassedAimCheck)
 								{
 									// trace to head and center
-									bool bHit = TheWorld->LineTraceTest(StartLoc, P->GetActorLocation() + FVector(0.0f, 0.0f, P->BaseEyeHeight), ECC_Visibility, TraceParams);
+									bool bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation() + FVector(0.0f, 0.0f, P->BaseEyeHeight), ECC_Visibility, TraceParams);
 									if (bHit)
 									{
-										bHit = TheWorld->LineTraceTest(StartLoc, P->GetActorLocation(), ECC_Visibility, TraceParams);
+										bHit = TheWorld->LineTraceTestByChannel(StartLoc, P->GetActorLocation(), ECC_Visibility, TraceParams);
 									}
 									if (!bHit)
 									{
@@ -477,7 +477,7 @@ bool UUTGameplayStatics::UTSuggestProjectileVelocity(UObject* WorldContextObject
 			else
 			{
 				// note: this will automatically fall back to line test if radius is small enough
-				if (World->SweepTest(TraceStart, TraceEnd, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(CollisionRadius), QueryParams, ResponseParam))
+				if (World->SweepTestByChannel(TraceStart, TraceEnd, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(CollisionRadius), QueryParams, ResponseParam))
 				{
 					// hit something, failed
 					bFailedTrace = true;

@@ -87,7 +87,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 UStat* UStatManager::MakeStat(FName StatName, EStatRecordingPeriod::Type HighestPeriod)
 {
 	FString NewName = FString::Printf(TEXT("%s%s"), *StatPrefix, *StatName.ToString());
-	UStat* Stat = ConstructObject<UStat>(UStat::StaticClass(),this,FName(*NewName));
+	UStat* Stat = NewObject<UStat>(this,FName(*NewName));
 	Stat->StatName = StatName;
 	Stat->HighestPeriodToTrack = HighestPeriod;
 	return Stat;

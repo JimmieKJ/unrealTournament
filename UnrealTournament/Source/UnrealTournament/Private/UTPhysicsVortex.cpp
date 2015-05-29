@@ -24,7 +24,7 @@ void AUTPhysicsVortex::Tick(float DeltaTime)
 	TArray<FOverlapResult> Hits;
 	static FName NAME_PhysicsVortex = FName(TEXT("PhysicsVortex"));
 	FComponentQueryParams Params(NAME_PhysicsVortex, this);
-	GetWorld()->OverlapMulti(Hits, MyLocation, FQuat::Identity, FCollisionShape::MakeSphere(Radius), Params, FCollisionObjectQueryParams(ECC_Pawn));
+	GetWorld()->OverlapMultiByObjectType(Hits, MyLocation, FQuat::Identity, FCollisionObjectQueryParams(ECC_Pawn), FCollisionShape::MakeSphere(Radius), Params);
 
 	for (const FOverlapResult& TestHit : Hits)
 	{
@@ -34,7 +34,7 @@ void AUTPhysicsVortex::Tick(float DeltaTime)
 			if (P != NULL && P->IsRagdoll() && P->IsDead())
 			{
 				const FVector OtherLocation = P->GetActorLocation();
-				if (!GetWorld()->LineTraceTest(MyLocation, OtherLocation, ECC_Visibility, Params, WorldResponseParams))
+				if (!GetWorld()->LineTraceTestByChannel(MyLocation, OtherLocation, ECC_Visibility, Params, WorldResponseParams))
 				{
 					// if it has reached the center, gib it
 					const FVector Dir = MyLocation - OtherLocation;

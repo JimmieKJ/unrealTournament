@@ -371,7 +371,7 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 				FCollisionQueryParams CapsuleParams(NAME_FlagPlacement, false, this);
 				FCollisionResponseParams ResponseParam;
 				TArray<FOverlapResult> Overlaps;
-				bool bEncroached = GetWorld()->OverlapMulti(Overlaps, PlacementLoc, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
+				bool bEncroached = GetWorld()->OverlapMultiByChannel(Overlaps, PlacementLoc, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
 				if (!bEncroached)
 				{
 					UTChar->SetActorLocation(PlacementLoc);

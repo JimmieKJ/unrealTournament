@@ -88,7 +88,7 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherCo
 					FHitResult DecalHit;
 					if (GetWorld()->LineTraceSingleByChannel(DecalHit, GetActorLocation(), GetActorLocation() - Hit.Normal * 200.0f, ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
 					{
-						UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
+						UDecalComponent* Decal = NewObject<UDecalComponent>(GetWorld());
 						if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
 						{
 							Decal->SetAbsolute(false, false, true);
