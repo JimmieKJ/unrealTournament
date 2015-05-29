@@ -859,7 +859,7 @@ void FProcState::Wait()
 
 			ReturnCode = (SignalInfo.si_code == CLD_EXITED) ? SignalInfo.si_status : -2;
 
-			UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::WaitForProc: process %d waited, SignalCode:%d ReturnCode:%d"), static_cast<int32>(Get()), SignalInfo.si_code, ReturnCode);
+			UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::WaitForProc: process %d waited, SignalCode:%d ReturnCode:%d"), static_cast<int32>(GetProcessId()), SignalInfo.si_code, ReturnCode);
 
 			bHasBeenWaitedFor = true;
 			bIsRunning = false;	// set in advance
