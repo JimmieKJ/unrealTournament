@@ -325,8 +325,8 @@ float AUTPickup::GetRespawnTimeOffset(APawn* Asker) const
 	}
 	else
 	{
-		float RespawnTime = GetWorldTimerManager().GetTimerRemaining(WakeUpTimerHandle);
-		return (RespawnTime <= 0.0f) ? FLT_MAX : RespawnTime;
+		float OutRespawnTime = GetWorldTimerManager().GetTimerRemaining(WakeUpTimerHandle);
+		return (OutRespawnTime <= 0.0f) ? FLT_MAX : OutRespawnTime;
 	}
 }
 

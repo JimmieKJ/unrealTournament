@@ -697,8 +697,8 @@ FString SUWSystemSettingsDialog::GetDecalLifetimeLabelText(float SliderValue)
 		return NSLOCTEXT("SUWPlayerSettingsDialog", "DecalLifetimeInf", "Decal Lifetime (INF)").ToString();
 	}
 	
-	int32 DecalLifetime = FMath::TruncToInt(SliderValue * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
-	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "DecalLifetime", "Decal Lifetime ({Value} seconds)"), FText::FromString(FString::Printf(TEXT("%i"), DecalLifetime))).ToString();
+	int32 NewDecalLifetime = FMath::TruncToInt(SliderValue * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
+	return FText::Format(NSLOCTEXT("SUWPlayerSettingsDialog", "DecalLifetime", "Decal Lifetime ({Value} seconds)"), FText::FromString(FString::Printf(TEXT("%i"), NewDecalLifetime))).ToString();
 }
 
 void SUWSystemSettingsDialog::OnDecalLifetimeChange(float NewValue)
@@ -845,14 +845,14 @@ void SUWSystemSettingsDialog::OnAAModeSelected(TSharedPtr<FString> NewSelection,
 	SelectedAAMode->SetText(*NewSelection.Get());
 }
 
-int32 SUWSystemSettingsDialog::ConvertAAModeToComboSelection(int32 AAMode)
+int32 SUWSystemSettingsDialog::ConvertAAModeToComboSelection(int32 NewAAMode)
 {
 	// 0:off, 1:very low (faster FXAA), 2:low (FXAA), 3:medium (faster TemporalAA), 4:high (default TemporalAA)
-	if (AAMode == 0)
+	if (NewAAMode == 0)
 	{
 		return 0;
 	}
-	else if (AAMode == 1 || AAMode == 2)
+	else if (NewAAMode == 1 || NewAAMode == 2)
 	{
 		return 1;
 	}

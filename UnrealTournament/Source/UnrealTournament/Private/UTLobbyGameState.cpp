@@ -549,11 +549,11 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner, boo
 }
 
 
-void AUTLobbyGameState::GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID)
+void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameInstanceGUID)
 {
 	for (int32 i=0; i < GameInstances.Num(); i++)
 	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 		{
 			GameInstances[i].MatchInfo->GameInstanceReady(GameInstanceGUID);
 			break;
@@ -561,11 +561,11 @@ void AUTLobbyGameState::GameInstance_Ready(uint32 GameInstanceID, FGuid GameInst
 	}
 }
 
-void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 GameInstanceID, const FString& Update)
+void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 InGameInstanceID, const FString& Update)
 {
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 		{
 			GameInstances[i].MatchInfo->SetMatchStats(Update);
 			break;
@@ -573,11 +573,11 @@ void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 GameInstanceID, const FS
 	}
 }
 
-void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 GameInstanceID, const FString& Update)
+void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 InGameInstanceID, const FString& Update)
 {
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 		{
 			GameInstances[i].MatchInfo->MatchBadge = Update;
 			break;
@@ -586,12 +586,12 @@ void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 GameInstanceID, con
 }
 
 
-void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
 {
 	// Find the match
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 		{
 			// Look through the players in the match
 			AUTLobbyMatchInfo* Match = GameInstances[i].MatchInfo;
@@ -612,7 +612,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 GameInstanceID, FUnique
 }
 
 
-void AUTLobbyGameState::GameInstance_EndGame(uint32 GameInstanceID, const FString& FinalUpdate)
+void AUTLobbyGameState::GameInstance_EndGame(uint32 InGameInstanceID, const FString& FinalUpdate)
 {
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 	if (GM)
@@ -621,7 +621,7 @@ void AUTLobbyGameState::GameInstance_EndGame(uint32 GameInstanceID, const FStrin
 
 		for (int32 i = 0; i < GameInstances.Num(); i++)
 		{
-			if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+			if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 			{
 				GameInstances[i].MatchInfo->MatchStats= FinalUpdate;
 				break;
@@ -630,11 +630,11 @@ void AUTLobbyGameState::GameInstance_EndGame(uint32 GameInstanceID, const FStrin
 	}
 }
 
-void AUTLobbyGameState::GameInstance_Empty(uint32 GameInstanceID)
+void AUTLobbyGameState::GameInstance_Empty(uint32 InGameInstanceID)
 {
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID && !GameInstances[i].MatchInfo->bDedicatedMatch)
+		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID && !GameInstances[i].MatchInfo->bDedicatedMatch)
 		{
 			// Set the match info's state to recycling so all returning players will be directed properly.
 			GameInstances[i].MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
@@ -669,12 +669,12 @@ bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
 	return (GM && GM->GetNumMatches() < GM->MaxInstances);
 }
 
-void AUTLobbyGameState::GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* ClientBeacon, uint32 GameInstanceID, const FString& CurrentMap)
+void AUTLobbyGameState::GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* ClientBeacon, uint32 InGameInstanceID, const FString& CurrentMap)
 {
 
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == GameInstanceID)
+		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 		{
 			for (int32 j=0; j < GameInstances[i].MatchInfo->MapList.Num(); j++)
 			{

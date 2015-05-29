@@ -351,11 +351,11 @@ int32 UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGrou
 				{
 					GroupIndex = i;
 					int32 InsertPosition = -1;
-					for (int32 i = 0; i<WeaponGroups[GroupIndex].WeaponsInGroup.Num(); i++)
+					for (int32 WeaponInGroupIdx = 0; WeaponInGroupIdx < WeaponGroups[GroupIndex].WeaponsInGroup.Num(); WeaponInGroupIdx++)
 					{
-						if (WeaponGroups[GroupIndex].WeaponsInGroup[i]->GroupSlot < Weapon->GroupSlot)
+						if (WeaponGroups[GroupIndex].WeaponsInGroup[WeaponInGroupIdx]->GroupSlot < Weapon->GroupSlot)
 						{
-							InsertPosition = i;
+							InsertPosition = WeaponInGroupIdx;
 							break;
 						}
 					}

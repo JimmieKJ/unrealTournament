@@ -45,10 +45,10 @@ void SUWindowsMainMenu::SetInitialPanel()
 
 	if (HomePanel.IsValid())
 	{
-		TSharedPtr<SUTFragCenterPanel> WebPanel = StaticCastSharedPtr<SUTFragCenterPanel>(HomePanel);
-		WebPanel->Browse(TEXT("http://www.necris.net/fragcenter"));
+		TSharedPtr<SUTFragCenterPanel> FragCenterPanel = StaticCastSharedPtr<SUTFragCenterPanel>(HomePanel);
+		FragCenterPanel->Browse(TEXT("http://www.necris.net/fragcenter"));
 //		FString HTMLPath = TEXT("D:/Source/UE4-UT/UnrealTournament/Content/FragCenter/index.html");
-//		WebPanel->Browse(HTMLPath);
+//		FragCenterPanel->Browse(HTMLPath);
 		ActivatePanel(HomePanel);
 	}
 }
@@ -468,8 +468,8 @@ void SUWindowsMainMenu::CheckLocalContentForLanPlay()
 					LP->PlayerController->SetInputMode(FInputModeGameOnly());
 				}
 
-				UUTGameUserSettings* GameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-				GameSettings->SaveConfig();
+				UUTGameUserSettings* LamdaGameSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+				LamdaGameSettings->SaveConfig();
 			};
 
 			bool bCanBindAll = false;

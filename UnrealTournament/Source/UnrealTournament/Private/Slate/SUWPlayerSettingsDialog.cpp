@@ -1238,7 +1238,7 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 
 	FVector CameraPosition(ZoomOffset, -60, -50);
 
-	const float FOV = 45;
+	const float PreviewFOV = 45;
 	const float AspectRatio = Width / (float)Height;
 
 	FSceneViewInitOptions PlayerPreviewInitOptions;
@@ -1247,7 +1247,7 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	PlayerPreviewInitOptions.ViewRotationMatrix = FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
 	PlayerPreviewInitOptions.ProjectionMatrix = 
 		FReversedZPerspectiveMatrix(
-			FMath::Max(0.001f, FOV) * (float)PI / 360.0f,
+			FMath::Max(0.001f, PreviewFOV) * (float)PI / 360.0f,
 			AspectRatio,
 			1.0f,
 			GNearClippingPlane );

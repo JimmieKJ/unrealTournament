@@ -159,14 +159,14 @@ void AUTServerBeaconLobbyClient::InstanceNextMap_Implementation(const FString& N
 	}
 }
 
-bool AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Validate(FGuid InstanceGUID, const FString& HubKey, const FString& ServerName) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Implementation(FGuid InstanceGUID, const FString& HubKey, const FString& ServerName)
+bool AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Validate(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Implementation(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName)
 {
-	UE_LOG(UT, Verbose, TEXT("Dedicated Instance (%s) requesting authorization with key %s"), *ServerName, *HubKey);
+	UE_LOG(UT, Verbose, TEXT("Dedicated Instance (%s) requesting authorization with key %s"), *ServerName, *InHubKey);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->AuthorizeDedicatedInstance(this, InstanceGUID, HubKey, ServerName);
+		LobbyGameState->AuthorizeDedicatedInstance(this, InstanceGUID, InHubKey, ServerName);
 	}
 }
 

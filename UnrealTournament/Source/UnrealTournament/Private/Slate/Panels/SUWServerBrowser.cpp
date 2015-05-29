@@ -1555,8 +1555,8 @@ void SUWServerBrowser::FilterServer(TSharedPtr< FServerData > NewServer, bool bS
 {
 	if (GameFilterText.IsValid())
 	{
-		FString GameFilter = GameFilterText->GetText().ToString();
-		if (GameFilter.IsEmpty() || GameFilter == TEXT("All") || NewServer->GameModeName == GameFilter)
+		FString GameFilterString = GameFilterText->GetText().ToString();
+		if (GameFilterString.IsEmpty() || GameFilterString == TEXT("All") || NewServer->GameModeName == GameFilterString)
 		{
 			if (QuickFilterText->GetText().IsEmpty() || NewServer->Name.Find(QuickFilterText->GetText().ToString()) >= 0)
 			{

@@ -19,7 +19,7 @@ protected:
 	TSharedPtr<class STextBlock> ServerRules;
 	TSharedPtr<class STextBlock> ServerMOTD;
 
-	virtual FString GetServerName() const;
+	virtual FText GetServerName() const;
 	virtual FText GetServerMOTD() const;
 	virtual FText GetServerRules() const;
 

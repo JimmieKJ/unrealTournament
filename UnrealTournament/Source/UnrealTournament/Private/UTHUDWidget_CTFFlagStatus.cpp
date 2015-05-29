@@ -53,8 +53,8 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	{
 		// draw flag state in HUD
 
-		float X = CircleSlate[Team].Position.X;
-		float Y = 8.f + 0.5f * FlagIconTemplate.GetHeight();
+		float FlagStateX = CircleSlate[Team].Position.X;
+		float FlagStateY = 8.f + 0.5f * FlagIconTemplate.GetHeight();
 		FlagIconTemplate.RenderColor = Team == 0 ? RedColor : BlueColor;
 
 		FName FlagState = GS->GetFlagState(Team);
@@ -63,23 +63,23 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			TakenIconTemplate.RenderColor = Team == 0 ? BlueColor : RedColor;
 			TakenIconTemplate.RenderColor.R *= FMath::Square(StatusScale) - 0.25f;
 			TakenIconTemplate.RenderColor.B *= FMath::Square(StatusScale) - 0.25f;
-			RenderObj_TextureAt(TakenIconTemplate, X + 0.1f * FlagIconTemplate.GetWidth(), Y + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * StatusScale * TakenIconTemplate.GetWidth(), 1.1f * StatusScale * TakenIconTemplate.GetHeight());
+			RenderObj_TextureAt(TakenIconTemplate, FlagStateX + 0.1f * FlagIconTemplate.GetWidth(), FlagStateY + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * StatusScale * TakenIconTemplate.GetWidth(), 1.1f * StatusScale * TakenIconTemplate.GetHeight());
 			AUTPlayerState* Holder = GS->GetFlagHolder(Team);
 			if (Holder)
 			{
 				FlagHolderNames[Team].Text = FText::FromString(Holder->PlayerName);
 				RenderObj_Text(FlagHolderNames[Team]);
 			}
-			float CarriedX = X - 0.25f * FlagIconTemplate.GetWidth();
-			float CarriedY = Y - 0.25f * FlagIconTemplate.GetHeight();
+			float CarriedX = FlagStateX - 0.25f * FlagIconTemplate.GetWidth();
+			float CarriedY = FlagStateY - 0.25f * FlagIconTemplate.GetHeight();
 			RenderObj_TextureAt(FlagIconTemplate, CarriedX, CarriedY, StatusScale * FlagIconTemplate.GetWidth(), StatusScale * FlagIconTemplate.GetHeight());
 		}
 		else
 		{
-			RenderObj_TextureAt(FlagIconTemplate, X, Y, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
+			RenderObj_TextureAt(FlagIconTemplate, FlagStateX, FlagStateY, FlagIconTemplate.GetWidth(), FlagIconTemplate.GetHeight());
 			if (FlagState == CarriedObjectState::Dropped)
 			{
-				RenderObj_TextureAt(DroppedIconTemplate, X, Y, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
+				RenderObj_TextureAt(DroppedIconTemplate, FlagStateX, FlagStateY, DroppedIconTemplate.GetWidth(), DroppedIconTemplate.GetHeight());
 			}
 		}
 
@@ -99,7 +99,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 			FVector ScreenPosition(0.f);
 			AUTCarriedObject* Flag = Base->GetCarriedObject();
 			FVector WorldPosition = Base->GetActorLocation() + Base->GetActorRotation().RotateVector(Flag->HomeBaseOffset) + FVector(0.f, 0.f, Flag->Collision->GetUnscaledCapsuleHalfHeight() * 3.f);
-			float OldAlpha = FlagIconTemplate.RenderOpacity;
+			float OldFlagAlpha = FlagIconTemplate.RenderOpacity;
 			float CurrentWorldAlpha = InWorldAlpha;
 			if ((ViewRotation.Vector() | (Base->GetActorLocation() - ViewPoint)) > 0.f)
 			{
@@ -157,22 +157,22 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 				ScreenPosition.X -= RenderPosition.X;
 				ScreenPosition.Y -= RenderPosition.Y;
-				float Dist = (ViewPoint - WorldPosition).Size();
+				float ViewDist = (ViewPoint - WorldPosition).Size();
 
 				// don't overlap player beacon
 				UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 				float X, Y;
 				float Scale = Canvas->ClipX / 1920.f;
 				Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
-				if (!Holder || (Dist < Holder->TeamPlayerIndicatorMaxDistance))
+				if (!Holder || (ViewDist < Holder->TeamPlayerIndicatorMaxDistance))
 				{
 					ScreenPosition.Y -= 3.5f*Y;
 				}
 				else
 				{
-					ScreenPosition.Y -= (Dist < Holder->SpectatorIndicatorMaxDistance) ? 2.5f*Y : 1.5f*Y;
+					ScreenPosition.Y -= (ViewDist < Holder->SpectatorIndicatorMaxDistance) ? 2.5f*Y : 1.5f*Y;
 				}
-				float OldAlpha = FlagIconTemplate.RenderOpacity;
+
 				FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
 				CircleBorder[Team].RenderOpacity = CurrentWorldAlpha;
 				CircleSlate[Team].RenderOpacity = CurrentWorldAlpha;
@@ -197,7 +197,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 					}
 				}
 			}
-			FlagIconTemplate.RenderOpacity = OldAlpha;
+			FlagIconTemplate.RenderOpacity = OldFlagAlpha;
 			CircleBorder[Team].RenderOpacity = 1.f;
 			CircleSlate[Team].RenderOpacity = 1.f;
 			bScaleByDesignedResolution = true;

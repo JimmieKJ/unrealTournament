@@ -21,9 +21,9 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bReadyToPlay = false;
 	bPendingTeamSwitch = false;
 	LastKillTime = 0.0f;
-	int32 Kills = 0;
+	Kills = 0;
 	bOutOfLives = false;
-	int32 Deaths = 0;
+	Deaths = 0;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;

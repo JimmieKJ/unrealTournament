@@ -1807,9 +1807,9 @@ void AUTCharacter::StopFiring()
 	}
 }
 
-bool AUTCharacter::IsTriggerDown(uint8 FireMode)
+bool AUTCharacter::IsTriggerDown(uint8 InFireMode)
 {
-	return IsPendingFire(FireMode);
+	return IsPendingFire(InFireMode);
 }
 
 void AUTCharacter::SetFlashLocation(const FVector& InFlashLoc, uint8 InFireMode)
@@ -4011,9 +4011,9 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 					if (ArmorAmount > 0)
 					{
 						TextItem.SetColor(FLinearColor(0.5f, 0.5f, 0.2f, 0.6f));
-						FFormatNamedArguments Args;
-						Args.Add("Armor", FText::AsNumber(ArmorAmount));
-						TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), Args);
+						FFormatNamedArguments ArmorArgs;
+						ArmorArgs.Add("Armor", FText::AsNumber(ArmorAmount));
+						TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), ArmorArgs);
 						Canvas->TextSize(TinyFont, "A" + TextItem.Text.ToString(), X, Y, Scale, Scale);
 						TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + XL - Border - X), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
 						Canvas->DrawItem(TextItem);

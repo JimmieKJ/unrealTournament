@@ -156,19 +156,19 @@ void SUWRedirectDialog::Tick(const FGeometry & AllottedGeometry, const double In
 }
 
 
-void SUWRedirectDialog::HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytesSent, int32 NumBytesRecv)
+void SUWRedirectDialog::HttpRequestProgress(FHttpRequestPtr InHttpRequest, int32 NumBytesSent, int32 NumBytesRecv)
 {
-	if (HttpRequest.IsValid())
+	if (InHttpRequest.IsValid())
 	{
-		AssetsTotalSize = HttpRequest->GetResponse()->GetContentLength();
+		AssetsTotalSize = InHttpRequest->GetResponse()->GetContentLength();
 		AssetsDownloadedAmount = NumBytesRecv;
 	}
 }
 
-void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr InHttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
 {
 	//If the download was successful save it to disk
-	if (bSucceeded && HttpResponse.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
+	if (bSucceeded && InHttpRequest.IsValid() && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok)
 	{
 		if (HttpResponse->GetContent().Num() > 0)
 		{

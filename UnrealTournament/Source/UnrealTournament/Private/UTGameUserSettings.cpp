@@ -229,8 +229,8 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 		Scalability::SaveState(GGameUserSettingsIni);
 
 		// Set specific features in game settings. These values are controlled by scalability initially but can be overwritten in the settings screen.
-		int32 AAMode = UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(DetectedLevels.AntiAliasingQuality);
-		SetAAMode(AAMode);
+		int32 NewAAMode = UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(DetectedLevels.AntiAliasingQuality);
+		SetAAMode(NewAAMode);
 		SetScreenPercentage(DetectedLevels.ResolutionQuality);
 
 		// Mark initial benchmark state as being complete. Even if this benchmark wasn't triggered by the initial run system, it

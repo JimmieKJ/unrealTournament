@@ -77,7 +77,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	 * will be called to let the hub know I want to be a dedicated instance.
 	 **/
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void Lobby_IsDedicatedInstance(FGuid InstanceGUID, const FString& HubKey, const FString& ServerName);
+	virtual void Lobby_IsDedicatedInstance(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName);
 
 	/**
 	 *	Called from the hub, this will let a dedicated instance know it's been authorized and is connected to 

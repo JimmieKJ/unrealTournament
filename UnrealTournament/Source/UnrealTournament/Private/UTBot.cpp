@@ -618,7 +618,6 @@ void AUTBot::Tick(float DeltaTime)
 		SightCounter -= DeltaTime;
 		if (SightCounter < 0.0f)
 		{
-			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 			{
 				if (It->IsValid())
@@ -1786,7 +1785,7 @@ void AUTBot::StartNewAction(UUTAIAction* NewAction)
 	}
 }
 
-bool AUTBot::CanAttack(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8* BestFireMode, FVector* OptimalTargetLoc)
+bool AUTBot::CanAttack(AActor* InTarget, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8* BestFireMode, FVector* OptimalTargetLoc)
 {
 	if (GetUTChar() == NULL || GetUTChar()->GetWeapon() == NULL)
 	{
@@ -1804,7 +1803,7 @@ bool AUTBot::CanAttack(AActor* Target, const FVector& TargetLoc, bool bDirectOnl
 		{
 			OptimalTargetLoc = &TempTargetLoc;
 		}
-		return GetUTChar()->GetWeapon()->CanAttack(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, *BestFireMode, *OptimalTargetLoc);
+		return GetUTChar()->GetWeapon()->CanAttack(InTarget, TargetLoc, bDirectOnly, bPreferCurrentMode, *BestFireMode, *OptimalTargetLoc);
 	}
 }
 
@@ -2614,8 +2613,8 @@ bool AUTBot::IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector
 						}
 						if (DestPoly != INVALID_NAVNODEREF)
 						{
-							FRouteCacheItem Target(NavData->GetNodeFromPoly(DestPoly), AdjustedDest, DestPoly);
-							return (Target.Node.IsValid() && Node->GetBestLinkTo(TeleportPoly, Target, GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NavData) != INDEX_NONE);
+							FRouteCacheItem NewTarget(NavData->GetNodeFromPoly(DestPoly), AdjustedDest, DestPoly);
+							return (NewTarget.Node.IsValid() && Node->GetBestLinkTo(TeleportPoly, NewTarget, GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NavData) != INDEX_NONE);
 						}
 					}
 				}

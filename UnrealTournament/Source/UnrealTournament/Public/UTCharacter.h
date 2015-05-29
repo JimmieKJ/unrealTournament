@@ -513,22 +513,22 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual void SwitchWeapon(AUTWeapon* NewWeapon);
 
-	inline bool IsPendingFire(uint8 FireMode) const
+	inline bool IsPendingFire(uint8 InFireMode) const
 	{
-		return !IsFiringDisabled() && (FireMode < PendingFire.Num() && PendingFire[FireMode] != 0);
+		return !IsFiringDisabled() && (InFireMode < PendingFire.Num() && PendingFire[InFireMode] != 0);
 	}
 	/** blueprint accessor to what firemodes the player currently has active */
 	UFUNCTION(BlueprintPure, Category = Weapon)
-	bool IsTriggerDown(uint8 FireMode);
+	bool IsTriggerDown(uint8 InFireMode);
 
 	/** sets the pending fire flag; generally should be called by whatever weapon processes the firing command, unless it's an explicit single shot */
-	inline void SetPendingFire(uint8 FireMode, bool bNowFiring)
+	inline void SetPendingFire(uint8 InFireMode, bool bNowFiring)
 	{
-		if (PendingFire.Num() < FireMode + 1)
+		if (PendingFire.Num() < InFireMode + 1)
 		{
-			PendingFire.SetNumZeroed(FireMode + 1);
+			PendingFire.SetNumZeroed(InFireMode + 1);
 		}
-		PendingFire[FireMode] = bNowFiring ? 1 : 0;
+		PendingFire[InFireMode] = bNowFiring ? 1 : 0;
 	}
 
 	inline void ClearPendingFire()

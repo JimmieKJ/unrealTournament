@@ -260,9 +260,9 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
-			for (AUTTeamInfo* Team : GS->Teams)
+			for (AUTTeamInfo* TeamIter : GS->Teams)
 			{
-				Team->NotifyObjectiveEvent(HomeBase, NewHolder->Controller, FName(TEXT("FlagStatusChange")));
+				TeamIter->NotifyObjectiveEvent(HomeBase, NewHolder->Controller, FName(TEXT("FlagStatusChange")));
 			}
 		}
 	}
@@ -300,9 +300,9 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
-			for (AUTTeamInfo* Team : GS->Teams)
+			for (AUTTeamInfo* TeamIter : GS->Teams)
 			{
-				Team->NotifyObjectiveEvent(HomeBase, InstigatedBy, FName(TEXT("FlagStatusChange")));
+				TeamIter->NotifyObjectiveEvent(HomeBase, InstigatedBy, FName(TEXT("FlagStatusChange")));
 			}
 		}
 	}

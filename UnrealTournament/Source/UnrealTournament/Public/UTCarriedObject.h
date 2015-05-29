@@ -194,11 +194,11 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	virtual float GetHeldTime(AUTPlayerState* TestHolder);
 
 	/**	@Returns the index of a player in the assist array */
-	virtual int32 FindAssist(AUTPlayerState* Holder)
+	virtual int32 FindAssist(AUTPlayerState* InHolder)
 	{
 		for (int32 i=0; i<AssistTracking.Num(); i++)
 		{
-			if (AssistTracking[i].Holder == Holder) return i;
+			if (AssistTracking[i].Holder == InHolder) return i;
 		}
 
 		return -1;
