@@ -586,7 +586,7 @@ void SULobbyInfoPanel::BuildChatDestinationMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("Chat", "ChatDestination_Friends", "Friends").ToString())
+				.Text(NSLOCTEXT("Chat", "ChatDestination_Friends", "Friends"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Friends)
 			];
@@ -685,7 +685,7 @@ TSharedRef<ITableRow> SULobbyInfoPanel::OnGenerateWidgetForList( TSharedPtr<FPla
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.Text(PlayerName)
+			.Text(FText::FromString(PlayerName))
 			.TextStyle(SUWindowsStyle::Get(),"UT.HUB.PlayerListText")
 		];
 }

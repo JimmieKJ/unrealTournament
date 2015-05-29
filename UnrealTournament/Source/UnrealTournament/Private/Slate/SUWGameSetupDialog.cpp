@@ -325,7 +325,7 @@ void SUWGameSetupDialog::BuildRuleList(FName Category)
 						.AutoHeight()
 						[
 							SNew(STextBlock)
-							.Text(Title)
+							.Text(FText::FromString(Title))
 							.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
 							.ColorAndOpacity(FLinearColor::Black)
 						]

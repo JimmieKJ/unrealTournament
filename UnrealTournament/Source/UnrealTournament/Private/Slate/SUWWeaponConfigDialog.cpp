@@ -251,7 +251,7 @@ TSharedRef<ITableRow> SUWWeaponConfigDialog::GenerateWeaponListRow(UClass* Weapo
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.Text(WeaponType->GetDefaultObject<AUTWeapon>()->DisplayName.ToString())
+			.Text(WeaponType->GetDefaultObject<AUTWeapon>()->DisplayName)
 			.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
 		];
 }

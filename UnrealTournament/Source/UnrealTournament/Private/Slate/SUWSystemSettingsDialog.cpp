@@ -42,7 +42,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(Desc)
+					.Text(FText::FromString(Desc))
 					.ToolTip(SUTUtils::CreateTooltip(TooltipText))
 				]
 			]
@@ -63,7 +63,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralScalabilityWidget(const 
 					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 					[
 						SAssignNew(SelectedItemWidget, STextBlock)
-						.Text(*GeneralScalabilityList[SettingValue].Get())
+						.Text(FText::FromString(*GeneralScalabilityList[SettingValue].Get()))
 						.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
 					]
 				]
@@ -87,7 +87,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddAAModeWidget(const FString& Des
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(Desc)
+					.Text(FText::FromString(Desc))
 					.ToolTip(SUTUtils::CreateTooltip(TooltipText))
 				]
 			]
@@ -108,7 +108,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddAAModeWidget(const FString& Des
 					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 					[
 						SAssignNew(SelectedItemWidget, STextBlock)
-						.Text(*AAModeList[SettingValue].Get())
+						.Text(FText::FromString(*AAModeList[SettingValue].Get()))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 					]
 				]
@@ -131,7 +131,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWidget(const FStri
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(Desc)
+				.Text(FText::FromString(Desc))
 				.ToolTip(SUTUtils::CreateTooltip(TooltipText))
 			]
 		]
@@ -167,7 +167,7 @@ SVerticalBox::FSlot& SUWSystemSettingsDialog::AddGeneralSliderWithLabelWidget(TS
 			[
 				SAssignNew(LabelWidget, STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(InitialLabel)
+				.Text(FText::FromString(InitialLabel))
 				.ToolTip(SUTUtils::CreateTooltip(TooltipText))
 			]
 		]
@@ -250,7 +250,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
-							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGeneral", "General").ToString())
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGeneral", "General"))
 							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 							.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickGeneral)
 						]
@@ -264,7 +264,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
 							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGraphics", "Graphics").ToString())
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabGraphics", "Graphics"))
 							.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickGraphics)
 						]
 
@@ -277,7 +277,7 @@ void SUWSystemSettingsDialog::Construct(const FArguments& InArgs)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 							.ClickMethod(EButtonClickMethod::MouseDown)
 							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabAudio", "Audio").ToString())
+							.Text(NSLOCTEXT("SUWSystemSettingsDialog", "ControlTabAudio", "Audio"))
 							.OnClicked(this, &SUWSystemSettingsDialog::OnTabClickAudio)
 						]
 
@@ -393,7 +393,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution", "Resolution").ToString())
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution", "Resolution"))
 				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Resolution_Tooltip", "Set the resolution of the game window.")))
 			]
 		]
@@ -410,7 +410,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			.Content()
 			[
 				SAssignNew(SelectedRes, STextBlock)
-				.Text(*ResList[CurrentResIndex].Get())
+				.Text(FText::FromString(*ResList[CurrentResIndex].Get()))
 				.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.Black")
 			]
 		]
@@ -429,7 +429,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen").ToString())
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen"))
 				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen_Tooltip", "Toggle whether the application runs in full-screen mode or is in a window.")))
 			]
 		]
@@ -480,7 +480,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Frame Rate Cap", "Frame Rate Cap").ToString())
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Frame Rate Cap", "Frame Rate Cap"))
 				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "FrameRateCap_Tooltip", "Limiting the max frame rate can improve the smoothness of mouse improvement.")))
 			]
 		]
@@ -507,7 +507,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 				[
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate").ToString())
+					.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Smooth Framerate", "Smooth Framerate"))
 					.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "SmoothFramerate_Tooltip", "This setting is used to smooth framerate spikes which can affect mouse control.")))
 				]
 			]

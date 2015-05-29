@@ -50,7 +50,7 @@ void AUTLobbyGameState::PostInitializeComponents()
 		{
 			if (!AllowedGameRulesets[i].IsEmpty())
 			{
-				UUTGameRuleset* NewRuleset = ConstructObject<UUTGameRuleset>(UUTGameRuleset::StaticClass(), GetTransientPackage(), *AllowedGameRulesets[i]);
+				UUTGameRuleset* NewRuleset = NewObject<UUTGameRuleset>(GetTransientPackage(), UUTGameRuleset::StaticClass());
 				if (NewRuleset)
 				{
 					bool bExistsAlready = false;

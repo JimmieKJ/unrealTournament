@@ -323,7 +323,7 @@ void SUWHUDSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SNew(STextBlock)
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-							.Text(NSLOCTEXT("SUWHUDSettingsDialog", "UseWeaponColors", "Colorize Icons").ToString())
+							.Text(NSLOCTEXT("SUWHUDSettingsDialog", "UseWeaponColors", "Colorize Icons"))
 							.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWHUDSettingsDialog","HUDWeaponColorsTT","Should the Weapon Bar colorize it's icons.")))
 						]
 					]

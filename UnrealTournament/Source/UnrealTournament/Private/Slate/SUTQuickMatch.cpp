@@ -116,7 +116,7 @@ void SUTQuickMatch::Construct(const FArguments& InArgs)
 								.VAlign(VAlign_Center)
 								[
 									SNew(STextBlock)
-									.Text(NSLOCTEXT("QuickMatchg", "CancelText", "ESC to Cancel").ToString())
+									.Text(NSLOCTEXT("QuickMatchg", "CancelText", "ESC to Cancel"))
 									.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 								]
 							]

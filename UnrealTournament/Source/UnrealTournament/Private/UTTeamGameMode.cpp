@@ -434,7 +434,7 @@ void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTTeamGameMode", "BalanceTeams", "Balance Teams").ToString())
+				.Text(NSLOCTEXT("UTTeamGameMode", "BalanceTeams", "Balance Teams"))
 			]
 		]
 		+ SHorizontalBox::Slot()

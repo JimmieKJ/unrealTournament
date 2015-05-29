@@ -180,7 +180,7 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 									.HAlign(HAlign_Center)
 									.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 									.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-									.Text(NSLOCTEXT("SUWBotConfigDialog", "CreateNew", "Create New Bot").ToString())
+									.Text(NSLOCTEXT("SUWBotConfigDialog", "CreateNew", "Create New Bot"))
 									.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
 									.OnClicked(this, &SUWBotConfigDialog::NewBotClick)
 								]
@@ -191,7 +191,7 @@ void SUWBotConfigDialog::Construct(const FArguments& InArgs)
 									.HAlign(HAlign_Center)
 									.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
 									.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-									.Text(NSLOCTEXT("SUWBotConfigDialog", "Delete", "Delete Bot").ToString())
+									.Text(NSLOCTEXT("SUWBotConfigDialog", "Delete", "Delete Bot"))
 									.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText.Black")
 									.OnClicked(this, &SUWBotConfigDialog::DeleteBotClick)
 								]
@@ -259,7 +259,7 @@ TSharedRef<ITableRow> SUWBotConfigDialog::GenerateBotListRow(TSharedPtr<FString>
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(*BotName.Get())
+			.Text(FText::FromString(*BotName.Get()))
 		];
 }
 TSharedRef<SWidget> SUWBotConfigDialog::GenerateBotNameWidget(TSharedPtr<FString> BotName)
@@ -269,7 +269,7 @@ TSharedRef<SWidget> SUWBotConfigDialog::GenerateBotNameWidget(TSharedPtr<FString
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(*BotName.Get())
+			.Text(FText::FromString(*BotName.Get()))
 		];
 }
 TSharedRef<SWidget> SUWBotConfigDialog::GenerateWeaponListWidget(UClass* WeaponClass)

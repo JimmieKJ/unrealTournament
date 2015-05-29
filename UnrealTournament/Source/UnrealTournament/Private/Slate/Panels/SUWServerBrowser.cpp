@@ -204,7 +204,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 								[
 									SNew(STextBlock)
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-									.Text(NSLOCTEXT("SUWSeverBrowser", "HideUnresponsive", "Hide Unresponsive Servers").ToString())
+									.Text(NSLOCTEXT("SUWSeverBrowser", "HideUnresponsive", "Hide Unresponsive Servers"))
 								]
 
 							]
@@ -1887,7 +1887,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 						.AutoHeight()
 						[
 							SNew(STextBlock)
-							.Text(InItem->Name)
+							.Text(FText::FromString(InItem->Name))
 							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.TitleText")
 						]
 						+SVerticalBox::Slot()

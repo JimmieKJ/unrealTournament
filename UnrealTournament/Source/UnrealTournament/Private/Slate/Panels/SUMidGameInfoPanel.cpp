@@ -91,14 +91,14 @@ void SUMidGameInfoPanel::BuildNonChatPanel()
 
 }
 
-FString SUMidGameInfoPanel::GetServerName() const
+FText SUMidGameInfoPanel::GetServerName() const
 {
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
-		return GameState->ServerName;
+		return FText::FromString(GameState->ServerName);
 	}
-	return TEXT("");
+	return FText::GetEmpty();
 }
 
 FText SUMidGameInfoPanel::GetServerMOTD() const
@@ -108,7 +108,7 @@ FText SUMidGameInfoPanel::GetServerMOTD() const
 	{
 		return FText::FromString(GameState->ServerMOTD);
 	}
-	return FText::FromString(TEXT(""));
+	return FText::GetEmpty();
 }
  
 FText SUMidGameInfoPanel::GetServerRules() const

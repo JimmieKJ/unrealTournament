@@ -270,7 +270,7 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 {
 	if (NewWidgetClass == NULL) return NULL;
 
-	UUTHUDWidget* Widget = ConstructObject<UUTHUDWidget>(NewWidgetClass,GetTransientPackage());
+	UUTHUDWidget* Widget = NewObject<UUTHUDWidget>(GetTransientPackage(), NewWidgetClass);
 	HudWidgets.Add(Widget);
 
 	// If this widget is a messaging widget, then track it

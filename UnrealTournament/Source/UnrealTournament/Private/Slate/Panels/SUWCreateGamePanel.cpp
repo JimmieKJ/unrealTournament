@@ -160,7 +160,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 								[
 									SAssignNew(SelectedGameName, STextBlock)
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-									.Text(InitialSelectedGameClass.GetDefaultObject()->DisplayName.ToString())
+									.Text(InitialSelectedGameClass.GetDefaultObject()->DisplayName)
 									.MinDesiredWidth(200.0f)
 								]
 							]
@@ -203,7 +203,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 									SAssignNew(SelectedMap, STextBlock)
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 									.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
-									.Text(NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available").ToString())
+									.Text(NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"))
 									.MinDesiredWidth(200.0f)
 								]
 							]
@@ -384,7 +384,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::AddMutatorMenu()
 							[
 								SNew(STextBlock)
 								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
-								.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorAdd", "-->").ToString())
+								.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorAdd", "-->"))
 							]
 						]
 						// Remove Button
@@ -399,7 +399,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::AddMutatorMenu()
 							[
 								SNew(STextBlock)
 								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
-								.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorRemove", "<--").ToString())
+								.Text(NSLOCTEXT("SUWCreateGamePanel", "MutatorRemove", "<--"))
 							]
 						]
 					]
@@ -432,7 +432,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::AddMutatorMenu()
 					[
 						SNew(STextBlock)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-						.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureMutator", "Configure Mutator").ToString())
+						.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureMutator", "Configure Mutator"))
 					]
 				]
 			]
@@ -469,7 +469,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateGameNameWidget(UClass* InItem)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(InItem->GetDefaultObject<AUTGameMode>()->DisplayName.ToString())
+			.Text(InItem->GetDefaultObject<AUTGameMode>()->DisplayName)
 		];
 }
 
@@ -480,7 +480,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TSharedPtr<FMapLis
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.Text(InItem.Get()->GetDisplayName())
+			.Text(FText::FromString(InItem.Get()->GetDisplayName()))
 		];
 }
 
@@ -516,7 +516,7 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 					[
 						SNew(STextBlock)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-						.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo").ToString())
+						.Text(NSLOCTEXT("UTGameMode", "DemoRec", "Record Demo"))
 					]
 				]
 				+ SHorizontalBox::Slot()
@@ -566,7 +566,7 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 							SNew(STextBlock)
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText.Black")
 							.ColorAndOpacity(FSlateColor(FLinearColor(0, 0, 0, 1.0f)))
-							.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureBots", "Configure Bots").ToString())
+							.Text(NSLOCTEXT("SUWCreateGamePanel", "ConfigureBots", "Configure Bots"))
 						]
 					]
 				]
@@ -646,7 +646,7 @@ TSharedRef<ITableRow> SUWCreateGamePanel::GenerateMutatorListRow(UClass* Mutator
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
-			.Text(MutatorName)
+			.Text(FText::FromString(MutatorName))
 		]; 
 }
 

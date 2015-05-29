@@ -202,7 +202,7 @@ void SUWDialog::BuildButton(TSharedPtr<SUniformGridPanel> Bar, FText ButtonText,
 					.HAlign(HAlign_Center)
 					.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
 					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-					.Text(ButtonText.ToString())
+					.Text(ButtonText)
 					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 					.OnClicked(this, &SUWDialog::OnButtonClick, ButtonID)
 				]
@@ -317,7 +317,7 @@ TSharedRef<SWidget> SUWDialog::GenerateStringListWidget(TSharedPtr<FString> InIt
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.Text(*InItem.Get())
+			.Text(FText::FromString(*InItem.Get()))
 			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 		];
 }

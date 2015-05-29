@@ -292,7 +292,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 							.ContentPadding(FMargin(0.0f, 0.0f, 0.0f, 0.0f))
 							[
 								SNew(STextBlock)
-								.Text(NSLOCTEXT("Login", "PasswordRecovery", "Forgot Your Password?").ToString())
+								.Text(NSLOCTEXT("Login", "PasswordRecovery", "Forgot Your Password?"))
 								.TextStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton.TextStyle")
 							]
 						]
@@ -325,7 +325,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 								.HAlign(HAlign_Center)
 								[
 									SNew(STextBlock)
-									.Text(NSLOCTEXT("Login", "LoginButtonText", "Sign In").ToString())
+									.Text(NSLOCTEXT("Login", "LoginButtonText", "Sign In"))
 									.TextStyle(SUWindowsStyle::Get(), "UT.Login.Button.TextStyle")
 								]
 							]
@@ -345,7 +345,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 					.AutoWidth()
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("Login", "NoAccountMsg", "Need an Epic Games Account?").ToString())
+						.Text(NSLOCTEXT("Login", "NoAccountMsg", "Need an Epic Games Account?"))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Login.TextStyle")
 					]
 				]
@@ -366,7 +366,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 						.ContentPadding(FMargin(0.0f, 0.0f, 0.0f, 0.0f))
 						[
 							SNew(STextBlock)
-							.Text(NSLOCTEXT("Login", "SignUp", "Sign Up!").ToString())
+							.Text(NSLOCTEXT("Login", "SignUp", "Sign Up!"))
 							.TextStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton.TextStyle")
 						]
 					]

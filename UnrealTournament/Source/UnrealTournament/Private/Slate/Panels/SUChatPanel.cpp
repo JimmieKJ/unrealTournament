@@ -215,7 +215,7 @@ void SUChatPanel::ConstructPanel(FVector2D ViewportSize)
 							.AutoWidth()
 							[
 								SNew(STextBlock)
-								.Text(NSLOCTEXT("Generic", "Game", "Users").ToString())
+								.Text(NSLOCTEXT("Generic", "Game", "Users"))
 								.TextStyle(SUWindowsStyle::Get(), PlayerOwner->TeamStyleRef("UWindows.MidGameMenu.Button.TextStyle"))
 							]
 
@@ -394,7 +394,7 @@ TSharedRef<ITableRow> SUChatPanel::OnGenerateWidgetForList( TSharedPtr<FSimpleLi
 			SNew(STextBlock)
 			.ColorAndOpacity(InItem->DisplayColor)
 			.Font(Font)
-			.Text(InItem->DisplayText)
+			.Text(FText::FromString(InItem->DisplayText))
 
 		];
 }

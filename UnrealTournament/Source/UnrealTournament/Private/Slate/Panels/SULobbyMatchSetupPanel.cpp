@@ -244,7 +244,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(NSLOCTEXT("SULobbySetup", "LimitSkill", "Limit Rank").ToString())
+				.Text(NSLOCTEXT("SULobbySetup", "LimitSkill", "Limit Rank"))
 			]
 		];
 
@@ -262,7 +262,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(NSLOCTEXT("SULobbySetup", "AllowSpectators", "Allow Spectating").ToString())
+				.Text(NSLOCTEXT("SULobbySetup", "AllowSpectators", "Allow Spectating"))
 			]
 		];
 
@@ -280,7 +280,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(NSLOCTEXT("SULobbySetup", "AllowJoininProgress", "Allow Join-In-Progress").ToString())
+				.Text(NSLOCTEXT("SULobbySetup", "AllowJoininProgress", "Allow Join-In-Progress"))
 			]
 		];
 	}
@@ -563,7 +563,7 @@ void SULobbyMatchSetupPanel::BuildPlayerList(float DeltaTime)
 								.HAlign(HAlign_Center)
 								[
 									SNew(STextBlock)
-									.Text(MatchInfo->Players[i]->PlayerName)
+									.Text(FText::FromString(MatchInfo->Players[i]->PlayerName))
 									.TextStyle(SUWindowsStyle::Get(),"UWindows.Standard.SmallButton.TextStyle")
 								]
 
