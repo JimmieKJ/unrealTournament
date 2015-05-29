@@ -143,7 +143,7 @@ bool UUTGameEngine::GetMonitorRefreshRate(int32& MonitorRefreshRate)
 {
 #if PLATFORM_WINDOWS && !UE_SERVER
 	DEVMODE DeviceMode;
-	FMemory::MemZero(DeviceMode);
+	FMemory::Memzero(DeviceMode);
 	DeviceMode.dmSize = sizeof(DEVMODE);
 
 	if (EnumDisplaySettings(NULL, -1, &DeviceMode) != 0)
@@ -210,7 +210,7 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 		if (NewRefreshRate > 0 && NewRefreshRate != CurrentRefreshRate)
 		{
 			DEVMODE NewSettings;
-			FMemory::MemZero(NewSettings);
+			FMemory::Memzero(NewSettings);
 			NewSettings.dmSize = sizeof(NewSettings);
 			NewSettings.dmDisplayFrequency = NewRefreshRate;
 			NewSettings.dmFields = DM_DISPLAYFREQUENCY;
@@ -736,7 +736,7 @@ UUTLevelSummary* UUTGameEngine::LoadLevelSummary(const FString& MapName)
 						FObjectExport& Export = Linker->ExportMap[Index];
 						if (Export.ObjectName == NAME_LevelSummary && Export.ClassIndex == SummaryClassIndex)
 						{
-							Export.Object = StaticConstructObject(UUTLevelSummary::StaticClass(), Linker->LinkerRoot, Export.ObjectName, EObjectFlags(Export.ObjectFlags | RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded));
+							Export.Object = NewObject<UUTLevelSummary>(Linker->LinkerRoot, UUTLevelSummary::StaticClass(), Export.ObjectName, EObjectFlags(Export.ObjectFlags | RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_WasLoaded));
 							Export.Object->SetLinker(Linker, Index);
 							//GObjLoaded.Add(Export.Object);
 							Linker->Preload(Export.Object);

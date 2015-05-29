@@ -1820,7 +1820,7 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 
 				if (((NextDist < 8000.0f) || bTwoPlayerGame) && !UTGameState->OnSameTeam(Player, OtherController))
 				{
-					if (!GetWorld()->LineTraceTest(StartLoc, OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)))
+					if (!GetWorld()->LineTraceTestByChannel(StartLoc, OtherCharacter->GetActorLocation() + FVector(0.f, 0.f, OtherCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false)))
 					{
 						// Avoid the last person that killed me
 						if (bIsLastKiller)
@@ -1835,7 +1835,7 @@ float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 						// Avoid the last person that killed me
 						Score -= bIsLastKiller ? 5.f : 0.0005f * (5000.f - NextDist);
 
-						if (!GetWorld()->LineTraceTest(StartLoc, OtherCharacter->GetActorLocation(), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)))
+						if (!GetWorld()->LineTraceTestByChannel(StartLoc, OtherCharacter->GetActorLocation(), ECC_Visibility, FCollisionQueryParams(NAME_RatePlayerStart, false, this)))
 						{
 							Score -= 2.f;
 						}

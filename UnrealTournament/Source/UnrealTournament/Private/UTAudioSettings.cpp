@@ -29,7 +29,7 @@ void UUTAudioSettings::SetSoundClassVolumeByName(const FString& SoundClassName, 
 	// also just unintuitive when editing sounds
 	if (!GIsEditor)
 	{
-		FAudioDevice* AudioDevice = GEngine->GetAudioDevice();
+		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
 		if (AudioDevice != NULL)
 		{
 			for (TMap<USoundClass*, FSoundClassProperties>::TIterator It(AudioDevice->SoundClasses); It; ++It)

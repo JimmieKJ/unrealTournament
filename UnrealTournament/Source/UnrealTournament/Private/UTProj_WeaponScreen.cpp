@@ -63,7 +63,7 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 	{
 		FCollisionQueryParams Params(FName(TEXT("WeaponScreenOverlap")), false, this);
 		Params.AddIgnoredActor(OtherActor);
-		if (!GetWorld()->LineTraceTest(HitLocation, OtherActor->GetActorLocation(), ECC_Visibility, Params))
+		if (!GetWorld()->LineTraceTestByChannel(HitLocation, OtherActor->GetActorLocation(), ECC_Visibility, Params))
 		{
 			HitPawns.Add((APawn*)OtherActor);
 			FVector MomentumDir = GetVelocity().GetSafeNormal();

@@ -543,7 +543,7 @@ void AUTCharacter::OnRepHeadArmorFlashCount()
 	// play helmet client-side hit effect 
 	if (HeadArmorHitEffect != NULL)
 	{
-		UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
+		UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(this, UParticleSystemComponent::StaticClass());
 		PSC->bAutoDestroy = true;
 		PSC->SecondsBeforeInactive = 0.0f;
 		PSC->bAutoActivate = false;
@@ -967,7 +967,7 @@ void AUTCharacter::PlayTakeHitEffects_Implementation()
 				if (Blood != NULL)
 				{
 					// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
-					UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
+					UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(this, UParticleSystemComponent::StaticClass());
 					PSC->bAutoDestroy = true;
 					PSC->SecondsBeforeInactive = 0.0f;
 					PSC->bAutoActivate = false;
@@ -1017,9 +1017,9 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 			{
 				static FName NAME_BloodDecal(TEXT("BloodDecal"));
 				FHitResult Hit;
-				if (GetWorld()->LineTraceSingle(Hit, TraceStart, TraceStart + TraceDir * (GetCapsuleComponent()->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
+				if (GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceStart + TraceDir * (GetCapsuleComponent()->GetUnscaledCapsuleRadius() + 200.0f), ECC_Visibility, FCollisionQueryParams(NAME_BloodDecal, false, this)) && Hit.Component->bReceivesDecals)
 				{
-					UDecalComponent* Decal = ConstructObject<UDecalComponent>(UDecalComponent::StaticClass(), GetWorld());
+					UDecalComponent* Decal = NewObject<UDecalComponent>(GetWorld(), UDecalComponent::StaticClass());
 					if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
 					{
 						Decal->SetAbsolute(false, false, true);
@@ -1478,7 +1478,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 
 				// Expand in place 
 				TArray<FOverlapResult> Overlaps;
-				bool bEncroached = GetWorld()->OverlapMulti(Overlaps, ActorLocation, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
+				bool bEncroached = GetWorld()->OverlapMultiByChannel(Overlaps, ActorLocation, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
 				if (!bEncroached)
 				{
 					UnfeignCount = 0;
@@ -3306,7 +3306,7 @@ void AUTCharacter::Tick(float DeltaTime)
 				static FName CameraClipTrace = FName(TEXT("CameraClipTrace"));
 				FCollisionQueryParams Params(CameraClipTrace, false, this);
 				FHitResult Hit;
-				if (GetWorld()->SweepSingle(Hit, GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight), GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + CrouchEyeOffset + GetTransformedEyeOffset(), FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(12.f), Params))
+				if (GetWorld()->SweepSingleByChannel(Hit, GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight), GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + CrouchEyeOffset + GetTransformedEyeOffset(), FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(12.f), Params))
 				{
 					EyeOffset.Z = Hit.Location.Z - BaseEyeHeight - GetActorLocation().Z - CrouchEyeOffset.Z; 
 				}
@@ -3470,7 +3470,7 @@ bool AUTCharacter::PositionIsInWater(const FVector& Position) const
 	TArray<FOverlapResult> Hits;
 	static FName NAME_PhysicsVolumeTrace = FName(TEXT("PhysicsVolumeTrace"));
 	FComponentQueryParams Params(NAME_PhysicsVolumeTrace, GetOwner());
-	GetWorld()->OverlapMulti(Hits, Position, FQuat::Identity, GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
+	GetWorld()->OverlapMultiByChannel(Hits, Position, FQuat::Identity, GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
 
 	for (int32 HitIdx = 0; HitIdx < Hits.Num(); HitIdx++)
 	{

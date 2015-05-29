@@ -136,7 +136,7 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 					{
 						FVector HeadLoc = EnemyChar->GetHeadLocation();
 						static FName NAME_SniperZoom(TEXT("SniperZoom"));
-						if (!GetWorld()->LineTraceTest(FireStart, HeadLoc, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(NAME_SniperZoom, true, GetUTOwner())))
+						if (!GetWorld()->LineTraceTestByChannel(FireStart, HeadLoc, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(NAME_SniperZoom, true, GetUTOwner())))
 						{
 							bool bDrawPingAdjust = bDrawPingAdjustedTargets && OwnerState != NULL && !EnemyChar->GetVelocity().IsZero();
 							float NetPing = 0.0f;
@@ -217,7 +217,7 @@ void UUTWeaponStateZooming::ToggleZoomInSound(bool bNowOn)
 	{
 		if (ZoomLoopComp == NULL)
 		{
-			ZoomLoopComp = ConstructObject<UAudioComponent>(UAudioComponent::StaticClass(), this);
+			ZoomLoopComp = NewObject<UAudioComponent>(this, UAudioComponent::StaticClass());
 			ZoomLoopComp->bAutoDestroy = false;
 			ZoomLoopComp->bAutoActivate = false;
 			ZoomLoopComp->Sound = ZoomLoopSound;

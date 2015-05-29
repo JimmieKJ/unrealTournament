@@ -354,7 +354,7 @@ void AUTPlayerController::InitInputSystem()
 {
 	if (PlayerInput == NULL)
 	{
-		PlayerInput = ConstructObject<UUTPlayerInput>(UUTPlayerInput::StaticClass(), this);
+		PlayerInput = NewObject<UUTPlayerInput>(this, UUTPlayerInput::StaticClass());
 	}
 
 	Super::InitInputSystem();
@@ -2867,7 +2867,7 @@ void AUTPlayerController::OnRep_CastingGuide()
 			while (LP->GetGameInstance()->GetNumLocalPlayers() < LP->ViewportClient->MaxSplitscreenPlayers)
 			{
 				// partial copy from UGameInstance::CreateLocalPlayer() and ULocalPlayer::SendSplitJoin() as we want to do special join handling
-				ULocalPlayer* NewPlayer = CastChecked<ULocalPlayer>(StaticConstructObject(GEngine->LocalPlayerClass, GEngine));
+				ULocalPlayer* NewPlayer = NewObject<ULocalPlayer>(GEngine, GEngine->LocalPlayerClass);
 				int32 InsertIndex = LP->GetGameInstance()->AddLocalPlayer(NewPlayer, 255);
 				if (InsertIndex == INDEX_NONE)
 				{

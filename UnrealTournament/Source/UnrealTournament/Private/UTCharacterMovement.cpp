@@ -535,7 +535,7 @@ void UUTCharacterMovement::PerformWaterJump()
 	static const FName DodgeTag = FName(TEXT("Dodge"));
 	FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
 	FHitResult Result;
-	const bool bBlockingHit = GetWorld()->SweepSingle(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(PawnCapsuleRadius), QueryParams);
+	const bool bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(PawnCapsuleRadius), QueryParams);
 	if (!bBlockingHit)
 	{
 		return;
@@ -594,7 +594,7 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 		static const FName DodgeTag = FName(TEXT("Dodge"));
 		FCollisionQueryParams QueryParams(DodgeTag, false, CharacterOwner);
 		FHitResult Result;
-		const bool bBlockingHit = GetWorld()->SweepSingle(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
+		const bool bBlockingHit = GetWorld()->SweepSingleByChannel(Result, TraceStart, TraceEnd, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeSphere(TraceBoxSize), QueryParams);
 		if (!bBlockingHit || (!IsSwimming() && (CurrentWallDodgeCount > 0) && !bIsLowGrav && ((Result.ImpactNormal | LastWallDodgeNormal) > MaxConsecutiveWallDodgeDP)))
 		{
 			//UE_LOG(UTNet, Warning, TEXT("No wall to dodge"));
@@ -1270,7 +1270,7 @@ void UUTCharacterMovement::ApplyWaterCurrent(float DeltaTime)
 		TArray<FOverlapResult> Hits;
 		static FName NAME_PhysicsVolumeTrace = FName(TEXT("PhysicsVolumeTrace"));
 		FComponentQueryParams Params(NAME_PhysicsVolumeTrace, CharacterOwner->GetOwner());
-		GetWorld()->OverlapMulti(Hits, FootLocation, FQuat::Identity, CharacterOwner->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
+		GetWorld()->OverlapMultiByChannel(Hits, FootLocation, FQuat::Identity, CharacterOwner->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(0.f), Params);
 
 		for (int32 HitIdx = 0; HitIdx < Hits.Num(); HitIdx++)
 		{

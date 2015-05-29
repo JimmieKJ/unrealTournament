@@ -364,7 +364,8 @@ void AUTProjectile::SendInitialReplication()
 					FRotator ViewRotation = NetDriver->ClientConnections[i]->PlayerController->GetControlRotation();
 					NetDriver->ClientConnections[i]->PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
 				}
-				if (IsNetRelevantFor(NetDriver->ClientConnections[i]->PlayerController, ViewTarget, ViewLocation))
+				// Workaround to skip deprecation warning where it calls the PlayerController version of this function
+				if (IsNetRelevantFor(static_cast<AActor*>(NetDriver->ClientConnections[i]->PlayerController), ViewTarget, ViewLocation))
 				{
 					UActorChannel* Ch = NetDriver->ClientConnections[i]->ActorChannels.FindRef(this);
 					if (Ch == NULL)
@@ -586,7 +587,7 @@ void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveCompo
 {
 	// since PawnOverlapSphere doesn't hit blocking objects, it is possible it is touching a target through a wall
 	// make sure that the hit is valid before proceeding
-	if (!GetWorld()->LineTraceTest(SweepResult.Location, GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("PawnSphereOverlapTrace")), true, this)))
+	if (!GetWorld()->LineTraceTestByChannel(SweepResult.Location, GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("PawnSphereOverlapTrace")), true, this)))
 	{
 		OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
 	}

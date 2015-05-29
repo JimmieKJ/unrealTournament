@@ -99,7 +99,7 @@ APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const F
 	static FName NAME_PhysicsVolumeTrace = FName(TEXT("PhysicsVolumeTrace"));
 	FComponentQueryParams Params(NAME_PhysicsVolumeTrace, NULL);
 
-	World->OverlapMulti(Hits, TestLoc, FQuat::Identity, ECC_Pawn, Shape, Params);
+	World->OverlapMultiByChannel(Hits, TestLoc, FQuat::Identity, ECC_Pawn, Shape, Params);
 
 	for (int32 HitIdx = 0; HitIdx < Hits.Num(); HitIdx++)
 	{

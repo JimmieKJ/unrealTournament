@@ -211,7 +211,7 @@ void AUTWeaponAttachment::PlayBulletWhip()
 					// trace to make sure missed shot isn't on the other side of a wall
 					FCollisionQueryParams Params(FName(TEXT("BulletWhip")), true, UTOwner);
 					Params.AddIgnoredActor(PC->GetPawn());
-					if (!GetWorld()->LineTraceTest(ClosestPt, ViewLoc, COLLISION_TRACE_WEAPON, Params))
+					if (!GetWorld()->LineTraceTestByChannel(ClosestPt, ViewLoc, COLLISION_TRACE_WEAPON, Params))
 					{
 						PC->ClientHearSound(BulletWhip, this, ClosestPt, false, false, false);
 					}

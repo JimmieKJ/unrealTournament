@@ -23,12 +23,12 @@ void UUTHUDWidget_RespawnChoice::InitializeWidget(AUTHUD* Hud)
 {
 	Super::InitializeWidget(Hud);
 	
-	RespawnChoiceACaptureComponent->TextureTarget = ConstructObject<UTextureRenderTarget2D>(UTextureRenderTarget2D::StaticClass(), this);
+	RespawnChoiceACaptureComponent->TextureTarget = NewObject<UTextureRenderTarget2D>(this, UTextureRenderTarget2D::StaticClass());
 	RespawnChoiceACaptureComponent->TextureTarget->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
 	RespawnChoiceACaptureComponent->TextureTarget->ClearColor = FLinearColor::Black;
 	RespawnChoiceACaptureComponent->RegisterComponentWithWorld(Hud->GetWorld());
 
-	RespawnChoiceBCaptureComponent->TextureTarget = ConstructObject<UTextureRenderTarget2D>(UTextureRenderTarget2D::StaticClass(), this);
+	RespawnChoiceBCaptureComponent->TextureTarget = NewObject<UTextureRenderTarget2D>(this, UTextureRenderTarget2D::StaticClass());
 	RespawnChoiceBCaptureComponent->TextureTarget->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
 	RespawnChoiceBCaptureComponent->TextureTarget->ClearColor = FLinearColor::Black;
 	RespawnChoiceBCaptureComponent->RegisterComponentWithWorld(Hud->GetWorld());

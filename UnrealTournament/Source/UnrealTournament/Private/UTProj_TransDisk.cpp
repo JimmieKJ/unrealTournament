@@ -145,7 +145,7 @@ void AUTProj_TransDisk::OnDisrupted_Implementation()
 		if (DisruptedEffect != NULL)
 		{
 			// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
-			UParticleSystemComponent* PSC = ConstructObject<UParticleSystemComponent>(UParticleSystemComponent::StaticClass(), this);
+			UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(this, UParticleSystemComponent::StaticClass());
 			PSC->bAutoDestroy = true;
 			PSC->SecondsBeforeInactive = 0.0f;
 			PSC->bAutoActivate = false;
@@ -321,7 +321,7 @@ bool AUTProj_TransDisk::IsAcceptableTranslocationTo(const FVector& DesiredDest)
 {
 	FCollisionQueryParams Params(FName(TEXT("TransDiskAI")), false, this);
 	Params.AddIgnoredActor(Instigator);
-	if (GetWorld()->LineTraceTest(GetActorLocation(), DesiredDest, ECC_Pawn, Params) || !GetWorld()->LineTraceTest(GetActorLocation(), GetActorLocation() - FVector(0.0f, 0.0f, 500.0f), ECC_Pawn, Params))
+	if (GetWorld()->LineTraceTestByChannel(GetActorLocation(), DesiredDest, ECC_Pawn, Params) || !GetWorld()->LineTraceTest(GetActorLocation(), GetActorLocation() - FVector(0.0f, 0.0f, 500.0f), ECC_Pawn, Params))
 	{
 		return false;
 	}

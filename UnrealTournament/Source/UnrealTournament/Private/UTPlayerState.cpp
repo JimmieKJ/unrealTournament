@@ -621,7 +621,7 @@ void AUTPlayerState::BeginPlay()
 	if (Role == ROLE_Authority && StatManager == nullptr)
 	{
 		//Make me a statmanager
-		StatManager = ConstructObject<UStatManager>(UStatManager::StaticClass(), this);
+		StatManager = NewObject<UStatManager>(this, UStatManager::StaticClass());
 		StatManager->InitializeManager(this);
 	}
 
