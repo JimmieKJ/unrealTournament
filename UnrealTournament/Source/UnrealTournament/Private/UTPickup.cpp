@@ -50,7 +50,6 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 
 	State.bActive = true;
 	RespawnTime = 30.0f;
-	bDisplayRespawnTimer = true;
 	SetReplicates(true);
 	bAlwaysRelevant = true;
 	NetUpdateFrequency = 1.0f;
