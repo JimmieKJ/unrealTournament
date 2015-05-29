@@ -207,6 +207,13 @@ public:
 	UPROPERTY(Replicated)
 	bool bDedicatedMatch;
 
+	// The Key used to associated this match with a dedicated instance
+	FString AccessKey;
+
+	// The name for this server
+	UPROPERTY(Replicated)
+	FString DedicatedServerName;
+
 	FText GetDebugInfo();
 
 	bool SkillTest(int32 Rank)

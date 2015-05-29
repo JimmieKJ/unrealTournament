@@ -164,10 +164,10 @@ uint8 AUTBasePlayerController::GetTeamNum() const
 
 void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 {
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer != NULL && LocalPlayer->LastLobbyServerGUID != TEXT(""))
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState && GameState->HubGuid.IsValid())
 	{
-		ConnectToServerViaGUID(LocalPlayer->LastLobbyServerGUID, false, true);
+		ConnectToServerViaGUID(GameState->HubGuid.ToString(), false, true);
 	}
 	else
 	{
@@ -290,16 +290,16 @@ void AUTBasePlayerController::ClientReturnedToMenus()
 	if (LP)
 	{
 		LP->LeaveSession();	
-		LP->UpdatePresence(TEXT("In Menus"), false, false, false, false, false);
+		LP->UpdatePresence(TEXT("In Menus"), false, false, false, false);
 	}
 }
 
-void AUTBasePlayerController::ClientSetPresence_Implementation(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bIsInstance)
+void AUTBasePlayerController::ClientSetPresence_Implementation(const FString& NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		LP->UpdatePresence(NewPresenceString, bAllowInvites, bAllowJoinInProgress, bAllowJoinViaPresence, bAllowJoinViaPresenceFriendsOnly, bIsInstance);
+		LP->UpdatePresence(NewPresenceString, bAllowInvites, bAllowJoinInProgress, bAllowJoinViaPresence, bAllowJoinViaPresenceFriendsOnly);
 	}
 }
 

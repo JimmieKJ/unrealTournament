@@ -301,15 +301,6 @@ protected:
 #endif
 
 public:
-	// Holds the unique GUID for the current lobby to return to
-	FString LastLobbyServerGUID;
-
-	// Holds the Session Id of the lobby to return to
-	FString LastLobbySessionId;
-
-	// Tells this local player to remember a lobby before traveling to an instance server owned by that lobby.
-	virtual void RememberLobby(FString LobbyServerGUID);
-
 	virtual void ShowHUDSettings();
 	virtual void HideHUDSettings();
 
@@ -348,7 +339,7 @@ public:
 	virtual void ReturnToMainMenu();
 
 	// Updates this user's online presence
-	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bUseLobbySessionId);
+	void UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly);
 
 	// Does the player have pending social notifications - should the social bang be shown?
 	bool IsPlayerShowingSocialNotification() const;

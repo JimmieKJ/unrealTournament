@@ -277,6 +277,10 @@ public:
 	UPROPERTY(Replicated)
 	bool bIsInstanceServer;
 
+	// the GUID of the hub the player should return when they leave.  
+	UPROPERTY(Replicated)
+	FGuid HubGuid;
+
 	// Holds a list of weapons available for loadouts
 	UPROPERTY(Replicated)
 	TArray<AUTReplicatedLoadoutInfo*> AvailableLoadout;

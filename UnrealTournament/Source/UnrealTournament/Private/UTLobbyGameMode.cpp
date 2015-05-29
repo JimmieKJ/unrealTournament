@@ -68,14 +68,10 @@ void AUTLobbyGameMode::InitGameState()
 	UTLobbyGameState = Cast<AUTLobbyGameState>(GameState);
 	if (UTLobbyGameState != NULL)
 	{
+		UTLobbyGameState->HubGuid = ServerInstanceGUID;
+
 		// Setupo the beacons to listen for updates from Game Server Instances
 		UTLobbyGameState->SetupLobbyBeacons();
-
-		// If there are auto-launch
-		if (AutoLaunchGameMode != TEXT("") && AutoLaunchMap != TEXT(""))
-		{
-			UTLobbyGameState->CreateAutoMatch(AutoLaunchGameMode, AutoLaunchGameOptions, AutoLaunchMap);
-		}
 
 		// Break the MOTD up in to strings to be sent to clients when they login.
 		FString Converted = UTLobbyGameState->ServerMOTD.Replace( TEXT("\\n"), TEXT("\n"));
@@ -234,7 +230,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 		}
 
 		// Set my initial presence....
-		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false, false);
+		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false);
 	}
 
 }

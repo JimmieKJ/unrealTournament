@@ -96,7 +96,8 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPt
 		.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
 	];
 
-	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if ( GameState && GameState->HubGuid.IsValid() )
 	{
 		MenuSpace->AddSlot()
 		.AutoHeight()
@@ -109,8 +110,7 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPt
 			.OnClicked(this, &SUTInGameMenu::OnReturnToLobby, ExitButton)
 		];
 	}
-
-
+	
 	MenuSpace->AddSlot()
 	.AutoHeight()
 	[
@@ -135,16 +135,14 @@ FReply SUTInGameMenu::OnCloseMenu(TSharedPtr<SComboButton> MenuButton)
 FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-	if (PlayerOwner->LastLobbyServerGUID != TEXT(""))
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if ( GameState && GameState->HubGuid.IsValid() )
 	{
 		CloseMenus();
-		// Connect to that GUID
 		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 		if (PC)
 		{
-			FString GUID = PlayerOwner->LastLobbyServerGUID;
-			PlayerOwner->LastLobbyServerGUID = TEXT("");
-			PC->ConnectToServerViaGUID(GUID, false, true);
+			PC->ConnectToServerViaGUID(GameState->HubGuid.ToString(), false, true);
 		}
 	}
 

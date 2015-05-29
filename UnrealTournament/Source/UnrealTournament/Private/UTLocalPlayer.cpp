@@ -703,7 +703,7 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
 		ReadELOFromCloud();
-		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false, false);
+		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
 		// query entitlements for UI
 		IOnlineEntitlementsPtr EntitlementsInterface = OnlineSubsystem->GetEntitlementsInterface();
@@ -1668,7 +1668,7 @@ void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 
 }
 
-void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly, bool bUseLobbySessionId)
+void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
 {
 	if (OnlineIdentityInterface.IsValid() && OnlineSessionInterface.IsValid() && OnlinePresenceInterface.IsValid())
 	{
@@ -1685,15 +1685,11 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 				OnlineSessionInterface->UpdateSession(TEXT("Game"), *GameSettings, false);
 			}
 
-
-			FString SessionId = bUseLobbySessionId ? LastLobbySessionId : TEXT("");
-
 			TSharedPtr<FOnlineUserPresence> CurrentPresence;
 			OnlinePresenceInterface->GetCachedPresence(*UserId, CurrentPresence);
 			if (CurrentPresence.IsValid())
 			{
 				CurrentPresence->Status.StatusStr = NewPresenceString;
-				CurrentPresence->Status.Properties.Add(HUBSessionIdKey,SessionId);
 				OnlinePresenceInterface->SetPresence(*UserId, CurrentPresence->Status, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
 			}
 			else
@@ -1701,7 +1697,6 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 				FOnlineUserPresenceStatus NewStatus;
 				NewStatus.State = EOnlinePresenceState::Online;
 				NewStatus.StatusStr = NewPresenceString;
-				NewStatus.Properties.Add(HUBSessionIdKey, SessionId);
 				OnlinePresenceInterface->SetPresence(*UserId, NewStatus, IOnlinePresence::FOnPresenceTaskCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnPresenceUpdated));
 			}
 		}
@@ -1872,21 +1867,6 @@ void UUTLocalPlayer::CloseQuickMatch()
 }
 
 #endif
-
-void UUTLocalPlayer::RememberLobby(FString LobbyServerGUID)
-{
-	LastLobbyServerGUID = LobbyServerGUID;
-	if (OnlineSessionInterface.IsValid())
-	{
-		FNamedOnlineSession* Session = OnlineSessionInterface->GetNamedSession(GameSessionName);
-		if (Session)
-		{
-			LastLobbySessionId = Session->SessionInfo->GetSessionId().ToString();
-		}
-		
-	}
-
-}
 
 void UUTLocalPlayer::ShowConnectingDialog()
 {

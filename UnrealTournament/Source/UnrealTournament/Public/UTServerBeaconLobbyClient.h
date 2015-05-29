@@ -16,7 +16,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 
 	virtual FString GetBeaconType() override { return TEXT("UTLobbyBeacon"); }
 
-	virtual void InitLobbyBeacon(FURL LobbyURL, uint32 LobbyInstanceID, FGuid InstanceGUID);
+	virtual void InitLobbyBeacon(FURL LobbyURL, uint32 LobbyInstanceID, FGuid InstanceGUID, FString AccessKey);
 	virtual void OnConnected();
 	virtual void OnFailure();
 	
@@ -72,6 +72,20 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	UFUNCTION(client, reliable)
 	virtual void InstanceNextMap(const FString& NextMap);
 
+	/**
+	 *	When we connect, if this is a connection between a hub and a dedicated instance, this function
+	 * will be called to let the hub know I want to be a dedicated instance.
+	 **/
+	UFUNCTION(server, reliable, WithValidation)
+	virtual void Lobby_IsDedicatedInstance(FGuid InstanceGUID, const FString& HubKey, const FString& ServerName);
+
+	/**
+	 *	Called from the hub, this will let a dedicated instance know it's been authorized and is connected to 
+	 *  the Hub.
+	 **/
+	UFUNCTION(client, reliable)
+	virtual void AuthorizeDedicatedInstance(FGuid HubGuid);
+
 protected:
 
 	// Will be set to true when the game instance is empty and has asked the lobby to kill it
@@ -79,5 +93,9 @@ protected:
 
 	uint32 GameInstanceID;
 	FGuid GameInstanceGUID;
+
+	bool bDedicatedInstance;
+
+	FString HubKey;
 
 };

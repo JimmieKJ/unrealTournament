@@ -121,6 +121,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  // FIXME only before match start
 	DOREPLIFETIME(AUTGameState, AvailableLoadout);
+	DOREPLIFETIME(AUTGameState, HubGuid);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);

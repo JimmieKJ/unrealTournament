@@ -536,6 +536,14 @@ public:
 	bool bDedicatedInstance;
 
 protected:
+
+	// The Address of the Hub this game wants to connect to.
+	UPROPERTY(Config)
+	FString HubAddress;
+
+	UPROPERTY(Config)
+	FString HubKey;
+
 	// A Beacon for communicating back to the lobby
 	UPROPERTY(transient)
 	AUTServerBeaconLobbyClient* LobbyBeacon;
@@ -580,5 +588,7 @@ public:
 
 	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
 
+	// Called from the Beacon, it makes this server become a dedicated instance
+	virtual void BecomeDedicatedInstance(FGuid HubGuid);
 };
 

@@ -51,6 +51,7 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, bSpectatable);
 	DOREPLIFETIME(AUTLobbyMatchInfo, RankCeiling);
 	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
+	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
 }
 
@@ -362,7 +363,7 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 				PlayersInMatchInstance.Add(FPlayerListInfo(Players[i]));
 
 				// Tell the client to connect to the instance
-				Players[i]->ClientConnectToInstance(GameInstanceGUID, GM->ServerInstanceGUID.ToString(),false);
+				Players[i]->ClientConnectToInstance(GameInstanceGUID, false);
 			}
 		}
 	}
@@ -607,7 +608,7 @@ bool AUTLobbyMatchInfo::GetNeededPackagesForCurrentRuleset(TArray<FString>& Need
 				}
 			}
 
-			NeededPackageURLs.Add(CurrentRuleset->RequiredPackages[i].PackageURL);
+			NeededPackageURLs.Add(CurrentRuleset->RequiredPackages[i].PackageURLProtocol + "://" + CurrentRuleset->RequiredPackages[i].PackageURL);
 		}
 	}
 

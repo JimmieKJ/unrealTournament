@@ -311,7 +311,11 @@ FText SUMatchPanel::GetButtonText() const
 {
 	if (MatchInfo.IsValid())
 	{
-		if (!MatchInfo->SkillTest(PlayerOwner->GetBaseELORank()))
+		if (MatchInfo->bDedicatedMatch)
+		{
+			return NSLOCTEXT("SUMatchPanel","Dedicated","Dedicated");
+		}
+		else if (!MatchInfo->SkillTest(PlayerOwner->GetBaseELORank()))
 		{
 			return NSLOCTEXT("SUMatchPanel","TooSkilled","SKILL LOCKED");
 		}
@@ -384,6 +388,10 @@ void SUMatchPanel::OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> S
 
 FText SUMatchPanel::GetMatchBadgeText() const
 {
+	if (MatchInfo.IsValid() && MatchInfo->bDedicatedMatch)
+	{
+		return FText::FromString(MatchInfo->DedicatedServerName);
+	}
 	if (MatchInfo.IsValid() && MatchInfo->CurrentState == ELobbyMatchState::InProgress)
 	{
 		return FText::FromString(MatchInfo->MatchBadge);

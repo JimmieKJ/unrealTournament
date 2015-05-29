@@ -332,7 +332,12 @@ void AUTLobbyGameState::HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 
 void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* NewPlayer, bool bAsSpectator)
 {
-
+	if (MatchInfo->bDedicatedMatch)
+	{
+		MatchInfo->AddPlayer(NewPlayer);
+		NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, bAsSpectator);
+		return;	
+	}
 	if (MatchInfo->IsBanned(NewPlayer->UniqueId))
 	{
 		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
@@ -354,7 +359,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 				 if ( MatchInfo->MatchHasRoom() )
 				 {
 					MatchInfo->AddPlayer(NewPlayer);
-					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, GM->ServerInstanceGUID.ToString(), false);
+					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, false);
 					return;
 				 }
 				 else
@@ -367,7 +372,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 			if (MatchInfo->bSpectatable)
 			{
 				MatchInfo->AddPlayer(NewPlayer);
-				NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, GM->ServerInstanceGUID.ToString(), true);
+				NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, true);
 				return;
 			}
 
@@ -478,14 +483,13 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		// Add in additional command line params
 		if (!AdditionalInstanceCommandLine.IsEmpty()) Options += TEXT(" ") + AdditionalInstanceCommandLine;
 
-		FString ConnectionString = FString::Printf(TEXT("%s:%i"), *GetWorld()->GetNetDriver()->LowLevelGetNetworkNumber(), InstancePort);
 		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
 
 		MatchOwner->GameInstanceProcessHandle = FPlatformProcess::CreateProc(*ExecPath, *Options, true, false, false, NULL, 0, NULL, NULL);
 
 		if (MatchOwner->GameInstanceProcessHandle.IsValid())
 		{
-			GameInstances.Add(FGameInstanceData(MatchOwner, InstancePort, ConnectionString));
+			GameInstances.Add(FGameInstanceData(MatchOwner, InstancePort));
 			MatchOwner->SetLobbyMatchState(ELobbyMatchState::Launching);
 			MatchOwner->GameInstanceID = GameInstanceID;
 		}
@@ -861,3 +865,61 @@ void AUTLobbyGameState::GetAvailableMaps(const AUTGameMode* DefaultGameMode, TAr
 		}
 	}
 }
+
+void AUTLobbyGameState::AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& ServerName)
+{
+	// Look through the current matches to see if this key is in use
+
+	UE_LOG(UT,Verbose,TEXT("...Checking for existing instance!"));
+
+	for (int32 i=0; i < AvailableMatches.Num(); i++)
+	{
+		if (AvailableMatches[i]->bDedicatedMatch && AvailableMatches[i]->AccessKey.Equals(HubKey, ESearchCase::CaseSensitive))
+		{
+			// There is an existing match.  We need to kill it and add this new one.  This can happen if the
+			// dedicated instance crashes.
+
+			UE_LOG(UT,Verbose,TEXT("...Found one and removed."));
+			RemoveMatch(AvailableMatches[i]);
+			break;
+		}
+	}
+
+	UE_LOG(UT,Verbose,TEXT("...Check For Key Access (%i)."),AccessKeys.Num());;
+
+	// Look to see if this hub has a valid access key
+	for (int32 i=0; i < AccessKeys.Num(); i++)
+	{
+		UE_LOG(UT,Verbose,TEXT("... Testing (%s) vs (%s)."),*AccessKeys[i], *HubKey);
+		if (AccessKeys[i].Equals(HubKey, ESearchCase::CaseSensitive))
+		{
+			UE_LOG(UT,Verbose,TEXT("... Adding Instance"),*AccessKeys[i], *HubKey);
+			// Yes.. take the key and build a dedicated instance.
+			if ( AddDedicatedInstance(InstanceGUID, HubKey, ServerName) )
+			{
+				UE_LOG(UT,Verbose,TEXT("... !!! Authorized !!!"),*AccessKeys[i], *HubKey);
+				// authorize the instance and pass my ServerInstanceGUID
+				Beacon->AuthorizeDedicatedInstance(HubGuid);
+			}
+			break;
+		}
+	}
+}
+
+bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName)
+{
+	// Create the Match info...
+	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
+	if (NewMatchInfo)
+	{	
+		AvailableMatches.Add(NewMatchInfo);
+		NewMatchInfo->SetSettings(this, NULL);
+		NewMatchInfo->bDedicatedMatch = true;
+		NewMatchInfo->AccessKey = AccessKey;
+		NewMatchInfo->DedicatedServerName = ServerName;
+		return true;
+	}			
+
+	return false;
+}
+

@@ -171,8 +171,11 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
 
-	InOpt = ParseOption(Options, TEXT("DedI"));
-	bDedicatedInstance = EvalBoolOptions(InOpt, bDedicatedInstance);
+	InOpt = ParseOption(Options, TEXT("Hub"));
+	if (!InOpt.IsEmpty()) HubAddress = InOpt;
+
+	InOpt = ParseOption(Options, TEXT("HubKey"));
+	if (!InOpt.IsEmpty()) HubKey = InOpt;
 
 	// alias for testing convenience
 	if (HasOption(Options, TEXT("Bots")))
@@ -726,7 +729,10 @@ void AUTGameMode::CheckBotCount()
 
 void AUTGameMode::RecreateLobbyBeacon()
 {
-	if (LobbyInstanceID > 0)
+	UE_LOG(UT,Log,TEXT("RecreateLobbyBeacon: %s %i"), HubAddress.IsEmpty() ? TEXT("none") : *HubAddress, LobbyInstanceID);
+
+	// If we have an instance id, or if we have a defined HUB address, then attempt to connect.
+	if (LobbyInstanceID > 0 || !HubAddress.IsEmpty())
 	{
 		if (LobbyBeacon)
 		{
@@ -738,10 +744,12 @@ void AUTGameMode::RecreateLobbyBeacon()
 		LobbyBeacon = GetWorld()->SpawnActor<AUTServerBeaconLobbyClient>(AUTServerBeaconLobbyClient::StaticClass());
 		if (LobbyBeacon)
 		{
-			FURL LobbyURL(nullptr, TEXT("127.0.0.1"), TRAVEL_Absolute);
+			FString IP = HubAddress.IsEmpty() ? TEXT("127.0.0.1") : HubAddress;
+
+			FURL LobbyURL(nullptr, *IP, TRAVEL_Absolute);
 			LobbyURL.Port = HostLobbyListenPort;
 
-			LobbyBeacon->InitLobbyBeacon(LobbyURL, LobbyInstanceID, ServerInstanceGUID);
+			LobbyBeacon->InitLobbyBeacon(LobbyURL, LobbyInstanceID, ServerInstanceGUID, HubKey);
 			UE_LOG(UT, Verbose, TEXT("..... Connecting back to lobby on port %i!"), HostLobbyListenPort);
 		}
 	}
@@ -759,7 +767,7 @@ void AUTGameMode::DefaultTimer()
 		return;
 	}
 
-	if (LobbyBeacon && LobbyBeacon->GetNetConnection()->State == EConnectionState::USOCK_Closed)
+ 	if (LobbyBeacon && LobbyBeacon->GetNetConnection()->State == EConnectionState::USOCK_Closed)
 	{
 		// if the server is empty and would be asking the hub to kill it, just kill ourselves rather than waiting for reconnection
 		// this relies on there being good monitoring and cleanup code in the hub, but it's better than some kind of network port failure leaving an instance spamming connection attempts forever
@@ -2809,7 +2817,7 @@ void AUTGameMode::UpdatePlayersPresence()
 		AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
 		if (Controller)
 		{
-			Controller->ClientSetPresence(PresenceString, bAllowJoin, bAllowJoin, bAllowJoin, false, IsGameInstanceServer());
+			Controller->ClientSetPresence(PresenceString, bAllowJoin, bAllowJoin, bAllowJoin, false);
 		}
 	}
 }
@@ -2880,4 +2888,11 @@ bool AUTGameMode::ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass)
 bool AUTGameMode::PlayerCanAltRestart_Implementation( APlayerController* Player )
 {
 	return PlayerCanRestart(Player);
+}
+
+void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid)
+{
+	UTGameState->bIsInstanceServer = true;
+	UTGameState->HubGuid = HubGuid;
+	UE_LOG(UT,Log,TEXT("Becoming a Dedicated Instance"));
 }

@@ -9,16 +9,26 @@ Super(PCIP)
 {
 }
 
-void AUTServerBeaconLobbyClient::InitLobbyBeacon(FURL LobbyURL, uint32 LobbyInstanceID, FGuid InstanceGUID)
+void AUTServerBeaconLobbyClient::InitLobbyBeacon(FURL LobbyURL, uint32 LobbyInstanceID, FGuid InstanceGUID, FString AccessKey)
 {
 	InitClient(LobbyURL);
 	GameInstanceID = LobbyInstanceID;
 	GameInstanceGUID = InstanceGUID;
+	HubKey = AccessKey;
+	bDedicatedInstance = !AccessKey.IsEmpty();
 }
 
 void AUTServerBeaconLobbyClient::OnConnected()
 {
-	UE_LOG(UT,Verbose,TEXT("Instance %i [%s] has Connected to the hub"), GameInstanceID, *GameInstanceGUID.ToString());
+	UE_LOG(UT,Verbose,TEXT("Instance %i [%s] has Connected to the hub (%i)"), GameInstanceID, *GameInstanceGUID.ToString(),bDedicatedInstance);
+
+	if (bDedicatedInstance)
+	{
+		UE_LOG(UT,Verbose,TEXT("Becoming a dedicated instances"));
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		Lobby_IsDedicatedInstance(GameInstanceGUID, HubKey, GameState ? GameState->ServerName : TEXT("My Instance"));
+	}
+
 }
 void AUTServerBeaconLobbyClient::OnFailure()
 {
@@ -148,3 +158,25 @@ void AUTServerBeaconLobbyClient::InstanceNextMap_Implementation(const FString& N
 		CurrentGameMode->InstanceNextMap(NextMap);	
 	}
 }
+
+bool AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Validate(FGuid InstanceGUID, const FString& HubKey, const FString& ServerName) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Implementation(FGuid InstanceGUID, const FString& HubKey, const FString& ServerName)
+{
+	UE_LOG(UT, Verbose, TEXT("Dedicated Instance (%s) requesting authorization with key %s"), *ServerName, *HubKey);
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		LobbyGameState->AuthorizeDedicatedInstance(this, InstanceGUID, HubKey, ServerName);
+	}
+}
+
+void AUTServerBeaconLobbyClient::AuthorizeDedicatedInstance_Implementation(FGuid HubGuid)
+{
+	UE_LOG(UT, Verbose, TEXT("This server has been authorized as a dedicated instance!"));
+	AUTGameMode* CurrentGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (CurrentGameMode)
+	{
+		CurrentGameMode->BecomeDedicatedInstance(HubGuid);
+	}
+}
+
