@@ -4,6 +4,8 @@
 #include "UTJumpPad.h"
 #include "UTJumpPadRenderingComponent.h"
 
+#if !UE_SERVER
+
 class UNREALTOURNAMENT_API UTJumpPadRenderingProxy : public FPrimitiveSceneProxy
 {
 private:
@@ -80,7 +82,7 @@ public:
 	}
 };
 
-
+#endif
 
 
 UUTJumpPadRenderingComponent::UUTJumpPadRenderingComponent(const class FObjectInitializer& ObjectInitializer)
@@ -137,7 +139,11 @@ FBoxSphereBounds UUTJumpPadRenderingComponent::CalcBounds(const FTransform & Loc
 
 FPrimitiveSceneProxy* UUTJumpPadRenderingComponent::CreateSceneProxy()
 {
+#if UE_SERVER
+	return nullptr;
+#else
 	return new UTJumpPadRenderingProxy(this);
+#endif
 }
 
 
