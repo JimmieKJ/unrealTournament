@@ -14,20 +14,6 @@ using System.Web.Script.Serialization;
 using EpicGames.MCP.Automation;
 using EpicGames.MCP.Config;
 
-static class UnrealTournamentIEnumerableExtensions
-{
-	/// <summary>
-	/// Generates a string suitable for debugging a list of objects using ToString(). Lists one per line with the prefix string on the first line.
-	/// </summary>
-	/// <param name="prefix">Prefix string to print along with the list of BuildInfos.</param>
-	/// <param name="buildInfos"></param>
-	/// <returns>the resulting debug string</returns>
-	static public string CreateDebugList<T>(this IEnumerable<T> objects, string prefix)
-	{
-		return objects.Aggregate(new StringBuilder(prefix), (sb, obj) => sb.AppendFormat("\n    {0}", obj.ToString())).ToString();
-	}
-}
-
 public class UnrealTournamentBuild
 {
 	// Use old-style UAT version for UnrealTournament
@@ -1124,6 +1110,17 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 // NOTE: PROMOTION JOB IS ONLY EVER RUN OUT OF UE4-UT, REGARDLESS OF WHICH BRANCH'S BUILD IS BEING PROMOTED
 class UnrealTournament_PromoteBuild : BuildCommand
 {
+	/// <summary>
+	/// Generates a string suitable for debugging a list of objects using ToString(). Lists one per line with the prefix string on the first line.
+	/// </summary>
+	/// <param name="prefix">Prefix string to print along with the list of BuildInfos.</param>
+	/// <param name="buildInfos"></param>
+	/// <returns>the resulting debug string</returns>
+	static public string CreateDebugList<T>(IEnumerable<T> objects, string prefix)
+	{
+		return objects.Aggregate(new StringBuilder(prefix), (sb, obj) => sb.AppendFormat("\n    {0}", obj.ToString())).ToString();
+	}
+
 	public override void ExecuteBuild()
 	{
 		Log("************************* UnrealTournament_PromoteBuild");
@@ -1143,7 +1140,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		var InvalidProducts = Products.Except(AllProducts);
 		if (InvalidProducts.Any())
 		{
-			throw new AutomationException(InvalidProducts.CreateDebugList("The following product names are invalid:"));
+			throw new AutomationException(CreateDebugList(InvalidProducts, "The following product names are invalid:"));
 		}
 		var bShouldPromoteGameClient = Products.Contains("GameClient");
 		var bShouldPromoteEditor = Products.Contains("Editor");
