@@ -47,6 +47,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	LastTapRightTime = -10.f;
 	LastTapForwardTime = -10.f;
 	LastTapBackTime = -10.f;
+	bDeferFireInputs = true;
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
 	bTapCrouchToSlide = true;
@@ -1067,7 +1068,24 @@ void AUTPlayerController::OnFire()
 {
 	if (GetPawn() != NULL)
 	{
-		new(DeferredFireInputs) FDeferredFireInput(0, true);
+		if (bDeferFireInputs)
+		{
+			new(DeferredFireInputs)FDeferredFireInput(0, true);
+		}
+		else
+		{
+			if (UTCharacter != NULL)
+			{
+				if (StateName == NAME_Playing)
+				{
+					UTCharacter->StartFire(0);
+				}
+			}
+			else if (GetPawn() != nullptr)
+			{
+				GetPawn()->PawnStartFire(0);
+			}
+		}
 	}
 	else if (IsInState(NAME_Spectating))
 	{
@@ -1089,7 +1107,17 @@ void AUTPlayerController::OnStopFire()
 {
 	if (GetPawn() != NULL)
 	{
-		new(DeferredFireInputs) FDeferredFireInput(0, false);
+		if (bDeferFireInputs)
+		{
+			new(DeferredFireInputs)FDeferredFireInput(0, false);
+		}
+		else
+		{
+			if (UTCharacter != NULL)
+			{
+				UTCharacter->StopFire(0);
+			}
+		}
 	}
 }
 
@@ -1097,7 +1125,24 @@ void AUTPlayerController::OnAltFire()
 {
 	if (GetPawn() != NULL)
 	{
-		new(DeferredFireInputs) FDeferredFireInput(1, true);
+		if (bDeferFireInputs)
+		{
+			new(DeferredFireInputs)FDeferredFireInput(1, true);
+		}
+		else
+		{
+			if (UTCharacter != NULL)
+			{
+				if (StateName == NAME_Playing)
+				{
+					UTCharacter->StartFire(1);
+				}
+			}
+			else if (GetPawn() != nullptr)
+			{
+				GetPawn()->PawnStartFire(1);
+			}
+		}
 	}
 	else if ( GetWorld()->GetGameState<AUTGameState>()->HasMatchStarted() && IsInState(NAME_Spectating) )
 	{
@@ -1123,7 +1168,17 @@ void AUTPlayerController::OnStopAltFire()
 {
 	if (GetPawn() != NULL)
 	{
-		new(DeferredFireInputs) FDeferredFireInput(1, false);
+		if (bDeferFireInputs)
+		{
+			new(DeferredFireInputs)FDeferredFireInput(1, false);
+		}
+		else
+		{
+			if (UTCharacter != NULL)
+			{
+				UTCharacter->StopFire(1);
+			}
+		}
 	}
 }
 
@@ -2179,7 +2234,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 
 	// if we have no UTCharacterMovement, we need to apply firing here since it won't happen from the component
-	if (GetPawn() == NULL || Cast<UUTCharacterMovement>(GetPawn()->GetMovementComponent()) == NULL)
+	if (bDeferFireInputs && (GetPawn() == NULL || Cast<UUTCharacterMovement>(GetPawn()->GetMovementComponent()) == NULL))
 	{
 		ApplyDeferredFireInputs();
 	}

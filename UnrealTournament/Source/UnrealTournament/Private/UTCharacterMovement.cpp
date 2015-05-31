@@ -416,7 +416,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	if (CharacterOwner != NULL)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(CharacterOwner->Controller);
-		if (PC != NULL && PC->PlayerInput != NULL)
+		if (PC != NULL && PC->PlayerInput != NULL && PC->bDeferFireInputs)
 		{
 			PC->ApplyDeferredFireInputs();
 		}
