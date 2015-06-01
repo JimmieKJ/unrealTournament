@@ -52,7 +52,6 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	for (int32 Team=0;Team<2;Team++)
 	{
 		// draw flag state in HUD
-
 		float FlagStateX = CircleSlate[Team].Position.X;
 		float FlagStateY = 8.f + 0.5f * FlagIconTemplate.GetHeight();
 		FlagIconTemplate.RenderColor = Team == 0 ? RedColor : BlueColor;
@@ -60,9 +59,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		FName FlagState = GS->GetFlagState(Team);
 		if (FlagState == CarriedObjectState::Held)
 		{
-			TakenIconTemplate.RenderColor = Team == 0 ? BlueColor : RedColor;
-			TakenIconTemplate.RenderColor.R *= FMath::Square(StatusScale) - 0.25f;
-			TakenIconTemplate.RenderColor.B *= FMath::Square(StatusScale) - 0.25f;
+			TakenIconTemplate.RenderColor = 0.25f * FLinearColor::White;
 			RenderObj_TextureAt(TakenIconTemplate, FlagStateX + 0.1f * FlagIconTemplate.GetWidth(), FlagStateY + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * StatusScale * TakenIconTemplate.GetWidth(), 1.1f * StatusScale * TakenIconTemplate.GetHeight());
 			AUTPlayerState* Holder = GS->GetFlagHolder(Team);
 			if (Holder)
