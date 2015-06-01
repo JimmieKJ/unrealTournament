@@ -6,13 +6,14 @@
 
 #include "Common.usf"
 #include "PostProcessCommon.usf"
+#include "PaniniProjection.usf"
 
 // only for MainPS
 float UpscaleSoftness;
 
 // only for MainVS()
 // .x:HalfFOV .y:tan(HalfFov) .z:CylinderDistortion(0=none, 1:full) .w:Correction to scale Y the same as X is scaled in the center
-float4 DistortionParams;
+float3 PaniniParams;
 
 // to avoid compiler errors on the PS
 #ifndef TESS_RECT_X
@@ -36,20 +37,13 @@ float Gaussian(float Scale, float2 Offset)
 
 // @param In -1 .. 1 range
 // @return In -1 .. 1 range
-float2 CylindricalDistortPos(float2 In)
+float2 PaniniDistortPos(float2 In)
 {
-	float HalfFov = DistortionParams.x;
-	float TanHalfFov = DistortionParams.y;
-	float InvHalfFov = 1.0f / HalfFov;
-	float CylinderDistortion = DistortionParams.z;
-	float Correction = DistortionParams.w;
+	const float d = PaniniParams.x;
+	const float s = PaniniParams.y;
+	const float OutScreenPosScale = PaniniParams.z;
 
-	float X = In.x * TanHalfFov;
-	float AngleX = atan(X);
-
-	float2 Ret = float2(AngleX * InvHalfFov, In.y * cos(AngleX) * Correction);
-
-	return lerp(In, Ret, CylinderDistortion);
+	return ScreenPosPaniniProjection(In, d, s) * OutScreenPosScale;
 }
 
 
@@ -71,7 +65,7 @@ void MainVS(
 	float2 PlanarScreenPos = TexCoord * 2 - 1;
 
 	// distort pos
-	Position.xy = CylindricalDistortPos(PlanarScreenPos) * 0.5f + 0.5f;
+	Position.xy = PaniniDistortPos(PlanarScreenPos) * 0.5f + 0.5f;
 
 	DrawRectangle(Position, TexCoord, OutPosition, OutTexCoord.xy);
 	OutTexCoord.zw =  OutPosition.xy;

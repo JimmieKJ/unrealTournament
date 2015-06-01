@@ -71,14 +71,30 @@ static TAutoConsoleVariable<int32> CVarRenderTargetSwitchWorkaround(
 	TEXT("We want this enabled (1) on all 32 bit iOS devices (implemented through DeviceProfiles)."),
 	ECVF_RenderThreadSafe);
 
-static TAutoConsoleVariable<float> CVarUpscaleCylinder(
-	TEXT("r.Upscale.Cylinder"),
+static TAutoConsoleVariable<float> CVarUpscalePaniniD(
+	TEXT("r.Upscale.Panini.D"),
 	0,
-	TEXT("Allows to apply a cylindrical distortion to the rendered image. Values between 0 and 1 allow to fade the effect (lerp).\n")
-	TEXT("There is a quality loss that can be compensated by adjusting r.ScreenPercentage (>100).\n")
-	TEXT("0: off(default)\n")
+	TEXT("Allow and configure to apply a panini distortion to the rendered image. Values between 0 and 1 allow to fade the effect (lerp).\n")
+	TEXT("Implementation from research paper \"Pannini: A New Projection for Rendering Wide Angle Perspective Images\"\n")
+	TEXT("0: off (default)\n")
 	TEXT(">0: enabled (requires an extra post processing pass if upsampling wasn't used - see r.ScreenPercentage)\n")
-	TEXT("1: full effect"),
+	TEXT("1: Panini cylindrical stereographic projection"),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarUpscalePaniniS(
+	TEXT("r.Upscale.Panini.S"),
+	0,
+	TEXT("Panini projection's hard vertical compression factor.\n")
+	TEXT("0: no vertical compression factor (default)\n")
+	TEXT("1: Hard vertical compression"),
+	ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarUpscalePaniniScreenFit(
+	TEXT("r.Upscale.Panini.ScreenFit"),
+	1.0f,
+	TEXT("Panini projection screen fit effect factor (lerp).\n")
+	TEXT("0: fit vertically\n")
+	TEXT("1: fit horizontally (default)"),
 	ECVF_RenderThreadSafe);
 
 static TAutoConsoleVariable<int32> CVarUpscaleQuality(
@@ -1555,20 +1571,22 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, FViewInfo& V
 		AddHighResScreenshotMask(Context, SeparateTranslucency);
 
 		// 0=none..1=full
-		float Cylinder = 0.0f;
+		FRCPassPostProcessUpscale::PaniniParams PaniniConfig;
 
 		if(View.IsPerspectiveProjection() && !GEngine->StereoRenderingDevice.IsValid())
 		{
-			Cylinder = FMath::Clamp(CVarUpscaleCylinder.GetValueOnRenderThread(), 0.0f, 1.0f);
+			PaniniConfig.D = FMath::Max(CVarUpscalePaniniD.GetValueOnRenderThread(), 0.0f);
+			PaniniConfig.S = CVarUpscalePaniniS.GetValueOnRenderThread();
+			PaniniConfig.ScreenFit = FMath::Max(CVarUpscalePaniniScreenFit.GetValueOnRenderThread(), 0.0f);
 		}
 
 		// Do not use upscale if SeparateRenderTarget is in use!
-		if ((Cylinder > 0.01f || View.UnscaledViewRect != View.ViewRect) && 
+		if ((PaniniConfig.D > 0.01f || View.UnscaledViewRect != View.ViewRect) && 
 			(bHMDWantsUpscale ||!View.Family->EngineShowFlags.StereoRendering || (!View.Family->EngineShowFlags.HMDDistortion && !View.Family->bUseSeparateRenderTarget)))
 		{
 			int32 UpscaleQuality = CVarUpscaleQuality.GetValueOnRenderThread();
 			UpscaleQuality = FMath::Clamp(UpscaleQuality, 0, 3);
-			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(UpscaleQuality, Cylinder));
+			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(UpscaleQuality, PaniniConfig));
 			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput)); // Bilinear sampling.
 			Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput)); // Point sampling.
 			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
