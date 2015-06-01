@@ -16,14 +16,24 @@ protected:
 	TSubclassOf<AUTInventory> InventoryType;
 	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
 	UMeshComponent* Mesh;
+	/** copy of mesh displayed when inventory is not available */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
+	UMeshComponent* GhostMesh;
+	/** material to be set on GhostMesh */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = PickupDisplay)
+	UMaterialInterface* GhostMeshMaterial;
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(Transient)
 	UMeshComponent* EditorMesh;
 #endif
 public:
-	inline const UMeshComponent* GetMesh()
+	inline const UMeshComponent* GetMesh() const
 	{
 		return Mesh;
+	}
+	inline const UMeshComponent* GetGhostMesh() const
+	{
+		return GhostMesh;
 	}
 
 	/** contains code shared between placed and dropped pickups for initializing Mesh given an InventoryType */

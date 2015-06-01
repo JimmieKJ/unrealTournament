@@ -29,6 +29,7 @@
 #include "Engine/GameInstance.h"
 #include "UTSpectatorCamera.h"
 #include "UTHUDWidget_NetInfo.h"
+#include "UTWorldSettings.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -1581,27 +1582,49 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 {
 	Super::UpdateHiddenComponents(ViewLocation, HiddenComponents);
 
-	for (int32 i = RecentWeaponPickups.Num() - 1; i >= 0; i--)
+	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (WS != NULL)
 	{
-		if (RecentWeaponPickups[i] == NULL)
+		for (AUTPickupWeapon* Pickup : WS->WeaponPickups)
 		{
-			RecentWeaponPickups.RemoveAt(i, 1, false);
-		}
-		else if (!RecentWeaponPickups[i]->IsTaken(GetPawn()))
-		{
-			RecentWeaponPickups[i]->PlayRespawnEffects();
-			RecentWeaponPickups.RemoveAt(i, 1, false);
-		}
-		else if (RecentWeaponPickups[i]->GetMesh() != NULL)
-		{
-			HiddenComponents.Add(RecentWeaponPickups[i]->GetMesh()->ComponentId);
+			bool bTaken = !Pickup->State.bActive;
+
+			if (RecentWeaponPickups.Contains(Pickup))
+			{
+				if (Pickup->IsTaken(GetPawn()))
+				{
+					bTaken = true;
+				}
+				else
+				{
+					Pickup->PlayRespawnEffects();
+					RecentWeaponPickups.Remove(Pickup);
+				}
+			}
+			if (bTaken)
+			{
+				if (Pickup->GetMesh() != NULL)
+				{
+					HiddenComponents.Add(Pickup->GetMesh()->ComponentId);
+				}
+			}
+			else
+			{
+				if (Pickup->GetGhostMesh() != NULL)
+				{
+					HiddenComponents.Add(Pickup->GetGhostMesh()->ComponentId);
+				}
+				if (Pickup->GetGhostDepthMesh() != NULL)
+				{
+					HiddenComponents.Add(Pickup->GetGhostDepthMesh()->ComponentId);
+				}
+			}
 		}
 	}
 
 	// hide all components that shouldn't be shown in the current 1P/3P state
 	// with bOwnerNoSee/bOnlyOwnerSee not being propagated to children this method is much easier to maintain
-	// although less efficient
-	// TODO: evaluate performance
+	// although slightly less efficient
 	AUTCharacter* P = Cast<AUTCharacter>(GetViewTarget());
 	if (IsBehindView())
 	{

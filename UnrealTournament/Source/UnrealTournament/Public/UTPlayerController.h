@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTBasePlayerController.h"
+#include "UTPickupWeapon.h"
 #include "UTPlayerController.generated.h"
 
 // range user is allowed to configure FOV angle
@@ -125,11 +126,18 @@ public:
 	UFUNCTION(server, unreliable, withvalidation)
 	virtual void ServerNotifyProjectileHit(AUTProjectile* HitProj, FVector HitLocation, AActor* DamageCauser, float TimeStamp);
 
-	inline void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
+	void AddWeaponPickup(class AUTPickupWeapon* NewPickup)
 	{
-		// insert new pickups at the beginning so the order should be newest->oldest
-		// this makes iteration and removal faster when deciding whether the pickup is still hidden in the per-frame code
-		RecentWeaponPickups.Insert(NewPickup, 0);
+		// clear out any dead entries for destroyed pickups
+		for (TSet< TWeakObjectPtr<AUTPickupWeapon> >::TIterator It(RecentWeaponPickups); It; ++It)
+		{
+			if (!It->IsValid())
+			{
+				It.RemoveCurrent();
+			}
+		}
+
+		RecentWeaponPickups.Add(NewPickup);
 	}
 
 	virtual void UpdateHiddenComponents(const FVector& ViewLocation, TSet<FPrimitiveComponentId>& HiddenComponents);
@@ -529,8 +537,7 @@ protected:
 	AActor* FinalViewTarget;
 
 	/** list of weapon pickups that my Pawn has recently picked up, so we can hide the weapon mesh per player */
-	UPROPERTY()
-	TArray<class AUTPickupWeapon*> RecentWeaponPickups;
+	TSet< TWeakObjectPtr<AUTPickupWeapon> > RecentWeaponPickups;
 
 	/** Base turn rate, in deg/sec. Other scaling may affect final turn rate. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera)

@@ -241,6 +241,30 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 {
 	CreatePickupMesh(this, Mesh, InventoryType, FloatHeight, RotationOffset, bAllowRotatingPickup);
+	if (GhostMeshMaterial != NULL)
+	{
+		if (GhostMesh != NULL)
+		{
+			UnregisterComponentTree(GhostMesh);
+			GhostMesh = NULL;
+		}
+		if (Mesh != NULL)
+		{
+			GhostMesh = DuplicateObject<UMeshComponent>(Mesh, this);
+			GhostMesh->AttachParent = NULL;
+			for (int32 i = 0; i < GhostMesh->GetNumMaterials(); i++)
+			{
+				GhostMesh->SetMaterial(i, GhostMeshMaterial);
+			}
+			GhostMesh->RegisterComponent();
+			GhostMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
+			if (GhostMesh->bAbsoluteScale) // SnapToTarget doesn't handle absolute...
+			{
+				GhostMesh->SetWorldScale3D(Mesh->GetComponentScale());
+			}
+			GhostMesh->SetVisibility(!State.bActive, true);
+		}
+	}
 	if (Mesh != NULL && !State.bActive && Role < ROLE_Authority)
 	{
 		// if State was received first whole actor might have been hidden, reset everything
@@ -267,8 +291,18 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 {
 	if (Mesh != NULL)
 	{
-		Mesh->SetHiddenInGame(bNowHidden, true);
-		Mesh->SetVisibility(!bNowHidden, true);
+		if (GhostMesh != NULL)
+		{
+			Mesh->SetRenderInMainPass(!bNowHidden);
+			Mesh->SetRenderCustomDepth(bNowHidden);
+			GhostMesh->SetVisibility(bNowHidden, true);
+		}
+		else
+		{
+			Mesh->SetHiddenInGame(bNowHidden, true);
+			Mesh->SetVisibility(!bNowHidden, true);
+		}
+		
 		// toggle audio components
 		TArray<USceneComponent*> Children;
 		Mesh->GetChildrenComponents(true, Children);

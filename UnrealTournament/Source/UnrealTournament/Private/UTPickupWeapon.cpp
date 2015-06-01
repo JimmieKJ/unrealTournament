@@ -7,6 +7,15 @@
 
 void AUTPickupWeapon::BeginPlay()
 {
+	if (!bPendingKillPending)
+	{
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (WS != NULL)
+		{
+			WS->WeaponPickups.Add(this);
+		}
+	}
+
 	AUTPickup::BeginPlay(); // skip AUTPickupInventory so we can propagate WeaponType as InventoryType
 
 	if (TimerEffect != NULL)
@@ -14,6 +23,17 @@ void AUTPickupWeapon::BeginPlay()
 		TimerEffect->SetVisibility(true); // note: HiddenInGame used to hide when weapon is available, weapon stay, etc
 	}
 	SetInventoryType((Role == ROLE_Authority) ? TSubclassOf<AUTInventory>(WeaponType) : InventoryType); // initial replication is before BeginPlay() now so we need to make sure client doesn't clobber it :(
+}
+
+void AUTPickupWeapon::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (WS != NULL)
+	{
+		WS->WeaponPickups.Remove(this);
+	}
 }
 
 void AUTPickupWeapon::SetInventoryType(TSubclassOf<AUTInventory> NewType)
@@ -38,6 +58,25 @@ void AUTPickupWeapon::InventoryTypeUpdated_Implementation()
 		WeaponType = *InventoryType;
 	}
 	Super::InventoryTypeUpdated_Implementation();
+
+	if (GhostDepthMesh != NULL)
+	{
+		UnregisterComponentTree(GhostMesh);
+		GhostMesh = NULL;
+	}
+	if (GhostMesh != NULL && Mesh != NULL)
+	{
+		GhostDepthMesh = DuplicateObject<UMeshComponent>(Mesh, this);
+		GhostDepthMesh->AttachParent = NULL;
+		GhostDepthMesh->SetRenderCustomDepth(true);
+		GhostDepthMesh->SetRenderInMainPass(false);
+		GhostDepthMesh->RegisterComponent();
+		GhostDepthMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
+		if (GhostDepthMesh->bAbsoluteScale) // SnapToTarget doesn't handle absolute...
+		{
+			GhostDepthMesh->SetWorldScale3D(Mesh->GetComponentScale());
+		}
+	}
 }
 
 bool AUTPickupWeapon::IsTaken(APawn* TestPawn)
@@ -96,6 +135,15 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 		// in part due to client synchronization issues
 		else if (!IsTaken(TouchedBy) && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll())
 		{
+			// make sure all the meshes are visible and let the PC sort out which ones should be displayed based on per-player respawn
+			if (GhostMesh != NULL)
+			{
+				GhostMesh->SetVisibility(true, true);
+				if (GhostDepthMesh != NULL)
+				{
+					GhostDepthMesh->SetVisibility(true, true);
+				}
+			}
 			new(Customers) FWeaponPickupCustomer(TouchedBy, GetWorld()->TimeSeconds + RespawnTime);
 			if (Role == ROLE_Authority)
 			{
@@ -165,6 +213,15 @@ void AUTPickupWeapon::PlayTakenEffects(bool bReplicate)
 				PSC->SetRelativeScale3D(TakenEffectTransform.GetScale3D());
 			}
 		}
+	}
+}
+
+void AUTPickupWeapon::SetPickupHidden(bool bNowHidden)
+{
+	Super::SetPickupHidden(bNowHidden);
+	if (GhostDepthMesh != NULL)
+	{
+		GhostDepthMesh->SetVisibility(GhostMesh->bVisible, true);
 	}
 }
 
