@@ -484,12 +484,21 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 #endif
 }
 
-void UUTGameViewportClient::ReconnectAfterDownloadingMap()
+void UUTGameViewportClient::ReconnectAfterDownloadingContent()
 {
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 	if (FirstPlayer != nullptr)
 	{
 		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
+		if (LastAttemptedURL.HasOption(TEXT("SpectatorOnly")))
+		{
+			ReconnectCommand += FString(TEXT("?SpectatorOnly=")) + LastAttemptedURL.GetOption(TEXT("SpectatorOnly"), TEXT(""));
+		}
+		if (LastAttemptedURL.HasOption(TEXT("password")))
+		{
+			ReconnectCommand += FString(TEXT("?password=")) + LastAttemptedURL.GetOption(TEXT("password"), TEXT(""));
+		}
+
 		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
 	}
 }
@@ -499,7 +508,7 @@ void UUTGameViewportClient::RedirectResult(TSharedPtr<SCompoundWidget> Widget, u
 #if !UE_SERVER
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		ReconnectAfterDownloadingMap();
+		ReconnectAfterDownloadingContent();
 	}
 #endif
 }
@@ -531,8 +540,7 @@ void UUTGameViewportClient::VerifyFilesToDownloadAndReconnect()
 			}
 		}
 
-		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
-		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+		ReconnectAfterDownloadingContent();
 	}
 #endif
 }
@@ -565,7 +573,7 @@ void UUTGameViewportClient::Tick(float DeltaSeconds)
 		ReconnectAfterDownloadingMapDelay -= DeltaSeconds;
 		if (ReconnectAfterDownloadingMapDelay <= 0)
 		{
-			ReconnectAfterDownloadingMap();
+			ReconnectAfterDownloadingContent();
 		}
 	}
 
