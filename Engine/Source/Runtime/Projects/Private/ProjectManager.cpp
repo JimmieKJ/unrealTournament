@@ -239,7 +239,7 @@ void FProjectManager::ClearSupportedTargetPlatformsForCurrentProject()
 void FProjectManager::GetEnabledPlugins(TArray<FString>& OutPluginNames) const
 {
 	// Get the default list of plugin names
-	GetDefaultEnabledPlugins(OutPluginNames);
+	GetDefaultEnabledPlugins(OutPluginNames, true);
 
 	// Modify that with the list of plugins in the project file
 	const FProjectDescriptor *Project = GetCurrentProject();
@@ -266,7 +266,7 @@ bool FProjectManager::IsNonDefaultPluginEnabled() const
 
 	for(const FPluginStatus& Plugin: IPluginManager::Get().QueryStatusForAllPlugins())
 	{
-		if((Plugin.LoadedFrom == EPluginLoadedFrom::GameProject || !Plugin.Descriptor.bEnabledByDefault) && EnabledPlugins.Contains(Plugin.Name))
+		if ((Plugin.LoadedFrom == EPluginLoadedFrom::GameProject || !Plugin.Descriptor.bEnabledByDefault || Plugin.Descriptor.bInstalled) && EnabledPlugins.Contains(Plugin.Name))
 		{
 			return true;
 		}
@@ -304,15 +304,20 @@ bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled,
 	const FPluginReferenceDescriptor* PluginRef = &CurrentProject->Plugins[PluginRefIdx];
 	if(PluginRef->WhitelistPlatforms.Num() == 0 && PluginRef->BlacklistPlatforms.Num() == 0)
 	{
-		// Get the default list of enabled plugins
-		TArray<FString> DefaultEnabledPlugins;
-		GetDefaultEnabledPlugins(DefaultEnabledPlugins);
-
-		// Check the enabled state is the same in that
-		if(DefaultEnabledPlugins.Contains(PluginName) == bEnabled)
+		// We alway need to be explicit about installed plugins, because they'll be auto-enabled again if we're not.
+		TSharedPtr<IPlugin> Plugin = IPluginManager::Get().FindPlugin(PluginName);
+		if(!Plugin.IsValid() || !Plugin->GetDescriptor().bInstalled)
 		{
-			CurrentProject->Plugins.RemoveAt(PluginRefIdx);
-			PluginRefIdx = INDEX_NONE;
+			// Get the default list of enabled plugins
+			TArray<FString> DefaultEnabledPlugins;
+			GetDefaultEnabledPlugins(DefaultEnabledPlugins, false);
+
+			// Check the enabled state is the same in that
+			if(DefaultEnabledPlugins.Contains(PluginName) == bEnabled)
+			{
+				CurrentProject->Plugins.RemoveAt(PluginRefIdx);
+				PluginRefIdx = INDEX_NONE;
+			}
 		}
 	}
 
@@ -325,7 +330,7 @@ bool FProjectManager::SetPluginEnabled(const FString& PluginName, bool bEnabled,
 	return true;
 }
 
-void FProjectManager::GetDefaultEnabledPlugins(TArray<FString>& OutPluginNames)
+void FProjectManager::GetDefaultEnabledPlugins(TArray<FString>& OutPluginNames, bool bIncludeInstalledPlugins)
 {
 	// Add all the game plugins and everything marked as enabled by default
 	TArray<FPluginStatus> PluginStatuses = IPluginManager::Get().QueryStatusForAllPlugins();
@@ -333,7 +338,10 @@ void FProjectManager::GetDefaultEnabledPlugins(TArray<FString>& OutPluginNames)
 	{
 		if(PluginStatus.Descriptor.bEnabledByDefault || PluginStatus.LoadedFrom == EPluginLoadedFrom::GameProject)
 		{
-			OutPluginNames.AddUnique(PluginStatus.Name);
+			if(bIncludeInstalledPlugins || !PluginStatus.Descriptor.bInstalled)
+			{
+				OutPluginNames.AddUnique(PluginStatus.Name);
+			}
 		}
 	}
 }

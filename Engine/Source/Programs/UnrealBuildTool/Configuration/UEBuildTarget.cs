@@ -2274,17 +2274,14 @@ namespace UnrealBuildTool
 
 				// Add all the enabled plugins to the precompiled module list. Plugins are always precompiled, even if bPrecompile is not set, so we should precompile their dependencies.
 				foreach(PluginInfo Plugin in BuildPlugins)
-                {
-                    if (Plugin.Descriptor.Modules != null)
-                    {
-                        foreach (ModuleDescriptor Module in Plugin.Descriptor.Modules)
-                        {
-                            if (Module.IsCompiledInConfiguration(Platform, TargetType, UEBuildConfiguration.bBuildDeveloperTools, UEBuildConfiguration.bBuildEditor))
-                            {
-                                PrecompiledModuleNames.Add(Module.Name);
-                            }
-                        }
-                    }
+				{
+					foreach(ModuleDescriptor Module in Plugin.Descriptor.Modules)
+					{
+						if (Module.IsCompiledInConfiguration(Platform, TargetType, UEBuildConfiguration.bBuildDeveloperTools, UEBuildConfiguration.bBuildEditor))
+						{
+							PrecompiledModuleNames.Add(Module.Name);
+						}
+					}
 				}
 
 				// When running in Rocket, all engine modules have to be precompiled, but are precompiled using a different target (UE4Game) with a separate list of precompiled module names.

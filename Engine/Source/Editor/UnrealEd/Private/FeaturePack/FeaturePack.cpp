@@ -8,7 +8,6 @@
 #include "LevelEditor.h"
 #include "Toolkits/AssetEditorManager.h"
 
-
 DEFINE_LOG_CATEGORY_STATIC(LogFeaturePack, Log, All);
 
 FFeaturePack::FFeaturePack()

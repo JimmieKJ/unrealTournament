@@ -183,7 +183,7 @@ void FLauncherWorker::OnTaskCompleted(const FString& TaskName)
 FString FLauncherWorker::CreateUATCommand( const ILauncherProfileRef& InProfile, const TArray<FString>& InPlatforms, TArray<FCommandDesc>& OutCommands, FString& CommandStart )
 {
 	CommandStart = TEXT("");
-	FString UATCommand = TEXT("");
+	FString UATCommand = TEXT(" -utf8output");
 	static FGuid SessionId(FGuid::NewGuid());
 	FString InitialMap = InProfile->GetDefaultLaunchRole()->GetInitialMap();
 	if (InitialMap.IsEmpty() && InProfile->GetCookedMaps().Num() == 1)

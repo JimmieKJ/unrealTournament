@@ -2106,6 +2106,13 @@ FPrimitiveSceneProxy* UHierarchicalInstancedStaticMeshComponent::CreateSceneProx
 	}
 	ProxySize = 0;
 
+	if (PerInstanceSMData.Num() != InstanceReorderTable.Num())
+	{
+		// this is a bizzaro case where folks are editing the PerInstanceSMData in a template of a blueprint component
+		// not a great solution, but we can fix it now.
+		BuildTree();
+	}
+
 	FlushAsyncBuildInstanceBufferTask();
 
 	// Verify that the mesh is valid before using it.

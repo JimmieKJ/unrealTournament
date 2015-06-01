@@ -540,6 +540,7 @@ UMaterial::UMaterial(const FObjectInitializer& ObjectInitializer)
 	D3D11TessellationMode = MTM_NoTessellation;
 	bEnableCrackFreeDisplacement = false;
 	bEnableAdaptiveTessellation = true;
+	MaxDisplacement = 0.0f;
 	bOutputVelocityOnBasePass = true;
 	bEnableSeparateTranslucency = true;
 	bEnableResponsiveAA = false;
@@ -2443,6 +2444,7 @@ bool UMaterial::CanEditChange(const UProperty* InProperty) const
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bEnableCrackFreeDisplacement) ||
+			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, MaxDisplacement) ||
 			PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UMaterial, bEnableAdaptiveTessellation)
 			)
 		{

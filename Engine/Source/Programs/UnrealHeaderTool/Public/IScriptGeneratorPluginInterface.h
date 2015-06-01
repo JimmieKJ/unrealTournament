@@ -69,7 +69,7 @@ struct EBuildModuleType
 /**
  * The public interface to script generator plugins.
  */
-class IScriptGeneratorPluginInterface : public IModuleInterface
+class IScriptGeneratorPluginInterface : public IModuleInterface, public IModularFeature
 {
 public:
 
@@ -85,5 +85,7 @@ public:
 	virtual void ExportClass(class UClass* Class, const FString& SourceHeaderFilename, const FString& GeneratedHeaderFilename, bool bHasChanged) = 0;
 	/** Called once all classes have been exported */
 	virtual void FinishExport() = 0;
+	/** Name of the generator plugin, mostly for debuggind purposes */
+	virtual FString GetGeneratorName() const = 0;
 };
 

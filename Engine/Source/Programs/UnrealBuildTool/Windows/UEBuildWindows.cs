@@ -325,6 +325,26 @@ namespace UnrealBuildTool
             return false;
         }
 
+		public override bool HasDefaultBuildConfig(UnrealTargetPlatform Platform, string ProjectPath)
+		{
+			if (Platform == UnrealTargetPlatform.Win32)
+			{
+				string[] StringKeys = new string[] {
+					"MinimumOSVersion"
+				};
+
+				// look up OS specific settings
+				if (!DoProjectSettingsMatchDefault(Platform, ProjectPath, "/Script/WindowsTargetPlatform.WindowsTargetSettings",
+					null, null, StringKeys))
+				{
+					return false;
+				}
+			}
+
+			// check the base settings
+			return base.HasDefaultBuildConfig(Platform, ProjectPath);
+		}
+
 		private void SetupXPSupportFromConfiguration()
 		{
 			string[] CmdLine = Environment.GetCommandLineArgs();

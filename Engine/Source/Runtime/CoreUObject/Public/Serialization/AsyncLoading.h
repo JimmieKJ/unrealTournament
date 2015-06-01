@@ -163,6 +163,8 @@ private:
 	TArray<UObject*> DeferredPostLoadObjects;
 	/** Objects to be finalized on the game thread */
 	TArray<UObject*> DeferredFinalizeObjects;
+	/** Cached async loading thread object this package was created by */
+	class FAsyncLoadingThread& AsyncLoadingThread;
 public:
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 	/** Number of times Tick function has been called.													*/

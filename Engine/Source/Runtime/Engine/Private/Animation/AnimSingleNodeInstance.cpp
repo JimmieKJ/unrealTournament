@@ -325,7 +325,7 @@ bool UAnimSingleNodeInstance::NativeEvaluateAnimation(FPoseContext& Output)
 				BasePose.Bones.AddUninitialized(Output.Pose.Bones.Num());
 				AdditivePose.Bones.AddUninitialized(Output.Pose.Bones.Num());
 
-				FAnimExtractContext ExtractionContext(CurrentTime);
+				FAnimExtractContext ExtractionContext(CurrentTime, Sequence->bEnableRootMotion);
 				Sequence->GetAdditiveBasePose(BasePose.Bones, RequiredBones, ExtractionContext);
 				Sequence->GetAnimationPose(AdditivePose.Bones, RequiredBones, ExtractionContext);
 				if (Sequence->AdditiveAnimType == AAT_LocalSpaceBase)

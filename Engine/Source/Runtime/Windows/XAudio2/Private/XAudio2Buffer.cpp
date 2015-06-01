@@ -353,7 +353,7 @@ FXAudio2SoundBuffer* FXAudio2SoundBuffer::CreateQueuedBuffer( FXAudio2Device* XA
 
 	Wave->InitAudioResource(XAudio2Device->GetRuntimeFormat(Wave));
 
-	if( Buffer->DecompressionState->ReadCompressedInfo( Wave->ResourceData, Wave->ResourceSize, &QualityInfo ) )
+	if (Buffer->DecompressionState && Buffer->DecompressionState->ReadCompressedInfo(Wave->ResourceData, Wave->ResourceSize, &QualityInfo))
 	{
 		// Refresh the wave data
 		Wave->SampleRate = QualityInfo.SampleRate;

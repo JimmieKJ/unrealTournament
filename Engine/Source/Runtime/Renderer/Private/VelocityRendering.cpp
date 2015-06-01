@@ -602,7 +602,6 @@ static void SetVelocitiesState(FRHICommandList& RHICmdList, const FViewInfo& Vie
 	RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA>::GetRHI());
 	RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_DepthNearOrEqual>::GetRHI());
 	RHICmdList.SetRasterizerState(GetStaticRasterizerState<true>(FM_Solid, CM_CW));
-	RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
 }
 
 class FVelocityPassParallelCommandListSet : public FParallelCommandListSet

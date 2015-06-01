@@ -279,6 +279,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 							FString Error;
 							FPlatformProcess::LaunchURL(*Plugin.MarketplaceURL, nullptr, &Error);
 							if(Error.Len() > 0) FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(Error));
+							return false;
 						}
 					}
 					else
@@ -286,7 +287,17 @@ bool FPluginManager::ConfigureEnabledPlugins()
 						FString Description = (Plugin.Description.Len() > 0)? FString::Printf(TEXT("\n\n%s"), *Plugin.Description) : FString();
 						FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("PluginMissingError", "This project requires the {0} plugin. {1}"), FText::FromString(Plugin.Name), FText::FromString(Description)), &Caption);
 					}
-					return false;
+
+					if(FMessageDialog::Open(EAppMsgType::YesNo, FText::Format(LOCTEXT("PluginMissingDisable", "Would you like to disable {0}? You will no longer be able to open any assets created using it."), FText::FromString(Plugin.Name)), &Caption) == EAppReturnType::No)
+					{
+						return false;
+					}
+
+					FText FailReason;
+					if(!IProjectManager::Get().SetPluginEnabled(*Plugin.Name, false, FailReason))
+					{
+						FMessageDialog::Open(EAppMsgType::Ok, FailReason);
+					}
 				}
 			}
 		}

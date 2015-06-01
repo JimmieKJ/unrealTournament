@@ -461,7 +461,7 @@ public:
 	 * Rebuilds renderable data for this static mesh.
 	 * @param bSilent - If true will not popup a progress dialog.
 	 */
-	ENGINE_API void Build(bool bSilent = false);
+	ENGINE_API void Build(bool bSilent = false, TArray<FText>* OutErrors = nullptr);
 
 	/**
 	 * Initialize the static mesh's render resources.

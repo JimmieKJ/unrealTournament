@@ -11,6 +11,7 @@
 #include "Manifest.h"
 #include "StringUtils.h"
 #include "IPluginManager.h"
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
 
 /////////////////////////////////////////////////////
 // Globals
@@ -5100,21 +5101,8 @@ void GetScriptPlugins(TArray<IScriptGeneratorPluginInterface*>& ScriptPlugins)
 {
 	FScopedDurationTimer PluginTimeTracker(GPluginOverheadTime);
 
-	const FString CodeGeneratorPluginCategory(TEXT("UnrealHeaderTool.Code Generator"));
-	const TArray<FPluginStatus> Plugins = IPluginManager::Get().QueryStatusForAllPlugins();
-	for (auto PluginIt(Plugins.CreateConstIterator()); PluginIt; ++PluginIt)
-	{
-		const auto& PluginStatus = *PluginIt;
-		if (PluginStatus.bIsEnabled && PluginStatus.Descriptor.Category.StartsWith(CodeGeneratorPluginCategory))
-		{
-			auto GeneratorInterface = FModuleManager::LoadModulePtr<IScriptGeneratorPluginInterface>(*PluginStatus.Name);
-			if (GeneratorInterface)
-			{
-				UE_LOG(LogCompile, Log, TEXT("Detected script generator plugin (%d): %s"), ScriptPlugins.Num(), *PluginStatus.Name);
-				ScriptPlugins.Add(GeneratorInterface);
-			}
-		}
-	}
+	ScriptPlugins = IModularFeatures::Get().GetModularFeatureImplementations<IScriptGeneratorPluginInterface>(TEXT("ScriptGenerator"));
+	UE_LOG(LogCompile, Log, TEXT("Found %d script generator plugins."), ScriptPlugins.Num());
 
 	// Check if we can use these plugins and initialize them
 	for (int32 PluginIndex = ScriptPlugins.Num() - 1; PluginIndex >= 0; --PluginIndex)
@@ -5137,18 +5125,19 @@ void GetScriptPlugins(TArray<IScriptGeneratorPluginInterface*>& ScriptPlugins)
 			}
 			if (GeneratedCodeModule)
 			{
+				UE_LOG(LogCompile, Log, TEXT("Initializing script generator \'%s\'"), *ScriptGenerator->GetGeneratorName());
 				ScriptGenerator->Initialize(GManifest.RootLocalPath, GManifest.RootBuildPath, GeneratedCodeModule->GeneratedIncludeDirectory, GeneratedCodeModule->IncludeBase);
 			}
 			else
 			{
 				// Can't use this plugin
-				UE_LOG(LogCompile, Log, TEXT("Unable to determine output directory for %s. Cannot export script glue."), *GeneratedCodeModuleName);
+				UE_LOG(LogCompile, Log, TEXT("Unable to determine output directory for %s. Cannot export script glue with \'%s\'"), *GeneratedCodeModuleName, *ScriptGenerator->GetGeneratorName());
 				bSupportedPlugin = false;				
 			}
 		}
 		if (!bSupportedPlugin)
 		{
-			UE_LOG(LogCompile, Log, TEXT("Script generator plugin %d not supported for target: %s"), PluginIndex, *GManifest.TargetName);
+			UE_LOG(LogCompile, Log, TEXT("Script generator \'%s\' not supported for target: %s"), *ScriptGenerator->GetGeneratorName(), *GManifest.TargetName);
 			ScriptPlugins.RemoveAt(PluginIndex);
 		}
 	}

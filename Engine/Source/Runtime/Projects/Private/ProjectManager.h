@@ -34,7 +34,7 @@ private:
 	static void QueryStatusForProjectImpl(const FProjectDescriptor& Project, const FString& FilePath, FProjectStatus& OutProjectStatus);
 
 	/** Gets the list of plugins enabled by default, excluding the project overrides */
-	static void GetDefaultEnabledPlugins(TArray<FString>& PluginNames);
+	static void GetDefaultEnabledPlugins(TArray<FString>& PluginNames, bool bIncludeInstalledPlugins);
 
 	/** The project that is currently loaded in the editor */
 	TSharedPtr< FProjectDescriptor > CurrentProject;

@@ -861,6 +861,7 @@ float FMaterialResource::GetTranslucentBackscatteringExponent() const { return M
 FLinearColor FMaterialResource::GetTranslucentMultipleScatteringExtinction() const { return Material->TranslucentMultipleScatteringExtinction; }
 float FMaterialResource::GetTranslucentShadowStartOffset() const { return Material->TranslucentShadowStartOffset; }
 float FMaterialResource::GetRefractionDepthBiasValue() const { return Material->RefractionDepthBias; }
+float FMaterialResource::GetMaxDisplacement() const { return Material->MaxDisplacement; }
 bool FMaterialResource::UseTranslucencyVertexFog() const {return Material->bUseTranslucencyVertexFog;}
 FString FMaterialResource::GetFriendlyName() const { return *GetNameSafe(Material); }
 

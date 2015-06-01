@@ -945,6 +945,7 @@ public:
 	virtual FLinearColor GetTranslucentMultipleScatteringExtinction() const { return FLinearColor::White; }
 	virtual float GetTranslucentShadowStartOffset() const { return 0.0f; }
 	virtual float GetRefractionDepthBiasValue() const { return 0.0f; }
+	virtual float GetMaxDisplacement() const { return 0.0f; }
 	virtual bool UseTranslucencyVertexFog() const { return false; }
 	virtual FString GetFriendlyName() const = 0;
 	virtual bool HasVertexPositionOffsetConnected() const { return false; }
@@ -1500,6 +1501,7 @@ public:
 	ENGINE_API virtual bool RequiresSynchronousCompilation() const override;
 	ENGINE_API virtual bool IsDefaultMaterial() const override;
 	ENGINE_API virtual float GetRefractionDepthBiasValue() const override;
+	ENGINE_API virtual float GetMaxDisplacement() const override;
 	ENGINE_API virtual bool UseTranslucencyVertexFog() const override;
 	/**
 	 * Should shaders compiled for this material be saved to disk?

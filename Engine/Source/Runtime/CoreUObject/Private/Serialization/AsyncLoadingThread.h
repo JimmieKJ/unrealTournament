@@ -21,6 +21,8 @@ class FAsyncLoadingThread : public FRunnable
 	FEvent* QueuedRequestsEvent;
 	/** [ASYNC/GAME THREAD] Event used to signal loading should be cancelled */
 	FEvent* CancelLoadingEvent;
+	/** [ASYNC/GAME THREAD] Event used to signal that the async loading thread should be suspended */
+	FEvent* ThreadSuspendedEvent;
 	/** [ASYNC/GAME THREAD] List of queued packages to stream */
 	TArray<FAsyncPackageDesc*> QueuedPackages;
 #if THREADSAFE_UOBJECTS
@@ -29,6 +31,8 @@ class FAsyncLoadingThread : public FRunnable
 #endif
 	/** [ASYNC/GAME THREAD] True if the async loading thread received a request to cancel async loading **/
 	FThreadSafeBool bShouldCancelLoading;
+	/** [ASYNC/GAME THREAD] True if the async loading thread received a request to suspend **/
+	FThreadSafeCounter IsLoadingSuspended;
 	/** [ASYNC/GAME THREAD] Event used to signal there's queued packages to stream */
 	TArray<FAsyncPackage*> LoadedPackages;	
 #if THREADSAFE_UOBJECTS
@@ -157,6 +161,13 @@ public:
 		return bResult;
 	}
 
+	/** Returns true if async loading is suspended */
+	FORCEINLINE bool IsAsyncLoadingSuspended()
+	{
+		FPlatformMisc::MemoryBarrier();
+		return IsLoadingSuspended.GetValue() != 0;
+	}
+
 	/** Returns the number of async packages that are currently being processed */
 	FORCEINLINE int32 GetAsyncPackagesCount()
 	{
@@ -208,6 +219,16 @@ public:
 	void CancelAsyncLoading();
 
 	/**
+	* [GAME THREAD] Suspends async loading thread
+	*/
+	void SuspendLoading();
+
+	/**
+	* [GAME THREAD] Resumes async loading thread
+	*/
+	void ResumeLoading();
+
+	/**
 	* [ASYNC/GAME THREAD] Queues a package for streaming.
 	*
 	* @param Package package descriptor.
@@ -248,7 +269,7 @@ public:
 	* @param bUseFullTimeLimit True if full time limit should be used [time-slicing].
 	* @param TimeLimit Maximum amount of time that can be spent in this call [time-slicing].
 	*/
-	void TickAsyncThread(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit);
+	EAsyncPackageState::Type TickAsyncThread(bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit);
 
 	/** Initializes async loading thread */
 	void InitializeAsyncThread();

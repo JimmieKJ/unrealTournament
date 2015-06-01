@@ -175,6 +175,12 @@ extern CORE_API FExec* GDebugToolExec;
 /** Whether we're currently in the async loading code path or not */
 extern CORE_API bool(*IsAsyncLoading)();
 
+/** Suspends async package loading. */
+extern CORE_API void (*SuspendAsyncLoading)();
+
+/** Resumes async package loading. */
+extern CORE_API void (*ResumeAsyncLoading)();
+
 /** Whether the editor is currently loading a package or not */
 extern CORE_API bool GIsEditorLoadingPackage;
 

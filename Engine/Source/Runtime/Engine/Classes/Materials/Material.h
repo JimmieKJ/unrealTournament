@@ -613,6 +613,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Tessellation, meta=(DisplayName = "Adaptive Tessellation"))
 	uint32 bEnableAdaptiveTessellation:1;
 
+	UPROPERTY(EditAnywhere, Category=Tessellation)
+	float MaxDisplacement;
+
 	/** Enables a wireframe view of the mesh the material is applied to.  */
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
 	uint32 Wireframe:1;

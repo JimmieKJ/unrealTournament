@@ -160,7 +160,7 @@ class BuildPlugin : BuildCommand
 		// Get the output plugin filename
 		string TargetPluginFileName = CommandUtils.MakeRerootedFilePath(Path.GetFullPath(PluginFileName), Path.GetDirectoryName(Path.GetFullPath(PluginFileName)), PackageDirectory);
 		PluginDescriptor NewDescriptor = PluginDescriptor.FromFile(TargetPluginFileName);
-		NewDescriptor.bEnabledByDefault = false;
+		NewDescriptor.bEnabledByDefault = true;
 		NewDescriptor.bInstalled = true;
 		NewDescriptor.Save(TargetPluginFileName);
 	}

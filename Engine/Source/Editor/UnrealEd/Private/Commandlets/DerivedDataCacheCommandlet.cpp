@@ -11,6 +11,7 @@
 #include "TargetPlatform.h"
 #include "IConsoleManager.h"
 #include "ShaderCompiler.h"
+#include "DistanceFieldAtlas.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogDerivedDataCacheCommandlet, Log, All);
 
@@ -240,6 +241,7 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 	IConsoleManager::Get().ProcessUserConsoleInput(TEXT("Tex.DerivedDataTimings"), *GWarn, NULL);
 	UE_LOG(LogDerivedDataCacheCommandlet, Display, TEXT("Waiting for shaders to finish."));
 	GShaderCompilingManager->FinishAllCompilation();
+	GDistanceFieldAsyncQueue->BlockUntilAllBuildsComplete();
 	UE_LOG(LogDerivedDataCacheCommandlet, Display, TEXT("Done waiting for shaders to finish."));
 	GetDerivedDataCacheRef().WaitForQuiescence(true);
 

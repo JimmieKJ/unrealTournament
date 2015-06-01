@@ -83,6 +83,8 @@ TSharedRef<SWidget> UScrollBox::RebuildWidget()
 
 void UScrollBox::SynchronizeProperties()
 {
+	Super::SynchronizeProperties();
+
 	MyScrollBox->SetScrollOffset(DesiredScrollOffset);
 	MyScrollBox->SetOrientation(Orientation);
 	MyScrollBox->SetScrollBarVisibility(UWidget::ConvertSerializedVisibilityToRuntime(ScrollBarVisibility));

@@ -1333,6 +1333,11 @@ half3 GetMaterialWorldDisplacement(FMaterialTessellationParameters Parameters)
 %s;
 }
 
+half GetMaterialMaxDisplacement()
+{
+%s;
+}
+
 half GetMaterialTessellationMultiplier(FMaterialTessellationParameters Parameters)
 {
 %s;

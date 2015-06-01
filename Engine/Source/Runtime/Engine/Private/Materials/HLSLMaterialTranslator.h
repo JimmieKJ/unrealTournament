@@ -685,6 +685,7 @@ public:
 		LazyPrintf.PushParam(*GenerateFunctionCode(MP_WorldPositionOffset));
 		LazyPrintf.PushParam(*GenerateFunctionCode(CompiledMP_PrevWorldPositionOffset));
 		LazyPrintf.PushParam(*GenerateFunctionCode(MP_WorldDisplacement));
+		LazyPrintf.PushParam(*FString::Printf(TEXT("return %.5f"),Material->GetMaxDisplacement()));
 		LazyPrintf.PushParam(*GenerateFunctionCode(MP_TessellationMultiplier));
 		LazyPrintf.PushParam(*GenerateFunctionCode(MP_SubsurfaceColor));
 		LazyPrintf.PushParam(*GenerateFunctionCode(MP_ClearCoat));

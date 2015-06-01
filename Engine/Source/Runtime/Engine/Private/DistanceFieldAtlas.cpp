@@ -421,6 +421,16 @@ void FDistanceFieldAsyncQueue::BlockUntilBuildComplete(UStaticMesh* StaticMesh, 
 	}
 }
 
+void FDistanceFieldAsyncQueue::BlockUntilAllBuildsComplete()
+{
+	do 
+	{
+		ProcessAsyncTasks();
+		FPlatformProcess::Sleep(.01f);
+	} 
+	while (GetNumOutstandingTasks() > 0);
+}
+
 void FDistanceFieldAsyncQueue::Build(FAsyncDistanceFieldTask* Task, FQueuedThreadPool& ThreadPool)
 {
 #if WITH_EDITOR

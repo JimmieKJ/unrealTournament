@@ -677,6 +677,30 @@ void GameProjectUtils::CheckForOutOfDateGameProjectFile()
 				}
 			}
 		}
+
+		// Check if there are any installed plugins which aren't referenced by the project file
+		if(!UpdateGameProjectNotification.IsValid())
+		{
+			const FProjectDescriptor* Project = IProjectManager::Get().GetCurrentProject();
+			if(Project != nullptr)
+			{
+				TArray<FPluginReferenceDescriptor> NewPluginReferences;
+				for(TSharedRef<IPlugin>& Plugin: IPluginManager::Get().GetEnabledPlugins())
+				{
+					if(Plugin->GetDescriptor().bInstalled && Project->FindPluginReferenceIndex(Plugin->GetName()) == INDEX_NONE)
+					{
+						FPluginReferenceDescriptor PluginReference(Plugin->GetName(), true, Plugin->GetDescriptor().MarketplaceURL);
+						NewPluginReferences.Add(PluginReference);
+					}
+				}
+				if(NewPluginReferences.Num() > 0)
+				{
+					UpdateProject(FProjectDescriptorModifier::CreateLambda( 
+						[NewPluginReferences](FProjectDescriptor& Descriptor){ Descriptor.Plugins.Append(NewPluginReferences); return true; }
+					));
+				}
+			}
+		}
 	}
 }
 
@@ -2984,7 +3008,7 @@ bool GameProjectUtils::DoProjectSettingsMatchDefault(const FString& InPlatformNa
 	FConfigFile ProjIni;
 	FConfigFile DefaultIni;
 	FConfigCacheIni::LoadLocalIniFile(ProjIni, TEXT("Engine"), true, *InPlatformName, true);
-	FConfigCacheIni::LoadLocalIniFile(DefaultIni, TEXT("Engine"), true, NULL, true);
+	FConfigCacheIni::LoadExternalIniFile(DefaultIni, TEXT("Engine"), *FPaths::EngineConfigDir(), *FPaths::EngineConfigDir(), true, NULL, true);
 
 	if (InBoolKeys != NULL)
 	{

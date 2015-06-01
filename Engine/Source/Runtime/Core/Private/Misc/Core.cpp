@@ -166,6 +166,11 @@ TCHAR					GInternalGameName[64];
 IMPLEMENT_FOREIGN_ENGINE_DIR()
 #endif
 
+/** A function that does nothing. Allows for a default behavior for callback function pointers. */
+static void appNoop()
+{
+}
+
 /** Exec handler for game debugging tool, allowing commands like "editactor", ...							*/
 FExec*					GDebugToolExec					= NULL;
 /** Whether we're currently in the async loading codepath or not											*/
@@ -174,7 +179,9 @@ static bool IsAsyncLoadingCoreInternal()
 	// No Async loading in Core
 	return false;
 }
-bool(*IsAsyncLoading)() = &IsAsyncLoadingCoreInternal;
+bool (*IsAsyncLoading)() = &IsAsyncLoadingCoreInternal;
+void (*SuspendAsyncLoading)() = &appNoop;
+void (*ResumeAsyncLoading)() = &appNoop;
 /** Whether the editor is currently loading a package or not												*/
 bool					GIsEditorLoadingPackage				= false;
 /** Whether GWorld points to the play in editor world														*/
@@ -214,11 +221,6 @@ uint32					GRenderThreadId					= 0;
 uint32					GSlateLoadingThreadId			= 0;
 /** Has GGameThreadId been set yet?																			*/
 bool					GIsGameThreadIdInitialized		= false;
-
-/** A function that does nothing. Allows for a default behavior for callback function pointers. */
-static void appNoop()
-{
-}
 
 /** Helper function to flush resource streaming.															*/
 void					(*GFlushStreamingFunc)(void)	  = &appNoop;

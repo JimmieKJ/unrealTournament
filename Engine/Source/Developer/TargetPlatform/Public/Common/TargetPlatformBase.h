@@ -356,6 +356,8 @@ public:
 		case ETargetPlatformFeatures::SdkConnectDisconnect:
 		case ETargetPlatformFeatures::UserCredentials:
 			break;
+		case ETargetPlatformFeatures::ShouldUseCompressedCookedPackages:
+			return false;
 		}
 
 		return false;

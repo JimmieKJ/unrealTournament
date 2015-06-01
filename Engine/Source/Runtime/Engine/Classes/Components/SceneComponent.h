@@ -167,9 +167,10 @@ protected:
 	// Transient flag that temporarily disables UpdateOverlaps within DetachFromParent().
 	uint32 bDisableDetachmentUpdateOverlaps:1;
 
+private:
 	/** Physics Volume in which this SceneComponent is located **/
 	UPROPERTY(transient)
-	class APhysicsVolume* PhysicsVolume;
+	TWeakObjectPtr<class APhysicsVolume> PhysicsVolume;
 
 public:
 	/** Current transform of this component, relative to the world */

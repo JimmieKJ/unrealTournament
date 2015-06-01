@@ -29,7 +29,6 @@ static void SetTranslucentRenderTargetAndState(FRHICommandList& RHICmdList, cons
 		// Enable depth test, disable depth writes.
 		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_DepthNearOrEqual>::GetRHI());
 	}
-	RHICmdList.SetScissorRect(false, 0, 0, 0, 0);
 }
 
 static void FinishTranslucentRenderTarget(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, bool bSeparateTranslucencyPass)

@@ -41,6 +41,7 @@
 #include "CanvasTypes.h"
 #include "Engine/SCS_Node.h"
 #include "Engine/UserDefinedStruct.h"
+#include "ShaderCompiler.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogObjectTools, Log, All);
 
@@ -3557,6 +3558,10 @@ namespace ThumbnailTools
 		FThumbnailRenderingInfo* RenderInfo =
 			GUnrealEd->GetThumbnailManager()->GetRenderingInfo( InObject );
 
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->ProcessAsyncResults(false, true);
+		}
 		// Wait for all textures to be streamed in before we render the thumbnail
 		// @todo CB: This helps but doesn't result in 100%-streamed-in resources every time! :(
 		if( InFlushMode == EThumbnailTextureFlushMode::AlwaysFlush )

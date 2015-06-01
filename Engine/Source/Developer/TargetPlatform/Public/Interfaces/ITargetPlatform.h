@@ -50,6 +50,9 @@ enum class ETargetPlatformFeatures
 
 	/** Vertex Shader Texture Sampling. */
 	VertexShaderTextureSampling,
+
+	/** Should use compressed cooked packages */
+	ShouldUseCompressedCookedPackages, 
 };
 
 

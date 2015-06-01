@@ -996,7 +996,7 @@ EVisibility SNewClassDialog::GetGlobalErrorLabelVisibility() const
 
 FText SNewClassDialog::GetGlobalErrorLabelText() const
 {
-	if ( !FSourceCodeNavigation::IsCompilerAvailable() )
+	if ( ClassDomain == EClassDomain::Native && !FSourceCodeNavigation::IsCompilerAvailable() )
 	{
 		return FText::Format( LOCTEXT("NoCompilerFound", "No compiler was found. In order to use C++ code, you must first install {0}."), FSourceCodeNavigation::GetSuggestedSourceCodeIDE() );
 	}
@@ -1095,7 +1095,7 @@ void SNewClassDialog::CancelClicked()
 
 bool SNewClassDialog::CanFinish() const
 {
-	return bLastInputValidityCheckSuccessful && ParentClassInfo.IsSet() && FSourceCodeNavigation::IsCompilerAvailable();
+	return bLastInputValidityCheckSuccessful && ParentClassInfo.IsSet() && (ClassDomain == EClassDomain::Blueprint || FSourceCodeNavigation::IsCompilerAvailable());
 }
 
 void SNewClassDialog::FinishClicked()

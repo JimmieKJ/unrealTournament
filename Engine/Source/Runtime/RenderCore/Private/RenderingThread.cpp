@@ -59,8 +59,8 @@ static void WaitAndResumeRendering()
 		FPlatformProcess::Sleep( 0.001f ); //@todo this should be a more principled wait
 	}
     
-    // set the thread back to real time mode
-    FPlatformProcess::SetRealTimeMode();
+	// set the thread back to real time mode
+	FPlatformProcess::SetRealTimeMode();
 }
 
 /**
@@ -69,6 +69,10 @@ static void WaitAndResumeRendering()
  */
 FSuspendRenderingThread::FSuspendRenderingThread( bool bInRecreateThread )
 {
+	// Suspend async loading thread so that it doesn't start queueing render commands 
+	// while the render thread is suspended.
+	SuspendAsyncLoading();
+
 	bRecreateThread = bInRecreateThread;
 	bUseRenderingThread = GUseThreadedRendering;
 	bWasRenderingThreadRunning = GIsThreadedRendering;
@@ -169,6 +173,7 @@ FSuspendRenderingThread::~FSuspendRenderingThread()
 		// Resume the render thread again. 
 		FPlatformAtomics::InterlockedDecrement( &GIsRenderingThreadSuspended );
 	}
+	ResumeAsyncLoading();
 }
 
 

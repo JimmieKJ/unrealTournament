@@ -1068,7 +1068,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 			// Async loading removes delayed linkers on the game thread after streaming has finished
 			else
 			{
-				FUObjectThreadContext::Get().DelayedLinkerClosePackages.Add(Linker);
+				FUObjectThreadContext::Get().DelayedLinkerClosePackages.AddUnique(Linker);
 			}
 		}
 	}

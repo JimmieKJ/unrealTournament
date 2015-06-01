@@ -190,6 +190,9 @@ public:
 	/** Blocks the main thread until the async build of the specified mesh is complete. */
 	ENGINE_API void BlockUntilBuildComplete(UStaticMesh* StaticMesh, bool bWarnIfBlocked);
 
+	/** Blocks the main thread until all async builds complete. */
+	ENGINE_API void BlockUntilAllBuildsComplete();
+
 	/** Called once per frame, fetches completed tasks and applies them to the scene. */
 	ENGINE_API void ProcessAsyncTasks();
 

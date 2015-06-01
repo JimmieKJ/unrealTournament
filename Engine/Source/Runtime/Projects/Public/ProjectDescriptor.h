@@ -90,6 +90,9 @@ struct PROJECTS_API FProjectDescriptor
 	/** Checks whether the descriptor is signed */
 	bool IsSigned(const FString& FilePath) const;
 
+	/** Finds the index of a plugin in the references array */
+	int32 FindPluginReferenceIndex(const FString& PluginName) const;
+
 	/** Updates the supported target platforms list */
 	void UpdateSupportedTargetPlatforms(const FName& InPlatformName, bool bIsSupported);
 

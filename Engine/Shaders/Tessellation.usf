@@ -62,11 +62,14 @@ float GetTessellationMultiplier(FPassSpecificVSToDS I)
 	return GetMaterialTessellationMultiplier(MaterialParameters);
 }
 
-int3 GetClipFlag( float3 Origin )
+// Flag set if inside frustum
+int3 GetClipFlag( float3 Origin, float Radius )
 {
+	//float3 ClipExpand = Radius * float3( View.ViewToClip[0][0], View.ViewToClip[1][1], View.ViewToClip[2][2] );
+	float4 ClipExpand = mul( float4( Radius, Radius, Radius, 0 ), View.ViewToClip );
 	float4 ClipPos = mul( float4( Origin, 1.0 ), View.TranslatedWorldToClip );
-    int3 Clip0 = ClipPos.xyz < ClipPos.w;
-    int3 Clip1 = ClipPos.xyz > -ClipPos.w;
+    int3 Clip0 = ClipPos.xyz - ClipExpand.xyz <  ClipPos.w + ClipExpand.w;
+    int3 Clip1 = ClipPos.xyz + ClipExpand.xyz > -ClipPos.w - ClipExpand.w;
     return Clip0 + 2 * Clip1;
 }
 
@@ -81,11 +84,13 @@ float4 CalculateCompositeTessellationFactors(float3 Control0, float3 Control1, f
 {
 #if USE_ADAPTIVE_TESSELLATION_FACTOR
 #if 1
+	half MaxDisplacement = GetMaterialMaxDisplacement();
+
 	// Frustum cull
 	int3 ClipFlag = 0;
-	ClipFlag  = GetClipFlag( Control0 );
-	ClipFlag |= GetClipFlag( Control1 );
-	ClipFlag |= GetClipFlag( Control2 );
+	ClipFlag  = GetClipFlag( Control0, MaxDisplacement );
+	ClipFlag |= GetClipFlag( Control1, MaxDisplacement );
+	ClipFlag |= GetClipFlag( Control2, MaxDisplacement );
 	if( any( ClipFlag != 3 ) )
 	{
 		return 0;

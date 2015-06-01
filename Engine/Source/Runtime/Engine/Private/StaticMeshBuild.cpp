@@ -48,7 +48,7 @@ static bool HasBadTangents(UStaticMesh* Mesh)
 }
 #endif // #if WITH_EDITOR
 
-void UStaticMesh::Build(bool bSilent)
+void UStaticMesh::Build(bool bSilent, TArray<FText>* OutErrors)
 {
 #if WITH_EDITOR
 	if (IsTemplate())
@@ -119,9 +119,9 @@ void UStaticMesh::Build(bool bSilent)
 			Arguments.Add( TEXT("Options"), SourceModels[0].BuildSettings.bRecomputeTangents ? FText::GetEmpty() : LOCTEXT("MeshRecomputeTangents", "Consider enabling Recompute Tangents in the mesh's Build Settings.") );
 			const FText WarningMsg = FText::Format( LOCTEXT("MeshHasDegenerateTangents", "{Meshname} has degenerate tangent bases which will result in incorrect shading. {Options}"), Arguments );
 			UE_LOG(LogStaticMesh,Warning,TEXT("%s"),*WarningMsg.ToString());
-			if (!bSilent)
+			if (!bSilent && OutErrors)
 			{
-				FMessageDialog::Open(EAppMsgType::Ok, WarningMsg);
+				OutErrors->Add( WarningMsg );
 			}
 		}
 

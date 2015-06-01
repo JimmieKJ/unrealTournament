@@ -109,6 +109,12 @@ public:
 		return TSuper::SupportsFeature(Feature);
 	}
 
+	virtual void GetBuildProjectSettingKeys(FString& OutSection, TArray<FString>& InBoolKeys, TArray<FString>& InIntKeys, TArray<FString>& InStringKeys) const override
+	{
+		OutSection = TEXT("/Script/WindowsTargetPlatform.WindowsTargetSettings");
+		InStringKeys.Add(TEXT("MinimumOSVersion"));
+	}
+
 #if WITH_ENGINE
 	virtual void GetAllPossibleShaderFormats( TArray<FName>& OutFormats ) const override
 	{

@@ -188,6 +188,9 @@ public:
 	UPROPERTY(replicated,transient)
 	uint32 bPaused:1;
 
+	UPROPERTY(replicated,transient)
+	uint32 bPendingStop:1;
+
 	UPROPERTY(replicated)
 	float InterpPosition;
 

@@ -416,6 +416,25 @@ void USceneComponent::PropagateTransformUpdate(bool bTransformChanged, bool bSki
 
 		// Refresh navigation
 		UpdateNavigationData();
+
+
+		AActor* Owner = GetOwner();
+		if (Owner && Owner->HasAuthority() && Owner->GetRootComponent() == this)
+		{
+			if (AttachParent)
+			{
+				Owner->AttachmentReplication.AttachParent = AttachParent->GetAttachmentRootActor();
+				Owner->AttachmentReplication.LocationOffset = RelativeLocation;
+				Owner->AttachmentReplication.RotationOffset = RelativeRotation;
+				Owner->AttachmentReplication.RelativeScale3D = RelativeScale3D;
+				Owner->AttachmentReplication.AttachSocket = AttachSocketName;
+				Owner->AttachmentReplication.AttachComponent = AttachParent;
+			}
+			else
+			{
+				Owner->AttachmentReplication.AttachParent = nullptr;
+			}
+		}
 	}
 	else
 	{
@@ -1293,18 +1312,6 @@ void USceneComponent::AttachTo(class USceneComponent* Parent, FName InSocketName
 		{
 			UpdateOverlaps();
 		}
-
-		AActor* Owner = GetOwner();
-
-		if (Owner && Owner->GetRootComponent() == this)
-		{
-			Owner->AttachmentReplication.AttachParent = AttachParent->GetAttachmentRootActor();
-			Owner->AttachmentReplication.LocationOffset = RelativeLocation;
-			Owner->AttachmentReplication.RotationOffset = RelativeRotation;
-			Owner->AttachmentReplication.RelativeScale3D = RelativeScale3D;
-			Owner->AttachmentReplication.AttachSocket = InSocketName;
-			Owner->AttachmentReplication.AttachComponent = AttachParent;
-		}
 	}
 }
 
@@ -1367,11 +1374,6 @@ void USceneComponent::DetachFromParent(bool bMaintainWorldPosition, bool bCallMo
 		if (IsRegistered() && !bDisableDetachmentUpdateOverlaps)
 		{
 			UpdateOverlaps();
-		}
-
-		if (Owner && Owner->GetRootComponent() == this)
-		{
-			Owner->AttachmentReplication.AttachParent = nullptr;
 		}
 	}
 }
@@ -1692,9 +1694,9 @@ bool USceneComponent::IsAnySimulatingPhysics() const
 
 APhysicsVolume* USceneComponent::GetPhysicsVolume() const
 {
-	if (PhysicsVolume)
+	if (PhysicsVolume.IsValid())
 	{
-		return PhysicsVolume;
+		return PhysicsVolume.Get();
 	}
 	else if (const UWorld* MyWorld = GetWorld())
 	{
@@ -1796,13 +1798,13 @@ void USceneComponent::SetPhysicsVolume( APhysicsVolume * NewVolume,  bool bTrigg
 		if( NewVolume != PhysicsVolume )
 		{
 			AActor *A = GetOwner();
-			if( PhysicsVolume )
+			if( PhysicsVolume.IsValid() )
 			{
 				PhysicsVolume->ActorLeavingVolume(A);
 				PhysicsVolumeChangedDelegate.Broadcast(NewVolume);
 			}
 			PhysicsVolume = NewVolume;
-			if( PhysicsVolume )
+			if( PhysicsVolume.IsValid() )
 			{
 				PhysicsVolume->ActorEnteredVolume(A);
 			}
