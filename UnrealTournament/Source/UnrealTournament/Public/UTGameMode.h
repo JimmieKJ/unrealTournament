@@ -133,7 +133,7 @@ public:
 	UPROPERTY()
 	bool bStartedCountDown;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadWrite, Category = "Game")
 	bool bFirstBloodOccurred;
 
 	/** if set, this setting overrides the number of players that are needed to start a hub instance
@@ -181,7 +181,7 @@ public:
 	float EndTime;
 
 	/** whether weapon stay is active */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category = "Game")
 	bool bWeaponStayActive;
 
 	/** Which actor in the game should all other actors focus on after the game is over */
