@@ -611,7 +611,7 @@ void ULightComponent::BeginDestroy()
 {
 	Super::BeginDestroy();
 
-	if (HasStaticShadowing() && !HasStaticLighting())
+	if (StaticShadowDepthMap.IsInitialized())
 	{
 		BeginReleaseResource(&StaticShadowDepthMap);
 		StaticShadowDepthMap.Empty();
