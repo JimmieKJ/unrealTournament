@@ -15,6 +15,10 @@ static void* LeapDllHandle = 0;
 
 void FLeapMotionControllerPlugin::StartupModule()
 {
+#if PLATFORM_WINDOWS && ( WINVER == 0x502 )	// Leap not supported on Windows XP
+	return;
+#endif
+
 	FString LeapDllRoot = FPaths::EngineDir() / TEXT("Binaries/ThirdParty/Leap/") / (PLATFORM_64BITS ? TEXT("Win64/") : TEXT("Win32/"));
 	FPlatformProcess::PushDllDirectory(*LeapDllRoot);
 #if LEAP_USE_DEBUG_LIB
