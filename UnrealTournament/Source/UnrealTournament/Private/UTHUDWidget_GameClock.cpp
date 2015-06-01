@@ -64,6 +64,8 @@ FText UUTHUDWidget_GameClock::GetPlayerRankThText_Implementation()
 
 FText UUTHUDWidget_GameClock::GetNumPlayersText_Implementation()
 {
-	return FText::AsNumber(UTHUDOwner->NumActualPlayers);
+	FFormatNamedArguments Args;
+	Args.Add("PlayerCount", FText::AsNumber(UTHUDOwner->NumActualPlayers));
+	return FText::Format(NSLOCTEXT("UTHUD", "NumPlayersDisplay", "/{PlayerCount}"), Args);
 }
 
