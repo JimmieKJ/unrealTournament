@@ -46,11 +46,14 @@ public:
 	TSharedPtr< FUICommandInfo > OpenClassViewer;
 	TSharedPtr< FUICommandInfo > OpenWidgetReflector;
 
+	TSharedPtr< FUICommandInfo > VisitUTWiki;
 	TSharedPtr< FUICommandInfo > VisitWiki;
+	TSharedPtr< FUICommandInfo > VisitUTForums;
 	TSharedPtr< FUICommandInfo > VisitForums;
 	TSharedPtr< FUICommandInfo > VisitAskAQuestionPage;
 	TSharedPtr< FUICommandInfo > VisitSearchForAnswersPage;
 	TSharedPtr< FUICommandInfo > VisitSupportWebSite;
+	TSharedPtr< FUICommandInfo > VisitUTDotCom;
 	TSharedPtr< FUICommandInfo > VisitEpicGamesDotCom;
 	TSharedPtr< FUICommandInfo > AboutUnrealEd;
 	TSharedPtr< FUICommandInfo > CreditsUnrealEd;
@@ -135,6 +138,10 @@ public:
 
 	/** Visits the UDN support web site */
 	static void VisitSupportWebSite();
+
+	static void VisitUTDotCom();
+	static void VisitUTWiki();
+	static void VisitUTForums();
 
 	/** Visits EpicGames.com */
 	static void VisitEpicGamesDotCom();

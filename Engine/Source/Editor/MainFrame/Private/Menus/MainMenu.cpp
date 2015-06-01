@@ -274,14 +274,17 @@ void FMainMenu::FillHelpMenu( FMenuBuilder& MenuBuilder, const TSharedRef< FExte
 {
 	MenuBuilder.BeginSection("HelpOnline", NSLOCTEXT("MainHelpMenu", "Online", "Online"));
 	{
+		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitUTForums);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitForums);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitSearchForAnswersPage);
+		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitUTWiki);
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitWiki);
 
 
 		const FText SupportWebSiteLabel = NSLOCTEXT("MainHelpMenu", "VisitUnrealEngineSupportWebSite", "Unreal Engine Support Web Site...");
 
 		MenuBuilder.AddMenuSeparator("EpicGamesHelp");
+		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitUTDotCom, "VisitEpicGamesDotCom");
 		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().VisitEpicGamesDotCom, "VisitEpicGamesDotCom");
 
 		MenuBuilder.AddMenuSeparator("Credits");
