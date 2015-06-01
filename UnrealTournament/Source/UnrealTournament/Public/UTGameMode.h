@@ -320,11 +320,15 @@ public:
 	virtual bool CheckScore(AUTPlayerState* Scorer);
 	virtual void FindAndMarkHighScorer();
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);
+
+	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
+
 	virtual void StartMatch();
 	virtual void EndMatch();
 	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 	virtual void PlayEndOfMatchMessage();
+
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void DiscardInventory(APawn* Other, AController* Killer = NULL);
 
