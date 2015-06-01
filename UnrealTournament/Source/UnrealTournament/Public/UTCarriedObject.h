@@ -148,11 +148,11 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	 *	Drops the object in to the world and allows it to become a pickup.
 	 *  @Killer The controller that cause this object to be dropped
 	 **/
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = GameObject)
 	virtual void Drop(AController* Killer = NULL);
 
 	/**	Sends this object back to its base */
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = GameObject)
 	virtual void SendHome();
 	virtual void SendHomeWithNotify();
 
@@ -161,8 +161,8 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	virtual void Use();
 
 	/**  Call this to tell the object to score.*/
-	UFUNCTION()
-	virtual void Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS);
+	UFUNCTION(BlueprintNativeEvent)
+	void Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS);
 
 	UFUNCTION(BlueprintNativeEvent)
 	void TryPickup(AUTCharacter* Character);

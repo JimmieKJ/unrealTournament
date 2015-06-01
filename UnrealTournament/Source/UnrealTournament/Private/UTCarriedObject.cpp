@@ -377,7 +377,7 @@ void AUTCarriedObject::MoveToHome()
 	}
 }
 
-void AUTCarriedObject::Score(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
+void AUTCarriedObject::Score_Implementation(FName Reason, AUTCharacter* ScoringPawn, AUTPlayerState* ScoringPS)
 {
 	LastGameMessageTime = GetWorld()->GetTimeSeconds();
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
