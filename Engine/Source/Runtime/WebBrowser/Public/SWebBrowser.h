@@ -3,17 +3,10 @@
 #pragma once
 
 #include "SlateBasics.h"
-
+#include "IWebBrowserWindow.h"
 
 enum class EWebBrowserDocumentState;
-class IWebBrowserWindow;
 class FWebBrowserViewport;
-
-DECLARE_DELEGATE_TwoParams(FJSQueryResultDelegate, int, FString);
-DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceivedDelegate, int64, FString, bool, FJSQueryResultDelegate);
-DECLARE_DELEGATE_OneParam(FOnJSQueryCanceledDelegate, int64);
-DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowseDelegate, FString, bool);
-DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
 
 class WEBBROWSER_API SWebBrowser
 	: public SCompoundWidget

@@ -18,6 +18,11 @@ enum class EWebBrowserDocumentState
 	NoDocument
 };
 
+DECLARE_DELEGATE_TwoParams(FJSQueryResultDelegate, int, FString);
+DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceivedDelegate, int64, FString, bool, FJSQueryResultDelegate);
+DECLARE_DELEGATE_OneParam(FOnJSQueryCanceledDelegate, int64);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowseDelegate, FString, bool);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString);
 
 /**
  * Interface for dealing with a Web Browser window
