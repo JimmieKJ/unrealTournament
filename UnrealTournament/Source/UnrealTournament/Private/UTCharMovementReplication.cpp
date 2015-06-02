@@ -193,7 +193,7 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 	}
 
 	bool bWasFalling = (MovementMode == MOVE_Falling);
-	FVector RealVelocity = Velocity; // Remove if we start using actual acceleration.  Used now to keep our forced clientside decel from affecting animation
+	FVector RealVelocity = Velocity; // Used now to keep our forced clientside decel from affecting animation
 
 	float RemainingTime = DeltaSeconds;
 	while (RemainingTime > 0.001f)
@@ -230,9 +230,46 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 						SimulatedVelocity = MaxWalkSpeed * Velocity.GetSafeNormal2D();
 					}
 				}
-				else if (Speed > 0.5f * MaxWalkSpeed)
+				else
 				{
-					SimulatedVelocity *= (1.f - 2.f*DeltaTime);
+					bIsSprinting = (RealVelocity.SizeSquared() > 1.01f * FMath::Square(MaxWalkSpeed));
+
+					const float MaxAccel = GetMaxAcceleration();
+					float MaxSpeed = GetMaxSpeed();
+
+					// Apply braking or deceleration
+					const bool bZeroAcceleration = Acceleration.IsZero();
+					const bool bVelocityOverMax = IsExceedingMaxSpeed(MaxSpeed);
+
+					// Only apply braking if there is no acceleration, or we are over our max speed and need to slow down to it.
+					if (bZeroAcceleration || bVelocityOverMax)
+					{
+						const FVector OldVelocity = Velocity;
+						ApplyVelocityBraking(DeltaSeconds, GroundFriction, BrakingDecelerationWalking);
+
+						// Don't allow braking to lower us below max speed if we started above it.
+						if (bVelocityOverMax && Velocity.SizeSquared() < FMath::Square(MaxSpeed) && FVector::DotProduct(Acceleration, OldVelocity) > 0.0f)
+						{
+							Velocity = OldVelocity.GetSafeNormal() * MaxSpeed;
+						}
+					}
+					else if (!bZeroAcceleration)
+					{
+						// Friction affects our ability to change direction. This is only done for input acceleration, not path following.
+						const FVector AccelDir = Acceleration.GetSafeNormal();
+						const float VelSize = Velocity.Size();
+						Velocity = Velocity - (Velocity - AccelDir * VelSize) * FMath::Min(DeltaSeconds * GroundFriction, 1.f);
+					}
+
+					// Apply acceleration
+					const float NewMaxSpeed = (IsExceedingMaxSpeed(MaxSpeed)) ? Velocity.Size() : MaxSpeed;
+					Velocity += Acceleration * DeltaTime;
+					if (Velocity.Size() > NewMaxSpeed)
+					{
+						Velocity = NewMaxSpeed * Velocity.GetSafeNormal();
+					}
+					SimulatedVelocity = Velocity;
+					//UE_LOG(UT, Warning, TEXT("New simulated velocity %f %f"), Velocity.X, Velocity.Y);
 				}
 			}
 			// @TODO FIXMESTEVE - need to update falling velocity after simulate also
@@ -266,6 +303,7 @@ void UUTCharacterMovement::SetReplicatedAcceleration(FRotator MovementRotation, 
 	}
 	bIsSprinting = ((MovementMode == MOVE_Walking) && (Velocity.SizeSquared() > FMath::Square<float>(MaxWalkSpeed)));
 	Acceleration = GetMaxAcceleration() * AccelDir.GetSafeNormal();
+	//UE_LOG(UT, Warning, TEXT("New replcated velocity %f %f acceleration %f %f"), Velocity.X, Velocity.Y, Acceleration.X, Acceleration.Y);
 }
 
 // Waiting on update of UCharacterMovementComponent::CharacterMovement(), overriding for now
@@ -332,7 +370,6 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 
 		MaybeUpdateBasedMovement(DeltaSeconds);
 
-		// @TODO FIXMESTEVE use acceleration to update velocity
 		//DrawDebugLine(GetWorld(), CharacterOwner->GetActorLocation(), CharacterOwner->GetActorLocation() + 0.2f*Acceleration, FLinearColor::Green);
 
 		// simulated pawns predict location
