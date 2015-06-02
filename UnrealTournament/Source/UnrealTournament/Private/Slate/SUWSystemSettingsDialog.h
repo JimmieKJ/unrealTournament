@@ -36,7 +36,9 @@ protected:
 
 	TArray< TSharedPtr<FString> > ResList;
 	TSharedPtr<STextBlock> SelectedRes;
-	TSharedPtr<SCheckBox> Fullscreen;
+	TArray< TSharedPtr<FString> > DisplayModeList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > DisplayModeComboBox;
+	TSharedPtr<STextBlock> SelectedDisplayMode;
 	TSharedPtr<SCheckBox> SmoothFrameRate;
 	TSharedPtr<SCheckBox> VSync;
 	TSharedPtr<SEditableTextBox> FrameRateCap;
@@ -95,6 +97,7 @@ protected:
 	FReply OKClick();
 	FReply CancelClick();
 	void OnResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	void OnDisplayModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnTextureResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnShadowQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void OnPPQualitySelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);

@@ -376,10 +376,13 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 	{
 		CurrentResIndex = ResList.Add(MakeShareable(new FString(FString::Printf(TEXT("%ix%i"), int32(ViewportSize.X), int32(ViewportSize.Y)))));
 	}
+	
+	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayModeFullscreen", "Fullscreen").ToString())));
+	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayModeWindowedFullscreen", "Windowed (Fullscreen)").ToString())));
+	DisplayModeList.Add(MakeShareable(new FString(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayModeWindowed", "Windowed").ToString())));
+	int32 CurrentDisplayIndex = FMath::Clamp(int32(UserSettings->GetFullscreenMode()), 0, DisplayModeList.Num() - 1);
 
 	return SNew(SVerticalBox)
-
-
 	+ SVerticalBox::Slot()
 	.AutoHeight()
 	.Padding(FMargin(10.0f, 5.0f, 10.0f, 5.0f))
@@ -429,16 +432,26 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen", "Fullscreen"))
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayMode", "Display Mode").ToString())
 				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen_Tooltip", "Toggle whether the application runs in full-screen mode or is in a window.")))
 			]
 		]
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		[
-			SAssignNew(Fullscreen, SCheckBox)
-			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-			.IsChecked(GetPlayerOwner()->ViewportClient->IsFullScreenViewport() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+			SAssignNew(DisplayModeComboBox, SComboBox< TSharedPtr<FString> >)
+			.InitiallySelectedItem(DisplayModeList[CurrentDisplayIndex])
+			.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+			.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+			.OptionsSource(&DisplayModeList)
+			.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+			.OnSelectionChanged(this, &SUWSystemSettingsDialog::OnDisplayModeSelected)
+			.Content()
+			[
+				SAssignNew(SelectedDisplayMode, STextBlock)
+				.Text(*DisplayModeList[CurrentDisplayIndex].Get())
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+			]
 		]
 	]
 	+ SVerticalBox::Slot()
@@ -752,7 +765,12 @@ FReply SUWSystemSettingsDialog::OKClick()
 	Scalability::SetQualityLevels(UserSettings->ScalabilityQuality);
 	Scalability::SaveState(GGameUserSettingsIni);
 	// resolution
-	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), Fullscreen->IsChecked() ? TEXT("f") : TEXT("w")));
+	int32 NewDisplayMode = DisplayModeList.Find(DisplayModeComboBox->GetSelectedItem());
+	TArray<FString> Suffixes;
+	Suffixes.Add(FString("f"));
+	Suffixes.Add(FString("wf"));
+	Suffixes.Add(FString("w"));
+	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), *Suffixes[NewDisplayMode]));
 
 	UserSettings->SetAAMode(ConvertComboSelectionToAAMode(*AAMode->GetSelectedItem().Get()));
 
@@ -765,7 +783,7 @@ FReply SUWSystemSettingsDialog::OKClick()
 	const TCHAR* CmdTemp = FCString::Strchr(Cmd,'x') ? FCString::Strchr(Cmd,'x')+1 : FCString::Strchr(Cmd,'X') ? FCString::Strchr(Cmd,'X')+1 : TEXT("");
 	int32 Y=FCString::Atoi(CmdTemp);
 	UserSettings->SetScreenResolution(FIntPoint(X, Y));
-	UserSettings->SetFullscreenMode(Fullscreen->IsChecked() ? EWindowMode::Fullscreen : EWindowMode::Windowed);
+	UserSettings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
 	UserSettings->SetVSyncEnabled(VSync->IsChecked());
 	UserSettings->SaveConfig();
 
@@ -823,6 +841,10 @@ void SUWSystemSettingsDialog::OnResolutionSelected(TSharedPtr<FString> NewSelect
 {
 	SelectedRes->SetText(*NewSelection.Get());
 }
+void SUWSystemSettingsDialog::OnDisplayModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	SelectedDisplayMode->SetText(*NewSelection.Get());
+}
 void SUWSystemSettingsDialog::OnTextureResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedTextureRes->SetText(*NewSelection.Get());
@@ -839,7 +861,6 @@ void SUWSystemSettingsDialog::OnEffectQualitySelected(TSharedPtr<FString> NewSel
 {
 	SelectedEffectQuality->SetText(*NewSelection.Get());
 }
-
 void SUWSystemSettingsDialog::OnAAModeSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	SelectedAAMode->SetText(*NewSelection.Get());
