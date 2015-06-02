@@ -70,6 +70,9 @@ public:
 	UPROPERTY()
 	float MinTimeBetweenClientAdjustments;
 
+	/** Set client-side acceleration based on replicated acceldir. */
+	virtual void SetReplicatedAcceleration(FRotator MovementRotation, uint8 AccelDir);
+
 	virtual void DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 	virtual FVector GetImpartedMovementBaseVelocity() const override;
 	virtual bool CanCrouchInCurrentState() const override;

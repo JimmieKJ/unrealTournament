@@ -27,9 +27,9 @@ struct FRepUTMovement
 	UPROPERTY()
 	FVector_NetQuantize Location;
 
-	/** @TODO FIXMESTEVE only need a few bits for this - maybe hide in Rotation.Roll */
-	//UPROPERTY()
-	//FVector_NetQuantize Acceleration;
+	/* Compressed acceleration direction: lowest 2 bits are forward/back, next 2 bits are left/right (-1, 0, 1) */
+	UPROPERTY()
+	uint8 AccelDir;
 
 	UPROPERTY()
 	FRotator Rotation;
@@ -53,8 +53,7 @@ struct FRepUTMovement
 		Rotation.SerializeCompressed(Ar);
 		LinearVelocity.NetSerialize(Ar, Map, bOutSuccessLocal);
 		bOutSuccess &= bOutSuccessLocal;
-		//Acceleration.NetSerialize(Ar, Map, bOutSuccessLocal);
-		//bOutSuccess &= bOutSuccessLocal;
+		Ar.SerializeBits(&AccelDir, 8);
 
 		return true;
 	}
@@ -75,12 +74,10 @@ struct FRepUTMovement
 		{
 			return false;
 		}
-		/*
-		if (Acceleration != Other.Acceleration)
+		if (AccelDir != Other.AccelDir)
 		{
 			return false;
 		}
-		*/
 		return true;
 	}
 

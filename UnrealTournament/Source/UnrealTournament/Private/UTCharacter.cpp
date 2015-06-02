@@ -4465,8 +4465,36 @@ bool AUTCharacter::GatherUTMovement()
 			UTReplicatedMovement.Location = RootComponent->GetComponentLocation();
 			UTReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
 			UTReplicatedMovement.Rotation.Pitch = GetControlRotation().Pitch;
-			//UTReplicatedMovement.Acceleration = CharacterMovement->GetCurrentAcceleration();
 			UTReplicatedMovement.LinearVelocity = GetVelocity();
+
+			FVector AccelDir = GetCharacterMovement()->GetCurrentAcceleration();
+			AccelDir = AccelDir.GetSafeNormal();
+			FRotator FacingRot = UTReplicatedMovement.Rotation;
+			FacingRot.Pitch = 0.f;
+			FVector CurrentDir = FacingRot.Vector();
+			float ForwardDot = CurrentDir | AccelDir;
+
+			UTReplicatedMovement.AccelDir = 0;
+			if (ForwardDot > 0.5f)
+			{
+				UTReplicatedMovement.AccelDir |= 1;
+			}
+			else if (ForwardDot < -0.5f)
+			{
+				UTReplicatedMovement.AccelDir |= 2;
+			}
+
+			FVector SideDir = (CurrentDir ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
+			float SideDot = AccelDir | SideDir;
+			if (SideDot > 0.5f)
+			{
+				UTReplicatedMovement.AccelDir |= 4;
+			}
+			else if (SideDot < -0.5f)
+			{
+				UTReplicatedMovement.AccelDir |= 8;
+			}
+
 			return true;
 		}
 	}
@@ -4487,6 +4515,11 @@ void AUTCharacter::OnRep_UTReplicatedMovement()
 		ReplicatedMovement.bRepPhysics = false;
 
 		OnRep_ReplicatedMovement();
+
+		if (UTCharacterMovement)
+		{
+			UTCharacterMovement->SetReplicatedAcceleration(UTReplicatedMovement.Rotation, UTReplicatedMovement.AccelDir);
+		}
 	}
 }
 

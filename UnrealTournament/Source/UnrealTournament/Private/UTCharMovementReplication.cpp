@@ -241,6 +241,33 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 	Velocity = RealVelocity;
 }
 
+void UUTCharacterMovement::SetReplicatedAcceleration(FRotator MovementRotation, uint8 CompressedAccel)
+{
+	MovementRotation.Pitch = 0.f;
+	FVector CurrentDir = MovementRotation.Vector();
+	FVector SideDir = (CurrentDir ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
+
+	FVector AccelDir(0.f);
+	if (CompressedAccel & 1)
+	{
+		AccelDir += CurrentDir;
+	}
+	else if (CompressedAccel & 2)
+	{
+		AccelDir -= CurrentDir;
+	}
+	if (CompressedAccel & 4)
+	{
+		AccelDir += SideDir;
+	}
+	else if (CompressedAccel & 8)
+	{
+		AccelDir -= SideDir;
+	}
+	bIsSprinting = ((MovementMode == MOVE_Walking) && (Velocity.SizeSquared() > FMath::Square<float>(MaxWalkSpeed)));
+	Acceleration = GetMaxAcceleration() * AccelDir.GetSafeNormal();
+}
+
 // Waiting on update of UCharacterMovementComponent::CharacterMovement(), overriding for now
 void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 {
@@ -301,10 +328,12 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 			return;
 		}
 
-		Acceleration = Velocity.GetSafeNormal();	// Not currently used for simulated movement
 		AnalogInputModifier = 1.0f;				// Not currently used for simulated movement
 
 		MaybeUpdateBasedMovement(DeltaSeconds);
+
+		// @TODO FIXMESTEVE use acceleration to update velocity
+		//DrawDebugLine(GetWorld(), CharacterOwner->GetActorLocation(), CharacterOwner->GetActorLocation() + 0.2f*Acceleration, FLinearColor::Green);
 
 		// simulated pawns predict location
 		OldVelocity = Velocity;
