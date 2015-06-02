@@ -51,7 +51,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 6000.f; 
 	MaxFallingAcceleration = 4200.f;
-	BrakingDecelerationWalking = 200.f;
+	BrakingDecelerationWalking = 500.f;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	GroundFriction = 5.f;
