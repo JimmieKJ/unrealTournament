@@ -474,6 +474,8 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 
 		{
 			uint64 OldAbsTime = 0;
+			// flushes the RHI thread to make sure all RHICmdList.EndRenderQuery() commands got executed.
+			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 			RHICmdList.GetRenderQueryResult(TimerQueries[0], OldAbsTime, true);
 			GTimerQueryPool.ReleaseQuery(RHICmdList, TimerQueries[0]);
 
