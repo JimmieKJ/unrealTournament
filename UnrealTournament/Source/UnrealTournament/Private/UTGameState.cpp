@@ -42,16 +42,6 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	GameScoreStats.Add(NAME_ArmorPadsCount);
 	GameScoreStats.Add(NAME_HelmetCount);
 
-	GameScoreStats.Add(NAME_MultiKillLevel0);
-	GameScoreStats.Add(NAME_MultiKillLevel1);
-	GameScoreStats.Add(NAME_MultiKillLevel2);
-	GameScoreStats.Add(NAME_MultiKillLevel3);
-	GameScoreStats.Add(NAME_SpreeKillLevel0);
-	GameScoreStats.Add(NAME_SpreeKillLevel1);
-	GameScoreStats.Add(NAME_SpreeKillLevel2);
-	GameScoreStats.Add(NAME_SpreeKillLevel3);
-	GameScoreStats.Add(NAME_SpreeKillLevel4);
-
 	TeamStats.Add(NAME_TeamKills);
 	TeamStats.Add(NAME_UDamageTime);
 	TeamStats.Add(NAME_BerserkTime);
@@ -101,6 +91,17 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_BestShockCombo);
 	WeaponStats.Add(NAME_AirRox);
 	WeaponStats.Add(NAME_AmazingCombos);
+
+	RewardStats.Add(NAME_MultiKillLevel0);
+	RewardStats.Add(NAME_MultiKillLevel1);
+	RewardStats.Add(NAME_MultiKillLevel2);
+	RewardStats.Add(NAME_MultiKillLevel3);
+
+	RewardStats.Add(NAME_SpreeKillLevel0);
+	RewardStats.Add(NAME_SpreeKillLevel1);
+	RewardStats.Add(NAME_SpreeKillLevel2);
+	RewardStats.Add(NAME_SpreeKillLevel3);
+	RewardStats.Add(NAME_SpreeKillLevel4);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const

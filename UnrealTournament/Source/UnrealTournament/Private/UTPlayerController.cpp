@@ -522,7 +522,7 @@ void AUTPlayerController::FOV(float NewFOV)
 
 void AUTPlayerController::AdvanceStatsPage(int32 Increment)
 {
-	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 1);
+	CurrentlyViewedStatsTab = FMath::Clamp(CurrentlyViewedStatsTab + Increment, 0, 2);
 	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
 }
 
@@ -548,10 +548,12 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		else if (Key.GetFName() == NAME_Up)
 		{
 			AdvanceStatsPage(-1);
+			return true;
 		}
 		else if (Key.GetFName() == NAME_Down)
 		{
 			AdvanceStatsPage(+1);
+			return true;
 		}
 	}
 
@@ -2329,17 +2331,35 @@ void AUTPlayerController::Tick(float DeltaTime)
 			{
 				LastScoreStatsUpdateStartTime = GetWorld()->GetTimeSeconds();
 			}
-			int32 StatArraySize = (CurrentlyViewedStatsTab == 0) ? GS->GameScoreStats.Num() : GS->WeaponStats.Num();
+			int32 StatArraySize = 0;
+			FName StatsName = NAME_None;
+			if (CurrentlyViewedStatsTab == 0)
+			{
+				StatArraySize = GS->GameScoreStats.Num();
+				if (StatsUpdateIndex < StatArraySize)
+				{
+					StatsName = GS->GameScoreStats[StatsUpdateIndex];
+				}
+			}
+			else if (CurrentlyViewedStatsTab == 1)
+			{
+				StatArraySize = GS->WeaponStats.Num();
+				if (StatsUpdateIndex < StatArraySize)
+				{
+					StatsName = GS->WeaponStats[StatsUpdateIndex];
+				}
+			}
+			else if (CurrentlyViewedStatsTab == 2)
+			{
+				StatArraySize = GS->RewardStats.Num();
+				if (StatsUpdateIndex < StatArraySize)
+				{
+					StatsName = GS->RewardStats[StatsUpdateIndex];
+				}
+			}
 			if (StatsUpdateIndex < StatArraySize)
 			{
-				if (CurrentlyViewedStatsTab == 0)
-				{
-					ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->GameScoreStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->GameScoreStats[StatsUpdateIndex]));
-				}
-				else
-				{
-					ClientUpdateScoreStats(CurrentlyViewedScorePS, GS->WeaponStats[StatsUpdateIndex], CurrentlyViewedScorePS->GetStatsValue(GS->WeaponStats[StatsUpdateIndex]));
-				}
+				ClientUpdateScoreStats(CurrentlyViewedScorePS, StatsName, CurrentlyViewedScorePS->GetStatsValue(StatsName));
 			}
 			StatsUpdateIndex++;
 			if (StatsUpdateIndex >= StatArraySize)

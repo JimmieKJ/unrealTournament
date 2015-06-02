@@ -113,6 +113,12 @@ public:
 		return InPS ? InPS->PlayerName : "";
 	};
 
+	UPROPERTY()
+		TArray<FText> StatsPageTitles;
+
+	UPROPERTY()
+		TArray<FText> StatsPageFooters;
+
 protected:
 
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
@@ -206,6 +212,9 @@ protected:
 
 	/** Draw gametype specific stat lines for player score breakdown. */
 	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
+
+	/** Draw reward stat lines for player. */
+	virtual void DrawRewardStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfoL);
 
 	//-------------------------------------
 

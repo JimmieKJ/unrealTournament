@@ -398,11 +398,6 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 
 void UUTCTFScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
 {
-	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->CurrentlyViewedStatsTab == 1)
-	{
-		DrawWeaponStats(PS, DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight, StatsFontInfo);
-		return;
-	}
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "Kills", "Kills"), PS->Kills, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 	int32 FCKills = PS->GetStatsValue(NAME_FCKills);
 	int32 FlagSupportKills = PS->GetStatsValue(NAME_FlagSupportKills);
