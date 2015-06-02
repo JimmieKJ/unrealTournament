@@ -654,10 +654,13 @@ void AGameMode::HandleMatchHasEnded()
 {
 	GameSession->HandleMatchHasEnded();
 
+	// PLK - going to end replays on timer for UT
+	/*
 	if (IsHandlingReplays() && GetGameInstance() != nullptr)
 	{
 		GetGameInstance()->StopRecordingReplay();
 	}
+	*/
 }
 
 void AGameMode::StartToLeaveMap()

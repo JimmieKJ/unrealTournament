@@ -11,6 +11,7 @@
 #include "Slate/SUWindowsDesktop.h"
 #include "Slate/SUWindowsMainMenu.h"
 #include "Slate/Panels/SUWServerBrowser.h"
+#include "Slate/Panels/SUWReplayBrowser.h"
 #include "Slate/Panels/SUWStatsViewer.h"
 #include "Slate/Panels/SUWCreditsPanel.h"
 #include "Slate/SUWMessageBox.h"
@@ -400,6 +401,16 @@ TSharedPtr<class SUWServerBrowser> UUTLocalPlayer::GetServerBrowser()
 	}
 
 	return ServerBrowserWidget;
+}
+
+TSharedPtr<class SUWReplayBrowser> UUTLocalPlayer::GetReplayBrowser()
+{
+	if (!ReplayBrowserWidget.IsValid())
+	{
+		SAssignNew(ReplayBrowserWidget, SUWReplayBrowser, this);
+	}
+
+	return ReplayBrowserWidget;
 }
 
 TSharedPtr<class SUWStatsViewer> UUTLocalPlayer::GetStatsViewer()

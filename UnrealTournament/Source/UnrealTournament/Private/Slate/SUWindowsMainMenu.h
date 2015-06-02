@@ -29,12 +29,16 @@ protected:
 	virtual void SetInitialPanel();
 
 	virtual void BuildLeftMenuBar();
-	
+
+	virtual TSharedRef<SWidget> BuildWatchSubMenu();
 	virtual TSharedRef<SWidget> BuildTutorialSubMenu();
 
 	virtual FReply OnShowGamePanel(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnTutorialClick();
 	virtual FReply OnCloseClicked();
+
+	virtual FReply OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuButton);
 
 	virtual FReply OnBootCampClick(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnCommunityClick(TSharedPtr<SComboButton> MenuButton);

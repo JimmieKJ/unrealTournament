@@ -1358,9 +1358,21 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	FTimerHandle TempHandle3;
 	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
 
+	FTimerHandle TempHandle4;
+	float EndReplayDelay = EndTimeDelay - 10.f;
+	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
+
 	SendEndOfGameStats(Reason);
 
 	EndMatch();
+}
+
+void AUTGameMode::StopReplayRecording()
+{
+	if (IsHandlingReplays() && GetGameInstance() != nullptr)
+	{
+		GetGameInstance()->StopRecordingReplay();
+	}
 }
 
 void AUTGameMode::InstanceNextMap(const FString& NextMap)

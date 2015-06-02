@@ -371,6 +371,7 @@ public:
 
 	virtual void ShowFinalScoreboard();
 	virtual void TravelToNextMap();
+	virtual void StopReplayRecording();
 
 	virtual void RecreateLobbyBeacon();
 	virtual void DefaultTimer();

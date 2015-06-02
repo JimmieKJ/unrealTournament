@@ -30,6 +30,7 @@
 #include "UTSpectatorCamera.h"
 #include "UTHUDWidget_NetInfo.h"
 #include "UTWorldSettings.h"
+#include "Engine/DemoNetDriver.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -803,6 +804,33 @@ void AUTPlayerController::SwitchWeapon(int32 Group)
 		{
 			UTCharacter->SwitchWeapon(LowestSlotWeapon);
 		}
+	}
+}
+
+void AUTPlayerController::DemoRestart()
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		DemoDriver->GotoTimeInSeconds(0);
+	}
+}
+
+void AUTPlayerController::DemoSeek(float DeltaSeconds)
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		DemoDriver->GotoTimeInSeconds(DemoDriver->DemoCurrentTime + DeltaSeconds);
+	}
+}
+
+void AUTPlayerController::DemoGoToLive()
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		DemoDriver->JumpToEndOfLiveReplay();
 	}
 }
 

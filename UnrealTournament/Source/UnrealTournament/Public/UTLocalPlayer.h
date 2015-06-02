@@ -79,6 +79,7 @@ public:
 	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog, int32 ZOrder = 255);
 	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
 	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
+	TSharedPtr<class SUWReplayBrowser> GetReplayBrowser();
 	TSharedPtr<class SUWStatsViewer> GetStatsViewer();
 	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
 
@@ -113,6 +114,7 @@ protected:
 	// Holds a persistent reference to the server browser.
 	TSharedPtr<class SUWServerBrowser> ServerBrowserWidget;
 
+	TSharedPtr<class SUWReplayBrowser> ReplayBrowserWidget;
 	TSharedPtr<class SUWStatsViewer> StatsViewerWidget;
 	TSharedPtr<class SUWCreditsPanel> CreditsPanelWidget;
 

@@ -348,6 +348,15 @@ public:
 	UFUNCTION(exec)
 	virtual void SetStylizedPP(int32 NewPP);
 
+	UFUNCTION(exec)
+	virtual void DemoRestart();
+
+	UFUNCTION(exec)
+	virtual void DemoSeek(float DeltaSeconds);
+
+	UFUNCTION(exec)
+	virtual void DemoGoToLive();
+	
 	/** whether player wants behindview when spectating */
 	UPROPERTY(BlueprintReadWrite, GlobalConfig)
 	bool bSpectateBehindView;

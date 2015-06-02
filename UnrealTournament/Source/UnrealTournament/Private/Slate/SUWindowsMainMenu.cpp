@@ -17,6 +17,7 @@
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
 #include "Panels/SUWServerBrowser.h"
+#include "Panels/SUWReplayBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
 #include "Panels/SUTFragCenterPanel.h"
@@ -72,8 +73,79 @@ void SUWindowsMainMenu::BuildLeftMenuBar()
 		[
 			BuildTutorialSubMenu()
 		];
-
+		
+		LeftMenuBar->AddSlot()
+		.Padding(40.0f,0.0f,0.0f,0.0f)
+		.AutoWidth()
+		[
+			BuildWatchSubMenu()
+		];
 	}
+}
+
+TSharedRef<SWidget> SUWindowsMainMenu::BuildWatchSubMenu()
+{
+	TSharedPtr<SComboButton> DropDownButton = NULL;
+		SNew(SBox)
+	.HeightOverride(56)
+	[
+		SAssignNew(DropDownButton, SComboButton)
+		.HasDownArrow(false)
+		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
+		.ButtonContent()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_REPLAYS", "WATCH"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+			]
+		]
+	];
+		
+	DropDownButton->SetMenuContent
+	(
+		SNew(SBorder)
+		.BorderImage(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background"))
+		.Padding(FMargin(0.0f,2.0f))
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_YourReplays", "Your Replays"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnYourReplaysClick, DropDownButton)
+			]
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Fill)
+			.Padding(FMargin(0.0f, 2.0f))
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_LiveGames", "Live Games"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnLiveGameReplaysClick, DropDownButton)
+			]
+		]
+	);
+
+	MenuButtons.Add(DropDownButton);
+	return DropDownButton.ToSharedRef();
 }
 
 TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
@@ -374,6 +446,32 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 
 	ConsoleCommand(TEXT("start TUT-BasicTraining?timelimit=0"));
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
+	if (ReplayBrowser.IsValid())
+	{
+		ActivatePanel(ReplayBrowser);
+	}
+
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
+	if (ReplayBrowser.IsValid())
+	{
+		ActivatePanel(ReplayBrowser);
+	}
+
 	return FReply::Handled();
 }
 
