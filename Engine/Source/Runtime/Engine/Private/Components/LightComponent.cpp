@@ -611,11 +611,8 @@ void ULightComponent::BeginDestroy()
 {
 	Super::BeginDestroy();
 
-	if (StaticShadowDepthMap.IsInitialized())
-	{
-		BeginReleaseResource(&StaticShadowDepthMap);
-		StaticShadowDepthMap.Empty();
-	}
+	BeginReleaseResource(&StaticShadowDepthMap);
+	StaticShadowDepthMap.Empty();
 
 	// Use a fence to keep track of when the rendering thread executes the release command
 	DestroyFence.BeginFence();
