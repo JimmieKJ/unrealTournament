@@ -64,7 +64,7 @@ void AUTProj_FlakShard::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!IsPendingKillPending() && (GetNetMode() != NM_DedicatedServer))
+	if (!IsPendingKillPending() && (GetNetMode() != NM_DedicatedServer) && !DisableEmitterLights())
 	{
 		UStaticMeshComponent* ShardMesh = Cast<UStaticMeshComponent>(Mesh);
 		if (ShardMesh)
@@ -79,6 +79,7 @@ void AUTProj_FlakShard::BeginPlay()
 				NewMesh->AttachTo(CollisionComp);
 				NewMesh->SetRelativeLocation(ShardOffset);
 				NewMesh->SetRelativeScale3D(ShardMesh->RelativeScale3D);
+				NewMesh->bGenerateOverlapEvents = false;
 				SatelliteShards.Add(NewMesh);
 			}
 		}
