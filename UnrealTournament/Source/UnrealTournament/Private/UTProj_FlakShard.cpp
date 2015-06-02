@@ -16,12 +16,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 		Mesh->bReceivesDecals = false;
 		Mesh->bUseAsOccluder = false;
 	}
-	MeshSpinner = ObjectInitializer.CreateOptionalDefaultSubobject<URotatingMovementComponent>(this, FName(TEXT("MeshSpinner")));
-	if (MeshSpinner != NULL)
-	{
-		MeshSpinner->RotationRate.Roll = 275.0f;
-		MeshSpinner->UpdatedComponent = Mesh;
-	}
+
 	Trail = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, FName(TEXT("Trail")));
 	if (Trail != NULL)
 	{
@@ -62,7 +57,34 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	bNetTemporary = true;
+	NumSatelliteShards = 1;
 }
+
+void AUTProj_FlakShard::BeginPlay()
+{
+	Super::BeginPlay();
+
+	if (!IsPendingKillPending() && (GetNetMode() != NM_DedicatedServer))
+	{
+		UStaticMeshComponent* ShardMesh = Cast<UStaticMeshComponent>(Mesh);
+		if (ShardMesh)
+		{
+			for (int32 i = 0; i < NumSatelliteShards; i++)
+			{
+				FVector ShardOffset = OverlapRadius * FVector(0.f, FMath::FRand() - 0.5f, FMath::FRand() - 0.5f).GetSafeNormal();
+				UStaticMeshComponent* NewMesh = NewObject<UStaticMeshComponent>(this);
+				NewMesh->SetStaticMesh(ShardMesh->StaticMesh);
+				NewMesh->SetMaterial(0, ShardMesh->GetMaterial(0));
+				NewMesh->RegisterComponentWithWorld(GetWorld());
+				NewMesh->AttachTo(CollisionComp);
+				NewMesh->SetRelativeLocation(ShardOffset);
+				NewMesh->SetRelativeScale3D(ShardMesh->RelativeScale3D);
+				SatelliteShards.Add(NewMesh);
+			}
+		}
+	}
+}
+
 
 void AUTProj_FlakShard::CatchupTick(float CatchupTickDelta)
 {
@@ -118,6 +140,21 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 		SetLifeSpan(GetLifeSpan() + BounceFinalLifeSpanIncrement);
 		ProjectileMovement->bShouldBounce = false;
 	}
+	RemoveSatelliteShards();
+}
+
+void AUTProj_FlakShard::RemoveSatelliteShards()
+{
+	// remove satellite shards
+	for (int32 i = 0; i < SatelliteShards.Num(); i++)
+	{
+		if (SatelliteShards[i])
+		{
+			SatelliteShards[i]->DetachFromParent();
+			SatelliteShards[i]->SetHiddenInGame(true);
+		}
+	}
+	SatelliteShards.Empty();
 }
 
 FRadialDamageParams AUTProj_FlakShard::GetDamageParams_Implementation(AActor* OtherActor, const FVector& HitLocation, float& OutMomentum) const
@@ -146,6 +183,7 @@ void AUTProj_FlakShard::Tick(float DeltaTime)
 	if (InitialLifeSpan - GetLifeSpan() > FullGravityDelay)
 	{
 		ProjectileMovement->ProjectileGravityScale = 1.f;
+		RemoveSatelliteShards();
 	}
 
 	if (HeatFadeTime > 0.0f)

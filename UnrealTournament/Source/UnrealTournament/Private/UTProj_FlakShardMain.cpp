@@ -10,6 +10,7 @@ AUTProj_FlakShardMain::AUTProj_FlakShardMain(const class FObjectInitializer& Obj
 	CenteredMomentumBonus = 180000.f;
 	CenteredDamageBonus = 100.0f;
 	MaxBonusTime = 0.2f;
+	NumSatelliteShards = 3;
 }
 
 void AUTProj_FlakShardMain::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)

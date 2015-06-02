@@ -18,12 +18,11 @@ class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 	/** projectile mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
 	class UMeshComponent* Mesh;
-	/** spins the mesh */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
-	class URotatingMovementComponent* MeshSpinner;
+
 	/** material instance to apply heat amount to mesh */
 	UPROPERTY(BlueprintReadWrite, Category = Effects)
 	UMaterialInstanceDynamic* MeshMI;
+
 	/** particle component for trail */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
 	class UParticleSystemComponent* Trail;
@@ -78,12 +77,24 @@ class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 	/** amount of time for the hot effects to fade */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	float HeatFadeTime;
+
 	/** color for trail particles when hot */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	FLinearColor HotTrailColor;
+
 	/** color for trail particles after HeadFadeTime */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	FLinearColor ColdTrailColor;
+
+	/** Number of extra visual shards inside this projectiles overlap sphere. */
+	UPROPERTY(EditAnywhere, Category = Effects)
+		int32 NumSatelliteShards;
+
+	/* Extra visual shards. */
+	UPROPERTY(BlueprintReadOnly, Category = Effects)
+		TArray<UStaticMeshComponent*> SatelliteShards;
+
+	virtual void RemoveSatelliteShards();
 
 	virtual void PostInitializeComponents() override;
 
@@ -93,4 +104,5 @@ class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 
 	virtual void Tick(float DeltaTime) override;
 	virtual void CatchupTick(float CatchupTickDelta) override;
+	virtual void BeginPlay() override;
 };
