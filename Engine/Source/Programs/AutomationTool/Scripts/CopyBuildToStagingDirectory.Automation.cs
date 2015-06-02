@@ -637,7 +637,7 @@ public partial class Project : CommandUtils
 
     private static string GetReleasePakFilePath(DeploymentContext SC, ProjectParams Params, string ReleaseVersion, string PakName)
     {
-        string ReleaseVersionPath = CombinePaths(SC.ProjectRoot, "Releases", ReleaseVersion, SC.StageTargetPlatform.GetCookPlatform(Params.DedicatedServer, false, Params.CookFlavor), PakName);
+        string ReleaseVersionPath = CombinePaths(SC.ProjectRoot, "Releases", ReleaseVersion, SC.StageTargetPlatform.GetCookPlatform(SC.DedicatedServer, false, Params.CookFlavor), PakName);
         return ReleaseVersionPath;
     }
 
