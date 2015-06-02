@@ -432,7 +432,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayMode", "Display Mode").ToString())
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "DisplayMode", "Display Mode"))
 				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "Fullscreen_Tooltip", "Toggle whether the application runs in full-screen mode or is in a window.")))
 			]
 		]
@@ -449,7 +449,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGeneralTab()
 			.Content()
 			[
 				SAssignNew(SelectedDisplayMode, STextBlock)
-				.Text(*DisplayModeList[CurrentDisplayIndex].Get())
+				.Text(FText::FromString(*DisplayModeList[CurrentDisplayIndex].Get()))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 			]
 		]
