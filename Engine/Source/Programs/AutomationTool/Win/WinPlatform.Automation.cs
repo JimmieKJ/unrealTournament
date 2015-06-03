@@ -44,6 +44,12 @@ public abstract class BaseWinPlatform : Platform
 		// Copy the splash screen, windows specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
+        if (Params.bUsesCEF3)
+        {
+            // CEF3 files
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3", SC.PlatformDir), "*", true, null, null, true);
+        }
+
 		// Stage the bootstrap executable
 		if(!Params.NoBootstrapExe)
 		{
