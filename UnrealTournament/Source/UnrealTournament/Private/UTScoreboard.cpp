@@ -107,7 +107,7 @@ AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir)
 	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
 	{
 		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
-		if (PlayerState != NULL)
+		if (PlayerState && !PlayerState->bOnlySpectator)
 		{
 			return PlayerState;
 		}
@@ -118,7 +118,7 @@ AUTPlayerState* UUTScoreboard::GetNextScoringPlayer(int32 dir)
 	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex<GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
 	{
 		AUTPlayerState* const PlayerState = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[NewIndex]);
-		if (PlayerState != NULL)
+		if (PlayerState && !PlayerState->bOnlySpectator)
 		{
 			return PlayerState;
 		}
