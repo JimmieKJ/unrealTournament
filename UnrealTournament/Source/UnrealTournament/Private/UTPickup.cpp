@@ -29,6 +29,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	Collision = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Collision->InitCapsuleSize(64.0f, 75.0f);
+	Collision->bShouldUpdatePhysicsVolume = false;
 	RootComponent = Collision;
 
 	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));

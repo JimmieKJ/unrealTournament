@@ -117,6 +117,7 @@ static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* Current
 			if (Prim != NULL)
 			{
 				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				Prim->bShouldUpdatePhysicsVolume = false;
 			}
 			NewComp->RegisterComponent();
 			NewComp->AttachTo(CurrentAttachment, NewComp->AttachSocketName);
@@ -135,6 +136,7 @@ static void CreatePickupMeshAttachments(AActor* Pickup, USceneComponent* Current
 			if (Prim != NULL)
 			{
 				Prim->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				Prim->bShouldUpdatePhysicsVolume = false;
 			}
 			NewComp->RegisterComponent();
 			NewComp->AttachTo(CurrentAttachment, BPNodes[i]->AttachToName);
@@ -181,6 +183,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 				}
 				PickupMesh = NewObject<UMeshComponent>(Pickup, NewMesh->GetClass(), NAME_None, RF_NoFlags, NewMesh);
 				PickupMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				PickupMesh->bShouldUpdatePhysicsVolume = false;
 				PickupMesh->AttachParent = NULL;
 				PickupMesh->AttachChildren.Empty();
 				PickupMesh->RelativeRotation = FRotator::ZeroRotator;
@@ -241,6 +244,10 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 {
 	CreatePickupMesh(this, Mesh, InventoryType, FloatHeight, RotationOffset, bAllowRotatingPickup);
+	if (Mesh)
+	{
+		Mesh->bShouldUpdatePhysicsVolume = false;
+	}
 	if (GhostMeshMaterial != NULL)
 	{
 		if (GhostMesh != NULL)
@@ -263,6 +270,7 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 				GhostMesh->SetWorldScale3D(Mesh->GetComponentScale());
 			}
 			GhostMesh->SetVisibility(!State.bActive, true);
+			GhostMesh->bShouldUpdatePhysicsVolume = false;
 		}
 	}
 	if (Mesh != NULL && !State.bActive && Role < ROLE_Authority)

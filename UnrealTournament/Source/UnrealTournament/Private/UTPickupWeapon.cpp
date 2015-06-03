@@ -71,6 +71,7 @@ void AUTPickupWeapon::InventoryTypeUpdated_Implementation()
 		GhostDepthMesh->SetRenderCustomDepth(true);
 		GhostDepthMesh->SetRenderInMainPass(false);
 		GhostDepthMesh->RegisterComponent();
+		GhostDepthMesh->bShouldUpdatePhysicsVolume = false;
 		GhostDepthMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
 		if (GhostDepthMesh->bAbsoluteScale) // SnapToTarget doesn't handle absolute...
 		{
