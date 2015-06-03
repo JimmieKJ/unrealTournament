@@ -12,18 +12,8 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 
 	virtual void ReceivedPlayer() override;
 
-	virtual void OnFire() override
-	{
-		if (GetWorld()->GetGameState() != NULL)
-		{
-			ViewAPlayer(+1);
-		}
-	}
-	virtual void OnStopAltFire() override
-	{
-		ResetCameraMode();
-		SetViewTarget(this);
-	}
+	virtual void ViewPlayerState(APlayerState* PS) override;
+	virtual void ViewSelf(FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 
 	virtual void ViewAPlayer(int32 dir) override;
 	virtual APlayerState* GetNextViewablePlayer(int32 dir) override;

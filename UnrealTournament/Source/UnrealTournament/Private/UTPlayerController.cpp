@@ -875,7 +875,7 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 		{
 			bAutoCam = false;
 			BehindView(bSpectateBehindView);
-			ServerViewPlayerState(*PlayerToView);
+			ViewPlayerState(*PlayerToView);
 		}
 	}
 }
@@ -945,8 +945,13 @@ void AUTPlayerController::ViewClosestVisiblePlayer()
 	if (BestChar)
 	{
 		bAutoCam = false;
-		ServerViewPlayerState(BestChar);
+		ViewPlayerState(BestChar);
 	}
+}
+
+void AUTPlayerController::ViewPlayerState(APlayerState* PS)
+{
+	ServerViewPlayerState(PS);
 }
 
 bool AUTPlayerController::ServerViewPlayerState_Validate(APlayerState* PS)
@@ -1185,7 +1190,7 @@ void AUTPlayerController::OnAltFire()
 		else
 		{
 			bAutoCam = false;
-			ServerViewSelf();
+			ViewSelf();
 		}
 	}
 	else
@@ -2154,6 +2159,10 @@ void AUTPlayerController::EndCameraControl()
 	}
 }
 
+void AUTPlayerController::ViewSelf(FViewTargetTransitionParams TransitionParams)
+{
+	ServerViewSelf(TransitionParams);
+}
 
 void AUTPlayerController::ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams)
 {
@@ -2432,7 +2441,7 @@ void AUTPlayerController::ChooseBestCamera()
 
 	if (BestPS && (BestPS != LastSpectatedPlayerState))
 	{
-		ServerViewPlayerState(BestPS);
+		ViewPlayerState(BestPS);
 		BehindView(bSpectateBehindView);
 	}
 }

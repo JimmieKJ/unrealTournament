@@ -196,6 +196,7 @@ public:
 
 	virtual void SetViewTarget(class AActor* NewViewTarget, FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
 	virtual void ServerViewSelf_Implementation(FViewTargetTransitionParams TransitionParams) override;
+	virtual void ViewSelf(FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams());
 
 	/** Update rotation to be good view of current viewtarget.  UnBlockedPct is how much of the camera offset trace needs to be unblocked. */
 	UFUNCTION()
@@ -221,6 +222,8 @@ public:
 	/** View character associated with playerstate. */
 	UFUNCTION(unreliable, server, WithValidation)
 	void ServerViewPlayerState(APlayerState* PS);
+
+	virtual void ViewPlayerState(APlayerState* PS);
 
 	UFUNCTION(exec)
 	virtual void ViewClosestVisiblePlayer();

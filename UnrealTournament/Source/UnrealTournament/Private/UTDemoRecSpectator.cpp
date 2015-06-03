@@ -8,21 +8,31 @@ AUTDemoRecSpectator::AUTDemoRecSpectator(const FObjectInitializer& OI)
 {
 }
 
+void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
+{
+	// we have to redirect back to the Pawn because engine hardcoded FTViewTarget code will reject a PlayerState with NULL owner
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (It->IsValid() && It->Get()->PlayerState == PS)
+		{
+			SetViewTarget(It->Get());
+		}
+	}
+}
+
+void AUTDemoRecSpectator::ViewSelf(FViewTargetTransitionParams TransitionParams)
+{
+	ServerViewSelf_Implementation(TransitionParams);
+}
+
 void AUTDemoRecSpectator::ViewAPlayer(int32 dir)
 {
 	BehindView(bSpectateBehindView);
 
-	APlayerState* const PlayerState = GetNextViewablePlayer(dir);
+	APlayerState* const PS = GetNextViewablePlayer(dir);
 	if (PlayerState != NULL)
 	{
-		// we have to redirect back to the Pawn because engine hardcoded FTViewTarget code will reject a PlayerState with NULL owner
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-		{
-			if (It->IsValid() && It->Get()->PlayerState == PlayerState)
-			{
-				SetViewTarget(It->Get());
-			}
-		}
+		ViewPlayerState(PS);
 	}
 }
 APlayerState* AUTDemoRecSpectator::GetNextViewablePlayer(int32 dir)
