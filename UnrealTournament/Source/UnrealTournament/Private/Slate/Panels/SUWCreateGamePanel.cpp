@@ -441,24 +441,33 @@ TSharedRef<SWidget> SUWCreateGamePanel::AddMutatorMenu()
 
 void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection.Get()->GetDisplayName()) : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"));
+	if (NewSelection.IsValid())
+	{
+		SelectedMap->SetText(NewSelection.IsValid() ? FText::FromString(NewSelection.Get()->GetDisplayName()) : NSLOCTEXT("SUWCreateGamePanel", "NoMaps", "No Maps Available"));
 
-	UUTLevelSummary* Summary = NewSelection.IsValid() ? UUTGameEngine::LoadLevelSummary(NewSelection.Get()->PackageName) : NULL;
-	if (Summary != NULL)
-	{
-		int32 OptimalPlayerCount = SelectedGameClass.GetDefaultObject()->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+		int32 OptimalPlayerCount = SelectedGameClass.GetDefaultObject()->bTeamGame ? NewSelection->OptimalTeamPlayerCount : NewSelection->OptimalPlayerCount;
 	
-		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(Summary->Author)));
+		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(NewSelection->Author)));
 		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0}"), FText::AsNumber(OptimalPlayerCount)));
-		MapDesc->SetText(Summary->Description);
-		*LevelScreenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
-	}
-	else
-	{
-		MapAuthor->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "Author", "Author: {0}"), FText::FromString(TEXT("Unknown"))));
-		MapRecommendedPlayers->SetText(FText::Format(NSLOCTEXT("SUWCreateGamePanel", "OptimalPlayers", "Recommended Players: {0}"), FText::AsNumber(10)));
-		MapDesc->SetText(FText());
-		*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+		MapDesc->SetText(NewSelection->Description);
+
+		if (NewSelection->Screenshot.IsEmpty())
+		{
+			*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+		}
+		else
+		{
+			UTexture2D* LevelShot = LoadObject<UTexture2D>(nullptr, *NewSelection->Screenshot);
+			if (LevelShot)
+			{
+				*LevelScreenshot = FSlateDynamicImageBrush(LevelShot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+			}
+			else
+			{
+				*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+			}
+			
+		}
 	}
 }
 

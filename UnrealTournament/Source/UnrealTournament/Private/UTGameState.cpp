@@ -938,9 +938,32 @@ void AUTGameState::GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<T
 		if ( DefaultGameMode->SupportsMap(Asset.AssetName.ToString()) && !MapPackageName.StartsWith(TEXT("/Engine/")) &&
 			IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
 		{
-			static FName NAME_Title(TEXT("Title"));
-			const FString* Title = Asset.TagsAndValues.Find(NAME_Title);
-			MapList.Add(MakeShareable(new FMapListItem(Asset.AssetName.ToString(), (Title != NULL) ? *Title : FString())));
+			const FString* Title = Asset.TagsAndValues.Find(NAME_MapInfo_Title); 
+			const FString* Author = Asset.TagsAndValues.Find(NAME_MapInfo_Author);
+			const FString* Description = Asset.TagsAndValues.Find(NAME_MapInfo_Description);
+			const FString* Screenshot = Asset.TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+
+			const FString* OptimalPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalPlayerCount);
+			int32 OptimalPlayerCount = 6;
+			if (OptimalPlayerCountStr != NULL)
+			{
+				OptimalPlayerCount = FCString::Atoi(**OptimalPlayerCountStr);
+			}
+
+			const FString* OptimalTeamPlayerCountStr = Asset.TagsAndValues.Find(NAME_MapInfo_OptimalTeamPlayerCount);
+			int32 OptimalTeamPlayerCount = 10;
+			if (OptimalTeamPlayerCountStr != NULL)
+			{
+				OptimalTeamPlayerCount = FCString::Atoi(**OptimalTeamPlayerCountStr);
+			}
+
+			MapList.Add(MakeShareable(new FMapListItem(
+					Asset.PackageName.ToString(), 
+					(Title != NULL) ? *Title : *Asset.AssetName.ToString(), 
+					(Author != NULL) ? *Author : FString(),
+					(Description != NULL) ? *Description : FString(),
+					(Screenshot != NULL) ? *Screenshot : FString(),
+					OptimalPlayerCount, OptimalTeamPlayerCount)));
 		}
 	}
 }

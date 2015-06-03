@@ -24,22 +24,39 @@ class UNREALTOURNAMENT_API UUTLevelSummary : public UObject
 	FString Title;
 
 	/** desired number of players for best gameplay */
-	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
+	UPROPERTY(EditInstanceOnly, AssetRegistrySearchable, Category = LevelSummary)
 	int32 OptimalPlayerCount;
 
 	/** desired number of players for best gameplay */
-	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
+	UPROPERTY(EditInstanceOnly, AssetRegistrySearchable, Category = LevelSummary)
 	int32 OptimalTeamPlayerCount;
 
 	/** name of author(s) */
-	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
+	UPROPERTY(EditInstanceOnly, AssetRegistrySearchable, Category = LevelSummary)
 	FString Author;
 
 	/** level description */
-	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
+	UPROPERTY(EditInstanceOnly, AssetRegistrySearchable, Category = LevelSummary)
 	FText Description;
 
 	/** level screenshot */
 	UPROPERTY(EditInstanceOnly, Category = LevelSummary)
 	UTexture2D* Screenshot;
+
+	/** Holds a string reference to the screenshot so various things can lazy load them */
+	UPROPERTY(AssetRegistrySearchable)
+	FString ScreenshotReference;
+
+	virtual void PreSave()
+	{
+		if (Screenshot)
+		{
+			ScreenshotReference = Screenshot->GetPathName();
+		}
+		else
+		{
+			ScreenshotReference = TEXT("");
+		}
+	}
+
 };

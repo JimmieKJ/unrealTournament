@@ -399,8 +399,23 @@ struct FMapListItem
 	/** optional title pulled from asset registry, if it exists */
 	FString Title;
 
-	FMapListItem(const FString& InPackageName, const FString& InTitle)
-		: PackageName(InPackageName), Title(InTitle)
+	/** Pull this from the asset registery now */
+	FString Author;
+
+	/** Pulled from the asset registery now */
+	FString Description;
+
+	/** reference to the screenshot for this map */
+	FString Screenshot;
+
+	/** The best # of players for this map in a non-team game **/
+	int32 OptimalPlayerCount;
+
+	/** The best # of players for this map in a team game **/
+	int32 OptimalTeamPlayerCount;
+
+	FMapListItem(const FString& InPackageName, const FString& InTitle, const FString& InAuthor, const FString& InDescription, const FString& InScreenshot, int32 inOptimalPlayerCount, int32 inOptimalTeamPlayerCount)
+		: PackageName(InPackageName), Title(InTitle), Author(InAuthor), Description(InDescription), Screenshot(InScreenshot), OptimalPlayerCount(inOptimalPlayerCount), OptimalTeamPlayerCount(inOptimalTeamPlayerCount)
 	{}
 
 	FString GetDisplayName() const
@@ -469,29 +484,18 @@ struct FAllowedData
 	UPROPERTY()
 	TEnumAsByte<EGameDataType::Type> DataType;
 
-	// The menu description for this data.  Since we do not want to 
+	// The package name of this content
 	UPROPERTY()
-	FString MenuDescription;
-
-	UPROPERTY()
-	FString Reference;
-
-	UPROPERTY()
-	FString Package;
-
-	UPROPERTY()
-	bool bIsCustomContent;
+	FString PackageName;
 
 	FAllowedData()
 		: DataType(EGameDataType::GameMode)
-		, MenuDescription(TEXT(""))
-		, Reference(TEXT(""))
-		, Package(TEXT(""))
-		, bIsCustomContent(false)
+		, PackageName(TEXT(""))
 	{}
 
-	FAllowedData(EGameDataType::Type inDataType, FString inMenuDescription, FString inReference, FString inPackage, bool inbIsCustomContent)
-		: DataType(inDataType), MenuDescription(inMenuDescription), Reference(inReference), Package(inPackage), bIsCustomContent(inbIsCustomContent)
+	FAllowedData(EGameDataType::Type inDataType, const FString& inPackageName)
+		: DataType(inDataType)
+		, PackageName(inPackageName)
 	{}
 
 };
@@ -545,5 +549,11 @@ struct FFlagInfo
 		return MakeShareable( new FFlagInfo( inTitle, inId) );
 	}
 
-
 };
+
+static FName NAME_MapInfo_Title(TEXT("Title"));
+static FName NAME_MapInfo_Author(TEXT("Author"));
+static FName NAME_MapInfo_Description(TEXT("Description"));
+static FName NAME_MapInfo_OptimalPlayerCount(TEXT("OptimalPlayerCount"));
+static FName NAME_MapInfo_OptimalTeamPlayerCount(TEXT("OptimalTeamPlayerCount"));
+static FName NAME_MapInfo_ScreenshotReference(TEXT("ScreenshotReference"));

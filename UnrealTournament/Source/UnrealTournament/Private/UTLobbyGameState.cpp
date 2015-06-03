@@ -713,12 +713,12 @@ void AUTLobbyGameState::ScanAssetRegistry()
 				if (!GM->bHideInUI)
 				{
 					// This is bad.. needs to be localized on the client :( but for not it will work. 
-					AllowedGameData.Add(FAllowedData(EGameDataType::GameMode, GM->DisplayName.ToString(), GM->GetClass()->GetName(), GM->GetClass()->GetPathName(), false));
+					AllowedGameData.Add(FAllowedData(EGameDataType::GameMode, GM->GetClass()->GetPathName()));
 				}
 			}
 			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
 			{
-				AllowedGameData.Add(FAllowedData(EGameDataType::Mutator, It->GetDefaultObject<AUTMutator>()->DisplayName.ToString(), It->GetName(), TEXT(""), false));
+				AllowedGameData.Add(FAllowedData(EGameDataType::Mutator, It->GetName()));
 			}
 		}
 	}
@@ -736,7 +736,7 @@ void AUTLobbyGameState::ScanAssetRegistry()
 			const FString* DisplayName = Asset.TagsAndValues.Find(NAME_DisplayName);
 			if (DisplayName != NULL)
 			{
-				AllowedGameData.Add( FAllowedData(EGameDataType::GameMode, *DisplayName, *ClassPath, Asset.PackageName.ToString(), false));
+				AllowedGameData.Add( FAllowedData(EGameDataType::GameMode, Asset.PackageName.ToString()));
 			}
 		}
 	}
@@ -752,7 +752,7 @@ void AUTLobbyGameState::ScanAssetRegistry()
 			const FString* DisplayName = Asset.TagsAndValues.Find(NAME_DisplayName);
 			if (DisplayName != NULL)
 			{
-				AllowedGameData.Add( FAllowedData(EGameDataType::Mutator, *DisplayName, *ClassPath, Asset.PackageName.ToString(), false));
+				AllowedGameData.Add( FAllowedData(EGameDataType::Mutator, Asset.PackageName.ToString()));
 			}
 		}
 	}
@@ -765,9 +765,7 @@ void AUTLobbyGameState::ScanAssetRegistry()
 		FString MapPackageName = Asset.PackageName.ToString();
 		if ( !MapPackageName.StartsWith(TEXT("/Engine/")) && IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
 		{
-			static FName NAME_Title(TEXT("Title"));
-			const FString* Title = Asset.TagsAndValues.Find(NAME_Title);
-			AllowedGameData.Add(FAllowedData(EGameDataType::Map, (Title != NULL && *Title != TEXT("")) ? *Title : Asset.AssetName.ToString(), TEXT(""),Asset.AssetName.ToString(), false) );
+			AllowedGameData.Add(FAllowedData( EGameDataType::Map, MapPackageName) );
 		}
 	}
 
@@ -797,7 +795,7 @@ void AUTLobbyGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<
 		bool bFound = false;
 		for (int32 i=0; i < AllowedGameModes.Num(); i++)
 		{
-			if (GameModes[GIndex]->GetName() == AllowedGameModes[i].Reference)
+			if (GameModes[GIndex]->GetPathName() == AllowedGameModes[i].PackageName)
 			{
 				bFound = true;
 				break;
@@ -820,7 +818,7 @@ void AUTLobbyGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<
 		bool bFound = false;
 		for (int32 i=0; i < AllowedMutators.Num(); i++)
 		{
-			if (MutatorList[MIndex]->GetName() == AllowedMutators[i].Reference)
+			if (MutatorList[MIndex]->GetPathName() == AllowedMutators[i].PackageName)
 			{
 				bFound = true;
 				break;
@@ -848,7 +846,7 @@ void AUTLobbyGameState::GetAvailableMaps(const AUTGameMode* DefaultGameMode, TAr
 		bool bFound = false;
 		for (int32 i=0; i < AllowedMaps.Num(); i++)
 		{
-			if (MapList[MIndex]->PackageName.Equals(AllowedMaps[i].Package, ESearchCase::IgnoreCase))
+			if (MapList[MIndex]->PackageName.Equals(AllowedMaps[i].PackageName, ESearchCase::IgnoreCase))
 			{
 				bFound = true;
 				break;
