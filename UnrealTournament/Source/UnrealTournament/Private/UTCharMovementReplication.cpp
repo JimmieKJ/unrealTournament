@@ -122,13 +122,13 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 	}
 
 	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
-	if (ClientData && ClientData->bSmoothNetUpdates)
+	if (ClientData && ClientData->bSmoothNetUpdates && CharacterOwner->GetMesh() && !CharacterOwner->GetMesh()->IsSimulatingPhysics())
 	{
 		// faster interpolation if stopped
 		float SmoothTime = Velocity.IsZero() ? 0.5f*ClientData->SmoothNetUpdateTime : ClientData->SmoothNetUpdateTime;
 
 		// smooth interpolation of mesh translation to avoid popping of other client pawns, unless driving or ragdoll or low tick rate
-		if ((DeltaSeconds < SmoothTime) && CharacterOwner->GetMesh() && !CharacterOwner->GetMesh()->IsSimulatingPhysics())
+		if (DeltaSeconds < SmoothTime)
 		{
 			ClientData->MeshTranslationOffset = (ClientData->MeshTranslationOffset * (1.f - DeltaSeconds / SmoothTime));
 		}
@@ -143,11 +143,8 @@ void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 			ClientData->MeshTranslationOffset.Z = 0.f;
 		}
 
-		if (CharacterOwner->GetMesh())
-		{
-			const FVector NewRelTranslation = CharacterOwner->ActorToWorld().InverseTransformVectorNoScale(ClientData->MeshTranslationOffset + CharacterOwner->GetBaseTranslationOffset());
-			CharacterOwner->GetMesh()->SetRelativeLocation(NewRelTranslation);
-		}
+		const FVector NewRelTranslation = CharacterOwner->ActorToWorld().InverseTransformVectorNoScale(ClientData->MeshTranslationOffset + CharacterOwner->GetBaseTranslationOffset());
+		CharacterOwner->GetMesh()->SetRelativeLocation(NewRelTranslation);
 		//DrawDebugSphere(GetWorld(), CharacterOwner->GetActorLocation(), 30.f, 8, FColor::Yellow);
 	}
 }
