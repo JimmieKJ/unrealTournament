@@ -195,7 +195,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	bool bMustBeHolstered;
 
 	/** If true , weapon can be thrown. */
-	UPROPERTY(EditAnywhere, Category = "Weapon")
+	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = "Weapon")
 	bool bCanThrowWeapon;
 
 	/** if true, don't display in menus like the weapon priority menu (generally because the weapon's use is outside the user's control, e.g. instagib) */
