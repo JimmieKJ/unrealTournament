@@ -378,3 +378,9 @@ void AUTLobbyGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerContr
 	PlayerState->Destroy();
 	return;
 }
+
+bool AUTLobbyGameMode::IsHandlingReplays()
+{
+	// No replays for HUB
+	return false;
+}
