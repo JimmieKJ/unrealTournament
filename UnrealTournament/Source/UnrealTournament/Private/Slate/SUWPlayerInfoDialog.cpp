@@ -281,7 +281,7 @@ void SUWPlayerInfoDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Heig
 
 	FSceneViewInitOptions PlayerPreviewInitOptions;
 	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
-	PlayerPreviewInitOptions.ViewOrigin = CameraPosition;
+	PlayerPreviewInitOptions.ViewOrigin = -CameraPosition;
 	PlayerPreviewInitOptions.ViewRotationMatrix = FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
 	PlayerPreviewInitOptions.ProjectionMatrix = 
 		FReversedZPerspectiveMatrix(
