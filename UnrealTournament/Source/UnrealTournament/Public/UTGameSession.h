@@ -66,7 +66,7 @@ protected:
 
 public:
 	virtual bool BanPlayer(APlayerController* BannedPlayer, const FText& BanReason);
-
+	virtual void HandleMatchHasEnded();
 protected:
 	UPROPERTY(Config)
 	TArray<FString> BannedUsers;

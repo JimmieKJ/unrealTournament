@@ -1360,7 +1360,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 	FTimerHandle TempHandle4;
 	float EndReplayDelay = EndTimeDelay - 10.f;
-	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
+	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
 

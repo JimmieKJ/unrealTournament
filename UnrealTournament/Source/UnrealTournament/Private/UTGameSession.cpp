@@ -240,11 +240,23 @@ void AUTGameSession::EndMatch()
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
-			OnEndSessionCompleteDelegate = SessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnEndSessionComplete));
-			SessionInterface->EndSession(GameSessionName);
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				APlayerController* PlayerController = *Iterator;
+				if (!PlayerController->IsLocalController())
+				{
+					PlayerController->ClientEndOnlineSession();
+				}
+			}
+
+			SessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnEndSessionComplete));
+			SessionInterface->EndSession(SessionName);
 		}
 	}
-	
+}
+
+void AUTGameSession::HandleMatchHasEnded()
+{
 }
 
 
