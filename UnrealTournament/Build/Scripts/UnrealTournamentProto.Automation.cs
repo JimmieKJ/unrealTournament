@@ -723,7 +723,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			// Generate the DDC
 			string OutputFileName = CommandUtils.CombinePaths(StageDirectory, "Engine", "DerivedDataCache", "Compressed.ddp");
 			CommandUtils.DeleteFile(OutputFileName);
-            CommandUtils.DDCCommandlet(CommandUtils.MakeRerootedFilePath(GameProj.FilePath, CommandUtils.CmdEnv.LocalRoot, StageDirectory), CommandUtils.GetEditorCommandletExe(StageDirectory, HostPlatform), null, TargetPlatforms, "-fill -DDC=CreateRocketPak -Map=Example_Map");
+            CommandUtils.DDCCommandlet(CommandUtils.MakeRerootedFilePath(GameProj.FilePath, CommandUtils.CmdEnv.LocalRoot, StageDirectory), CommandUtils.GetEditorCommandletExe(StageDirectory, HostPlatform), null, TargetPlatforms, "-fill -DDC=CreateInstalledEnginePak -Map=Example_Map");
 			RequiredFiles.Add(OutputFileName);
 
 			// Clean up the directory from everything else
