@@ -259,9 +259,18 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 		{
 			GhostMesh = DuplicateObject<UMeshComponent>(Mesh, this);
 			GhostMesh->AttachParent = NULL;
+			GhostMesh->CastShadow = false;
 			for (int32 i = 0; i < GhostMesh->GetNumMaterials(); i++)
 			{
 				GhostMesh->SetMaterial(i, GhostMeshMaterial);
+				static FName NAME_Normal(TEXT("Normal"));
+				UMaterialInterface* OrigMat = Mesh->GetMaterial(i);
+				UTexture* NormalTex = NULL;
+				if (OrigMat != NULL && OrigMat->GetTextureParameterValue(NAME_Normal, NormalTex))
+				{
+					UMaterialInstanceDynamic* MID = GhostMesh->CreateAndSetMaterialInstanceDynamic(i);
+					MID->SetTextureParameterValue(NAME_Normal, NormalTex);
+				}
 			}
 			GhostMesh->RegisterComponent();
 			GhostMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
