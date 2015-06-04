@@ -361,7 +361,10 @@ public:
 
 	UFUNCTION(exec)
 	virtual void DemoGoToLive();
-	
+
+	UFUNCTION(exec)
+	virtual void DemoPause();
+
 	/** whether player wants behindview when spectating */
 	UPROPERTY(BlueprintReadWrite, GlobalConfig)
 	bool bSpectateBehindView;

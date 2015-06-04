@@ -165,6 +165,9 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
 
+	// Hack to allow animations during pause
+	DeltaTime = GetWorld()->DeltaTimeSeconds;
+
 	if (TextureAtlas && UTGameState)
 	{
 		SlideIn = (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds) 

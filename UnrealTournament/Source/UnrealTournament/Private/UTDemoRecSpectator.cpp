@@ -6,6 +6,7 @@
 AUTDemoRecSpectator::AUTDemoRecSpectator(const FObjectInitializer& OI)
 : Super(OI)
 {
+	bShouldPerformFullTickWhenPaused = true;
 }
 
 void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)

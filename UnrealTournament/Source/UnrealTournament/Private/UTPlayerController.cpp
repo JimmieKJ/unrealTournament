@@ -834,6 +834,24 @@ void AUTPlayerController::DemoGoToLive()
 	}
 }
 
+void AUTPlayerController::DemoPause()
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		AWorldSettings* const WorldSettings = GetWorldSettings();
+
+		if (WorldSettings->Pauser == nullptr)
+		{
+			WorldSettings->Pauser = PlayerState;
+		}
+		else
+		{
+			WorldSettings->Pauser = nullptr;
+		}
+	}
+}
+
 void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();

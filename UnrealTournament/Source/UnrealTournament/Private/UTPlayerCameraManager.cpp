@@ -13,6 +13,8 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	EndGameFreeCamDistance = 55.0f;
 	FlagBaseFreeCamOffset = FVector(0, 0, 90);
 	bUseClientSideCameraUpdates = false;
+	
+	PrimaryActorTick.bTickEvenWhenPaused = true;
 
 	DefaultPPSettings.SetBaseValues();
 	DefaultPPSettings.bOverride_AmbientCubemapIntensity = true;

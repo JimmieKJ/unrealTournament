@@ -178,12 +178,8 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 void SUWReplayBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
 	SUWPanel::OnShowPanel(inParentWindow);
-	/*
-	if (bNeedsRefresh)
-	{
-		BuildReplayList();
-	}
-	*/
+
+	BuildReplayList();
 }
 
 void SUWReplayBrowser::BuildReplayList()
