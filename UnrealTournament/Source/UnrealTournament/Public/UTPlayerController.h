@@ -231,6 +231,8 @@ public:
 	UFUNCTION(exec)
 	virtual void ViewProjectile();
 
+	virtual void ServerViewProjectileShim();
+
 	UFUNCTION(exec)
 	virtual void ViewFlag(uint8 Index);
 
@@ -437,6 +439,8 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPawn(APawn* PawnToView);
+
+	virtual void ViewPawn(APawn* PawnToView);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerViewPlaceholderAtLocation(FVector Location);

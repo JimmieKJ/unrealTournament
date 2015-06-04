@@ -14,6 +14,8 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 
 	virtual void ViewPlayerState(APlayerState* PS) override;
 	virtual void ViewSelf(FViewTargetTransitionParams TransitionParams = FViewTargetTransitionParams()) override;
+	virtual void ViewPawn(APawn* PawnToView) override;
+	virtual void ServerViewProjectileShim() override;
 
 	virtual void ViewAPlayer(int32 dir) override;
 	virtual APlayerState* GetNextViewablePlayer(int32 dir) override;

@@ -1029,7 +1029,7 @@ void AUTPlayerController::ViewProjectile()
 				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
 				{
 					bAutoCam = false;
-					ServerViewPawn(*Iterator);
+					ViewPawn(*Iterator);
 				}
 			}
 		}
@@ -1051,9 +1051,14 @@ void AUTPlayerController::ViewProjectile()
 				}
 			}
 			bAutoCam = false;
-			ServerViewProjectile();
+			ServerViewProjectileShim();
 		}
 	}
+}
+
+void AUTPlayerController::ServerViewProjectileShim()
+{
+	ServerViewProjectile();
 }
 
 bool AUTPlayerController::ServerViewProjectile_Validate()
@@ -2326,7 +2331,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 				APawn* Pawn = *Iterator;
 				if (Pawn != nullptr && Pawn->PlayerState == LastSpectatedPlayerState)
 				{
-					ServerViewPawn(*Iterator);
+					ViewPawn(*Iterator);
 				}
 			}
 		}
@@ -2741,6 +2746,11 @@ void AUTPlayerController::SlowerEmote()
 	{
 		UTCharacter->ServerSlowerEmote();
 	}
+}
+
+void AUTPlayerController::ViewPawn(APawn* PawnToView)
+{
+	ServerViewPawn(PawnToView);
 }
 
 bool AUTPlayerController::ServerViewPawn_Validate(APawn* PawnToView)

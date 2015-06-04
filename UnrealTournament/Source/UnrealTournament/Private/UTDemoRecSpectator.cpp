@@ -25,6 +25,16 @@ void AUTDemoRecSpectator::ViewSelf(FViewTargetTransitionParams TransitionParams)
 	ServerViewSelf_Implementation(TransitionParams);
 }
 
+void AUTDemoRecSpectator::ServerViewProjectileShim()
+{
+	ServerViewProjectile_Implementation();
+}
+
+void AUTDemoRecSpectator::ViewPawn(APawn* PawnToView)
+{
+	ServerViewPawn_Implementation(PawnToView);
+}
+
 void AUTDemoRecSpectator::ViewAPlayer(int32 dir)
 {
 	BehindView(bSpectateBehindView);
