@@ -3,6 +3,7 @@
 
 #include "UTScoreboard.h"
 #include "UTHUDWidget.h"
+#include "UTHUDWidget_ReplayTimeSlider.h"
 #include "Json.h"
 #include "UTHUD.generated.h"
 
@@ -94,6 +95,12 @@ public:
 	/** Cached reference to the spectator message widget. */
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	class UUTHUDWidget_Spectator* SpectatorMessageWidget;
+
+	/** Cached reference to the replay time slider widget. */
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	class UUTHUDWidget_ReplayTimeSlider* ReplayTimeSliderWidget;
+
+	class UUTHUDWidget_ReplayTimeSlider* GetReplayTimeSlider() { return ReplayTimeSliderWidget; }
 
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(BlueprintReadWrite, Category = HUD)

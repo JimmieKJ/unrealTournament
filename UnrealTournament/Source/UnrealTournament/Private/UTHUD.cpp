@@ -290,6 +290,11 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	{
 		SpectatorMessageWidget = Cast<UUTHUDWidget_Spectator>(Widget);
 	}
+	if (Cast<UUTHUDWidget_ReplayTimeSlider>(Widget))
+	{
+		ReplayTimeSliderWidget = Cast<UUTHUDWidget_ReplayTimeSlider>(Widget);
+	}
+
 	return Widget;
 }
 

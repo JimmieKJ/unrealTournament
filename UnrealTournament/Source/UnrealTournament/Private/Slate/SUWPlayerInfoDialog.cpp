@@ -11,6 +11,7 @@
 #include "UTWeap_ShockRifle.h"
 #include "UTWeaponAttachment.h"
 #include "Engine/UserInterfaceSettings.h"
+#include "UTHUDWidget_ReplayTimeSlider.h"
 
 #if !UE_SERVER
 

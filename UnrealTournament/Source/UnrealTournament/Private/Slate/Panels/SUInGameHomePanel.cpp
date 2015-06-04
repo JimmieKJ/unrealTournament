@@ -253,6 +253,11 @@ void SUInGameHomePanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 		{
 			SB->BecomeInteractive();
 		}
+		UUTHUDWidget_ReplayTimeSlider* ReplayTimeSlider = PC->MyUTHUD->GetReplayTimeSlider();
+		if (ReplayTimeSlider)
+		{
+			ReplayTimeSlider->BecomeInteractive();
+		}
 	}
 }
 void SUInGameHomePanel::OnHidePanel()
@@ -266,6 +271,11 @@ void SUInGameHomePanel::OnHidePanel()
 		if (SB)
 		{
 			SB->BecomeNonInteractive();
+		}
+		UUTHUDWidget_ReplayTimeSlider* ReplayTimeSlider = PC->MyUTHUD->GetReplayTimeSlider();
+		if (ReplayTimeSlider)
+		{
+			ReplayTimeSlider->BecomeNonInteractive();
 		}
 	}
 }
@@ -350,15 +360,24 @@ FReply SUInGameHomePanel::OnMouseButtonUp(const FGeometry& MyGeometry, const FPo
 	if (PC && PC->MyUTHUD)
 	{
 		PC->MyUTHUD->bForceScores = true;
-		UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
-		if (SB)
+		FVector2D MousePosition;
+		if (GetGameMousePosition(MousePosition))
 		{
-			FVector2D MousePosition;
-			if (GetGameMousePosition(MousePosition))
+			UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+			if (SB)
 			{
 				if (SB->AttemptSelection(MousePosition))
 				{
 					SB->SelectionClick();
+					return FReply::Handled();
+				}
+			}
+
+			UUTHUDWidget_ReplayTimeSlider* ReplayTimeSlider = PC->MyUTHUD->GetReplayTimeSlider();
+			if (ReplayTimeSlider)
+			{
+				if (ReplayTimeSlider->SelectionClick(MousePosition))
+				{
 					return FReply::Handled();
 				}
 			}
@@ -374,13 +393,19 @@ FReply SUInGameHomePanel::OnMouseMove(const FGeometry& MyGeometry, const FPointe
 	if (PC && PC->MyUTHUD)
 	{
 		PC->MyUTHUD->bForceScores = true;
-		UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
-		if (SB)
+		FVector2D MousePosition;
+		if (GetGameMousePosition(MousePosition))
 		{
-			FVector2D MousePosition;
-			if (GetGameMousePosition(MousePosition))
+			UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
+			if (SB)
 			{
 				SB->TrackMouseMovement(MousePosition);
+			}
+			UUTHUDWidget_ReplayTimeSlider* ReplayTimeSlider = PC->MyUTHUD->GetReplayTimeSlider();
+			if (ReplayTimeSlider)
+			{
+				ReplayTimeSlider->BecomeInteractive();
+				ReplayTimeSlider->TrackMouseMovement(MousePosition);
 			}
 		}
 	}
