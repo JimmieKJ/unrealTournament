@@ -76,7 +76,22 @@ public:
 	FName BlueFlagBind;
 
 	UPROPERTY()
-		FName AutoCamBind;
+	FName AutoCamBind;
+
+	UPROPERTY()
+	FName DemoRestartBind;
+	
+	UPROPERTY()
+	FName DemoLiveBind;
+
+	UPROPERTY()
+	FName DemoRewindBind;
+	
+	UPROPERTY()
+	FName DemoFastForwardBind;
+
+	UPROPERTY()
+	FName DemoPauseBind;
 
 	UPROPERTY()
 	FName CameraBind[10];
@@ -86,10 +101,10 @@ public:
 
 
 	UPROPERTY()
-		int32 NumCameras;
+	int32 NumCameras;
 
 	UPROPERTY()
-		bool bCamerasInitialized;
+	bool bCamerasInitialized;
 
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")

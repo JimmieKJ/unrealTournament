@@ -7,6 +7,7 @@
 #include "UTSpectatorCamera.h"
 #include "UTPickupInventory.h"
 #include "UTArmor.h"
+#include "UTDemoRecSpectator.h"
 
 UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -98,6 +99,26 @@ void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
 				else if (Input->SpectatorBinds[i].Command == "EnableAutoCam")
 				{
 					AutoCamBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "DemoRestart")
+				{
+					DemoRestartBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "DemoGoToLive")
+				{
+					DemoLiveBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "DemoPause")
+				{
+					DemoPauseBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "DemoSeek -5")
+				{
+					DemoRewindBind = Input->SpectatorBinds[i].KeyName;
+				}
+				else if (Input->SpectatorBinds[i].Command == "DemoSeek 10")
+				{
+					DemoFastForwardBind = Input->SpectatorBinds[i].KeyName;
 				}
 			}
 		}
@@ -357,6 +378,24 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			static FName NAME_PressAltFire = FName(TEXT("AltFire"));
 			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
 			DrawOffset += CellHeight;
+
+			if (Cast<AUTDemoRecSpectator>(UTHUDOwner->PlayerOwner) != nullptr)
+			{
+				DrawCamBind(DemoRestartBind, "Restart Demo", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+
+				DrawCamBind(DemoRewindBind, "Rewind Demo", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+
+				DrawCamBind(DemoFastForwardBind, "Fast Forward", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+
+				DrawCamBind(DemoLiveBind, "Jump to Real Time", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+
+				DrawCamBind(DemoPauseBind, "Pause Demo", DeltaTime, XOffset, DrawOffset, false);
+				DrawOffset += CellHeight;
+			}
 
 			bool bOverflow = false;
 			for (int32 i = 0; i < NumCameras; i++)
