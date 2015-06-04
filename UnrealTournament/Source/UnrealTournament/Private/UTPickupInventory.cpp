@@ -259,6 +259,7 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 		{
 			GhostMesh = DuplicateObject<UMeshComponent>(Mesh, this);
 			GhostMesh->AttachParent = NULL;
+			GhostMesh->AttachChildren.Empty();
 			GhostMesh->CastShadow = false;
 			for (int32 i = 0; i < GhostMesh->GetNumMaterials(); i++)
 			{
@@ -312,6 +313,10 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 		{
 			Mesh->SetRenderInMainPass(!bNowHidden);
 			Mesh->SetRenderCustomDepth(bNowHidden);
+			for (USceneComponent* Child : Mesh->AttachChildren)
+			{
+				Child->SetVisibility(!bNowHidden, true);
+			}
 			GhostMesh->SetVisibility(bNowHidden, true);
 		}
 		else

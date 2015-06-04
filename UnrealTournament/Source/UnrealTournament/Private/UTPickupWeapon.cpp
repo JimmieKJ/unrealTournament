@@ -68,6 +68,7 @@ void AUTPickupWeapon::InventoryTypeUpdated_Implementation()
 	{
 		GhostDepthMesh = DuplicateObject<UMeshComponent>(Mesh, this);
 		GhostDepthMesh->AttachParent = NULL;
+		GhostDepthMesh->AttachChildren.Empty();
 		GhostDepthMesh->SetRenderCustomDepth(true);
 		GhostDepthMesh->SetRenderInMainPass(false);
 		GhostDepthMesh->RegisterComponent();
