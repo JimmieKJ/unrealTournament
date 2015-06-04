@@ -456,7 +456,16 @@ FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton
 	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
 	if (ReplayBrowser.IsValid())
 	{
-		ActivatePanel(ReplayBrowser);
+		ReplayBrowser->bLiveOnly = false;
+
+		if (ReplayBrowser == ActivePanel)
+		{
+			ReplayBrowser->BuildReplayList();
+		}
+		else
+		{
+			ActivatePanel(ReplayBrowser);
+		}
 	}
 
 	return FReply::Handled();
@@ -469,7 +478,15 @@ FReply SUWindowsMainMenu::OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuBu
 	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
 	if (ReplayBrowser.IsValid())
 	{
-		ActivatePanel(ReplayBrowser);
+		ReplayBrowser->bLiveOnly = true;
+		if (ReplayBrowser == ActivePanel)
+		{
+			ReplayBrowser->BuildReplayList();
+		}
+		else
+		{
+			ActivatePanel(ReplayBrowser);
+		}
 	}
 
 	return FReply::Handled();

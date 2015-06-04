@@ -46,6 +46,9 @@ private:
 class UNREALTOURNAMENT_API SUWReplayBrowser : public SUWPanel
 {
 public:
+	bool bLiveOnly;
+
+	void BuildReplayList();
 
 private:
 
@@ -65,7 +68,6 @@ protected:
 
 	bool bShouldShowAllReplays;
 
-	void BuildReplayList();
 	void OnEnumerateStreamsComplete(const TArray<FNetworkReplayStreamInfo>& Streams);
 
 	TSharedRef<ITableRow> OnGenerateWidgetForList(TSharedPtr<FReplayData> InItem, const TSharedRef<STableViewBase>& OwnerTable);

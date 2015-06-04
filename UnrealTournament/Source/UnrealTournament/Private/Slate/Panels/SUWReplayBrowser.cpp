@@ -60,6 +60,7 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 	}
 
 	bShouldShowAllReplays = false;
+	bLiveOnly = false;
 
 	this->ChildSlot
 	[
@@ -235,6 +236,14 @@ void SUWReplayBrowser::OnEnumerateStreamsComplete(const TArray<FNetworkReplayStr
 		NewDemoEntry->Size = SizeInKilobytes >= 1024.0f ? FString::Printf(TEXT("%2.2f MB"), SizeInKilobytes / 1024.0f) : FString::Printf(TEXT("%i KB"), (int)SizeInKilobytes);
 
 		UE_LOG(UT, Log, TEXT("Stream found %s, Live: %s"), *StreamInfo.FriendlyName, StreamInfo.bIsLive ? TEXT("YES") : TEXT("NO"));
+
+		if (bLiveOnly)
+		{
+			if (!StreamInfo.bIsLive)
+			{
+				continue;
+			}
+		}
 
 		ReplayList.Add(NewDemoEntry);
 	}
