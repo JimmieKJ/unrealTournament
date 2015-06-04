@@ -199,6 +199,9 @@ void AUTRecastNavMesh::SetNodeSize(UUTPathNode* Node)
 
 bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeRef StartPoly, NavNodeRef EndPoly, FCollisionShape ScoutShape, float XYSpeed, float GravityZ, float BaseJumpZ, float MaxJumpZ, float* RequiredJumpZ, float* MaxFallSpeed) const
 {
+	// TODO: pass this in?
+	const FVector MantleStepUp = FVector(0.0f, 0.0f, GetDefault<AUTCharacter>()->UTCharacterMovement->LandingStepUp);
+
 	const float TimeStep = ScoutShape.GetExtent().X / XYSpeed;
 	const FVector TotalDiff = End - Start;
 	float XYTime = TotalDiff.Size2D() / XYSpeed;
@@ -225,16 +228,19 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 		{
 			// extra test using extra jumpZ if we might have failed due to needing a little extra to get over an obstacle
 			// (particularly relevant for jumps that go almost straight up)
-			if (bLastJumpBlocked)
+			if (bLastJumpBlocked || DesiredJumpZ >= MaxJumpZ)
 			{
 				continue;
 			}
-			JumpZ = DesiredJumpZ + 400.0f; // TODO: arbitrary number that made test cases work; probably should be a factor of capsule size?
+			JumpZ = FMath::Min<float>(DesiredJumpZ + 400.0f, MaxJumpZ); // TODO: arbitrary number that made test cases work; probably should be a factor of capsule size?
 		}
 		if (RequiredJumpZ != NULL)
 		{
 			*RequiredJumpZ = JumpZ;
 		}
+		// extra step-up implemented in UTCharacterMovement
+		// TODO: for pathing support for non-UTCharacters (i.e. vehicles) this feature may need a reach flag
+		bool bTriedMantle = JumpZ <= 0.0f;
 
 		FVector CurrentLoc = Start;
 		float ZSpeed = JumpZ;
@@ -274,12 +280,31 @@ bool AUTRecastNavMesh::JumpTraceTest(FVector Start, const FVector& End, NavNodeR
 			FHitResult Hit;
 			if (GetWorld()->SweepSingleByChannel(Hit, CurrentLoc, NewLoc, FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
 			{
+				// check for mantle boost
+				if (!bTriedMantle && NewVelocity.Z <= -GravityZ * TimeStep && NewVelocity.Z > -300.0f)
+				{
+					bTriedMantle = true;
+					FVector TestStart = CurrentLoc;
+					if (Hit.bStartPenetrating)
+					{
+						TestStart -= Diff.GetSafeNormal2D();
+					}
+					if (!GetWorld()->SweepTestByChannel(TestStart, TestStart + MantleStepUp, FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
+					{
+						FHitResult MantleHit;
+						if (!GetWorld()->SweepSingleByChannel(MantleHit, TestStart + MantleStepUp, NewLoc + MantleStepUp, FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()))
+						{
+							Hit.Time = 1.0f;
+							Hit.Location = NewLoc + MantleStepUp;
+						}
+					}
+				}
 				if (Hit.Time > KINDA_SMALL_NUMBER && CurrentLoc != Hit.Location)
 				{
 					// we got some movement so take it
 					CurrentLoc = Hit.Location;
 				}
-				else
+				if (Hit.Time < 1.0f)
 				{
 					// try Z only
 					CurrentLoc -= Diff.GetSafeNormal2D(); // avoid float precision penetration issues
@@ -874,6 +899,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 
 	// start jump path generation (spread over a number of ticks)
 	SpecialLinkBuildNodeIndex = 0;
+	SpecialLinkBuildPass = 0;
 	if (bUserRequestedBuild)
 	{
 		BuildSpecialLinks(MAX_int32);
@@ -947,9 +973,50 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 		{
 			// can't build if no scout to figure out jumps
 			SpecialLinkBuildNodeIndex = INDEX_NONE;
+			SpecialLinkBuildPass = 0;
 		}
 		else
 		{
+			auto CalcJumpPathDistance = [this](FUTPathLink& Link)
+			{
+				FVector Center = GetPolyCenter(Link.EndPoly);
+				if (Link.AdditionalEndPolys.Num() > 0)
+				{
+					for (NavNodeRef ExtraPoly : Link.AdditionalEndPolys)
+					{
+						Center += GetPolyCenter(ExtraPoly);
+					}
+					Center /= (Link.AdditionalEndPolys.Num() + 1);
+
+					// change core end to the one closest to the center we found
+					TArray<NavNodeRef> AllEndPolys(Link.AdditionalEndPolys);
+					AllEndPolys.Add(Link.EndPoly);
+
+					int32 Best = INDEX_NONE;
+					float BestDistSq = FLT_MAX;
+					for (int32 i = 0; i < AllEndPolys.Num(); i++)
+					{
+						float DistSq = (GetPolyCenter(AllEndPolys[i]) - Center).SizeSquared();
+						if (DistSq < BestDistSq)
+						{
+							Best = i;
+							BestDistSq = DistSq;
+						}
+					}
+					if (AllEndPolys[Best] != Link.EndPoly)
+					{
+						AllEndPolys.RemoveAt(Best);
+						Link.EndPoly = AllEndPolys[Best];
+						Link.AdditionalEndPolys = AllEndPolys;
+					}
+				}
+
+				for (NavNodeRef SrcPolyRef : Link.Start->Polys)
+				{
+					Link.Distances.Add(CalcPolyDistance(SrcPolyRef, Link.StartEdgePoly) + FMath::TruncToInt((Center - GetPolyCenter(Link.StartEdgePoly)).Size()));
+				}
+			};
+
 			dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 
 			FActorSpawnParameters SpawnParams;
@@ -958,7 +1025,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 			float BaseJumpZ = DefaultEffectiveJumpZ;
 			if (BaseJumpZ == 0.0 && DefaultScout->GetCharacterMovement() != NULL)
 			{
-				BaseJumpZ = DefaultScout->GetCharacterMovement()->JumpZVelocity * 0.95; // slightly less so we can be more confident in the jumps
+				BaseJumpZ = DefaultScout->GetCharacterMovement()->JumpZVelocity * 0.95f; // slightly less so we can be more confident in the jumps
 			}
 
 			float MoveSpeed = ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxWalkSpeed;
@@ -983,185 +1050,289 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 				GWarn->BeginSlowTask(NSLOCTEXT("UT", "BuildSpecialLinks", "Building UT Paths"), true, false);
 			}
 
-			for (; SpecialLinkBuildNodeIndex < PathNodes.Num() && NumToProcess > 0; SpecialLinkBuildNodeIndex++, NumToProcess--)
+			if (SpecialLinkBuildPass == 0)
 			{
-				UUTPathNode* Node = PathNodes[SpecialLinkBuildNodeIndex];
-				if (Node->bDestinationOnly)
+				for (; SpecialLinkBuildNodeIndex < PathNodes.Num() && NumToProcess > 0; SpecialLinkBuildNodeIndex++, NumToProcess--)
 				{
-					continue;
-				}
-				GWarn->UpdateProgress(SpecialLinkBuildNodeIndex, PathNodes.Num());
-				for (NavNodeRef PolyRef : Node->Polys)
-				{
-					FVector PolyCenter = GetPolyCenter(PolyRef);
-
-					if (!IsValidJumpPoint(PolyCenter))
+					UUTPathNode* Node = PathNodes[SpecialLinkBuildNodeIndex];
+					if (Node->bDestinationOnly)
 					{
 						continue;
 					}
-
-					float SegmentVerts[36];
-					int32 NumSegments = 0;
-					InternalQuery.getPolyWallSegments(PolyRef, GetDefaultDetourFilter(), SegmentVerts, nullptr, &NumSegments, 6);
-					for (int32 i = 0; i < NumSegments; i++)
+					if (bDisplayProgressDialog)
 					{
-						// wall
-						FVector WallCenter = (Recast2UnrealPoint(&SegmentVerts[(i * 2) * 3]) + Recast2UnrealPoint(&SegmentVerts[(i * 2 + 1) * 3])) * 0.5f + HeightAdjust;
+						GWarn->UpdateProgress(SpecialLinkBuildNodeIndex, PathNodes.Num() * 2);
+					}
+					for (NavNodeRef PolyRef : Node->Polys)
+					{
+						FVector PolyCenter = GetPolyCenter(PolyRef);
 
-						// search for polys to try testing jump reach to
-						// TODO: is there a better method to get polys in a 2D circle...?
-						for (TMap<NavNodeRef, UUTPathNode*>::TConstIterator It(PolyToNode); It; ++It)
+						if (!IsValidJumpPoint(PolyCenter))
 						{
-							if (It.Value() != Node)
-							{
-								FVector TestLoc = GetPolyCenter(It.Key());
-								// if there's a valid jump more than ~45 degrees off the direction to the wall there is probably another poly wall in this polygon that will handle it
-								// we add a little leeway to ~50 degrees since we're only testing the wall center and not the whole thing
-								// FIXME: replace NumSegments hack and threshold dot test with loop that uses wall with best angle
-								if ((TestLoc - WallCenter).Size2D() < JumpTestThreshold2D && (NumSegments == 1 || ((TestLoc - WallCenter).GetSafeNormal2D() | (WallCenter - PolyCenter).GetSafeNormal2D()) > 0.64f) &&
-									!IsInPain(GetWorld(), TestLoc)) // TODO: need to allow pain volumes (flag node)
-								{
-									if (!IsValidJumpPoint(TestLoc))
-									{
-										continue;
-									}
-									// make sure not directly walk reachable
-									bool bWalkReachable = true;
-									{
-										FVector RecastStartVect = Unreal2RecastPoint(PolyCenter); // note, not wall loc so we're less likely to barely catch on corners
-										float RecastStart[3] = { RecastStartVect.X, RecastStartVect.Y, RecastStartVect.Z };
-										FVector RecastEndVect = Unreal2RecastPoint(TestLoc);
-										float RecastEnd[3] = { RecastEndVect.X, RecastEndVect.Y, RecastEndVect.Z };
+							continue;
+						}
 
-										float HitTime = 1.0f;
-										float HitNormal[3];
-										if (dtStatusSucceed(InternalQuery.raycast(PolyRef, RecastStart, RecastEnd, GetDefaultDetourFilter(), &HitTime, HitNormal, NULL, NULL, 0)))
+						float SegmentVerts[36];
+						int32 NumSegments = 0;
+						InternalQuery.getPolyWallSegments(PolyRef, GetDefaultDetourFilter(), SegmentVerts, NULL, &NumSegments, 6);
+						for (int32 i = 0; i < NumSegments; i++)
+						{
+							// wall
+							FVector WallCenter = (Recast2UnrealPoint(&SegmentVerts[(i * 2) * 3]) + Recast2UnrealPoint(&SegmentVerts[(i * 2 + 1) * 3])) * 0.5f + HeightAdjust;
+
+							// search for polys to try testing jump reach to
+							// TODO: is there a better method to get polys in a 2D circle...?
+							for (TMap<NavNodeRef, UUTPathNode*>::TConstIterator It(PolyToNode); It; ++It)
+							{
+								if (It.Value() != Node)
+								{
+									FVector TestLoc = GetPolyCenter(It.Key());
+									// if there's a valid jump more than ~45 degrees off the direction to the wall there is probably another poly wall in this polygon that will handle it
+									// we add a little leeway to ~50 degrees since we're only testing the wall center and not the whole thing
+									// FIXME: replace NumSegments hack and threshold dot test with loop that uses wall with best angle
+									if ((TestLoc - WallCenter).Size2D() < JumpTestThreshold2D && (NumSegments == 1 || ((TestLoc - WallCenter).GetSafeNormal2D() | (WallCenter - PolyCenter).GetSafeNormal2D()) > 0.64f) &&
+										!IsInPain(GetWorld(), TestLoc)) // TODO: need to allow pain volumes (flag node)
+									{
+										if (!IsValidJumpPoint(TestLoc))
 										{
-											bWalkReachable = (HitTime >= 1.0f);
+											continue;
+										}
+										// make sure not directly walk reachable
+										bool bWalkReachable = true;
+										{
+											FVector RecastStartVect = Unreal2RecastPoint(PolyCenter); // note, not wall loc so we're less likely to barely catch on corners
+											float RecastStart[3] = { RecastStartVect.X, RecastStartVect.Y, RecastStartVect.Z };
+											FVector RecastEndVect = Unreal2RecastPoint(TestLoc);
+											float RecastEnd[3] = { RecastEndVect.X, RecastEndVect.Y, RecastEndVect.Z };
+
+											float HitTime = 1.0f;
+											float HitNormal[3];
+											if (dtStatusSucceed(InternalQuery.raycast(PolyRef, RecastStart, RecastEnd, GetDefaultDetourFilter(), &HitTime, HitNormal, NULL, NULL, 0)))
+											{
+												bWalkReachable = (HitTime >= 1.0f);
+											}
+										}
+										// HACK: avoid placing jumps to extra lift navmesh geometry created to work around lack of movable navmeshes
+										bool bSkipForLift = false;
+										if (!bWalkReachable)
+										{
+											for (const FVector& LiftLoc : LiftHackLocs)
+											{
+												if ((TestLoc - LiftLoc).SizeSquared() < 250000.0f) // 500 * 500
+												{
+													bSkipForLift = true;
+													break;
+												}
+											}
+										}
+										if (!bWalkReachable && !bSkipForLift)
+										{
+											TestLoc += HeightAdjust;
+											float RequiredJumpZ = 0.0f;
+											if (OnlyJumpReachable(DefaultScout, WallCenter, TestLoc, PolyRef, It.Key(), -1.0f, &RequiredJumpZ))
+											{
+												bool bNeedsJumpSpec = RequiredJumpZ > BaseJumpZ;
+												// TODO: account for MaxFallSpeed
+												bool bFound = false;
+												for (FUTPathLink& ExistingLink : Node->Paths)
+												{
+													if (ExistingLink.End == It.Value() && ExistingLink.StartEdgePoly == PolyRef)
+													{
+														bool bValid = false;
+														if (!bNeedsJumpSpec)
+														{
+															if (ExistingLink.Spec.Get() == NULL)
+															{
+																bValid = true;
+															}
+														}
+														else
+														{
+															// accept if existing jump is reasonably close in requirements
+															UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(ExistingLink.Spec.Get());
+															if (JumpSpec != NULL && JumpSpec->RequiredJumpZ > RequiredJumpZ && RequiredJumpZ > JumpSpec->RequiredJumpZ * 0.9f)
+															{
+																bValid = true;
+															}
+														}
+														if (bValid)
+														{
+															ExistingLink.AdditionalEndPolys.Add(It.Key());
+															bFound = true;
+															break;
+														}
+													}
+												}
+
+												if (!bFound)
+												{
+													UUTReachSpec_HighJump* JumpSpec = NULL;
+													if (bNeedsJumpSpec)
+													{
+														JumpSpec = NewObject<UUTReachSpec_HighJump>(Node);
+														JumpSpec->RequiredJumpZ = RequiredJumpZ;
+														JumpSpec->GravityVolume = FindPhysicsVolume(GetWorld(), WallCenter, FCollisionShape::MakeSphere(0.0f));
+														JumpSpec->OriginalGravityZ = (JumpSpec->GravityVolume != NULL) ? JumpSpec->GravityVolume->GetGravityZ() : GetWorld()->GetGravityZ();
+														AllReachSpecs.Add(JumpSpec);
+													}
+													FUTPathLink* NewLink = new(Node->Paths) FUTPathLink(Node, PolyRef, It.Value(), It.Key(), JumpSpec, PathSize.Radius, PathSize.Height, R_JUMP);
+												}
+											}
 										}
 									}
-									// HACK: avoid placing jumps to extra lift navmesh geometry created to work around lack of movable navmeshes
-									bool bSkipForLift = false;
-									if (!bWalkReachable)
+								}
+							}
+						}
+					}
+					// calculate distance and core end point of all jump paths
+					// we use the closest poly to the center of the group
+					for (FUTPathLink& Link : Node->Paths)
+					{
+						if (Link.Distances.Num() == 0)
+						{
+							CalcJumpPathDistance(Link);
+						}
+					}
+				}
+				if (!PathNodes.IsValidIndex(SpecialLinkBuildNodeIndex))
+				{
+					SpecialLinkBuildPass++;
+					SpecialLinkBuildNodeIndex = 0;
+				}
+			}
+			// second pass: find all jump downs that are one way and jump test back up
+			// this is a more optimized approach to generating jump paths from open areas up to ledges and such
+			// which won't be detected by the previous pass due to checking only jumps from poly walls
+			if (SpecialLinkBuildPass == 1)
+			{
+				FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(DefaultScout->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), DefaultScout->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+				for (; SpecialLinkBuildNodeIndex < PathNodes.Num() && NumToProcess > 0; SpecialLinkBuildNodeIndex++, NumToProcess--)
+				{
+					UUTPathNode* Node = PathNodes[SpecialLinkBuildNodeIndex];
+					if (bDisplayProgressDialog)
+					{
+						GWarn->UpdateProgress(SpecialLinkBuildNodeIndex + PathNodes.Num(), PathNodes.Num() * 2);
+					}
+					for (const FUTPathLink& Link : Node->Paths)
+					{
+						if ( !Link.End->bDestinationOnly && (Link.ReachFlags & R_JUMP) &&
+							(!Link.Spec.IsValid() || (Cast<UUTReachSpec_HighJump>(Link.Spec.Get()) != NULL && !((UUTReachSpec_HighJump*)Link.Spec.Get())->bJumpFromEdgePolyCenter)) &&
+							GetPolyCenter(Link.StartEdgePoly).Z > GetPolyCenter(Link.EndPoly).Z )
+						{
+							bool bFound = false;
+							/*for (const FUTPathLink& BackLink : Link.End->Paths)
+							{
+								if (BackLink.End == Node && BackLink.EndPoly == Link.StartEdgePoly)// && (BackLink.StartEdgePoly == Link.EndPoly || Link.AdditionalEndPolys.Contains(BackLink.StartEdgePoly)))
+								{
+									bFound = true;
+									break;
+								}
+							}*/
+							if (!bFound)
+							{
+								NavNodeRef EndPoly = Link.StartEdgePoly;
+								UUTPathNode* StartNode = const_cast<UUTPathNode*>(Link.End.Get()); // hacky, but ultimately we could look it up in our array anyway
+								const FVector TestLoc = GetPolyCenter(EndPoly) + HeightAdjust;
+
+								// HACK: avoid placing jumps to extra lift navmesh geometry created to work around lack of movable navmeshes
+								bool bSkipForLift = false;
+								for (const FVector& LiftLoc : LiftHackLocs)
+								{
+									if ((TestLoc - LiftLoc).SizeSquared() < 250000.0f) // 500 * 500
 									{
-										for (const FVector& LiftLoc : LiftHackLocs)
+										bSkipForLift = true;
+										break;
+									}
+								}
+								if (!bSkipForLift)
+								{
+									TArray<NavNodeRef> TestPolys;
+									TestPolys.Add(Link.EndPoly);
+									TestPolys += Link.AdditionalEndPolys;
+									// sort the polys by distance, which will tend to prioritize shorter, easier to complete jumps
+									TestPolys.Sort([=](const NavNodeRef A, const NavNodeRef B) { return (GetPolyCenter(A) - TestLoc).SizeSquared() < (GetPolyCenter(B) - TestLoc).SizeSquared(); });
+
+									// search for existing links and skip testing any polys for which the path would be equal or greater difficulty than those already present
+									for (int32 i = 0; i < TestPolys.Num(); i++)
+									{
+										if (Link.End->Paths.ContainsByPredicate([&](const FUTPathLink& TestItem) { return TestItem.End == Node && TestItem.StartEdgePoly == TestPolys[i] && TestItem.EndPoly == EndPoly; }))
 										{
-											if ((TestLoc - LiftLoc).SizeSquared() < 250000.0f) // 500 * 500
+											TestPolys.RemoveAt(i, TestPolys.Num() - i);
+											break;
+										}
+									}
+
+									for (NavNodeRef StartPoly : TestPolys)
+									{
+										FVector StartLoc = GetPolySurfaceCenter(StartPoly) + HeightAdjust;
+										if (GetWorld()->FindTeleportSpot(DefaultScout, StartLoc, (TestLoc - StartLoc).GetSafeNormal2D().Rotation()))
+										{
+											StartLoc.Z += 0.5f; // avoid precision issues
+
+											APhysicsVolume* GravityVolume = FindPhysicsVolume(GetWorld(), StartLoc, FCollisionShape::MakeSphere(0.0f));
+											const float GravityZ = (GravityVolume != NULL) ? GravityVolume->GetGravityZ() : GetWorld()->GetGravityZ();
+
+											// test from closest wall as well as center to try to reduce jump requirements
+											/*FVector BestWallCenter = StartLoc;
+											float BestDist = FLT_MAX;
 											{
-												bSkipForLift = true;
+												float SegmentVerts[36];
+												int32 NumSegments = 0;
+												InternalQuery.getPolyWallSegments(StartPoly, GetDefaultDetourFilter(), SegmentVerts, NULL, &NumSegments, 6);
+												for (int32 i = 0; i < NumSegments; i++)
+												{
+													FVector WallCenter = (Recast2UnrealPoint(&SegmentVerts[(i * 2) * 3]) + Recast2UnrealPoint(&SegmentVerts[(i * 2 + 1) * 3])) * 0.5f + HeightAdjust;
+													float Dist = (WallCenter - TestLoc).Size();
+													if (Dist < BestDist)
+													{
+														BestWallCenter = WallCenter;
+														BestDist = Dist;
+													}
+												}
+											}*/
+
+											float RequiredJumpZ = 0.0f;
+											if (JumpTraceTest(StartLoc, TestLoc, StartPoly, EndPoly, ScoutShape, DefaultScout->GetCharacterMovement()->MaxWalkSpeed, GravityZ, BaseJumpZ, -1.0f, &RequiredJumpZ) && RequiredJumpZ > BaseJumpZ)
+											{
+												// TODO: account for MaxFallSpeed
+												UUTReachSpec_HighJump* JumpSpec = NewObject<UUTReachSpec_HighJump>(StartNode);
+												JumpSpec->bJumpFromEdgePolyCenter = true;
+												JumpSpec->RequiredJumpZ = RequiredJumpZ;
+												// see if dodge jump can improve reachability
+												const AUTCharacter* UTScout = Cast<AUTCharacter>(DefaultScout);
+												if (UTScout != NULL && UTScout->UTCharacterMovement->DodgeImpulseHorizontal > DefaultScout->GetCharacterMovement()->MaxWalkSpeed)
+												{
+													float DodgeJumpZ = 0.0f;
+													if (JumpTraceTest(StartLoc, TestLoc, StartPoly, EndPoly, ScoutShape, UTScout->UTCharacterMovement->DodgeImpulseHorizontal, GravityZ, BaseJumpZ, RequiredJumpZ, &DodgeJumpZ))
+													{
+														JumpSpec->DodgeJumpZMult = DodgeJumpZ / RequiredJumpZ;
+													}
+												}
+												JumpSpec->GravityVolume = GravityVolume;
+												JumpSpec->OriginalGravityZ = GravityZ;
+												AllReachSpecs.Add(JumpSpec);
+												FUTPathLink* NewLink = new(StartNode->Paths) FUTPathLink(StartNode, StartPoly, Node, EndPoly, JumpSpec, PathSize.Radius, PathSize.Height, R_JUMP);
+												CalcJumpPathDistance(*NewLink);
 												break;
 											}
 										}
 									}
-									if (!bWalkReachable && !bSkipForLift)
-									{
-										TestLoc += HeightAdjust;
-										float RequiredJumpZ = 0.0f;
-										if (OnlyJumpReachable(DefaultScout, WallCenter, TestLoc, PolyRef, It.Key(), -1.0f, &RequiredJumpZ))
-										{
-											bool bNeedsJumpSpec = RequiredJumpZ > BaseJumpZ;
-											// TODO: account for MaxFallSpeed
-											bool bFound = false;
-											for (FUTPathLink& ExistingLink : Node->Paths)
-											{
-												if (ExistingLink.End == It.Value() && ExistingLink.StartEdgePoly == PolyRef)
-												{
-													bool bValid = false;
-													if (!bNeedsJumpSpec)
-													{
-														if (ExistingLink.Spec.Get() == NULL)
-														{
-															bValid = true;
-														}
-													}
-													else
-													{
-														// accept if existing jump is reasonably close in requirements
-														UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(ExistingLink.Spec.Get());
-														if (JumpSpec != NULL && JumpSpec->RequiredJumpZ > RequiredJumpZ && RequiredJumpZ > JumpSpec->RequiredJumpZ * 0.9f)
-														{
-															bValid = true;
-														}
-													}
-													if (bValid)
-													{
-														ExistingLink.AdditionalEndPolys.Add(It.Key());
-														bFound = true;
-														break;
-													}
-												}
-											}
-
-											if (!bFound)
-											{
-												UUTReachSpec_HighJump* JumpSpec = NULL;
-												if (bNeedsJumpSpec)
-												{
-													JumpSpec = NewObject<UUTReachSpec_HighJump>(Node);
-													JumpSpec->RequiredJumpZ = RequiredJumpZ;
-													JumpSpec->GravityVolume = FindPhysicsVolume(GetWorld(), WallCenter, FCollisionShape::MakeSphere(0.0f));
-													JumpSpec->OriginalGravityZ = (JumpSpec->GravityVolume != NULL) ? JumpSpec->GravityVolume->GetGravityZ() : GetWorld()->GetGravityZ();
-													AllReachSpecs.Add(JumpSpec);
-												}
-												FUTPathLink* NewLink = new(Node->Paths) FUTPathLink(Node, PolyRef, It.Value(), It.Key(), JumpSpec, PathSize.Radius, PathSize.Height, R_JUMP);
-											}
-										}
-									}
 								}
 							}
 						}
 					}
 				}
-				// calculate distance and core end point of all jump paths
-				// we use the closest poly to the center of the group
-				for (FUTPathLink& Link : Node->Paths)
+				if (!PathNodes.IsValidIndex(SpecialLinkBuildNodeIndex))
 				{
-					if (Link.Distances.Num() == 0)
-					{
-						FVector Center = GetPolyCenter(Link.EndPoly);
-						if (Link.AdditionalEndPolys.Num() > 0)
-						{
-							for (NavNodeRef ExtraPoly : Link.AdditionalEndPolys)
-							{
-								Center += GetPolyCenter(ExtraPoly);
-							}
-							Center /= (Link.AdditionalEndPolys.Num() + 1);
-
-							// change core end to the one closest to the center we found
-							TArray<NavNodeRef> AllEndPolys(Link.AdditionalEndPolys);
-							AllEndPolys.Add(Link.EndPoly);
-							
-							int32 Best = INDEX_NONE;
-							float BestDistSq = FLT_MAX;
-							for (int32 i = 0; i < AllEndPolys.Num(); i++)
-							{
-								float DistSq = (GetPolyCenter(AllEndPolys[i]) - Center).SizeSquared();
-								if (DistSq < BestDistSq)
-								{
-									Best = i;
-									BestDistSq = DistSq;
-								}
-							}
-							if (AllEndPolys[Best] != Link.EndPoly)
-							{
-								AllEndPolys.RemoveAt(Best);
-								Link.EndPoly = AllEndPolys[Best];
-								Link.AdditionalEndPolys = AllEndPolys;
-							}
-						}
-						
-						for (NavNodeRef SrcPolyRef : Node->Polys)
-						{
-							Link.Distances.Add(CalcPolyDistance(SrcPolyRef, Link.StartEdgePoly) + FMath::TruncToInt((Center - GetPolyCenter(Link.StartEdgePoly)).Size()));
-						}
-					}
+					SpecialLinkBuildPass++;
+					SpecialLinkBuildNodeIndex = 0;
 				}
 			}
 			if (bDisplayProgressDialog)
 			{
 				GWarn->EndSlowTask();
 			}
-			if (!PathNodes.IsValidIndex(SpecialLinkBuildNodeIndex))
+			if (SpecialLinkBuildPass > 1)
 			{
 				int32 JumpCount = 0;
 				int32 TotalCount = 0;
@@ -1180,6 +1351,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 
 				UE_LOG(UT, Log, TEXT("PathNode special link building complete"));
 				SpecialLinkBuildNodeIndex = INDEX_NONE;
+				SpecialLinkBuildPass = 0;
 #if WITH_EDITORONLY_DATA
 				if (NodeRenderer != NULL)
 				{
@@ -1203,6 +1375,7 @@ void AUTRecastNavMesh::DeletePaths()
 	AllReachSpecs.Empty();
 	POIToNode.Empty();
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
+	SpecialLinkBuildPass = 0;
 
 #if WITH_EDITORONLY_DATA
 	if (NodeRenderer != NULL && !HasAnyFlags(RF_BeginDestroyed))

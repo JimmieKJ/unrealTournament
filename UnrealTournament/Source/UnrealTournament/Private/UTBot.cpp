@@ -411,7 +411,7 @@ uint8 AUTBot::GetTeamNum() const
 bool AUTBot::FindBestJumpVelocityXY(FVector& JumpVelocity, const FVector& StartLoc, const FVector& TargetLoc, float ZSpeed, float GravityZ, float PawnHeight)
 {
 	float Determinant = FMath::Square(ZSpeed) - 2.0 * GravityZ * (StartLoc.Z - TargetLoc.Z);
-	if (Determinant <= 0.0f)
+	if (Determinant < 0.0f)
 	{
 		// try a little lower (might still be viable due to the mantle logic)
 		Determinant = FMath::Square(ZSpeed) - 2.0 * GravityZ * (StartLoc.Z - TargetLoc.Z - PawnHeight);
@@ -720,11 +720,12 @@ void AUTBot::Tick(float DeltaTime)
 				{
 					// figure out desired 2D velocity and set air control to achieve that
 					FVector DesiredVel2D;
-					if (FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, GetCharacter()->GetCharacterMovement()->Velocity.Z, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight()))
+					if ( FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, GetCharacter()->GetCharacterMovement()->Velocity.Z, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight()) ||
+						(UTChar != NULL && UTChar->UTCharacterMovement->CanMultiJump() && FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, UTChar->UTCharacterMovement->MultiJumpImpulse, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight())) )
 					{
 						FVector NewAccel = (DesiredVel2D - GetCharacter()->GetCharacterMovement()->Velocity) / FMath::Max<float>(0.001f, DeltaTime) / GetCharacter()->GetCharacterMovement()->AirControl;
 						NewAccel.Z = 0.0f;
-						MyPawn->GetMovementComponent()->AddInputVector(NewAccel.GetSafeNormal() * (NewAccel.Size() / GetCharacter()->GetCharacterMovement()->MaxWalkSpeed));
+						MyPawn->GetMovementComponent()->AddInputVector(NewAccel.GetSafeNormal() * (NewAccel.Size() / GetCharacter()->GetCharacterMovement()->GetMaxAcceleration()));
 					}
 					else
 					{
@@ -733,7 +734,7 @@ void AUTBot::Tick(float DeltaTime)
 					}
 				}
 				// do nothing if path says we need to wait
-				else if (bAdjusting || CurrentPath.Spec == NULL || !CurrentPath.Spec->WaitForMove(GetPawn(), GetMoveBasedPosition()))
+				else if (bAdjusting || CurrentPath.Spec == NULL || !CurrentPath.Spec->WaitForMove(CurrentPath, GetPawn(), GetMoveBasedPosition(), MoveTarget))
 				{
 					if (GetCharacter() != NULL && (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Flying || GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Swimming))
 					{

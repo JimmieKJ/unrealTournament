@@ -552,6 +552,8 @@ private:
 protected:
 	/** building special links (jumps, translocator, etc) are done over time when rebuilding while editing; this is the current node or INDEX_NONE if done/not started */
 	int32 SpecialLinkBuildNodeIndex;
+	int32 SpecialLinkBuildPass;
+
 public:
 	/** builds the navigation nodes overlaying the navmesh data */
 	virtual void BuildNodeNetwork();

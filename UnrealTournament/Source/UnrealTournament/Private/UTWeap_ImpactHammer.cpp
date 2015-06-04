@@ -368,7 +368,7 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 			if (bFullImpactJump || (JumpSpec != NULL && JumpSpec->CalcRequiredJumpZ(UTOwner) * 1.05f < UTOwner->UTCharacterMovement->EasyImpactImpulse))
 			{
 				// do it!
-				const float ZSpeed = bFullImpactJump ? UTOwner->UTCharacterMovement->EasyImpactImpulse : UTOwner->UTCharacterMovement->FullImpactImpulse;
+				const float ZSpeed = bFullImpactJump ? UTOwner->UTCharacterMovement->FullImpactImpulse : UTOwner->UTCharacterMovement->EasyImpactImpulse;
 				FVector DesiredVel2D;
 				if (AUTBot::FindBestJumpVelocityXY(DesiredVel2D, UTOwner->GetActorLocation(), B->GetMovePoint(), ZSpeed, UTOwner->UTCharacterMovement->GetGravityZ(), UTOwner->GetSimpleCollisionHalfHeight()))
 				{

@@ -48,7 +48,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_Lift : public UUTReachSpec
 		return Lift.IsValid() ? DefaultCost : BLOCKED_PATH_COST;
 	}
 
-	virtual bool WaitForMove(APawn* Asker, const FComponentBasedPosition& MovePos) const override
+	virtual bool WaitForMove(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos, const FRouteCacheItem& Target) const override
 	{
 		if (!Lift.IsValid())
 		{
