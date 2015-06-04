@@ -534,6 +534,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				string SourceFileName = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, RequiredFile);
 				string TargetFileName = CommandUtils.CombinePaths(StageDirectory, RequiredFile);
 				CommandUtils.CopyFile(SourceFileName, TargetFileName);
+				if (BuildProducts.Contains(TargetFileName))
+				{
+					throw new AutomationException("Overlapping build product: {0}", TargetFileName);
+				}
 				BuildProducts.Add(TargetFileName);
 			}
 		}
@@ -966,10 +970,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             GameProj = InGameProj;
 
-            if (CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
-            {
-                AddDependency(GUBP.VersionFilesNode.StaticGetFullName());
-            }
+			if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
+			{
+				AddDependency(GUBP.VersionFilesNode.StaticGetFullName());
+			}
 
             AddDependency(WaitForUnrealTournamentBuildUserInputNode.StaticGetFullName(GameProj));
         }
@@ -1004,8 +1008,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 LogFile = CommandUtils.RunUAT(CommandUtils.CmdEnv, "UnrealTournamentProto_BasicBuild -SkipBuild -SkipCook -Chunk");
             }
             SaveRecordOfSuccessAndAddToBuildProducts(CommandUtils.ReadAllText(LogFile));
-            
-            if (CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
+
+			if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
             {
                 SubmitVersionFilesToPerforce();
             }
