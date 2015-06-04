@@ -1592,7 +1592,7 @@ NavNodeRef AUTRecastNavMesh::FindAnchorPoly(const FVector& TestLoc, APawn* Asker
 
 NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentProperties& AgentProps) const
 {
-	if (Asker == NULL)
+	if (Asker == NULL || GetRecastNavMeshImpl()->DetourNavMesh == NULL)
 	{
 		return INVALID_NAVNODEREF;
 	}
