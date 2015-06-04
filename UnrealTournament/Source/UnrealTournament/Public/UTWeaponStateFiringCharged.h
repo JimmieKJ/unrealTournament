@@ -104,7 +104,10 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringCharged : public UUTWeaponStateFi
 			ChargeTime += DeltaTime * GetOuterAUTWeapon()->GetUTOwner()->GetFireRateMultiplier();
 		}
 	}
-
+	virtual bool WillSpawnShot(float DeltaTime) override
+	{
+		return GetUTOwner()->IsPendingClearFire(GetFireMode()); 
+	}
 	virtual void ToggleLoopingEffects(bool bNowOn) override
 	{
 		Super::ToggleLoopingEffects(bNowOn);

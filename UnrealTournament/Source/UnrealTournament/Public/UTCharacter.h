@@ -514,6 +514,11 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	{
 		return !IsFiringDisabled() && (InFireMode < PendingFire.Num() && PendingFire[InFireMode] != 0);
 	}
+	inline bool IsPendingClearFire(uint8 InFireMode) const
+	{
+		return !IsFiringDisabled() && (InFireMode < PendingFire.Num() && PendingFire[InFireMode] == 0);
+	}
+
 	/** blueprint accessor to what firemodes the player currently has active */
 	UFUNCTION(BlueprintPure, Category = Weapon)
 	bool IsTriggerDown(uint8 InFireMode);
