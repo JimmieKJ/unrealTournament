@@ -1160,6 +1160,13 @@ int UEditorEngine::bspBrushCSG
 	const FRotator Rotation = Actor->GetActorRotation();
 	const FVector Location = Actor->GetActorLocation();
 
+	// Cache actor transform which is used for the geometry being built
+	Brush->OwnerLocationWhenLastBuilt = Location;
+	Brush->OwnerRotationWhenLastBuilt = Rotation;
+	Brush->OwnerScaleWhenLastBuilt = Scale;
+	Brush->OwnerPrepivotWhenLastBuilt = PrePivot;
+	Brush->bCachedOwnerTransformValid = true;
+
 	for( i=0; i<Brush->Polys->Element.Num(); i++ )
 	{
 		FPoly& CurrentPoly = Brush->Polys->Element[i];

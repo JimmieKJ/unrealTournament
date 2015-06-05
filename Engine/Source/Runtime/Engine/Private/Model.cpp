@@ -332,6 +332,15 @@ void UModel::PostLoad()
 			CurSurf.bHiddenEdTemporary = ( ( CurSurf.PolyFlags & PF_HiddenEd ) != 0 );
 			CurSurf.bHiddenEdLevel = 0;
 		}
+
+		if (ABrush* Owner = Cast<ABrush>(GetOuter()))
+		{
+			OwnerLocationWhenLastBuilt = Owner->GetActorLocation();
+			OwnerPrepivotWhenLastBuilt = Owner->GetPrePivot();
+			OwnerScaleWhenLastBuilt = Owner->GetActorScale();
+			OwnerRotationWhenLastBuilt = -Owner->GetActorRotation();
+			bCachedOwnerTransformValid = true;
+		}
 	}
 }
 
@@ -528,6 +537,9 @@ UModel::UModel(const FObjectInitializer& ObjectInitializer)
 	, Points(this)
 	, Surfs(this)
 	, VertexBuffer(this)
+#if WITH_EDITOR
+	, bCachedOwnerTransformValid(false)
+#endif
 {
 
 }
@@ -541,6 +553,9 @@ UModel::UModel(FVTableHelper& Helper)
 	, Points(this)
 	, Surfs(this)
 	, VertexBuffer(this)
+#if WITH_EDITOR
+	, bCachedOwnerTransformValid(false)
+#endif
 {
 
 }

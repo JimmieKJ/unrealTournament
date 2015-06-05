@@ -357,17 +357,23 @@ void UEditorEngine::polyUpdateMaster
 	if( !Actor )
 		return;
 
-	const FVector ActorLocation = Actor->GetActorLocation();
-	const FVector ActorPrePivot = Actor->GetPrePivot();
-	const FVector ActorScale = Actor->GetActorScale();
-	const FRotator ActorRotation = -Actor->GetActorRotation();
+	UModel* Brush = Actor->Brush;
+	check(Brush);
 
-	for( int32 iEdPoly = Surf.iBrushPoly; iEdPoly < Actor->Brush->Polys->Element.Num(); iEdPoly++ )
+	// Use transform cached when the geometry was last built, in case the current Actor transform has changed since then
+	// (e.g. because Auto Update BSP is disabled)
+	check(Brush->bCachedOwnerTransformValid);
+	const FVector ActorLocation = Brush->OwnerLocationWhenLastBuilt;
+	const FVector ActorPrePivot = Brush->OwnerPrepivotWhenLastBuilt;
+	const FVector ActorScale = Brush->OwnerScaleWhenLastBuilt;
+	const FRotator ActorRotation = -Brush->OwnerRotationWhenLastBuilt;
+
+	for( int32 iEdPoly = Surf.iBrushPoly; iEdPoly < Brush->Polys->Element.Num(); iEdPoly++ )
 	{
-		FPoly& MasterEdPoly = Actor->Brush->Polys->Element[iEdPoly];
+		FPoly& MasterEdPoly = Brush->Polys->Element[iEdPoly];
 		if( iEdPoly==Surf.iBrushPoly || MasterEdPoly.iLink==Surf.iBrushPoly )
 		{
-			Actor->Brush->Polys->Element.ModifyItem( iEdPoly );
+			Brush->Polys->Element.ModifyItem( iEdPoly );
 
 			MasterEdPoly.Material  = Surf.Material;
 			MasterEdPoly.PolyFlags = Surf.PolyFlags & ~(PF_NoEdit);

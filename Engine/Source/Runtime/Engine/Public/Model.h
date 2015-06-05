@@ -406,6 +406,15 @@ class UModel : public UObject
 
 	/** The level used to generate NodeGroups */
 	const ULevel* LightingLevel;
+
+	/** Cached transform of the owner brush when the geometry was last built */
+	FVector OwnerLocationWhenLastBuilt;
+	FRotator OwnerRotationWhenLastBuilt;
+	FVector OwnerScaleWhenLastBuilt;
+	FVector OwnerPrepivotWhenLastBuilt;
+
+	/** Specifies whether the above cached transform is valid */
+	bool bCachedOwnerTransformValid;
 #endif // WITH_EDITOR
 
 	// Other variables.
