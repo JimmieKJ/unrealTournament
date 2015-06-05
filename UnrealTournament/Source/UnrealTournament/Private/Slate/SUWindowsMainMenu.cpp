@@ -700,26 +700,9 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 
 		AUTReplicatedGameRuleset* CurrentRule = CreateGameDialog->SelectedRuleset.Get();
 	
-		StartingMap = TEXT(""); //
-
-		// Copy the map rotation list in to the config.
-		AUTGameMode* DefaultGameMode = CurrentRule->GetDefaultGameModeObject();
-		DefaultGameMode->MapRotation.Empty();
-		for (int32 i=0; i< CreateGameDialog->MapPlayList.Num(); i++ )
-		{
-			if (CreateGameDialog->MapPlayList[i].bSelected)
-			{
-				DefaultGameMode->MapRotation.Add(CreateGameDialog->MapPlayList[i].MapName);
-				if (StartingMap == TEXT(""))
-				{
-					StartingMap = CreateGameDialog->MapPlayList[i].MapName;
-				}
-			}
-		}
-
-		if (StartingMap == TEXT("")) StartingMap = CreateGameDialog->MapPlayList[0].MapName;
+		StartingMap = CreateGameDialog->GetSelectedMap();
 		
-		DefaultGameMode->SaveConfig();
+		AUTGameMode* DefaultGameMode = CurrentRule->GetDefaultGameModeObject();
 
 		GameOptions = FString::Printf(TEXT("?Game=%s"), *CurrentRule->GameMode);
 		GameOptions += FString::Printf(TEXT("?MaxPlayers=%i"), CurrentRule->MaxPlayers);
@@ -727,11 +710,8 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 
 		if ( CreateGameDialog->BotSkillLevel >= 0 )
 		{
-			// Load the level summary of this map.
-			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
-
 			// This match wants bots.  
-			int32 OptimalPlayerCount = DefaultGameMode->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+			int32 OptimalPlayerCount = DefaultGameMode->bTeamGame ? CreateGameDialog->MapPlayList[0].MapInfo->OptimalTeamPlayerCount : CreateGameDialog->MapPlayList[0].MapInfo->OptimalPlayerCount;
 
 			GameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));				
 		}

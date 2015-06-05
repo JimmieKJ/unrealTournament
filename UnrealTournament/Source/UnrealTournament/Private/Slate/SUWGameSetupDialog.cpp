@@ -8,6 +8,7 @@
 #include "UTGameEngine.h"
 #include "UTLobbyMatchInfo.h"
 #include "UTEpicDefaultRulesets.h"
+#include "UTLobbyGameState.h"
 
 #if !UE_SERVER
 
@@ -35,6 +36,9 @@ void SUWGameSetupDialog::Construct(const FArguments& InArgs)
 							.ButtonMask(InArgs._ButtonMask)
 							.OnDialogResult(InArgs._OnDialogResult)
 						);
+
+	bHubMenu = GetPlayerOwner()->GetWorld()->GetGameState<AUTLobbyGameState>() != NULL;
+
 
 	GameRulesets = InArgs._GameRuleSets;
 	BotSkillLevel = 3;
@@ -371,28 +375,59 @@ FReply SUWGameSetupDialog::OnRuleClick(int32 RuleIndex)
 
 void SUWGameSetupDialog::BuildMapList()
 {
-	if (SelectedRuleset.IsValid())
+	AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
+	if (SelectedRuleset.IsValid() && GameState)
 	{
+		TArray<TSharedPtr<FMapListItem>> AllowedMapList;
+		GameState->GetAvailableMaps(SelectedRuleset->MapPrefixes, AllowedMapList);
 		MapPlayList.Empty();
-		for (int32 i=0; i< SelectedRuleset->MapPlaylist.Num(); i++)
+		for (int32 i=0; i< AllowedMapList.Num(); i++)
 		{
-			// Pull the level Summary		
-			FSlateDynamicImageBrush* Screenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("HubMapListShot")));
-			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(SelectedRuleset->MapPlaylist[i]);
-			if (Summary != NULL)
+			// Look to see if this map fits the rules...
+
+			int32 OptimalPlayerCount = SelectedRuleset->bTeamGame ? AllowedMapList[i]->OptimalTeamPlayerCount : AllowedMapList[i]->OptimalPlayerCount;
+			if (OptimalPlayerCount >= SelectedRuleset->OptimalPlayers)
 			{
-				*Screenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, Screenshot->ImageSize, Screenshot->GetResourceName());
+				MapPlayList.Add(FMapPlayListInfo(AllowedMapList[i], false));
 			}
-			else
+
+			if (AllowedMapList[i]->Screenshot != TEXT(""))
 			{
-				*Screenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, Screenshot->ImageSize, Screenshot->GetResourceName());
-			}	
-			MapPlayList.Add(FMapPlayListInfo(SelectedRuleset->MapPlaylist[i], Screenshot, Summary,(i == 0)));
+				FString Package = AllowedMapList[i]->Screenshot;
+				const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
+				if ( Pos != INDEX_NONE )
+				{
+					Package = Package.Left(Pos);
+				}
+
+				LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateRaw(this, &SUWGameSetupDialog::TextureLoadComplete),0);
+			}
 		}
 	}
 
 	// Build the first panel
 	BuildMapPanel();
+}
+
+void SUWGameSetupDialog::TextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result)
+{
+	if (Result == EAsyncLoadingResult::Succeeded)
+	{
+		for (int32 i=0 ;i < MapPlayList.Num(); i++)
+		{
+			FString Screenshot = MapPlayList[i].MapInfo->Screenshot;
+			FString PackageName = InPackageName.ToString();
+			if (Screenshot != TEXT("") && Screenshot.Contains(PackageName))
+			{
+				UTexture2D* Tex = FindObject<UTexture2D>(nullptr, *Screenshot);
+				if (Tex)
+				{
+					MapPlayList[i].MapImage = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), FName(TEXT("HubMapListShot")));
+					MapPlayList[i].ImageWidget->SetImage(MapPlayList[i].MapImage);
+				}
+			}
+		}
+	}
 }
 
 void SUWGameSetupDialog::BuildMapPanel()
@@ -429,25 +464,10 @@ void SUWGameSetupDialog::BuildMapPanel()
 					.Padding(10.0f,0.0f,0.0f,0.0f)
 					[
 						SNew(STextBlock)
-//						.Text(FText::Format(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select up to {0} maps to play..."), FText::AsNumber(SelectedRuleset->MapPlaylistSize)))
-						.Text(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select maps to play..."))
+						.Text(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select Starting Map..."))
 						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 					]
 				]
-				+SOverlay::Slot()
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.HAlign(HAlign_Right)
-					.VAlign(VAlign_Bottom)
-					.Padding(0.0f,0.0f,10.0f,10.0f)
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWGameSetupDialog","MapListInstructionsB","(right-click to reorder)"))
-						.TextStyle(SUWindowsStyle::Get(), "UT.Hub.RulesText_Small")
-					]
-				]
-
 			]
 			
 		];		
@@ -465,22 +485,17 @@ void SUWGameSetupDialog::BuildMapPanel()
 		{
 			MapPanel->ClearChildren();
 
-			for (int32 i=0; i< SelectedRuleset->MapPlaylist.Num(); i++)
+			for (int32 i=0; i< MapPlayList.Num(); i++)
 			{
 				int32 Row = i / 6;
 				int32 Col = i % 6;
 
-				FString Title = MapPlayList[i].MapName;
-				FString ToolTip = MapPlayList[i].MapName;
-				
-				if (MapPlayList[i].LevelSummary != NULL)
-				{
-					Title = MapPlayList[i].LevelSummary->Title.IsEmpty() ? Title : MapPlayList[i].LevelSummary->Title;
-					ToolTip = MapPlayList[i].LevelSummary->Description.IsEmpty() ? ToolTip : MapPlayList[i].LevelSummary->Description.ToString();
-				}
+				FString Title = MapPlayList[i].MapInfo->Title;
+				FString ToolTip = MapPlayList[i].MapInfo->Description;;
 
 				TSharedPtr<SUTComboButton> Button;
 				TSharedPtr<SImage> CheckMark;
+				TSharedPtr<SImage> ImageWidget;
 
 				MapPanel->AddSlot(Col, Row).Padding(5.0,5.0,5.0,5.0)
 				[
@@ -513,7 +528,7 @@ void SUWGameSetupDialog::BuildMapPanel()
 									SNew(SOverlay)
 									+SOverlay::Slot()
 									[
-										SNew(SImage)
+										SAssignNew(ImageWidget,SImage)
 										.Image(MapPlayList[i].MapImage)
 									]
 									+SOverlay::Slot()
@@ -553,7 +568,7 @@ void SUWGameSetupDialog::BuildMapPanel()
 					]
 				];
 
-				MapPlayList[i].SetWidgets(Button, CheckMark);
+				MapPlayList[i].SetWidgets(Button, ImageWidget, CheckMark);
 			}
 		}
 	}
@@ -610,57 +625,27 @@ FReply SUWGameSetupDialog::OnMapClick(int32 MapIndex)
 	int32 Cnt = 0;
 	if (MapIndex >= 0 && MapIndex <= MapPlayList.Num())
 	{
-		if (MapPlayList[MapIndex].bSelected)
+		for (int32 i = 0; i < MapPlayList.Num(); i++)
 		{
-			MapPlayList[MapIndex].bSelected = false;
-			MapPlayList[MapIndex].Button->UnPressed();
-			MapPlayList[MapIndex].CheckMark->SetVisibility(EVisibility::Hidden);
+			MapPlayList[i].bSelected = false;
+			MapPlayList[i].Button->UnPressed();
 
-			for (int32 i = 0; i < MapPlayList.Num(); i++)
-			{
-				if (MapPlayList[i].bSelected) Cnt++;
-			}
 		}
-		else
-		{
-			for (int32 i = 0; i < MapPlayList.Num(); i++)
-			{
-				if (MapPlayList[i].bSelected) Cnt++;
-			}
-/*
-			if (Cnt == SelectedRuleset->MapPlaylistSize)
-			{
-				MapPlayList[MapIndex].Button->UnPressed();
-				FText Msg = FText::Format(NSLOCTEXT("SUWGameSetupDialog","TooManyMaps","You can only have {0} maps in a play list at any given time.  Please unselect a map before adding another."), FText::AsNumber(SelectedRuleset->MapPlaylistSize));
-				GetPlayerOwner()->MessageBox(NSLOCTEXT("SUWGameSetupDialog","TooManyMapsTitle","Too many maps"), Msg);
-			}
-			else
-			{
-*/		
-				MapPlayList[MapIndex].bSelected = true;
-				MapPlayList[MapIndex].Button->BePressed();
-				MapPlayList[MapIndex].CheckMark->SetVisibility(EVisibility::Visible);
-//			}
-		}
+
+		MapPlayList[MapIndex].bSelected = true;
+		MapPlayList[MapIndex].Button->BePressed();
 	}
 
-	for (int32 i = 0; i < MapPlayList.Num(); i++)
+	EnableButton(UTDIALOG_BUTTON_OK);
+	EnableButton(UTDIALOG_BUTTON_PLAY);
+	EnableButton(UTDIALOG_BUTTON_LAN);
+
+	// If we are a hub menu, then selecting the map is as good as starting.
+	if (bHubMenu)
 	{
-		if (MapPlayList[i].bSelected) Cnt++;
+		OnButtonClick(UTDIALOG_BUTTON_OK);
 	}
 
-	if (Cnt > 0)
-	{
-		EnableButton(UTDIALOG_BUTTON_OK);
-		EnableButton(UTDIALOG_BUTTON_PLAY);
-		EnableButton(UTDIALOG_BUTTON_LAN);
-	}
-	else
-	{
-		DisableButton(UTDIALOG_BUTTON_OK);
-		DisableButton(UTDIALOG_BUTTON_PLAY);
-		DisableButton(UTDIALOG_BUTTON_LAN);
-	}
 
 	return FReply::Handled();
 }
@@ -699,38 +684,6 @@ void SUWGameSetupDialog::ApplyCurrentRuleset(TWeakObjectPtr<AUTLobbyMatchInfo> M
 				{
 					// Select it.
 					OnRuleClick(RuleIndex);
-
-					// First, toggle all maps off
-				
-					for (int32 Ma = 0; Ma < MapPlayList.Num(); Ma++)
-					{
-						MapPlayList[Ma].bSelected = false;
-						MapPlayList[Ma].Button->UnPressed();
-						MapPlayList[Ma].CheckMark->SetVisibility(EVisibility::Hidden);
-					}
-
-					// Now, turn on and sort..
-
-					for (int32 Mb = MatchInfo->MapList.Num() - 1 ; Mb >= 0; Mb--)
-					{
-						for (int32 Ma = 0; Ma <MapPlayList.Num(); Ma++ )
-						{
-							if (MapPlayList[Ma].MapName == MatchInfo->MapList[Mb])
-							{
-								// Found it...
-								MapPlayList[Ma].bSelected = true;
-								MapPlayList[Ma].Button->BePressed();
-								MapPlayList[Ma].CheckMark->SetVisibility(EVisibility::Visible);
-								
-								// Now move it to the top.
-					
-								FMapPlayListInfo MPLI = MapPlayList[Ma];
-								MapPlayList.RemoveAt(Ma);
-								MapPlayList.Insert(MPLI, 0);
-								break;
-							}
-						}
-					}
 					BuildMapPanel();		
 					return;
 				}
@@ -745,6 +698,21 @@ void SUWGameSetupDialog::GetCustomGameSettings(FString& GameMode, FString& Start
 	{
 		CustomPanel->GetCustomGameSettings(GameMode, StartingMap, Description, GameOptions, DesiredPlayerCount, BotSkillLevel);
 	}
+}
+
+FString SUWGameSetupDialog::GetSelectedMap()
+{
+	FString StartingMap = TEXT("");
+	for (int32 i=0; i< MapPlayList.Num(); i++ )
+	{
+		if (MapPlayList[i].bSelected)
+		{
+
+			return MapPlayList[i].MapInfo->PackageName;
+		}
+	}
+
+	return TEXT("");
 }
 
 #endif

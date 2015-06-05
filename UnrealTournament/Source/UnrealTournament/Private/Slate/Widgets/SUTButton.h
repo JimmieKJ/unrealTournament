@@ -112,6 +112,11 @@ protected:
 
 	virtual FReply Pressed(int32 MouseButtonIndex);
 	virtual FReply Released(int32 MouseButtonIndex, bool bIsUnderCusor);
+
+	virtual void Press() { };
+	virtual void Release() { };
+
+
 };
 
 #endif

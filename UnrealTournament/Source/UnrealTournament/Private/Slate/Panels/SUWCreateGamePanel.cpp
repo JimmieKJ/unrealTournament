@@ -586,13 +586,15 @@ void SUWCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 		SelectedGameName->SetText(SelectedGameClass.GetDefaultObject()->DisplayName.ToString());
 
 		// generate map list
-		const AUTGameMode* GameDefaults = SelectedGameClass.GetDefaultObject();
+		AUTGameMode* GameDefaults = SelectedGameClass.GetDefaultObject();
 		AllMaps.Empty();
 
 		AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
 		if (GameState)
 		{
-			GameState->GetAvailableMaps(GameDefaults, AllMaps);
+			TArray<FString> PrefixList;
+			PrefixList.Add(GameDefaults->GetMapPrefix());
+			GameState->GetAvailableMaps(PrefixList, AllMaps);
 		}
 
 		AllMaps.Sort([](const TSharedPtr<FMapListItem>& A, const TSharedPtr<FMapListItem>& B)

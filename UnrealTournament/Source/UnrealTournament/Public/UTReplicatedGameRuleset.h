@@ -31,21 +31,24 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FString Description;
 
-	// Holds the max # of maps in the rotation
-	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
-	int32 MapPlaylistSize;
-
 	// Holds a list of maps that can be played in this ruleset.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
-	TArray<FString> MapPlaylist;
+	TArray<FString> MapPrefixes;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
+	FString DefaultMap;
 
 	// The number of players needed to start.
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	int32 MinPlayersToStart;
 
-	// The number of players allowed in this match.  NOTE: it must be duplicated in the GameOptions string.
+	// The number of players allowed in this match.  
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	int32 MaxPlayers;
+	
+	// The number of players that is optimal for this rule.  The game will not display maps who optimal player counts are less than this number.
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
+	int32 OptimalPlayers;
 
 	// Holds a string reference to the material to show for this rule's badge
 	UPROPERTY(Replicated, ReplicatedUsing = BuildSlateBadge, BlueprintReadOnly, Category = Ruleset)

@@ -22,6 +22,7 @@
 void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 {
 	BlinkyTimer = 0.0f;
+	bWaitingOnMapDownload = false;
 	Dots=0;
 
 	bIsHost = InArgs._bIsHost;
@@ -165,12 +166,32 @@ void SULobbyMatchSetupPanel::Tick( const FGeometry& AllottedGeometry, const doub
 {
 	if ( MatchInfo.IsValid())
 	{
-
 		if (MatchInfo->CurrentRuleset.IsValid())
 		{
-			if (MatchInfo->bMapListChanged)
+			if (MatchInfo->bMapChanged && !bWaitingOnMapDownload)
 			{
-				BuildMapList();
+				// Look to see if the MapInfo is valid.  If it's not, then trigger a content get.
+				if (MatchInfo->InitialMapInfo.IsValid())
+				{
+					BuildMapList();
+				}
+				else
+				{
+					bWaitingOnMapDownload = true;
+					TArray<FString> Content;
+					Content.Add(MatchInfo->InitialMap);
+					PlayerOwner->AccquireContent(Content);
+				}
+			}
+
+			else if (bWaitingOnMapDownload && !PlayerOwner->IsDownloadInProgress())
+			{
+				MatchInfo->LoadInitialMapInfo();	
+				if (MatchInfo->InitialMapInfo.IsValid())
+				{
+					bWaitingOnMapDownload = false;
+					BuildMapList();
+				}
 			}
 		}
 		else
@@ -731,88 +752,56 @@ FText SULobbyMatchSetupPanel::GetMatchRulesDescription() const
 
 void SULobbyMatchSetupPanel::BuildMapList()
 {
-
 	if (MapListPanel.IsValid() && MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
 	{
-		MatchInfo->bMapListChanged = false;
-
 		MapListPanel->ClearChildren();
-		MaplistScreenshots.Empty();
 
 		MapListPanel->AddSlot().AutoHeight().HAlign(HAlign_Left)
 		[
 			SNew(STextBlock)
-			.Text(FText::FromString(TEXT("[Map Play List]")))
+			.Text(NSLOCTEXT("SULobbyMatchSetupPanel", "StartingMap","Starting Map..."))
 			.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
 			.ColorAndOpacity(FLinearColor::White)
 		];
 
-		TSharedPtr<SGridPanel> Grid;
-		MapListPanel->AddSlot().FillHeight(1.0)
+		MapListPanel->AddSlot().AutoHeight().HAlign(HAlign_Left)
 		[
-			SAssignNew(Grid, SGridPanel)
+			SNew(STextBlock)
+			.Text(FText::FromString(MatchInfo->InitialMapInfo->Title))
+			.TextStyle(SUWindowsStyle::Get(),"UT.Hub.RulesTitle")
+			.ColorAndOpacity(FLinearColor::White)
 		];
 
-		for (int32 i = 0 ; i < MatchInfo->MapList.Num(); i++)
+
+		if (MatchInfo->InitialMapInfo->Screenshot != TEXT(""))
 		{
-			FSlateDynamicImageBrush* Screenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("HubMapListShot")));
-			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(MatchInfo->MapList[i]);
-			FString Title = MatchInfo->MapList[i];
-			FString ToolTip;
-			if (Summary != NULL)
-			{
-				*Screenshot = FSlateDynamicImageBrush(Summary->Screenshot != NULL ? Summary->Screenshot : Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, Screenshot->ImageSize, Screenshot->GetResourceName());
-				if (!Summary->Title.IsEmpty())
-				{
-					Title = Summary->Title;
-				}
-				ToolTip = FString::Printf(TEXT("%s\n\nAuthor: %s\nDesc: %s"), *Title, *Summary->Author, *Summary->Description.ToString());
-			}
-			else
-			{
-				*Screenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, Screenshot->ImageSize, Screenshot->GetResourceName());
-			}	
+			UTexture2D* MapImage = LoadObject<UTexture2D>(nullptr, *MatchInfo->InitialMapInfo->Screenshot);
+			MapScreenshot = new FSlateDynamicImageBrush(MapImage, FVector2D(256.0, 128.0), FName(TEXT("HubMapShot")));
 
-			MaplistScreenshots.Add(Screenshot);
+		}
+		else
+		{
+			MapScreenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("HubMapShot")));
+		}
 
-			int32 Row = i / 3;
-			int32 Col = i % 3;			 
-
-			Grid->AddSlot(Col, Row).Padding(5.0,5.0,5.0,5.0)
+		MapListPanel->AddSlot().AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
 			[
 				SNew(SBox)
-				.WidthOverride(256)
-				.HeightOverride(158)							
+				.HeightOverride(256)
+				.WidthOverride(512)
 				[
-					SNew(SButton)
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()
-						.AutoHeight()
-						[
-							SNew(SBox)
-							.WidthOverride(256)
-							.HeightOverride(128)							
-							[
-								SNew(SImage)
-								.Image(Screenshot)
-								.ToolTip(SUTUtils::CreateTooltip(FText::FromString(ToolTip)))
-							]
-
-						]
-						+SVerticalBox::Slot()
-						.HAlign(HAlign_Center)
-						.AutoHeight()
-						[
-							SNew(STextBlock)
-							.Text(FText::FromString(Title))
-							.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
-							.ColorAndOpacity(FLinearColor::Black)
-						]
-					]
+					SNew(SImage)
+					.Image(MapScreenshot)
 				]
-			];
-		}
+			]
+		];
+
+		MatchInfo->bMapChanged = false;
+
 	}
 }
 
@@ -850,15 +839,8 @@ void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget
 
 		else if (SetupDialog->SelectedRuleset.IsValid())
 		{
-			TArray<FString> MapList;
-			for (int32 i=0; i< SetupDialog->MapPlayList.Num(); i++ )
-			{
-				if (SetupDialog->MapPlayList[i].bSelected)
-				{
-					MapList.Add(SetupDialog->MapPlayList[i].MapName);
-				}
-			}
-			MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, MapList, SetupDialog->BotSkillLevel);
+			FString StartingMap = SetupDialog->GetSelectedMap();
+			MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, StartingMap, SetupDialog->BotSkillLevel);
 		}
 
 		// NOTE: The dialog closes itself... :)

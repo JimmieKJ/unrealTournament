@@ -297,7 +297,7 @@ AUTLobbyMatchInfo* AUTLobbyGameState::QuickStartMatch(AUTLobbyPlayerState* Host,
 
 		if (NewRuleset.IsValid())
 		{
-			NewMatchInfo->SetRules(NewRuleset, NewRuleset->MapPlaylist);
+			NewMatchInfo->SetRules(NewRuleset, NewRuleset->DefaultMap);
 		}
 
 		NewMatchInfo->bJoinAnytime = true;
@@ -671,7 +671,7 @@ bool AUTLobbyGameState::CanLaunch(AUTLobbyMatchInfo* MatchToLaunch)
 
 void AUTLobbyGameState::GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* ClientBeacon, uint32 InGameInstanceID, const FString& CurrentMap)
 {
-
+/*
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
 		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
@@ -694,6 +694,7 @@ void AUTLobbyGameState::GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* 
 			ClientBeacon->InstanceNextMap(TEXT(""));
 		}
 	}
+*/
 }
 
 void AUTLobbyGameState::ScanAssetRegistry()
@@ -836,9 +837,9 @@ void AUTLobbyGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<
 	}
 }
 
-void AUTLobbyGameState::GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList)
+void AUTLobbyGameState::GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, TArray<TSharedPtr<FMapListItem>>& MapList)
 {
-	Super::GetAvailableMaps(DefaultGameMode, MapList);
+	Super::GetAvailableMaps(AllowedMapPrefixes, MapList);
 
 	int32 MIndex = 0;
 	while (MIndex < MapList.Num())

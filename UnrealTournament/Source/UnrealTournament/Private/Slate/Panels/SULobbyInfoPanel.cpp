@@ -897,6 +897,7 @@ void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 
 		if (Cmd.ToLower() == TEXT("@debugrules"))
 		{
+/*
 			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
 			AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
 			if (GS)
@@ -935,6 +936,8 @@ void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
 			ChatText->SetText(FText::GetEmpty());
 			return;
+*/
+
 		}
 
 	}

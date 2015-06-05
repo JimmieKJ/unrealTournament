@@ -597,5 +597,12 @@ public:
 
 	// Called from the Beacon, it makes this server become a dedicated instance
 	virtual void BecomeDedicatedInstance(FGuid HubGuid);
+
+	FString GetMapPrefix()
+	{
+		return MapPrefix;
+	}
+
+
 };
 

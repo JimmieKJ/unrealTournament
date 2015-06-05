@@ -102,7 +102,7 @@ protected:
 
 	// Screenshots..	
 	/** bushes used for the map list */
-	TArray<FSlateDynamicImageBrush*> MaplistScreenshots;
+	FSlateDynamicImageBrush* MapScreenshot;
 
 	FText GetMatchRulesTitle() const;
 	FText GetMatchRulesDescription() const;
@@ -125,6 +125,9 @@ protected:
 
 	FReply CancelDownloadClicked();
 	EVisibility CancelButtonVisible() const;
+
+	// If true, we are waiting on a map to download so we can accquie a map
+	bool bWaitingOnMapDownload;
 
 };
 

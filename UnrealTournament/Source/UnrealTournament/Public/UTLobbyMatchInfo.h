@@ -91,14 +91,14 @@ public:
 	UPROPERTY(Replicated)
 	FString MatchBadge;
 
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_InitialMap)
 	FString InitialMap;
 
-	UPROPERTY(Replicated, ReplicatedUsing = OnRep_MapList)
-	TArray<FString> MapList;
+	// This will be looked up when the inital map is set.
+	TSharedPtr<FMapListItem> InitialMapInfo;
 
-	// Set by OnRep_MapList
-	bool bMapListChanged;
+	// Set by OnRep_InitialMap
+	bool bMapChanged;
 
 	// The current ruleset the governs this match
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_CurrentRuleset)
@@ -251,7 +251,7 @@ protected:
 	virtual void OnRep_Update();
 
 	UFUNCTION()
-	virtual void OnRep_MapList();
+	virtual void OnRep_InitialMap();
 
 	// This match info is done.  Kill it.
 	void RecycleMatchInfo();
@@ -268,15 +268,13 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerMatchIsReadyForPlayers();
 
-	FString GetMapList();
-
 	// Returns true if the match has room for a new player to join it
 	bool MatchHasRoom() { return true; }
 
-	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const TArray<FString>& NewMapList);
+	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetRules(const FString& RulesetTag, const TArray<FString>& NewMapList, int32 NewBotSkillLevel);
+	virtual void ServerSetRules(const FString& RulesetTag, const FString& StartingMap, int32 NewBotSkillLevel);
 
 	virtual void SetMatchStats(FString Update);
 
@@ -286,6 +284,9 @@ public:
 	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount);
 
 	bool IsBanned(FUniqueNetIdRepl Who);
+	TSharedPtr<FMapListItem> GetMapInformation(FString MapPackage);
+
+	void LoadInitialMapInfo();
 
 };
 

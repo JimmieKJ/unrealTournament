@@ -322,7 +322,7 @@ public:
 	// available local content however, in hubs it will be from data replicated from the server.
 
 	virtual void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
-	virtual void GetAvailableMaps(const AUTGameMode* DefaultGameMode, TArray<TSharedPtr<FMapListItem>>& MapList);
+	virtual void GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, TArray<TSharedPtr<FMapListItem>>& MapList);
 
 	UPROPERTY()
 		TArray<FName> GameScoreStats;
