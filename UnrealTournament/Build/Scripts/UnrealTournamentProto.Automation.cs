@@ -642,7 +642,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			// UnrealTournament/...
 			Filter.Include("/UnrealTournament/*.uproject");
 			Filter.Include("/UnrealTournament/Plugins/...");
-			Filter.Exclude("/UnrealTournament/Plugins/.../Binaries/...");
+            Filter.Exclude("/UnrealTournament/Plugins/.../Binaries/...");
+            Filter.Exclude("/UnrealTournament/Plugins/.../Intermediate/...");
 			Filter.Include("/UnrealTournament/Content/...");
 			Filter.Include("/UnrealTournament/Config/...");
 			Filter.Include("/UnrealTournament/Releases/...");
