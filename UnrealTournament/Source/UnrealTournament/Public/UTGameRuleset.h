@@ -32,6 +32,12 @@ public:
 	UPROPERTY(Config)
 	FString Description;
 
+	UPROPERTY(Config)
+	TArray<FString> MapPrefixes;
+
+	UPROPERTY(Config)
+	FString DefaultMap;
+
 	// Holds a list of maps that can be played in this ruleset.
 	UPROPERTY(Config)
 	TArray<FString> MapPlaylist;
