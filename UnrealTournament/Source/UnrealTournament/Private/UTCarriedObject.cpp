@@ -166,7 +166,12 @@ void AUTCarriedObject::ChangeState(FName NewCarriedObjectState)
 
 bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 {
-	if (Character->IsRagdoll())
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL && (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime()))
+	{
+		return false;
+	}
+	else if (Character->IsRagdoll())
 	{
 		return false;
 	}
