@@ -1302,6 +1302,9 @@ void AUTCharacter::PlayDying()
 	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
+	// Set the hair back to normal because hats are being removed
+	GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 0.0f);
+
 	if (Hat && Hat->GetAttachParentActor())
 	{
 		Hat->DetachRootComponentFromParent(true);
