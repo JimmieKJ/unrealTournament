@@ -33,7 +33,7 @@ void AUTDemoRecSpectator::ServerViewProjectileShim()
 
 void AUTDemoRecSpectator::ViewPawn(APawn* PawnToView)
 {
-	ServerViewPawn_Implementation(PawnToView);
+	ViewPlayerState(PawnToView->PlayerState);
 }
 
 void AUTDemoRecSpectator::ViewAPlayer(int32 dir)

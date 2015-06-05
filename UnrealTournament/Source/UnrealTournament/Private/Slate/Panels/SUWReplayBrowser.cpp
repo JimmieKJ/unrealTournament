@@ -84,87 +84,90 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 
 		+ SOverlay::Slot()
 		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(25.0f, 0.0f, 0.0f, 0.0f)
+			SNew(SBox) 
+			.HeightOverride(500.0f)
 			[
-				// The list view being tested
-				SAssignNew(ReplayListView, SListView< TSharedPtr<FReplayData> >)
-				// List view items are this tall
-				.ItemHeight(24)
-				// Tell the list view where to get its source data
-				.ListItemsSource(&ReplayList)
-				// When the list view needs to generate a widget for some data item, use this method
-				.OnGenerateRow(this, &SUWReplayBrowser::OnGenerateWidgetForList)
-				.OnSelectionChanged(this, &SUWReplayBrowser::OnReplayListSelectionChanged)
-				.OnMouseButtonDoubleClick(this, &SUWReplayBrowser::OnListMouseButtonDoubleClick)
-				.SelectionMode(ESelectionMode::Single)
-				.HeaderRow
-				(
-					SNew(SHeaderRow)
-					.Style(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header")
-
-					+ SHeaderRow::Column("Name")
-					.HeaderContent()
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayNameColumn", "Name"))
-						.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayNameColumnToolTip", "Replay Name."))
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-					]
-					+ SHeaderRow::Column("Length")
-					.HeaderContent()
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayLengthColumn", "Length"))
-						.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayLengthColumnToolTip", "Replay Length."))
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-					]
-					+ SHeaderRow::Column("Date")
-					.HeaderContent()
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayDateColumn", "Date"))
-						.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayDateColumnToolTip", "Replay Date."))
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-					]
-					+ SHeaderRow::Column("Live?")
-					.HeaderContent()
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayLiveColumn", "Live?"))
-						.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayLiveColumnToolTip", "Is this replay live?"))
-						.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
-					]
-				)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(25.0f, 0.0f, 0.0f, 0.0f)
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.Padding(25.0f, 0.0f, 0.0f, 0.0f)
 				[
-					SAssignNew(WatchReplayButton, SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
-					.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
+					// The list view being tested
+					SAssignNew(ReplayListView, SListView< TSharedPtr<FReplayData> >)
+					// List view items are this tall
+					.ItemHeight(24)
+					// Tell the list view where to get its source data
+					.ListItemsSource(&ReplayList)
+					// When the list view needs to generate a widget for some data item, use this method
+					.OnGenerateRow(this, &SUWReplayBrowser::OnGenerateWidgetForList)
+					.OnSelectionChanged(this, &SUWReplayBrowser::OnReplayListSelectionChanged)
+					.OnMouseButtonDoubleClick(this, &SUWReplayBrowser::OnListMouseButtonDoubleClick)
+					.SelectionMode(ESelectionMode::Single)
+					.HeaderRow
+					(
+						SNew(SHeaderRow)
+						.Style(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header")
 
-					.Text(NSLOCTEXT("SUWReplayBrowser", "WatchReplay", "Watch This Replay"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.OnClicked(this, &SUWReplayBrowser::OnWatchClick)
+						+ SHeaderRow::Column("Name")
+						.HeaderContent()
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayNameColumn", "Name"))
+							.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayNameColumnToolTip", "Replay Name."))
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+						]
+						+ SHeaderRow::Column("Length")
+						.HeaderContent()
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayLengthColumn", "Length"))
+							.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayLengthColumnToolTip", "Replay Length."))
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+						]
+						+ SHeaderRow::Column("Date")
+						.HeaderContent()
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayDateColumn", "Date"))
+							.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayDateColumnToolTip", "Replay Date."))
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+						]
+						+ SHeaderRow::Column("Live?")
+						.HeaderContent()
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayLiveColumn", "Live?"))
+							.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayLiveColumnToolTip", "Is this replay live?"))
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+						]
+					)
 				]
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(25.0f, 0.0f, 0.0f, 0.0f)
 				[
-					SAssignNew(WatchReplayButton, SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
-					.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SAssignNew(WatchReplayButton, SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
+						.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
 
-					.Text(NSLOCTEXT("SUWReplayBrowser", "RefreshList", "Refresh"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.OnClicked(this, &SUWReplayBrowser::OnRefreshClick)
+						.Text(NSLOCTEXT("SUWReplayBrowser", "WatchReplay", "Watch This Replay"))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.OnClicked(this, &SUWReplayBrowser::OnWatchClick)
+					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SAssignNew(WatchReplayButton, SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
+						.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
+
+						.Text(NSLOCTEXT("SUWReplayBrowser", "RefreshList", "Refresh"))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.OnClicked(this, &SUWReplayBrowser::OnRefreshClick)
+					]
 				]
 			]
 		]
