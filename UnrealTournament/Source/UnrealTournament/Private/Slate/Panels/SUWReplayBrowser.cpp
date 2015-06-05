@@ -198,8 +198,9 @@ void SUWReplayBrowser::BuildReplayList()
 		}
 
 		const FString MetaString = TEXT("");
+		const FString UserString = TEXT("");
 
-		ReplayStreamer->EnumerateStreams(Version, FOnEnumerateStreamsComplete::CreateSP(this, &SUWReplayBrowser::OnEnumerateStreamsComplete));
+		ReplayStreamer->EnumerateStreams(Version, UserString, MetaString, FOnEnumerateStreamsComplete::CreateSP(this, &SUWReplayBrowser::OnEnumerateStreamsComplete));
 	}
 }
 

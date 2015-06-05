@@ -18,6 +18,7 @@ public:
 	int32		DemoTimeInMs;
 	int32		NumViewers;
 	bool		bIsLive;
+	int32		Changelist;
 
 	// FOnlineJsonSerializable
 	BEGIN_ONLINE_JSON_SERIALIZER
@@ -29,6 +30,7 @@ public:
 		ONLINE_JSON_SERIALIZE( "DemoTimeInMs",	DemoTimeInMs );
 		ONLINE_JSON_SERIALIZE( "NumViewers",	NumViewers );
 		ONLINE_JSON_SERIALIZE( "bIsLive",		bIsLive );
+		ONLINE_JSON_SERIALIZE( "Changelist",	Changelist );
 	END_ONLINE_JSON_SERIALIZER
 };
 
@@ -44,6 +46,24 @@ public:
 	// FOnlineJsonSerializable
 	BEGIN_ONLINE_JSON_SERIALIZER
 		ONLINE_JSON_SERIALIZE_ARRAY_SERIALIZABLE( "replays", Replays, FNetworkReplayListItem );
+	END_ONLINE_JSON_SERIALIZER
+};
+
+class FNetworkReplayUserList : public FOnlineJsonSerializable
+{
+public:
+	FNetworkReplayUserList()
+	{
+	}
+	virtual ~FNetworkReplayUserList()
+	{
+	}
+
+	TArray< FString > Users;
+
+	// FOnlineJsonSerializable
+	BEGIN_ONLINE_JSON_SERIALIZER
+		ONLINE_JSON_SERIALIZE_ARRAY( "users", Users );
 	END_ONLINE_JSON_SERIALIZER
 };
 
@@ -122,7 +142,7 @@ FHttpNetworkReplayStreamer::FHttpNetworkReplayStreamer() :
 	GConfig->GetString( TEXT( "HttpNetworkReplayStreaming" ), TEXT( "ServerURL" ), ServerURL, GEngineIni );
 }
 
-void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, const FString& FriendlyName, bool bRecord, const FNetworkReplayVersion& InReplayVersion, const FOnStreamReadyDelegate& Delegate )
+void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, const FString& FriendlyName, const TArray< FString >& UserNames, bool bRecord, const FNetworkReplayVersion& InReplayVersion, const FOnStreamReadyDelegate& Delegate )
 {
 	if ( !SessionName.IsEmpty() )
 	{
@@ -177,8 +197,15 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 
 		SessionName = CustomName;
 
+		FString UserName;
+
+		if ( UserNames.Num() == 1 )
+		{
+			UserName = UserNames[0];
+		}
+
 		// Notify the http server that we want to start downloading a replay
-		HttpRequest->SetURL( FString::Printf( TEXT( "%sstartdownloading?Session=%s" ), *ServerURL, *SessionName ) );
+		HttpRequest->SetURL( FString::Printf( TEXT( "%sstartdownloading?Session=%s&User=%s" ), *ServerURL, *SessionName, *UserName ) );
 		HttpRequest->SetVerb( TEXT( "POST" ) );
 
 		HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpStartDownloadingFinished );
@@ -202,12 +229,31 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 		// We can't upload the header until we have the session name, which depends on the StartUploading task above to finish
 		bNeedToUploadHeader = true;
 
-		// Notify the http server that we want to start uploading a replay
-		HttpRequest->SetURL( FString::Printf( TEXT( "%sstartuploading?App=%s&Version=%u&CL=%u&Friendly=%s" ), *ServerURL, *ReplayVersion.AppString, ReplayVersion.NetworkVersion, ReplayVersion.Changelist, *FriendlyName ) );
+		FString MetaString;
+
+		if ( FParse::Value( FCommandLine::Get(), TEXT( "ReplayMeta=" ), MetaString ) && !MetaString.IsEmpty() )
+		{
+			// Notify the http server that we want to start uploading a replay
+			HttpRequest->SetURL( FString::Printf( TEXT( "%sstartuploading?App=%s&Version=%u&CL=%u&Friendly=%s&Meta=%s" ), *ServerURL, *ReplayVersion.AppString, ReplayVersion.NetworkVersion, ReplayVersion.Changelist, *FriendlyName, *MetaString ) );
+		}
+		else
+		{
+			// Notify the http server that we want to start uploading a replay
+			HttpRequest->SetURL( FString::Printf( TEXT( "%sstartuploading?App=%s&Version=%u&CL=%u&Friendly=%s" ), *ServerURL, *ReplayVersion.AppString, ReplayVersion.NetworkVersion, ReplayVersion.Changelist, *FriendlyName ) );
+		}
 
 		HttpRequest->SetVerb( TEXT( "POST" ) );
 
 		HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpStartUploadingFinished );
+
+		if ( UserNames.Num() > 0 )
+		{
+			FNetworkReplayUserList UserList;
+
+			UserList.Users = UserNames;
+			HttpRequest->SetContentAsString( UserList.ToJson() );
+			HttpRequest->SetHeader( TEXT( "Content-Type" ), TEXT( "application/json" ) );
+		}
 
 		AddRequestToQueue( EQueuedHttpRequestType::StartUploading, HttpRequest );
 	}
@@ -613,8 +659,9 @@ void FHttpNetworkReplayStreamer::SetLastError( const ENetworkReplayError::Type I
 	TSharedPtr< FQueuedHttpRequest > QueuedRequest;
 	while ( QueuedHttpRequests.Dequeue( QueuedRequest ) ) { }
 
-	StreamerState		= EStreamerState::Idle;
-	StreamerLastError	= InLastError;
+	StreamerState			= EStreamerState::Idle;
+	StreamerLastError		= InLastError;
+	bStopStreamingCalled	= false;
 }
 
 ENetworkReplayError::Type FHttpNetworkReplayStreamer::GetLastError() const
@@ -718,7 +765,42 @@ void FHttpNetworkReplayStreamer::DeleteFinishedStream( const FString& StreamName
 	Delegate.ExecuteIfBound(false);
 }
 
-void FHttpNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const FOnEnumerateStreamsComplete& Delegate )
+void FHttpNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const FString& UserString, const FString& MetaString, const FOnEnumerateStreamsComplete& Delegate )
+{
+	if ( IsHttpRequestInFlight() )
+	{
+		Delegate.ExecuteIfBound( TArray<FNetworkReplayStreamInfo>() );
+		return;
+	}
+
+	TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
+
+	// Build base URL
+	FString URL = FString::Printf( TEXT( "%senumsessions?App=%s&Version=%u&CL=%u" ), *ServerURL, *InReplayVersion.AppString, InReplayVersion.NetworkVersion, InReplayVersion.Changelist );
+
+	// Add optional parameters
+	if ( !MetaString.IsEmpty() )
+	{
+		URL += FString::Printf( TEXT( "&Meta=%s" ), *MetaString );
+	}
+
+	if ( !UserString.IsEmpty() )
+	{
+		URL += FString::Printf( TEXT( "&User=%s" ), *UserString );
+	}
+
+	HttpRequest->SetURL( URL );
+
+	HttpRequest->SetVerb( TEXT( "GET" ) );
+
+	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished );
+
+	EnumerateStreamsDelegate = Delegate;
+
+	AddRequestToQueue( EQueuedHttpRequestType::EnumeratingSessions, HttpRequest );
+}
+
+void FHttpNetworkReplayStreamer::EnumerateRecentStreams( const FNetworkReplayVersion& InReplayVersion, const FString& InRecentViewer, const FOnEnumerateStreamsComplete& Delegate )
 {
 	if ( IsHttpRequestInFlight() )
 	{
@@ -729,7 +811,7 @@ void FHttpNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& 
 	TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
 
 	// Enumerate all of the sessions
-	HttpRequest->SetURL( FString::Printf( TEXT( "%senumsessions?App=%s&Version=%u&CL=%u" ), *ServerURL, *InReplayVersion.AppString, InReplayVersion.NetworkVersion, InReplayVersion.Changelist ) );
+	HttpRequest->SetURL( FString::Printf( TEXT( "%senumsessions?App=%s&Version=%u&CL=%u&Recent=%s" ), *ServerURL, *InReplayVersion.AppString, InReplayVersion.NetworkVersion, InReplayVersion.Changelist, *InRecentViewer ) );
 	HttpRequest->SetVerb( TEXT( "GET" ) );
 
 	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished );
@@ -1099,7 +1181,8 @@ void FHttpNetworkReplayStreamer::HttpEnumerateSessionsFinished( FHttpRequestPtr 
 			NewStream.SizeInBytes	= ReplayList.Replays[i].SizeInBytes;
 			NewStream.LengthInMS	= ReplayList.Replays[i].DemoTimeInMs;
 			NewStream.NumViewers	= ReplayList.Replays[i].NumViewers;
-			NewStream.bIsLive		= ReplayList.Replays[i].bIsLive;;
+			NewStream.bIsLive		= ReplayList.Replays[i].bIsLive;
+			NewStream.Changelist	= ReplayList.Replays[i].Changelist;
 
 			Streams.Add( NewStream );
 		}
