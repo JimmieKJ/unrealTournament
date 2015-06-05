@@ -943,6 +943,17 @@ void FModuleManager::FindModulePathsInDirectory(const FString& InDirectoryName, 
 			}
 		}
 	}
+
+	// Also recurse into restricted sub-folders, if they exist
+	const TCHAR* RestrictedFolderNames[] = { TEXT("NoRedist"), TEXT("NotForLicensees"), TEXT("CarefullyRedist") };
+	for(const TCHAR* RestrictedFolderName: RestrictedFolderNames)
+	{
+		FString RestrictedFolder = InDirectoryName / RestrictedFolderName;
+		if(FPaths::DirectoryExists(RestrictedFolder))
+		{
+			FindModulePathsInDirectory(RestrictedFolder, bIsGameDirectory, NamePattern, OutModulePaths);
+		}
+	}
 }
 
 
