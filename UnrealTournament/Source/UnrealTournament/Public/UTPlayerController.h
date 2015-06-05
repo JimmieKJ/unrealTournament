@@ -533,6 +533,11 @@ public:
 	UFUNCTION()
 	void OnRep_CastingViewIndex();
 
+	UFUNCTION(exec)
+	virtual void StartCastingGuide();
+	UFUNCTION(Reliable, Server, WithValidation)
+	void ServerStartCastingGuide();
+
 	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);
 

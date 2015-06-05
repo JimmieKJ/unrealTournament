@@ -249,6 +249,8 @@ public:
 	UPROPERTY(EditAnywhere, NoClear, BlueprintReadWrite, Category = Classes)
 	TSubclassOf<class AHUD> CastingGuideHUDClass;
 
+	virtual void SwitchToCastingGuide(AUTPlayerController* NewCaster);
+
 	/** first mutator; mutators are a linked list */
 	UPROPERTY(BlueprintReadOnly, Category = Mutator)
 	class AUTMutator* BaseMutator;

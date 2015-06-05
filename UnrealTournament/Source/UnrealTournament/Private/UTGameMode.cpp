@@ -2304,6 +2304,17 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 	HUDClass = SavedHUDClass;
 }
 
+void AUTGameMode::SwitchToCastingGuide(AUTPlayerController* NewCaster)
+{
+	// TODO: check if allowed
+	if (NewCaster != NULL && !NewCaster->bCastingGuide && NewCaster->PlayerState->bOnlySpectator)
+	{
+		NewCaster->bCastingGuide = true;
+		NewCaster->CastingGuideViewIndex = 0;
+		NewCaster->ClientSetHUD(CastingGuideHUDClass);
+	}
+}
+
 void AUTGameMode::Logout(AController* Exiting)
 {
 	if (BaseMutator != NULL)

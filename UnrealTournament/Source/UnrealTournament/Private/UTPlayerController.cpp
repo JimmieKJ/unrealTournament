@@ -2031,6 +2031,8 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 			LastSpectatedPlayerState = NULL;
 		}
 
+		BehindView(NewViewTarget != GetSpectatorPawn() && bSpectateBehindView);
+
 		// FIXME: HACK: PlayerState->bOnlySpectator check is workaround for bug possessing new Pawn where we are actually in the spectating state for a short time after getting the new pawn as viewtarget
 		//				happens because Pawn is replicated via property replication and ViewTarget is RPC'ed so comes first
 		if (IsLocalController() && bSpectateBehindView && PlayerState && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
@@ -3056,9 +3058,33 @@ void AUTPlayerController::OnRep_CastingGuide()
 
 void AUTPlayerController::OnRep_CastingViewIndex()
 {
+	bAutoCam = false;
 	if (CastingGuideStartupCommands.IsValidIndex(CastingGuideViewIndex) && !CastingGuideStartupCommands[CastingGuideViewIndex].IsEmpty())
 	{
 		ConsoleCommand(CastingGuideStartupCommands[CastingGuideViewIndex]);
+	}
+}
+
+void AUTPlayerController::StartCastingGuide()
+{
+	if (!bCastingGuide && Role < ROLE_Authority && PlayerState != NULL && PlayerState->bOnlySpectator)
+	{
+		ServerStartCastingGuide();
+	}
+}
+bool AUTPlayerController::ServerStartCastingGuide_Validate()
+{
+	return true;
+}
+void AUTPlayerController::ServerStartCastingGuide_Implementation()
+{
+	if (!bCastingGuide && Role == ROLE_Authority && Cast<UNetConnection>(Player) != NULL && Cast<UChildConnection>(Player) == NULL && PlayerState != NULL && PlayerState->bOnlySpectator)
+	{
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (Game != NULL)
+		{
+			Game->SwitchToCastingGuide(this);
+		}
 	}
 }
 
