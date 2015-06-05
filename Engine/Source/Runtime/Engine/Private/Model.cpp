@@ -335,11 +335,13 @@ void UModel::PostLoad()
 
 		if (ABrush* Owner = Cast<ABrush>(GetOuter()))
 		{
+#if WITH_EDITOR
 			OwnerLocationWhenLastBuilt = Owner->GetActorLocation();
 			OwnerPrepivotWhenLastBuilt = Owner->GetPrePivot();
 			OwnerScaleWhenLastBuilt = Owner->GetActorScale();
 			OwnerRotationWhenLastBuilt = -Owner->GetActorRotation();
 			bCachedOwnerTransformValid = true;
+#endif
 		}
 	}
 }
