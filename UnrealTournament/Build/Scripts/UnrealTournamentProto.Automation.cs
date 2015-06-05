@@ -1862,7 +1862,7 @@ public class MakeUTDLC : BuildCommand
     public string DLCMaps;
     public string AssetRegistry;
 
-    static public ProjectParams GetParams(BuildCommand Cmd, string DLCName)
+    static public ProjectParams GetParams(BuildCommand Cmd, string DLCName, string AssetRegistry)
     {
         string P4Change = "Unknown";
         string P4Branch = "Unknown";
@@ -1879,6 +1879,7 @@ public class MakeUTDLC : BuildCommand
             Cook: true,
             Stage: true,
             Pak: true,
+            BasedOnReleaseVersion: AssetRegistry,
             StageNonMonolithic: true,
             RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
             StageDirectoryParam: CommandUtils.CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "StagedBuilds", DLCName)
@@ -1929,7 +1930,7 @@ public class MakeUTDLC : BuildCommand
         // Right now all platform asset registries seem to be the exact same, this may change in the future
         AssetRegistry = ParseParamValue("ReleaseVersion", "UTVersion0");
 
-        var Params = GetParams(this, DLCName);
+        var Params = GetParams(this, DLCName, AssetRegistry);
 
         if (ParseParam("build"))
         {
