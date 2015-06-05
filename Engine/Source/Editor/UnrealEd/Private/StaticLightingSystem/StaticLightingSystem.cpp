@@ -1369,6 +1369,11 @@ void FStaticLightingSystem::AddBSPStaticLightingInfo(ULevel* Level, bool bBuildL
 
 			// fill out the NodeGroup/mapping, as UModelComponent::GetStaticLightingInfo did
 			SomeModelComponent->GetSurfaceLightMapResolution(SurfaceIndex, true, NodeGroup->SizeX, NodeGroup->SizeY, NodeGroup->WorldToMap, &NodeGroup->Nodes);
+
+			// Make sure mapping will have valid size
+			NodeGroup->SizeX = FMath::Max(NodeGroup->SizeX, 1);
+			NodeGroup->SizeY = FMath::Max(NodeGroup->SizeY, 1);
+
 			NodeGroup->MapToWorld = NodeGroup->WorldToMap.InverseFast();
 
 			// Cache the surface's vertices and triangles.

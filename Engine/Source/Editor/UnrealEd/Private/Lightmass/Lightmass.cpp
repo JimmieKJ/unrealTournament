@@ -1360,6 +1360,7 @@ void FLightmassExporter::WriteBaseTextureMappingData( int32 Channel, const FStat
 	
 	Lightmass::FStaticLightingTextureMappingData TextureMappingData;
 	FMemory::Memzero(&TextureMappingData,sizeof(TextureMappingData));
+	check(TextureMapping->SizeX > 0 && TextureMapping->SizeY > 0);
 	TextureMappingData.SizeX = TextureMapping->SizeX;
 	TextureMappingData.SizeY = TextureMapping->SizeY;
 	TextureMappingData.LightmapTextureCoordinateIndex = TextureMapping->LightmapTextureCoordinateIndex;
