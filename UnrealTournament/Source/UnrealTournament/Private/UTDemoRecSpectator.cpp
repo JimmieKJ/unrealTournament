@@ -109,8 +109,8 @@ void AUTDemoRecSpectator::ReceivedPlayer()
 		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (Game != NULL)
 		{
-			TSubclassOf<UUTScoreboard> ScoreboardClass = LoadClass<UUTScoreboard>(NULL, *Game->ScoreboardClassName.AssetLongPathname, NULL, LOAD_None, NULL);
-			ClientSetHUDAndScoreboard(Game->HUDClass, ScoreboardClass);
+			HUDClass = Game->HUDClass;
+			OnRep_HUDClass();
 		}
 	}
 }

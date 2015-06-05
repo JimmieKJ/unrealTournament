@@ -130,6 +130,7 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bAllowPlayingBehindView, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, bCastingGuide, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
+	DOREPLIFETIME_CONDITION(AUTPlayerController, HUDClass, COND_OwnerOnly);
 }
 
 
@@ -1767,15 +1768,11 @@ void AUTPlayerController::ClientToggleScoreboard_Implementation(bool bShow)
 	ToggleScoreboard(bShow);
 }
 
-void AUTPlayerController::ClientSetHUDAndScoreboard_Implementation(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass)
+void AUTPlayerController::OnRep_HUDClass()
 {
 	// First, create the HUD
-	ClientSetHUD_Implementation(NewHUDClass);
+	ClientSetHUD_Implementation(HUDClass);
 	MyUTHUD = Cast<AUTHUD>(MyHUD);
-	if (MyUTHUD != NULL && NewScoreboardClass != NULL)
-	{
-		MyUTHUD->CreateScoreboard(NewScoreboardClass);
-	}
 }
 
 void AUTPlayerController::OnShowScores()

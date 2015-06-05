@@ -1897,8 +1897,8 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 	if (UTNewPlayer != NULL)
 	{
 		// tell client what hud class to use
-		TSubclassOf<UUTScoreboard> ScoreboardClass = LoadClass<UUTScoreboard>(NULL, *ScoreboardClassName.AssetLongPathname, NULL, LOAD_None, NULL);
-		UTNewPlayer->ClientSetHUDAndScoreboard(HUDClass, ScoreboardClass);
+		UTNewPlayer->HUDClass = HUDClass;
+		UTNewPlayer->OnRep_HUDClass();
 
 		// start match, or let player enter, immediately
 		if (UTGameState->HasMatchStarted())

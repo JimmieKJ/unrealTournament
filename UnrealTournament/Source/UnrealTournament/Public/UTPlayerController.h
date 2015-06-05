@@ -48,6 +48,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = PlayerController)
 	virtual AUTCharacter* GetUTCharacter();
 
+	UPROPERTY(ReplicatedUsing = OnRep_HUDClass)
+	TSubclassOf<class AHUD> HUDClass;
+
+	UFUNCTION()
+	virtual void OnRep_HUDClass();
+
 	UPROPERTY()
 	class AUTHUD* MyUTHUD;
 
@@ -149,10 +155,7 @@ public:
 
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);
-
-	UFUNCTION(client, reliable)
-	virtual void ClientSetHUDAndScoreboard(TSubclassOf<class AHUD> NewHUDClass, TSubclassOf<class UUTScoreboard> NewScoreboardClass);
-	
+		
 	/** Attempts to restart this player, generally called from the client upon respawn request. */
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
