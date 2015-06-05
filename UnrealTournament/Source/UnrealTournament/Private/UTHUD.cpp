@@ -632,16 +632,13 @@ void AUTHUD::CalcStanding()
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
-
 		// Build the leaderboard.
 		for (int32 i=0;i<GameState->PlayerArray.Num();i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
-			if (PS != NULL && !PS->bIsSpectator)
+			if (PS != NULL && !PS->bIsSpectator && !PS->bOnlySpectator)
 			{
-
 				// Sort in to the leaderboard
-
 				int32 Index = -1;
 				for (int32 j=0;j<Leaderboard.Num();j++)
 				{
@@ -666,7 +663,6 @@ void AUTHUD::CalcStanding()
 		NumActualPlayers = Leaderboard.Num();
 
 		// Find my index in it.
-
 		CurrentPlayerStanding = 1;
 		int32 MyIndex = Leaderboard.Find(MyPS);
 		if (MyIndex >= 0)
@@ -695,7 +691,6 @@ void AUTHUD::CalcStanding()
 			Leaderboard.Remove(MyPS);
 			Leaderboard.Insert(MyPS,0);
 		}
-
 	}
 }
 

@@ -116,5 +116,4 @@ void UUTHUDWidget_DMPlayerLeaderboard::DrawPlayer(float& YPosition, int32 Player
 	}
 
 	YPosition += Header[0].GetHeight() * 1.2;
-
 }
