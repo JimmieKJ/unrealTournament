@@ -1682,19 +1682,21 @@ public:
 	class UPhysicsConstraintComponent* RagdollConstraint;
 
 	UPROPERTY(BlueprintReadOnly, Category = Movement)
-		float FallingStartTime;
+	float FallingStartTime;
 
 	virtual void Falling();
 
 	/** Local player currently viewing this character. */
 	UPROPERTY()
-		class AUTPlayerController* CurrentViewerPC;
+	class AUTPlayerController* CurrentViewerPC;
 
 	virtual	class AUTPlayerController* GetLocalViewer();
 
 	/** Previous actor location Z when last updated eye offset. */
 	UPROPERTY()
-		float OldZ;
+	float OldZ;
+
+	virtual bool ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor) override;
 };
 
 inline bool AUTCharacter::IsDead()

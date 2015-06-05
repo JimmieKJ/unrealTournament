@@ -1929,3 +1929,17 @@ int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState * PS) const
 	}
 	return DeathCount;
 }
+
+// TEMP for testing 1p offsets
+void AUTWeapon::TestWeaponLoc(float X, float Y, float Z)
+{
+	Mesh->SetRelativeLocation(FVector(X, Y, Z));
+}
+void AUTWeapon::TestWeaponRot(float Pitch, float Yaw, float Roll)
+{
+	Mesh->SetRelativeRotation(FRotator(Pitch, Yaw, Roll));
+}
+void AUTWeapon::TestWeaponScale(float X, float Y, float Z)
+{
+	Mesh->SetRelativeScale3D(FVector(X, Y, Z));
+}

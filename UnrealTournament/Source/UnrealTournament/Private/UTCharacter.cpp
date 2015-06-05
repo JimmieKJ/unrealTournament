@@ -4808,3 +4808,8 @@ void AUTCharacter::EndViewTarget(APlayerController* PC)
 
 	Super::EndViewTarget(PC);
 }
+
+bool AUTCharacter::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor)
+{
+	return ((Weapon != NULL && Weapon->ProcessConsoleExec(Cmd, Ar, Executor)) || Super::ProcessConsoleExec(Cmd, Ar, Executor));
+}

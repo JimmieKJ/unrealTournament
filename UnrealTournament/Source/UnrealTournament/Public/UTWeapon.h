@@ -807,4 +807,12 @@ public:
 
 	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const;
 	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const;
+
+	// TEMP for testing 1p offsets
+	UFUNCTION(exec)
+	void TestWeaponLoc(float X, float Y, float Z);
+	UFUNCTION(exec)
+	void TestWeaponRot(float Pitch, float Yaw, float Roll = 0.0f);
+	UFUNCTION(exec)
+	void TestWeaponScale(float X, float Y, float Z);
 };
