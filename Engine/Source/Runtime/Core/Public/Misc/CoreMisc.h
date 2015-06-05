@@ -262,11 +262,6 @@ FORCEINLINE bool IsRunningDedicatedServer()
 		return true;
 	}
 
-	if (FPlatformProperties::IsGameOnly())
-	{
-		return false;
-	}
-
 	extern CORE_API int32 StaticDedicatedServerCheck();
 	if (StaticDedicatedServerCheck() == 1)
 	{
