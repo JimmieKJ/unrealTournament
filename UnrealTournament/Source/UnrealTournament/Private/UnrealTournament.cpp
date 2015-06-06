@@ -207,6 +207,16 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	FPackageName::QueryRootContentPaths(RootPaths);
 
 #if WITH_EDITOR
+	// HACK: workaround for terrible registry performance when scanning; limit search paths to improve perf a bit
+	RootPaths.Remove(TEXT("/Engine/"));
+	RootPaths.Remove(TEXT("/Game/"));
+	RootPaths.Remove(TEXT("/Paper2D/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Maps/"));
+	RootPaths.Add(TEXT("/Game/Maps/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Blueprints/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Pickups/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Weapons/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
@@ -247,6 +257,16 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 	FPackageName::QueryRootContentPaths(RootPaths);
 
 #if WITH_EDITOR
+	// HACK: workaround for terrible registry performance when scanning; limit search paths to improve perf a bit
+	RootPaths.Remove(TEXT("/Engine/"));
+	RootPaths.Remove(TEXT("/Game/"));
+	RootPaths.Remove(TEXT("/Paper2D/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Maps/"));
+	RootPaths.Add(TEXT("/Game/Maps/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Blueprints/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Pickups/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Weapons/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
