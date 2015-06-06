@@ -358,7 +358,7 @@ void AUTCharacter::GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositi
 
 void AUTCharacter::RecalculateBaseEyeHeight()
 {
-	BaseEyeHeight = (bIsCrouched || (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)) ? CrouchedEyeHeight : DefaultBaseEyeHeight;
+	BaseEyeHeight = (bIsCrouched || (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)) ? CrouchedEyeHeight : DefaultBaseEyeHeight;
 }
 
 void AUTCharacter::Crouch(bool bClientSimulation)
@@ -485,7 +485,7 @@ FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 
 bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator, float PredictionTime)
 {
-	if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
+	if (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)
 	{
 		// no headshots while dodge rolling
 		return false;
@@ -606,7 +606,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 			}
 		}
 		CurrentWeaponBob.X = 0.f;
-		if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
+		if (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)
 		{
 			// interp out weapon bob when dodge rolling and bring weapon up and in
 			BobTime = 0.f;
@@ -1100,11 +1100,11 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 	}
 }
 
-void AUTCharacter::OnRepDodgeRolling()
+void AUTCharacter::OnRepFloorSliding()
 {
 	if (UTCharacterMovement)
 	{
-		UTCharacterMovement->bIsDodgeRolling = bRepDodgeRolling;
+		UTCharacterMovement->bIsFloorSliding = bRepFloorSliding;
 	}
 }
 
@@ -2482,7 +2482,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, ReplicatedBodyMaterial, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadScale, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, bRepDodgeRolling, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bRepFloorSliding, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteReplicationInfo, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteSpeed, COND_None);
@@ -2577,9 +2577,9 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 			// blueprint handled dodge attempt
 			return true;
 		}
-		if (UTCharacterMovement->WantsSlideRoll() && UTCharacterMovement->IsMovingOnGround())
+		if (UTCharacterMovement->WantsFloorSlide() && UTCharacterMovement->IsMovingOnGround())
 		{
-			UTCharacterMovement->PerformRoll(DodgeDir);
+			UTCharacterMovement->PerformFloorSlide(DodgeDir);
 			return true;
 		}
 		else if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
@@ -2605,7 +2605,7 @@ bool AUTCharacter::Roll(FVector RollDir)
 	{
 		if (UTCharacterMovement->IsMovingOnGround())
 		{
-			UTCharacterMovement->PerformRoll(RollDir);
+			UTCharacterMovement->PerformFloorSlide(RollDir);
 			return true;
 		}
 	}
@@ -2777,7 +2777,7 @@ void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 
 void AUTCharacter::OnSlide_Implementation(const FVector &SlideDir)
 {
-	UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeRollSound, this, SRT_None);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_None);
 
 	FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
 	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
@@ -2838,9 +2838,9 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 		LastHitBy = NULL;
 
-		if (UTCharacterMovement && UTCharacterMovement->bIsDodgeRolling)
+		if (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeRollSound, this, SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_None);
 		}
 		else if (FeetAreInWater())
 		{

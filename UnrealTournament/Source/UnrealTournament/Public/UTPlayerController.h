@@ -638,8 +638,8 @@ protected:
 	bool bIsHoldingDodge;
 
 	/** True if player is holding modifier to slide/roll */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	bool bIsHoldingSlideRoll;
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	bool bIsHoldingFloorSlide;
 
 	/** requests a change team; default is to switch to any other team than current */
 	UFUNCTION(exec)

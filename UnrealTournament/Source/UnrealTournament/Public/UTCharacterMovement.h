@@ -274,91 +274,91 @@ UPROPERTY()
 	UPROPERTY(Category = "Dodging", BlueprintReadOnly)
 	bool bIsDodging;
 
-	/** True during a dodge roll. */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	bool bIsDodgeRolling;
+	/** True during a floor slide. */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	bool bIsFloorSliding;
 
-	/** True if was dodge rolling last movement update. */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	bool bWasDodgeRolling;
+	/** True if was floor sliding last movement update. */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	bool bWasFloorSlideing;
 
 	UPROPERTY(Category = "Emote", BlueprintReadOnly)
 	bool bIsEmoting;
 	
 protected:
-	/** True if player is holding modifier to slide/roll.  Change with UpdateSlideRoll(). */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	bool bWantsSlideRoll;
+	/** True if player is holding modifier to slide.  Change with UpdateFloorSlide(). */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	bool bWantsFloorSlide;
 
 public:
 	/** If true, auto-slide, otherwise need to hold shift down to slide along walls. */
 	UPROPERTY(EditAnywhere, Category = Movement)
 	bool bAutoSlide;
 
-	/** Half height of capsule when rolling */
-	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
-	float RollHalfHeight;
+	/** Half height of capsule when floor sliding */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
+	float FloorSlideHalfHeight;
 
-	/** Horizontal speed reduction on roll ending (multiplied). */
-	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
-	float RollEndingSpeedFactor;
+	/** Horizontal speed reduction on slide ending (multiplied). */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
+	float FloorSlideEndingSpeedFactor;
 
-	/** Acceleration during a dodge roll. */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	float DodgeRollAcceleration;
+	/** Acceleration during a floor slide. */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	float FloorSlideAcceleration;
 
-	/** Max speed during a dodge roll. */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	float MaxDodgeRollSpeed;
+	/** Max speed during a floor slide. */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	float MaxFloorSlideSpeed;
 
-	/** How long dodge roll lasts. */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	float DodgeRollDuration;
+	/** How long floor slide lasts. */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	float FloorSlideDuration;
 
-	/** When dodge roll ends. */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	float DodgeRollEndTime;
+	/** When floor slide ends. */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	float FloorSlideEndTime;
 
-	/** When dodge roll button was last tapped. */
-	UPROPERTY(Category = "DodgeRoll", BlueprintReadOnly)
-	float DodgeRollTapTime;
+	/** When floor slide button was last tapped. */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	float FloorSlideTapTime;
 
-	/** Maximum interval dodge roll tap can be performed before landing dodge to get bonus. */
-	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
-	float DodgeRollBonusTapInterval;
+	/** Maximum interval floor slide tap can be performed before landing dodge to get bonus. */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
+	float FloorSlideBonusTapInterval;
 
-	/** Falling damage reduction if hit roll within DodgeRollBonusTapInterval */
-	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
+	/** Falling damage reduction if hit floor slide within FloorSlideBonusTapInterval */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
 	float FallingDamageRollReduction;
 
 	/** Amount of falling damage reduction */
-	UFUNCTION(BlueprintCallable, Category = "DodgeRoll")
+	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
 	virtual	float FallingDamageReduction(float FallingDamage, const FHitResult& Hit);
 
-	/** Maximum Velocity Z that a Dodge Roll tap will register. */
-	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadWrite)
-	float DodgeRollEarliestZ;
+	/** Maximum Velocity Z that a floor slide tap will register. */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
+	float FloorSlideEarliestZ;
 
 	/** Enables slope dodge boost. */
-	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadOnly)
 	bool bAllowSlopeDodgeBoost;
 
 	/** Affects amount of slope dodge possible. */
-	UPROPERTY(Category = "DodgeRoll", EditAnywhere, BlueprintReadOnly)
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadOnly)
 	float SlopeDodgeScaling;
 
-	/** Update bWantsSlideRoll and DodgeRollTapTime */
-	UFUNCTION(BlueprintCallable, Category = "DodgeRoll")
-	virtual void UpdateSlideRoll(bool bNewWantsSlideRoll);
+	/** Update bWantsFloorSlide and FloorSlideTapTime */
+	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
+	virtual void UpdateFloorSlide(bool bNewWantsFloorSlide);
 
-	/** Update bWantsSlideRoll and DodgeRollTapTime */
-	UFUNCTION(BlueprintCallable, Category = "DodgeRoll")
-	virtual bool WantsSlideRoll();
+	/** Update bWantsFloorSlide and FloorSlideTapTime */
+	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
+	virtual bool WantsFloorSlide();
 
 	virtual void Crouch(bool bClientSimulation = false) override;
 
-	/** Dodge roll out (holding bRollSlide while dodging on ground) */
-	virtual void PerformRoll(const FVector& DodgeDir);
+	/** floor slide out (holding floor slide while dodging on ground) */
+	virtual void PerformFloorSlide(const FVector& DodgeDir);
 
 	virtual bool IsCrouching() const override;
 
@@ -617,7 +617,7 @@ public:
 	int32 SavedWallDodgeCount;
 	float SavedSprintStartTime;
 	float SavedDodgeResetTime;
-	float SavedDodgeRollEndTime;
+	float SavedFloorSlideEndTime;
 	bool bSavedJumpAssisted;
 	bool bSavedIsDodging;
 

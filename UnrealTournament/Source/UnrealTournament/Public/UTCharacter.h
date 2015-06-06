@@ -714,12 +714,12 @@ public:
 		return bDisallowWeaponFiring;
 	}
 
-	/** Used to replicate bIsDodgeRolling to non owning clients */
-	UPROPERTY(ReplicatedUsing = OnRepDodgeRolling)
-	bool bRepDodgeRolling;
+	/** Used to replicate bIsFloorSliding to non owning clients */
+	UPROPERTY(ReplicatedUsing = OnRepFloorSliding)
+	bool bRepFloorSliding;
 
 	UFUNCTION()
-	virtual void OnRepDodgeRolling();
+	virtual void OnRepFloorSliding();
 
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	virtual EAllowedSpecialMoveAnims AllowedSpecialMoveAnims();
@@ -1064,7 +1064,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WallHitSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* DodgeRollSound;
+	USoundBase* FloorSlideSound;
 
 	//================================
 	// Swimming

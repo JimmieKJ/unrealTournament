@@ -435,7 +435,7 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		}
 		if (UTCharacter && UTCharacter->UTCharacterMovement)
 		{
-			UTCharacter->UTCharacterMovement->UpdateSlideRoll(bIsHoldingSlideRoll);
+			UTCharacter->UTCharacterMovement->UpdateFloorSlide(bIsHoldingFloorSlide);
 			SetAutoSlide(bAutoSlide);
 		}
 	}
@@ -1519,21 +1519,21 @@ void AUTPlayerController::PerformSingleTapDodge()
 
 void AUTPlayerController::HoldRollSlide()
 {
-	bIsHoldingSlideRoll = true;
+	bIsHoldingFloorSlide = true;
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
-		MyCharMovement->UpdateSlideRoll(true);
+		MyCharMovement->UpdateFloorSlide(true);
 	}
 }
 
 void AUTPlayerController::ReleaseRollSlide()
 {
-	bIsHoldingSlideRoll = false;
+	bIsHoldingFloorSlide = false;
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
 	if (MyCharMovement)
 	{
-		MyCharMovement->UpdateSlideRoll(false);
+		MyCharMovement->UpdateFloorSlide(false);
 	}
 }
 

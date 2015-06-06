@@ -84,18 +84,18 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	bPressedDodgeLeft = (DodgeFlags == 3);
 	bPressedDodgeRight = (DodgeFlags == 4);
 	bIsSprinting = (DodgeFlags == 5);
-	bIsDodgeRolling = (DodgeFlags == 6);
+	bIsFloorSliding = (DodgeFlags == 6);
 	bPressedSlide = (DodgeFlags == 7);
-	bool bOldWillDodgeRoll = bWantsSlideRoll;
-	bWantsSlideRoll = ((Flags & FSavedMove_Character::FLAG_Custom_1) != 0);
+	bool bOldWillFloorSlide = bWantsFloorSlide;
+	bWantsFloorSlide = ((Flags & FSavedMove_Character::FLAG_Custom_1) != 0);
 	bShotSpawned = ((Flags & FSavedMove_Character::FLAG_Custom_3) != 0);
-	if (!bOldWillDodgeRoll && bWantsSlideRoll)
+	if (!bOldWillFloorSlide && bWantsFloorSlide)
 	{
-		DodgeRollTapTime = GetCurrentMovementTime();
+		FloorSlideTapTime = GetCurrentMovementTime();
 	}
 	if (Cast<AUTCharacter>(CharacterOwner))
 	{
-		Cast<AUTCharacter>(CharacterOwner)->bRepDodgeRolling = bIsDodgeRolling;
+		Cast<AUTCharacter>(CharacterOwner)->bRepFloorSliding = bIsFloorSliding;
 	}
 }
 
@@ -164,7 +164,7 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 	}
 
 	// Save important values that might get affected by the replay.
-	const bool bRealWantsSlideRoll = bWantsSlideRoll;
+	const bool bRealWantsFloorSlide = bWantsFloorSlide;
 
 	// revert to old values and let replays update them
 	if (ClientData->SavedMoves.Num() > 0)
@@ -177,7 +177,7 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 	bool bResult = Super::ClientUpdatePositionAfterServerUpdate();
 
 	// Restore saved values.
-	bWantsSlideRoll = bRealWantsSlideRoll;
+	bWantsFloorSlide = bRealWantsFloorSlide;
 
 	return bResult;
 }
@@ -1245,7 +1245,7 @@ void FSavedMove_UTCharacter::Clear()
 	SavedWallDodgeCount = 0;
 	SavedSprintStartTime = 0.f;
 	SavedDodgeResetTime = 0.f;
-	SavedDodgeRollEndTime = 0.f;
+	SavedFloorSlideEndTime = 0.f;
 	bSavedJumpAssisted = false;
 	bSavedIsDodging = false;
 	bPressedSlide = false;
@@ -1263,14 +1263,14 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bPressedDodgeLeft = UTCharMov->bPressedDodgeLeft;
 		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
 		bSavedIsSprinting = UTCharMov->bIsSprinting;
-		bSavedIsRolling = UTCharMov->bIsDodgeRolling;
-		bSavedWantsSlide = UTCharMov->WantsSlideRoll();
+		bSavedIsRolling = UTCharMov->bIsFloorSliding;
+		bSavedWantsSlide = UTCharMov->WantsFloorSlide();
 		bSavedIsEmoting = UTCharMov->bIsEmoting;
 		SavedMultiJumpCount = UTCharMov->CurrentMultiJumpCount;
 		SavedWallDodgeCount = UTCharMov->CurrentWallDodgeCount;
 		SavedSprintStartTime = UTCharMov->SprintStartTime;
 		SavedDodgeResetTime = UTCharMov->DodgeResetTime;
-		SavedDodgeRollEndTime = UTCharMov->DodgeRollEndTime;
+		SavedFloorSlideEndTime = UTCharMov->FloorSlideEndTime;
 		bSavedJumpAssisted = UTCharMov->bJumpAssisted;
 		bSavedIsDodging = UTCharMov->bIsDodging;
 		bPressedSlide = UTCharMov->bPressedSlide;
@@ -1296,7 +1296,7 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 			UTCharMov->CurrentWallDodgeCount = SavedWallDodgeCount;
 			UTCharMov->SprintStartTime = SavedSprintStartTime;
 			UTCharMov->DodgeResetTime = SavedDodgeResetTime;
-			UTCharMov->DodgeRollEndTime = SavedDodgeRollEndTime;
+			UTCharMov->FloorSlideEndTime = SavedFloorSlideEndTime;
 			UTCharMov->bJumpAssisted = bSavedJumpAssisted;
 			UTCharMov->bIsDodging = bSavedIsDodging;
 			//UE_LOG(UT, Warning, TEXT("First move %f bIsDodging %d"), TimeStamp, UTCharMov->bIsDodging);
@@ -1321,9 +1321,9 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 			{
 			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeResetTime, UTCharMov->DodgeResetTime);
 			}
-			if (SavedDodgeRollEndTime != UTCharMov->DodgeRollEndTime)
+			if (SavedFloorSlideEndTime != UTCharMov->FloorSlideEndTime)
 			{
-			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedDodgeRollEndTime, UTCharMov->DodgeRollEndTime);
+			UE_LOG(UTNet, Warning, TEXT("prep move %f SavedDodgeResetTime from %f to %f"), TimeStamp, SavedFloorSlideEndTime, UTCharMov->FloorSlideEndTime);
 			}
 			if (SavedWallDodgeCount != UTCharMov->CurrentWallDodgeCount)
 			{
@@ -1344,7 +1344,7 @@ void FSavedMove_UTCharacter::PrepMoveFor(ACharacter* Character)
 			SavedWallDodgeCount = UTCharMov->CurrentWallDodgeCount;
 			SavedSprintStartTime = UTCharMov->SprintStartTime;
 			SavedDodgeResetTime = UTCharMov->DodgeResetTime;
-			SavedDodgeRollEndTime = UTCharMov->DodgeRollEndTime;
+			SavedFloorSlideEndTime = UTCharMov->FloorSlideEndTime;
 			bSavedJumpAssisted = UTCharMov->bJumpAssisted;
 			bSavedIsDodging = UTCharMov->bIsDodging;
 		}
