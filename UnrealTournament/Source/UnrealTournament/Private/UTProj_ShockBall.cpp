@@ -184,7 +184,7 @@ void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* 
 		FVector ShootPos = Shooter->GetWeapon()->GetFireStartLoc();
 		ComboScore += 100.f * (1.f - (GetVelocity().GetSafeNormal() | (GetActorLocation() - ShootPos).GetSafeNormal()));
 		// current movement speed relative to direction, with bonus if falling
-		float MovementBonus = (Shooter->GetCharacterMovement()->MovementMode == MOVE_Falling) ? 7.f : 4.f;
+		float MovementBonus = (Shooter->GetCharacterMovement()->MovementMode == MOVE_Falling) ? 5.f : 3.f;
 		ComboScore += MovementBonus * Shooter->GetVelocity().Size() / 1000.f;
 	}
 	if ((ComboScore > 8.f) && (KillCount > 0))

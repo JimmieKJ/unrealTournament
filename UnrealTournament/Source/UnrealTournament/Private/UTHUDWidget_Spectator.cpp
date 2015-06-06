@@ -148,8 +148,8 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bShortMessage)
 				{
 					FFormatNamedArguments Args;
 					static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
-						.SetMinimumFractionalDigits(1)
-						.SetMaximumFractionalDigits(1);
+						.SetMinimumFractionalDigits(0)
+						.SetMaximumFractionalDigits(0);
 					Args.Add("RespawnTime", FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnTime + 1, &RespawnTimeFormat));
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnWaitMessage", "You can respawn in {RespawnTime}..."), Args);
 				}
