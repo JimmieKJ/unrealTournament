@@ -894,6 +894,8 @@ void FHttpResponseWinInet::ProcessResponse()
 {
 	// Keep track of total read from last async callback
 	TotalBytesRead += AsyncBytesRead;
+	// Update progress bytes from last async callback
+	ProgressBytesRead.Set(TotalBytesRead);
 	// We might be calling back into this from another asynchronous read, so continue where we left off.
 	// if there is no content length, we're probably receiving chunked data.
 	ContentLength = QueryContentLength();
