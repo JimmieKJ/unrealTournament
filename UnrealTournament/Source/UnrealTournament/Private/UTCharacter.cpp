@@ -51,6 +51,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CharacterCameraComponent->AttachParent = GetCapsuleComponent();
 	DefaultBaseEyeHeight = 60.f;
 	BaseEyeHeight = DefaultBaseEyeHeight;
+	CrouchedEyeHeight = 40.f;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
@@ -387,6 +388,11 @@ void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 
 void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
+	if (HeightAdjust == 0.f)
+	{
+		// early out - it's a crouch while already sliding
+		return;
+	}
 	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
 	CrouchEyeOffset.Z += DefaultBaseEyeHeight - CrouchedEyeHeight + HeightAdjust;
 	OldZ = GetActorLocation().Z;
@@ -2705,7 +2711,7 @@ FVector AUTCharacter::GetTransformedEyeOffset() const
 		float MaxZ = FMath::Max(0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 12.f - EyeOffset.Z - BaseEyeHeight - CrouchEyeOffset.Z);
 		XTransform = XTransform * MaxZ / XTransform.Z;
 	}
-	return XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z);;
+	return XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z);
 }
 
 FVector AUTCharacter::GetPawnViewLocation() const
