@@ -122,6 +122,19 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 			Detonate(NULL);
 			return;
 		}
+
+		//Guarantee detonation on projectile collision
+		AUTProjectile* Projectile = Cast<AUTProjectile>(ImpactedActor);
+		if (Projectile != nullptr)
+		{
+			if (Role == ROLE_Authority && Projectile->InstigatorController != nullptr)
+			{
+				RedeemerDenied(Projectile->InstigatorController);
+			}
+			Detonate(Projectile->InstigatorController);
+			return;
+		}
+
 		bExploded = true;
 		
 		if (Role == ROLE_Authority)
