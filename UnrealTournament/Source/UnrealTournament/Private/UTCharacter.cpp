@@ -2491,11 +2491,11 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionPct, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None); // @TODO FIXMESTEVE only for spectators
+	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None); 
 }
 
 static AUTWeapon* SavedWeapon = NULL;
@@ -2777,7 +2777,7 @@ void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 
 void AUTCharacter::OnSlide_Implementation(const FVector &SlideDir)
 {
-	UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_None);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_AllButOwner);
 
 	FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
 	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
@@ -4435,10 +4435,9 @@ void AUTCharacter::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTr
 		}
 	}
 
-	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, LastTakeHitInfo, GetWorld()->TimeSeconds - LastTakeHitTime < 1.0f);
-	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, HeadArmorFlashCount, GetWorld()->TimeSeconds - LastHeadArmorFlashTime < 1.0f);
-
-	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, CosmeticFlashCount, GetWorld()->TimeSeconds - LastCosmeticFlashTime < 1.0f);
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, LastTakeHitInfo, GetWorld()->TimeSeconds - LastTakeHitTime < 0.5f);
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, HeadArmorFlashCount, GetWorld()->TimeSeconds - LastHeadArmorFlashTime < 0.5f);
+	DOREPLIFETIME_ACTIVE_OVERRIDE(AUTCharacter, CosmeticFlashCount, GetWorld()->TimeSeconds - LastCosmeticFlashTime < 0.5f);
 
 	// @TODO FIXMESTEVE - just don't want this ever replicated
 	DOREPLIFETIME_ACTIVE_OVERRIDE(ACharacter, RemoteViewPitch, false);
