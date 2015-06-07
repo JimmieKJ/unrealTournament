@@ -459,6 +459,12 @@ void AUTWeap_RocketLauncher::StateChanged()
 	{
 		GetWorldTimerManager().ClearTimer(UpdateLockHandle);
 	}
+
+	//Clear loaded rockets and hide the HUD text when inactive
+	if (CurrentState == InactiveState)
+	{
+		ClearLoadedRockets();
+	}
 }
 
 bool AUTWeap_RocketLauncher::CanLockTarget(AActor *Target)
