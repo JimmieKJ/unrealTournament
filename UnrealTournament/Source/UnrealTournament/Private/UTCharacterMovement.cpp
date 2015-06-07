@@ -49,7 +49,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	MultiJumpAirControl = 0.4f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 6000.f; 
+	MaxAcceleration = 6600.f; 
 	MaxFallingAcceleration = 4200.f;
 	BrakingDecelerationWalking = 500.f;
 	BrakingDecelerationFalling = 0.f;
@@ -836,7 +836,7 @@ void UUTCharacterMovement::CalcVelocity(float DeltaTime, float Friction, bool bF
 		}
 	}
 	Super::CalcVelocity(DeltaTime, Friction, bFluid, BrakingDeceleration);
-	//UE_LOG(UTNet, Warning, TEXT("At %f DeltaTime %f Velocity is %f %f %f from acceleration %f %f"), GetCurrentSynchTime(), DeltaTime, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y);
+	//UE_LOG(UTNet, Warning, TEXT("At %f DeltaTime %f Velocity is %f %f %f from acceleration %f %f slide %d"), GetCurrentSynchTime(), DeltaTime, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, bIsFloorSliding);
 
 	// workaround for engine path following code not setting Acceleration correctly
 	if (bHasRequestedVelocity && Acceleration.IsZero())
@@ -889,8 +889,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		}
 		if (bIsFloorSliding)
 		{
-			FloorSlideEndTime = GetCurrentMovementTime() + FloorSlideDuration;
-			Acceleration = FloorSlideAcceleration * Velocity.GetSafeNormal2D();
+			PerformFloorSlide(Velocity.GetSafeNormal());
 			//UE_LOG(UTNet, Warning, TEXT("FloorSlide within %f"), GetCurrentMovementTime() - FloorSlideTapTime);
 			// @TODO FIXMESTEVE - should also update DodgeRestTime if roll but not out of dodge?
 			if (bIsDodging)
