@@ -416,7 +416,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	if (CharacterOwner != NULL)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(CharacterOwner->Controller);
-		if (PC != NULL && PC->PlayerInput != NULL && PC->bDeferFireInputs)
+		if (PC != NULL && PC->PlayerInput != NULL)
 		{
 			PC->ApplyDeferredFireInputs();
 		}
@@ -963,7 +963,7 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 	{
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
 		{
-			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.SafeNormal());
+			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.GetSafeNormal());
 		}
 		bNotifyApex = true;
 		bExplicitJump = true;
