@@ -155,6 +155,10 @@ void SUWStatsViewer::ReadBackendStats()
 		FString McpConfigOverride;
 		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk/window/alltime");
+#endif
+
 		if (McpConfigOverride == TEXT("localhost"))
 		{
 			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk/window/alltime");
