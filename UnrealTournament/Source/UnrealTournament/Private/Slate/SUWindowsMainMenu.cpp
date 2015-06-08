@@ -476,6 +476,7 @@ FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton
 	{
 		ReplayBrowser->bLiveOnly = false;
 		ReplayBrowser->bShowReplaysFromAllUsers = false;
+		ReplayBrowser->MetaString = TEXT("");
 
 		if (ReplayBrowser == ActivePanel)
 		{
@@ -499,6 +500,7 @@ FReply SUWindowsMainMenu::OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButt
 	{
 		ReplayBrowser->bLiveOnly = false;
 		ReplayBrowser->bShowReplaysFromAllUsers = true;
+		ReplayBrowser->MetaString = TEXT("");
 
 		if (ReplayBrowser == ActivePanel)
 		{
@@ -522,6 +524,8 @@ FReply SUWindowsMainMenu::OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuBu
 	{
 		ReplayBrowser->bLiveOnly = true;
 		ReplayBrowser->bShowReplaysFromAllUsers = true;
+		ReplayBrowser->MetaString = TEXT("");
+
 		if (ReplayBrowser == ActivePanel)
 		{
 			ReplayBrowser->BuildReplayList();

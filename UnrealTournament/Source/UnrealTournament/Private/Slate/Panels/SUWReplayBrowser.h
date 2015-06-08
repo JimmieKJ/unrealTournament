@@ -48,6 +48,7 @@ class UNREALTOURNAMENT_API SUWReplayBrowser : public SUWPanel
 public:
 	bool bLiveOnly;
 	bool bShowReplaysFromAllUsers;
+	FString MetaString;
 
 	void BuildReplayList();
 
@@ -64,6 +65,7 @@ protected:
 	TArray< TSharedPtr<FReplayData> > ReplayList;
 	TSharedPtr< SListView< TSharedPtr<FReplayData> > > ReplayListView;
 	TSharedPtr<class SButton>  WatchReplayButton;
+	TSharedPtr<class SEditableTextBox> MetaTagText;
 
 	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
 
@@ -74,6 +76,7 @@ protected:
 	TSharedRef<ITableRow> OnGenerateWidgetForList(TSharedPtr<FReplayData> InItem, const TSharedRef<STableViewBase>& OwnerTable);
 	void OnReplayListSelectionChanged(TSharedPtr<FReplayData> SelectedItem, ESelectInfo::Type SelectInfo);
 	virtual void OnListMouseButtonDoubleClick(TSharedPtr<FReplayData> SelectedServer);
+	virtual void OnMetaTagTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 
 	virtual FReply OnWatchClick();
 	virtual FReply OnRefreshClick();

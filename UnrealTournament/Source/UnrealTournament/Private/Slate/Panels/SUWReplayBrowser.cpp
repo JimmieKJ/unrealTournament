@@ -158,6 +158,33 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 						.OnClicked(this, &SUWReplayBrowser::OnWatchClick)
 					]
+				]
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(25.0f, 0.0f, 0.0f, 0.0f)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUWReplayBrowser", "MetaTagText", "MetaTag:"))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					]					
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.HeightOverride(36)
+						[
+							SAssignNew(MetaTagText, SEditableTextBox)
+							.Style(SUWindowsStyle::Get(), "UT.Common.Editbox")
+							.OnTextCommitted(this, &SUWReplayBrowser::OnMetaTagTextCommited)
+							.ClearKeyboardFocusOnCommit(false)
+							.MinDesiredWidth(300.0f)
+							.Text(FText::GetEmpty())
+						]
+					]
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					[
@@ -183,7 +210,14 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 void SUWReplayBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
 	SUWPanel::OnShowPanel(inParentWindow);
+	
+	MetaTagText->SetText(FText::FromString(MetaString));
+	BuildReplayList();
+}
 
+void SUWReplayBrowser::OnMetaTagTextCommited(const FText& NewText, ETextCommit::Type CommitType)
+{
+	MetaString = NewText.ToString();
 	BuildReplayList();
 }
 
@@ -198,7 +232,6 @@ void SUWReplayBrowser::BuildReplayList()
 			Version.Changelist = 0;
 		}
 
-		FString MetaString = TEXT("");
 		FString UserString = TEXT("");
 		
 		if (!bShowReplaysFromAllUsers)
@@ -226,6 +259,8 @@ FReply SUWReplayBrowser::OnWatchClick()
 
 FReply SUWReplayBrowser::OnRefreshClick()
 {
+	MetaString = MetaTagText->GetText().ToString();
+
 	BuildReplayList();
 
 	return FReply::Handled();
