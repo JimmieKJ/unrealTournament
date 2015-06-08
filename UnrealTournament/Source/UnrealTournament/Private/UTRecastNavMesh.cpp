@@ -1615,7 +1615,7 @@ NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentPropertie
 				// extend the search query by a large amount in the direction of the movement
 				const FVector AgentLoc = Asker->GetNavAgentLocation();
 				const FVector AgentExtent(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f);
-				FBox TestBox(AgentLoc + AgentExtent, AgentLoc - AgentExtent);
+				FBox TestBox(AgentLoc - AgentExtent, AgentLoc + AgentExtent);
 				const FVector TraceEnd = Asker->GetNavAgentLocation() + Vel * 2.0f;
 				TestBox += TraceEnd;
 				
@@ -1638,12 +1638,11 @@ NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentPropertie
 					{
 						PolyBox += Vert;
 					}
-					if (FMath::LineBoxIntersection(PolyBox, AgentLoc, AgentLoc + TraceEnd, TraceEnd.GetSafeNormal()))
+					if (FMath::LineBoxIntersection(PolyBox, AgentLoc, TraceEnd, TraceEnd - AgentLoc))
 					{
 						float Dist = (PolyBox.GetCenter() - AgentLoc).SizeSquared();
 						if (Dist < BestDist)
 						{
-							UE_LOG(UT, Log, TEXT("Found lift poly"));
 							BestResult = ResultPolys[i];
 							BestDist = Dist;
 						}

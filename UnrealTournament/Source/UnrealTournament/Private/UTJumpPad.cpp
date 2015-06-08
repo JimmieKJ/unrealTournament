@@ -162,10 +162,43 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 	if (MyPoly != INVALID_NAVNODEREF)
 	{
 		const FVector JumpTargetWorld = ActorToWorld().TransformPosition(JumpTarget);
+		const float GravityZ = GetLocationGravityZ(GetWorld(), GetActorLocation(), TriggerBox->GetCollisionShape());
 		const FCapsuleSize HumanSize = NavData->GetHumanPathSize();
 		FVector HumanExtent = FVector(HumanSize.Radius, HumanSize.Radius, HumanSize.Height);
 		{
 			NavNodeRef TargetPoly = NavData->FindNearestPoly(JumpTargetWorld, HumanExtent);
+			if (TargetPoly == INVALID_NAVNODEREF)
+			{
+				// jump target may be in air
+				// extrapolate downward a bit to try to find poly
+				FVector JumpVel = CalculateJumpVelocity(this);
+				if (JumpVel.Size2D() > 1.0f)
+				{
+					JumpVel.Z += GravityZ * JumpTime;
+					FVector CurrentLoc = JumpTargetWorld;
+					const float TimeSlice = 0.1f;
+					for (int32 i = 0; i < 5; i++)
+					{
+						FVector NextLoc = CurrentLoc + JumpVel * TimeSlice;
+						JumpVel.Z += GravityZ * TimeSlice;
+						FHitResult Hit;
+						if (GetWorld()->SweepSingleByChannel(Hit, CurrentLoc, NextLoc, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(HumanExtent), FCollisionQueryParams(), WorldResponseParams))
+						{
+							TargetPoly = NavData->FindNearestPoly(Hit.Location, HumanExtent);
+							break; // hit ground so have to stop here
+						}
+						else
+						{
+							TargetPoly = NavData->FindNearestPoly(NextLoc, HumanExtent);
+							if (TargetPoly != INVALID_NAVNODEREF)
+							{
+								break;
+							}
+						}
+						CurrentLoc = NextLoc;
+					}
+				}
+			}
 			UUTPathNode* TargetNode = NavData->GetNodeFromPoly(TargetPoly);
 			if (TargetPoly != INVALID_NAVNODEREF && TargetNode != NULL)
 			{
@@ -195,7 +228,6 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 			const bool bIsZOnlyJump = JumpTarget.Size2D() < 0.1f * JumpTarget.Size();
 			const float JumpTargetDist = JumpTarget.Size();
 			const FVector JumpDir2D = (JumpTargetWorld - MyLoc).GetSafeNormal2D();
-			const float GravityZ = GetWorld()->GetDefaultGravityZ(); // TODO: gravity at jump pad location
 			const FVector HeightAdjust(0.0f, 0.0f, NavData->AgentHeight * 0.5f);
 			const TArray<const UUTPathNode*>& NodeList = NavData->GetAllNodes();
 			for (const UUTPathNode* TargetNode : NodeList)

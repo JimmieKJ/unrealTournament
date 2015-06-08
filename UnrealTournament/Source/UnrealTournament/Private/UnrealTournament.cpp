@@ -114,6 +114,12 @@ APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const F
 	return NewVolume;
 }
 
+float GetLocationGravityZ(UWorld* World, const FVector& TestLoc, const FCollisionShape& Shape)
+{
+	APhysicsVolume* Volume = FindPhysicsVolume(World, TestLoc, Shape);
+	return (Volume != NULL) ? Volume->GetGravityZ() : World->GetDefaultGravityZ();
+}
+
 static TMap<FName, FString> HackedEntitlementTable = []()
 {
 	TMap<FName, FString> Result;

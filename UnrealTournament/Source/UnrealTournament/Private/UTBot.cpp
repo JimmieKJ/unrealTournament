@@ -331,6 +331,10 @@ void AUTBot::SetPawn(APawn* InPawn)
 	if (GetPawn() != NULL)
 	{
 		GetPawn()->OnActorHit.RemoveDynamic(this, &AUTBot::NotifyBump);
+		if (GetCharacter() != NULL)
+		{
+			GetCharacter()->OnCharacterMovementUpdated.RemoveDynamic(this, &AUTBot::PostMovementUpdate);
+		}
 	}
 
 	Super::SetPawn(InPawn);
@@ -340,6 +344,10 @@ void AUTBot::SetPawn(APawn* InPawn)
 	if (GetPawn() != NULL)
 	{
 		GetPawn()->OnActorHit.AddDynamic(this, &AUTBot::NotifyBump);
+		if (GetCharacter() != NULL)
+		{
+			GetCharacter()->OnCharacterMovementUpdated.AddDynamic(this, &AUTBot::PostMovementUpdate);
+		}
 	}
 
 	SetPeripheralVision();
@@ -482,7 +490,8 @@ void AUTBot::Tick(float DeltaTime)
 
 		if (MoveTarget.IsValid())
 		{
-			if (NavData->HasReachedTarget(MyPawn, MyPawn->GetNavAgentPropertiesRef(), MoveTarget))
+			const bool bIsFalling = (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling);
+			if (!bIsFalling && NavData->HasReachedTarget(MyPawn, MyPawn->GetNavAgentPropertiesRef(), MoveTarget))
 			{
 				// reached
 				ClearMoveTarget();
@@ -490,14 +499,14 @@ void AUTBot::Tick(float DeltaTime)
 			else
 			{
 				MoveTimer -= DeltaTime;
-				if (MoveTimer < 0.0f && (GetCharacter() == NULL || GetCharacter()->GetCharacterMovement() == NULL || GetCharacter()->GetCharacterMovement()->MovementMode != MOVE_Falling))
+				if (MoveTimer < 0.0f && !bIsFalling)
 				{
 					// timed out
 					ClearMoveTarget();
 				}
 				else
 				{
-					// TODO: need some sort of failure checks in here
+					// TODO: if falling, check if we have enough jump velocity to land on further point on path
 
 					// clear points that we've reached or passed
 					const FVector MyLoc = MyPawn->GetActorLocation();
@@ -725,7 +734,7 @@ void AUTBot::Tick(float DeltaTime)
 					{
 						FVector NewAccel = (DesiredVel2D - GetCharacter()->GetCharacterMovement()->Velocity) / FMath::Max<float>(0.001f, DeltaTime) / GetCharacter()->GetCharacterMovement()->AirControl;
 						NewAccel.Z = 0.0f;
-						MyPawn->GetMovementComponent()->AddInputVector(NewAccel.GetSafeNormal() * (NewAccel.Size() / GetCharacter()->GetCharacterMovement()->GetMaxAcceleration()));
+						MyPawn->GetMovementComponent()->AddInputVector(NewAccel.GetSafeNormal() * (NewAccel.Size() / FMath::Max<float>(1.0f, GetCharacter()->GetCharacterMovement()->GetMaxAcceleration())));
 					}
 					else
 					{
@@ -1415,7 +1424,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 							}
 						}
 					}
-					else
+					else if ((MovePoint - LastReachedMovePoint).SizeSquared2D() > 1.0f)
 					{
 						// get XY distance from desired path
 						// note that the size of the result of ClosestPointOnSegment() with 2D vectors doesn't match that of using 3D vectors followed by Size2D()
@@ -1481,43 +1490,55 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				if (bPlannedWallDodge)
 				{
 					// dodge already checked, just do it
-					bDodged = UTChar->Dodge(Impact.Normal.GetSafeNormal2D(), (WallNormal2D ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
+					PendingWallDodgeDir = WallNormal2D;
 				}
 				// check for spontaneous wall dodge
 				// if hit wall because of incoming damage momentum, add additional reaction time check
 				else if ( (Skill + Personality.Jumpiness > 4.0f && UTChar->UTCharacterMovement->bIsDodging) ||
 						(!UTChar->UTCharacterMovement->bIsDodging && Skill >= 3.0f && GetWorld()->TimeSeconds - UTChar->LastTakeHitTime > 2.0f - Skill * 0.2f - Personality.ReactionTime * 0.5f) )
 				{
-					FVector DuckDir = WallNormal2D * 700.0f; // technically not reliable since we're in air, but every once in a while a bot wall dodging off a cliff is pretty realistic
-					FCollisionShape PawnShape = GetCharacter()->GetCapsuleComponent()->GetCollisionShape();
 					FVector Start = GetPawn()->GetActorLocation();
-					Start.Z += 50.0f;
-					FCollisionQueryParams Params(FName(TEXT("WallDodge")), false, GetPawn());
-					float MinDist = (Personality.Jumpiness > 0.0f) ? 150.0f : 350.0f;
-
-					FHitResult Hit;
-					bool bHit = GetWorld()->SweepSingleByChannel(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
-					if (!bHit || (Hit.Location - Start).Size() > MinDist)
+					// reject if on special path, unless above dest already and dodge is in its direction, or in direct combat and prefer evasiveness
+					if ((!CurrentPath.Spec.IsValid() && CurrentPath.ReachFlags == 0) || (Start.Z > GetMovePoint().Z && (WallNormal2D | (GetMovePoint() - Start).GetSafeNormal2D()) > 0.7f) || (Enemy != NULL && IsEnemyVisible(Enemy) && FMath::FRand() < Personality.Jumpiness))
 					{
-						if (!bHit)
+						Start.Z += 50.0f;
+						FVector DuckDir = WallNormal2D * 700.0f; // technically not reliable since we're in air, but every once in a while a bot wall dodging off a cliff is pretty realistic
+						FCollisionShape PawnShape = GetCharacter()->GetCapsuleComponent()->GetCollisionShape();
+						FCollisionQueryParams Params(FName(TEXT("WallDodge")), false, GetPawn());
+						float MinDist = (Personality.Jumpiness > 0.0f) ? 150.0f : 350.0f;
+
+						FHitResult Hit;
+						bool bHit = GetWorld()->SweepSingleByChannel(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
+						if (!bHit || (Hit.Location - Start).Size() > MinDist)
 						{
-							Hit.Location = Start + DuckDir;
-						}
-						// now check for floor
-						if (GetWorld()->SweepTestByChannel(Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight + GetCharacter()->GetCharacterMovement()->GetGravityZ() * -0.25f), FQuat::Identity, ECC_Pawn, PawnShape, Params))
-						{
-							// found one, so try the wall dodge!
-							bDodged = UTChar->Dodge(Impact.Normal.GetSafeNormal2D(), (WallNormal2D ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
+							if (!bHit)
+							{
+								Hit.Location = Start + DuckDir;
+							}
+							// now check for floor
+							if (GetWorld()->SweepTestByChannel(Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight + GetCharacter()->GetCharacterMovement()->GetGravityZ() * -0.25f), FQuat::Identity, ECC_Pawn, PawnShape, Params))
+							{
+								// found one, so try the wall dodge!
+								PendingWallDodgeDir = WallNormal2D;
+							}
 						}
 					}
 				}
-				if (bDodged)
-				{
-					// possibly maintain readiness for a second wall dodge if we hit another wall
-					bPlannedWallDodge = FMath::FRand() < Personality.Jumpiness || (Personality.Jumpiness >= 0.0 && FMath::FRand() < (Skill + Personality.Tactics) * 0.1f);
-				}
 			}
 		}
+	}
+}
+
+void AUTBot::PostMovementUpdate(float DeltaTime, FVector OldLocation, FVector OldVelocity)
+{
+	if (!PendingWallDodgeDir.IsZero())
+	{
+		if (UTChar != NULL && UTChar->Dodge(PendingWallDodgeDir, (PendingWallDodgeDir ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal()))
+		{
+			// possibly maintain readiness for a second wall dodge if we hit another wall
+			bPlannedWallDodge = FMath::FRand() < Personality.Jumpiness || (Personality.Jumpiness >= 0.0 && FMath::FRand() < (Skill + Personality.Tactics) * 0.1f);
+		}
+		PendingWallDodgeDir = FVector::ZeroVector;
 	}
 }
 

@@ -614,6 +614,8 @@ public:
 
 	/** set when planning on wall dodging next time we hit a wall during current fall */
 	bool bPlannedWallDodge;
+	/** set to execute wall dodge during PostMovementUpdate() (deferred because NotifyMoveBlocked() happens during physics and may clobber velocity changes) */
+	FVector PendingWallDodgeDir;
 
 	/** sets base bot skill and all parameters derived from skill */
 	virtual void InitializeSkill(float NewBaseSkill);
@@ -654,6 +656,8 @@ public:
 	UFUNCTION()
 	virtual void NotifyBump(AActor* SelfActor, AActor* OtherActor, FVector NormalImpulse, const FHitResult& Hit);
 	virtual void NotifyMoveBlocked(const FHitResult& Impact);
+	UFUNCTION()
+	virtual void PostMovementUpdate(float DeltaTime, FVector OldLocation,  FVector OldVelocity);
 	virtual void NotifyLanded(const FHitResult& Hit);
 	virtual void NotifyJumpApex();
 
