@@ -17,7 +17,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	// MinTimeBetweenTimeStampResets = 5.f;
 	MinTimeBetweenTimeStampResets = 10000.f;
 
-	MaxWalkSpeed = 950.f;
+	MaxWalkSpeed = 940.f;
 	MaxCustomMovementSpeed = MaxWalkSpeed;
 
 	WallDodgeTraceDist = 50.f;
@@ -33,7 +33,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeResetInterval = 0.35f;
 	DodgeJumpResetInterval = 0.35f;
 	WallDodgeResetInterval = 0.2f;
-	SprintSpeed = 1250.f;
+	SprintSpeed = 1230.f;
 	SprintAccel = 200.f;
 	SprintMaxWallNormal = -0.7f;
 	AutoSprintDelayInterval = 1.5f;
