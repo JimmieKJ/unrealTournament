@@ -51,29 +51,37 @@ void UUTHUDWidget_ReplayTimeSlider::Draw_Implementation(float DeltaTime)
 		CachedSliderHeight = 50;
 		CachedSliderYPos = Canvas->SizeY * .8f;
 
-		FVector2D StartBarPos = FVector2D(40, Canvas->SizeY * .8f);
-		FVector2D EndBarPos = FVector2D(Canvas->SizeX - 40, Canvas->SizeY * .8f);
-		Canvas->K2_DrawLine(StartBarPos, EndBarPos, 50, FLinearColor::Black);
+		FVector2D StartBarPos = FVector2D(CachedSliderOffset, CachedSliderYPos);
 
-		EndBarPos = (CurrentTime / TotalTime) * (EndBarPos - StartBarPos) + StartBarPos;
-		Canvas->K2_DrawLine(StartBarPos, EndBarPos, 50, FLinearColor::Red);
+		Canvas->SetLinearDrawColor(FLinearColor::Black);
+		Canvas->DrawTile(Canvas->DefaultTexture, StartBarPos.X, StartBarPos.Y, CachedSliderLength, CachedSliderHeight, 0, 0, 1, 1);
 		
-		if (bIsInteractive && 
+		Canvas->SetLinearDrawColor(FLinearColor::Red);
+		Canvas->DrawTile(Canvas->DefaultTexture, StartBarPos.X, StartBarPos.Y, (CurrentTime / TotalTime) * CachedSliderLength, CachedSliderHeight, 0, 0, 1, 1);
+		
+		if (bIsInteractive &&
 			MousePosition.X > CachedSliderOffset && MousePosition.X < CachedSliderOffset + CachedSliderLength &&
-			MousePosition.Y > CachedSliderYPos - CachedSliderHeight / 2 && MousePosition.Y < CachedSliderYPos + CachedSliderHeight / 2)
+			MousePosition.Y > CachedSliderYPos - CachedSliderHeight && MousePosition.Y < CachedSliderYPos + CachedSliderHeight)
 		{
-			FVector2D StartScrubPos = FVector2D(MousePosition.X, Canvas->SizeY * .8f);
-			FVector2D EndScrubPos = FVector2D(MousePosition.X + 5, Canvas->SizeY * .8f);
+			Canvas->SetLinearDrawColor(FLinearColor::White);
+			Canvas->DrawTile(Canvas->DefaultTexture, MousePosition.X, StartBarPos.Y, 5, CachedSliderHeight, 0, 0, 1, 1);
+			float TimelinePercentage = (float)(MousePosition.X - CachedSliderOffset) / (float)(CachedSliderLength);
+			float SeekToTime = TimelinePercentage * DemoDriver->DemoTotalTime;
+			FFormatNamedArguments Args;
+			Args.Add("SeekTimeText", FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(SeekToTime))));
+			FText TimeText = FText::Format(FText::FromString(TEXT("Seek to {SeekTimeText}")), Args);
 
-			Canvas->K2_DrawLine(StartScrubPos, EndScrubPos, 50, FLinearColor::White);
+			DrawText(TimeText, StartBarPos.X + 25, StartBarPos.Y, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
 		}
+		else
+		{
+			FFormatNamedArguments Args;
+			Args.Add("TotalTime", FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(TotalTime))));
+			Args.Add("CurrentTime", FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(CurrentTime))));
+			FText TimeText = FText::Format(FText::FromString(TEXT("{CurrentTime} / {TotalTime}")), Args);
 
-		FFormatNamedArguments Args;
-		Args.Add("TotalTime", FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(TotalTime))));
-		Args.Add("CurrentTime", FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(CurrentTime))));
-		FText TimeText = FText::Format(FText::FromString(TEXT("{CurrentTime} / {TotalTime}")), Args);
-
-		DrawText(TimeText, StartBarPos.X + 25, StartBarPos.Y - 25, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+			DrawText(TimeText, StartBarPos.X + 25, StartBarPos.Y, UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+		}
 	}
 }
 
@@ -82,7 +90,7 @@ bool UUTHUDWidget_ReplayTimeSlider::SelectionClick(FVector2D InMousePosition)
 	MousePosition = InMousePosition;
 
 	if (MousePosition.X > CachedSliderOffset && MousePosition.X < CachedSliderOffset + CachedSliderLength &&
-		MousePosition.Y > CachedSliderYPos - CachedSliderHeight / 2 && MousePosition.Y < CachedSliderYPos + CachedSliderHeight / 2)
+		MousePosition.Y > CachedSliderYPos - CachedSliderHeight && MousePosition.Y < CachedSliderYPos + CachedSliderHeight)
 	{
 		float TimelinePercentage = (float)(MousePosition.X - CachedSliderOffset) / (float)(CachedSliderLength);
 
