@@ -860,32 +860,6 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWControlSettingsDialog", "MoveBeforeFireInput", "Process moves before fire inputs"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SAssignNew(DeferFireInput, SCheckBox)
-			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-			.ForegroundColor(FLinearColor::White)
-			.IsChecked(PC->bDeferFireInputs ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
-		]
-	]
-	+ SVerticalBox::Slot()
-	.Padding(FMargin(10.0f, 25.0f, 10.0f, 5.0f))
-	.AutoHeight()
-	.HAlign(HAlign_Left)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(750)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.Text(NSLOCTEXT("SUWControlSettingsDialog", "SingleTapWallDodge", "Enable single tap wall dodge"))
 			]
 		]
@@ -1131,7 +1105,6 @@ FReply SUWControlSettingsDialog::OKClick()
 	//Movement settings
 	for (TObjectIterator<AUTPlayerController> It(RF_NoFlags); It; ++It)
 	{
-		It->bDeferFireInputs = DeferFireInput->IsChecked();
 		It->bSingleTapWallDodge = SingleTapWallDodge->IsChecked();
 		It->bTapCrouchToSlide = TapCrouchToSlide->IsChecked();
 		It->bAutoSlide = AutoSlide->IsChecked();

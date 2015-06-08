@@ -146,10 +146,7 @@ protected:
 
 	UPROPERTY()
 	float MaxDodgeTapTimeValue;
-
-	UPROPERTY()
-	uint32 bDeferFireInputs : 1;
-
+	
 	UPROPERTY()
 	uint32 bSingleTapWallDodge:1;
 

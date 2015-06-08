@@ -315,10 +315,6 @@ public:
 	UFUNCTION(exec)
 	virtual void SetWeaponBobScaling(float NewScaling);
 
-	/** If true, fire inputs will be processed after movement is completed. */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
-	bool bDeferFireInputs;
-
 	/** If true, single quick tap will result in wall dodge on release.  Otherwise need double tap to wall dodge. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapWallDodge;
