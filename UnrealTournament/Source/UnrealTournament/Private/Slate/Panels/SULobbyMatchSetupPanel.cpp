@@ -118,7 +118,7 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 					+SHorizontalBox::Slot()
 					.Padding(5.0,0.0,5.0,0.0)
 					[
-						SAssignNew(StatusText,STextBlock)
+						SAssignNew(StatusTextBlock, STextBlock)
 						.Text(this, &SULobbyMatchSetupPanel::GetStatusText )
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					]

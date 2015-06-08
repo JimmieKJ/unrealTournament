@@ -116,7 +116,7 @@ protected:
 	float BlinkyTimer;
 	int32 Dots;
 
-	TSharedPtr<STextBlock> StatusText;
+	TSharedPtr<STextBlock> StatusTextBlock;
 	FText GetStatusText() const;
 
 	FOnMatchInfoUpdated OnMatchInfoUpdatedDelegate;

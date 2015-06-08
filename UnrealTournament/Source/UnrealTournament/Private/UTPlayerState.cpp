@@ -851,16 +851,10 @@ void AUTPlayerState::WriteStatsToCloud()
 				StatsWriteRequest->SetVerb(TEXT("POST"));
 				StatsWriteRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 				
-				IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
-				if (OnlineSubsystem)
+				if (OnlineIdentityInterface.IsValid())
 				{
-					IOnlineIdentityPtr OnlineIdentityInterface;
-					OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-					if (OnlineIdentityInterface.IsValid())
-					{
-						FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
-						StatsWriteRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
-					}
+					FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
+					StatsWriteRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
 				}
 
 				StatsWriteRequest->SetContent(BackendStatsData);
