@@ -10,73 +10,74 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 {
 	StatPrefix = TEXT("STAT_");
 
-	Stats.Add(MakeStat(NAME_SkillRating, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_TDMSkillRating, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_DMSkillRating, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_CTFSkillRating, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SkillRating, false));
+	Stats.Add(MakeStat(NAME_TDMSkillRating, false));
+	Stats.Add(MakeStat(NAME_DMSkillRating, false));
+	Stats.Add(MakeStat(NAME_CTFSkillRating, false));
 
-	Stats.Add(MakeStat(NAME_SkillRatingSamples, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_TDMSkillRatingSamples, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_DMSkillRatingSamples, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_CTFSkillRatingSamples, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SkillRatingSamples, false));
+	Stats.Add(MakeStat(NAME_TDMSkillRatingSamples, false));
+	Stats.Add(MakeStat(NAME_DMSkillRatingSamples, false));
+	Stats.Add(MakeStat(NAME_CTFSkillRatingSamples, false));
 
-	Stats.Add(MakeStat(NAME_MatchesPlayed, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_MatchesQuit, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_TimePlayed, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_Wins, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_Losses, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_Kills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_Deaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_Suicides, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MatchesPlayed, true));
+	Stats.Add(MakeStat(NAME_MatchesQuit, true));
+	Stats.Add(MakeStat(NAME_TimePlayed, true));
+	Stats.Add(MakeStat(NAME_Wins, true));
+	Stats.Add(MakeStat(NAME_Losses, true));
+	Stats.Add(MakeStat(NAME_Kills, true));
+	Stats.Add(MakeStat(NAME_Deaths, true));
+	Stats.Add(MakeStat(NAME_Suicides, true));
 	
-	Stats.Add(MakeStat(NAME_MultiKillLevel0, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_MultiKillLevel1, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_MultiKillLevel2, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_MultiKillLevel3, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_MultiKillLevel0, true));
+	Stats.Add(MakeStat(NAME_MultiKillLevel1, true));
+	Stats.Add(MakeStat(NAME_MultiKillLevel2, true));
+	Stats.Add(MakeStat(NAME_MultiKillLevel3, true));
 
-	Stats.Add(MakeStat(NAME_SpreeKillLevel0, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_SpreeKillLevel1, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_SpreeKillLevel2, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_SpreeKillLevel3, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_SpreeKillLevel4, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel0, true));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel1, true));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel2, true));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel3, true));
+	Stats.Add(MakeStat(NAME_SpreeKillLevel4, true));
 
-	Stats.Add(MakeStat(NAME_ImpactHammerKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_EnforcerKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_BioRifleKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_ShockBeamKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_ShockCoreKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_ShockComboKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_LinkKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_LinkBeamKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_MinigunKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_MinigunShardKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_FlakShardKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_FlakShellKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_RocketKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_SniperKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_SniperHeadshotKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_RedeemerKills, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_InstagibKills, EStatRecordingPeriod::Persistent));
 
-	Stats.Add(MakeStat(NAME_ImpactHammerDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_EnforcerDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_BioRifleDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_ShockBeamDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_ShockCoreDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_ShockComboDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_LinkDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_LinkBeamDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_MinigunDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_MinigunShardDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_FlakShardDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_FlakShellDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_RocketDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_SniperDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_SniperHeadshotDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_RedeemerDeaths, EStatRecordingPeriod::Persistent));
-	Stats.Add(MakeStat(NAME_InstagibDeaths, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ImpactHammerKills, true));
+	Stats.Add(MakeStat(NAME_EnforcerKills, true));
+	Stats.Add(MakeStat(NAME_BioRifleKills, true));
+	Stats.Add(MakeStat(NAME_ShockBeamKills, true));
+	Stats.Add(MakeStat(NAME_ShockCoreKills, true));
+	Stats.Add(MakeStat(NAME_ShockComboKills, true));
+	Stats.Add(MakeStat(NAME_LinkKills, true));
+	Stats.Add(MakeStat(NAME_LinkBeamKills, true));
+	Stats.Add(MakeStat(NAME_MinigunKills, true));
+	Stats.Add(MakeStat(NAME_MinigunShardKills, true));
+	Stats.Add(MakeStat(NAME_FlakShardKills, true));
+	Stats.Add(MakeStat(NAME_FlakShellKills, true));
+	Stats.Add(MakeStat(NAME_RocketKills, true));
+	Stats.Add(MakeStat(NAME_SniperKills, true));
+	Stats.Add(MakeStat(NAME_SniperHeadshotKills, true));
+	Stats.Add(MakeStat(NAME_RedeemerKills, true));
+	Stats.Add(MakeStat(NAME_InstagibKills, true));
 
-	Stats.Add(MakeStat(NAME_PlayerXP, EStatRecordingPeriod::Persistent));
+	Stats.Add(MakeStat(NAME_ImpactHammerDeaths, true));
+	Stats.Add(MakeStat(NAME_EnforcerDeaths, true));
+	Stats.Add(MakeStat(NAME_BioRifleDeaths, true));
+	Stats.Add(MakeStat(NAME_ShockBeamDeaths, true));
+	Stats.Add(MakeStat(NAME_ShockCoreDeaths, true));
+	Stats.Add(MakeStat(NAME_ShockComboDeaths, true));
+	Stats.Add(MakeStat(NAME_LinkDeaths, true));
+	Stats.Add(MakeStat(NAME_LinkBeamDeaths, true));
+	Stats.Add(MakeStat(NAME_MinigunDeaths, true));
+	Stats.Add(MakeStat(NAME_MinigunShardDeaths, true));
+	Stats.Add(MakeStat(NAME_FlakShardDeaths, true));
+	Stats.Add(MakeStat(NAME_FlakShellDeaths, true));
+	Stats.Add(MakeStat(NAME_RocketDeaths, true));
+	Stats.Add(MakeStat(NAME_SniperDeaths, true));
+	Stats.Add(MakeStat(NAME_SniperHeadshotDeaths, true));
+	Stats.Add(MakeStat(NAME_RedeemerDeaths, true));
+	Stats.Add(MakeStat(NAME_InstagibDeaths, true));
+
+	Stats.Add(MakeStat(NAME_PlayerXP, true));
 
 	NumMatchesToKeep = 5;
 	NumPreviousPlayerNamesToKeep = 5;
@@ -84,12 +85,14 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	JSONVersionNumber = 0;
 }
 
-UStat* UStatManager::MakeStat(FName StatName, EStatRecordingPeriod::Type HighestPeriod)
+UStat* UStatManager::MakeStat(FName StatName, bool bBackendStat)
 {
 	FString NewName = FString::Printf(TEXT("%s%s"), *StatPrefix, *StatName.ToString());
 	UStat* Stat = NewObject<UStat>(this,FName(*NewName));
 	Stat->StatName = StatName;
-	Stat->HighestPeriodToTrack = HighestPeriod;
+	Stat->HighestPeriodToTrack = EStatRecordingPeriod::Persistent;
+	Stat->bBackendStat = bBackendStat;
+
 	return Stat;
 }
 
@@ -211,31 +214,24 @@ void UStatManager::PopulateStatLookup()
 	}
 }
 
-void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
+void UStatManager::PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> JsonObject)
 {
-	// update stats from PlayerState stats array
-	AUTGameState* GS = UTPS ? UTPS->GetWorld()->GetGameState<AUTGameState>() : NULL;
-	if (GS)
+	for (auto* Stat : Stats)
 	{
-		for (int32 i = 0; i < GS->GameScoreStats.Num(); i++)
+		if (Stat && Stat->bBackendStat)
 		{
-			ModifyStat(GS->GameScoreStats[i], UTPS->GetStatsValue(GS->GameScoreStats[i]), EStatMod::Delta);
-		}
-		for (int32 i = 0; i < GS->WeaponStats.Num(); i++)
-		{
-			ModifyStat(GS->WeaponStats[i], UTPS->GetStatsValue(GS->WeaponStats[i]), EStatMod::Delta);
-		}
-		for (int32 i = 0; i < GS->RewardStats.Num(); i++)
-		{
-			ModifyStat(GS->RewardStats[i], UTPS->GetStatsValue(GS->RewardStats[i]), EStatMod::Delta);
+			JsonObject->SetNumberField(Stat->StatName.ToString(), GetStatValue(Stat, EStatRecordingPeriod::Persistent));
 		}
 	}
+}
 
+void UStatManager::PopulateJsonObjectForNonBackendStats(TSharedPtr<FJsonObject> JsonObject)
+{
 	JsonObject->SetNumberField(TEXT("Version"), JSONVersionNumber);
 
 	for (auto* Stat : Stats)
 	{
-		if (Stat)
+		if (Stat && !Stat->bBackendStat)
 		{
 			JsonObject->SetNumberField(Stat->StatName.ToString(), GetStatValue(Stat, EStatRecordingPeriod::Persistent));
 		}
@@ -315,11 +311,11 @@ void UStatManager::PopulateJsonObject(TSharedPtr<FJsonObject> JsonObject)
 	}
 }
 
-void UStatManager::InsertDataFromJsonObject(TSharedPtr<FJsonObject> JsonObject)
+void UStatManager::InsertDataFromNonBackendJsonObject(TSharedPtr<FJsonObject> JsonObject)
 {
 	for (auto* Stat : Stats)
 	{
-		if (Stat)
+		if (Stat && !Stat->bBackendStat)
 		{
 			int32 StatInput = 0;
 			if (JsonObject->TryGetNumberField(Stat->StatName.ToString(), StatInput))

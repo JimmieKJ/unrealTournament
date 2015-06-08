@@ -757,7 +757,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 						UE_LOG(LogGameStats, Warning, TEXT("Failed to find matching StatsID in valid stats read."));
 					}
 
-					StatManager->InsertDataFromJsonObject(StatsJson);
+					StatManager->InsertDataFromNonBackendJsonObject(StatsJson);
 
 					DuelSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("SkillRating"))), EStatRecordingPeriod::Persistent);
 					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("TDMSkillRating"))), EStatRecordingPeriod::Persistent);
@@ -785,33 +785,104 @@ FString AUTPlayerState::GetStatsFilename()
 
 void AUTPlayerState::WriteStatsToCloud()
 {
-	if (!StatsID.IsEmpty() && bReadStatsFromCloud && OnlineUserCloudInterface.IsValid() && StatManager != nullptr && !bOnlySpectator)
+	if (!StatsID.IsEmpty() && StatManager != nullptr)
 	{
-		// We ended with this player name, save it in the stats
-		StatManager->PreviousPlayerNames.AddUnique(PlayerName);
-		if (StatManager->PreviousPlayerNames.Num() > StatManager->NumPreviousPlayerNamesToKeep)
+		// Write the stats stored in the cloud file
+		if (bReadStatsFromCloud && OnlineUserCloudInterface.IsValid() && !bOnlySpectator)
 		{
-			StatManager->PreviousPlayerNames.RemoveAt(0, StatManager->PreviousPlayerNames.Num() - StatManager->NumPreviousPlayerNamesToKeep);
+			// We ended with this player name, save it in the stats
+			StatManager->PreviousPlayerNames.AddUnique(PlayerName);
+			if (StatManager->PreviousPlayerNames.Num() > StatManager->NumPreviousPlayerNamesToKeep)
+			{
+				StatManager->PreviousPlayerNames.RemoveAt(0, StatManager->PreviousPlayerNames.Num() - StatManager->NumPreviousPlayerNamesToKeep);
+			}
+
+			TArray<uint8> FileContents;
+			TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
+			StatsJson->SetStringField(TEXT("StatsID"), StatsID);
+			StatsJson->SetStringField(TEXT("PlayerName"), PlayerName);
+			StatManager->PopulateJsonObjectForNonBackendStats(StatsJson);
+
+			FString OutputJsonString;
+			TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
+			FJsonSerializer::Serialize(StatsJson.ToSharedRef(), Writer);
+			{
+				FMemoryWriter MemoryWriter(FileContents);
+				MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
+			}
+
+			UE_LOG(LogGameStats, Log, TEXT("Writing stats for %s, previously read stats: %d"), *PlayerName, bSuccessfullyReadStatsFromCloud ? 1 : 0);
+
+			OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents);
+			bWroteStatsToCloud = true;
 		}
 
-		TArray<uint8> FileContents;
-		TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
-		StatsJson->SetStringField(TEXT("StatsID"), StatsID);
-		StatsJson->SetStringField(TEXT("PlayerName"), PlayerName);
-		StatManager->PopulateJsonObject(StatsJson);
-
-		FString OutputJsonString;
-		TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
-		FJsonSerializer::Serialize(StatsJson.ToSharedRef(), Writer);
+		// Write the stats going to the backend
 		{
-			FMemoryWriter MemoryWriter(FileContents);
-			MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
+			TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
+			StatManager->PopulateJsonObjectForBackendStats(StatsJson);
+			FString OutputJsonString;
+			TArray<uint8> BackendStatsData;
+			TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
+			FJsonSerializer::Serialize(StatsJson.ToSharedRef(), Writer);
+			{
+				FMemoryWriter MemoryWriter(BackendStatsData);
+				MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
+			}
+			
+			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			FString McpConfigOverride;
+			FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+
+			if (McpConfigOverride == TEXT("localhost"))
+			{
+				BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			}
+			else if (McpConfigOverride == TEXT("gamedev"))
+			{
+				BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			}
+
+			FHttpRequestPtr StatsWriteRequest = FHttpModule::Get().CreateRequest();
+			if (StatsWriteRequest.IsValid())
+			{
+				StatsWriteRequest->SetURL(BaseURL);
+				StatsWriteRequest->OnProcessRequestComplete().BindUObject(this, &AUTPlayerState::StatsWriteComplete);
+				StatsWriteRequest->SetVerb(TEXT("POST"));
+				StatsWriteRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+				
+				IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+				if (OnlineSubsystem)
+				{
+					IOnlineIdentityPtr OnlineIdentityInterface;
+					OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+					if (OnlineIdentityInterface.IsValid())
+					{
+						FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
+						StatsWriteRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+					}
+				}
+
+				StatsWriteRequest->SetContent(BackendStatsData);
+				StatsWriteRequest->ProcessRequest();
+			}
 		}
 
-		UE_LOG(LogGameStats, Log, TEXT("Writing stats for %s, previously read stats: %d"), *PlayerName, bSuccessfullyReadStatsFromCloud ? 1 : 0);
+	}
+}
 
-		OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents); 
-		bWroteStatsToCloud = true;
+void AUTPlayerState::StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	if (HttpRequest.IsValid() && HttpResponse.IsValid())
+	{
+		if (bSucceeded && HttpResponse->GetResponseCode() == 200)
+		{
+			UE_LOG(LogGameStats, Verbose, TEXT("Stats write succeeded %s %s"), *HttpRequest->GetURL(), *HttpResponse->GetContentAsString());
+		}
+		else
+		{
+			UE_LOG(LogGameStats, Warning, TEXT("Stats write failed %s %s"), *HttpRequest->GetURL(), *HttpResponse->GetContentAsString());
+		}
 	}
 }
 

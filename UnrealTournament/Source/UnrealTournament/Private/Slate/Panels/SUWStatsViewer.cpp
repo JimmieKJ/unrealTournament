@@ -103,13 +103,77 @@ void SUWStatsViewer::DownloadStats()
 			if (!StatsID.IsEmpty() && OnlineUserCloudInterface.IsValid())
 			{
 				LastStatsDownloadTime = FApp::GetCurrentTime();
+				
+				ReadBackendStats();
 
-				// Invalidate the local cache, this seems to be the best way to do that
-				OnlineUserCloudInterface->DeleteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), false, true);
-
-				OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
 			}
 		}
+	}
+}
+
+void SUWStatsViewer::ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	bool bShowErrorPage = true;
+
+	if (HttpRequest.IsValid() && HttpResponse.IsValid())
+	{
+		if (bSucceeded && HttpResponse->GetResponseCode() == 200)
+		{
+			// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
+			FString JSONString = FString(TEXT("var BackendStats = ")) + HttpResponse->GetContentAsString() + TEXT(";");
+
+			FString SavePath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/backendstats.json"));
+			FArchive* FileOut = IFileManager::Get().CreateFileWriter(*SavePath);
+			if (FileOut)
+			{
+				FileOut->Serialize(TCHAR_TO_ANSI(*JSONString), JSONString.Len());
+				FileOut->Close();
+			}
+
+			// Read the cloud stats now
+			// Invalidate the local cache, this seems to be the best way to do that
+			OnlineUserCloudInterface->DeleteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), false, true);
+
+			OnlineUserCloudInterface->ReadUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename());
+			
+			bShowErrorPage = false;
+		}
+	}
+
+	if (bShowErrorPage)
+	{
+		ShowErrorPage();
+	}
+}
+
+void SUWStatsViewer::ReadBackendStats()
+{
+	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
+	if (StatsReadRequest.IsValid())
+	{
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk/window/alltime");
+		FString McpConfigOverride;
+		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
+
+		if (McpConfigOverride == TEXT("localhost"))
+		{
+			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk/window/alltime");
+		}
+		else if (McpConfigOverride == TEXT("gamedev"))
+		{
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk/window/alltime");
+		}
+
+		StatsReadRequest->SetURL(BaseURL);
+		StatsReadRequest->OnProcessRequestComplete().BindRaw(this, &SUWStatsViewer::ReadBackendStatsComplete);
+		StatsReadRequest->SetVerb(TEXT("GET"));
+
+		if (OnlineIdentityInterface.IsValid())
+		{
+			FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
+			StatsReadRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
+		}
+		StatsReadRequest->ProcessRequest();
 	}
 }
 
@@ -153,19 +217,24 @@ void SUWStatsViewer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 		if (!bShowingStats)
 		{
-			FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/nostats.html"));
-			FPlatformFileManager::Get().GetPlatformFile().CopyDirectoryTree(*(FPaths::GameSavedDir() + TEXT("Stats/")), *(FPaths::GameContentDir() + TEXT("RestrictedAssets/UI/Stats/")), true);
-
-			// Have to hack around SWebBrowser not allowing url changes
-			WebBrowserBox->RemoveSlot(StatsWebBrowser.ToSharedRef());
-			WebBrowserBox->AddSlot()
-				[
-					SAssignNew(StatsWebBrowser, SWebBrowser)
-					.InitialURL(TEXT("file://") + HTMLPath)
-					.ShowControls(false)
-				];
+			ShowErrorPage();
 		}
 	}
+}
+
+void SUWStatsViewer::ShowErrorPage()
+{
+	FString HTMLPath = FPaths::ConvertRelativePathToFull(FPaths::GameSavedDir() + TEXT("Stats/nostats.html"));
+	FPlatformFileManager::Get().GetPlatformFile().CopyDirectoryTree(*(FPaths::GameSavedDir() + TEXT("Stats/")), *(FPaths::GameContentDir() + TEXT("RestrictedAssets/UI/Stats/")), true);
+
+	// Have to hack around SWebBrowser not allowing url changes
+	WebBrowserBox->RemoveSlot(StatsWebBrowser.ToSharedRef());
+	WebBrowserBox->AddSlot()
+		[
+			SAssignNew(StatsWebBrowser, SWebBrowser)
+			.InitialURL(TEXT("file://") + HTMLPath)
+			.ShowControls(false)
+		];
 }
 
 FString SUWStatsViewer::GetStatsFilename()

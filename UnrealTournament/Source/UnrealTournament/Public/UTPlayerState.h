@@ -10,6 +10,7 @@
 #include "UTHat.h"
 #include "UTEyewear.h"
 #include "UTTaunt.h"
+#include "Http.h"
 #include "UTPlayerState.generated.h"
 
 USTRUCT(BlueprintType)
@@ -348,6 +349,7 @@ public:
 	virtual void ValidateEntitlements();
 
 	void WriteStatsToCloud();
+	void StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 	virtual int32 GetSkillRating(FName SkillStatName);
