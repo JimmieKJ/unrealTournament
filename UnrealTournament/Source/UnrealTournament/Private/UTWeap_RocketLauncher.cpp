@@ -13,7 +13,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringChargedRocket>(TEXT("FiringState1")))
 {
 	ClassicGroup = 8;
-	BringUpTime = 0.5f;
+	BringUpTime = 0.41f;
 
 	NumLoadedRockets = 0;
 	MaxLoadedRockets = 3;

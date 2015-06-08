@@ -25,8 +25,8 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 	SpreadResetInterval = 1.f;
 	SpreadIncrease = 0.03f;
 	MaxSpread = 0.12f;
-	BringUpTime = 0.3f;
-	DualBringUpTime = 0.4f;
+	BringUpTime = 0.28f;
+	DualBringUpTime = 0.36f;
 	PutDownTime = 0.2f;
 	DualPutDownTime = 0.3f;
 	StoppingPower = 30000.f;

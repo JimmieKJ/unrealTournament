@@ -37,7 +37,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	Ammo = 20;
 	MaxAmmo = 50;
 
-	BringUpTime = 0.41f;
+	BringUpTime = 0.37f;
 	PutDownTime = 0.3f;
 	WeaponBobScaling = 1.f;
 	FiringViewKickback = -20.f;

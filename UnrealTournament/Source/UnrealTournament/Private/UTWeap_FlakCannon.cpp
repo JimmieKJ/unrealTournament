@@ -15,7 +15,7 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializ
 	Group = 7;
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 131.000000, 429.000000, 132.000000, 52.000000);
 
-	BringUpTime = 0.5f;
+	BringUpTime = 0.41f;
 
 	// Firing
 	ProjClass.SetNumZeroed(2);

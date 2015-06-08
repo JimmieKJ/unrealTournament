@@ -14,7 +14,7 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState0")).SetDefaultSubobjectClass<UUTWeaponStateFiringOnce>(TEXT("FiringState1")))
 {
 	TelefragDamage = 1337.0f;
-	BringUpTime = 0.32f;
+	BringUpTime = 0.28f;
 	PutDownTime = 0.2f;
 	AmmoCost.Add(0);
 	AmmoCost.Add(1);
