@@ -952,7 +952,7 @@ void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir)
 		AUTCharacter* UTChar = Cast<AUTCharacter>(CharacterOwner);
 		if (UTChar)
 		{
-			UTChar->OnSlide(DodgeDir);
+			UTChar->MovementEventUpdated(EME_Slide, DodgeDir);
 		}
 	}
 }
@@ -963,14 +963,13 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 	{
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
 		{
-			((AUTCharacter*)CharacterOwner)->PlayJump();
+			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.SafeNormal());
 		}
 		bNotifyApex = true;
 		bExplicitJump = true;
 		NeedsClientAdjustment(); 
 		return true;
 	}
-
 	return false;
 }
 

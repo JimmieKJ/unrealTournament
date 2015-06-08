@@ -191,6 +191,26 @@ enum EAllowedSpecialMoveAnims
 	EASM_None,
 };
 
+UENUM(BlueprintType)
+enum EMovementEvent
+{
+	EME_Jump,
+	EME_Dodge,
+	EME_Slide,
+};
+
+USTRUCT(BlueprintType)
+struct FMovementEventInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(BlueprintReadOnly)
+	TEnumAsByte<EMovementEvent> EventType;
+
+	UPROPERTY(BlueprintReadOnly)
+	FVector_NetQuantize EventLocation;
+};
+
 USTRUCT(BlueprintType)
 struct FBloodDecalInfo
 {
@@ -961,13 +981,13 @@ public:
 	 * called on server and owning client
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-	void OnDodge(const FVector &DodgeDir);
+		void OnDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
 
 	/** Slide just occurred, play any sounds/effects desired.
 	* called on server and owning client
 	*/
 	UFUNCTION(BlueprintNativeEvent)
-		void OnSlide(const FVector &SlideDir);
+		void OnSlide(const FVector& SlideLocation, const FVector &SlideDir);
 
 	/** Landing assist just occurred */
 	UFUNCTION(BlueprintImplementableEvent)
@@ -1010,7 +1030,7 @@ public:
 
 	/** play jumping sound/effects; should be called on server and owning client */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Effects)
-	void PlayJump();
+		void PlayJump(const FVector& JumpLocation, const FVector& JumpDir);
 
 	/** Pawns must be overlapping at least this much for a telefrag to occur. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
@@ -1250,6 +1270,26 @@ public:
 
 	virtual void PreNetReceive() override;
 	virtual void PostNetReceive() override;
+
+	/** For replicating movement events to generate client side sounds and effects. */
+	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = MovementEventReplicated, Category = "Movement")
+		FMovementEventInfo MovementEvent;
+
+	/** Last time MovementEvent was updated.  @TODO FIXMESTEVE - like flashcount, should not rep to owner, or if more than 0.5f since updated. */
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+		float MovementEventTime;
+
+	/** Direction associated with movement event.  Only accurate on server and player creating event, otherwise, uses Velocity normal. */
+	UPROPERTY(BlueprintReadOnly, Category = "Movement")
+		FVector MovementEventDir;
+
+	/** called when movement event needing client side sound/effects occurs */
+	UFUNCTION()
+	virtual void MovementEventUpdated(EMovementEvent MovementEventType, FVector Dir);
+
+	/** repnotify handler for MovementEvent. */
+	UFUNCTION()
+		virtual void MovementEventReplicated();
 
 	//--------------------------
 	// Weapon bob and eye offset

@@ -2470,6 +2470,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, FireMode, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, FlashExtra, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, LastTakeHitInfo, COND_Custom);
+	DOREPLIFETIME_CONDITION(AUTCharacter, MovementEvent, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponAttachmentClass, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bApplyWallSlide, COND_SkipOwner);
@@ -2585,7 +2586,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		else if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
 			bCanPlayWallHitSound = true;
-			OnDodge(DodgeDir);
+			MovementEventUpdated(EME_Dodge, DodgeDir);
 			return true;
 		}
 	}
@@ -2737,11 +2738,11 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 	}
 }
 
-void AUTCharacter::PlayJump_Implementation()
+void AUTCharacter::PlayJump_Implementation(const FVector& JumpLocation, const FVector& JumpDir)
 {
 	DesiredJumpBob = WeaponJumpBob;
 	TargetEyeOffset.Z = EyeOffsetJumpBob;
-	UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, this, SRT_AllButOwner);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, this, SRT_IfSourceNotReplicated, false, JumpLocation);
 }
 
 void AUTCharacter::Falling()
@@ -2750,8 +2751,9 @@ void AUTCharacter::Falling()
 }
 
 
-void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
+void AUTCharacter::OnDodge_Implementation(const FVector& DodgeLocation, const FVector &DodgeDir)
 {
+	bCanPlayWallHitSound = true;
 	FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
 	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
 	FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
@@ -2767,17 +2769,17 @@ void AUTCharacter::OnDodge_Implementation(const FVector &DodgeDir)
 	}
 	if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), SwimPushSound, this, SRT_AllButOwner);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), SwimPushSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
 	}
 	else
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeSound, this, SRT_AllButOwner);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
 	}
 }
 
-void AUTCharacter::OnSlide_Implementation(const FVector &SlideDir)
+void AUTCharacter::OnSlide_Implementation(const FVector & SlideLocation, const FVector &SlideDir)
 {
-	UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_AllButOwner);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_IfSourceNotReplicated, false, SlideLocation);
 
 	FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
 	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
@@ -4820,4 +4822,36 @@ void AUTCharacter::EndViewTarget(APlayerController* PC)
 bool AUTCharacter::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UObject* Executor)
 {
 	return ((Weapon != NULL && Weapon->ProcessConsoleExec(Cmd, Ar, Executor)) || Super::ProcessConsoleExec(Cmd, Ar, Executor));
+}
+
+void AUTCharacter::MovementEventUpdated(EMovementEvent MovementEventType, FVector Dir)
+{
+	MovementEventTime = GetWorld()->GetTimeSeconds();
+	MovementEvent.EventType = MovementEventType;
+	MovementEvent.EventLocation = GetActorLocation();
+	MovementEventDir = Dir;
+	if (IsLocallyViewed())
+	{
+		MovementEventReplicated();
+	}
+}
+
+void AUTCharacter::MovementEventReplicated()
+{
+	if (!IsLocallyViewed() && (GetNetMode() == NM_Client))
+	{
+		MovementEventDir = UTCharacterMovement->Velocity.SafeNormal();
+	}
+	if (MovementEvent.EventType == EME_Jump)
+	{
+		PlayJump(MovementEvent.EventLocation, MovementEventDir);
+	}
+	else if (MovementEvent.EventType == EME_Dodge)
+	{
+		OnDodge(MovementEvent.EventLocation, MovementEventDir);
+	}
+	else if (MovementEvent.EventType == EME_Slide)
+	{
+		OnSlide(MovementEvent.EventLocation, MovementEventDir);
+	}
 }
