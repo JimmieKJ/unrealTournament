@@ -60,8 +60,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
 	NavAgentProps.AgentStepHeight = MaxStepHeight; // warning: must be manually mirrored, won't be set automatically
-	CrouchedHalfHeight = 64.0f;
-	FloorSlideHalfHeight = 46.f;
+	CrouchedHalfHeight = 55.0f;
+	FloorSlideHalfHeight = 55.f;
 	SlopeDodgeScaling = 0.93f;
 
 	FloorSlideAcceleration = 2000.f;
@@ -796,8 +796,15 @@ float UUTCharacterMovement::GetMaxSpeed() const
 	{
 		return 0.01f;
 	}
-	else if (bIsFloorSliding)
+	else if (bIsFloorSliding && (MovementMode == MOVE_Walking))
 	{
+		// higher max velocity if going down hill
+		float CurrentSpeed = Velocity.Size();
+		if ((CurrentSpeed > MaxFloorSlideSpeed) && (CurrentFloor.HitResult.ImpactNormal.Z < 1.f))
+		{
+			float TopSlideSpeed = FMath::Min(SprintSpeed, CurrentSpeed);
+			return FMath::Min(TopSlideSpeed, MaxFloorSlideSpeed + FMath::Max(0.f, (Velocity | CurrentFloor.HitResult.ImpactNormal)));
+		}
 		return MaxFloorSlideSpeed;
 	}
 	else if (bFallingInWater && (MovementMode == MOVE_Falling))
@@ -889,7 +896,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		}
 		if (bIsFloorSliding)
 		{
-			PerformFloorSlide(Velocity.GetSafeNormal());
+			PerformFloorSlide(Velocity.GetSafeNormal2D());
 			//UE_LOG(UTNet, Warning, TEXT("FloorSlide within %f"), GetCurrentMovementTime() - FloorSlideTapTime);
 			// @TODO FIXMESTEVE - should also update DodgeRestTime if roll but not out of dodge?
 			if (bIsDodging)
@@ -941,14 +948,14 @@ bool UUTCharacterMovement::WantsFloorSlide()
 
 void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir)
 {
-	if (!IsFalling() && CharacterOwner)
+	if (CharacterOwner)
 	{
 		FloorSlideTapTime = GetCurrentMovementTime();
 		bIsFloorSliding = true;
 		FloorSlideEndTime = GetCurrentMovementTime() + FloorSlideDuration;
 		Acceleration = FloorSlideAcceleration * DodgeDir;
 		DodgeResetTime = FloorSlideEndTime + DodgeResetInterval;
-		float NewSpeed = FMath::Max(MaxFloorSlideSpeed, 0.5f * (Velocity.Size()+MaxFloorSlideSpeed));
+		float NewSpeed = FMath::Max(MaxFloorSlideSpeed, FMath::Min(Velocity.Size2D(), SprintSpeed));
 		Velocity = NewSpeed*DodgeDir;
 		AUTCharacter* UTChar = Cast<AUTCharacter>(CharacterOwner);
 		if (UTChar)
