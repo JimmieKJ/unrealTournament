@@ -50,7 +50,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 6600.f; 
-	MaxFallingAcceleration = 4200.f;
+	MaxFallingAcceleration = 4600.f;
 	BrakingDecelerationWalking = 500.f;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
@@ -948,7 +948,8 @@ void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir)
 		FloorSlideEndTime = GetCurrentMovementTime() + FloorSlideDuration;
 		Acceleration = FloorSlideAcceleration * DodgeDir;
 		DodgeResetTime = FloorSlideEndTime + DodgeResetInterval;
-		Velocity = MaxFloorSlideSpeed*DodgeDir;
+		float NewSpeed = FMath::Max(MaxFloorSlideSpeed, 0.5f * (Velocity.Size()+MaxFloorSlideSpeed));
+		Velocity = NewSpeed*DodgeDir;
 		AUTCharacter* UTChar = Cast<AUTCharacter>(CharacterOwner);
 		if (UTChar)
 		{
