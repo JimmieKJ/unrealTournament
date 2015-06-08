@@ -620,7 +620,7 @@ static const TCHAR* ImportProperties(
 	}
 
 	// Prepare brush.
-	if( ImportedBrush && ObjectStruct->IsChildOf(ABrush::StaticClass()) )
+	if( ImportedBrush && ObjectStruct->IsChildOf<ABrush>() && !ObjectStruct->IsChildOf<AVolume>() )
 	{
 		check(GIsEditor);
 		ABrush* Actor = (ABrush*)DestData;
