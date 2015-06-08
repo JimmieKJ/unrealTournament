@@ -234,9 +234,9 @@ void SUWReplayBrowser::BuildReplayList()
 
 		FString UserString = TEXT("");
 		
-		if (!bShowReplaysFromAllUsers)
+		if (!bShowReplaysFromAllUsers && OnlineIdentityInterface.IsValid())
 		{
-			UserString = GetPlayerOwner()->GetNickname();
+			UserString = OnlineIdentityInterface->GetUniquePlayerId(0)->ToString();
 		}
 
 		ReplayStreamer->EnumerateStreams(Version, UserString, MetaString, FOnEnumerateStreamsComplete::CreateSP(this, &SUWReplayBrowser::OnEnumerateStreamsComplete));
