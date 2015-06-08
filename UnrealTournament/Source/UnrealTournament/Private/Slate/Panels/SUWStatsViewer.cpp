@@ -138,6 +138,10 @@ void SUWStatsViewer::ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttp
 			
 			bShowErrorPage = false;
 		}
+		else
+		{
+			UE_LOG(UT, Log, TEXT("%s"), *HttpResponse->GetContentAsString());
+		}
 	}
 
 	if (bShowErrorPage)
