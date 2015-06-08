@@ -479,10 +479,7 @@ public:
 	 * @see GetSafeNormal()
 	 */
 	FORCEINLINE FVector GetUnsafeNormal() const;
-
-	DEPRECATED(4.7, "Deprecated due to unclear name, use GetUnsafeNormal instead.")
-	FORCEINLINE FVector UnsafeNormal() const;
-
+	
 	/**
 	 * Gets a copy of this vector snapped to a grid.
 	 *
@@ -502,28 +499,16 @@ public:
 
 	/** Create a copy of this vector, with its magnitude clamped between Min and Max. */
 	FVector GetClampedToSize(float Min, float Max) const;
-
-	DEPRECATED(4.7, "Deprecated due to unclear name, use GetClampedToSize instead.")
-	FVector ClampSize(float Min, float Max) const;
-
+	
 	/** Create a copy of this vector, with the 2D magnitude clamped between Min and Max. Z is unchanged. */
 	FVector GetClampedToSize2D(float Min, float Max) const;
-
-	DEPRECATED(4.7, "Deprecated due to unclear name, use GetClampedToSize2D instead.")
-	FVector ClampSize2D(float Min, float Max) const;
-
+	
 	/** Create a copy of this vector, with its maximum magnitude clamped to MaxSize. */
 	FVector GetClampedToMaxSize(float MaxSize) const;
-
-	DEPRECATED(4.7, "Deprecated due to unclear name, use GetClampedToMaxSize instead.")
-	FVector ClampMaxSize(float MaxSize) const;
-
+	
 	/** Create a copy of this vector, with the maximum 2D magnitude clamped to MaxSize. Z is unchanged. */
 	FVector GetClampedToMaxSize2D(float MaxSize) const;
-
-	DEPRECATED(4.7, "Deprecated due to unclear name, use GetClampedToMaxSize2D instead.")
-	FVector ClampMaxSize2D(float MaxSize) const;
-
+	
 	/**
 	 * Add a vector to this and clamp the result in a cube.
 	 *
@@ -581,10 +566,7 @@ public:
 	 * @return A normalized copy if safe, (0,0,0) otherwise.
 	 */
 	FVector GetSafeNormal(float Tolerance=SMALL_NUMBER) const;
-
-	DEPRECATED(4.7, "Deprecated due to unclear name, use GetSafeNormal instead.")
-	FVector SafeNormal(float Tolerance = SMALL_NUMBER) const;
-
+	
 	/**
 	 * Gets a normalized copy of the 2D components of the vector, checking it is safe to do so. Z is set to zero. 
 	 * Returns zero vector if vector length is too small to normalize.
@@ -593,10 +575,7 @@ public:
 	 * @return Normalized copy if safe, otherwise returns zero vector.
 	 */
 	FVector GetSafeNormal2D(float Tolerance=SMALL_NUMBER) const;
-
-	DEPRECATED(4.7, "Deprecated due to unclear name, use GetSafeNormal2D instead.")
-	FVector SafeNormal2D(float Tolerance = SMALL_NUMBER) const;
-
+	
 	/**
 	 * Returns the cosine of the angle between this vector and another projected onto the XY plane (no Z).
 	 *
@@ -1493,11 +1472,6 @@ FORCEINLINE FVector FVector::GetUnsafeNormal() const
 	return FVector( X*Scale, Y*Scale, Z*Scale );
 }
 
-FORCEINLINE FVector FVector::UnsafeNormal() const
-{
-	return GetUnsafeNormal();
-}
-
 FORCEINLINE FVector FVector::GridSnap( const float& GridSz ) const
 {
 	return FVector( FMath::GridSnap(X, GridSz),FMath::GridSnap(Y, GridSz),FMath::GridSnap(Z, GridSz) );
@@ -1523,11 +1497,6 @@ FORCEINLINE FVector FVector::GetClampedToSize(float Min, float Max) const
 	return VecSize * VecDir;
 }
 
-FORCEINLINE FVector FVector::ClampSize(float Min, float Max) const
-{
-	return GetClampedToSize(Min, Max);
-}
-
 FORCEINLINE FVector FVector::GetClampedToSize2D(float Min, float Max) const
 {
 	float VecSize2D = Size2D();
@@ -1537,12 +1506,6 @@ FORCEINLINE FVector FVector::GetClampedToSize2D(float Min, float Max) const
 
 	return FVector(VecSize2D * VecDir.X, VecSize2D * VecDir.Y, Z);
 }
-
-FORCEINLINE FVector FVector::ClampSize2D(float Min, float Max) const
-{
-	return GetClampedToSize2D(Min, Max);
-}
-
 
 FORCEINLINE FVector FVector::GetClampedToMaxSize(float MaxSize) const
 {
@@ -1563,11 +1526,6 @@ FORCEINLINE FVector FVector::GetClampedToMaxSize(float MaxSize) const
 	}	
 }
 
-FORCEINLINE FVector FVector::ClampMaxSize(float MaxSize) const
-{
-	return GetClampedToMaxSize(MaxSize);
-}
-
 FORCEINLINE FVector FVector::GetClampedToMaxSize2D(float MaxSize) const
 {
 	if (MaxSize < KINDA_SMALL_NUMBER)
@@ -1586,12 +1544,6 @@ FORCEINLINE FVector FVector::GetClampedToMaxSize2D(float MaxSize) const
 		return *this;
 	}
 }
-
-FORCEINLINE FVector FVector::ClampMaxSize2D(float MaxSize) const
-{
-	return GetClampedToMaxSize2D(MaxSize);
-}
-
 
 FORCEINLINE void FVector::AddBounded( const FVector& V, float Radius )
 {
@@ -1666,11 +1618,6 @@ FORCEINLINE FVector FVector::GetSafeNormal(float Tolerance) const
 	return FVector(X*Scale, Y*Scale, Z*Scale);
 }
 
-FORCEINLINE FVector FVector::SafeNormal(float Tolerance) const
-{
-	return GetSafeNormal(Tolerance);
-}
-
 FORCEINLINE FVector FVector::GetSafeNormal2D(float Tolerance) const
 {
 	const float SquareSum = X*X + Y*Y;
@@ -1694,11 +1641,6 @@ FORCEINLINE FVector FVector::GetSafeNormal2D(float Tolerance) const
 
 	const float Scale = FMath::InvSqrt(SquareSum);
 	return FVector(X*Scale, Y*Scale, 0.f);
-}
-
-FORCEINLINE FVector FVector::SafeNormal2D(float Tolerance) const
-{
-	return GetSafeNormal2D(Tolerance);
 }
 
 FORCEINLINE float FVector::CosineAngle2D(FVector B) const
