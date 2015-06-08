@@ -38,6 +38,7 @@ protected:
 	virtual FReply OnCloseClicked();
 
 	virtual FReply OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuButton);
 
 	virtual FReply OnBootCampClick(TSharedPtr<SComboButton> MenuButton);

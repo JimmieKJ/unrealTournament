@@ -47,6 +47,7 @@ class UNREALTOURNAMENT_API SUWReplayBrowser : public SUWPanel
 {
 public:
 	bool bLiveOnly;
+	bool bShowReplaysFromAllUsers;
 
 	void BuildReplayList();
 

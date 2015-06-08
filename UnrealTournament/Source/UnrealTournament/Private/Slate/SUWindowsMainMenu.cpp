@@ -137,6 +137,24 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildWatchSubMenu()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
 				.ContentPadding(FMargin(10.0f, 5.0f))
+				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_RecentReplays", "Recent Replays"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.OnClicked(this, &SUWindowsMainMenu::OnRecentReplaysClick, DropDownButton)
+			]
+			+ SVerticalBox::Slot()
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Fill)
+			.Padding(FMargin(0.0f, 2.0f))
+			[
+				SNew(SImage)
+				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
+			]
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+				.ContentPadding(FMargin(10.0f, 5.0f))
 				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_LiveGames", "Live Games"))
 				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
 				.OnClicked(this, &SUWindowsMainMenu::OnLiveGameReplaysClick, DropDownButton)
@@ -457,6 +475,30 @@ FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton
 	if (ReplayBrowser.IsValid())
 	{
 		ReplayBrowser->bLiveOnly = false;
+		ReplayBrowser->bShowReplaysFromAllUsers = false;
+
+		if (ReplayBrowser == ActivePanel)
+		{
+			ReplayBrowser->BuildReplayList();
+		}
+		else
+		{
+			ActivatePanel(ReplayBrowser);
+		}
+	}
+
+	return FReply::Handled();
+}
+
+FReply SUWindowsMainMenu::OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButton)
+{
+	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
+	if (ReplayBrowser.IsValid())
+	{
+		ReplayBrowser->bLiveOnly = false;
+		ReplayBrowser->bShowReplaysFromAllUsers = true;
 
 		if (ReplayBrowser == ActivePanel)
 		{
@@ -479,6 +521,7 @@ FReply SUWindowsMainMenu::OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuBu
 	if (ReplayBrowser.IsValid())
 	{
 		ReplayBrowser->bLiveOnly = true;
+		ReplayBrowser->bShowReplaysFromAllUsers = true;
 		if (ReplayBrowser == ActivePanel)
 		{
 			ReplayBrowser->BuildReplayList();

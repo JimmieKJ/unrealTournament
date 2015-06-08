@@ -61,6 +61,7 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 
 	bShouldShowAllReplays = false;
 	bLiveOnly = false;
+	bShowReplaysFromAllUsers = false;
 
 	this->ChildSlot
 	[
@@ -197,8 +198,13 @@ void SUWReplayBrowser::BuildReplayList()
 			Version.Changelist = 0;
 		}
 
-		const FString MetaString = TEXT("");
-		const FString UserString = TEXT("");
+		FString MetaString = TEXT("");
+		FString UserString = TEXT("");
+		
+		if (!bShowReplaysFromAllUsers)
+		{
+			UserString = GetPlayerOwner()->GetNickname();
+		}
 
 		ReplayStreamer->EnumerateStreams(Version, UserString, MetaString, FOnEnumerateStreamsComplete::CreateSP(this, &SUWReplayBrowser::OnEnumerateStreamsComplete));
 	}
@@ -239,7 +245,7 @@ void SUWReplayBrowser::OnEnumerateStreamsComplete(const TArray<FNetworkReplayStr
 		NewDemoEntry->Date = StreamInfo.Timestamp.ToString(TEXT("%m/%d/%Y %h:%M %A"));	// UTC time
 		NewDemoEntry->Size = SizeInKilobytes >= 1024.0f ? FString::Printf(TEXT("%2.2f MB"), SizeInKilobytes / 1024.0f) : FString::Printf(TEXT("%i KB"), (int)SizeInKilobytes);
 
-		UE_LOG(UT, Log, TEXT("Stream found %s, Live: %s"), *StreamInfo.FriendlyName, StreamInfo.bIsLive ? TEXT("YES") : TEXT("NO"));
+		UE_LOG(UT, Verbose, TEXT("Stream found %s, Live: %s"), *StreamInfo.FriendlyName, StreamInfo.bIsLive ? TEXT("YES") : TEXT("NO"));
 
 		if (bLiveOnly)
 		{
