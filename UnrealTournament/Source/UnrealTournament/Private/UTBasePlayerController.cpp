@@ -175,7 +175,7 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 	}
 }
 
-void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, bool bSpectate, bool bFindLastMatch)
+void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate, bool bFindLastMatch)
 {
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem && !GUIDSessionSearchSettings.IsValid()) 
@@ -190,6 +190,7 @@ void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, bool bS
 		GUIDJoin_CurrentGUID = ServerGUID;
 		GUIDJoinAttemptCount = 0;
 		GUIDSessionSearchSettings.Reset();
+		GUIDJoinDesiredTeam = DesiredTeam;
 
 		OnCancelGUIDFindSessionCompleteDelegate.BindUObject(this, &AUTBasePlayerController::OnCancelGUIDFindSessionComplete);
 		OnCancelGUIDFindSessionCompleteDelegateHandle = OnlineSessionInterface->AddOnCancelFindSessionsCompleteDelegate_Handle(OnCancelGUIDFindSessionCompleteDelegate);
@@ -265,7 +266,7 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 				if (LP)
 				{
-					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, NAME_None, GUIDJoinWantsToFindMatch))
+					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, NAME_None, GUIDJoinWantsToFindMatch,GUIDJoinDesiredTeam))
 					{
 						LP->HideMenu();
 					}

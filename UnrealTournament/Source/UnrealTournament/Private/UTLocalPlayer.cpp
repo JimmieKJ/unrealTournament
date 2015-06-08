@@ -1542,7 +1542,7 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	Exec(GetWorld(), TEXT("disconnect"), *GLog);
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch, int32 DesiredTeam)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
@@ -1552,6 +1552,9 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 
 	bWantsToConnectAsSpectator = bSpectate;
 	bWantsToFindMatch = bFindMatch;
+
+	ConnectDesiredTeam = DesiredTeam;
+
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
 	if (!UniqueId.IsValid())
 	{
@@ -1614,6 +1617,11 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			}
 
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
+
+			if (ConnectDesiredTeam >= 0)
+			{
+				ConnectionString += FString::Printf(TEXT("?Team=%i"), ConnectDesiredTeam);
+			}
 
 			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
 			Context.LastURL.RemoveOption(TEXT("QuickStart"));

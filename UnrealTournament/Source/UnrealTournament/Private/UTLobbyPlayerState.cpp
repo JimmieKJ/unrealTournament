@@ -34,6 +34,7 @@ void AUTLobbyPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTLobbyPlayerState, CurrentMatch);
+	DOREPLIFETIME(AUTLobbyPlayerState, DesiredTeamNum);
 }
 
 void AUTLobbyPlayerState::MatchButtonPressed()
@@ -128,7 +129,7 @@ void AUTLobbyPlayerState::ClientConnectToInstance_Implementation(const FString& 
 	AUTBasePlayerController* BPC = Cast<AUTBasePlayerController>(GetOwner());
 	if (BPC)
 	{
-		BPC->ConnectToServerViaGUID(GameInstanceGUIDString, bAsSpectator);
+		BPC->ConnectToServerViaGUID(GameInstanceGUIDString, DesiredTeamNum, bAsSpectator);
 	}
 }
 

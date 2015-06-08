@@ -38,14 +38,6 @@ public:
 	UPROPERTY(Config)
 	FString DefaultMap;
 
-	// Holds a list of maps that can be played in this ruleset.
-	UPROPERTY(Config)
-	TArray<FString> MapPlaylist;
-
-	// Holds the max # of maps in the rotation
-	UPROPERTY(Config)
-	int32 MapPlaylistSize;
-
 	// The number of players needed to start.
 	UPROPERTY(Config)
 	int32 MinPlayersToStart;

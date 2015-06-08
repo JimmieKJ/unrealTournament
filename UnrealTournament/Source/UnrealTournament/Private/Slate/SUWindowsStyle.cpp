@@ -118,6 +118,10 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	Style.Set("UT.Background.Dark", new FSlateColorBrush(FLinearColor(0, 0, 0, .5f)));
 
+	Style.Set("UT.TeamBrush.Red", new FSlateColorBrush(FLinearColor(1.0f, 0, 0, 1.0f)));
+	Style.Set("UT.TeamBrush.Blue", new FSlateColorBrush(FLinearColor(0.0f, 0, 1.0f, 1.0f)));
+	Style.Set("UT.TeamBrush.Spectator", new FSlateColorBrush(FLinearColor(0.5f, 0.5f, 0.5f, 1.0f)));
+
 	Style.Set("UT.Version.TextStyle", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Bold", 14))
 		.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255)))

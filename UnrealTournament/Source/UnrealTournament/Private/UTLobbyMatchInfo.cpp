@@ -119,7 +119,28 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 		{
 			PlayerToAdd->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
 		}
-		// Add code for private/invite only matches
+		
+		if (CurrentRuleset.IsValid() && CurrentRuleset->bTeamGame)
+		{
+			// get the team sizes;
+			int TeamSizes[2];
+			TeamSizes[0] = 0;
+			TeamSizes[1] = 0;
+
+			for (int32 i=0;i<Players.Num();i++)
+			{
+				if (Players[i]->DesiredTeamNum >=0 && Players[i]->DesiredTeamNum <= 1)
+				{
+					TeamSizes[Players[i]->DesiredTeamNum]++;
+				}
+			}
+			PlayerToAdd->DesiredTeamNum = (TeamSizes[0] > TeamSizes[1]) ? 1 : 0;
+
+		}
+		else
+		{
+			PlayerToAdd->DesiredTeamNum = 0;
+		}
 	}
 	
 	Players.Add(PlayerToAdd);
@@ -256,11 +277,35 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 	{
 		if (Target == Players[i])
 		{
-			// Right now we only have kicks and bans.
-			RemovePlayer(Target);
-			if (CommandID == 1)
+			if (!CurrentRuleset->bTeamGame) CommandID++;		// Account for ChangeTeam.
+		
+			if (CommandID == 0 && CurrentRuleset->bTeamGame)
 			{
-				BannedIDs.Add(Target->UniqueId);
+				if (Target->DesiredTeamNum != 255)
+				{
+					Target->DesiredTeamNum = 1 - Target->DesiredTeamNum;
+				}
+				else
+				{
+					Target->DesiredTeamNum = 0;
+				}
+
+				UE_LOG(UT,Log,TEXT("Changing %s to team %i"), *Target->PlayerName, Target->DesiredTeamNum)
+			}
+			else if (CommandID == 1)
+			{
+				Target->DesiredTeamNum = 255;
+				UE_LOG(UT,Log,TEXT("Changing %s to spectator"), *Target->PlayerName, Target->DesiredTeamNum)
+
+			}
+			else if (CommandID > 1)
+			{
+				// Right now we only have kicks and bans.
+				RemovePlayer(Target);
+				if (CommandID == 3)
+				{
+					BannedIDs.Add(Target->UniqueId);
+				}
 			}
 		}
 	}

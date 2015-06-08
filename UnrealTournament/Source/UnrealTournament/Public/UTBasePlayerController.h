@@ -62,9 +62,9 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 
 public:
 	/**
-	 *	User a GUID to find a server via the MCP and connect to it.
+	 *	User a GUID to find a server via the MCP and connect to it.  NOTE.. DesiredTeam = 0, 1, 255 or -1 for don't set the team
 	 **/
-	virtual void ConnectToServerViaGUID(FString ServerGUID, bool bSpectate=false, bool bFindLastMatch=false);
+	virtual void ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate=false, bool bFindLastMatch=false);
 
 	UFUNCTION(Client, Reliable)
 	virtual void ClientReturnToLobby();
@@ -104,6 +104,7 @@ protected:
 	bool GUIDJoinWantsToSpectate;
 	int32 GUIDJoinAttemptCount;
 	bool GUIDJoinWantsToFindMatch;
+	int32 GUIDJoinDesiredTeam;
 
 	void AttemptGUIDJoin();
 	void OnFindSessionsComplete(bool bWasSuccessful);

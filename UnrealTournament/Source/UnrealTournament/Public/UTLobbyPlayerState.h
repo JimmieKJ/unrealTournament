@@ -106,6 +106,10 @@ protected:
 	UFUNCTION(Client, Reliable)
 	virtual void Client_ReceiveBlock(int32 Block, FAllowedData Data);
 
+public:
+	// We don't need TeamInfo's for the lobby, just store a desired team num for now.  255 will be spectator.
+	UPROPERTY(Replicated)
+	uint8 DesiredTeamNum;
 };
 
 
