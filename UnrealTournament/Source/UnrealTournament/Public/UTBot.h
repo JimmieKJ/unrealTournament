@@ -760,6 +760,8 @@ public:
 	/** check for line of sight to target DeltaTime from now */
 	virtual bool CheckFutureSight(float DeltaTime);
 
+	/** return whether passed in Actor is or belongs to a teammate */
+	virtual bool IsTeammate(AActor* TestActor);
 	/** get info on enemy, from team if available or local list if not
 	 * returned pointer is from an array so it is only guaranteed valid until next enemy update
 	 */

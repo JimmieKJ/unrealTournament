@@ -92,6 +92,10 @@ bool FBotEnemyInfo::IsValid(AActor* TeamHolder) const
 	{
 		return true;
 	}
+	else if (Cast<AUTBot>(TeamHolder) != NULL)
+	{
+		return !((AUTBot*)TeamHolder)->IsTeammate(Pawn);
+	}
 	else
 	{
 		AUTGameState* GS = TeamHolder->GetWorld()->GetGameState<AUTGameState>();
@@ -632,7 +636,7 @@ void AUTBot::Tick(float DeltaTime)
 				if (It->IsValid())
 				{
 					AController* C = It->Get();
-					if (C != this && C->GetPawn() != NULL && C->GetPawn() != Enemy && (bSeeFriendly || GS == NULL || !GS->OnSameTeam(C, this)) && CanSee(C->GetPawn(), true))
+					if (C != this && C->GetPawn() != NULL && C->GetPawn() != Enemy && (bSeeFriendly || !IsTeammate(C)) && CanSee(C->GetPawn(), true))
 					{
 						SeePawn(C->GetPawn());
 					}
@@ -1351,13 +1355,9 @@ void AUTBot::NotifyBump(AActor* SelfActor, AActor* OtherActor, FVector NormalImp
 	checkSlow(SelfActor == GetPawn());
 	// update locational info for enemies we bump into, since we might be looking the other way (strafing)
 	APawn* P = Cast<APawn>(OtherActor);
-	if (P != NULL && P->Controller != NULL)
+	if (P != NULL && P->Controller != NULL && !IsTeammate(P))
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS == NULL || !GS->OnSameTeam(P, this))
-		{
-			UpdateEnemyInfo(P, EUT_Seen);
-		}
+		UpdateEnemyInfo(P, EUT_Seen);
 	}
 }
 
@@ -1908,6 +1908,12 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 			return false;
 		}
 	}
+}
+
+bool AUTBot::IsTeammate(AActor* TestActor)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	return (GS != NULL && GS->OnSameTeam(this, TestActor));
 }
 
 const FBotEnemyInfo* AUTBot::GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam)
@@ -2956,65 +2962,53 @@ void AUTBot::UTNotifyKilled(AController* Killer, AController* KilledPlayer, APaw
 
 void AUTBot::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent)
 {
-	if (InstigatedBy != NULL && InstigatedBy != this && InstigatedBy->GetPawn() != NULL && (Enemy == NULL || !LineOfSightTo(Enemy)) && Squad != NULL)
+	if (InstigatedBy != NULL && InstigatedBy != this && InstigatedBy->GetPawn() != NULL && (Enemy == NULL || !LineOfSightTo(Enemy)) && Squad != NULL && !IsTeammate(InstigatedBy))
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS == NULL || !GS->OnSameTeam(InstigatedBy, this))
-		{
-			UpdateEnemyInfo(InstigatedBy->GetPawn(), EUT_TookDamage);
-		}
+		UpdateEnemyInfo(InstigatedBy->GetPawn(), EUT_TookDamage);
 	}
 }
 
 void AUTBot::NotifyCausedHit(APawn* HitPawn, int32 Damage)
 {
-	if (HitPawn != GetPawn() && HitPawn->Controller != NULL && !HitPawn->bTearOff)
+	if (HitPawn != GetPawn() && HitPawn->Controller != NULL && !HitPawn->bTearOff && !IsTeammate(HitPawn))
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS == NULL || !GS->OnSameTeam(HitPawn, this))
-		{
-			UpdateEnemyInfo(HitPawn, EUT_DealtDamage);
-		}
+		UpdateEnemyInfo(HitPawn, EUT_DealtDamage);
 	}
 }
 
 void AUTBot::NotifyPickup(APawn* PickedUpBy, AActor* Pickup, float AudibleRadius)
 {
-	if (GetPawn() != NULL && GetPawn() != PickedUpBy)
+	if (GetPawn() != NULL && GetPawn() != PickedUpBy && !IsTeammate(PickedUpBy))
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS == NULL || !GS->OnSameTeam(PickedUpBy, this))
+		bool bCanUpdateEnemyInfo = Pickup->IsA(AUTPickupHealth::StaticClass());
+		if (!bCanUpdateEnemyInfo)
 		{
-			bool bCanUpdateEnemyInfo = Pickup->IsA(AUTPickupHealth::StaticClass());
-			if (!bCanUpdateEnemyInfo)
-			{
-				TSubclassOf<AUTInventory> InventoryType = NULL;
+			TSubclassOf<AUTInventory> InventoryType = NULL;
 
-				AUTDroppedPickup* DP = Cast<AUTDroppedPickup>(Pickup);
-				if (DP != NULL)
+			AUTDroppedPickup* DP = Cast<AUTDroppedPickup>(Pickup);
+			if (DP != NULL)
+			{
+				InventoryType = DP->GetInventoryType();
+			}
+			else
+			{
+				AUTPickupInventory* InvPickup = Cast<AUTPickupInventory>(Pickup);
+				if (InvPickup != NULL)
 				{
-					InventoryType = DP->GetInventoryType();
-				}
-				else
-				{
-					AUTPickupInventory* InvPickup = Cast<AUTPickupInventory>(Pickup);
-					if (InvPickup != NULL)
-					{
-						InventoryType = InvPickup->GetInventoryType();
-					}
-				}
-				// assume inventory items that manipulate damage change effective health
-				if (InventoryType != NULL)
-				{
-					bCanUpdateEnemyInfo = InventoryType.GetDefaultObject()->bCallDamageEvents;
+					InventoryType = InvPickup->GetInventoryType();
 				}
 			}
-			if (bCanUpdateEnemyInfo)
+			// assume inventory items that manipulate damage change effective health
+			if (InventoryType != NULL)
 			{
-				if ((Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
-				{
-					UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
-				}
+				bCanUpdateEnemyInfo = InventoryType.GetDefaultObject()->bCallDamageEvents;
+			}
+		}
+		if (bCanUpdateEnemyInfo)
+		{
+			if ((Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
+			{
+				UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
 			}
 		}
 	}
@@ -3481,45 +3475,41 @@ bool AUTBot::IsImportantEnemyUpdate(APawn* TestEnemy, EAIEnemyUpdateType UpdateT
 
 void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 {
-	if (NewEnemy != NULL && !NewEnemy->bTearOff && !NewEnemy->bPendingKillPending && Squad != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(NewEnemy->Controller) == NULL))
+	if (NewEnemy != NULL && !NewEnemy->bTearOff && !NewEnemy->bPendingKillPending && Squad != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(NewEnemy->Controller) == NULL) && !IsTeammate(NewEnemy))
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS == NULL || !GS->OnSameTeam(NewEnemy, this))
-		{
-			bool bImportant = IsImportantEnemyUpdate(NewEnemy, UpdateType);
+		bool bImportant = IsImportantEnemyUpdate(NewEnemy, UpdateType);
 
-			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-			if (PS != NULL && PS->Team != NULL)
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		if (PS != NULL && PS->Team != NULL)
+		{
+			PS->Team->UpdateEnemyInfo(NewEnemy, UpdateType);
+		}
+		bool bFound = false;
+		for (int32 i = 0; i < LocalEnemyList.Num(); i++)
+		{
+			if (!LocalEnemyList[i].IsValid(this))
 			{
-				PS->Team->UpdateEnemyInfo(NewEnemy, UpdateType);
-			}
-			bool bFound = false;
-			for (int32 i = 0; i < LocalEnemyList.Num(); i++)
-			{
-				if (!LocalEnemyList[i].IsValid(this))
+				// we assume our current enemy is in the list!
+				if (LocalEnemyList[i].GetPawn() == Enemy)
 				{
-					// we assume our current enemy is in the list!
-					if (LocalEnemyList[i].GetPawn() == Enemy)
-					{
-						SetEnemy(NULL);
-					}
-					LocalEnemyList.RemoveAt(i--, 1);
+					SetEnemy(NULL);
 				}
-				else if (LocalEnemyList[i].GetPawn() == NewEnemy)
-				{
-					LocalEnemyList[i].Update(UpdateType);
-					bFound = true;
-					break;
-				}
+				LocalEnemyList.RemoveAt(i--, 1);
 			}
-			if (!bFound)
+			else if (LocalEnemyList[i].GetPawn() == NewEnemy)
 			{
-				new(LocalEnemyList) FBotEnemyInfo(NewEnemy, UpdateType);
+				LocalEnemyList[i].Update(UpdateType);
+				bFound = true;
+				break;
 			}
-			if (bImportant)
-			{
-				PickNewEnemy();
-			}
+		}
+		if (!bFound)
+		{
+			new(LocalEnemyList) FBotEnemyInfo(NewEnemy, UpdateType);
+		}
+		if (bImportant)
+		{
+			PickNewEnemy();
 		}
 	}
 }
@@ -3605,13 +3595,9 @@ void AUTBot::SetEnemy(APawn* NewEnemy)
 
 void AUTBot::HearSound(APawn* Other, const FVector& SoundLoc, float SoundRadius)
 {
-	if (Other != GetPawn())
+	if (Other != NULL && Other != GetPawn() && !Other->IsOwnedBy(this) && !IsTeammate(Other))
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS == NULL || !GS->OnSameTeam(Other, this))
-		{
-			UpdateEnemyInfo(Other, ((SoundLoc - GetPawn()->GetActorLocation()).Size() < SoundRadius * HearingRadiusMult * 0.5f) ? EUT_HeardExact : EUT_HeardApprox);
-		}
+		UpdateEnemyInfo(Other, ((SoundLoc - GetPawn()->GetActorLocation()).Size() < SoundRadius * HearingRadiusMult * 0.5f) ? EUT_HeardExact : EUT_HeardApprox);
 	}
 }
 
@@ -3622,8 +3608,7 @@ void AUTBot::SetTarget(AActor* NewTarget)
 
 void AUTBot::SeePawn(APawn* Other)
 {
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS == NULL || !GS->OnSameTeam(Other, this))
+	if (!IsTeammate(Other))
 	{
 		UpdateEnemyInfo(Other, EUT_Seen);
 	}
