@@ -119,6 +119,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 
 	SprintAmbientStartSpeed = 1000.f;
 	FallingAmbientStartSpeed = -1300.f;
+	LandEffectSpeed = 1000.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 
@@ -2578,6 +2579,8 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 			// blueprint handled dodge attempt
 			return true;
 		}
+		bool bPotentialWallDodge = !UTCharacterMovement->IsMovingOnGround();
+
 		if (UTCharacterMovement->WantsFloorSlide() && UTCharacterMovement->IsMovingOnGround())
 		{
 			UTCharacterMovement->PerformFloorSlide(DodgeDir);
@@ -2586,7 +2589,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		else if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
 			bCanPlayWallHitSound = true;
-			MovementEventUpdated(EME_Dodge, DodgeDir);
+			MovementEventUpdated(bPotentialWallDodge ? EME_WallDodge : EME_Dodge, DodgeDir);
 			return true;
 		}
 	}
@@ -2750,6 +2753,15 @@ void AUTCharacter::Falling()
 	FallingStartTime = GetWorld()->GetTimeSeconds();
 }
 
+void AUTCharacter::OnWallDodge_Implementation(const FVector& DodgeLocation, const FVector &DodgeDir)
+{
+	OnDodge_Implementation(DodgeLocation, DodgeDir);
+	if ((DodgeEffect != NULL) && GetCharacterMovement() && !GetCharacterMovement()->IsSwimming())
+	{
+		FVector EffectLocation = DodgeLocation - DodgeDir * GetCapsuleComponent()->GetUnscaledCapsuleRadius();
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), DodgeEffect, DodgeLocation, DodgeDir.Rotation(), true);
+	}
+}
 
 void AUTCharacter::OnDodge_Implementation(const FVector& DodgeLocation, const FVector &DodgeDir)
 {
@@ -2792,6 +2804,10 @@ void AUTCharacter::OnSlide_Implementation(const FVector & SlideLocation, const F
 	else if ((Y | SlideDir) > -0.6f)
 	{
 		DesiredJumpBob.Y = 0.f;
+	}
+	if (SlideEffect != NULL)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), SlideEffect, SlideLocation, SlideDir.Rotation(), true);
 	}
 }
 
@@ -2851,6 +2867,12 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		else
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+			if ((LandEffect != NULL) && (FMath::Abs(GetCharacterMovement()->Velocity.Z) > LandEffectSpeed))
+			{
+				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandEffect, GetActorLocation() - FVector(0.f,0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), Hit.Normal.Rotation(), true);
+				float EffectScale = FMath::Clamp(FMath::Square(GetCharacterMovement()->Velocity.Z)/(2.f*LandEffectSpeed*LandEffectSpeed), 0.5f, 1.f);
+				LandedPSC->SetRelativeScale3D(FVector(EffectScale, EffectScale, 1.f));
+			}
 		}
 
 		AUTBot* B = Cast<AUTBot>(Controller);
@@ -4838,9 +4860,9 @@ void AUTCharacter::MovementEventUpdated(EMovementEvent MovementEventType, FVecto
 
 void AUTCharacter::MovementEventReplicated()
 {
-	if (!IsLocallyViewed() && (GetNetMode() == NM_Client))
+	if (Role == ROLE_SimulatedProxy)
 	{
-		MovementEventDir = UTCharacterMovement->Velocity.SafeNormal();
+		MovementEventDir = UTCharacterMovement->Velocity.GetSafeNormal();
 	}
 	if (MovementEvent.EventType == EME_Jump)
 	{
@@ -4849,6 +4871,10 @@ void AUTCharacter::MovementEventReplicated()
 	else if (MovementEvent.EventType == EME_Dodge)
 	{
 		OnDodge(MovementEvent.EventLocation, MovementEventDir);
+	}
+	else if (MovementEvent.EventType == EME_WallDodge)
+	{
+		OnWallDodge(MovementEvent.EventLocation, MovementEventDir);
 	}
 	else if (MovementEvent.EventType == EME_Slide)
 	{

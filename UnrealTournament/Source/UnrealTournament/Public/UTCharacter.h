@@ -196,6 +196,7 @@ enum EMovementEvent
 {
 	EME_Jump,
 	EME_Dodge,
+	EME_WallDodge,
 	EME_Slide,
 };
 
@@ -978,10 +979,16 @@ public:
 	virtual bool Roll(FVector RollDir);
 
 	/** Dodge just occurred in dodge dir, play any sounds/effects desired.
-	 * called on server and owning client
+	 * called on all clients
 	 */
 	UFUNCTION(BlueprintNativeEvent)
 		void OnDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
+
+	/** Wall Dodge just occurred in dodge dir, play any sounds/effects desired.
+	* called on all clients
+	*/
+	UFUNCTION(BlueprintNativeEvent)
+		void OnWallDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
 
 	/** Slide just occurred, play any sounds/effects desired.
 	* called on server and owning client
@@ -1020,7 +1027,23 @@ public:
 	UFUNCTION(BlueprintPure, Category = PlayerController)
 	virtual APlayerCameraManager* GetPlayerCameraManager();
 
-	/** particle component for muzzle flash */
+	/** particle component for dodge */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* DodgeEffect;
+
+	/** particle component for slide */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* SlideEffect;
+
+	/** min Z speed to spawn LandEffect. */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		float LandEffectSpeed;
+
+	/** particle component for high velocity jump landing */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* LandEffect;
+
+	/** particle component for teleport */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 	TArray< TSubclassOf<class AUTReplicatedEmitter> > TeleportEffect;
 
