@@ -237,3 +237,9 @@ void UUTWeaponStateZooming::ToggleZoomInSound(bool bNowOn)
 		}
 	}
 }
+
+bool UUTWeaponStateZooming::WillSpawnShot(float DeltaTime)
+{
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetOuterAUTWeapon()->GetUTOwner()->GetController());
+	return UTPC && UTPC->HasDeferredFireInputs();
+}
