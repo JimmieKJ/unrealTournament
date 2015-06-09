@@ -1277,7 +1277,7 @@ void APlayerController::OnNetCleanup(UNetConnection* Connection)
 void APlayerController::ClientReceiveLocalizedMessage_Implementation( TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject )
 {
 	// Wait for player to be up to date with replication when joining a server, before stacking up messages
-	if ( GetNetMode() == NM_DedicatedServer || GetWorld()->GameState == NULL )
+	if (GetNetMode() == NM_DedicatedServer || GetWorld()->GameState == NULL || Message == NULL)
 	{
 		return;
 	}
@@ -1289,7 +1289,7 @@ void APlayerController::ClientReceiveLocalizedMessage_Implementation( TSubclassO
 	ClientData.RelatedPlayerState_2 = RelatedPlayerState_2;
 	ClientData.OptionalObject = OptionalObject;
 
-	Message->GetDefaultObject<ULocalMessage>()->ClientReceive( ClientData );
+	Message->GetDefaultObject<ULocalMessage>()->ClientReceive(ClientData);
 }
 
 void APlayerController::ClientPlaySound_Implementation(USoundBase* Sound, float VolumeMultiplier /* = 1.f */, float PitchMultiplier /* = 1.f */)
