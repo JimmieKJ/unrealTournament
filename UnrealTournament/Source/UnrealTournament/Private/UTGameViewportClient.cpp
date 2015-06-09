@@ -477,6 +477,13 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 			if (!InputText.IsEmpty() && FirstPlayer != NULL)
 			{
 				FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *InputText);
+
+				//add all of the options the client was connecting with
+				for (FString& Option : LastAttemptedURL.Op)
+				{
+					ReconnectCommand += TEXT("?") + Option;
+				}
+
 				FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
 			}
 		}
