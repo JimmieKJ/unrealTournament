@@ -203,8 +203,6 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 
 	ReplayStreamer = FNetworkReplayStreaming::Get().GetFactory().CreateReplayStreamer();
 	WatchReplayButton->SetEnabled(false);
-
-	BuildReplayList();
 }
 
 void SUWReplayBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
@@ -250,6 +248,7 @@ FReply SUWReplayBrowser::OnWatchClick()
 	{
 		if (PlayerOwner.IsValid() && PlayerOwner->GetWorld())
 		{
+			UE_LOG(UT, Verbose, TEXT("Watching stream %s %s"), *SelectedReplays[0]->StreamInfo.FriendlyName, *SelectedReplays[0]->StreamInfo.Name);
 			GEngine->Exec(PlayerOwner->GetWorld(), *FString::Printf(TEXT("DEMOPLAY %s"), *SelectedReplays[0]->StreamInfo.Name));
 		}
 	}
@@ -280,7 +279,7 @@ void SUWReplayBrowser::OnEnumerateStreamsComplete(const TArray<FNetworkReplayStr
 		NewDemoEntry->Date = StreamInfo.Timestamp.ToString(TEXT("%m/%d/%Y %h:%M %A"));	// UTC time
 		NewDemoEntry->Size = SizeInKilobytes >= 1024.0f ? FString::Printf(TEXT("%2.2f MB"), SizeInKilobytes / 1024.0f) : FString::Printf(TEXT("%i KB"), (int)SizeInKilobytes);
 
-		UE_LOG(UT, Verbose, TEXT("Stream found %s, Live: %s"), *StreamInfo.FriendlyName, StreamInfo.bIsLive ? TEXT("YES") : TEXT("NO"));
+		UE_LOG(UT, Verbose, TEXT("Stream found %s, %s, Live: %s"), *StreamInfo.FriendlyName, *StreamInfo.Name, StreamInfo.bIsLive ? TEXT("YES") : TEXT("NO"));
 
 		if (bLiveOnly)
 		{
