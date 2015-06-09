@@ -6,6 +6,7 @@
 #include "CanvasTypes.h"
 #include "SEditorViewport.h"
 #include "PreviewScene.h"
+#include "ImageUtils.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FPaperEditorViewportClient
@@ -52,7 +53,7 @@ FPaperEditorViewportClient::FPaperEditorViewportClient(const TWeakPtr<SEditorVie
 	bDeferZoomToSpriteIsInstant = true;
 
 	// Get the correct general direction of the perspective mode; the distance doesn't matter much as we've queued up a deferred zoom that will calculate a much better distance
- 	SetInitialViewTransform(LVT_Perspective, -100.0f * PaperAxisZ, PaperAxisZ.Rotation(), 0.0f);
+	SetInitialViewTransform(LVT_Perspective, -100.0f * PaperAxisZ, PaperAxisZ.Rotation(), 0.0f);
 }
 
 FPaperEditorViewportClient::~FPaperEditorViewportClient()
@@ -128,46 +129,9 @@ void FPaperEditorViewportClient::ModifyCheckerboardTextureColors()
 
 void FPaperEditorViewportClient::SetupCheckerboardTexture(const FColor& ColorOne, const FColor& ColorTwo, int32 CheckerSize)
 {
-// 	GConfig->GetInt(TEXT("TextureProperties"), TEXT("CheckerboardCheckerPixelNum"), CheckerSize, GEditorPerProjectIni);
-// 	GConfig->GetColor(TEXT("TextureProperties"), TEXT("CheckerboardColorOne"), CheckerColorOne, GEditorPerProjectIni);
-// 	GConfig->GetColor(TEXT("TextureProperties"), TEXT("CheckerboardColorTwo"), CheckerColorTwo, GEditorPerProjectIni);
-	
-// 	CheckerColorOne = FColor(128, 128, 128);
-// 	CheckerColorTwo = FColor(64, 64, 64);
-// 	bIsCheckeredBackgroundFill = false;
-// 	CheckerSize = 32;
-	CheckerSize = FMath::RoundUpToPowerOfTwo(CheckerSize);
-	const int32 HalfPixelNum = CheckerSize >> 1;
-
 	if (CheckerboardTexture == nullptr)
 	{
-		// Create the texture
-		CheckerboardTexture = UTexture2D::CreateTransient(CheckerSize, CheckerSize, PF_B8G8R8A8);
-
-		// Lock the checkerboard texture so it can be modified
-		FColor* MipData = static_cast<FColor*>(CheckerboardTexture->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_WRITE));
-
-		// Fill in the colors in a checkerboard pattern
-		for (int32 RowNum = 0; RowNum < CheckerSize; ++RowNum)
-		{
-			for (int32 ColNum = 0; ColNum < CheckerSize; ++ColNum)
-			{
-				FColor& CurColor = MipData[(ColNum + (RowNum * CheckerSize))];
-
-				if (ColNum < HalfPixelNum)
-				{
-					CurColor = (RowNum < HalfPixelNum) ? ColorOne: ColorTwo;
-				}
-				else
-				{
-					CurColor = (RowNum < HalfPixelNum) ? ColorTwo: ColorOne;
-				}
-			}
-		}
-
-		// Unlock the texture
-		CheckerboardTexture->PlatformData->Mips[0].BulkData.Unlock();
-		CheckerboardTexture->UpdateResource();
+		CheckerboardTexture = FImageUtils::CreateCheckerboardTexture(ColorOne, ColorTwo, CheckerSize);
 	}
 }
 

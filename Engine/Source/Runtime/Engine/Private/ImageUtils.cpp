@@ -256,3 +256,39 @@ void FImageUtils::CompressImageArray( int32 ImageWidth, int32 ImageHeight, TArra
 	TArray<uint8>& CompressedByteArray = TempThumbnail.AccessCompressedImageData();
 	DstData = TempThumbnail.AccessCompressedImageData();
 }
+
+UTexture2D* FImageUtils::CreateCheckerboardTexture(FColor ColorOne, FColor ColorTwo, int32 CheckerSize)
+{
+	CheckerSize = FMath::RoundUpToPowerOfTwo(CheckerSize);
+	const int32 HalfPixelNum = CheckerSize >> 1;
+
+	// Create the texture
+	UTexture2D* CheckerboardTexture = UTexture2D::CreateTransient(CheckerSize, CheckerSize, PF_B8G8R8A8);
+
+	// Lock the checkerboard texture so it can be modified
+	FColor* MipData = static_cast<FColor*>( CheckerboardTexture->PlatformData->Mips[0].BulkData.Lock(LOCK_READ_WRITE) );
+
+	// Fill in the colors in a checkerboard pattern
+	for ( int32 RowNum = 0; RowNum < CheckerSize; ++RowNum )
+	{
+		for ( int32 ColNum = 0; ColNum < CheckerSize; ++ColNum )
+		{
+			FColor& CurColor = MipData[( ColNum + ( RowNum * CheckerSize ) )];
+
+			if ( ColNum < HalfPixelNum )
+			{
+				CurColor = ( RowNum < HalfPixelNum ) ? ColorOne : ColorTwo;
+			}
+			else
+			{
+				CurColor = ( RowNum < HalfPixelNum ) ? ColorTwo : ColorOne;
+			}
+		}
+	}
+
+	// Unlock the texture
+	CheckerboardTexture->PlatformData->Mips[0].BulkData.Unlock();
+	CheckerboardTexture->UpdateResource();
+
+	return CheckerboardTexture;
+}
