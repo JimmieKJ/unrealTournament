@@ -327,21 +327,6 @@ public:
 	UFUNCTION(exec)
 	virtual void ToggleSingleTap();
 
-	/** If true, auto-slide, otherwise need to hold shift down to slide along walls. */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
-	bool bAutoSlide;
-
-	/** Toggles whether need to hold shift down or not to slide along walls. */
-	UFUNCTION(exec)
-	virtual void ToggleAutoSlide();
-
-	/** Handles propagating autoslide changes to UTCharacterMovement and to server */
-	virtual	void SetAutoSlide(bool bNewAutoSlide);
-
-	/** Replicate autoslide setting to server */
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetAutoSlide(bool bNewAutoSlide);
-
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Camera)
 	int32 StylizedPPIndex;
 
@@ -701,6 +686,9 @@ protected:
 
 	/** called to set the jump flag from input */
 	virtual void Jump();
+
+	/** called when jump is released. */
+	virtual void JumpRelease();
 
 	virtual void Crouch();
 	virtual void UnCrouch();

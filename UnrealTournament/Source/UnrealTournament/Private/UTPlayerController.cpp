@@ -65,9 +65,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	LastEmoteTime = 0.0f;
 	EmoteCooldownTime = 0.3f;
-
-	bAutoSlide = false;
-
 	bSpectateBehindView = true;
 	StylizedPPIndex = INDEX_NONE;
 
@@ -223,35 +220,6 @@ void AUTPlayerController::ToggleSingleTap()
 	bSingleTapWallDodge = !bSingleTapWallDodge;
 }
 
-void AUTPlayerController::ToggleAutoSlide()
-{
-	SetAutoSlide(!bAutoSlide);
-}
-
-void AUTPlayerController::SetAutoSlide(bool bNewAutoSlide)
-{
-	bAutoSlide = bNewAutoSlide;
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
-	{
-		MyCharMovement->bAutoSlide = bAutoSlide;
-	}
-	if (Role != ROLE_Authority)
-	{
-		ServerSetAutoSlide(bAutoSlide);
-	}
-}
-
-void AUTPlayerController::ServerSetAutoSlide_Implementation(bool bNewAutoSlide)
-{
-	SetAutoSlide(bNewAutoSlide);
-}
-
-bool AUTPlayerController::ServerSetAutoSlide_Validate(bool bNewAutoSlide)
-{
-	return true;
-}
-
 void AUTPlayerController::SetEyeOffsetScaling(float NewScaling)
 {
 	EyeOffsetGlobalScaling = NewScaling;
@@ -284,6 +252,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAxis("MoveRight", this, &AUTPlayerController::MoveRight);
 	InputComponent->BindAxis("MoveUp", this, &AUTPlayerController::MoveUp);
 	InputComponent->BindAction("Jump", IE_Pressed, this, &AUTPlayerController::Jump);
+	InputComponent->BindAction("Jump", IE_Released, this, &AUTPlayerController::JumpRelease);
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AUTPlayerController::Crouch);
 	InputComponent->BindAction("Crouch", IE_Released, this, &AUTPlayerController::UnCrouch);
 	InputComponent->BindAction("ToggleCrouch", IE_Pressed, this, &AUTPlayerController::ToggleCrouch);
@@ -430,7 +399,6 @@ void AUTPlayerController::SetPawn(APawn* InPawn)
 		if (UTCharacter && UTCharacter->UTCharacterMovement)
 		{
 			UTCharacter->UTCharacterMovement->UpdateFloorSlide(bIsHoldingFloorSlide);
-			SetAutoSlide(bAutoSlide);
 		}
 	}
 }
@@ -1244,9 +1212,18 @@ void AUTPlayerController::LookUpAtRate(float Rate)
 
 void AUTPlayerController::Jump()
 {
-	if (GetCharacter() != NULL)
+	if (UTCharacter)
 	{
-		GetCharacter()->bPressedJump = true;
+		UTCharacter->bPressedJump = true;
+		UTCharacter->UTCharacterMovement->UpdateWallSlide(true);
+	}
+}
+
+void AUTPlayerController::JumpRelease()
+{
+	if (UTCharacter)
+	{
+		UTCharacter->UTCharacterMovement->UpdateWallSlide(false);
 	}
 }
 

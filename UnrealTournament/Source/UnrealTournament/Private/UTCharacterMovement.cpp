@@ -102,7 +102,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	CurrentMultiJumpCount = 0;	
 	bExplicitJump = false;
 	CurrentWallDodgeCount = 0;				
-	bWantsFloorSlide = false;				
+	bWantsFloorSlide = false;	
+	bWantsWallSlide = false;
 	LastCheckedAgainstWall = 0.f;
 	bIsSettingUpFirstReplayMove = false;
 
@@ -974,6 +975,11 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 	StartNewPhysics(remainingTime, Iterations);
 }
 
+void UUTCharacterMovement::UpdateWallSlide(bool bNewWantsWallSlide)
+{
+	bWantsWallSlide = bNewWantsWallSlide;
+}
+
 void UUTCharacterMovement::UpdateFloorSlide(bool bNewWantsFloorSlide)
 {
 	if (bNewWantsFloorSlide && !bWantsFloorSlide)
@@ -986,6 +992,11 @@ void UUTCharacterMovement::UpdateFloorSlide(bool bNewWantsFloorSlide)
 bool UUTCharacterMovement::WantsFloorSlide()
 { 
 	return bWantsFloorSlide; 
+}
+
+bool UUTCharacterMovement::WantsWallSlide()
+{
+	return bWantsWallSlide;
 }
 
 bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
@@ -1162,8 +1173,7 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 	if (UTCharOwner)
 	{
 		UTCharOwner->bApplyWallSlide = false;
-		// @TODO FIXMESTEVE bWantsFloorSlide only for floor slide now!
-		if ((bWantsFloorSlide || bAutoSlide) && (Velocity.Z < 0.f) && bExplicitJump && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.GetSafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
+		if (bWantsWallSlide && (Velocity.Z < 0.f) && bExplicitJump && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.GetSafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
 		{
 			FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);

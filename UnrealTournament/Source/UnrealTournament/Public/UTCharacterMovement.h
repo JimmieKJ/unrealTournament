@@ -286,15 +286,15 @@ UPROPERTY()
 	bool bIsEmoting;
 	
 protected:
-	/** True if player is holding modifier to slide.  Change with UpdateFloorSlide(). */
+	/** True if player is holding modifier to floor slide.  Change with UpdateFloorSlide(). */
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
 	bool bWantsFloorSlide;
 
-public:
-	/** If true, auto-slide, otherwise need to hold shift down to slide along walls. */
-	UPROPERTY(EditAnywhere, Category = Movement)
-	bool bAutoSlide;
+	/** True if player is holding modifier to wall slide.  Change with UpdateWallSlide(). */
+	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
+	bool bWantsWallSlide;
 
+public:
 	/** Horizontal speed reduction on slide ending (multiplied). */
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
 	float FloorSlideEndingSpeedFactor;
@@ -347,9 +347,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
 	virtual void UpdateFloorSlide(bool bNewWantsFloorSlide);
 
-	/** Update bWantsFloorSlide and FloorSlideTapTime */
+	/** Update bWantsWallSlide */
+	UFUNCTION(BlueprintCallable, Category = "WallSlide")
+	virtual void UpdateWallSlide(bool bNewWantsWallSlide);
+
+	/** returns current bWantsFloorSlide */
 	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
 	virtual bool WantsFloorSlide();
+
+	/** returns current bWantsWallSlide */
+	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
+		virtual bool WantsWallSlide();
 
 	virtual void HandleCrouchRequest();
 

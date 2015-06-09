@@ -151,9 +151,6 @@ protected:
 	uint32 bSingleTapWallDodge:1;
 
 	UPROPERTY()
-	uint32 bAutoSlide : 1;
-
-	UPROPERTY()
 	uint32 bSingleTapAfterJump : 1;
 
 	UPROPERTY()

@@ -897,32 +897,6 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 	]
 	+ SVerticalBox::Slot()
 	.HAlign(HAlign_Left)
-	.AutoHeight()
-	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(750)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWControlSettingsDialog", "AutoSlide", "Automatically engage wall-slide when pressed\nagainst wall"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SAssignNew(AutoSlide, SCheckBox)
-			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-			.ForegroundColor(FLinearColor::White)
-			.IsChecked(PC->bAutoSlide ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
-		]
-	]
-	+ SVerticalBox::Slot()
-	.HAlign(HAlign_Left)
 	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 	[
 		SNew(SHorizontalBox)
@@ -1077,7 +1051,6 @@ FReply SUWControlSettingsDialog::OKClick()
 	for (TObjectIterator<AUTPlayerController> It(RF_NoFlags); It; ++It)
 	{
 		It->bSingleTapWallDodge = SingleTapWallDodge->IsChecked();
-		It->bAutoSlide = AutoSlide->IsChecked();
 		It->bSingleTapAfterJump = SingleTapAfterJump->IsChecked();
 		It->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		It->MaxDodgeTapTime = MaxDodgeTapTimeValue;
