@@ -6,7 +6,7 @@
 #include "UTCTFGameMessage.h"
 #include "UTCTFRewardMessage.h"
 #include "UTFirstBloodMessage.h"
-#include "UTTimerMessage.h"
+#include "UTCountDownMessage.h"
 #include "UTPickup.h"
 #include "UTGameMessage.h"
 #include "UTMutator.h"
@@ -62,7 +62,7 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	OvertimeDuration = FMath::Max(1, GetIntOption(Options, TEXT("OvertimeDuration"), OvertimeDuration));
 	OvertimeDuration *= 60;
 
-	// HalftimeDuration is in seconds 
+	// AdvantageDuration is in seconds 
 	AdvantageDuration = FMath::Max(0, GetIntOption(Options, TEXT("AdvantageDuration"), AdvantageDuration));
 
 	if (TimeLimit > 0)
@@ -705,9 +705,9 @@ bool AUTCTFGameMode::CheckAdvantage()
 			return false;
 		}
 		//Play the countdown to match the placeholder announcement. Delay by the length of the audio
-		else if (RemainingAdvantageTime < 10 && RemainingAdvantageTime < AdvantageDuration - AnnouncementLength && CTFGameState->RemainingTime > 10)
+		else if (RemainingAdvantageTime < 10 && RemainingAdvantageTime < AdvantageDuration - AnnouncementLength)
 		{
-			BroadcastLocalized(this, UUTTimerMessage::StaticClass(), RemainingAdvantageTime);
+			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), RemainingAdvantageTime+1);
 		}
 	}
 	else
