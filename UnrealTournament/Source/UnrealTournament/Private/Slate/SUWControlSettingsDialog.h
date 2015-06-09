@@ -137,7 +137,6 @@ protected:
 
 	//movement settings
 	TSharedPtr<SCheckBox> SingleTapWallDodge;
-	TSharedPtr<SCheckBox> TapCrouchToSlide;
 	TSharedPtr<SCheckBox> SingleTapAfterJump;
 	TSharedPtr<SCheckBox> AutoSlide;
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeClickTime;

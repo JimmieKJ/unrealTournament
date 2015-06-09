@@ -355,6 +355,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
 	virtual bool WantsFloorSlide();
 
+	virtual void HandleCrouchRequest();
+
+	virtual void HandleUnCrouchRequest();
+
 	virtual void Crouch(bool bClientSimulation = false) override;
 
 	/** floor slide out (holding floor slide while dodging on ground) */

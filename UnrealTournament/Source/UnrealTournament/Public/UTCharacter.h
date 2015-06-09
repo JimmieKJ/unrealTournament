@@ -975,9 +975,6 @@ public:
 	/** Dodge requested by controller, return whether dodge occurred. */
 	virtual bool Dodge(FVector DodgeDir, FVector DodgeCross);
 
-	/** Roll requested by controller, return whether roll occurred. */
-	virtual bool Roll(FVector RollDir);
-
 	/** Dodge just occurred in dodge dir, play any sounds/effects desired.
 	 * called on all clients
 	 */
@@ -1479,6 +1476,8 @@ public:
 	virtual void OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust) override;
 
 	virtual void Crouch(bool bClientSimulation = false) override;
+
+	virtual void UnCrouch(bool bClientSimulation = false) override;
 
 	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
 	UFUNCTION()

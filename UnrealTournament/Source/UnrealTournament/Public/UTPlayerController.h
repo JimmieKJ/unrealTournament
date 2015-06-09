@@ -323,10 +323,6 @@ public:
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapAfterJump;
 
-	/** If true, tapping crouch will cause a slide. */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
-	bool bTapCrouchToSlide;
-
 	/** Toggles bSingleTapWallDodge */
 	UFUNCTION(exec)
 	virtual void ToggleSingleTap();
@@ -706,17 +702,6 @@ protected:
 	/** called to set the jump flag from input */
 	virtual void Jump();
 
-	/** Max held time for slide from crouch tap */
-	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
-	float CrouchSlideTapInterval;
-
-	/** max world time to release crouch tap to slide, set from CrouchSlideTapInterval */
-	UPROPERTY(BlueprintReadOnly, Category = Dodging)
-	float SlideTapThresholdTime;
-
-	/** Call to set movement slide flag from input. */
-	virtual void Slide();
-
 	virtual void Crouch();
 	virtual void UnCrouch();
 	virtual void ToggleCrouch();
@@ -741,8 +726,6 @@ protected:
 	virtual void PerformSingleTapDodge();
 	void HoldDodge();
 	void ReleaseDodge();
-	void HoldRollSlide();
-	void ReleaseRollSlide();
 
 	virtual void OnShowScores();
 	virtual void OnHideScores();

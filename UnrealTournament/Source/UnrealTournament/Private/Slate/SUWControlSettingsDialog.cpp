@@ -238,9 +238,6 @@ void SUWControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Single Tap Dodge", "Single Tap Dodge")))
 		->AddMapping("SingleTapDodge")
 		->AddDefaults(EKeys::V)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Roll / Slide", "Roll / Slide")))
-		->AddMapping("HoldRollSlide")
-		->AddDefaults(EKeys::LeftShift)));
 	//Weapons
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Weapons", "Weapons")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Fire", "Fire")))
@@ -926,32 +923,6 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 	]
 	+ SVerticalBox::Slot()
 	.HAlign(HAlign_Left)
-	.AutoHeight()
-	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(750)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWControlSettingsDialog", "TapCrouchToSlide", "Tap Crouch To Slide"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SAssignNew(TapCrouchToSlide, SCheckBox)
-			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-			.ForegroundColor(FLinearColor::White)
-			.IsChecked(PC->bTapCrouchToSlide ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
-		]
-	]
-	+ SVerticalBox::Slot()
-	.HAlign(HAlign_Left)
 	.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
 	[
 		SNew(SHorizontalBox)
@@ -1106,7 +1077,6 @@ FReply SUWControlSettingsDialog::OKClick()
 	for (TObjectIterator<AUTPlayerController> It(RF_NoFlags); It; ++It)
 	{
 		It->bSingleTapWallDodge = SingleTapWallDodge->IsChecked();
-		It->bTapCrouchToSlide = TapCrouchToSlide->IsChecked();
 		It->bAutoSlide = AutoSlide->IsChecked();
 		It->bSingleTapAfterJump = SingleTapAfterJump->IsChecked();
 		It->MaxDodgeClickTime = MaxDodgeClickTimeValue;

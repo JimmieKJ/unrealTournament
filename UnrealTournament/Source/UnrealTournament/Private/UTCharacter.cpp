@@ -364,27 +364,26 @@ void AUTCharacter::RecalculateBaseEyeHeight()
 
 void AUTCharacter::Crouch(bool bClientSimulation)
 {
-	if (GetCharacterMovement())
+	if (UTCharacterMovement)
 	{
-		GetCharacterMovement()->bWantsToCrouch = true;
+		UTCharacterMovement->HandleCrouchRequest();
+	}
+}
+
+void AUTCharacter::UnCrouch(bool bClientSimulation)
+{
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->HandleUnCrouchRequest();
 	}
 }
 
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
-	bool bStartedSlide = false;
-	if (UTCharacterMovement->bPressedSlide)
-	{
-		bStartedSlide = Roll(GetVelocity().GetSafeNormal());
-		UTCharacterMovement->bPressedSlide = false;
-	}
-	if (!bStartedSlide )
-	{
-		Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
-		CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
-		OldZ = GetActorLocation().Z;
-		CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
-	}
+	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
+	CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
+	OldZ = GetActorLocation().Z;
+	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
 }
 
 void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
@@ -2598,23 +2597,6 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->ClearDodgeInput();
-		UTCharacterMovement->NeedsClientAdjustment();
-	}
-	return false;
-}
-
-bool AUTCharacter::Roll(FVector RollDir)
-{
-	if (CanDodge())
-	{
-		if (UTCharacterMovement->IsMovingOnGround())
-		{
-			UTCharacterMovement->PerformFloorSlide(RollDir);
-			return true;
-		}
-	}
-	if (UTCharacterMovement)
-	{
 		UTCharacterMovement->NeedsClientAdjustment();
 	}
 	return false;

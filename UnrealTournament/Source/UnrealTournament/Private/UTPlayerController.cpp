@@ -51,8 +51,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	LastTapBackTime = -10.f;
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
-	bTapCrouchToSlide = true;
-	CrouchSlideTapInterval = 0.25f;
 	bHasUsedSpectatingBind = false;
 	bAutoCam = true;
 
@@ -289,7 +287,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("Crouch", IE_Pressed, this, &AUTPlayerController::Crouch);
 	InputComponent->BindAction("Crouch", IE_Released, this, &AUTPlayerController::UnCrouch);
 	InputComponent->BindAction("ToggleCrouch", IE_Pressed, this, &AUTPlayerController::ToggleCrouch);
-	InputComponent->BindAction("Slide", IE_Pressed, this, &AUTPlayerController::Slide);
 
 	InputComponent->BindAction("TapLeft", IE_Pressed, this, &AUTPlayerController::OnTapLeft);
 	InputComponent->BindAction("TapRight", IE_Pressed, this, &AUTPlayerController::OnTapRight);
@@ -298,8 +295,6 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SingleTapDodge", IE_Pressed, this, &AUTPlayerController::OnSingleTapDodge);
 	InputComponent->BindAction("HoldDodge", IE_Pressed, this, &AUTPlayerController::HoldDodge);
 	InputComponent->BindAction("HoldDodge", IE_Released, this, &AUTPlayerController::ReleaseDodge);
-	InputComponent->BindAction("HoldRollSlide", IE_Pressed, this, &AUTPlayerController::HoldRollSlide);
-	InputComponent->BindAction("HoldRollSlide", IE_Released, this, &AUTPlayerController::ReleaseRollSlide);
 
 	InputComponent->BindAction("TapLeftRelease", IE_Released, this, &AUTPlayerController::OnTapLeftRelease);
 	InputComponent->BindAction("TapRightRelease", IE_Released, this, &AUTPlayerController::OnTapRightRelease);
@@ -1255,34 +1250,21 @@ void AUTPlayerController::Jump()
 	}
 }
 
-void AUTPlayerController::Slide()
-{
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
-	{
-		MyCharMovement->bPressedSlide = true;
-	}
-}
-
 void AUTPlayerController::Crouch()
 {
-	if (GetCharacter() != NULL)
+	bIsHoldingFloorSlide = true;
+	if (UTCharacter)
 	{
-		GetCharacter()->Crouch(false);
+		UTCharacter->Crouch(false);
 	}
-	SlideTapThresholdTime = GetWorld()->GetTimeSeconds() + CrouchSlideTapInterval;
 }
 
 void AUTPlayerController::UnCrouch()
 {
-	if (GetCharacter() != NULL)
+	bIsHoldingFloorSlide = false;
+	if (UTCharacter)
 	{
-		GetCharacter()->UnCrouch(false);
-		if (bTapCrouchToSlide && (GetWorld()->GetTimeSeconds() < SlideTapThresholdTime) && (UTCharacter != NULL))
-		{
-			SlideTapThresholdTime = 0.f;
-			Slide();
-		}
+		UTCharacter->UnCrouch(false);
 	}
 }
 
@@ -1459,26 +1441,6 @@ void AUTPlayerController::PerformSingleTapDodge()
 		{
 			MyCharMovement->bPressedDodgeBack = true;
 		}
-	}
-}
-
-void AUTPlayerController::HoldRollSlide()
-{
-	bIsHoldingFloorSlide = true;
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
-	{
-		MyCharMovement->UpdateFloorSlide(true);
-	}
-}
-
-void AUTPlayerController::ReleaseRollSlide()
-{
-	bIsHoldingFloorSlide = false;
-	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement)
-	{
-		MyCharMovement->UpdateFloorSlide(false);
 	}
 }
 

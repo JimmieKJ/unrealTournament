@@ -675,6 +675,32 @@ bool UUTCharacterMovement::PerformDodge(FVector &DodgeDir, FVector &DodgeCross)
 	return true;
 }
 
+void UUTCharacterMovement::HandleCrouchRequest()
+{
+	// if moving fast enough and pressing on move key, slide, else crouch
+	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+	UpdateFloorSlide(true);
+	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > MaxWalkSpeedCrouched) && UTCharacterOwner && UTCharacterOwner->CanDodge())
+	{
+		bPressedSlide = true;
+		if (IsMovingOnGround())
+		{
+			PerformFloorSlide(Velocity.GetSafeNormal());
+		}
+		NeedsClientAdjustment();
+	}
+	else
+	{
+		bWantsToCrouch = true;
+	}
+}
+
+void UUTCharacterMovement::HandleUnCrouchRequest()
+{
+	bWantsToCrouch = false;
+	UpdateFloorSlide(false);
+}
+
 void UUTCharacterMovement::Crouch(bool bClientSimulation)
 {
 	float RealCrouchHeight = CrouchedHalfHeight;
@@ -1139,6 +1165,7 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 	if (UTCharOwner)
 	{
 		UTCharOwner->bApplyWallSlide = false;
+		// @TODO FIXMESTEVE bWantsFloorSlide only for floor slide now!
 		if ((bWantsFloorSlide || bAutoSlide) && (Velocity.Z < 0.f) && bExplicitJump && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.GetSafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
 		{
 			FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);

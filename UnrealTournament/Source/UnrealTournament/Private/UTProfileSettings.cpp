@@ -94,7 +94,6 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		MaxDodgeClickTimeValue = PC->MaxDodgeClickTime;
 		MaxDodgeTapTimeValue = PC->MaxDodgeTapTime;
 		bSingleTapWallDodge = PC->bSingleTapWallDodge;
-		bTapCrouchToSlide = PC->bTapCrouchToSlide;
 		bAutoSlide = PC->bAutoSlide;
 		bSingleTapAfterJump = PC->bSingleTapAfterJump;
 		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
@@ -177,7 +176,6 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		PC->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 		PC->bSingleTapWallDodge = bSingleTapWallDodge;
-		PC->bTapCrouchToSlide = bTapCrouchToSlide;
 		PC->bAutoSlide = bAutoSlide;
 		PC->bSingleTapAfterJump = bSingleTapAfterJump;
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
