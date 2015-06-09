@@ -587,7 +587,9 @@ void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveCompo
 {
 	// since PawnOverlapSphere doesn't hit blocking objects, it is possible it is touching a target through a wall
 	// make sure that the hit is valid before proceeding
-	if (!GetWorld()->LineTraceTestByChannel(SweepResult.Location, GetActorLocation(), COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("PawnSphereOverlapTrace")), true, this)))
+	FCollisionQueryParams Params(FName(TEXT("PawnSphereOverlapTrace")), true, this);
+	Params.AddIgnoredActor(OtherActor);
+	if (!GetWorld()->LineTraceTestByChannel(SweepResult.Location, GetActorLocation(), COLLISION_TRACE_WEAPON, Params))
 	{
 		OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
 	}
