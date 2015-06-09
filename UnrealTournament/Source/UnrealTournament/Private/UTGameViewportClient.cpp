@@ -481,7 +481,10 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 				//add all of the options the client was connecting with
 				for (FString& Option : LastAttemptedURL.Op)
 				{
-					ReconnectCommand += TEXT("?") + Option;
+					if (!Option.StartsWith(TEXT("password=")))
+					{
+						ReconnectCommand += TEXT("?") + Option;
+					}
 				}
 
 				FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
