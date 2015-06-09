@@ -271,7 +271,7 @@ void AUTGameState::DefaultTimer()
 		}
 	}
 
-	if ((RemainingTime > 0) && !bStopGameClock)
+	if ((RemainingTime > 0) && !bStopGameClock && TimeLimit > 0)
 	{
 		if (IsMatchInProgress())
 		{
