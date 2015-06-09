@@ -177,6 +177,11 @@ private:
 	 */
 	void OnAppExit();
 
+	/**
+	 * Get or create the bad resource texture.
+	 */
+	UTexture* GetBadResourceTexture();
+
 private:
 	/** Map of all active dynamic resources being used by brushes */
 	FDynamicResourceMap DynamicResourceMap;
@@ -196,6 +201,7 @@ private:
 	uint32 AtlasSize;
 	/** This max size of each texture in an atlas */
 	FIntPoint MaxAltasedTextureSize;
-
+	/** Needed for displaying an error texture when we end up with bad resources. */
+	UTexture* BadResourceTexture;
 };
 
