@@ -1499,12 +1499,12 @@ void AUTWeapon::Destroyed()
 
 bool AUTWeapon::CanFireAgain()
 {
-	return (GetUTOwner() && (GetUTOwner()->GetPendingWeapon() == NULL) && GetUTOwner()->IsPendingFire(GetCurrentFireMode()) && HasAmmo(GetCurrentFireMode()));
+	return (GetUTOwner() && (GetUTOwner()->GetPendingWeapon() == NULL) && HasAmmo(GetCurrentFireMode()));
 }
 
 bool AUTWeapon::HandleContinuedFiring()
 {
-	if (!CanFireAgain())
+	if (!CanFireAgain() || !GetUTOwner()->IsPendingFire(GetCurrentFireMode()))
 	{
 		GotoActiveState();
 		return false;

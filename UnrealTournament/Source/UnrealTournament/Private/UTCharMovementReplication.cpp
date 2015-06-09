@@ -627,7 +627,7 @@ void UUTCharacterMovement::ReplicateMoveToServer(float DeltaTime, const FVector&
 bool UUTCharacterMovement::CanDelaySendingMove(const FSavedMovePtr& NewMove)
 {
 	// don't delay if just spawned shot or dodged 
-	return (NewMove.IsValid() && ((FSavedMove_UTCharacter*)(NewMove.Get()))->NeedsRotationSent());
+	return !NewMove.IsValid() || !((FSavedMove_UTCharacter*)(NewMove.Get()))->NeedsRotationSent();
 }
 
 bool FSavedMove_UTCharacter::NeedsRotationSent() const

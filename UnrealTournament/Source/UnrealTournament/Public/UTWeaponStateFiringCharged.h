@@ -106,7 +106,8 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringCharged : public UUTWeaponStateFi
 	}
 	virtual bool WillSpawnShot(float DeltaTime) override
 	{
-		return GetUTOwner()->IsPendingClearFire(GetFireMode()); 
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetOuterAUTWeapon()->GetUTOwner()->GetController());
+		return UTPC && UTPC->HasDeferredFireInputs();
 	}
 	virtual void ToggleLoopingEffects(bool bNowOn) override
 	{
