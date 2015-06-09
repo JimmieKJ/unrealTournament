@@ -295,10 +295,6 @@ public:
 	UPROPERTY(EditAnywhere, Category = Movement)
 	bool bAutoSlide;
 
-	/** Half height of capsule when floor sliding */
-	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
-	float FloorSlideHalfHeight;
-
 	/** Horizontal speed reduction on slide ending (multiplied). */
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
 	float FloorSlideEndingSpeedFactor;

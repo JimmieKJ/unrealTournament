@@ -61,7 +61,6 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	MaxStepHeight = 51.0f;
 	NavAgentProps.AgentStepHeight = MaxStepHeight; // warning: must be manually mirrored, won't be set automatically
 	CrouchedHalfHeight = 55.0f;
-	FloorSlideHalfHeight = 55.f;
 	SlopeDodgeScaling = 0.93f;
 
 	FloorSlideAcceleration = 2000.f;
@@ -680,18 +679,10 @@ void UUTCharacterMovement::HandleCrouchRequest()
 	// if moving fast enough and pressing on move key, slide, else crouch
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 	UpdateFloorSlide(true);
+	bWantsToCrouch = true;
 	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > MaxWalkSpeedCrouched) && UTCharacterOwner && UTCharacterOwner->CanDodge())
 	{
 		bPressedSlide = true;
-		if (IsMovingOnGround())
-		{
-			PerformFloorSlide(Velocity.GetSafeNormal());
-		}
-		NeedsClientAdjustment();
-	}
-	else
-	{
-		bWantsToCrouch = true;
 	}
 }
 
@@ -703,10 +694,36 @@ void UUTCharacterMovement::HandleUnCrouchRequest()
 
 void UUTCharacterMovement::Crouch(bool bClientSimulation)
 {
-	float RealCrouchHeight = CrouchedHalfHeight;
-	CrouchedHalfHeight = bIsFloorSliding ? FloorSlideHalfHeight : CrouchedHalfHeight;
 	Super::Crouch(bClientSimulation);
-	CrouchedHalfHeight = RealCrouchHeight;
+	if (bPressedSlide)
+	{
+		if (IsMovingOnGround())
+		{
+			PerformFloorSlide(Velocity.GetSafeNormal());
+			NeedsClientAdjustment();
+		}
+		bPressedSlide = false;
+		return;
+	}
+}
+
+void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir)
+{
+	if (CharacterOwner)
+	{
+		FloorSlideTapTime = GetCurrentMovementTime();
+		bIsFloorSliding = true;
+		FloorSlideEndTime = GetCurrentMovementTime() + FloorSlideDuration;
+		Acceleration = FloorSlideAcceleration * DodgeDir;
+		DodgeResetTime = FloorSlideEndTime + DodgeResetInterval;
+		float NewSpeed = FMath::Max(MaxFloorSlideSpeed, FMath::Min(Velocity.Size2D(), SprintSpeed));
+		Velocity = NewSpeed*DodgeDir;
+		AUTCharacter* UTChar = Cast<AUTCharacter>(CharacterOwner);
+		if (UTChar)
+		{
+			UTChar->MovementEventUpdated(EME_Slide, DodgeDir);
+		}
+	}
 }
 
 bool UUTCharacterMovement::IsCrouching() const
@@ -924,7 +941,6 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		{
 			PerformFloorSlide(Velocity.GetSafeNormal2D());
 			//UE_LOG(UTNet, Warning, TEXT("FloorSlide within %f"), GetCurrentMovementTime() - FloorSlideTapTime);
-			// @TODO FIXMESTEVE - should also update DodgeRestTime if roll but not out of dodge?
 			if (bIsDodging)
 			{
 				DodgeResetTime = FloorSlideEndTime + ((CurrentMultiJumpCount > 0) ? DodgeJumpResetInterval : DodgeResetInterval);
@@ -970,25 +986,6 @@ void UUTCharacterMovement::UpdateFloorSlide(bool bNewWantsFloorSlide)
 bool UUTCharacterMovement::WantsFloorSlide()
 { 
 	return bWantsFloorSlide; 
-}
-
-void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir)
-{
-	if (CharacterOwner)
-	{
-		FloorSlideTapTime = GetCurrentMovementTime();
-		bIsFloorSliding = true;
-		FloorSlideEndTime = GetCurrentMovementTime() + FloorSlideDuration;
-		Acceleration = FloorSlideAcceleration * DodgeDir;
-		DodgeResetTime = FloorSlideEndTime + DodgeResetInterval;
-		float NewSpeed = FMath::Max(MaxFloorSlideSpeed, FMath::Min(Velocity.Size2D(), SprintSpeed));
-		Velocity = NewSpeed*DodgeDir;
-		AUTCharacter* UTChar = Cast<AUTCharacter>(CharacterOwner);
-		if (UTChar)
-		{
-			UTChar->MovementEventUpdated(EME_Slide, DodgeDir);
-		}
-	}
 }
 
 bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
