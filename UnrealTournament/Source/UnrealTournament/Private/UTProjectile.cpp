@@ -583,15 +583,22 @@ void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Othe
 		ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
 	}
 }
+
 void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	// since PawnOverlapSphere doesn't hit blocking objects, it is possible it is touching a target through a wall
-	// make sure that the hit is valid before proceeding
-	FCollisionQueryParams Params(FName(TEXT("PawnSphereOverlapTrace")), true, this);
-	Params.AddIgnoredActor(OtherActor);
-	if (!GetWorld()->LineTraceTestByChannel(SweepResult.Location, GetActorLocation(), COLLISION_TRACE_WEAPON, Params))
+	if (OtherActor != nullptr)
 	{
-		OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
+		FVector OtherLocation = (bFromSweep) ? SweepResult.Location : OtherActor->GetActorLocation();
+
+		FCollisionQueryParams Params(FName(TEXT("PawnSphereOverlapTrace")), true, this);
+		Params.AddIgnoredActor(OtherActor);
+
+		// since PawnOverlapSphere doesn't hit blocking objects, it is possible it is touching a target through a wall
+		// make sure that the hit is valid before proceeding
+		if (!GetWorld()->LineTraceTestByChannel(OtherLocation, GetActorLocation(), COLLISION_TRACE_WEAPON, Params))
+		{
+			OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
+		}
 	}
 }
 
