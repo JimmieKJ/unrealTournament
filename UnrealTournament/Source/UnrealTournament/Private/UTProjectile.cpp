@@ -588,7 +588,15 @@ void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveCompo
 {
 	if (OtherActor != nullptr)
 	{
-		FVector OtherLocation = (bFromSweep) ? SweepResult.Location : OtherActor->GetActorLocation();
+		FVector OtherLocation;
+		if (bFromSweep)
+		{
+			OtherLocation = SweepResult.Location;
+		}
+		else
+		{
+			OtherLocation = OtherActor->GetActorLocation();
+		}
 
 		FCollisionQueryParams Params(FName(TEXT("PawnSphereOverlapTrace")), true, this);
 		Params.AddIgnoredActor(OtherActor);
