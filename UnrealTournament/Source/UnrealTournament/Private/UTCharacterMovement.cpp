@@ -63,7 +63,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	CrouchedHalfHeight = 55.0f;
 	SlopeDodgeScaling = 0.93f;
 
-	FloorSlideAcceleration = 2000.f;
+	FloorSlideAcceleration = 1500.f;
 	MaxFloorSlideSpeed = 920.f;
 	FloorSlideDuration = 0.45f;
 	FloorSlideBonusTapInterval = 0.17f;
@@ -681,7 +681,7 @@ void UUTCharacterMovement::HandleCrouchRequest()
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 	UpdateFloorSlide(true);
 	bWantsToCrouch = true;
-	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > MaxWalkSpeedCrouched) && UTCharacterOwner && UTCharacterOwner->CanDodge())
+	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.9f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanDodge())
 	{
 		bPressedSlide = true;
 	}
