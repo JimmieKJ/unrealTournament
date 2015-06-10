@@ -760,9 +760,10 @@ void AUTCTFGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	// Dont ever end the game in PIE
 	if (GetWorld()->WorldType == EWorldType::PIE) return;
 
+	Super::EndGame(Winner, Reason);
+
 	// Send all of the flags home...
 	CTFGameState->ResetFlags();
-	Super::EndGame(Winner, Reason);
 }
 
 
