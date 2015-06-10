@@ -96,6 +96,8 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	LastThirdPersonCameraLoc = FVector::ZeroVector;
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
 	bAllowSpecCameraControl = false;
+	CurrentCameraRoll = 0.f;
+	WallSlideCameraRoll = 15.f;
 }
 
 // @TODO FIXMESTEVE SPLIT OUT true spectator controls
@@ -260,6 +262,19 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	{
 		LastThirdPersonCameraLoc = FVector::ZeroVector;
 		Super::UpdateViewTarget(OutVT, DeltaTime);
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
+		if (UTCharacter)
+		{
+			float DesiredRoll = 0.f;
+			if (UTCharacter->bApplyWallSlide)
+			{
+				FVector Cross = UTCharacter->GetActorRotation().Vector() ^ FVector(0.f, 0.f, 1.f);
+				DesiredRoll = ((Cross | UTCharacter->UTCharacterMovement->WallSlideNormal) < 0.f) ? WallSlideCameraRoll : -1.f*WallSlideCameraRoll;
+			}
+			float AdjustRate = FMath::Min(1.f, 10.f*DeltaTime);
+			CurrentCameraRoll = (1.f - AdjustRate) * CurrentCameraRoll + AdjustRate*DesiredRoll;
+			OutVT.POV.Rotation.Roll = CurrentCameraRoll;
+		}
 	}
 
 	CameraStyle = SavedCameraStyle;

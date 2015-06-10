@@ -681,7 +681,7 @@ void UUTCharacterMovement::HandleCrouchRequest()
 	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 	UpdateFloorSlide(true);
 	bWantsToCrouch = true;
-	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.9f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanDodge())
+	if (!Acceleration.IsNearlyZero() && (Velocity.Size() > 0.7f * MaxWalkSpeed) && UTCharacterOwner && UTCharacterOwner->CanDodge())
 	{
 		bPressedSlide = true;
 	}
@@ -1172,11 +1172,6 @@ FVector UUTCharacterMovement::ComputeSlideVectorUT(const float DeltaTime, const 
 
 bool UUTCharacterMovement::CanCrouchInCurrentState() const
 {
-	// @TODO FIXMESTEVE Temp hack until we can get the crouch control code split out from PerformMovement()
-	if (IsCrouching() && !bIsFloorSliding && (CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() < CrouchedHalfHeight))
-	{
-		return false;
-	}
 	return CanEverCrouch() && IsMovingOnGround();
 }
 
@@ -1633,10 +1628,6 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 					OldVelocity.Z = OldVelZ;
 				}
 			}
-		}
-		if (UTCharOwner)
-		{
-			UTCharOwner->bApplyWallSlide = false;
 		}
 
 		if (!HasRootMotion() && !bJustTeleported && MovementMode != MOVE_None)
