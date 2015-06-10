@@ -323,6 +323,10 @@ public:
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
 	float FloorSlideBonusTapInterval;
 
+	virtual void ClearFloorSlideTap();
+
+	FTimerHandle FloorSlideTapHandle;
+
 	/** Falling damage reduction if hit floor slide within FloorSlideBonusTapInterval */
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
 	float FallingDamageRollReduction;

@@ -902,6 +902,7 @@ void UUTCharacterMovement::ResetTimers()
 	SprintStartTime = GetCurrentMovementTime() + AutoSprintDelayInterval;
 	FloorSlideTapTime = 0.f;
 	FloorSlideEndTime = 0.f;
+	GetWorld()->GetTimerManager().ClearTimer(FloorSlideTapHandle);
 }
 
 float UUTCharacterMovement::FallingDamageReduction(float FallingDamage, const FHitResult& Hit)
@@ -985,8 +986,20 @@ void UUTCharacterMovement::UpdateFloorSlide(bool bNewWantsFloorSlide)
 	if (bNewWantsFloorSlide && !bWantsFloorSlide)
 	{
 		FloorSlideTapTime = GetCurrentMovementTime();
+		GetWorld()->GetTimerManager().ClearTimer(FloorSlideTapHandle);
+	}
+	else if (!bNewWantsFloorSlide && bWantsFloorSlide && (GetCurrentMovementTime() - FloorSlideTapTime < 0.25f))
+	{
+		// delay clearing bWantsFloorSlide after quick taps, to allow slightly early taps for landing slides
+		GetWorld()->GetTimerManager().SetTimer(FloorSlideTapHandle, this, &UUTCharacterMovement::ClearFloorSlideTap, FloorSlideBonusTapInterval, false);
+		return;
 	}
 	bWantsFloorSlide = bNewWantsFloorSlide;
+}
+
+void UUTCharacterMovement::ClearFloorSlideTap()
+{
+	bWantsFloorSlide = false;
 }
 
 bool UUTCharacterMovement::WantsFloorSlide()
@@ -1173,7 +1186,7 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 	if (UTCharOwner)
 	{
 		UTCharOwner->bApplyWallSlide = false;
-		if (bWantsWallSlide && (Velocity.Z < 0.f) && bExplicitJump && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.GetSafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
+		if (bWantsWallSlide && (Velocity.Z < 0.f) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.GetSafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
 		{
 			FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
