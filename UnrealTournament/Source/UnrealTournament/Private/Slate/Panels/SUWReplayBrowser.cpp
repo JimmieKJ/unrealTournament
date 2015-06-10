@@ -221,6 +221,12 @@ void SUWReplayBrowser::OnMetaTagTextCommited(const FText& NewText, ETextCommit::
 
 void SUWReplayBrowser::BuildReplayList()
 {
+	if (GetPlayerOwner() != nullptr && !GetPlayerOwner()->IsLoggedIn())
+	{
+		GetPlayerOwner()->LoginOnline( TEXT( "" ), TEXT( "" ) );
+		return;
+	}
+
 	if (ReplayStreamer.IsValid())
 	{
 		FNetworkReplayVersion Version = FNetworkVersion::GetReplayVersion();
@@ -231,10 +237,10 @@ void SUWReplayBrowser::BuildReplayList()
 		}
 
 		FString UserString = TEXT("");
-		
-		if (!bShowReplaysFromAllUsers && OnlineIdentityInterface.IsValid())
+
+		if (!bShowReplaysFromAllUsers && OnlineIdentityInterface.IsValid() && GetPlayerOwner() != nullptr)
 		{
-			UserString = OnlineIdentityInterface->GetUniquePlayerId(0)->ToString();
+			UserString = GetPlayerOwner()->GetPreferredUniqueNetId()->ToString();
 		}
 
 		ReplayStreamer->EnumerateStreams(Version, UserString, MetaString, FOnEnumerateStreamsComplete::CreateSP(this, &SUWReplayBrowser::OnEnumerateStreamsComplete));

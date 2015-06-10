@@ -471,6 +471,12 @@ FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
+		return FReply::Handled();
+	}
+
 	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
 	if (ReplayBrowser.IsValid())
 	{
@@ -495,6 +501,12 @@ FReply SUWindowsMainMenu::OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButt
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
+		return FReply::Handled();
+	}
+
 	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
 	if (ReplayBrowser.IsValid())
 	{
@@ -518,6 +530,12 @@ FReply SUWindowsMainMenu::OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButt
 FReply SUWindowsMainMenu::OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
+
+	if (!PlayerOwner->IsLoggedIn())
+	{
+		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
+		return FReply::Handled();
+	}
 
 	TSharedPtr<class SUWReplayBrowser> ReplayBrowser = PlayerOwner->GetReplayBrowser();
 	if (ReplayBrowser.IsValid())
