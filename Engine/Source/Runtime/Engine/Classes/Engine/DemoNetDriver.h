@@ -63,6 +63,7 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	float		TimeToSkip;
 	float		QueuedGotoTimeInSeconds;
 	uint32		InitialLiveDemoTime;
+	double		InitialLiveDemoTimeRealtime;
 
 	bool		bSavingCheckpoint;
 	double		LastCheckpointTime;
