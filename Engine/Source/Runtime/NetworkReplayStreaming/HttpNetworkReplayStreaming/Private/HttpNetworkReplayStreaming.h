@@ -62,28 +62,66 @@ public:
 	bool			bAtEndOfReplay;
 };
 
-enum class EQueuedHttpRequestType
+namespace EQueuedHttpRequestType
 {
-	StartUploading,				// We have made a request to start uploading a replay
-	UploadingHeader,			// We are uploading the replay header
-	UploadingStream,			// We are in the process of uploading the replay stream
-	StopUploading,				// We have made the request to stop uploading a live replay stream
-	StartDownloading,			// We have made the request to start downloading a replay stream
-	DownloadingHeader,			// We are downloading the replay header
-	DownloadingStream,			// We are in the process of downloading the replay stream
-	RefreshingViewer,			// We are refreshing the server to let it know we're still viewing
-	EnumeratingSessions,		// We are in the process of downloading the available sessions
-	EnumeratingCheckpoints,		// We are in the process of downloading the available checkpoints
-	UploadingCheckpoint,		// We are uploading a checkpoint
-	DownloadingCheckpoint		// We are downloading a checkpoint
+	enum Type
+	{
+		StartUploading,				// We have made a request to start uploading a replay
+		UploadingHeader,			// We are uploading the replay header
+		UploadingStream,			// We are in the process of uploading the replay stream
+		StopUploading,				// We have made the request to stop uploading a live replay stream
+		StartDownloading,			// We have made the request to start downloading a replay stream
+		DownloadingHeader,			// We are downloading the replay header
+		DownloadingStream,			// We are in the process of downloading the replay stream
+		RefreshingViewer,			// We are refreshing the server to let it know we're still viewing
+		EnumeratingSessions,		// We are in the process of downloading the available sessions
+		EnumeratingCheckpoints,		// We are in the process of downloading the available checkpoints
+		UploadingCheckpoint,		// We are uploading a checkpoint
+		DownloadingCheckpoint		// We are downloading a checkpoint
+	};
+
+	inline const TCHAR* ToString( EQueuedHttpRequestType::Type Type )
+	{
+		switch ( Type )
+		{
+			case StartUploading:
+				return TEXT( "StartUploading" );
+			case UploadingHeader:
+				return TEXT( "UploadingHeader" );
+			case UploadingStream:
+				return TEXT( "UploadingStream" );
+			case StopUploading:
+				return TEXT( "StopUploading" );
+			case StartDownloading:
+				return TEXT( "StartDownloading" );
+			case DownloadingHeader:
+				return TEXT( "DownloadingHeader" );
+			case DownloadingStream:
+				return TEXT( "DownloadingStream" );
+			case RefreshingViewer:
+				return TEXT( "RefreshingViewer" );
+			case EnumeratingSessions:
+				return TEXT( "EnumeratingSessions" );
+			case EnumeratingCheckpoints:
+				return TEXT( "EnumeratingCheckpoints" );
+			case UploadingCheckpoint:
+				return TEXT( "UploadingCheckpoint" );
+			case DownloadingCheckpoint:
+				return TEXT( "DownloadingCheckpoint" );
+		}
+
+		return TEXT( "Unknown EQueuedHttpRequestType type." );
+	}
 };
 
 class FQueuedHttpRequest
 {
 public:
-	FQueuedHttpRequest( const EQueuedHttpRequestType InType, TSharedPtr< class IHttpRequest > InRequest ) : Type( InType ), Request( InRequest ) { }
+	FQueuedHttpRequest( const EQueuedHttpRequestType::Type InType, TSharedPtr< class IHttpRequest > InRequest ) : Type( InType ), Request( InRequest )
+	{
+	}
 
-	EQueuedHttpRequestType				Type;
+	EQueuedHttpRequestType::Type		Type;
 	TSharedPtr< class IHttpRequest >	Request;
 };
 
@@ -129,7 +167,7 @@ public:
 	void ConditionallyRefreshViewer();
 	void SetLastError( const ENetworkReplayError::Type InLastError );
 	void FlushCheckpointInternal( uint32 TimeInMS );
-	void AddRequestToQueue( const EQueuedHttpRequestType Type, TSharedPtr< class IHttpRequest >	Request );
+	void AddRequestToQueue( const EQueuedHttpRequestType::Type Type, TSharedPtr< class IHttpRequest >	Request );
 	void EnumerateCheckpoints();
 	void ConditionallyEnumerateCheckpoints();
 
@@ -142,7 +180,7 @@ public:
 	};
 
 	/** Delegates */
-	void RequestFinished( EStreamerState ExpectedStreamerState, EQueuedHttpRequestType ExpectedType, FHttpRequestPtr HttpRequest );
+	void RequestFinished( EStreamerState ExpectedStreamerState, EQueuedHttpRequestType::Type ExpectedType, FHttpRequestPtr HttpRequest );
 
 	void HttpStartDownloadingFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpDownloadHeaderFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );

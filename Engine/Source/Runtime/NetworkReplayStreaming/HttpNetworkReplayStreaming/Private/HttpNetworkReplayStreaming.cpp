@@ -205,7 +205,11 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 		}
 
 		// Notify the http server that we want to start downloading a replay
-		HttpRequest->SetURL( FString::Printf( TEXT( "%sstartdownloading?Session=%s&User=%s" ), *ServerURL, *SessionName, *UserName ) );
+		const FString URL = FString::Printf( TEXT( "%sstartdownloading?Session=%s&User=%s" ), *ServerURL, *SessionName, *UserName );
+
+		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::StartStreaming. URL: %s" ), *URL );
+
+		HttpRequest->SetURL( URL );
 		HttpRequest->SetVerb( TEXT( "POST" ) );
 
 		HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpStartDownloadingFinished );
@@ -259,9 +263,9 @@ void FHttpNetworkReplayStreamer::StartStreaming( const FString& CustomName, cons
 	}
 }
 
-void FHttpNetworkReplayStreamer::AddRequestToQueue( const EQueuedHttpRequestType Type, TSharedPtr< class IHttpRequest >	Request )
+void FHttpNetworkReplayStreamer::AddRequestToQueue( const EQueuedHttpRequestType::Type Type, TSharedPtr< class IHttpRequest >	Request )
 {
-	UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::AddRequestToQueue. Type: %i" ), (int)Type );
+	UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::AddRequestToQueue. Type: %s" ), EQueuedHttpRequestType::ToString( Type ) );
 
 	QueuedHttpRequests.Enqueue( TSharedPtr< FQueuedHttpRequest >( new FQueuedHttpRequest( Type, Request ) ) );
 }
@@ -603,7 +607,11 @@ void FHttpNetworkReplayStreamer::ConditionallyDownloadNextChunk()
 	TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
 
 	// Download the next stream chunk
-	HttpRequest->SetURL( FString::Printf( TEXT( "%sdownload?Session=%s&Filename=stream.%i" ), *ServerURL, *SessionName, StreamChunkIndex ) );
+	const FString URL = FString::Printf( TEXT( "%sdownload?Session=%s&Filename=stream.%i" ), *ServerURL, *SessionName, StreamChunkIndex );
+
+	UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::ConditionallyDownloadNextChunk. URL: %s" ), *URL );
+
+	HttpRequest->SetURL( URL );
 	HttpRequest->SetVerb( TEXT( "GET" ) );
 
 	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpDownloadFinished );
@@ -853,7 +861,7 @@ void FHttpNetworkReplayStreamer::ConditionallyEnumerateCheckpoints()
 	}
 };
 
-void FHttpNetworkReplayStreamer::RequestFinished( EStreamerState ExpectedStreamerState, EQueuedHttpRequestType ExpectedType, FHttpRequestPtr HttpRequest )
+void FHttpNetworkReplayStreamer::RequestFinished( EStreamerState ExpectedStreamerState, EQueuedHttpRequestType::Type ExpectedType, FHttpRequestPtr HttpRequest )
 {
 	check( StreamerState == ExpectedStreamerState );
 	check( InFlightHttpRequest.IsValid() );
@@ -988,7 +996,7 @@ void FHttpNetworkReplayStreamer::HttpStartDownloadingFinished( FHttpRequestPtr H
 	}
 	else
 	{
-		UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::HttpStartDownloadingFinished. FAILED" ) );
+		UE_LOG( LogHttpReplay, Error, TEXT( "FHttpNetworkReplayStreamer::HttpStartDownloadingFinished. FAILED. Code: %i" ), HttpResponse->GetResponseCode() );
 
 		StartStreamingDelegate.ExecuteIfBound( false, true );
 
@@ -1253,7 +1261,7 @@ bool FHttpNetworkReplayStreamer::ProcessNextHttpRequest()
 
 	if ( QueuedHttpRequests.Dequeue( QueuedRequest ) )
 	{
-		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::ProcessNextHttpRequest. Dequeue Type: %i" ), (int)QueuedRequest->Type );
+		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::ProcessNextHttpRequest. Dequeue Type: %s" ), EQueuedHttpRequestType::ToString( QueuedRequest->Type ) );
 
 		check( !InFlightHttpRequest.IsValid() );
 
