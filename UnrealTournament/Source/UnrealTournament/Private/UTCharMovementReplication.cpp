@@ -87,6 +87,7 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	bIsFloorSliding = (DodgeFlags == 6);
 	bPressedSlide = (DodgeFlags == 7);
 	bool bOldWillFloorSlide = bWantsFloorSlide;
+	bWantsWallSlide = ((Flags & FSavedMove_Character::FLAG_Custom_0) != 0);
 	bWantsFloorSlide = ((Flags & FSavedMove_Character::FLAG_Custom_1) != 0);
 	bShotSpawned = ((Flags & FSavedMove_Character::FLAG_Custom_3) != 0);
 	if (!bOldWillFloorSlide && bWantsFloorSlide)
@@ -165,6 +166,7 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 
 	// Save important values that might get affected by the replay.
 	const bool bRealWantsFloorSlide = bWantsFloorSlide;
+	const bool bRealWantsWallSlide = bWantsWallSlide;
 
 	// revert to old values and let replays update them
 	if (ClientData->SavedMoves.Num() > 0)
@@ -178,6 +180,7 @@ bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
 
 	// Restore saved values.
 	bWantsFloorSlide = bRealWantsFloorSlide;
+	bWantsWallSlide = bRealWantsWallSlide;
 
 	return bResult;
 }
@@ -1154,6 +1157,10 @@ bool FSavedMove_UTCharacter::CanCombineWith(const FSavedMovePtr& NewMove, AChara
 	{
 		return false;
 	}
+	if (bSavedWantsWallSlide != ((FSavedMove_UTCharacter*)&NewMove)->bSavedWantsWallSlide)
+	{
+		return false;
+	}
 	if (bSavedWantsSlide != ((FSavedMove_UTCharacter*)&NewMove)->bSavedWantsSlide)
 	{
 		return false;
@@ -1211,7 +1218,10 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 	{
 		Result |= (6 << 2);
 	}
-
+	if (bSavedWantsWallSlide)
+	{
+		Result |= FLAG_Custom_0;
+	}
 	if (bSavedWantsSlide)
 	{
 		Result |= FLAG_Custom_1;
@@ -1239,6 +1249,7 @@ void FSavedMove_UTCharacter::Clear()
 	bPressedDodgeRight = false;
 	bSavedIsSprinting = false;
 	bSavedIsRolling = false;
+	bSavedWantsWallSlide = false;
 	bSavedWantsSlide = false;
 	bSavedIsEmoting = false;
 	SavedMultiJumpCount = 0;
@@ -1264,6 +1275,7 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bPressedDodgeRight = UTCharMov->bPressedDodgeRight;
 		bSavedIsSprinting = UTCharMov->bIsSprinting;
 		bSavedIsRolling = UTCharMov->bIsFloorSliding;
+		bSavedWantsWallSlide = UTCharMov->WantsWallSlide();
 		bSavedWantsSlide = UTCharMov->WantsFloorSlide();
 		bSavedIsEmoting = UTCharMov->bIsEmoting;
 		SavedMultiJumpCount = UTCharMov->CurrentMultiJumpCount;

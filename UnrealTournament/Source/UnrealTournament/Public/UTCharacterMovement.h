@@ -614,6 +614,7 @@ public:
 	bool bPressedDodgeRight;
 	bool bSavedIsSprinting;
 	bool bSavedIsRolling;
+	bool bSavedWantsWallSlide;
 	bool bSavedWantsSlide;
 	bool bPressedSlide;
 
