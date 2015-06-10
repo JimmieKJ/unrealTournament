@@ -532,6 +532,10 @@ public:
 	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
 	float MaxSlideFallZ;
 
+	/**  Max jump positive velocity Z to be considered for sliding */
+	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
+	float MaxSlideRiseZ;
+
 	/** Gravity acceleration reduction during wall slide */
 	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
 	float SlideGravityScaling;
