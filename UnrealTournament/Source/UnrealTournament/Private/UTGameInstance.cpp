@@ -61,3 +61,28 @@ bool UUTGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWo
 	}
 	return GEngine->HandleTravelCommand(Cmd, Ar, InWorld);
 }
+
+void UUTGameInstance::HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureType, const FString& ErrorString )
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>( GetFirstGamePlayer() );
+
+	if ( LocalPlayer != nullptr )
+	{
+		LocalPlayer->ShowMessage( 
+			NSLOCTEXT( "UUTGameInstance", "ReplayErrorTitle", "Replay Error" ),
+			NSLOCTEXT( "UUTGameInstance", "ReplayErrorMessage", "There was an error with the replay. Returning to the main menu." ), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject( this, &UUTGameInstance::ReplayErrorConfirm )
+		);
+	}
+}
+
+void UUTGameInstance::ReplayErrorConfirm( TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID )
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>( GetFirstGamePlayer() );
+
+	if ( LocalPlayer != nullptr )
+	{
+		LocalPlayer->ReturnToMainMenu();
+	}
+}
+
+
