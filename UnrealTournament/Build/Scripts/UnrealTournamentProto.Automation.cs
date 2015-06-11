@@ -632,7 +632,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			Filter.Include("/Engine/Plugins/.../Content/...");
 			Filter.Include("/Engine/Plugins/.../Resources/...");
 
-			// Engine/...
+            // Engine/...
+            Filter.Include("/Engine/Build/Target.cs.template");
 			Filter.Include("/Engine/Build/BatchFiles/...");
 			Filter.Include("/Engine/Config/...");
 			Filter.Include("/Engine/Content/...");
@@ -1921,6 +1922,103 @@ public class MakeUTDLC : BuildCommand
                                 CombinePaths(SC.ProjectRoot, "Saved", "StagedBuilds", DLCName, SC.CookPlatform, "UnrealTournament", "Content", "Paks", DLCName + "-" + SC.CookPlatform + ".pak"));
     }
 
+    public static List<DeploymentContext> CreateDeploymentContext(ProjectParams Params, bool InDedicatedServer, bool DoCleanStage = false)
+    {
+        ParamList<string> ListToProcess = InDedicatedServer && (Params.Cook || Params.CookOnTheFly) ? Params.ServerCookedTargets : Params.ClientCookedTargets;
+        var ConfigsToProcess = InDedicatedServer && (Params.Cook || Params.CookOnTheFly) ? Params.ServerConfigsToBuild : Params.ClientConfigsToBuild;
+
+        List<UnrealTargetPlatform> PlatformsToStage = Params.ClientTargetPlatforms;
+        if (InDedicatedServer && (Params.Cook || Params.CookOnTheFly))
+        {
+            PlatformsToStage = Params.ServerTargetPlatforms;
+        }
+
+        bool prefixArchiveDir = false;
+        if (PlatformsToStage.Contains(UnrealTargetPlatform.Win32) && PlatformsToStage.Contains(UnrealTargetPlatform.Win64))
+        {
+            prefixArchiveDir = true;
+        }
+
+        List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
+        foreach (var StagePlatform in PlatformsToStage)
+        {
+            // Get the platform to get cooked data from, may differ from the stage platform
+            UnrealTargetPlatform CookedDataPlatform = Params.GetCookedDataPlatformForClientTarget(StagePlatform);
+
+            if (InDedicatedServer && (Params.Cook || Params.CookOnTheFly))
+            {
+                CookedDataPlatform = Params.GetCookedDataPlatformForServerTarget(StagePlatform);
+            }
+
+            List<string> ExecutablesToStage = new List<string>();
+
+            string PlatformName = StagePlatform.ToString();
+            string StageArchitecture = !String.IsNullOrEmpty(Params.SpecifiedArchitecture) ? Params.SpecifiedArchitecture : "";
+            foreach (var Target in ListToProcess)
+            {
+                foreach (var Config in ConfigsToProcess)
+                {
+                    string Exe = Target;
+                    if (Config != UnrealTargetConfiguration.Development)
+                    {
+                        Exe = Target + "-" + PlatformName + "-" + Config.ToString() + StageArchitecture;
+                    }
+                    ExecutablesToStage.Add(Exe);
+                }
+            }
+
+            string StageDirectory = (Params.Stage || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
+            string ArchiveDirectory = (Params.Archive || !String.IsNullOrEmpty(Params.ArchiveDirectoryParam)) ? Params.BaseArchiveDirectory : "";
+            if (prefixArchiveDir && (StagePlatform == UnrealTargetPlatform.Win32 || StagePlatform == UnrealTargetPlatform.Win64))
+            {
+                if (Params.Stage)
+                {
+                    StageDirectory = CombinePaths(Params.BaseStageDirectory, StagePlatform.ToString());
+                }
+                if (Params.Archive)
+                {
+                    ArchiveDirectory = CombinePaths(Params.BaseArchiveDirectory, StagePlatform.ToString());
+                }
+            }
+
+            List<BuildReceipt> TargetsToStage = new List<BuildReceipt>();
+
+            //@todo should pull StageExecutables from somewhere else if not cooked
+            var SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
+                StageDirectory,
+                ArchiveDirectory,
+                Params.CookFlavor,
+                Params.GetTargetPlatformInstance(CookedDataPlatform),
+                Params.GetTargetPlatformInstance(StagePlatform),
+                ConfigsToProcess,
+                TargetsToStage,
+                ExecutablesToStage,
+                InDedicatedServer,
+                Params.Cook || Params.CookOnTheFly,
+                Params.CrashReporter && !(StagePlatform == UnrealTargetPlatform.Linux && Params.Rocket), // can't include the crash reporter from binary Linux builds
+                Params.Stage,
+                Params.CookOnTheFly,
+                Params.Archive,
+                Params.IsProgramTarget,
+                Params.HasDedicatedServerAndClient
+                );
+            Project.LogDeploymentContext(SC);
+
+            // If we're a derived platform make sure we're at the end, otherwise make sure we're at the front
+
+            if (CookedDataPlatform != StagePlatform)
+            {
+                DeploymentContexts.Add(SC);
+            }
+            else
+            {
+                DeploymentContexts.Insert(0, SC);
+            }
+        }
+
+        return DeploymentContexts;
+    }
+
     public override void ExecuteBuild()
     {
         DLCName = ParseParamValue("DLCName", "PeteGameMode");
@@ -1941,7 +2039,7 @@ public class MakeUTDLC : BuildCommand
         // Cook dedicated server configs
         if (Params.DedicatedServer)
         {
-            var DeployContextServerList = Project.CreateDeploymentContext(Params, true, true);
+            var DeployContextServerList = CreateDeploymentContext(Params, true, true);
             foreach (var SC in DeployContextServerList)
             {
                 if (!ParseParam("skipcook"))
@@ -1953,7 +2051,7 @@ public class MakeUTDLC : BuildCommand
         }
 
         // Cook client configs
-        var DeployClientContextList = Project.CreateDeploymentContext(Params, false, true);
+        var DeployClientContextList = CreateDeploymentContext(Params, false, true);
         foreach (var SC in DeployClientContextList)
         {
             if (!ParseParam("skipcook"))
