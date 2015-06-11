@@ -264,6 +264,10 @@ public:
 		}
 	}
 
+	/** class used for AI bots */
+	UPROPERTY(EditAnywhere, NoClear, BlueprintReadWrite, Category = Classes)
+	TSubclassOf<class AUTBot> BotClass;
+
 	UPROPERTY(Config)
 	TArray<FSelectedBot> SelectedBots;
 

@@ -58,6 +58,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	PlayerStateClass = AUTPlayerState::StaticClass();
 
 	PlayerControllerClass = AUTPlayerController::StaticClass();
+	BotClass = AUTBot::StaticClass();
+
 	MinRespawnDelay = 1.5f;
 	bUseSeamlessTravel = false;
 	CountDown = 4;
@@ -544,7 +546,7 @@ void AUTGameMode::EntitlementQueryComplete(bool bWasSuccessful, const FUniqueNet
 
 AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 {
-	AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
+	AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
 	if (NewBot != NULL)
 	{
 		if (BotAssets.Num() == 0)
@@ -640,7 +642,7 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 	}
 	else
 	{
-		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
+		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
 		if (NewBot != NULL)
 		{
 			NewBot->CharacterData = BotData;
@@ -670,7 +672,7 @@ AUTBot* AUTGameMode::AddAssetBot(const FStringAssetReference& BotAssetPath, uint
 	const UUTBotCharacter* BotData = Cast<UUTBotCharacter>(BotAssetPath.TryLoad());
 	if (BotData != NULL)
 	{
-		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
+		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
 		if (NewBot != NULL)
 		{
 			NewBot->CharacterData = BotData;
