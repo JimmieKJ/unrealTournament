@@ -24,6 +24,7 @@
 #include "UTWorldSettings.h"
 #include "UTLevelSummary.h"
 #include "UTHUD_CastingGuide.h"
+#include "UTBotCharacter.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -418,7 +419,7 @@ void AUTGameMode::PreInitializeComponents()
 	// init startup bots
 	for (int32 i = 0; i < SelectedBots.Num() && NumPlayers + NumBots < BotFillCount; i++)
 	{
-		AddNamedBot(SelectedBots[i].BotName, SelectedBots[i].Team);
+		AddAssetBot(SelectedBots[i].BotAsset, SelectedBots[i].Team);
 	}
 }
 
@@ -542,51 +543,65 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 	AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
 	if (NewBot != NULL)
 	{
-		if (BotConfig == NULL)
+		if (BotAssets.Num() == 0)
 		{
-			BotConfig = NewObject<UUTBotConfig>(this);
+			GetAllAssetData(UUTBotCharacter::StaticClass(), BotAssets);
 		}
-		// pick bot character
-		if (BotConfig->BotCharacters.Num() == 0)
+		
+		TArray<const FAssetData*> EligibleBots;
+		for (const FAssetData& Asset : BotAssets)
 		{
-			UE_LOG(UT, Warning, TEXT("AddBot(): No BotCharacters defined"));
-			static int32 NameCount = 0;
-			NewBot->PlayerState->SetPlayerName(FString(TEXT("TestBot")) + ((NameCount > 0) ? FString::Printf(TEXT("_%i"), NameCount) : TEXT("")));
-			NameCount++;
-		}
-		else
-		{
-			int32 NumEligible = 0;
-			FBotCharacter* BestChar = NULL;
-			uint8 BestSelectCount = MAX_uint8;
-			for (FBotCharacter& Character : BotConfig->BotCharacters)
+			const FString* SkillText = Asset.TagsAndValues.Find(TEXT("Skill"));
+			if (SkillText != NULL)
 			{
-				if (Character.SelectCount < BestSelectCount)
+				float BaseSkill = FCString::Atof(**SkillText);
+				if (BaseSkill >= GameDifficulty - 0.5f && BaseSkill < GameDifficulty + 1.0f)
 				{
-					NumEligible = 1;
-					BestChar = &Character;
-					BestSelectCount = Character.SelectCount;
-				}
-				else if (Character.SelectCount == BestSelectCount)
-				{
-					NumEligible++;
-					if (FMath::FRand() < 1.0f / float(NumEligible))
-					{
-						BestChar = &Character;
-					}
+					EligibleBots.Add(&Asset);
 				}
 			}
-			BestChar->SelectCount++;
-			NewBot->Personality = *BestChar;
-			NewBot->PlayerState->SetPlayerName(BestChar->PlayerName);
 		}
+		bool bLoadedBotData = false;
+		while (EligibleBots.Num() > 0 && !bLoadedBotData)
+		{
+			int32 Index = FMath::RandHelper(EligibleBots.Num());
+			const UUTBotCharacter* BotData = Cast<UUTBotCharacter>(EligibleBots[Index]->GetAsset());
+			if (BotData != NULL)
+			{
+				NewBot->CharacterData = BotData;
+				NewBot->Personality = BotData->Personality;
+				SetUniqueBotName(NewBot, BotData);
+				NewBot->InitializeSkill(BotData->Skill);
+				AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+				if (PS != NULL)
+				{
+					PS->SetCharacter(BotData->Character.ToString());
+					PS->ServerReceiveHatClass(BotData->HatType.ToString());
+					PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
+				}
+				bLoadedBotData = true;
+			}
+			else
+			{
+				EligibleBots.RemoveAt(Index);
+			}
+		}
+		// pick bot character
+		if (!bLoadedBotData)
+		{
+			UE_LOG(UT, Warning, TEXT("AddBot(): No BotCharacters defined that are appropriate for game difficulty %f"), GameDifficulty);
+			static int32 NameCount = 0;
+			NewBot->PlayerState->SetPlayerName(FString(TEXT("TestBot")) + ((NameCount > 0) ? FString::Printf(TEXT("_%i"), NameCount) : TEXT("")));
+			NewBot->InitializeSkill(GameDifficulty);
+			NameCount++;
+		}
+
 		AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
 		if (PS != NULL)
 		{
 			PS->bReadyToPlay = true;
 		}
 
-		NewBot->InitializeSkill(GameDifficulty);
 		NumBots++;
 		ChangeTeam(NewBot, TeamNum);
 		GenericPlayerInitialization(NewBot);
@@ -595,21 +610,26 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 }
 AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 {
-	if (BotConfig == NULL)
+	if (BotAssets.Num() == 0)
 	{
-		BotConfig = NewObject<UUTBotConfig>(this);
+		GetAllAssetData(UUTBotCharacter::StaticClass(), BotAssets);
 	}
-	FBotCharacter* TheChar = NULL;
-	for (FBotCharacter& Character : BotConfig->BotCharacters)
+
+	const UUTBotCharacter* BotData = NULL;
+	for (const FAssetData& Asset : BotAssets)
 	{
-		if (Character.PlayerName == BotName)
+		if (Asset.AssetName.ToString() == BotName)
 		{
-			TheChar = &Character;
-			break;
+			BotData = Cast<UUTBotCharacter>(Asset.GetAsset());
+			if (BotData != NULL)
+			{
+				break;
+			}
 		}
 	}
 
-	if (TheChar == NULL)
+
+	if (BotData == NULL)
 	{
 		UE_LOG(UT, Error, TEXT("Character data for bot '%s' not found"), *BotName);
 		return NULL;
@@ -619,23 +639,88 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
 		if (NewBot != NULL)
 		{
-			TheChar->SelectCount++;
-			NewBot->Personality = *TheChar;
-			NewBot->PlayerState->SetPlayerName(TheChar->PlayerName);
+			NewBot->CharacterData = BotData;
+			NewBot->Personality = BotData->Personality;
+			SetUniqueBotName(NewBot, BotData);
 
 			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
 			if (PS != NULL)
 			{
 				PS->bReadyToPlay = true;
+				PS->SetCharacter(BotData->Character.ToString());
+				PS->ServerReceiveHatClass(BotData->HatType.ToString());
+				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
 			}
 
-			NewBot->InitializeSkill(GameDifficulty);
+			NewBot->InitializeSkill(BotData->Skill);
 			NumBots++;
 			ChangeTeam(NewBot, TeamNum);
 			GenericPlayerInitialization(NewBot);
 		}
 
 		return NewBot;
+	}
+}
+AUTBot* AUTGameMode::AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum)
+{
+	const UUTBotCharacter* BotData = Cast<UUTBotCharacter>(BotAssetPath.TryLoad());
+	if (BotData != NULL)
+	{
+		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(AUTBot::StaticClass());
+		if (NewBot != NULL)
+		{
+			NewBot->CharacterData = BotData;
+			NewBot->Personality = BotData->Personality;
+			SetUniqueBotName(NewBot, BotData);
+
+			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+			if (PS != NULL)
+			{
+				PS->bReadyToPlay = true;
+				PS->SetCharacter(BotData->Character.ToString());
+				PS->ServerReceiveHatClass(BotData->HatType.ToString());
+				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
+			}
+
+			NewBot->InitializeSkill(BotData->Skill);
+			NumBots++;
+			ChangeTeam(NewBot, TeamNum);
+			GenericPlayerInitialization(NewBot);
+		}
+		return NewBot;
+	}
+	else
+	{
+		return NULL;
+	}
+}
+
+void AUTGameMode::SetUniqueBotName(AUTBot* B, const UUTBotCharacter* BotData)
+{
+	TArray<FString> PossibleNames;
+	PossibleNames.Add(BotData->GetName());
+	PossibleNames += BotData->AltNames;
+
+	for (int32 i = 1; true; i++)
+	{
+		for (const FString& TestName : PossibleNames)
+		{
+			FString FinalName = (i == 1) ? TestName : FString::Printf(TEXT("%s-%i"), *TestName, i);
+			bool bTaken = false;
+			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+			{
+				if (It->IsValid() && It->Get()->PlayerState != NULL && It->Get()->PlayerState->PlayerName == FinalName)
+				{
+					bTaken = true;
+					break;
+				}
+			}
+			if (!bTaken)
+			{
+				B->PlayerState->SetPlayerName(FinalName);
+				return;
+			}
+		}
 	}
 }
 

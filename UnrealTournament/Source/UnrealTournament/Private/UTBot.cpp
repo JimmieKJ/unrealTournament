@@ -241,30 +241,27 @@ float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, co
 
 void AUTBot::InitializeSkill(float NewBaseSkill)
 {
-	Skill = FMath::Max<float>(0.0f, NewBaseSkill + Personality.SkillModifier);
+	Skill = FMath::Clamp<float>(NewBaseSkill, 0.0f, 8.0f);
 
-	if (Skill >= 0)
+	float AimingSkill = Skill + Personality.Accuracy;
+
+	TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (AimingSkill + 2.0f);
+
+	// no prediction error for really high skill bots
+	// we still want some offset error because that will sometimes actually cause "correct" aim when combined with TrackingReactionTime
+	if (AimingSkill >= 7.0f)
 	{
-		float AimingSkill = Skill + Personality.Accuracy;
-
-		TrackingReactionTime = GetClass()->GetDefaultObject<AUTBot>()->TrackingReactionTime * 7.0f / (AimingSkill + 2.0f);
-
-		// no prediction error for really high skill bots
-		// we still want some offset error because that will sometimes actually cause "correct" aim when combined with TrackingReactionTime
-		if (AimingSkill >= 7.0f)
-		{
-			MaxTrackingPredictionError = 0.f;
-		}
-		else
-		{
-			MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 5.0f / (AimingSkill + 2.0f);
-		}
-		MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 6.0f / (AimingSkill + 2.0f);
-
-		TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 7.0f / (AimingSkill + 2.0f);
-		TrackingPredictionError = MaxTrackingPredictionError;
-		AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
+		MaxTrackingPredictionError = 0.f;
 	}
+	else
+	{
+		MaxTrackingPredictionError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingPredictionError * 5.0f / (AimingSkill + 2.0f);
+	}
+	MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 6.0f / (AimingSkill + 2.0f);
+
+	TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 7.0f / (AimingSkill + 2.0f);
+	TrackingPredictionError = MaxTrackingPredictionError;
+	AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
 
 	/*if (Skill < 3)
 		DodgeToGoalPct = 0;

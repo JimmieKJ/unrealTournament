@@ -3,7 +3,6 @@
 
 #include "TAttributeProperty.h"
 #include "UTServerBeaconLobbyClient.h"
-#include "UTBotConfig.h"
 #include "UTReplicatedLoadoutInfo.h"
 #include "UTGameMode.generated.h"
 
@@ -57,7 +56,7 @@ struct FSelectedBot
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FString BotName;
+	FStringAssetReference BotAsset;
 	/** team to place them on - note that 255 is valid even for team games (placed on any team) */
 	UPROPERTY()
 	uint8 Team;
@@ -65,8 +64,8 @@ struct FSelectedBot
 	FSelectedBot()
 		: Team(255)
 	{}
-	FSelectedBot(const FString& InName, uint8 InTeam)
-		: BotName(InName), Team(InTeam)
+	FSelectedBot(const FStringAssetReference& InAssetPath, uint8 InTeam)
+		: BotAsset(InAssetPath), Team(InTeam)
 	{}
 };
 
@@ -266,9 +265,9 @@ public:
 
 	UPROPERTY(Config)
 	TArray<FSelectedBot> SelectedBots;
-	/** bot configuration (skill ratings, etc) to use */
-	UPROPERTY(Transient)
-	UUTBotConfig* BotConfig;
+
+	/** cached list of UTBotCharacter assets from the asset registry, so we don't need to query the registry every time we add a bot */
+	TArray<FAssetData> BotAssets;
 
 	/** type of SquadAI that contains game specific AI logic for this gametype */
 	UPROPERTY(EditDefaultsOnly, Category = AI)
@@ -397,12 +396,16 @@ protected:
 	/** adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
 	virtual class AUTBot* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);
+	virtual class AUTBot* AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum = 255);
 	/** check for adding/removing bots to satisfy BotFillCount */
 	virtual void CheckBotCount();
 	/** returns whether we should allow removing the given bot to satisfy the desired player/bot count settings
 	 * generally used to defer destruction of bots that currently are important to the current game state, like flag carriers
 	 */
 	virtual bool AllowRemovingBot(AUTBot* B);
+
+	/** give bot a unique name based on the possible names in the given BotData */
+	virtual void SetUniqueBotName(AUTBot* B, const class UUTBotCharacter* BotData);
 public:
 	/** adds a bot to the game, ignoring game settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)

@@ -14,56 +14,35 @@ struct FBotPersonality
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** overall skill modifier, generally [-1, +1]
-	 * NOTE: this is applied to the bot's Skill property and shouldn't be queried directly
-	 */
-	UPROPERTY(EditAnywhere, Category = Personality)
-	float SkillModifier;
 	/** aggressiveness (not a modifier) [-1, 1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float Aggressiveness;
 	/** tactical ability (both a modifier for general tactics and a standalone value for advanced or specialized tactics) [-1, 1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float Tactics;
 	/** likelihood of jumping/dodging, particularly in combat */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "0", UIMin = "0", ClampMax = "1", UIMax = "1"))
 	float Jumpiness;
 	/** ability to perform advanced movement options (lift jumps, impact jumps, advanced translocator throws, etc) (skill modifier) [-1, 1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float MovementAbility;
 	/** reaction time (skill modifier) [-1, +1], positive is better (lower reaction time)
 	 * affects enemy acquisition and incoming fire avoidance
 	 */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float ReactionTime;
 	/** modifier to aim accuracy (skill modifier) [-1, +1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float Accuracy;
 	/** modifies likelihood of bot detecting stimulus, particularly at long ranges and/or edges of vision (skill modifier) [-1, +1] */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "-1", UIMin = "-1", ClampMax = "1", UIMax = "1"))
 	float Alertness;
 	/** modifies bot's awareness of map control and strategy (pickup respawn state and timers, knowledge of accumulated map data like high traffic areas, hiding spots, etc) */
-	UPROPERTY(EditAnywhere, Category = Personality)
+	UPROPERTY(EditAnywhere, Category = Personality, Meta = (ClampMin = "0", UIMin = "0", ClampMax = "1", UIMax = "1"))
 	float MapAwareness;
 	/** favorite weapon; bot will bias towards acquiring and using this weapon */
 	UPROPERTY(EditAnywhere, Category = Personality)
 	FName FavoriteWeapon;
-};
-
-USTRUCT(BlueprintType)
-struct FBotCharacter : public FBotPersonality
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** bot's name */
-	UPROPERTY(EditAnywhere, Category = Display)
-	FString PlayerName;
-	
-	// TODO: audio/visual details (mesh, voice pack, etc)
-
-	/** transient runtime tracking of how many times this entry has been used to avoid unnecessary duplicates */
-	UPROPERTY(Transient, BlueprintReadWrite, Category = Game)
-	uint8 SelectCount;
 };
 
 struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
@@ -252,6 +231,10 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	/** bot considers a height difference of greater than this to be a relevant combat advantage to the higher player */
 	UPROPERTY(EditDefaultsOnly, Category = Environment)
 	float TacticalHeightAdvantage;
+
+	/** ref to the bot character definition used to initialize the bot's attributes */
+	UPROPERTY(Transient)
+	const class UUTBotCharacter* CharacterData;
 
 	UPROPERTY(BlueprintReadWrite, Category = Personality)
 	FBotPersonality Personality;

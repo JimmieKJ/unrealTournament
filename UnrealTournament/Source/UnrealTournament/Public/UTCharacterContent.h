@@ -39,6 +39,9 @@ public:
 	UPROPERTY(EditDefaultsOnly)
 	FText DisplayName;
 
+	/** character gender */
+	UPROPERTY(EditDefaultsOnly)
+	bool bIsFemale;
 	/** if set hide from the menus (i.e. intended for testing or built-in to a specific gametype or mod) */
 	UPROPERTY(EditDefaultsOnly)
 	bool bHideInUI;
