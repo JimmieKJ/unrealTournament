@@ -339,6 +339,10 @@ public:
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
 	float FloorSlideEarliestZ;
 
+	/** Scaling for how much upward slope affects max floor slide initial speed. */
+	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
+		float FloorSlideSlopeBraking;
+	
 	/** Enables slope dodge boost. */
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadOnly)
 	bool bAllowSlopeDodgeBoost;
@@ -370,7 +374,7 @@ public:
 	virtual void Crouch(bool bClientSimulation = false) override;
 
 	/** floor slide out (holding floor slide while dodging on ground) */
-	virtual void PerformFloorSlide(const FVector& DodgeDir);
+	virtual void PerformFloorSlide(const FVector& DodgeDir, const FVector& FloorNormal);
 
 	virtual bool IsCrouching() const override;
 

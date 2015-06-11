@@ -69,6 +69,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	FloorSlideBonusTapInterval = 0.17f;
 	FloorSlideEarliestZ = -100.f;
 	FloorSlideEndingSpeedFactor = 0.5f;
+	FloorSlideSlopeBraking = 3.f;
 	FallingDamageRollReduction = 6.f;
 
 	MaxSwimSpeed = 1000.f;
@@ -700,7 +701,7 @@ void UUTCharacterMovement::Crouch(bool bClientSimulation)
 	{
 		if (IsMovingOnGround())
 		{
-			PerformFloorSlide(Velocity.GetSafeNormal());
+			PerformFloorSlide(Velocity.GetSafeNormal(), CurrentFloor.HitResult.ImpactNormal);
 			NeedsClientAdjustment();
 		}
 		bPressedSlide = false;
@@ -709,7 +710,7 @@ void UUTCharacterMovement::Crouch(bool bClientSimulation)
 	Super::Crouch(bClientSimulation);
 }
 
-void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir)
+void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir, const FVector& FloorNormal)
 {
 	if (CharacterOwner)
 	{
@@ -719,6 +720,11 @@ void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir)
 		Acceleration = FloorSlideAcceleration * DodgeDir;
 		DodgeResetTime = FloorSlideEndTime + DodgeResetInterval;
 		float NewSpeed = FMath::Max(MaxFloorSlideSpeed, FMath::Min(Velocity.Size2D(), SprintSpeed));
+		if ((NewSpeed > MaxFloorSlideSpeed) && ((DodgeDir | FloorNormal) < 0.f))
+		{
+			// don't allow sliding up steep slopes at faster than MaxFloorSlideSpeed
+			NewSpeed = FMath::Clamp(NewSpeed + FloorSlideSlopeBraking * (NewSpeed - MaxFloorSlideSpeed) * (DodgeDir | FloorNormal), MaxFloorSlideSpeed, NewSpeed);
+		}
 		Velocity = NewSpeed*DodgeDir;
 		AUTCharacter* UTChar = Cast<AUTCharacter>(CharacterOwner);
 		if (UTChar)
@@ -942,7 +948,7 @@ void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingT
 		}
 		if (bIsFloorSliding)
 		{
-			PerformFloorSlide(Velocity.GetSafeNormal2D());
+			PerformFloorSlide(Velocity.GetSafeNormal2D(), Hit.ImpactNormal);
 			//UE_LOG(UTNet, Warning, TEXT("FloorSlide within %f"), GetCurrentMovementTime() - FloorSlideTapTime);
 			if (bIsDodging)
 			{

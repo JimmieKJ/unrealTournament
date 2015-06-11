@@ -2594,7 +2594,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 
 		if (UTCharacterMovement->WantsFloorSlide() && UTCharacterMovement->IsMovingOnGround())
 		{
-			UTCharacterMovement->PerformFloorSlide(DodgeDir);
+			UTCharacterMovement->PerformFloorSlide(DodgeDir, UTCharacterMovement->CurrentFloor.HitResult.ImpactNormal);
 			return true;
 		}
 		else if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
