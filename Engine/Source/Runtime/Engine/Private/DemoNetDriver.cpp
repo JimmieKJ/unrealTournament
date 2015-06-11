@@ -1554,14 +1554,16 @@ void UDemoNetDriver::LoadCheckpoint()
 			AddNonQueuedActorForScrubbing(*It);
 		}
 		
-		if ( SpectatorController != nullptr )
+		const bool bForceDelete = Cast< APlayerState >( *It ) != nullptr;
+
+		if ( SpectatorController != nullptr && !bForceDelete )
 		{
 			if ( *It == SpectatorController || *It == SpectatorController->GetSpectatorPawn() )
 			{
 				continue;
 			}
 
-			if ( It->GetOwner() == SpectatorController )
+			if ( It->GetOwner() == SpectatorController  )
 			{
 				continue;
 			}
