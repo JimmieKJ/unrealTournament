@@ -3275,3 +3275,21 @@ void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, FN
 		GS->Teams[TeamNum]->SetStatsValue(StatsName, NewValue);
 	}
 }
+
+void AUTPlayerController::ClientShowMapVote_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (LocalPlayer != NULL && GameState != NULL)
+	{
+		LocalPlayer->OpenMapVote(GameState);
+	}
+}
+void AUTPlayerController::ClientHideMapVote_Implementation()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->CloseMapVote();
+	}
+}

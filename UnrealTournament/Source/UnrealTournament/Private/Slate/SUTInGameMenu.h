@@ -20,11 +20,13 @@ protected:
 	virtual FReply OnCloseMenu(TSharedPtr<SComboButton> MenuButton);
 
 	virtual FReply OnTeamChangeClick();
+	virtual FReply OnMapVoteClick();
 	virtual FReply OnSpectateClick();
 	virtual void SetInitialPanel();
 	
 	virtual FReply OpenHUDSettings(TSharedPtr<SComboButton> MenuButton);
 	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
+	virtual FText GetMapVoteTitle() const;
 
 };
 #endif

@@ -698,7 +698,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		// Add code to setup the required packages array
 		CurrentRuleset = NewReplicatedRuleset;
 		InitialMap = StartingMap;
-
+		InitialMapInfo = GetMapInformation(InitialMap);
 	}
 
 }

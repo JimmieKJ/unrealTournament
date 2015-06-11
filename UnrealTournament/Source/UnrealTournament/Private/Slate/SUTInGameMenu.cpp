@@ -50,6 +50,31 @@ void SUTInGameMenu::BuildLeftMenuBar()
 				]
 			];
 		}
+
+		if (GS && GS->GetMatchState() == MatchState::MapVoteHappening)
+		{
+			LeftMenuBar->AddSlot()
+			.Padding(5.0f,0.0f,0.0f,0.0f)
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.OnClicked(this, &SUTInGameMenu::OnMapVoteClick)
+				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(this, &SUTInGameMenu::GetMapVoteTitle)
+						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
+					]
+				]
+			];
+		}
+
+
 /*
 		LeftMenuBar->AddSlot()
 		.Padding(5.0f,0.0f,0.0f,0.0f)
@@ -318,5 +343,26 @@ TSharedRef<SWidget> SUTInGameMenu::BuildOptionsSubMenu()
 
 }
 
+FReply SUTInGameMenu::OnMapVoteClick()
+{
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if ( GameState )
+	{
+		PlayerOwner->OpenMapVote(GameState);
+	}
+
+	return FReply::Handled();
+}
+
+FText SUTInGameMenu::GetMapVoteTitle() const
+{
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if ( GameState )
+	{
+		return FText::Format(NSLOCTEXT("SUTInGameMenu","MapVoteFormat","MAP VOTE ({0})"), FText::AsNumber(GameState->VoteTimer));
+	}
+
+	return NSLOCTEXT("SUWindowsDesktop","MenuBar_MapVote","MAP VOTE");
+}
 
 #endif

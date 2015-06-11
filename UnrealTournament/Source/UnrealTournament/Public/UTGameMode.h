@@ -13,6 +13,7 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName CountdownToBegin;				// We are entering this map, actors are not yet ticking
 	extern UNREALTOURNAMENT_API const FName MatchEnteringOvertime;			// The game is entering overtime
 	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
+	extern UNREALTOURNAMENT_API const FName MapVoteHappening;				// The game is in mapvote stage
 }
 
 USTRUCT()
@@ -606,6 +607,12 @@ public:
 		return MapPrefix;
 	}
 
+	UPROPERTY(Config)
+	int32 MapVoteTime;
+
+	virtual void HandleMapVote();
+	virtual void CullMapVotes();
+	virtual void TallyMapVotes();
 
 };
 

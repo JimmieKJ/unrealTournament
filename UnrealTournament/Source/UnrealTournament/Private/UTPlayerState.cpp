@@ -13,6 +13,7 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "UTReplicatedMapVoteInfo.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -1451,5 +1452,20 @@ void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
 	LastScoreStatsUpdateTime = GetWorld()->GetTimeSeconds();
 	float CurrentValue = StatsData.FindRef(StatsName);
 	StatsData.Add(StatsName, CurrentValue + Change);
+}
+
+bool AUTPlayerState::RegisterVote_Validate(AUTReplicatedMapVoteInfo* VoteInfo) { return true; }
+void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapVoteInfo* VoteInfo)
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
+		{
+			if (UTGameState->MapVoteList[i]) UTGameState->MapVoteList[i]->UnregisterVoter(this);
+		}
+
+		VoteInfo->RegisterVoter(this);
+	}
 }
 

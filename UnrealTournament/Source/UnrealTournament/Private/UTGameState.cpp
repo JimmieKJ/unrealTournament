@@ -9,6 +9,7 @@
 #include "UTTimerMessage.h"
 #include "UTReplicatedLoadoutInfo.h"
 #include "UTMutator.h"
+#include "UTReplicatedMapVoteInfo.h"
 #include "StatNames.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
@@ -141,6 +142,9 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerDescription, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerMOTD, COND_InitialOnly);
+
+	DOREPLIFETIME(AUTGameState, MapVoteList);
+	DOREPLIFETIME(AUTGameState, VoteTimer);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -976,3 +980,39 @@ void AUTGameState::GetAvailableMaps(const TArray<FString>& AllowedMapPrefixes, T
 		}
 	}
 }
+
+void AUTGameState::CreateMapVoteInfo(const FString& MapPackage,const FString& MapTitle, const FString& MapScreenshotReference)
+{
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	AUTReplicatedMapVoteInfo* MapVoteInfo = GetWorld()->SpawnActor<AUTReplicatedMapVoteInfo>(Params);
+	if (MapVoteInfo)
+	{
+		MapVoteInfo->MapPackage = MapPackage;
+		MapVoteInfo->MapTitle = MapTitle;
+		MapVoteInfo->MapScreenshotReference = MapScreenshotReference;
+		MapVoteList.Add(MapVoteInfo);
+	}
+}
+
+void AUTGameState::SortVotes()
+{
+	for (int32 i=0; i<MapVoteList.Num()-1; i++)
+	{
+		AUTReplicatedMapVoteInfo* V1 = Cast<AUTReplicatedMapVoteInfo>(MapVoteList[i]);
+		for (int32 j=i+1; j<MapVoteList.Num(); j++)
+		{
+			AUTReplicatedMapVoteInfo* V2 = Cast<AUTReplicatedMapVoteInfo>(MapVoteList[j]);
+			if( V2->VoteCount > V1->VoteCount )
+			{
+				MapVoteList[i] = V2;
+				MapVoteList[j] = V1;
+				V1 = V2;
+			}
+		}
+	}
+
+
+}
+
+

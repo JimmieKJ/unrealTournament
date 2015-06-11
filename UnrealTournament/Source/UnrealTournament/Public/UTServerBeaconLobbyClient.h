@@ -86,6 +86,19 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	UFUNCTION(client, reliable)
 	virtual void AuthorizeDedicatedInstance(FGuid HubGuid);
 
+	// Will cause the hub to prime the AllowedMapPackages list with all maps available on the server.
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void Lobby_PrimeMapList(const FString& MapPrefix);
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_ReceiveMap(const FString& MapPackageName, const FString& MapTitle, const FString& MapScreenshotReference, int32 Index);
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void Lobby_SendNextMap(int32 LastIndex);
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_ReceiveHubID(FGuid HubGuid);
+
 protected:
 
 	// Will be set to true when the game instance is empty and has asked the lobby to kill it
@@ -97,5 +110,7 @@ protected:
 	bool bDedicatedInstance;
 
 	FString HubKey;
+
+	TArray<TSharedPtr<FMapListItem>> AllowedMaps;
 
 };

@@ -10,6 +10,7 @@
 #include "UTProfileSettings.h"
 #include "OnlinePresenceInterface.h"
 #include "Http.h"
+
 #include "UTLocalPlayer.generated.h"
 
 class SUWServerBrowser;
@@ -17,6 +18,7 @@ class SUWFriendsPopup;
 class SUTQuickMatch;
 class SUWLoginDialog;
 class SUWRedirectDialog;
+class SUWMapVoteDialog;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
 
@@ -456,14 +458,20 @@ public:
 protected:
 #if !UE_SERVER
 	TSharedPtr<SUWindowsDesktop> LoadoutMenu;
+	TSharedPtr<SUWMapVoteDialog> MapVoteMenu;
 #endif
 
 public:
 	virtual void OpenLoadout(bool bBuyMenu = false);
 	virtual void CloseLoadout();
 
+	virtual void OpenMapVote(AUTGameState* GameState);
+	virtual void CloseMapVote();
+
 	// What is your role within the unreal community.
 	EUnrealRoles::Type CommunityRole;
+
+
 
 };
 

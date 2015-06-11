@@ -784,26 +784,30 @@ void AUTLobbyGameState::GetAvailableMaps(const TArray<FString>& AllowedMapPrefix
 {
 	Super::GetAvailableMaps(AllowedMapPrefixes, MapList);
 
-	int32 MIndex = 0;
-	while (MIndex < MapList.Num())
+	// If we need to filter the maps futher, then do so.
+	if (AllowedMaps.Num() > 0)
 	{
-		bool bFound = false;
-		for (int32 i=0; i < AllowedMaps.Num(); i++)
+		int32 MIndex = 0;
+		while (MIndex < MapList.Num())
 		{
-			if (MapList[MIndex]->PackageName.Equals(AllowedMaps[i].PackageName, ESearchCase::IgnoreCase))
+			bool bFound = false;
+			for (int32 i=0; i < AllowedMaps.Num(); i++)
 			{
-				bFound = true;
-				break;
+				if (MapList[MIndex]->PackageName.Equals(AllowedMaps[i].PackageName, ESearchCase::IgnoreCase))
+				{
+					bFound = true;
+					break;
+				}
 			}
-		}
 
-		if (bFound)
-		{
-			MIndex++;
-		}
-		else
-		{
-			MapList.RemoveAt(MIndex);
+			if (bFound)
+			{
+				MIndex++;
+			}
+			else
+			{
+				MapList.RemoveAt(MIndex);
+			}
 		}
 	}
 }

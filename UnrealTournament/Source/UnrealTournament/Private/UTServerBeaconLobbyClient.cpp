@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTServerBeaconLobbyClient.h"
+#include "Net/UnrealNetwork.h"
 #include "UTLobbyGameState.h"
 
 AUTServerBeaconLobbyClient::AUTServerBeaconLobbyClient(const class FObjectInitializer& PCIP) :
@@ -29,7 +30,15 @@ void AUTServerBeaconLobbyClient::OnConnected()
 		Lobby_IsDedicatedInstance(GameInstanceGUID, HubKey, GameState ? GameState->ServerName : TEXT("My Instance"));
 	}
 
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (UTGameMode)
+	{
+		Lobby_PrimeMapList(UTGameMode->GetMapPrefix());
+	}
+
+
 }
+
 void AUTServerBeaconLobbyClient::OnFailure()
 {
 	UE_LOG(UT,Log,TEXT("Instance %i [%s] could not connect to the hub"), GameInstanceID, *GameInstanceGUID.ToString());
@@ -74,7 +83,10 @@ void AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Implementation(uint
 	if (LobbyGameState)
 	{
 		LobbyGameState->GameInstance_Ready(InstanceID, InstanceGUID);
+		Instance_ReceiveHubID(LobbyGameState->HubGuid);
 	}
+
+
 }
 
 bool AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Validate(uint32 InstanceID, const FString& Update) { return true; }
@@ -180,3 +192,58 @@ void AUTServerBeaconLobbyClient::AuthorizeDedicatedInstance_Implementation(FGuid
 	}
 }
 
+bool AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Validate(const FString& MapPrefix) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_PrimeMapList_Implementation(const FString& MapPrefix)
+{
+	UE_LOG(UT,Verbose, TEXT("Lobby_PrimeMapList - Searching for maps [%s]"),*MapPrefix);
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		// Parse the prefixes 
+		TArray<FString> Prefixes;
+		MapPrefix.ParseIntoArray(Prefixes,TEXT(","), true);
+		
+		// Grab the allowed maps
+		
+		AllowedMaps.Empty();
+		LobbyGameState->GetAvailableMaps(Prefixes, AllowedMaps);
+
+		UE_LOG(UT,Verbose, TEXT("Lobby_PrimeMapList - GameState returned %i maps for %i prefixes"),AllowedMaps.Num(), Prefixes.Num());
+
+		if (AllowedMaps.Num() > 0)
+		{
+			Instance_ReceiveMap(AllowedMaps[0]->PackageName, AllowedMaps[0]->Title, AllowedMaps[0]->Screenshot,0);
+		}
+	}
+}
+
+void AUTServerBeaconLobbyClient::Instance_ReceiveMap_Implementation(const FString& MapPackageName, const FString& MapTitle, const FString& MapScreenshotReference, int32 Index)
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		UTGameState->CreateMapVoteInfo(MapPackageName, MapTitle, MapScreenshotReference);
+	}
+
+	Lobby_SendNextMap(Index);
+}
+
+bool AUTServerBeaconLobbyClient::Lobby_SendNextMap_Validate(int32 LastIndex) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_SendNextMap_Implementation(int32 LastIndex)
+{
+	LastIndex++;
+	if (AllowedMaps.Num() > LastIndex)
+	{
+		Instance_ReceiveMap(AllowedMaps[LastIndex]->PackageName, AllowedMaps[LastIndex]->Title, AllowedMaps[LastIndex]->Screenshot, LastIndex);
+	}
+}
+
+void AUTServerBeaconLobbyClient::Instance_ReceiveHubID_Implementation(FGuid HubGuid)
+{
+	UE_LOG(UT,Verbose,TEXT("Instance has received Hub GUID: %s"), *HubGuid.ToString());
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
+	{
+		UTGameState->HubGuid = HubGuid;
+	}
+}

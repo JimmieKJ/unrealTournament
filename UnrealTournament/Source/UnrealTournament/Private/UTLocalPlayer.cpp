@@ -28,6 +28,7 @@
 #include "Slate/SUWRedirectDialog.h"
 #include "Slate/SUTLoadoutMenu.h"
 #include "Slate/SUTBuyMenu.h"
+#include "Slate/SUWMapVoteDialog.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -2061,3 +2062,21 @@ void UUTLocalPlayer::CloseLoadout()
 	}
 #endif
 }
+
+void UUTLocalPlayer::OpenMapVote(AUTGameState* GameState)
+{
+#if !UE_SERVER
+	SAssignNew(MapVoteMenu,SUWMapVoteDialog).PlayerOwner(this).GameState(GameState);
+	OpenDialog( MapVoteMenu.ToSharedRef(), 200 );
+#endif
+}
+void UUTLocalPlayer::CloseMapVote()
+{
+#if !UE_SERVER
+	if (MapVoteMenu.IsValid())
+	{
+		CloseDialog(MapVoteMenu.ToSharedRef());		
+	}
+#endif
+}
+

@@ -778,41 +778,54 @@ public:
 
 	/** Playerstate whose details are currently being displayed on scoreboard. */
 	UPROPERTY()
-		AUTPlayerState* CurrentlyViewedScorePS;
+	AUTPlayerState* CurrentlyViewedScorePS;
 
 	UPROPERTY()
-		int32 TeamStatsUpdateTeam;
+	int32 TeamStatsUpdateTeam;
 
 	UPROPERTY()
-		int32 TeamStatsUpdateIndex;
+	int32 TeamStatsUpdateIndex;
 
 	UPROPERTY()
-		float LastTeamStatsUpdateStartTime;
+	float LastTeamStatsUpdateStartTime;
 
 	UPROPERTY()
-		int32 StatsUpdateIndex;
+	int32 StatsUpdateIndex;
 
 	UPROPERTY()
-		float LastScoreStatsUpdateStartTime;
+	float LastScoreStatsUpdateStartTime;
 
 	UPROPERTY()
-		uint8 CurrentlyViewedStatsTab;
+	uint8 CurrentlyViewedStatsTab;
 
 	UFUNCTION()
-		virtual void SetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
+	virtual void SetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
 
 	UFUNCTION(server, unreliable, withvalidation)
-		virtual void ServerSetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
+	virtual void ServerSetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
 
 	UFUNCTION(client, unreliable)
-		virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, FName StatsName, float NewValue);
+	virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, FName StatsName, float NewValue);
 
 	UFUNCTION(client, unreliable)
-		virtual void ClientUpdateTeamStats(uint8 TeamNum, FName StatsName, float NewValue);
+	virtual void ClientUpdateTeamStats(uint8 TeamNum, FName StatsName, float NewValue);
 
 	virtual void AdvanceStatsPage(int32 Increment);
 
 	int32 DilationIndex;
+
+	UFUNCTION(client, reliable)
+	virtual void ClientShowMapVote();
+
+	UFUNCTION(client, reliable)
+	virtual void ClientHideMapVote();
+
+	UFUNCTION(exec)
+	virtual void TestVote()
+	{
+		ClientShowMapVote();
+	}
+
 };
 
 

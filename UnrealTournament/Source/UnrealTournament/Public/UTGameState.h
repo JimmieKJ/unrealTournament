@@ -7,6 +7,7 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset);
 
 class AUTGameMode;
+class AUTReplicatedMapVoteInfo;
 
 struct FLoadoutInfo;
 
@@ -335,6 +336,17 @@ public:
 
 	UPROPERTY()
 		TArray<FName> RewardStats;
+
+	UPROPERTY(Replicated)
+	TArray<AUTReplicatedMapVoteInfo*> MapVoteList;
+
+	virtual void CreateMapVoteInfo(const FString& MapPackage,const FString& MapTitle, const FString& MapScreenshotReference);
+	void SortVotes();
+
+	// The # of seconds left for voting for a map.
+	UPROPERTY(Replicated)
+	int32 VoteTimer;
+
 };
 
 
