@@ -98,6 +98,8 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 		Mesh->bGenerateOverlapEvents = false;
 		Mesh->bCanEverAffectNavigation = false;
 	}
+
+	BaseRotationOffset = FQuat::Identity;
 }
 
 void ACharacter::PostInitializeComponents()
@@ -109,6 +111,7 @@ void ACharacter::PostInitializeComponents()
 		if (Mesh)
 		{
 			BaseTranslationOffset = Mesh->RelativeLocation;
+			BaseRotationOffset = Mesh->RelativeRotation.Quaternion();
 
 			// force animation tick after movement component updates
 			if (Mesh->PrimaryComponentTick.bCanEverTick && CharacterMovement)
@@ -934,6 +937,7 @@ void ACharacter::OnRep_ReplicatedBasedMovement()
 	{
 		// Update transform relative to movement base
 		const FVector OldLocation = GetActorLocation();
+		const FQuat OldRotation = GetActorQuat();
 		MovementBaseUtility::GetMovementBaseTransform(ReplicatedBasedMovement.MovementBase, ReplicatedBasedMovement.BoneName, CharacterMovement->OldBaseLocation, CharacterMovement->OldBaseQuat);
 		const FVector NewLocation = CharacterMovement->OldBaseLocation + ReplicatedBasedMovement.Location;
 
@@ -960,7 +964,7 @@ void ACharacter::OnRep_ReplicatedBasedMovement()
 		INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
 		if (PredictionInterface)
 		{
-			PredictionInterface->SmoothCorrection(OldLocation);
+			PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
 		}
 	}
 }
@@ -1013,6 +1017,7 @@ void ACharacter::SimulatedRootMotionPositionFixup(float DeltaSeconds)
 		if( MoveIndex != INDEX_NONE )
 		{
 			const FVector OldLocation = GetActorLocation();
+			const FQuat OldRotation = GetActorQuat();
 			// Move Actor back to position of that buffered move. (server replicated position).
 			const FSimulatedRootMotionReplicatedMove& RootMotionRepMove = RootMotionRepMoves[MoveIndex];
 			if( RestoreReplicatedMove(RootMotionRepMove) )
@@ -1042,7 +1047,7 @@ void ACharacter::SimulatedRootMotionPositionFixup(float DeltaSeconds)
 							INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
 							if (PredictionInterface)
 							{
-								PredictionInterface->SmoothCorrection(OldLocation);
+								PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
 							}
 						}
 					}
@@ -1190,12 +1195,13 @@ void ACharacter::PostNetReceiveLocationAndRotation()
 		if (!ReplicatedBasedMovement.HasRelativeLocation())
 		{
 			const FVector OldLocation = GetActorLocation();
+			const FQuat OldRotation = GetActorQuat();
 			UpdateSimulatedPosition(ReplicatedMovement.Location, ReplicatedMovement.Rotation);
 
 			INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
 			if (PredictionInterface)
 			{
-				PredictionInterface->SmoothCorrection(OldLocation);
+				PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
 			}
 		}
 	}

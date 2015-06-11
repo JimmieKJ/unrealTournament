@@ -34,7 +34,7 @@ class ENGINE_API INetworkPredictionInterface
 	//--------------------------------
 
 	/** (Client) After receiving a network update of position, allow some custom smoothing, given the old location before the correction. */
-	virtual void SmoothCorrection(const FVector& OldLocation) PURE_VIRTUAL(INetworkPredictionInterface::SmoothCorrection,);
+	virtual void SmoothCorrection(const FVector& OldLocation, const FQuat& OldRotation) PURE_VIRTUAL(INetworkPredictionInterface::SmoothCorrection,);
 
 	//--------------------------------
 	// Other

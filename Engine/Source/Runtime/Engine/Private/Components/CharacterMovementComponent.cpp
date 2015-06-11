@@ -202,6 +202,9 @@ UCharacterMovementComponent::UCharacterMovementComponent(const FObjectInitialize
 	MaxSimulationTimeStep = 0.05f;
 	MaxSimulationIterations = 8;
 
+	NetworkSimulatedSmoothLocationTime = 0.100f;
+	NetworkSimulatedSmoothRotationTime = 0.033f;
+
 	CrouchedSpeedMultiplier_DEPRECATED = 0.5f;
 	MaxWalkSpeedCrouched = MaxWalkSpeed * CrouchedSpeedMultiplier_DEPRECATED;
 	MaxOutOfWaterStepHeight = 40.0f;
@@ -5566,7 +5569,7 @@ float UCharacterMovementComponent::GetSimulationTimeStep(float RemainingTime, in
 }
 
 
-void UCharacterMovementComponent::SmoothCorrection(const FVector& OldLocation)
+void UCharacterMovementComponent::SmoothCorrection(const FVector& OldLocation, const FQuat& OldRotation)
 {
 	if (!HasValidData() || GetNetMode() != NM_Client)
 	{
@@ -5587,6 +5590,9 @@ void UCharacterMovementComponent::SmoothCorrection(const FVector& OldLocation)
 		{
 			ClientData->MeshTranslationOffset = ClientData->MeshTranslationOffset + OldLocation - UpdatedComponent->GetComponentLocation();	
 		}
+
+		// Take difference between where we were rotated before, and where we're going
+		ClientData->MeshRotationOffset = (UpdatedComponent->GetComponentQuat().Inverse() * OldRotation) * ClientData->MeshRotationOffset;
 	}
 }
 
@@ -5604,11 +5610,23 @@ void UCharacterMovementComponent::SmoothClientPosition(float DeltaSeconds)
 		// smooth interpolation of mesh translation to avoid popping of other client pawns unless under a low tick rate
 		if (DeltaSeconds < ClientData->SmoothNetUpdateTime)
 		{
+			// Slowly decay translation offset
 			ClientData->MeshTranslationOffset = (ClientData->MeshTranslationOffset * (1.f - DeltaSeconds / ClientData->SmoothNetUpdateTime));
 		}
 		else
 		{
 			ClientData->MeshTranslationOffset = FVector::ZeroVector;
+		}
+
+		// Smooth rotation
+		if (DeltaSeconds < ClientData->SmoothNetUpdateRotationTime)
+		{
+			// Slowly decay rotation offset
+			ClientData->MeshRotationOffset = FQuat::Slerp( ClientData->MeshRotationOffset, FQuat::Identity, DeltaSeconds / ClientData->SmoothNetUpdateRotationTime );
+		}
+		else
+		{
+			ClientData->MeshRotationOffset = FQuat::Identity;
 		}
 
 		if (IsMovingOnGround())
@@ -5618,7 +5636,8 @@ void UCharacterMovementComponent::SmoothClientPosition(float DeltaSeconds)
 		}
 
 		const FVector NewRelTranslation = CharacterOwner->ActorToWorld().InverseTransformVectorNoScale(ClientData->MeshTranslationOffset + CharacterOwner->GetBaseTranslationOffset());
-		CharacterOwner->GetMesh()->SetRelativeLocation(NewRelTranslation);
+		const FQuat NewRelRotation = ClientData->MeshRotationOffset * CharacterOwner->GetBaseRotationOffset();
+		CharacterOwner->GetMesh()->SetRelativeLocationAndRotation(NewRelTranslation, NewRelRotation);
 	}
 }
 
@@ -5718,7 +5737,7 @@ FNetworkPredictionData_Client* UCharacterMovementComponent::GetPredictionData_Cl
 	if (!ClientPredictionData)
 	{
 		UCharacterMovementComponent* MutableThis = const_cast<UCharacterMovementComponent*>(this);
-		MutableThis->ClientPredictionData = new FNetworkPredictionData_Client_Character();
+		MutableThis->ClientPredictionData = new FNetworkPredictionData_Client_Character(*this);
 	}
 
 	return ClientPredictionData;
@@ -6949,7 +6968,7 @@ void UCharacterMovementComponent::TickCharacterPose(float DeltaTime)
 	}
 }
 
-FNetworkPredictionData_Client_Character::FNetworkPredictionData_Client_Character()
+FNetworkPredictionData_Client_Character::FNetworkPredictionData_Client_Character(const UCharacterMovementComponent& ClientMovement)
 	: ClientUpdateTime(0.f)
 	, CurrentTimeStamp(0.f)
 	, PendingMove(NULL)
@@ -6959,15 +6978,18 @@ FNetworkPredictionData_Client_Character::FNetworkPredictionData_Client_Character
 	, bUpdatePosition(false)
 	, bSmoothNetUpdates(false)
 	, MeshTranslationOffset(ForceInitToZero)
+	, MeshRotationOffset(FQuat::Identity)
 	, MaxSmoothNetUpdateDist(0.f)
 	, NoSmoothNetUpdateDist(0.f)
 	, SmoothNetUpdateTime(0.f)
+	, SmoothNetUpdateRotationTime(0.f)
 	, MaxResponseTime(0.f)
 {
 	bSmoothNetUpdates = true;
 	MaxSmoothNetUpdateDist = 84.0;
 	NoSmoothNetUpdateDist = 128.0;
-	SmoothNetUpdateTime = 0.100;
+	SmoothNetUpdateTime = ClientMovement.NetworkSimulatedSmoothLocationTime;
+	SmoothNetUpdateRotationTime = ClientMovement.NetworkSimulatedSmoothRotationTime;	
 
 	MaxResponseTime = 0.125f;
 }

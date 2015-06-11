@@ -1384,7 +1384,7 @@ FNetworkPredictionData_Client* UUTCharacterMovement::GetPredictionData_Client() 
 	if (!ClientPredictionData)
 	{
 		UUTCharacterMovement* MutableThis = const_cast<UUTCharacterMovement*>(this);
-		MutableThis->ClientPredictionData = new FNetworkPredictionData_Client_UTChar();
+		MutableThis->ClientPredictionData = new FNetworkPredictionData_Client_UTChar(*this);
 		MutableThis->ClientPredictionData->MaxSmoothNetUpdateDist = 92.f; // 2X character capsule radius
 		MutableThis->ClientPredictionData->NoSmoothNetUpdateDist = 140.f;
 	}

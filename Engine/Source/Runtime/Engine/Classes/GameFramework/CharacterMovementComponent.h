@@ -526,6 +526,18 @@ public:
 	UPROPERTY(Category="Character Movement (General Settings)", EditAnywhere, BlueprintReadWrite, AdvancedDisplay, meta=(ClampMin="1", ClampMax="25", UIMin="1", UIMax="25"))
 	int32 MaxSimulationIterations;
 
+	/**
+	 * How long to take to smoothly interpolate from the old pawn position on the client to the corrected one sent by the server.
+	 */
+	UPROPERTY(Category="Character Movement (General Settings)", EditDefaultsOnly, AdvancedDisplay, meta=(ClampMin="0.0", ClampMax="1.0", UIMin="0.0", UIMax="1.0"))
+	float NetworkSimulatedSmoothLocationTime;
+
+	/**
+	 * How long to take to smoothly interpolate from the old pawn rotation on the client to the corrected one sent by the server.
+	 */
+	UPROPERTY(Category="Character Movement (General Settings)", EditDefaultsOnly, AdvancedDisplay, meta=(ClampMin="0.0", ClampMax="1.0", UIMin="0.0", UIMax="1.0"))
+	float NetworkSimulatedSmoothRotationTime;
+
 	/** Used in determining if pawn is going off ledge.  If the ledge is "shorter" than this value then the pawn will be able to walk off it. **/
 	UPROPERTY(Category="Character Movement: Walking", EditAnywhere, BlueprintReadWrite, AdvancedDisplay)
 	float LedgeCheckThreshold;
@@ -1607,7 +1619,7 @@ public:
 	//--------------------------------
 	// Client hook
 	//--------------------------------
-	virtual void SmoothCorrection(const FVector& OldLocation) override;
+	virtual void SmoothCorrection(const FVector& OldLocation, const FQuat& OldRotation) override;
 
 	virtual class FNetworkPredictionData_Client* GetPredictionData_Client() const override;
 	virtual class FNetworkPredictionData_Server* GetPredictionData_Server() const override;
@@ -1961,7 +1973,7 @@ class ENGINE_API FNetworkPredictionData_Client_Character : public FNetworkPredic
 {
 public:
 
-	FNetworkPredictionData_Client_Character();
+	FNetworkPredictionData_Client_Character(const UCharacterMovementComponent& ClientMovement);
 	virtual ~FNetworkPredictionData_Client_Character();
 
 	/** Client timestamp of last time it sent a servermove() to the server.  Used for holding off on sending movement updates to save bandwidth. */
@@ -1991,6 +2003,9 @@ public:
 	/** Used for position smoothing in net games */
 	FVector MeshTranslationOffset;
 
+	/** Used for rotation smoothing in net games */
+	FQuat MeshRotationOffset;
+
 	/** Maximum location correction distance for which other pawn positions on a client will be smoothly updated */
 	float MaxSmoothNetUpdateDist;
 
@@ -1998,8 +2013,11 @@ public:
 	If it is between MaxSmoothNetUpdateDist and NoSmoothNetUpdateDist, pop to MaxSmoothNetUpdateDist away from the updated location */
 	float NoSmoothNetUpdateDist;
 
-	/** How long to take to smoothly interpolate from the old pawn position on the client to the corrected one sent by the server.  Must be > 0.0 */
+	/** How long to take to smoothly interpolate from the old pawn position on the client to the corrected one sent by the server.  Must be >= 0.0 */
 	float SmoothNetUpdateTime;
+
+	/** How long to take to smoothly interpolate from the old pawn rotation on the client to the corrected one sent by the server.  Must be >= 0.0 */
+	float SmoothNetUpdateRotationTime;
 	
 	// how long server will wait for client move update before setting position
 	// @TODO: don't duplicate between server and client data (though it's used by both)

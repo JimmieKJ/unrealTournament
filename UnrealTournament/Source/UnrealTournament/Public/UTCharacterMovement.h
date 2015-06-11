@@ -660,6 +660,8 @@ class UNREALTOURNAMENT_API FNetworkPredictionData_Client_UTChar : public FNetwor
 public:
 	typedef FNetworkPredictionData_Client_Character Super;
 
+	FNetworkPredictionData_Client_UTChar( const UCharacterMovementComponent& ClientMovement ) : FNetworkPredictionData_Client_Character( ClientMovement ) {}
+
 	/** Allocate a new saved move. Subclasses should override this if they want to use a custom move class. */
 	virtual FSavedMovePtr AllocateNewMove() override;
 };

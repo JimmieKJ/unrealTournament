@@ -260,9 +260,13 @@ public:
 	virtual void OnRep_ReplicatedBasedMovement();
 
 protected:
-	/** Desired translation offset of mesh. */
+	/** Saved translation offset of mesh. */
 	UPROPERTY()
 	FVector BaseTranslationOffset;
+
+	/** Saved rotation offset of mesh. */
+	UPROPERTY()
+	FQuat BaseRotationOffset;
 
 	/** Event called after actor's base changes (if SetBase was requested to notify us with bNotifyPawn). */
 	virtual void BaseChange();
@@ -289,8 +293,11 @@ public:
 	/** Returns ReplicatedMovementMode */
 	uint8 GetReplicatedMovementMode() const { return ReplicatedMovementMode; }
 
-	/** @return Desired translation offset of mesh. */
+	/** @return Saved translation offset of mesh. */
 	const FVector& GetBaseTranslationOffset() const { return BaseTranslationOffset; }
+
+	/** @return Saved rotation offset of mesh. */
+	const FQuat& GetBaseRotationOffset() const { return BaseRotationOffset; }
 
 	// Begin INavAgentInterface Interface
 	virtual FVector GetNavAgentLocation() const override;
