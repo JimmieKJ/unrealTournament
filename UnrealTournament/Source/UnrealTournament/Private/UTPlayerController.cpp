@@ -2518,8 +2518,8 @@ void AUTPlayerController::ReceivedPlayer()
 			}
 		}
 
-		IOnlineSubsystemPtr OnlineSub = IOnlineSubsystem::Get();
-		if (OnlineSub.IsValid())
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub != nullptr)
 		{
 			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSub->GetIdentityInterface();
 			if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
