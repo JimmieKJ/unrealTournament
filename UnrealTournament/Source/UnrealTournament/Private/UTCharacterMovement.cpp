@@ -1187,11 +1187,6 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 		{
 			FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
-			if (UTCharOwner->bApplyWallSlide && UTCharOwner->bCanPlayWallHitSound)
-			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), UTCharOwner->WallHitSound, CharacterOwner, SRT_None);
-				UTCharOwner->bCanPlayWallHitSound = false;
-			}
 		}
 	}
 }

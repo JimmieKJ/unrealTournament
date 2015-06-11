@@ -117,7 +117,6 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
-	bCanPlayWallHitSound = true;
 
 	SprintAmbientStartSpeed = 1000.f;
 	FallingAmbientStartSpeed = -1300.f;
@@ -2600,7 +2599,6 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		}
 		else if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
-			bCanPlayWallHitSound = true;
 			MovementEventUpdated(bPotentialWallDodge ? EME_WallDodge : EME_Dodge, DodgeDir);
 			return true;
 		}
@@ -2760,7 +2758,6 @@ void AUTCharacter::OnWallDodge_Implementation(const FVector& DodgeLocation, cons
 
 void AUTCharacter::OnDodge_Implementation(const FVector& DodgeLocation, const FVector &DodgeDir)
 {
-	bCanPlayWallHitSound = true;
 	FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
 	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
 	FVector Y = TurnRotMatrix.GetScaledAxis(EAxis::Y);
@@ -2821,7 +2818,6 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 			}
 		}
 
-		bCanPlayWallHitSound = true;
 		if (Role == ROLE_Authority)
 		{
 			MakeNoise(FMath::Clamp<float>(GetCharacterMovement()->Velocity.Z / (MaxSafeFallSpeed * -0.5f), 0.0f, 1.0f));
@@ -3400,7 +3396,11 @@ void AUTCharacter::Tick(float DeltaTime)
 		else
 		{
 			SetLocalAmbientSound(FallingAmbientSound, 0.f, true);
-			if (GetCharacterMovement()->IsMovingOnGround() && (GetCharacterMovement()->Velocity.Size2D() > SprintAmbientStartSpeed))
+			if (bApplyWallSlide)
+			{
+				SetLocalAmbientSound(WallSlideAmbientSound, 1.f, false);
+			}
+			else if (GetCharacterMovement()->IsMovingOnGround() && (GetCharacterMovement()->Velocity.Size2D() > SprintAmbientStartSpeed))
 			{
 				float NewLocalAmbientVolume = FMath::Min(1.f, (GetCharacterMovement()->Velocity.Size2D() - SprintAmbientStartSpeed) / (UTCharacterMovement->SprintSpeed - SprintAmbientStartSpeed));
 				LocalAmbientVolume = LocalAmbientVolume*(1.f - DeltaTime) + NewLocalAmbientVolume*DeltaTime;
@@ -3413,6 +3413,7 @@ void AUTCharacter::Tick(float DeltaTime)
 			}
 			else
 			{
+				SetLocalAmbientSound(WallSlideAmbientSound, 0.f, true);
 				SetLocalAmbientSound(SprintAmbientSound, 0.f, true);
 			}
 		}

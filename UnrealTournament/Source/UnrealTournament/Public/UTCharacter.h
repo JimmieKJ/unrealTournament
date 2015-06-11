@@ -1098,8 +1098,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* PainSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* WallHitSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* FloorSlideSound;
 
 	//================================
@@ -1161,6 +1159,10 @@ public:
 
 	//===============================
 
+	/** Ambient sound played while wall sliding */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* WallSlideAmbientSound;
+
 	/** Ambient sound played while sprinting */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* SprintAmbientSound;
@@ -1185,10 +1187,6 @@ public:
 	/** Last time we handled  wall hit for gameplay (damage,sound, etc.) */
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	float LastWallHitNotifyTime;
-
-	/** Whether can play wall hit sound - true when it hasn't yet been played for this fall */
-	UPROPERTY(BlueprintReadWrite, Category = Sounds)
-	bool bCanPlayWallHitSound;
 
 	/** sets character overlay material; material must be added to the UTGameState's OverlayMaterials at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but only one will be displayed at a time
