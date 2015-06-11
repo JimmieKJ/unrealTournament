@@ -1378,6 +1378,17 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
 	FVector CrouchEyeOffset;
 
+	/** Default crouched eye height */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Camera)
+		float DefaultCrouchedEyeHeight;
+
+	/** Default crouched eye height */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Camera)
+		float FloorSlideEyeHeight;
+
+	/** Transition between regular and floor slide crouched eyeheight. */
+	virtual void UpdateCrouchedEyeHeight();
+
 	/** Target Eye position offset from base view position. */
 	UPROPERTY(BlueprintReadWrite, Category = WeaponBob)
 	FVector TargetEyeOffset;

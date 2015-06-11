@@ -52,6 +52,8 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	DefaultBaseEyeHeight = 60.f;
 	BaseEyeHeight = DefaultBaseEyeHeight;
 	CrouchedEyeHeight = 40.f;
+	DefaultCrouchedEyeHeight = 40.f;
+	FloorSlideEyeHeight = 5.f;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
@@ -359,6 +361,7 @@ void AUTCharacter::GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositi
 
 void AUTCharacter::RecalculateBaseEyeHeight()
 {
+	CrouchedEyeHeight = (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding) ? FloorSlideEyeHeight : DefaultCrouchedEyeHeight;
 	BaseEyeHeight = (bIsCrouched || (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)) ? CrouchedEyeHeight : DefaultBaseEyeHeight;
 }
 
@@ -378,12 +381,21 @@ void AUTCharacter::UnCrouch(bool bClientSimulation)
 	}
 }
 
+void AUTCharacter::UpdateCrouchedEyeHeight()
+{
+	float StartBaseEyeHeight = BaseEyeHeight;
+	RecalculateBaseEyeHeight();
+	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight;
+	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);
+}
+
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
+	float StartBaseEyeHeight = BaseEyeHeight;
 	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
-	CrouchEyeOffset.Z += CrouchedEyeHeight - DefaultBaseEyeHeight - HeightAdjust;
+	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight - HeightAdjust;
 	OldZ = GetActorLocation().Z;
-	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
+	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);
 }
 
 void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
@@ -393,10 +405,11 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 		// early out - it's a crouch while already sliding
 		return;
 	}
+	float StartBaseEyeHeight = BaseEyeHeight;
 	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
-	CrouchEyeOffset.Z += DefaultBaseEyeHeight - CrouchedEyeHeight + HeightAdjust;
+	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight + HeightAdjust;
 	OldZ = GetActorLocation().Z;
-	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, CrouchedEyeHeight),false);
+	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);
 
 	// Kill any montages that might be overriding the crouch anim
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();

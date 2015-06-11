@@ -696,7 +696,6 @@ void UUTCharacterMovement::HandleUnCrouchRequest()
 
 void UUTCharacterMovement::Crouch(bool bClientSimulation)
 {
-	Super::Crouch(bClientSimulation);
 	if (bPressedSlide)
 	{
 		if (IsMovingOnGround())
@@ -707,6 +706,7 @@ void UUTCharacterMovement::Crouch(bool bClientSimulation)
 		bPressedSlide = false;
 		return;
 	}
+	Super::Crouch(bClientSimulation);
 }
 
 void UUTCharacterMovement::PerformFloorSlide(const FVector& DodgeDir)
@@ -1111,6 +1111,7 @@ void UUTCharacterMovement::CheckJumpInput(float DeltaTime)
 			AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 			if (UTCharacterOwner)
 			{
+				UTCharacterOwner->UpdateCrouchedEyeHeight();
 				UTCharacterOwner->DesiredJumpBob = FVector(0.f);
 			}
 		}
