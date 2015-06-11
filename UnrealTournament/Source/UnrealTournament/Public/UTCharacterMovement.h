@@ -548,9 +548,9 @@ public:
 	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
 	float MinWallSlideSpeed;
 
-	/** Maximum dot product of acceleration and wall normal (more negative means accel pushing more into wall) */
+	/** Maximum dist to wall for wallslide to continue */
 	UPROPERTY(Category = "Wall Slide", EditAnywhere, BlueprintReadWrite)
-	float MaxSlideAccelNormal;
+		float MaxSlideWallDist;
 
 	/** If true, the player is against the wall and WallSlideNormal will describe the touch. */
 	UPROPERTY(Category = "Wall Slide", BlueprintReadOnly)

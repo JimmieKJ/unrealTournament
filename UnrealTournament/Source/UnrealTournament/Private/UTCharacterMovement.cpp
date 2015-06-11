@@ -84,11 +84,11 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	WallDodgeImpulseHorizontal = 1350.f; 
 	WallDodgeImpulseVertical = 470.f; 
 
-	MaxSlideRiseZ = 200.f;
+	MaxSlideRiseZ = 400.f;
 	MaxSlideFallZ = -180.f;
 	SlideGravityScaling = 0.16f;
 	MinWallSlideSpeed = 500.f;
-	MaxSlideAccelNormal = 0.f;
+	MaxSlideWallDist = 20.f;
 
 	NavAgentProps.bCanCrouch = true;
 
@@ -1189,7 +1189,7 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 	if (UTCharOwner)
 	{
 		UTCharOwner->bApplyWallSlide = false;
-		if (bWantsWallSlide && (Velocity.Z < MaxSlideRiseZ) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && ((Acceleration.GetSafeNormal() | Impact.ImpactNormal) < MaxSlideAccelNormal))
+		if (bWantsWallSlide && (Velocity.Z < MaxSlideRiseZ) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero())
 		{
 			FVector VelocityAlongWall = Velocity + (Velocity | Impact.ImpactNormal);
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);
@@ -1386,10 +1386,6 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	}
 	bool bSkipLandingAssist = true;
 	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
-	if (UTCharOwner)
-	{
-		UTCharOwner->bApplyWallSlide = false;
-	}
 	FHitResult Hit(1.f);
 	bIsAgainstWall = false;
 	if (!HasRootMotion())
@@ -1400,10 +1396,16 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		{
 			TickAirControl = 0.0f;
 		}
-		if (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f)
+		bool bCheckWallSlide = false;
+		if (UTCharOwner)
+		{
+			bCheckWallSlide = UTCharOwner->bApplyWallSlide;
+			UTCharOwner->bApplyWallSlide = false;
+		}
+		if (bCheckWallSlide || (TickAirControl > 0.0f && FallAcceleration.SizeSquared() > 0.f))
 		{
 			const float TestWalkTime = FMath::Max(deltaTime, 0.05f);
-			const FVector TestWalk = ((TickAirControl * GetMaxAcceleration() * FallAcceleration.GetSafeNormal() + FVector(0.f, 0.f, GetGravityZ())) * TestWalkTime + Velocity) * TestWalkTime;
+			const FVector TestWalk = bCheckWallSlide ? -1.f * WallSlideNormal * MaxSlideWallDist : ((TickAirControl * GetMaxAcceleration() * FallAcceleration.GetSafeNormal() + FVector(0.f, 0.f, GetGravityZ())) * TestWalkTime + Velocity) * TestWalkTime;
 			if (!TestWalk.IsZero())
 			{
 				static const FName FallingTraceParamsTag = FName(TEXT("PhysFalling"));
@@ -1423,8 +1425,16 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 						// We are against the wall, store info about it
 						bIsAgainstWall = true;
 						WallSlideNormal = Result.Normal;
-						TickAirControl = 0.f;
 						CheckWallSlide(Result);
+						if (UTCharOwner && UTCharOwner->bApplyWallSlide)
+						{
+							TickAirControl = (CurrentMultiJumpCount < 1) ? AirControl : MultiJumpAirControl;
+							FallAcceleration = FallAcceleration - FMath::Max(0.f, (FallAcceleration | WallSlideNormal)) * WallSlideNormal - Result.Time * FallAcceleration.Size() * WallSlideNormal;
+						}
+						else
+						{
+							TickAirControl = 0.f;
+						}
 					}
 				}
 			}
