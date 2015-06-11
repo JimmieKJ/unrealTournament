@@ -59,6 +59,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	PickupMessageString = NSLOCTEXT("PickupMessage", "ItemPickedUp", "Item snagged.");
 	bHasTacComView = false;
 	TeamSide = 255;
+	bOverride_TeamSide = false;
 }
 
 void AUTPickup::SetTacCom(bool bTacComEnabled)

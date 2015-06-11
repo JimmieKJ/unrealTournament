@@ -141,7 +141,9 @@ bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
 void UUTHUDWidget_SpectatorSlideOut::InitPowerupList()
 {
 	bPowerupListInitialized = true;
-	TArray<UClass *> PickupClasses;
+	TMap<UClass*, TArray<AUTPickupInventory*> > PickupGroups;
+
+	//Add Powerups to the PowerupList, collect any without bOverride_TeamSide
 	for (FActorIterator It(GetWorld()); It; ++It)
 	{
 		AUTPickupInventory* Pickup = Cast<AUTPickupInventory>(*It);
@@ -150,36 +152,72 @@ void UUTHUDWidget_SpectatorSlideOut::InitPowerupList()
 			&& ((Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL) || Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass())))
 		{
 			PowerupList.Add(Pickup);
-			PickupClasses.AddUnique(Pickup->GetInventoryType()->GetClass());
-		}
-	}  
 
-	// now differentiate by team side if multiple of the same powerup
-	if (UTGameState)
-	{
-		for (int32 i = 0; i < PickupClasses.Num(); i++)
-		{
-			int32 Count = 0;
-			for (int32 j = 0; j < PowerupList.Num(); j++)
+			//Collect the Powerups without bOverride_TeamSide and group by class
+			if (!Pickup->bOverride_TeamSide)
 			{
-				if (PickupClasses[i] == PowerupList[j]->GetInventoryType()->GetClass())
-				{
-					Count++;
-				}
-			}
-			if (Count > 1)
-			{
-				for (int32 j = 0; j < PowerupList.Num(); j++)
-				{
-					if (PickupClasses[i] == PowerupList[j]->GetInventoryType()->GetClass())
-					{
-						// assign a team side  
-						PowerupList[j]->TeamSide = UTGameState->NearestTeamSide(PowerupList[j]);
-					}
-				}
+				TArray<AUTPickupInventory*>& PickupGroup = PickupGroups.FindOrAdd(Pickup->GetInventoryType());
+				PickupGroup.Add(Pickup);
 			}
 		}
 	}
+
+	//CTF specific auto teamside 
+	AUTCTFGameState* CTFGS = Cast<AUTCTFGameState>(UTGameState);
+	if (CTFGS != nullptr && CTFGS->FlagBases.Num() == 2 && CTFGS->FlagBases[0] != nullptr && CTFGS->FlagBases[1] != nullptr)
+	{
+		FVector FlagLoc0 = CTFGS->FlagBases[0]->GetActorLocation();
+		FVector FlagLoc1 = CTFGS->FlagBases[1]->GetActorLocation();
+		for (auto& Pair : PickupGroups)
+		{
+			TArray<AUTPickupInventory*>& PickupGroup = Pair.Value;
+
+			//Find the powerups that are symmetrical, set the team to the closest flag, remove from list
+			for (int32 i = 0; i < PickupGroup.Num(); ++i)
+			{
+				for (int32 j = i + 1; j < PickupGroup.Num(); ++j)
+				{
+					float SymError = FMath::Abs((PickupGroup[i]->GetActorLocation() - FlagLoc0).Size() - (PickupGroup[j]->GetActorLocation() - FlagLoc1).Size());
+					if (SymError < 300.f)
+					{
+						PickupGroup[i]->TeamSide = UTGameState->NearestTeamSide(PickupGroup[i]);
+						PickupGroup[j]->TeamSide = UTGameState->NearestTeamSide(PickupGroup[j]);
+						PickupGroup.RemoveAt(j);
+						PickupGroup.RemoveAt(i);
+						i--;
+						break;
+					}
+				}
+			}
+
+			//from the remaining check to see if they should be on a team or neutral
+			for (AUTPickupInventory* Pickup : PickupGroup)
+			{
+				float Dist0 = FVector::Dist(Pickup->GetActorLocation(), FlagLoc0);
+				float Dist1 = FVector::Dist(Pickup->GetActorLocation(), FlagLoc1);
+				float Total = Dist0 + Dist1;
+				Pickup->TeamSide = (FMath::Min(Dist0, Dist1) / Total > 0.4f) ? 255 : UTGameState->NearestTeamSide(Pickup);
+			}
+		}
+	}
+	//Default to just picking the nearest side
+	else
+	{
+		for (auto& Pair : PickupGroups)
+		{
+			for (AUTPickupInventory* Pickup : Pair.Value)
+			{
+				Pickup->TeamSide = UTGameState->NearestTeamSide(Pickup);
+			}
+		}
+	}
+
+	//Sort the list by team and by respawn time 
+	//TODO: powerup priority so different armors sort properly
+	PowerupList.Sort([](const AUTPickupInventory& A, const AUTPickupInventory& B) -> bool
+	{
+		return A.TeamSide > B.TeamSide || (A.TeamSide == B.TeamSide && A.RespawnTime > B.RespawnTime);
+	});
 }
 
 void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)

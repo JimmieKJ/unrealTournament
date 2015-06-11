@@ -163,9 +163,12 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	 */
 	virtual float GetRespawnTimeOffset(APawn* Asker) const;
 
+	/**Enables overriding the auto teamside for this pickup*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup, meta = (PinHiddenByDefault))
+	bool bOverride_TeamSide;
 	/** For spectator slide out - show which side this pickup is on when there are multiple. */
-	UPROPERTY(BlueprintReadWrite, Category = Pickup)
-		uint8 TeamSide;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Pickup, meta = (editcondition = bOverride_TeamSide))
+	uint8 TeamSide;
 
 protected:
 	/** last time pickup respawned, used by GetRespawnTimeOffset() */
