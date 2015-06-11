@@ -131,3 +131,7 @@ bool AUTDemoRecSpectator::CallRemoteFunction(UFunction* Function, void* Paramete
 		return false;
 	}
 }
+
+void AUTDemoRecSpectator::ClientTravelInternal_Implementation(const FString& URL, ETravelType TravelType, bool bSeamless, FGuid MapPackageGuid)
+{
+}

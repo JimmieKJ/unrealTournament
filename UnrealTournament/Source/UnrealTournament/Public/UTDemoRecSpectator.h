@@ -21,7 +21,9 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	virtual APlayerState* GetNextViewablePlayer(int32 dir) override;
 
 	virtual bool CallRemoteFunction(UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack) override;
-	
+
+	virtual void ClientTravelInternal_Implementation(const FString& URL, ETravelType TravelType, bool bSeamless, FGuid MapPackageGuid) override;
+
 	virtual void InitPlayerState() override
 	{
 		Super::InitPlayerState();
