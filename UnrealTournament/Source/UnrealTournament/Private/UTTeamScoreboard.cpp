@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTTeamScoreboard.h"
 #include "StatNames.h"
+#include "UTDemoRecSpectator.h"
 
 UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -68,7 +69,7 @@ void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 						DrawOffset += CellHeight;
 					}
 				} 
-				else if (Team == 0)
+				else if (Team == 0 && Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr)
 				{
 					NumSpectators++;
 				}

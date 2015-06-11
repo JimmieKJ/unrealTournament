@@ -8,6 +8,7 @@
 #include "UTWeapon.h"
 #include "UTWeap_Enforcer.h"
 #include "UTWeap_ImpactHammer.h"
+#include "UTDemoRecSpectator.h"
 
 UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -313,7 +314,7 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 					DrawOffset = YOffset;
 				}
 			}
-			else
+			else if (Cast<AUTDemoRecSpectator>(UTPlayerOwner) == nullptr)
 			{
 				NumSpectators++;
 			}
