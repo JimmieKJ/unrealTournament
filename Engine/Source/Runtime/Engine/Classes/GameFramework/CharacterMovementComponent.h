@@ -2006,6 +2006,21 @@ public:
 	/** Used for rotation smoothing in net games */
 	FQuat MeshRotationOffset;
 
+	/** Used for position smoothing in net games */
+	FVector OriginalMeshTranslationOffset;
+
+	/** Used for rotation smoothing in net games */
+	FQuat OriginalMeshRotationOffset;
+
+	/** Used for remembering how much time has passed between server corrections */
+	float LastCorrectionDelta;
+
+	/** Used to track how much time has elapsed since last correction */
+	float CurrentSmoothTime;
+
+	/** Used to signify that linear smoothing is desired */
+	bool bUseLinearSmoothing;
+
 	/** Maximum location correction distance for which other pawn positions on a client will be smoothly updated */
 	float MaxSmoothNetUpdateDist;
 
@@ -2013,10 +2028,12 @@ public:
 	If it is between MaxSmoothNetUpdateDist and NoSmoothNetUpdateDist, pop to MaxSmoothNetUpdateDist away from the updated location */
 	float NoSmoothNetUpdateDist;
 
-	/** How long to take to smoothly interpolate from the old pawn position on the client to the corrected one sent by the server.  Must be >= 0.0 */
+	/** How long to take to smoothly interpolate from the old pawn position on the client to the corrected one sent by the server.  Must be >= 0.0 
+	This variable isn't used when bUseLinearSmoothing = true */
 	float SmoothNetUpdateTime;
 
-	/** How long to take to smoothly interpolate from the old pawn rotation on the client to the corrected one sent by the server.  Must be >= 0.0 */
+	/** How long to take to smoothly interpolate from the old pawn rotation on the client to the corrected one sent by the server.  Must be >= 0.0
+	This variable isn't used when bUseLinearSmoothing = true */
 	float SmoothNetUpdateRotationTime;
 	
 	// how long server will wait for client move update before setting position
