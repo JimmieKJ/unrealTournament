@@ -815,6 +815,10 @@ void AUTPlayerController::DemoPause()
 	}
 }
 
+void AUTPlayerController::DemoTimeDilation(float DeltaAmount)
+{
+}
+
 void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -2514,13 +2518,17 @@ void AUTPlayerController::ReceivedPlayer()
 			}
 		}
 
-		IOnlineIdentityPtr OnlineIdentityInterface = (IOnlineSubsystem::Get() != NULL) ? IOnlineSubsystem::Get()->GetIdentityInterface() : NULL;
-		if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
+		IOnlineSubsystemPtr OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub.IsValid())
 		{
-			TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-			if (UserId.IsValid())
+			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSub->GetIdentityInterface();
+			if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 			{
-				ServerReceiveStatsID(UserId->ToString());
+				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+				if (UserId.IsValid())
+				{
+					ServerReceiveStatsID(UserId->ToString());
+				}
 			}
 		}
 
