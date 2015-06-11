@@ -77,6 +77,8 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	CastingGuideViewIndex = INDEX_NONE;
 
+	DilationIndex = 2;
+
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	SelectSound = PressedSelect.Object;
 
@@ -817,6 +819,18 @@ void AUTPlayerController::DemoPause()
 
 void AUTPlayerController::DemoTimeDilation(float DeltaAmount)
 {
+	static float DilationLUT[5] = { 0.1f, 0.5f, 1.0f, 2.0f, 4.0f };
+
+	if ( DeltaAmount > 0 )
+	{
+		DilationIndex = FMath::Clamp( DilationIndex + 1, 0, 4 );
+	}
+	else if ( DeltaAmount < 0 )
+	{
+		DilationIndex = FMath::Clamp( DilationIndex - 1, 0, 4 );
+	}
+
+	GetWorldSettings()->DemoPlayTimeDilation = DilationLUT[DilationIndex];
 }
 
 void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)

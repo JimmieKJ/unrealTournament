@@ -811,6 +811,8 @@ public:
 		virtual void ClientUpdateTeamStats(uint8 TeamNum, FName StatsName, float NewValue);
 
 	virtual void AdvanceStatsPage(int32 Increment);
+
+	int32 DilationIndex;
 };
 
 
