@@ -63,12 +63,14 @@ void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPri
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
 		if (PC != NULL)
 		{
-			PC->SendPersonalMessage(AirRocketRewardClass);
 			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+			int32 AirRoxCount = 0;
 			if (PS)
 			{
 				PS->ModifyStatsValue(NAME_AirRox, 1);
+				AirRoxCount = PS->GetStatsValue(NAME_AirRox);
 			}
+			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount);
 		}
 	}
 }

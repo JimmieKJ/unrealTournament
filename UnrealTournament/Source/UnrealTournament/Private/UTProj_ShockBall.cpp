@@ -189,8 +189,8 @@ void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* 
 	}
 	if ((ComboScore > 8.f) && (KillCount > 0))
 	{
-		PC->SendPersonalMessage(ComboRewardMessageClass);
 		PS->ModifyStatsValue(NAME_AmazingCombos, 1);
+		PC->SendPersonalMessage(ComboRewardMessageClass, PS->GetStatsValue(NAME_AmazingCombos));
 	}
 
 	ComboScore *= 100.f; // multiply since stats stored as int32
