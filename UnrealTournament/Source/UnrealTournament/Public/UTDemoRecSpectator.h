@@ -34,4 +34,10 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 		// don't do AddInactivePlayer() stuff for demo spectator
 		AController::CleanupPlayerState();
 	}
+
+	virtual void BeginPlay() override;
+	virtual void Destroyed() override;
+
+	UFUNCTION(Exec)
+	void ToggleReplayWindow();
 };

@@ -19,6 +19,7 @@ class SUTQuickMatch;
 class SUWLoginDialog;
 class SUWRedirectDialog;
 class SUWMapVoteDialog;
+class SUTReplayWindow;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
 
@@ -471,8 +472,13 @@ public:
 	// What is your role within the unreal community.
 	EUnrealRoles::Type CommunityRole;
 
-
-
+	//Replay Stuff
+#if !UE_SERVER
+	TSharedPtr<SUTReplayWindow> ReplayWindow;
+#endif
+	void OpenReplayWindow();
+	void CloseReplayWindow();
+	void ToggleReplayWindow();
 };
 
 

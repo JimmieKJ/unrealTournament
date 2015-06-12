@@ -135,3 +135,32 @@ bool AUTDemoRecSpectator::CallRemoteFunction(UFunction* Function, void* Paramete
 void AUTDemoRecSpectator::ClientTravelInternal_Implementation(const FString& URL, ETravelType TravelType, bool bSeamless, FGuid MapPackageGuid)
 {
 }
+
+void AUTDemoRecSpectator::BeginPlay()
+{
+	Super::BeginPlay();
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->OpenReplayWindow();
+	}
+}
+
+void AUTDemoRecSpectator::Destroyed()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->CloseReplayWindow();
+	}
+	Super::Destroyed();
+}
+
+void AUTDemoRecSpectator::ToggleReplayWindow()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->ToggleReplayWindow();
+	}
+}

@@ -387,6 +387,12 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Icon.Globe", new IMAGE_BRUSH("Icons/UT.Icon.Globe", Icon54x54));
 	}
 
+	//Replays
+	{
+		Style.Set("UT.Replay.Button.Play", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Play", Icon48x48));
+		Style.Set("UT.Replay.Button.Pause", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Pause", Icon48x48));
+	}
+
 	// ------------------------------------- OLD STUFF !!!!!!!
 
 

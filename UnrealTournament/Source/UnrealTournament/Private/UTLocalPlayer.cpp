@@ -29,12 +29,14 @@
 #include "Slate/SUTLoadoutMenu.h"
 #include "Slate/SUTBuyMenu.h"
 #include "Slate/SUWMapVoteDialog.h"
+#include "Slate/SUTReplayWindow.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Base64.h"
 #include "UTGameEngine.h"
+#include "Engine/DemoNetDriver.h"
 
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
@@ -2080,3 +2082,69 @@ void UUTLocalPlayer::CloseMapVote()
 #endif
 }
 
+void UUTLocalPlayer::OpenReplayWindow()
+{
+#if !UE_SERVER
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		if (!ReplayWindow.IsValid())
+		{
+			SAssignNew(ReplayWindow, SUTReplayWindow)
+				.PlayerOwner(this)
+				.DemoNetDriver(DemoDriver);
+
+			if (ReplayWindow.IsValid())
+			{
+				GEngine->GameViewport->AddViewportWidgetContent(ReplayWindow.ToSharedRef(), 60);
+			}
+
+			if (ReplayWindow.IsValid())
+			{
+				ReplayWindow->SetVisibility(EVisibility::Visible);
+
+				if (PlayerController)
+				{
+					PlayerController->bShowMouseCursor = true;
+					PlayerController->SetInputMode(FInputModeGameAndUI());
+				}
+			}
+		}
+	}
+#endif
+}
+
+void UUTLocalPlayer::CloseReplayWindow()
+{
+#if !UE_SERVER
+	if (ReplayWindow.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(ReplayWindow.ToSharedRef());
+		ReplayWindow.Reset();
+
+		if (PlayerController)
+		{
+			PlayerController->bShowMouseCursor = false;
+			PlayerController->SetInputMode(FInputModeGameOnly());
+		}
+	}
+#endif
+}
+
+void UUTLocalPlayer::ToggleReplayWindow()
+{
+#if !UE_SERVER
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver)
+	{
+		if (!ReplayWindow.IsValid())
+		{
+			OpenReplayWindow();
+		}
+		else
+		{
+			CloseReplayWindow();
+		}
+	}
+#endif
+}
