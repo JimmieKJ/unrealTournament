@@ -363,27 +363,14 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 		AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
 		if (UTChar && !UTChar->IsDead())
 		{
-			while (PlacementCounter < MaxPlayers)
-			{
-				FRotator AdjustmentAngle(0, AngleSlices * PlacementCounter, 0);
+			FRotator AdjustmentAngle(0, AngleSlices * PlacementCounter, 0);
 
-				PlacementCounter++;
+			PlacementCounter++;
 
-				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(FVector(200, 0, 0));
-				PlacementLoc.Z += UTChar->GetSimpleCollisionHalfHeight() * 1.1f;
+			FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(FVector(200, 0, 0));
+			PlacementLoc.Z += UTChar->GetSimpleCollisionHalfHeight() * 1.1f;
 
-				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(UTChar->GetSimpleCollisionRadius(), UTChar->GetSimpleCollisionHalfHeight());
-				static const FName NAME_FlagPlacement = FName(TEXT("FlagPlacement"));
-				FCollisionQueryParams CapsuleParams(NAME_FlagPlacement, false, this);
-				FCollisionResponseParams ResponseParam;
-				TArray<FOverlapResult> Overlaps;
-				bool bEncroached = GetWorld()->OverlapMultiByChannel(Overlaps, PlacementLoc, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
-				if (!bEncroached)
-				{
-					UTChar->SetActorLocation(PlacementLoc);
-					break;
-				}
-			}
+			UTChar->SetActorLocation(PlacementLoc);
 		}
 
 		if (PlacementCounter == 8)
