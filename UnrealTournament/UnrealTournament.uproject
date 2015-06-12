@@ -27,7 +27,11 @@
 		{
 			"Name": "SteamController",
 			"Enabled": false
-		}
+		},
+		{
+			"Name": "OculusAudio",
+			"Enabled": true
+		},
 	],
 	"EpicSampleNameHash": "0"
 }

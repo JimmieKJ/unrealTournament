@@ -50,6 +50,12 @@ public abstract class BaseWinPlatform : Platform
             SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3", SC.PlatformDir), "*", true, null, null, true);
         }
 
+        // Only staging Oculus Audio for win 64
+        if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
+        {
+            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Oculus/Audio", SC.PlatformDir), "*", true, null, null, true);
+        }
+
 		// Stage the bootstrap executable
 		if(!Params.NoBootstrapExe)
 		{
