@@ -328,6 +328,10 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY()
 	FVector TranslocTarget;
 
+	/** if set use serpentine movement for current move (when allowed by path being followed) */
+	UPROPERTY()
+	bool bUseSerpentineMovement;
+
 	/** aggression value for most recent combat action after all personality/enemy strength/squad/weapon modifiers */
 	UPROPERTY()
 	float CurrentAggression;
@@ -374,6 +378,9 @@ protected:
 	/** when bAdjusting is true, temporary intermediate move point that bot uses to get more on path or around minor avoidable obstacles */
 	UPROPERTY()
 	FVector AdjustLoc;
+	/** strafe direction when using serpentine movement */
+	UPROPERTY()
+	float SerpentineDir;
 public:
 	inline const FRouteCacheItem& GetMoveTarget() const
 	{
@@ -421,6 +428,7 @@ public:
 		{
 			AdjustLoc = NewAdjustLoc;
 			bAdjusting = true;
+			bUseSerpentineMovement = false;
 		}
 	}
 	inline void ClearMoveTarget()
@@ -702,6 +710,12 @@ public:
 	/** returns whether bot really wants to find a better weapon (i.e. because have none with ammo or current is a weak starting weapon) */
 	virtual bool NeedsWeapon();
 
+	/** called for each new move point to check for advanced movement options (strafing, dodge, translocator, etc) */
+	virtual void UpdateMovementOptions();
+	/** set default focus
+	 * note that decision code, special paths, etc can override by setting a higher priority focus item
+	 */
+	virtual void SetDefaultFocus();
 	/** if translocator available, consider translocation to a point along our current path */
 	virtual void ConsiderTranslocation();
 

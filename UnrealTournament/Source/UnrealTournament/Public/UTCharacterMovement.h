@@ -84,6 +84,8 @@ public:
 
 	virtual void UpdateBasedMovement(float DeltaSeconds) override;
 
+	virtual bool CheckFall(const FFindFloorResult& OldFloor, const FHitResult& Hit, const FVector& Delta, const FVector& OldLocation, float remainingTime, float timeTick, int32 Iterations, bool bMustJump) override;
+
 	/** If I'm on a lift, tell it to return */
 	virtual void OnUnableToFollowBaseMove(const FVector& DeltaPosition, const FVector& OldLocation, const FHitResult& MoveOnBaseHit) override;
 	

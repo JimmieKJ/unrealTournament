@@ -44,6 +44,14 @@ class UNREALTOURNAMENT_API UUTReachSpec : public UObject
 		return false;
 	}
 
+	/** return true to allow AI to jump/fall off ledges when following this path even if the R_JUMP reach flag is not set
+	 * useful if there is a faster route through this node available to jump-capable Pawns
+	 */
+	virtual bool AllowWalkOffLedges(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos) const
+	{
+		return false;
+	}
+
 	/** if not using a direct move, gives the ReachSpec the chance to override the points that the AI should move through to get from its current start to End (assumed reachable)
 	 * can be used to make sure the AI hits a required point, such as a trigger, a specific start spot for a jump or special move, etc
 	 * return false to use the default shortest poly route behavior

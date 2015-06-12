@@ -263,11 +263,6 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	TrackingPredictionError = MaxTrackingPredictionError;
 	AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
 
-	/*if (Skill < 3)
-		DodgeToGoalPct = 0;
-	else
-		DodgeToGoalPct = (Jumpiness * 0.5) + Skill / 6;*/
-
 	bLeadTarget = Skill >= 4.0f;
 	SetPeripheralVision();
 	HearingRadiusMult = FMath::Clamp<float>(Skill / 6.5f, 0.0f, 0.9f);
@@ -553,10 +548,7 @@ void AUTBot::Tick(float DeltaTime)
 								TranslocTarget = FVector::ZeroVector;
 								ClearFocus(SCRIPTEDMOVE_FOCUS_PRIORITY);
 							}
-							if (TranslocTarget.IsZero())
-							{
-								ConsiderTranslocation();
-							}
+							UpdateMovementOptions();
 						}
 					}
 
@@ -675,20 +667,7 @@ void AUTBot::Tick(float DeltaTime)
 			{
 				UE_LOG(UT, Warning, TEXT("%s (%s) failed to get an action from ExecuteWhatToDoNext()"), *GetName(), *PlayerState->PlayerName);
 			}
-			// set default focus
-			// note that decision code can override by setting a higher priority focus item
-			if (GetTarget() != NULL)
-			{
-				SetFocus(GetTarget());
-			}
-			else if (MoveTarget.Actor.IsValid())
-			{
-				SetFocus(MoveTarget.Actor.Get());
-			}
-			else
-			{
-				SetFocalPoint(MoveTarget.GetLocation(MyPawn)); // hmm, better in some situations, worse in others. Maybe periodically trace? Or maybe it doesn't matter because we'll have an enemy most of the time
-			}
+			SetDefaultFocus();
 		}
 
 		if (MoveTarget.IsValid() && GetPawn() != NULL)
@@ -706,7 +685,7 @@ void AUTBot::Tick(float DeltaTime)
 					float TotalDistance = 0.0f;
 					if (NavData->GetMovePoints(MyPawn->GetNavAgentLocation(), MyPawn, MyPawn->GetNavAgentPropertiesRef(), MoveTarget, RouteCache, MoveTargetPoints, CurrentPath, &TotalDistance))
 					{
-						ConsiderTranslocation();
+						UpdateMovementOptions();
 						MoveTimer = TotalDistance / FMath::Max<float>(100.0f, MyPawn->GetMovementComponent()->GetMaxSpeed()) + 1.0f;
 						if (Cast<APawn>(MoveTarget.Actor.Get()) != NULL)
 						{
@@ -722,9 +701,11 @@ void AUTBot::Tick(float DeltaTime)
 			if (MoveTarget.IsValid())
 			{
 				FVector TargetLoc = GetMovePoint();
+				SetFocalPoint(TargetLoc, EAIFocusPriority::Move); // lowest priority we use, only applied when nothing else or too low skill to strafe
 				if (GetCharacter() != NULL)
 				{
-					GetCharacter()->GetCharacterMovement()->bCanWalkOffLedges = (!CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP)) && (CurrentAction == NULL || CurrentAction->AllowWalkOffLedges());
+					GetCharacter()->GetCharacterMovement()->bCanWalkOffLedges = (!CurrentPath.IsSet() || (CurrentPath.ReachFlags & R_JUMP) || (CurrentPath.Spec.IsValid() && CurrentPath.Spec->AllowWalkOffLedges(CurrentPath, GetPawn(), GetMoveBasedPosition())))
+																				&& (CurrentAction == NULL || CurrentAction->AllowWalkOffLedges());
 				}
 				if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && GetCharacter()->GetCharacterMovement()->AirControl > 0.0f && GetCharacter()->GetCharacterMovement()->MaxWalkSpeed > 0.0f)
 				{
@@ -757,7 +738,43 @@ void AUTBot::Tick(float DeltaTime)
 					}
 					else if (MyPawn->GetMovementComponent() != NULL) // FIXME: remote redeemer doesn't set this, need to control a different way...
 					{
-						MyPawn->GetMovementComponent()->AddInputVector((TargetLoc - MyPawn->GetActorLocation()).GetSafeNormal2D());
+						FVector Accel = (TargetLoc - MyPawn->GetActorLocation()).GetSafeNormal2D();
+						if (bUseSerpentineMovement && GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
+						{
+							const FVector MyLoc = MyPawn->GetActorLocation();
+							const FVector PathDir = (TargetLoc - LastReachedMovePoint).GetSafeNormal();
+							const float MaxSideDist = CurrentPath.IsSet() ? FMath::Min<float>(CurrentPath.CollisionRadius, MyPawn->GetSimpleCollisionRadius() * 2.0f) : MyPawn->GetSimpleCollisionRadius();
+							const FVector Side = (PathDir ^ FVector(0.0f, 0.0f, 1.0f)) * MaxSideDist * SerpentineDir;
+							const FVector ClosestPoint = FMath::ClosestPointOnSegment(MyLoc, LastReachedMovePoint, TargetLoc);
+							float DistFromStrafeGoal = (ClosestPoint - MyLoc).Size();
+							if ((Side | (MyLoc - ClosestPoint)) < 0.0f)
+							{
+								DistFromStrafeGoal += MaxSideDist;
+							}
+							else
+							{
+								DistFromStrafeGoal = MaxSideDist - DistFromStrafeGoal;
+							}
+							if (DistFromStrafeGoal < 0.0f)
+							{
+								// switch directions
+								SerpentineDir *= -1.0f;
+							}
+							else if (DistFromStrafeGoal * 2.0f < (TargetLoc - MyLoc).Size())
+							{
+								// make sure strafe adjustment stays on the navmesh
+								if (!NavData->RaycastWithZCheck(GetPawn()->GetNavAgentLocation(), ClosestPoint + Side.GetSafeNormal() * (Side.Size() + MyPawn->GetSimpleCollisionRadius())))
+								{
+									Accel = (Accel + Side.GetSafeNormal()).GetSafeNormal();
+								}
+								else
+								{
+									// TODO: maybe make up for no strafe by dodging?
+									bUseSerpentineMovement = false;
+								}
+							}
+						}
+						MyPawn->GetMovementComponent()->AddInputVector(Accel);
 					}
 				}
 			}
@@ -816,6 +833,75 @@ void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FC
 	MoveTimer = FMath::Max<float>(MoveTimer, 1.0f);
 }
 
+void AUTBot::UpdateMovementOptions()
+{
+	bUseSerpentineMovement = false;
+	SerpentineDir = (FMath::FRand() < 0.5f) ? 1.0f : -1.0f;
+	if (GetEnemy() != NULL && Skill + Personality.MovementAbility > 2.7f + FMath::FRand())
+	{
+		if (GetFocusActor() == Enemy || IsEnemyVisible(Enemy) || HasOtherVisibleEnemy() || GetWorld()->TimeSeconds - GetEnemyInfo(Enemy, false)->LastSeenTime < 2.0f)
+		{
+			bUseSerpentineMovement = true;
+		}
+		// if alert enough, check if any enemy I know about can probably see/shoot me
+		else if (Skill + Personality.Alertness > 3.7f + FMath::FRand() || FMath::FRand() < Personality.Alertness)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			const TArray<const FBotEnemyInfo>& EnemyList = (PS != NULL && PS->Team != NULL) ? PS->Team->GetEnemyList() : *(const TArray<const FBotEnemyInfo>*)&LocalEnemyList;
+			for (const FBotEnemyInfo& EnemyEntry : EnemyList)
+			{
+				if ( EnemyEntry.IsValid() && GetWorld()->TimeSeconds - EnemyEntry.LastFullUpdateTime < 1.0f &&
+					(GetWorld()->TimeSeconds - EnemyEntry.LastSeenTime < 2.0f || GetWorld()->LineTraceTestByChannel(EnemyEntry.LastKnownLoc, GetPawn()->GetActorLocation(), ECC_Visibility)) )
+				{
+					bUseSerpentineMovement = true;
+					break;
+				}
+			}
+		}
+	}
+
+	ConsiderTranslocation();
+
+	// if moving evasively, check if should dodge to move target
+	if ( bUseSerpentineMovement && Skill >= 3.0f && GetUTChar() != NULL && MoveTarget.IsValid() && (CurrentPath.IsSet() || (Enemy != NULL && MoveTarget.Actor.Get() == Enemy)) && CurrentPath.Spec.Get() == NULL && CurrentPath.ReachFlags == 0 &&
+		((MoveTarget.Actor.Get() != NULL && MoveTarget.Actor->GetRootComponent()->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Overlap) || (GetMovePoint() - GetPawn()->GetActorLocation()).Size() > GetUTChar()->UTCharacterMovement->DodgeImpulseHorizontal * 0.5f) )
+	{
+		const FVector MoveDir = (GetMovePoint() - GetPawn()->GetActorLocation()).GetSafeNormal();
+		float DodgeChance = Skill * 0.05f + Personality.Jumpiness * 0.5f;
+		// more likely to dodge to the side
+		float Angle = FMath::Abs<float>(MoveDir | GetPawn()->GetActorRotation().Vector());
+		if (Angle < 0.75f && Angle > 0.25f)
+		{
+			DodgeChance *= 2.0f;
+		}
+		else if (GetUTChar()->UTCharacterMovement->bIsSprinting)
+		{
+			// dodge will nullify sprinting bonus so reduce chance
+			DodgeChance *= 0.5f;
+		}
+		if (FMath::FRand() < DodgeChance)
+		{
+			FRotationMatrix RotMat(GetPawn()->GetActorRotation());
+			FVector DodgeDirs[] = { RotMat.GetUnitAxis(EAxis::X), -RotMat.GetUnitAxis(EAxis::X), RotMat.GetUnitAxis(EAxis::Y), -RotMat.GetUnitAxis(EAxis::Y) };
+			float BestAngle = -1.0f;
+			int32 BestIndex = INDEX_NONE;
+			for (int32 i = 0; i < ARRAY_COUNT(DodgeDirs); i++)
+			{
+				float Angle = DodgeDirs[i] | MoveDir;
+				if (Angle > BestAngle)
+				{
+					BestIndex = i;
+					BestAngle = Angle;
+				}
+			}
+			checkSlow(BestIndex != INDEX_NONE);
+			GetUTChar()->Dodge(DodgeDirs[BestIndex].GetSafeNormal2D(), (DodgeDirs[BestIndex] ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal());
+		}
+	}
+	
+	SetDefaultFocus();
+}
+
 void AUTBot::ConsiderTranslocation()
 {
 	// consider translocating if can't hit current target from where we are anyway
@@ -858,6 +944,33 @@ void AUTBot::ConsiderTranslocation()
 			// force immediate full aim update so bot doesn't throw to wrong location initially
 			LastTacticalAimUpdateTime = -1.0f;
 		}
+	}
+}
+
+void AUTBot::SetDefaultFocus()
+{
+	const bool bStrafeCheck = !MoveTarget.IsValid() || Skill + Personality.MovementAbility > 1.7f + FMath::FRand();
+	const FVector MoveDir = (GetMovePoint() - GetPawn()->GetActorLocation()).GetSafeNormal();
+	if (GetTarget() != NULL && bLastCanAttackSuccess && (bStrafeCheck || ((GetTarget()->GetTargetLocation() - GetPawn()->GetActorLocation()).GetSafeNormal() | MoveDir) > 0.85f))
+	{
+		SetFocus(GetTarget());
+	}
+	else if (Enemy != NULL && GetWorld()->TimeSeconds - FMath::Max<float>(LastEnemyChangeTime, GetEnemyInfo(Enemy, false)->LastSeenTime) < 3.0f && (bStrafeCheck || ((GetEnemyLocation(Enemy, false) - GetPawn()->GetActorLocation()).GetSafeNormal() | MoveDir) > 0.85f))
+	{
+		SetFocus(Enemy);
+	}
+	else if (Enemy != NULL && GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->bMeleeWeapon)
+	{
+		SetFocus(Enemy);
+	}
+	else if (MoveTarget.Actor.IsValid())
+	{
+		SetFocus(MoveTarget.Actor.Get());
+	}
+	else
+	{
+		// the movement code automatically sets Move priority (pri 1, below gameplay) to where we are going
+		ClearFocus(EAIFocusPriority::Gameplay);
 	}
 }
 
@@ -1413,8 +1526,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 							{
 								if (!GetWorld()->LineTraceTestByChannel(MyLoc, TestLocs[i], ECC_Pawn, Params))
 								{
-									AdjustLoc = TestLocs[i];
-									bAdjusting = true;
+									SetAdjustLoc(TestLocs[i]);
 									bGotAdjustLoc = true;
 									break;
 								}
@@ -1445,8 +1557,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 							{
 								if (!GetWorld()->LineTraceTestByChannel(MyLoc, TestLocs[i], ECC_Pawn, Params))
 								{
-									AdjustLoc = TestLocs[i];
-									bAdjusting = true;
+									SetAdjustLoc(TestLocs[i]);
 									bGotAdjustLoc = true;
 									break;
 								}
@@ -3399,12 +3510,12 @@ float AUTBot::RateEnemy(const FBotEnemyInfo& EnemyInfo)
 		if (bThreatVisible)
 		{
 			ThreatValue += 1.0f;
-			ThreatValue += FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime / 2.0f));
+			ThreatValue += FMath::Max<float>(0.0f, 1.0f - ((GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime) / 2.0f));
 		}
 		else if (bThreatAttackable)
 		{
 			ThreatValue += 0.5f;
-			ThreatValue += FMath::Max<float>(0.0f, 1.0f - (GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime / 2.0f)) * 0.5f;
+			ThreatValue += FMath::Max<float>(0.0f, 1.0f - ((GetWorld()->TimeSeconds - EnemyInfo.LastHitByTime) / 2.0f)) * 0.5f;
 		}
 		if (Enemy != NULL && EnemyInfo.GetPawn() != Enemy)
 		{
@@ -3416,7 +3527,7 @@ float AUTBot::RateEnemy(const FBotEnemyInfo& EnemyInfo)
 				}
 				else
 				{
-					ThreatValue -= 2.0f;
+					ThreatValue -= 2.0f * FMath::Min<float>(1.0f, Dist / 3300.0f);
 				}
 			}
 			else if (GetWorld()->TimeSeconds - GetEnemyInfo(Enemy, false)->LastSeenTime > 2.0f)

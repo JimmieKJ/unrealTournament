@@ -91,6 +91,12 @@ class UNREALTOURNAMENT_API UUTReachSpec_Lift : public UUTReachSpec
 		}
 	}
 
+	virtual bool AllowWalkOffLedges(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos) const
+	{
+		// allow jumping onto lift center regardless of path
+		return (MovePos.Base == Lift.Get()->GetEncroachComponent());
+	}
+
 	virtual bool GetMovePoints(const FUTPathLink& OwnerLink, const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const
 	{
 		if (bEntryPath)

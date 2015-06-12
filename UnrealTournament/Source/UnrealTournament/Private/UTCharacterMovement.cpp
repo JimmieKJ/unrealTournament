@@ -205,6 +205,21 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 	}
 }
 
+bool UUTCharacterMovement::CheckFall(const FFindFloorResult& OldFloor, const FHitResult& Hit, const FVector& Delta, const FVector& OldLocation, float remainingTime, float timeTick, int32 Iterations, bool bMustJump)
+{
+	bool bResult = Super::CheckFall(OldFloor, Hit, Delta, OldLocation, remainingTime, timeTick, Iterations, bMustJump);
+	if (!bResult)
+	{
+		// abort bot's move since it can't go any further
+		AUTBot* B = Cast<AUTBot>(CharacterOwner->Controller);
+		if (B != NULL)
+		{
+			B->MoveTimer = FMath::Min<float>(B->MoveTimer, -1.0f);
+		}
+	}
+	return bResult;
+}
+
 void UUTCharacterMovement::OnUnableToFollowBaseMove(const FVector& DeltaPosition, const FVector& OldLocation, const FHitResult& MoveOnBaseHit)
 {
 	UPrimitiveComponent* MovementBase = CharacterOwner->GetMovementBase();
