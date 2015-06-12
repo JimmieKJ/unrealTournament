@@ -533,7 +533,7 @@ void FXAudio2SoundSource::GetChannelVolumes( float ChannelVolumes[CHANNELOUT_COU
 
 void FXAudio2SoundSource::GetMonoChannelVolumes(float ChannelVolumes[CHANNELOUT_COUNT], float AttenuatedVolume)
 {
-	if (IsUsingDefaultSpatializer())
+	if (IsUsingDefaultSpatializer() || WaveInstance->bUseSpatialization == 0)
 	{
 		// Calculate direction from listener to sound, where the sound is at the origin if unspatialised.
 		FVector Direction = FVector::ZeroVector;
