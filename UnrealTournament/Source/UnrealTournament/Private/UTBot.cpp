@@ -869,8 +869,8 @@ void AUTBot::UpdateMovementOptions()
 		const FVector MoveDir = (GetMovePoint() - GetPawn()->GetActorLocation()).GetSafeNormal();
 		float DodgeChance = Skill * 0.05f + Personality.Jumpiness * 0.5f;
 		// more likely to dodge to the side
-		float Angle = FMath::Abs<float>(MoveDir | GetPawn()->GetActorRotation().Vector());
-		if (Angle < 0.75f && Angle > 0.25f)
+		float AngleToPath = FMath::Abs<float>(MoveDir | GetPawn()->GetActorRotation().Vector());
+		if (AngleToPath < 0.75f && AngleToPath > 0.25f)
 		{
 			DodgeChance *= 2.0f;
 		}
