@@ -13,6 +13,7 @@
 #include "UTPickupHealth.h"
 #include "UTSquadAI.h"
 #include "UTReachSpec_HighJump.h"
+#include "UTAvoidMarker.h"
 
 void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc)
 {
@@ -772,6 +773,37 @@ void AUTBot::Tick(float DeltaTime)
 									// TODO: maybe make up for no strafe by dodging?
 									bUseSerpentineMovement = false;
 								}
+							}
+						}
+						// adjust direction to avoid active FearSpots
+						FVector FearAdjust(FVector::ZeroVector);
+						for (int32 i = FearSpots.Num() - 1; i >= 0; i--)
+						{
+							if (FearSpots[i] == NULL || FearSpots[i]->bPendingKillPending || !GetPawn()->IsOverlappingActor(FearSpots[i]))
+							{
+								FearSpots.RemoveAt(i);
+							}
+							else
+							{
+								FearAdjust += (GetPawn()->GetActorLocation() - FearSpots[i]->GetActorLocation()) / FearSpots[i]->GetSimpleCollisionRadius();
+							}
+						}
+						if (!FearAdjust.IsZero())
+						{
+							FearAdjust.Normalize();
+							float FearToDesiredAngle = (FearAdjust | Accel);
+							if (FearToDesiredAngle < 0.7f)
+							{
+								if (FearToDesiredAngle < -0.7f)
+								{
+									const FVector LeftDir = (Accel ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
+									FearAdjust = 2.f * LeftDir;
+									if ((LeftDir | FearAdjust) < 0.f)
+									{
+										FearAdjust *= -1.f;
+									}
+								}
+								Accel = (Accel + FearAdjust).GetSafeNormal();
 							}
 						}
 						MyPawn->GetMovementComponent()->AddInputVector(Accel);
@@ -3310,6 +3342,14 @@ void AUTBot::ProcessIncomingWarning()
 	}
 	WarningProj = NULL;
 	WarningShooter = NULL;
+}
+
+void AUTBot::AddFearSpot(AUTAvoidMarker* NewSpot)
+{
+	if (GetPawn() != NULL && Skill + Personality.Alertness > 1.0f + 4.5f * FMath::FRand() && LineOfSightTo(NewSpot))
+	{
+		FearSpots.Add(NewSpot);
+	}
 }
 
 bool AUTBot::TryEvasiveAction(FVector DuckDir)

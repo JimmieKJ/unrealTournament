@@ -381,6 +381,9 @@ protected:
 	/** strafe direction when using serpentine movement */
 	UPROPERTY()
 	float SerpentineDir;
+	/** markers that AI should try to adjust its movement around while pathing (temporary danger spots) */
+	UPROPERTY()
+	TArray<class AUTAvoidMarker*> FearSpots;
 public:
 	inline const FRouteCacheItem& GetMoveTarget() const
 	{
@@ -513,6 +516,10 @@ public:
 	 * pass a shooter with NULL for projectile for instant hit warnings
 	 */
 	virtual void SetWarningTimer(AUTProjectile* Incoming, AUTCharacter* Shooter, float TimeToImpact);
+
+	/** adds a new spot to the FearSpots list after skill checks, etc */
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = AI)
+	virtual void AddFearSpot(class AUTAvoidMarker* NewSpot);
 protected:
 	/** projectile for ProcessIncomingWarning() call on a pending timer */
 	UPROPERTY()

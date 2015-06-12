@@ -9,6 +9,7 @@
 #include "UTProjectileMovementComponent.h"
 #include "StatNames.h"
 #include "UTRewardMessage.h"
+#include "UTAvoidMarker.h"
 
 AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -136,6 +137,11 @@ bool AUTProj_BioShot::DisableEmitterLights() const
 void AUTProj_BioShot::Destroyed()
 {
 	Super::Destroyed();
+
+	if (FearSpot != NULL)
+	{
+		FearSpot->Destroy();
+	}
 
 	while (WebLinks.Num() > 0)
 	{
@@ -616,6 +622,9 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 				bReplicateUTMovement = true;
 				RemainingLife = RestTime + (GlobStrength - 1.f) * ExtraRestTimePerStrength;
 				SetGlobStrength(GlobStrength);
+				FActorSpawnParameters Params;
+				Params.Owner = this;
+				FearSpot = GetWorld()->SpawnActor<AUTAvoidMarker>(GetActorLocation(), GetActorRotation(), Params);
 			}
 			else if (BioMesh)
 			{
@@ -761,6 +770,17 @@ void AUTProj_BioShot::Track(AUTCharacter* NewTrackedPawn)
 		{
 			ProjectileMovement->Velocity = 1.5f*ProjectileMovement->BounceVelocityStopSimulatingThreshold * (ProjectileMovement->HomingTargetComponent->GetComponentLocation() - GetActorLocation()).GetSafeNormal();
 		}
+
+		if (FearSpot != NULL)
+		{
+			FearSpot->Destroy();
+		}
+		// warn AI of incoming projectile
+		AUTBot* B = Cast<AUTBot>(TrackedPawn->Controller);
+		if (B != NULL)
+		{
+			B->ReceiveProjWarning(this);
+		}
 	}
 }
 
@@ -786,6 +806,12 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			ProjectileMovement->bIsHomingProjectile = false;
 			TrackedPawn = NULL;
 			bLanded = true;
+			if (FearSpot == NULL)
+			{
+				FActorSpawnParameters Params;
+				Params.Owner = this;
+				FearSpot = GetWorld()->SpawnActor<AUTAvoidMarker>(GetActorLocation(), GetActorRotation(), Params);
+			}
 		}
 	}
 	else
