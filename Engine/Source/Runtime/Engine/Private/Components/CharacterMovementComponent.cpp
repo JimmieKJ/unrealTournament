@@ -5583,8 +5583,6 @@ void UCharacterMovementComponent::SmoothCorrection(const FVector& OldLocation, c
 	{
 		if (!ClientData->bUseLinearSmoothing && GetWorld() && GetWorld()->DemoNetDriver && GetWorld()->DemoNetDriver->ServerConnection)
 		{
-			FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
-
 			ClientData->bUseLinearSmoothing	= true;
 
 			// Really large since we want to smooth most of the time during playback
