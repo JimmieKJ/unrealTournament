@@ -27,6 +27,7 @@
 #include "UTPlayerCameraManager.h"
 #include "ComponentReregisterContext.h"
 #include "UTMutator.h"
+#include "UTRewardMessage.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1177,8 +1178,22 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
 
 		PlayDying();
-
+		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && (FlakShredInstigator == EventInstigator))
+		{
+			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
+			UE_LOG(UT, Warning, TEXT("FOLLOWUP shred for %s"), EventInstigator ? *EventInstigator->GetName() : TEXT("None"));
+		}
 		return true;
+	}
+}
+
+void AUTCharacter::AnnounceShred(AUTPlayerController *PC)
+{
+	AUTPlayerState* PS = PC ? Cast<AUTPlayerState>(PC->PlayerState) : NULL;
+	if (PS && CloseFlakRewardMessageClass)
+	{
+		PS->ModifyStatsValue(FlakShredStatName, 1);
+		PC->SendPersonalMessage(CloseFlakRewardMessageClass, PS->GetStatsValue(FlakShredStatName));
 	}
 }
 

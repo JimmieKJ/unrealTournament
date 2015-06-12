@@ -885,6 +885,26 @@ public:
 	UFUNCTION(blueprintNativeEvent, BlueprintCosmetic)
 	void PlayDamageEffects();
 
+	/** Time character died */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		float TimeOfDeath;
+
+	/** Hack to accumulate flak shards for close kill - can also use for other multi-proj weapons. */
+	UPROPERTY()
+		float FlakShredTime;
+
+	UPROPERTY()
+		FName FlakShredStatName;
+
+	UPROPERTY()
+	class AUTPlayerController* FlakShredInstigator;
+
+	/** Reward announcement for close up flak kill. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
+		TSubclassOf<class UUTRewardMessage> CloseFlakRewardMessageClass;
+
+	virtual void AnnounceShred(class AUTPlayerController *PC);
+
 	/** called when we die (generally, by running out of health)
 	 *  SERVER ONLY - do not do visual effects here!
 	 * return true if we can die, false if immortal (gametype effect, powerup, mutator, etc)
@@ -1434,9 +1454,6 @@ public:
 	/** maximum amount of time Pawn stays around when dead even if visible (may be cleaned up earlier if not visible) */
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category = Death)
 	float MaxDeathLifeSpan;
-	/** GetWorld()->TimeSeconds when PlayDying() was called */
-	UPROPERTY(BlueprintReadOnly, Category = Death)
-	float TimeOfDeath;
 
 	/** Broadcast when the pawn has died [Server only] */
 	UPROPERTY(BlueprintAssignable)

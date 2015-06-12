@@ -92,6 +92,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	WeaponStats.Add(NAME_BestShockCombo);
 	WeaponStats.Add(NAME_AirRox);
 	WeaponStats.Add(NAME_AmazingCombos);
+	WeaponStats.Add(NAME_FlakShreds);
 
 	RewardStats.Add(NAME_MultiKillLevel0);
 	RewardStats.Add(NAME_MultiKillLevel1);

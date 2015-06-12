@@ -3,31 +3,44 @@
 #include "UnrealTournament.h"
 #include "UTProjectileMovementComponent.h"
 #include "UTProj_FlakShardMain.h"
+#include "StatNames.h"
+#include "UTRewardMessage.h"
 
 AUTProj_FlakShardMain::AUTProj_FlakShardMain(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	CenteredMomentumBonus = 180000.f;
-	CenteredDamageBonus = 100.0f;
+	CenteredDamageBonus = 30.0f;
 	MaxBonusTime = 0.2f;
 	NumSatelliteShards = 3;
 }
 
 void AUTProj_FlakShardMain::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
+	int32 OldHealth = UTC ? UTC->Health : 0;
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 
 	// check for camera shake
-	if (Role == ROLE_Authority && ShortRangeKillShake != NULL && Instigator != NULL && GetLifeSpan() - InitialLifeSpan + MaxBonusTime > 0.0f)
+	if (UTC && (UTC != Instigator) && Role == ROLE_Authority && Instigator != NULL && (InitialLifeSpan - GetLifeSpan() < 0.5f*MaxBonusTime))
 	{
-		AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
-		if (UTC != NULL && UTC != Instigator && UTC->IsDead())
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Instigator->Controller);
+		if (PC && UTC->IsDead() && (UTC->TimeOfDeath = GetWorld()->GetTimeSeconds()))
 		{
-			APlayerController* PC = Cast<APlayerController>(Instigator->Controller);
-			if (PC != NULL)
+			if (ShortRangeKillShake)
 			{
 				PC->ClientPlayCameraShake(ShortRangeKillShake);
 			}
+			UTC->CloseFlakRewardMessageClass = CloseFlakRewardMessageClass;
+			UTC->FlakShredStatName = NAME_FlakShreds;
+			UTC->AnnounceShred(PC);
+		}
+		else if (PC)
+		{
+			UTC->FlakShredTime = GetWorld()->GetTimeSeconds();
+			UTC->FlakShredInstigator = PC;
+			UTC->CloseFlakRewardMessageClass = CloseFlakRewardMessageClass;
+			UTC->FlakShredStatName = NAME_FlakShreds;
 		}
 	}
 }
@@ -50,9 +63,9 @@ FRadialDamageParams AUTProj_FlakShardMain::GetDamageParams_Implementation(AActor
 
 	// When hitting a pawn within bonus point blank time
 	AUTCharacter* OtherCharacter = Cast<AUTCharacter>(OtherActor);
-	if (OtherCharacter != NULL)
+	if (OtherCharacter  && (MaxBonusTime > 0.f))
 	{
-		const float BonusTime = GetLifeSpan() - InitialLifeSpan + MaxBonusTime;
+		const float BonusTime = (GetLifeSpan() - InitialLifeSpan + MaxBonusTime)/MaxBonusTime;
 		if (BonusTime > 0.0f)
 		{
 			// Apply bonus damage
