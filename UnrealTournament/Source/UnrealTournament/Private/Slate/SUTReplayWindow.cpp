@@ -135,21 +135,28 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 
 FText SUTReplayWindow::GetTimeText() const
 {
-	FFormatNamedArguments Args;
-	Args.Add("TotalTime", FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(DemoNetDriver->DemoTotalTime))));
-	Args.Add("CurrentTime", FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(DemoNetDriver->DemoCurrentTime))));
-	return FText::Format(FText::FromString(TEXT("{CurrentTime} / {TotalTime}")), Args);
+	if (DemoNetDriver.IsValid())
+	{
+		FFormatNamedArguments Args;
+		Args.Add("TotalTime", FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(DemoNetDriver->DemoTotalTime))));
+		Args.Add("CurrentTime", FText::AsTimespan(FTimespan(0, 0, static_cast<int32>(DemoNetDriver->DemoCurrentTime))));
+		return FText::Format(FText::FromString(TEXT("{CurrentTime} / {TotalTime}")), Args);
+	}
+	return FText();
 }
 
 void SUTReplayWindow::OnSetTimeSlider(float NewValue)
 {
-	DemoNetDriver->GotoTimeInSeconds(DemoNetDriver->DemoTotalTime * NewValue);
+	if (DemoNetDriver.IsValid())
+	{
+		DemoNetDriver->GotoTimeInSeconds(DemoNetDriver->DemoTotalTime * NewValue);
+	}
 }
 
 float SUTReplayWindow::GetTimeSlider() const
 {
 	float SliderPos = 0.f;
-	if (DemoNetDriver->DemoTotalTime > 0.0f)
+	if (DemoNetDriver.IsValid() && DemoNetDriver->DemoTotalTime > 0.0f)
 	{
 		SliderPos = DemoNetDriver->DemoCurrentTime / DemoNetDriver->DemoTotalTime;
 	}
@@ -183,6 +190,16 @@ FReply SUTReplayWindow::OnPlayPauseButtonClicked()
 		WorldSettings->Pauser = nullptr;
 	}
 	return FReply::Handled();
+}
+
+void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	GetPlayerOwner()->PlayerController->bShowMouseCursor = true;
+	if (!GetDemoNetDriver().IsValid())
+	{
+		GetPlayerOwner()->CloseReplayWindow();
+	}
+	return SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 
 #endif

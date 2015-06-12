@@ -27,6 +27,8 @@ class UNREALTOURNAMENT_API SUTReplayWindow : public SCompoundWidget
 		return DemoNetDriver;
 	}
 
+	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
 protected:
 
 	//TODO: make custom widgets for these

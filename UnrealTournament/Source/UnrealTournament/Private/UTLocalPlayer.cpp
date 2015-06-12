@@ -2096,7 +2096,7 @@ void UUTLocalPlayer::OpenReplayWindow()
 
 			if (ReplayWindow.IsValid())
 			{
-				GEngine->GameViewport->AddViewportWidgetContent(ReplayWindow.ToSharedRef(), 60);
+				GEngine->GameViewport->AddViewportWidgetContent(ReplayWindow.ToSharedRef(), -1);
 			}
 
 			if (ReplayWindow.IsValid())
