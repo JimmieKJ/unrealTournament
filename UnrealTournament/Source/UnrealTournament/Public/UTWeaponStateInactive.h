@@ -20,7 +20,10 @@ class UNREALTOURNAMENT_API UUTWeaponStateInactive : public UUTWeaponState
 	{
 		for (int32 i = 0; i < GetOuterAUTWeapon()->FiringState.Num(); i++)
 		{
-			GetOuterAUTWeapon()->FiringState[i]->WeaponBecameInactive();
+			if (GetOuterAUTWeapon()->FiringState[i] != nullptr)
+			{
+				GetOuterAUTWeapon()->FiringState[i]->WeaponBecameInactive();
+			}
 		}
 		Super::BeginState(PrevState);
 	}
