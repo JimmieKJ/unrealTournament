@@ -110,7 +110,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	TArray<FInstantHitDamageInfo> InstantHitInfo;
 
 	/** firing state for mode, contains core firing sequence and directs to appropriate global firing functions */
-	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, BlueprintReadWrite, Category = "Weapon")
+	UPROPERTY(Instanced, EditAnywhere, EditFixedSize, BlueprintReadWrite, Category = "Weapon", NoClear)
 	TArray<class UUTWeaponStateFiring*> FiringState;
 
 	/** True for melee weapons affected by "stopping power" (momentum added for weapons that don't normally impart much momentum) */
