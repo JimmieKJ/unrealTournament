@@ -7,6 +7,8 @@
 #include "UTLift.h"
 #include "UTWeap_LinkGun.h"
 #include "UTProjectileMovementComponent.h"
+#include "StatNames.h"
+#include "UTRewardMessage.h"
 
 AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -954,6 +956,32 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 		}
 	}
 }
+
+void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
+{
+	AUTCharacter* HitCharacter = Cast<AUTCharacter>(OtherActor);
+	bool bPossibleAirRocket = (HitCharacter && AirSnotRewardClass && (HitCharacter->Health > 0) && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.2f));
+
+	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+	if (bPossibleAirRocket && HitCharacter && (HitCharacter->Health <= 0))
+	{
+		// Air Snot reward
+		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
+		if (PC != NULL)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+			int32 AirRoxCount = 0;
+			if (PS)
+			{
+				PS->ModifyStatsValue(NAME_AirSnot, 1);
+				AirRoxCount = PS->GetStatsValue(NAME_AirSnot);
+			}
+			// FIXME FOR GOO - message depends on quality (in air recipient, armor stack of recipient, long range, etc.) holy shit for biggest, also for big shock combo score
+			PC->SendPersonalMessage(AirSnotRewardClass, AirRoxCount);
+		}
+	}
+}
+
 
 void AUTProj_BioShot::OnRep_GlobStrength()
 {

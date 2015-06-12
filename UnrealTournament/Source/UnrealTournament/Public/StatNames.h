@@ -87,4 +87,4 @@ static const FName NAME_BestShockCombo(TEXT("BestShockCombo"));
 static const FName NAME_AmazingCombos(TEXT("AmazingCombos"));
 static const FName NAME_AirRox(TEXT("AirRox"));
 static const FName NAME_FlakShreds(TEXT("FlakShreds"));
-
+static const FName NAME_AirSnot(TEXT("AirSnot"));
