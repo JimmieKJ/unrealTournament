@@ -22,8 +22,17 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FText MessageText;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 	FName Announcement;
+
+	/** Announcement on every other message. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName AnnouncementAlt;
+
+	/** Announcement on fifth message. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName AnnouncementFive;
 
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
 	{
@@ -46,6 +55,14 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	}
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
+		if ((Switch > 0) && (Switch % 5 == 0) && (AnnouncementFive != NAME_None))
+		{
+			return AnnouncementFive;
+		}
+		if ((Switch % 2 == 1) && (AnnouncementAlt != NAME_None))
+		{
+			return AnnouncementAlt;
+		}
 		return Announcement;
 	}
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override

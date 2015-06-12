@@ -232,7 +232,7 @@ public:
 	UFUNCTION()
 	void OnWeaponSpreeDamage();
 
-	virtual void AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<class UUTDamageType> UTDamage);
+	virtual void AnnounceWeaponSpree(TSubclassOf<class UUTDamageType> UTDamage);
 
 	UFUNCTION()
 	void OnDeathsReceived();

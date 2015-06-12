@@ -14,6 +14,7 @@
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTReplicatedMapVoteInfo.h"
+#include "UTRewardMessage.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -220,12 +221,27 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				}
 
 				WeaponSprees[SpreeIndex].Kills++;
+
+				AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+				if (MyPC && UTDamage.GetDefaultObject()->RewardAnnouncementClass)
+				{
+					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, WeaponSprees[SpreeIndex].Kills);
+				}
+
 				if (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount)
 				{
-					AnnounceWeaponSpree(SpreeIndex, UTDamage);
+					AnnounceWeaponSpree(UTDamage);
 				}
 				// more likely to kill again with same weapon, so shorten search through array by swapping
 				WeaponSprees.Swap(0, SpreeIndex);
+			}
+			else if (UTDamage.GetDefaultObject()->RewardAnnouncementClass)
+			{
+				AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+				if (MyPC)
+				{
+					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass);
+				}
 			}
 		}
 	}
@@ -235,9 +251,9 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 	}
 }
 
-void AUTPlayerState::AnnounceWeaponSpree(int32 SpreeIndex, TSubclassOf<UUTDamageType> UTDamage)
+void AUTPlayerState::AnnounceWeaponSpree(TSubclassOf<UUTDamageType> UTDamage)
 {
-	// will be replicated to owning player, causing OnWeaponSpreeDamage()  // FIXMESTEVE back to replicated function not property?
+	// will be replicated to owning player, causing OnWeaponSpreeDamage()
 	WeaponSpreeDamage = UTDamage;
 	
 	// for standalone
