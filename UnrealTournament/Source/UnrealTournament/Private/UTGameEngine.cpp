@@ -7,6 +7,7 @@
 
 #include "AssetRegistryModule.h"
 #include "UTLevelSummary.h"
+#include "Engine/Console.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -265,6 +266,12 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 				}
 
 				NewURL.AddOption(*FString::Printf(TEXT("Rank=%i"),UTLocalPlayer->GetBaseELORank()));
+
+				//Hide the console when traveling to a new map
+				if (UTLocalPlayer->ViewportClient != nullptr && UTLocalPlayer->ViewportClient->ViewportConsole != nullptr)
+				{
+					UTLocalPlayer->ViewportClient->ViewportConsole->FakeGotoState(NAME_None);
+				}
 			}
 
 			Context.TravelURL = NewURL.ToString();
