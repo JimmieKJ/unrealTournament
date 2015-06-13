@@ -20,11 +20,6 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	/** If true, this is a Game Status Announcement */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 	uint32 bIsStatusAnnouncement : 1;
-	
-	// How much weight should be given to this message.  The MessageWidget will
-	// use this number to determine how important the message is. Range is 0-1.
-	UPROPERTY(EditDefaultsOnly, Category = Message)
-	float Importance;			
 
 	// If true, don't add to normal queue.  
 	UPROPERTY(EditDefaultsOnly, Category = Message)

@@ -13,7 +13,6 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("DeathMessage"));
-		Importance = 0.8f;
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;

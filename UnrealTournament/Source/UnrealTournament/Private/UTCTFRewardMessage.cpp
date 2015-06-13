@@ -9,7 +9,6 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 : Super(ObjectInitializer)
 {
 	bIsUnique = true;
-	Importance = 0.8f;
 	bIsSpecial = true;
 	Lifetime = 3.0f;
 	MessageArea = FName(TEXT("DeathMessage"));

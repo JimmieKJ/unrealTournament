@@ -28,7 +28,6 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 
 		AnnouncementNames.Add(TEXT("FirstBlood"));
 
-		Importance = 0.9f;
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;

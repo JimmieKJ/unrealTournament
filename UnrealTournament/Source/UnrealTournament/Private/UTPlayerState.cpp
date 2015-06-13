@@ -148,15 +148,62 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			Pawn = Controller->GetPawn();
 			UTChar = Cast<AUTCharacter>(Pawn);
 		}
+		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+		bool bAnnounceWeaponSpree = false;
+		if (UTDamage)
+		{
+			if (!UTDamage.GetDefaultObject()->StatsName.IsEmpty())
+			{
+				// FIXMESTEVE - preset, not constructed FName
+				ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1);
+			}
+			if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
+			{
+				int32 SpreeIndex = -1;
+				for (int32 i = 0; i < WeaponSprees.Num(); i++)
+				{
+					if (WeaponSprees[i].SpreeSoundName == UTDamage.GetDefaultObject()->SpreeSoundName)
+					{
+						SpreeIndex = i;
+						break;
+					}
+				}
+				if (SpreeIndex == -1)
+				{
+					new(WeaponSprees)FWeaponSpree(UTDamage.GetDefaultObject()->SpreeSoundName);
+					SpreeIndex = WeaponSprees.Num() - 1;
+				}
+
+				WeaponSprees[SpreeIndex].Kills++;
+
+				if (MyPC && UTDamage.GetDefaultObject()->RewardAnnouncementClass)
+				{
+					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, WeaponSprees[SpreeIndex].Kills);
+				}
+				// delay actual announcement to keep multiple announcements in preferred order
+				bAnnounceWeaponSpree = (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount);
+				// more likely to kill again with same weapon, so shorten search through array by swapping
+				WeaponSprees.Swap(0, SpreeIndex);
+			}
+			else if (UTDamage.GetDefaultObject()->RewardAnnouncementClass)
+			{
+				AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+				if (MyPC)
+				{
+					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass);
+				}
+			}
+		}
 
 		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
 		{
 			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
 			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
 			MultiKillLevel++;
-			if (Cast<AUTPlayerController>(GetOwner()) != NULL)
+			if (MyPC != NULL)
 			{
-				((AUTPlayerController*)GetOwner())->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
+				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this);
 			}
 		}
 		else
@@ -194,56 +241,12 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
 
-		ModifyStatsValue(NAME_Kills, 1);
-		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
-		if (UTDamage)
+		if (bAnnounceWeaponSpree)
 		{
-			if (!UTDamage.GetDefaultObject()->StatsName.IsEmpty())
-			{
-				// FIXMESTEVE - preset, not constructed FName
-				ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1);
-			}
-			if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
-			{
-				int32 SpreeIndex = -1;
-				for (int32 i = 0; i < WeaponSprees.Num(); i++)
-				{
-					if (WeaponSprees[i].SpreeSoundName == UTDamage.GetDefaultObject()->SpreeSoundName)
-					{
-						SpreeIndex = i;
-						break;
-					}
-				}
-				if (SpreeIndex == -1)
-				{
-					new(WeaponSprees)FWeaponSpree(UTDamage.GetDefaultObject()->SpreeSoundName);
-					SpreeIndex = WeaponSprees.Num() - 1;
-				}
-
-				WeaponSprees[SpreeIndex].Kills++;
-
-				AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
-				if (MyPC && UTDamage.GetDefaultObject()->RewardAnnouncementClass)
-				{
-					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, WeaponSprees[SpreeIndex].Kills);
-				}
-
-				if (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount)
-				{
-					AnnounceWeaponSpree(UTDamage);
-				}
-				// more likely to kill again with same weapon, so shorten search through array by swapping
-				WeaponSprees.Swap(0, SpreeIndex);
-			}
-			else if (UTDamage.GetDefaultObject()->RewardAnnouncementClass)
-			{
-				AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
-				if (MyPC)
-				{
-					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass);
-				}
-			}
+			AnnounceWeaponSpree(UTDamage);
 		}
+
+		ModifyStatsValue(NAME_Kills, 1);
 	}
 	else
 	{

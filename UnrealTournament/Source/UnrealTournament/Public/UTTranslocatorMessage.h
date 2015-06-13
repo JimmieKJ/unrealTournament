@@ -13,7 +13,6 @@ class UNREALTOURNAMENT_API UUTTranslocatorMessage : public UUTLocalMessage
 	: Super(ObjectInitializer)
 	{
 		MessageArea = FName(TEXT("PickupMessage"));
-		Importance = 0.8f;
 		bIsSpecial = true;
 		bIsUnique = true;
 		bIsConsoleMessage = false;
