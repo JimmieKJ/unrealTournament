@@ -30,6 +30,7 @@
 #include "Slate/SUTBuyMenu.h"
 #include "Slate/SUWMapVoteDialog.h"
 #include "Slate/SUTReplayWindow.h"
+#include "Slate/SUTReplayMenu.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -37,6 +38,7 @@
 #include "Base64.h"
 #include "UTGameEngine.h"
 #include "Engine/DemoNetDriver.h"
+#include "UTConsole.h"
 
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
@@ -241,10 +243,13 @@ void UUTLocalPlayer::ShowMenu()
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
-	
 		if ( IsMenuGame() )
 		{
 			SAssignNew(DesktopSlateWidget, SUWindowsMainMenu).PlayerOwner(this);
+		}
+		else if (IsReplay())
+		{
+			SAssignNew(DesktopSlateWidget, SUTReplayMenu).PlayerOwner(this);
 		}
 		else
 		{
@@ -276,7 +281,8 @@ void UUTLocalPlayer::ShowMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = true;
-			PlayerController->SetInputMode( FInputModeUIOnly() );
+			PlayerController->SetInputMode(FInputModeUIOnly());
+
 			if (!IsMenuGame())
 			{
 				PlayerController->SetPause(true);
@@ -303,11 +309,30 @@ void UUTLocalPlayer::HideMenu()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameOnly());
 			PlayerController->SetPause(false);
+
+			//Replay window will set its own input mode
+			if (!IsReplay())
+			{
+				PlayerController->SetInputMode(FInputModeGameOnly());
+			}
 		}
 
-		FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
+		if (IsReplay())
+		{
+			OpenReplayWindow();
+
+			//Temp workaround for the console breaking input
+			UUTConsole* Console = (ViewportClient != nullptr) ? Cast<UUTConsole>(ViewportClient->ViewportConsole) : nullptr;
+			if (Console != nullptr)
+			{
+				Console->ClearReopenMenus();
+			}
+		}
+		else
+		{
+			FSlateApplication::Get().SetUserFocusToGameViewport(0, EFocusCause::SetDirectly);
+		}
 
 	}
 	else
@@ -2106,7 +2131,7 @@ void UUTLocalPlayer::OpenReplayWindow()
 				if (PlayerController)
 				{
 					PlayerController->bShowMouseCursor = true;
-					PlayerController->SetInputMode(FInputModeGameAndUI());
+					PlayerController->SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(ReplayWindow));
 				}
 			}
 		}
@@ -2125,7 +2150,7 @@ void UUTLocalPlayer::CloseReplayWindow()
 		if (PlayerController)
 		{
 			PlayerController->bShowMouseCursor = false;
-			PlayerController->SetInputMode(FInputModeGameOnly());
+			PlayerController->SetInputMode(FInputModeGameAndUI());
 		}
 	}
 #endif
@@ -2134,8 +2159,7 @@ void UUTLocalPlayer::CloseReplayWindow()
 void UUTLocalPlayer::ToggleReplayWindow()
 {
 #if !UE_SERVER
-	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
-	if (DemoDriver)
+	if (IsReplay())
 	{
 		if (!ReplayWindow.IsValid())
 		{
@@ -2147,4 +2171,9 @@ void UUTLocalPlayer::ToggleReplayWindow()
 		}
 	}
 #endif
+}
+
+bool UUTLocalPlayer::IsReplay()
+{
+	return (GetWorld()->DemoNetDriver != nullptr);
 }

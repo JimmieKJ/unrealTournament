@@ -194,11 +194,6 @@ FReply SUTReplayWindow::OnPlayPauseButtonClicked()
 
 void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
-	GetPlayerOwner()->PlayerController->bShowMouseCursor = true;
-	if (!GetDemoNetDriver().IsValid())
-	{
-		GetPlayerOwner()->CloseReplayWindow();
-	}
 	return SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
 

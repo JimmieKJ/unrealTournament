@@ -36,8 +36,11 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	}
 
 	virtual void BeginPlay() override;
-	virtual void Destroyed() override;
+	virtual void OnNetCleanup(class UNetConnection* Connection) override;
 
 	UFUNCTION(Exec)
 	void ToggleReplayWindow();
+
+	virtual void ShowMenu() override;
+	virtual void HideMenu() override;
 };

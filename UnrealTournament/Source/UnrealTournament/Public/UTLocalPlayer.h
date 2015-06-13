@@ -479,6 +479,8 @@ public:
 	void OpenReplayWindow();
 	void CloseReplayWindow();
 	void ToggleReplayWindow();
+
+	virtual bool IsReplay();
 };
 
 

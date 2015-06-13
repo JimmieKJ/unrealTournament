@@ -146,14 +146,14 @@ void AUTDemoRecSpectator::BeginPlay()
 	}
 }
 
-void AUTDemoRecSpectator::Destroyed()
+void AUTDemoRecSpectator::OnNetCleanup(class UNetConnection* Connection)
 {
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
 		LocalPlayer->CloseReplayWindow();
 	}
-	Super::Destroyed();
+	Super::OnNetCleanup(Connection);
 }
 
 void AUTDemoRecSpectator::ToggleReplayWindow()
@@ -162,5 +162,25 @@ void AUTDemoRecSpectator::ToggleReplayWindow()
 	if (LocalPlayer)
 	{
 		LocalPlayer->ToggleReplayWindow();
+	}
+}
+
+void AUTDemoRecSpectator::ShowMenu()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->CloseReplayWindow();
+		LocalPlayer->ShowMenu();
+	}
+}
+
+void AUTDemoRecSpectator::HideMenu()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->HideMenu();
+		LocalPlayer->OpenReplayWindow();
 	}
 }
