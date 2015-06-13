@@ -186,13 +186,9 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				// more likely to kill again with same weapon, so shorten search through array by swapping
 				WeaponSprees.Swap(0, SpreeIndex);
 			}
-			else if (UTDamage.GetDefaultObject()->RewardAnnouncementClass)
+			else if (UTDamage.GetDefaultObject()->RewardAnnouncementClass && MyPC != nullptr)
 			{
-				AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
-				if (MyPC)
-				{
-					MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass);
-				}
+				MyPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass);
 			}
 		}
 
