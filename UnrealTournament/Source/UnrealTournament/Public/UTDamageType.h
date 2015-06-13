@@ -174,6 +174,9 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
 		FName SpreeSoundName;
 
+	/** Cache the spree announcement. */
+	virtual void PrecacheAnnouncements(class UUTAnnouncer* Announcer) const;
+
 	/* String displayed when weapon spree sound is played. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
 		FString SpreeString;

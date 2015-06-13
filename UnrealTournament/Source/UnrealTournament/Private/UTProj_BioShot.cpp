@@ -986,24 +986,44 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	AUTCharacter* HitCharacter = Cast<AUTCharacter>(OtherActor);
-	bool bPossibleAirRocket = (HitCharacter && AirSnotRewardClass && (HitCharacter->Health > 0) && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.2f));
-
+	bool bPossibleReward = !bLanded && !bCanTrack && HitCharacter && AirSnotRewardClass && (HitCharacter->Health > 0) && (GlobStrength >= MaxRestingGlobStrength) && (Role == ROLE_Authority);
+	bool bPossibleAirSnot = bPossibleReward && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f);
+	int32 PreHitStack = HitCharacter ? HitCharacter->Health + HitCharacter->ArmorAmount : 0.f;
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
-	if (bPossibleAirRocket && HitCharacter && (HitCharacter->Health <= 0))
+	if (bPossibleReward && HitCharacter && (HitCharacter->Health <= 0))
 	{
 		// Air Snot reward
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
 		if (PC != NULL)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
-			int32 AirRoxCount = 0;
 			if (PS)
 			{
 				PS->ModifyStatsValue(NAME_AirSnot, 1);
-				AirRoxCount = PS->GetStatsValue(NAME_AirSnot);
 			}
-			// FIXME FOR GOO - message depends on quality (in air recipient, armor stack of recipient, long range, etc.) holy shit for biggest, also for big shock combo score
-			PC->SendPersonalMessage(AirSnotRewardClass, AirRoxCount);
+			int32 SnotRanking = 0;
+			float SnotSkill = (GetWorld()->GetTimeSeconds() - CreationTime) * 4.f;
+			if (bPossibleAirSnot)
+			{
+				SnotSkill += 2.f;
+			}
+			if (PreHitStack > 100)
+			{
+				SnotSkill += 2.f;
+				if (PreHitStack > 200)
+				{
+					SnotSkill += 2.f;
+					if (PreHitStack > 250)
+					{
+						SnotSkill += 2.f;
+					}
+				}
+			}
+			if (SnotSkill > 4.f)
+			{
+				SnotRanking = (SnotSkill > 6.f) ? 5 : 1;
+			}
+			PC->SendPersonalMessage(AirSnotRewardClass, SnotRanking);
 		}
 	}
 }

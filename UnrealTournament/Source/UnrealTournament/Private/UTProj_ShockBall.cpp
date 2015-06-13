@@ -186,11 +186,19 @@ void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* 
 		// current movement speed relative to direction, with bonus if falling
 		float MovementBonus = (Shooter->GetCharacterMovement()->MovementMode == MOVE_Falling) ? 5.f : 3.f;
 		ComboScore += MovementBonus * Shooter->GetVelocity().Size() / 1000.f;
+		// @TODO FIXMESTEVE also score target movement?
 	}
 	if ((ComboScore > 8.f) && (KillCount > 0))
 	{
 		PS->ModifyStatsValue(NAME_AmazingCombos, 1);
-		PC->SendPersonalMessage(ComboRewardMessageClass, PS->GetStatsValue(NAME_AmazingCombos));
+		if (ComboScore > 11.f)
+		{
+			PC->SendPersonalMessage(ComboRewardMessageClass, 100);
+		}
+		else
+		{
+			PC->SendPersonalMessage(ComboRewardMessageClass, PS->GetStatsValue(NAME_AmazingCombos));
+		}
 	}
 
 	ComboScore *= 100.f; // multiply since stats stored as int32

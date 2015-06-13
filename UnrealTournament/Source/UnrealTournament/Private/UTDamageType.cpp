@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTDamageType.h"
+#include "UTAnnouncer.h"
 
 UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -110,4 +111,9 @@ void UUTDamageType::PlayDeathEffects_Implementation(AUTCharacter* DyingPawn) con
 
 void UUTDamageType::PlayGibEffects_Implementation(AUTGib* Gib) const
 {
+}
+
+void UUTDamageType::PrecacheAnnouncements(UUTAnnouncer* Announcer) const
+{
+	Announcer->PrecacheAnnouncement(SpreeSoundName);
 }

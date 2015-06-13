@@ -2812,6 +2812,10 @@ void AUTGameMode::PrecacheAnnouncements(UUTAnnouncer* Announcer) const
 		{
 			It->GetDefaultObject<UUTLocalMessage>()->PrecacheAnnouncements(Announcer);
 		}
+		if (It->IsChildOf(UUTDamageType::StaticClass()))
+		{
+			It->GetDefaultObject<UUTDamageType>()->PrecacheAnnouncements(Announcer);
+		}
 	}
 }
 

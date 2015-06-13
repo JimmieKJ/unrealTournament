@@ -18,6 +18,7 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 3.0f;
+		AnnouncementHS = FName(TEXT("RW_HolyShit"));
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
@@ -33,6 +34,9 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	/** Announcement on fifth message. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		FName AnnouncementFive;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName AnnouncementHS;
 
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
 	{
@@ -55,6 +59,10 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	}
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
+		if (Switch == 100)
+		{
+			return AnnouncementHS;
+		}
 		if ((Switch > 0) && (Switch % 5 == 0) && (AnnouncementFive != NAME_None))
 		{
 			return AnnouncementFive;
@@ -68,6 +76,13 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 	virtual FText GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override
 	{
 		return MessageText;
+	}
+	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override
+	{
+		Announcer->PrecacheAnnouncement(Announcement);
+		Announcer->PrecacheAnnouncement(AnnouncementAlt);
+		Announcer->PrecacheAnnouncement(AnnouncementFive);
+		Announcer->PrecacheAnnouncement(AnnouncementHS);
 	}
 };
 
