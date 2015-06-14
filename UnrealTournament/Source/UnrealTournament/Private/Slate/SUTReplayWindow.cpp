@@ -6,6 +6,7 @@
 #include "SUWindowsStyle.h"
 #include "Widgets/SUTButton.h"
 #include "SNumericEntryBox.h"
+#include "Widgets/SUTProgressSlider.h"
 #include "UTPlayerState.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "Engine/DemoNetDriver.h"
@@ -28,7 +29,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	float DPIScale = GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
 	ViewportSize = ViewportSize / DPIScale;
 
-	FVector2D TimeSize = FVector2D(0.5f, 0.1f) * ViewportSize;
+	FVector2D TimeSize = FVector2D(0.5f, 0.09f) * ViewportSize;
 	FVector2D TimePos(ViewportSize.X * 0.5f - TimeSize.X * 0.5f, ViewportSize.Y * 0.8);
 
 	ChildSlot
@@ -68,9 +69,11 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 					.AutoHeight()
 					.Padding(0.0f,0.0f,0.0f,10.0f)
 					[
-						SNew(SSlider)
+						SNew(SUTProgressSlider)
 						.Value(this, &SUTReplayWindow::GetTimeSlider)
 						.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)
+						.SliderBarColor(FColor(33, 93, 220))
+						.SliderBarBGColor(FLinearColor(0.05f,0.05f,0.05f))
 					]
 					+ SVerticalBox::Slot()
 					.HAlign(HAlign_Fill)
