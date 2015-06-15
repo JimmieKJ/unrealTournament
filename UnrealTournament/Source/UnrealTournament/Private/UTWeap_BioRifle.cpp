@@ -141,12 +141,11 @@ void AUTWeap_BioRifle::IncreaseGlobStrength()
 		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 		if (B != NULL && CanAttack(B->GetTarget(), B->GetFocalPoint(), true))
 		{
-			if (GlobStrength >= MaxGlobStrength)
+			if (GlobStrength >= MaxGlobStrength || !HasAmmo(CurrentFireMode) || !B->CheckFutureSight(0.25f))
 			{
 				UTOwner->StopFiring();
 			}
 			// stop if bot thinks its charge amount is enough to kill target
-			// TODO: maybe also if predicting target to go behind wall?
 			else if (B->GetTarget() == B->GetEnemy() && ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 			{
 				AUTProj_BioShot* DefaultGlob = Cast<AUTProj_BioShot>(ProjClass[CurrentFireMode]->GetDefaultObject());
