@@ -117,10 +117,19 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 		{
 			return TEXT("");
 		}
-		if (UTGameMode->bRequirePassword && !UTGameMode->ServerPassword.IsEmpty())
+
+		FString Password = UTGameMode->ParseOption(Options, TEXT("Password"));
+		bool bSpectator = FCString::Stricmp(*UTGameMode->ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+		if (!bSpectator && !UTGameMode->ServerPassword.IsEmpty())
 		{
-			FString Password = UTGameMode->ParseOption(Options, TEXT("Password"));
 			if (Password.IsEmpty() || Password != UTGameMode->ServerPassword)
+			{
+				return TEXT("NEEDPASS");
+			}
+		}
+		else if (bSpectator && !UTGameMode->SpectatePassword.IsEmpty())
+		{
+			if (Password.IsEmpty() || Password != UTGameMode->SpectatePassword)
 			{
 				return TEXT("NEEDPASS");
 			}

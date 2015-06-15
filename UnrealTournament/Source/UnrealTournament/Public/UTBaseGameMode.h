@@ -31,8 +31,12 @@ class UNREALTOURNAMENT_API AUTBaseGameMode : public AGameMode
 	GENERATED_UCLASS_BODY()
 
 public:
+	//Password required to join as a player
 	UPROPERTY(GlobalConfig)
 	FString ServerPassword;
+
+	//Password required to join as a spectator
+	FString SpectatePassword;
 
 	uint32 bRequirePassword:1;
 

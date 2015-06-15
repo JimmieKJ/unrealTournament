@@ -21,7 +21,10 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 
 	ServerPassword = TEXT("");
 	ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
-	bRequirePassword = !ServerPassword.IsEmpty();
+	SpectatePassword = TEXT("");
+	SpectatePassword = ParseOption(Options, TEXT("SpectatePassword"));
+
+	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
 	bTrainingGround = EvalBoolOptions(Options, bTrainingGround);
 
 	
