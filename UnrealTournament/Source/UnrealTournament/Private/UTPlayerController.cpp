@@ -1319,7 +1319,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
 		bool bHRTFEnabled = false;
-		if (GEngine->GetMainAudioDevice() && GEngine->GetMainAudioDevice()->IsHRTFEnabledForAll())
+		if (GetWorld()->GetAudioDevice() != NULL && GetWorld()->GetAudioDevice()->IsHRTFEnabledForAll())
 		{
 			bHRTFEnabled = true;
 		}
@@ -1341,10 +1341,9 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			NewActiveSound.bHasAttenuationSettings = false;
 			NewActiveSound.bAllowSpatialization = false;
 
-			// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
-			if (GEngine->GetMainAudioDevice() != NULL)
+			if (GetWorld()->GetAudioDevice() != NULL)
 			{
-				GEngine->GetMainAudioDevice()->AddNewActiveSound(NewActiveSound);
+				GetWorld()->GetAudioDevice()->AddNewActiveSound(NewActiveSound);
 			}
 		}
 		else
