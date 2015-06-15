@@ -156,6 +156,7 @@ FString FPluginDescriptor::ToString() const
 FPluginReferenceDescriptor::FPluginReferenceDescriptor( const FString& InName, bool bInEnabled, const FString& InMarketplaceURL )
 	: Name(InName)
 	, bEnabled(bInEnabled)
+	, bNotRequired(false)
 	, MarketplaceURL(InMarketplaceURL)
 { }
 
@@ -199,6 +200,8 @@ bool FPluginReferenceDescriptor::Read( const FJsonObject& Object, FText& OutFail
 		OutFailReason = LOCTEXT("PluginReferenceWithoutEnabled", "Plugin references must have an 'Enabled' field");
 		return false;
 	}
+	
+	Object.TryGetBoolField(TEXT("NotRequired"), bNotRequired);
 
 	// Read the metadata for users that don't have the plugin installed
 	Object.TryGetStringField(TEXT("Description"), Description);
@@ -245,6 +248,7 @@ void FPluginReferenceDescriptor::Write( TJsonWriter<>& Writer ) const
 	Writer.WriteObjectStart();
 	Writer.WriteValue(TEXT("Name"), Name);
 	Writer.WriteValue(TEXT("Enabled"), bEnabled);
+	Writer.WriteValue(TEXT("NotRequired"), bNotRequired);
 
 	if (Description.Len() > 0)
 	{
