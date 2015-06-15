@@ -53,6 +53,11 @@ bool UUTCTFGameMessage::UseMegaFont(int32 MessageIndex) const
 	return (MessageIndex == 11) || (MessageIndex == 12);
 }
 
+float UUTCTFGameMessage::GetAnnouncementPriority(int32 Switch) const
+{
+	return ((Switch == 2) || (Switch == 8) || (Switch == 9) || (Switch == 10)) ? 0.8f : 0.5f;
+}
+
 float UUTCTFGameMessage::GetScaleInSize(int32 MessageIndex) const
 {
 	return ((MessageIndex == 11) || (MessageIndex == 12)) ? 3.f : 1.f;
@@ -84,8 +89,13 @@ bool UUTCTFGameMessage::CancelByAnnouncement_Implementation(int32 Switch, const 
 {
 	if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10))
 	{
-		// never cancel because of scoring announcement
+		// never cancel scoring announcement
 		return false;
+	}
+	if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10))
+	{
+		// always cancel if before scoring announcement
+		return true;
 	}
 	return ((OtherSwitch == Switch) && ((OtherSwitch == 11) || (OtherSwitch == 12)));
 }

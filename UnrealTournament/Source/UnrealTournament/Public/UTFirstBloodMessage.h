@@ -48,7 +48,7 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->RewardAnnouncer != NULL)
+		if (PC != NULL && PC->Announcer != NULL)
 		{
 			APlayerState* ViewedPS = PC->PlayerState;
 			if (ClientData.RelatedPlayerState_1 != ViewedPS)
@@ -58,7 +58,7 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 			}
 			if (ClientData.RelatedPlayerState_1 == ViewedPS)
 			{
-				PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+				PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
 			}
 		}
 

@@ -17,7 +17,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 {
 	MultiKillMessageClass = UUTMultiKillMessage::StaticClass();
 	SpreeMessageClass = UUTSpreeMessage::StaticClass();
-	MultiKillDelay = 4.0f;
+	MultiKillDelay = 3.0f;
 	SpawnProtectionTime = 2.5f;
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
@@ -609,16 +609,9 @@ void AUTGameState::ReceivedGameModeClass()
 		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
-			if (UTPC != NULL)
+			if (UTPC != NULL && UTPC->Announcer != NULL)
 			{
-				if (UTPC->RewardAnnouncer != NULL)
-				{
-					UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->RewardAnnouncer);
-				}
-				if (UTPC->StatusAnnouncer != NULL)
-				{
-					UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->StatusAnnouncer);
-				}
+				UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->Announcer);
 			}
 		}
 	}

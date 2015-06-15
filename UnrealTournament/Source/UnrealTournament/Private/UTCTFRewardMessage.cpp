@@ -70,9 +70,9 @@ void UUTCTFRewardMessage::ClientReceive(const FClientReceiveData& ClientData) co
 	 ||  (ClientData.RelatedPlayerState_2 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_2->GetOwner()))
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->RewardAnnouncer != NULL)
+		if (PC != NULL && PC->Announcer != NULL)
 		{
-			PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
 		}
 	}
 }

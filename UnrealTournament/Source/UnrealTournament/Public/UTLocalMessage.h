@@ -111,6 +111,9 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 
 	virtual float GetLifeTime(int32 Switch) const;
 
+	/** Range of 0 to 1, affects where announcement is inserted into pending announcements queue. */
+	virtual float GetAnnouncementPriority(int32 Switch) const;
+
 	/**	Give Blueprints a way to override the lifetime for this message */
 	UFUNCTION(BlueprintNativeEvent)
 	float Blueprint_GetLifeTime(int32 Switch) const;

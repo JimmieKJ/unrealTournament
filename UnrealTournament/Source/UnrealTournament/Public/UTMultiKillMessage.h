@@ -49,9 +49,9 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 	{
 		Super::ClientReceive(ClientData);
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->RewardAnnouncer != NULL)
+		if (PC != NULL && PC->Announcer != NULL)
 		{
-			PC->RewardAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
 		}
 	}
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override

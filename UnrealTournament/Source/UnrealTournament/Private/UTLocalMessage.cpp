@@ -36,19 +36,22 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	if (bIsStatusAnnouncement)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->StatusAnnouncer != NULL)
+		if (PC != NULL && PC->Announcer != NULL)
 		{
-			PC->StatusAnnouncer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
 		}
 	}
-
-
 	OnClientReceive(ClientData.LocalPC, ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 }
 
 float UUTLocalMessage::GetAnnouncementDelay(int32 Switch)
 {
 	return AnnouncementDelay;
+}
+
+float UUTLocalMessage::GetAnnouncementPriority(int32 Switch) const
+{
+	return bIsStatusAnnouncement ? 0.5f : 0.8f;
 }
 
 bool UUTLocalMessage::UseLargeFont(int32 MessageIndex) const
