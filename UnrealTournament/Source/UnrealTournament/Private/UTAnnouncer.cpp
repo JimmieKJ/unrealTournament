@@ -45,6 +45,7 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 			}
 			else
 			{
+				bool bCancelThisAnnouncement = false;
 				// see if we should cancel any existing announcements
 				for (int32 i = QueuedAnnouncements.Num() - 1; i >= 0; i--)
 				{
@@ -52,23 +53,31 @@ void UUTAnnouncer::PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, i
 					{
 						QueuedAnnouncements.RemoveAt(i);
 					}
-				}
-				// add to the end
-				QueuedAnnouncements.Add(NewAnnouncement);
-
-				// play now if nothing in progress
-				if (!GetWorld()->GetTimerManager().IsTimerActive(PlayNextAnnouncementHandle))
-				{
-					if (CurrentAnnouncement.MessageClass == NULL)
+					else if (MessageClass.GetDefaultObject()->CancelByAnnouncement(Switch, OptionalObject, QueuedAnnouncements[i].MessageClass, QueuedAnnouncements[i].Switch, QueuedAnnouncements[i].OptionalObject))
 					{
-						float Delay = MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementDelay(Switch);
-						if (Delay > 0.f)
+						bCancelThisAnnouncement = true;
+					}
+				}
+
+				if (!bCancelThisAnnouncement)
+				{
+					// add to the end
+					QueuedAnnouncements.Add(NewAnnouncement);
+
+					// play now if nothing in progress
+					if (!GetWorld()->GetTimerManager().IsTimerActive(PlayNextAnnouncementHandle))
+					{
+						if (CurrentAnnouncement.MessageClass == NULL)
 						{
-							GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Delay, false);
-						}
-						else
-						{
-							PlayNextAnnouncement();
+							float Delay = MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementDelay(Switch);
+							if (Delay > 0.f)
+							{
+								GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Delay, false);
+							}
+							else
+							{
+								PlayNextAnnouncement();
+							}
 						}
 					}
 				}

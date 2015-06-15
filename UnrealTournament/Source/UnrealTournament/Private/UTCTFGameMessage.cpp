@@ -66,18 +66,28 @@ bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const
 	}
 	if (GetClass() == OtherMessageClass)
 	{
-		if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10) || (OtherSwitch == 12))
+		if ((OtherSwitch == Switch) || (OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10) || (OtherSwitch == 11) || (OtherSwitch == 12))
 		{
-			// never interrupt scoring announcements
+			// never interrupt scoring announcements or same announcement
 			return false;
 		}
-		if (OptionalObject == OtherOptionalObject)
+		if (OptionalObject && (OptionalObject == OtherOptionalObject))
 		{
 			// interrupt announcement about same object
 			return true;
 		}
 	}
 	return false;
+}
+
+bool UUTCTFGameMessage::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+{
+	if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10))
+	{
+		// never cancel because of scoring announcement
+		return false;
+	}
+	return ((OtherSwitch == Switch) && ((OtherSwitch == 11) || (OtherSwitch == 12)));
 }
 
 void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const

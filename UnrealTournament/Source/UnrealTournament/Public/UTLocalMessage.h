@@ -89,6 +89,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintNativeEvent)
 	bool InterruptAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
 
+	/** return whether this announcement should be cancelled by the passed in announcement */
+	UFUNCTION(BlueprintNativeEvent)
+		bool CancelByAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
+
 	/** called when the UTAnnouncer plays the announcement sound - can be used to e.g. display HUD text at the same time */
 	UFUNCTION(BlueprintNativeEvent)
 	void OnAnnouncementPlayed(int32 Switch, const UObject* OptionalObject) const;

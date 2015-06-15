@@ -153,6 +153,11 @@ bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const U
 	return (GetClass() == OtherMessageClass) || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken;
 }
 
+bool UUTLocalMessage::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+{
+	return false;
+}
+
 void UUTLocalMessage::OnAnnouncementPlayed_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
 }
