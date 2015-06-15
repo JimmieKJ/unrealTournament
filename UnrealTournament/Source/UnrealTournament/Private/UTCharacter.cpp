@@ -1670,14 +1670,19 @@ void AUTCharacter::AmbientSoundUpdated()
 		{
 			// don't attenuate/spatialize sounds made by a local viewtarget
 			AmbientSoundComp->bAllowSpatialization = true;
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+
+			if (GEngine->GetMainAudioDevice() && !GEngine->GetMainAudioDevice()->IsHRTFEnabledForAll())
 			{
-				if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					AmbientSoundComp->bAllowSpatialization = false;
-					break;
+					if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
+					{
+						AmbientSoundComp->bAllowSpatialization = false;
+						break;
+					}
 				}
 			}
+
 			AmbientSoundComp->SetSound(AmbientSound);
 		}
 		if (!AmbientSoundComp->IsPlaying())
