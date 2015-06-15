@@ -10,6 +10,11 @@
 
 void SUWRedirectDialog::Construct(const FArguments& InArgs)
 {
+	LastETATime = 0.0f;
+	LastDownloadedAmount = 0;
+	SecondsRemaining = 0.0f;
+	NumSamples = 0;
+
 	OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
 	{
@@ -127,6 +132,13 @@ void SUWRedirectDialog::Tick(const FGeometry & AllottedGeometry, const double In
 		if (HttpRequest.IsValid() && HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
 		{
 			HttpRequest->Tick(InDeltaTime);
+
+			//Update the download speeds and ETA
+			if (LastETATime < InCurrentTime - 1)
+			{
+				LastETATime = InCurrentTime;
+				UpdateETA();
+			}
 		}
 		else if (HttpRequest->GetStatus() == EHttpRequestStatus::Failed)
 		{
@@ -255,4 +267,91 @@ void SUWRedirectDialog::CancelDownload()
 	}
 }
 
+FText SUWRedirectDialog::GetProgressFileText() const
+{
+	if (AssetsTotalSize == 0)
+	{
+		return FText::FromString(TEXT("Connecting..."));
+	}
+
+	FString TimeTxt = (SecondsRemaining > 0.0f) ? SecondsToString(SecondsRemaining) + TEXT(" remaining") : FString();
+
+	return FText::FromString(BytesToString(AssetsDownloadedAmount) + TEXT(" / ") + BytesToString(AssetsTotalSize) + TEXT("           ") +
+		BytesToString(GetAverageBytes()) + TEXT("/s") + TEXT("           ") + TimeTxt);
+}
+
+FString SUWRedirectDialog::BytesToString(int32 Bytes) const
+{
+	FString Txt = TEXT(" bytes");
+	int32 Divisor = 1;
+	if (Bytes > 0x40000000)
+	{
+		Txt = TEXT("GiB");
+		Divisor = 0x40000000;
+	}
+	else if (Bytes > 0x100000)
+	{
+		Txt = TEXT("MiB");
+		Divisor = 0x100000;
+	}
+	else if (Bytes > 0x400)
+	{
+		Txt = TEXT("KiB");
+		Divisor = 0x400;
+	}
+
+	FNumberFormattingOptions NumberFormat;
+	NumberFormat.MinimumFractionalDigits = Divisor == 1 ? 0 : 2;
+	NumberFormat.MaximumFractionalDigits = Divisor == 1 ? 0 : 2;
+	return FText::AsNumber((float)Bytes / (float)Divisor, &NumberFormat).ToString() + TEXT(" ") + Txt;
+}
+
+FString SUWRedirectDialog::SecondsToString(float Seconds) const
+{
+	FString TimeString;
+
+	if (Seconds > 0.0f)
+	{
+		FTimespan Remaining = FTimespan::FromSeconds(Seconds);
+		if (Remaining.GetHours() > 0)
+		{
+			TimeString += FString::FromInt(Remaining.GetHours()) + TEXT(" hours ");
+		}
+		if (Remaining.GetMinutes() > 0)
+		{
+			TimeString += FString::FromInt(Remaining.GetMinutes()) + TEXT(" minutes ");
+		}
+		TimeString += FString::FromInt(Remaining.GetSeconds()) + TEXT(" seconds");
+	}
+	return TimeString;
+}
+
+void SUWRedirectDialog::UpdateETA()
+{
+	AddSample(AssetsDownloadedAmount - LastDownloadedAmount);
+	LastDownloadedAmount = AssetsDownloadedAmount;
+
+	float Average = GetAverageBytes();
+	SecondsRemaining = (Average > 0.0f) ? (float)(AssetsTotalSize - AssetsDownloadedAmount) / (float)GetAverageBytes() : 0.0f;
+}
+
+void SUWRedirectDialog::AddSample(int32 Sample)
+{
+	ByteSamples[CurrentSample] = Sample;
+	CurrentSample = (CurrentSample < NUM_REDIRECT_SAMPLES - 1) ? CurrentSample + 1 : 0;
+	if (NumSamples < NUM_REDIRECT_SAMPLES)
+	{
+		NumSamples++;
+	}
+}
+
+float SUWRedirectDialog::GetAverageBytes() const
+{
+	int32 Total = 0;
+	for (int32 i = 0; i < NumSamples; i++)
+	{
+		Total += ByteSamples[i];
+	}
+	return (NumSamples > 0) ? (float)Total / (float)NumSamples : 0.0f;
+}
 #endif

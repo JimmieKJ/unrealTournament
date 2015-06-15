@@ -5,6 +5,7 @@
 #include "SUWDialog.h"
 
 #if !UE_SERVER
+#define NUM_REDIRECT_SAMPLES 5
 
 #include "Http.h"
 
@@ -53,15 +54,7 @@ protected:
 		return FText::FromString(RedirectToURL);
 	}
 	
-	FText GetProgressFileText() const
-	{
-		if (AssetsTotalSize == 0)
-		{
-			return FText::FromString(TEXT("Connecting..."));
-		}
-
-		return FText::FromString(FString::FromInt(AssetsDownloadedAmount) + TEXT(" bytes / ") + FString::FromInt(AssetsTotalSize) + TEXT(" bytes"));
-	}
+	FText GetProgressFileText() const;
 
 	bool DownloadFile(FString URL);
 	void CancelDownload();
@@ -80,6 +73,22 @@ protected:
 
 	IOnlineSubsystem* OnlineSubsystem;
 	IOnlineIdentityPtr OnlineIdentityInterface;
+
+	FString BytesToString(int32 Bytes) const;
+	FString SecondsToString(float Seconds) const;
+
+	void UpdateETA();
+
+	float LastETATime;
+	int32 LastDownloadedAmount;
+	float SecondsRemaining;
+
+	//Sample stuff to smooth out the ETA
+	int32 ByteSamples[NUM_REDIRECT_SAMPLES];
+	int32 NumSamples;
+	int32 CurrentSample;
+	void AddSample(int32 Sample);
+	float GetAverageBytes() const;
 
 public:
 	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
