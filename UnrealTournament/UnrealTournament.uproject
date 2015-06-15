@@ -30,7 +30,8 @@
 		},
 		{
 			"Name": "OculusAudio",
-			"Enabled": true
+			"Enabled": true,
+			"NotRequired": true
 		},
 	],
 	"EpicSampleNameHash": "0"
