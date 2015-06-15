@@ -23,7 +23,7 @@ class UNREALTOURNAMENT_API UUTCTFRewardMessage : public UUTLocalMessage
 		FText RedScoreMessage;
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override;
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
+	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override;
 	virtual FLinearColor GetMessageColor(int32 MessageIndex) const override;
 	virtual float GetScaleInSize(int32 MessageIndex) const override;
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;

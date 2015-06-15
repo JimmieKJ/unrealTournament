@@ -33,7 +33,7 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		}
 	}
 
-	if (bIsStatusAnnouncement)
+	if (ShouldPlayAnnouncement(ClientData))
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 		if (PC != NULL && PC->Announcer != NULL)
@@ -42,6 +42,11 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		}
 	}
 	OnClientReceive(ClientData.LocalPC, ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
+}
+
+bool UUTLocalMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
+{
+	return bIsStatusAnnouncement;
 }
 
 float UUTLocalMessage::GetAnnouncementDelay(int32 Switch)

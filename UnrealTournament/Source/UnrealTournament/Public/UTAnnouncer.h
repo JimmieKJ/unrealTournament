@@ -57,24 +57,23 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 	/** type of announcements supported */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
 	TEnumAsByte<EAnnouncerType> Type;
+
 	/** audio path containing the announcer audio; all audio in this path must match the SoundName used by the various message types in order to be found */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
 	FString RewardAudioPath;
+
 	/** additional prefix for all sound names (since it needs to be applied twice - to file name and to asset name) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
 	FString RewardAudioNamePrefix;
+
 	/** audio path containing the announcer audio; all audio in this path must match the SoundName used by the various message types in order to be found */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
 		FString StatusAudioPath;
+
 	/** additional prefix for all sound names (since it needs to be applied twice - to file name and to asset name) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
 		FString StatusAudioNamePrefix;
-	/** audio path containing the announcer audio; all audio in this path must match the SoundName used by the various message types in order to be found */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
-		FString AudioPath; // REMOVE
-	/** additional prefix for all sound names (since it needs to be applied twice - to file name and to asset name) */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
-		FString AudioNamePrefix; // REMOVE
+
 	/** array allowing manually matching SoundName to sound in case the naming convention wasn't followed */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
 	TArray<FAnnouncerSound> RewardAudioList;

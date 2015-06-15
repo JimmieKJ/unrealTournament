@@ -47,14 +47,9 @@ class UNREALTOURNAMENT_API UUTRewardMessage : public UUTLocalMessage
 		return 3.f;
 	}
 
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
+	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 	{
-		Super::ClientReceive(ClientData);
-		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (PC != NULL && PC->Announcer != NULL)
-		{
-			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
-		}
+		return true;
 	}
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{

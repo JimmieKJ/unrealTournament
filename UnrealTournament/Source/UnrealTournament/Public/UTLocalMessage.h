@@ -55,6 +55,8 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 
 	virtual float GetAnnouncementDelay(int32 Switch);
 
+	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const;
+
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
 
 	UFUNCTION(BlueprintImplementableEvent)

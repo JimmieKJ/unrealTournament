@@ -55,7 +55,7 @@ bool UUTCTFGameMessage::UseMegaFont(int32 MessageIndex) const
 
 float UUTCTFGameMessage::GetAnnouncementPriority(int32 Switch) const
 {
-	return ((Switch == 2) || (Switch == 8) || (Switch == 9) || (Switch == 10)) ? 0.8f : 0.5f;
+	return ((Switch == 2) || (Switch == 8) || (Switch == 9) || (Switch == 10)) ? 1.f : 0.5f;
 }
 
 float UUTCTFGameMessage::GetScaleInSize(int32 MessageIndex) const
@@ -65,7 +65,7 @@ float UUTCTFGameMessage::GetScaleInSize(int32 MessageIndex) const
 
 bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
-	if (Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->bOptionalSpoken)
+	if (OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->bOptionalSpoken)
 	{
 		return true;
 	}
@@ -82,12 +82,16 @@ bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const
 			return true;
 		}
 	}
+	if (GetAnnouncementPriority(Switch) > OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementPriority(OtherSwitch))
+	{
+		return true;
+	}
 	return false;
 }
 
 bool UUTCTFGameMessage::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
-	if ((OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10))
+	if ((Switch == 2) || (Switch == 8) || (Switch == 9) || (Switch == 10))
 	{
 		// never cancel scoring announcement
 		return false;

@@ -45,7 +45,7 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 		return 3.f;
 	}
 
-	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
+	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 		if (PC != NULL && PC->Announcer != NULL)
@@ -56,13 +56,9 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 				APawn* ViewedPawn = Cast<APawn>(PC->GetViewTarget());
 				ViewedPS = ViewedPawn ? ViewedPawn->PlayerState : ViewedPS;
 			}
-			if (ClientData.RelatedPlayerState_1 == ViewedPS)
-			{
-				PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
-			}
+			return (ClientData.RelatedPlayerState_1 == ViewedPS);
 		}
-
-		Super::ClientReceive(ClientData);
+		return false;
 	}
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{
