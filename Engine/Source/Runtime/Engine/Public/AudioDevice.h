@@ -515,6 +515,15 @@ public:
 		return bHRTFEnabledForAll && IsSpatializationPluginEnabled();
 	}
 
+	void SetHRTFEnabledForAll(bool InbHRTFEnabledForAll)
+	{
+		bHRTFEnabledForAll = InbHRTFEnabledForAll;
+	}
+
+	void SetSpatializationExtensionEnabled(bool InbSpatializationExtensionEnabled)
+	{
+		bSpatializationExtensionEnabled = InbSpatializationExtensionEnabled;
+	}
 protected:
 	friend class FSoundSource;
 
@@ -711,7 +720,7 @@ protected:
 	/** Low pass filter OneOverQ value */
 	float GetLowPassFilterResonance() const;
 
-	/** Wether or not the spatialization plugin is enabled. */
+	/** Whether or not the spatialization plugin is enabled. */
 	bool IsSpatializationPluginEnabled() const
 	{
 		return bSpatializationExtensionEnabled;

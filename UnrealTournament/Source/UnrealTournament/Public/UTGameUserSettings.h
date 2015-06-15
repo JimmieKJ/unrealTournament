@@ -42,6 +42,9 @@ public:
 
 	virtual int32 GetScreenPercentage();
 	virtual void SetScreenPercentage(int32 NewScreenPercentage);
+	
+	virtual bool IsHRTFEnabled();
+	virtual void SetHRTFEnabled(bool NewHRTFEnabled);
 
 #if !UE_SERVER
 	DECLARE_EVENT_OneParam(UUTGameUserSettings, FSettingsAutodetected, const Scalability::FQualityLevels& /*DetectedQuality*/);
@@ -90,7 +93,10 @@ protected:
 	 */
 	UPROPERTY(config)
 	int32 InitialBenchmarkState;
-	
+
+	UPROPERTY(config)
+	bool bHRTFEnabled;
+
 public:
 	UPROPERTY(config)
 	bool bShouldSuppressLanWarning;

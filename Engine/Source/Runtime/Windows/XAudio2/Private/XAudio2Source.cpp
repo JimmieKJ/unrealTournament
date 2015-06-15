@@ -618,7 +618,7 @@ void FXAudio2SoundSource::GetMonoChannelVolumes(float ChannelVolumes[CHANNELOUT_
 	}
 	else if (WaveInstance->bUseSpatialization)
 	{
-		check(WaveInstance->SpatializationAlgorithm == SPATIALIZATION_HRTF);
+		//check(WaveInstance->SpatializationAlgorithm == SPATIALIZATION_HRTF);
 		check(AudioDevice->SpatializeProcessor != nullptr);
 
 		// If we're using an HRTF spatialization algorithm, we need to find the position of the emitter and set it as a parameter

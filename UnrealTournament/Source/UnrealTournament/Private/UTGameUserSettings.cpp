@@ -58,6 +58,7 @@ void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 
 	SetAAMode(AAMode);
 	SetScreenPercentage(ScreenPercentage);
+	SetHRTFEnabled(bHRTFEnabled);
 }
 
 void UUTGameUserSettings::SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue)
@@ -248,4 +249,23 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 		GEngine->GameViewport->RemoveViewportWidgetContent(AutoDetectingSettingsDialog.ToSharedRef());
 	}
 }
+
+bool UUTGameUserSettings::IsHRTFEnabled()
+{
+	return bHRTFEnabled;
+}
+
+void UUTGameUserSettings::SetHRTFEnabled(bool NewHRTFEnabled)
+{
+	bHRTFEnabled = NewHRTFEnabled;
+#if PLATFORM_WINDOWS
+	FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+	if (AudioDevice)
+	{
+		AudioDevice->SetSpatializationExtensionEnabled(bHRTFEnabled);
+		AudioDevice->SetHRTFEnabledForAll(bHRTFEnabled);
+	}
+#endif
+}
+
 #endif // !UE_SERVER

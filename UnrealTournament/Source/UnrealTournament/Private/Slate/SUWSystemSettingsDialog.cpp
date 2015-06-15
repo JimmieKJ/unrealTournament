@@ -619,7 +619,33 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildAudioTab()
 		NSLOCTEXT("SUWSystemSettingsDialog", "MasterSoundVolume_Tooltip", "Controls the volume of all audio, this setting in conjuction the vlolumes below will determine the volume of a particular piece of audio."))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUWSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUWSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUWSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUWSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
-	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUWSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice));
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUWSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
+	
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "HRTFText", "HRTF [EXPERIMENTAL] [WIN64 ONLY]"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "HRTF_Tooltip", "Toggle Head Related Transfer Function, EXPERIMENTAL, WIN64 ONLY")))
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SAssignNew(HRTFCheckBox, SCheckBox)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+			.IsChecked(UserSettings->IsHRTFEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+		]
+	];
 }
 
 void SUWSystemSettingsDialog::OnSoundVolumeChangedMaster(float NewValue)
@@ -772,6 +798,7 @@ FReply SUWSystemSettingsDialog::OKClick()
 	Suffixes.Add(FString("w"));
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), *Suffixes[NewDisplayMode]));
 
+	UserSettings->SetHRTFEnabled(HRTFCheckBox->IsChecked());
 	UserSettings->SetAAMode(ConvertComboSelectionToAAMode(*AAMode->GetSelectedItem().Get()));
 
 	// Increments of 5, so divide by 5 and multiply by 5

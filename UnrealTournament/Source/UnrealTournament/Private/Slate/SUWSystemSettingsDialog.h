@@ -42,7 +42,8 @@ protected:
 	TSharedPtr<SCheckBox> SmoothFrameRate;
 	TSharedPtr<SCheckBox> VSync;
 	TSharedPtr<SEditableTextBox> FrameRateCap;
-	
+
+	TSharedPtr<SCheckBox> HRTFCheckBox;
 	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
 	TSharedPtr<STextBlock> SoundVolumesLabels[EUTSoundClass::MAX];
 	void OnSoundVolumeChangedMaster(float NewValue);
