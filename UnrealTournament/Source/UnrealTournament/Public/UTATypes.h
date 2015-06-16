@@ -360,15 +360,6 @@ namespace FFriendsStatus
 	const FName Friend = FName(TEXT("Friend"));
 }
 
-namespace FGameRuleCategories
-{
-	const FName TeamPlay = FName(TEXT("TeamPlay"));
-	const FName Casual = FName(TEXT("Casual"));
-	const FName Big = FName(TEXT("Big"));
-	const FName Competitive = FName(TEXT("Competitive"));
-	const FName Custom = FName(TEXT("Custom"));
-}
-
 namespace FQuickMatchTypeRulesetTag
 {
 	const FString CTF = TEXT("CTF");
