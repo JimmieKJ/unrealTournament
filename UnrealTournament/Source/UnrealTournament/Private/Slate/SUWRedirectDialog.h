@@ -74,8 +74,8 @@ protected:
 	IOnlineSubsystem* OnlineSubsystem;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 
-	FString BytesToString(int32 Bytes) const;
-	FString SecondsToString(float Seconds) const;
+	FText BytesToText(int32 Bytes) const;
+	FText SecondsToText(float Seconds) const;
 
 	void UpdateETA();
 

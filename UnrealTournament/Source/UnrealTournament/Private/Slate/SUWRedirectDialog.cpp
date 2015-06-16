@@ -14,6 +14,7 @@ void SUWRedirectDialog::Construct(const FArguments& InArgs)
 	LastDownloadedAmount = 0;
 	SecondsRemaining = 0.0f;
 	NumSamples = 0;
+	CurrentSample = 0;
 
 	OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem)
@@ -269,61 +270,55 @@ void SUWRedirectDialog::CancelDownload()
 
 FText SUWRedirectDialog::GetProgressFileText() const
 {
-	if (AssetsTotalSize == 0)
+	if (AssetsTotalSize == 0 && SecondsRemaining <= 0.0f)
 	{
-		return FText::FromString(TEXT("Connecting..."));
+		return NSLOCTEXT("SUWRedirectDialog", "Connecting", "Connecting...");
 	}
 
-	FString TimeTxt = (SecondsRemaining > 0.0f) ? SecondsToString(SecondsRemaining) + TEXT(" remaining") : FString();
-
-	return FText::FromString(BytesToString(AssetsDownloadedAmount) + TEXT(" / ") + BytesToString(AssetsTotalSize) + TEXT("           ") +
-		BytesToString(GetAverageBytes()) + TEXT("/s") + TEXT("           ") + TimeTxt);
+	FFormatNamedArguments Args;
+	Args.Add("AssetsDownloadedAmount", BytesToText(AssetsDownloadedAmount));
+	Args.Add("AssetsTotalSize", BytesToText(AssetsTotalSize));
+	Args.Add("DownloadSpeed", BytesToText(GetAverageBytes()));
+	Args.Add("PerSecond", NSLOCTEXT("SUWRedirectDialog", "PerSecond", "/s"));
+	Args.Add("RemainingTime", SecondsToText(SecondsRemaining));
+	return FText::Format(FText::FromString(TEXT("{AssetsDownloadedAmount} / {AssetsTotalSize}             {DownloadSpeed}{PerSecond}             {RemainingTime}")), Args);
 }
 
-FString SUWRedirectDialog::BytesToString(int32 Bytes) const
+FText SUWRedirectDialog::BytesToText(int32 Bytes) const
 {
-	FString Txt = TEXT(" bytes");
+	FText Txt = NSLOCTEXT("SUWRedirectDialog", "Byte", "B");
 	int32 Divisor = 1;
 	if (Bytes > 0x40000000)
 	{
-		Txt = TEXT("GiB");
+		Txt = NSLOCTEXT("SUWRedirectDialog", "GiB", "GiB");
 		Divisor = 0x40000000;
 	}
 	else if (Bytes > 0x100000)
 	{
-		Txt = TEXT("MiB");
+		Txt = NSLOCTEXT("SUWRedirectDialog", "MiB", "MiB");
 		Divisor = 0x100000;
 	}
 	else if (Bytes > 0x400)
 	{
-		Txt = TEXT("KiB");
+		Txt = NSLOCTEXT("SUWRedirectDialog", "KiB", "KiB");
 		Divisor = 0x400;
 	}
 
 	FNumberFormattingOptions NumberFormat;
 	NumberFormat.MinimumFractionalDigits = Divisor == 1 ? 0 : 2;
 	NumberFormat.MaximumFractionalDigits = Divisor == 1 ? 0 : 2;
-	return FText::AsNumber((float)Bytes / (float)Divisor, &NumberFormat).ToString() + TEXT(" ") + Txt;
+	return FText::Format(FText::FromString(TEXT("{0} {1}")), FText::AsNumber((float)Bytes / (float)Divisor, &NumberFormat), Txt);
 }
 
-FString SUWRedirectDialog::SecondsToString(float Seconds) const
+FText SUWRedirectDialog::SecondsToText(float Seconds) const
 {
-	FString TimeString;
-
 	if (Seconds > 0.0f)
 	{
-		FTimespan Remaining = FTimespan::FromSeconds(Seconds);
-		if (Remaining.GetHours() > 0)
-		{
-			TimeString += FString::FromInt(Remaining.GetHours()) + TEXT(" hours ");
-		}
-		if (Remaining.GetMinutes() > 0)
-		{
-			TimeString += FString::FromInt(Remaining.GetMinutes()) + TEXT(" minutes ");
-		}
-		TimeString += FString::FromInt(Remaining.GetSeconds()) + TEXT(" seconds");
+		FFormatNamedArguments Args;
+		Args.Add("Time", FText::AsTimespan(FTimespan::FromSeconds(Seconds)));
+		return FText::Format(NSLOCTEXT("SUWRedirectDialog", "TimeRemaining", "{Time} remaining"), Args);
 	}
-	return TimeString;
+	return NSLOCTEXT("SUWRedirectDialog", "CalculatingETA", "Calculating ETA...");
 }
 
 void SUWRedirectDialog::UpdateETA()
