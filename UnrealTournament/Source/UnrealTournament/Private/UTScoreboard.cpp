@@ -202,7 +202,7 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 	}
 
 	DrawGameOptions(RenderDelta, YOffset);
-	YOffset += 128;	// The size of this zone.
+	YOffset += 128.f;	// The size of this zone.
 }
 
 void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
@@ -213,26 +213,26 @@ void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 		{
 			// Draw Game Text
 			FText Score = FText::Format(NSLOCTEXT("UTScoreboard","GoalScoreFormat","First to {0} Frags"), FText::AsNumber(UTGameState->GoalScore));
-			DrawText(Score, Size.X * 0.985, 28, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(Score, Size.X * 0.985f, 28, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 
 		FText StatusText = UTGameState->GetGameStatusText();
 		if (!StatusText.IsEmpty())
 		{
-			DrawText(StatusText, Size.X * 0.985, 90, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(StatusText, Size.X * 0.985f, 90, UTHUDOwner->MediumFont, 1.0, 1.0, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 		else
 		{
 			float RemainingTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
 			FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RemainingTime, true, true, true);
-			DrawText(Timer, Size.X * 0.985, 88, UTHUDOwner->NumberFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+			DrawText(Timer, Size.X * 0.985f, 88, UTHUDOwner->NumberFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 	}
 }
 
 void UUTScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 {
-	YOffset += 39.0; // A small gap
+	YOffset += 39.f; // A small gap
 }
 
 void UUTScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
@@ -251,8 +251,8 @@ void UUTScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 
 void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 {
-	float Width = (Size.X * 0.5) - CenterBuffer;  
-	float Height = 23;
+	float Width = (Size.X * 0.5f) - CenterBuffer;  
+	float Height = 23.f;
 
 	FText CH_PlayerName = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerName", "PLAYER");
 	FText CH_Score = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerScore", "SCORE");
@@ -261,8 +261,7 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	FText CH_Ready = NSLOCTEXT("UTScoreboard", "ColumnHeader_Ready", "");
 
 	int32 ColumnCnt = ((UTGameState && UTGameState->bTeamGame) || ActualPlayerCount > 16) ? 2 : 1;
-	float XOffset = ColumnCnt > 1 ? 0 : (Size.X * 0.5) - (Width * 0.5);
-
+	float XOffset = ColumnCnt > 1 ? 0.f : (Size.X * 0.5f) - (Width * 0.5f);
 	for (int32 i = 0; i < ColumnCnt; i++)
 	{
 		// Draw the background Border
@@ -280,11 +279,10 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 			DrawText(CH_Ready, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 		DrawText(CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
-
 		XOffset = Size.X - Width;
 	}
 
-	YOffset += Height + 4;
+	YOffset += Height + 4.f;
 }
 
 void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
@@ -310,7 +308,7 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 				Place++;
 				if (Place == 17)
 				{
-					XOffset = Size.X - ((Size.X * 0.5) - CenterBuffer);
+					XOffset = Size.X - ((Size.X * 0.5f) - CenterBuffer);
 					DrawOffset = YOffset;
 				}
 			}
@@ -743,12 +741,13 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	FVector2D SavedRenderPosition = RenderPosition;
 	RenderPosition = FVector2D(0.f, 0.f);
 	bScaleByDesignedResolution = false;
+	YPos *= RenderScale;
 	float TopYPos = YPos;
 
 	// draw left side
 	float XOffset = Canvas->ClipX * 0.06f;
 	float ScoreWidth = 0.5f * (Canvas->ClipX - 3.f*XOffset);
-	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
+	float MaxHeight = FooterPosY * RenderScale + SavedRenderPosition.Y - YPos;
 	float PageBottom = TopYPos + MaxHeight;
 
 	FLinearColor PageColor = FLinearColor::Black;
