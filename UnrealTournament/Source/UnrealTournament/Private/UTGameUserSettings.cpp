@@ -178,6 +178,24 @@ void UUTGameUserSettings::SetScreenPercentage(int32 NewScreenPercentage)
 	ScreenPercentageCVar->Set(ScreenPercentage, ECVF_SetByGameSetting);
 }
 
+bool UUTGameUserSettings::IsHRTFEnabled()
+{
+	return bHRTFEnabled;
+}
+
+void UUTGameUserSettings::SetHRTFEnabled(bool NewHRTFEnabled)
+{
+	bHRTFEnabled = NewHRTFEnabled;
+#if PLATFORM_WINDOWS
+	FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+	if (AudioDevice)
+	{
+		AudioDevice->SetSpatializationExtensionEnabled(bHRTFEnabled);
+		AudioDevice->SetHRTFEnabledForAll(bHRTFEnabled);
+	}
+#endif
+}
+
 #if !UE_SERVER
 void UUTGameUserSettings::BenchmarkDetailSettingsIfNeeded(UUTLocalPlayer* LocalPlayer)
 {
@@ -248,24 +266,6 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 		AutoDetectingSettingsDialog->OnDialogClosed();
 		GEngine->GameViewport->RemoveViewportWidgetContent(AutoDetectingSettingsDialog.ToSharedRef());
 	}
-}
-
-bool UUTGameUserSettings::IsHRTFEnabled()
-{
-	return bHRTFEnabled;
-}
-
-void UUTGameUserSettings::SetHRTFEnabled(bool NewHRTFEnabled)
-{
-	bHRTFEnabled = NewHRTFEnabled;
-#if PLATFORM_WINDOWS
-	FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
-	if (AudioDevice)
-	{
-		AudioDevice->SetSpatializationExtensionEnabled(bHRTFEnabled);
-		AudioDevice->SetHRTFEnabledForAll(bHRTFEnabled);
-	}
-#endif
 }
 
 #endif // !UE_SERVER
