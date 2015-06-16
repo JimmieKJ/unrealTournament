@@ -632,9 +632,6 @@ public:
 	bool bSavedWantsSlide;
 	bool bPressedSlide;
 
-	// Flag to plant character during emoting
-	bool bSavedIsEmoting;
-
 	// local only properties (not replicated) used when replaying moves
 	int32 SavedMultiJumpCount;
 	int32 SavedWallDodgeCount;

@@ -76,7 +76,6 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 {
 	Super::UpdateFromCompressedFlags(Flags);
 
-	bIsEmoting = (Flags & FSavedMove_Character::FLAG_Custom_2) != 0;
 
 	int32 DodgeFlags = (Flags >> 2) & 7;
 	bPressedDodgeForward = (DodgeFlags == 1);
@@ -87,7 +86,7 @@ void UUTCharacterMovement::UpdateFromCompressedFlags(uint8 Flags)
 	bIsFloorSliding = (DodgeFlags == 6);
 	bPressedSlide = (DodgeFlags == 7);
 	bool bOldWillFloorSlide = bWantsFloorSlide;
-	bWantsWallSlide = ((Flags & FSavedMove_Character::FLAG_Custom_0) != 0);
+	bWantsWallSlide = ((Flags & FSavedMove_Character::FLAG_Custom_2) != 0);
 	bWantsFloorSlide = ((Flags & FSavedMove_Character::FLAG_Custom_1) != 0);
 	bShotSpawned = ((Flags & FSavedMove_Character::FLAG_Custom_3) != 0);
 	if (!bOldWillFloorSlide && bWantsFloorSlide)
@@ -1257,18 +1256,12 @@ uint8 FSavedMove_UTCharacter::GetCompressedFlags() const
 	}
 	if (bSavedWantsWallSlide)
 	{
-		Result |= FLAG_Custom_0;
+		Result |= FLAG_Custom_2;
 	}
 	if (bSavedWantsSlide)
 	{
 		Result |= FLAG_Custom_1;
 	}
-
-	if (bSavedIsEmoting)
-	{
-		Result |= FLAG_Custom_2;
-	}
-
 	if (bShotSpawned)
 	{
 		Result |= FLAG_Custom_3;
@@ -1288,7 +1281,6 @@ void FSavedMove_UTCharacter::Clear()
 	bSavedIsRolling = false;
 	bSavedWantsWallSlide = false;
 	bSavedWantsSlide = false;
-	bSavedIsEmoting = false;
 	SavedMultiJumpCount = 0;
 	SavedWallDodgeCount = 0;
 	SavedSprintStartTime = 0.f;
@@ -1314,7 +1306,6 @@ void FSavedMove_UTCharacter::SetMoveFor(ACharacter* Character, float InDeltaTime
 		bSavedIsRolling = UTCharMov->bIsFloorSliding;
 		bSavedWantsWallSlide = UTCharMov->WantsWallSlide();
 		bSavedWantsSlide = UTCharMov->WantsFloorSlide();
-		bSavedIsEmoting = UTCharMov->bIsEmoting;
 		SavedMultiJumpCount = UTCharMov->CurrentMultiJumpCount;
 		SavedWallDodgeCount = UTCharMov->CurrentWallDodgeCount;
 		SavedSprintStartTime = UTCharMov->SprintStartTime;
