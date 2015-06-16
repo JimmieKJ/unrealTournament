@@ -128,7 +128,7 @@ public:
 /**
  * Http network replay streaming manager
  */
-class FHttpNetworkReplayStreamer : public INetworkReplayStreamer
+class HTTPNETWORKREPLAYSTREAMING_API FHttpNetworkReplayStreamer : public INetworkReplayStreamer
 {
 public:
 	FHttpNetworkReplayStreamer();
@@ -237,7 +237,7 @@ public:
 	TSharedPtr< FQueuedHttpRequest >			InFlightHttpRequest;
 };
 
-class FHttpNetworkReplayStreamingFactory : public INetworkReplayStreamingFactory, public FTickableGameObject
+class HTTPNETWORKREPLAYSTREAMING_API FHttpNetworkReplayStreamingFactory : public INetworkReplayStreamingFactory, public FTickableGameObject
 {
 public:
 	/** INetworkReplayStreamingFactory */
