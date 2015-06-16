@@ -845,12 +845,21 @@ void AUTPlayerState::WriteStatsToCloud()
 				FMemoryWriter MemoryWriter(BackendStatsData);
 				MemoryWriter.Serialize(TCHAR_TO_ANSI(*OutputJsonString), OutputJsonString.Len() + 1);
 			}
-			
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+#else
 			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+#endif
+
 			FString McpConfigOverride;
 			FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
 
-			if (McpConfigOverride == TEXT("localhost"))
+			if (McpConfigOverride == TEXT("prodnet"))
+			{
+				BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			}
+			else if (McpConfigOverride == TEXT("localhost"))
 			{
 				BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
 			}
