@@ -10,7 +10,7 @@ AUTAvoidMarker::AUTAvoidMarker(const FObjectInitializer& OI)
 	if (Capsule != NULL)
 	{
 		Capsule->SetCapsuleSize(225.0f, 100.0f);
-		Capsule->SetCollisionProfileName(FName(TEXT("Pickup")));
+		Capsule->SetCollisionProfileName(FName(TEXT("ProjectileOverlap")));
 		Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTAvoidMarker::OnOverlapBegin);
 		RootComponent = Capsule;
 	}
