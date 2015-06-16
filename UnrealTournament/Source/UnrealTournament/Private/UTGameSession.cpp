@@ -330,7 +330,7 @@ void AUTGameSession::OnStartSessionComplete(FName SessionName, bool bWasSuccessf
 
 		// Our session has started, if we are a lobby instance, tell the lobby to go.  NOTE: We don't use the cached version of UTGameMode here
 		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
-		if (GM && GM->IsGameInstanceServer())
+		if (GM)
 		{
 			GM->NotifyLobbyGameIsReady();
 		}

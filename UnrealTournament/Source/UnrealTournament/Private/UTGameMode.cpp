@@ -2847,7 +2847,7 @@ void AUTGameMode::AssignDefaultSquadFor(AController* C)
 
 void AUTGameMode::NotifyLobbyGameIsReady()
 {
-	if (ensure(LobbyBeacon))
+	if (IsGameInstanceServer() && LobbyBeacon)
 	{
 		LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID);
 	}
