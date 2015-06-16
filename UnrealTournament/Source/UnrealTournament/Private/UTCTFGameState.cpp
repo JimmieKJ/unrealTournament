@@ -316,7 +316,15 @@ bool AUTCTFGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& Pic
 	{
 		if (!Pickup->bOverride_TeamSide)
 		{
-			UClass* PickupClass = (Cast<AUTPickupInventory>(Pickup) != nullptr) ? Cast<AUTPickupInventory>(Pickup)->GetInventoryType() : Pickup->GetClass();
+			UClass* PickupClass = nullptr;
+			if (Cast<AUTPickupInventory>(Pickup) != nullptr)
+			{
+				Cast<AUTPickupInventory>(Pickup)->GetInventoryType();
+			}
+			else
+			{
+				Pickup->GetClass();
+			}
 			TArray<AUTPickup*>& PickupGroup = PickupGroups.FindOrAdd(PickupClass);
 			PickupGroup.Add(Pickup);
 		}
