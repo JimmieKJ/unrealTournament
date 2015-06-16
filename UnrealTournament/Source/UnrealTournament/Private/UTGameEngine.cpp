@@ -288,6 +288,16 @@ void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 
 EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL URL, FString& Error )
 {
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayerFromControllerId(WorldContext.World(),0));
+	if (UTLocalPlayer)
+	{
+		UUTProfileSettings* ProfileSettings = UTLocalPlayer->GetProfileSettings();
+		if (ProfileSettings && ProfileSettings->bNeedProfileWriteForTokens)
+		{
+			UTLocalPlayer->SaveProfileSettings();
+		}
+	}
+
 #if !UE_SERVER && !UE_EDITOR
 	if (URL.Valid && URL.HasOption(TEXT("downloadfiles")))
 	{

@@ -97,6 +97,8 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	uint32 CountryFlag;
 
+	bool bNeedProfileWriteForTokens;
+
 protected:
 
 	/**
@@ -181,7 +183,7 @@ protected:
 	// Linear list of token unique ids for serialization
 	UPROPERTY()
 	TArray<FName> FoundTokenUniqueIDs;
-
+	
 	TArray<FName> TempFoundTokenUniqueIDs;
 
 	// If true, then the player will not show toasts in game.

@@ -9,6 +9,8 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 {
 	PlayerName = TEXT("Malcolm");
 	bSuppressToastsInGame = false;
+
+	bNeedProfileWriteForTokens = false;
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()
@@ -81,7 +83,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
 	bSuppressToastsInGame = ProfilePlayer->bSuppressToastsInGame;
 	PlayerName = ProfilePlayer->GetNickname();
-
+	
 	// Get all settings from the Player Controller
 	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
 	if (PC == NULL)
@@ -289,6 +291,7 @@ void UUTProfileSettings::TokensCommit()
 	for (auto ID : TempFoundTokenUniqueIDs)
 	{
 		FoundTokenUniqueIDs.AddUnique(ID);
+		bNeedProfileWriteForTokens = true;
 	}
 
 	TempFoundTokenUniqueIDs.Empty();
