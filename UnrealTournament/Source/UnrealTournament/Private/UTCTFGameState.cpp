@@ -306,3 +306,66 @@ uint8 AUTCTFGameState::NearestTeamSide(AActor* InActor)
 	return 255;
 }
 
+bool AUTCTFGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList)
+{
+	Super::GetImportantPickups_Implementation(PickupList);
+	TMap<UClass*, TArray<AUTPickup*> > PickupGroups;
+
+	//Collect the Powerups without bOverride_TeamSide and group by class
+	for (AUTPickup* Pickup : PickupList)
+	{
+		if (!Pickup->bOverride_TeamSide)
+		{
+			UClass* PickupClass = (Cast<AUTPickupInventory>(Pickup) != nullptr) ? Cast<AUTPickupInventory>(Pickup)->GetInventoryType() : Pickup->GetClass();
+			TArray<AUTPickup*>& PickupGroup = PickupGroups.FindOrAdd(PickupClass);
+			PickupGroup.Add(Pickup);
+		}
+	}
+
+	//Auto get the TeamSide
+	if (FlagBases.Num() == 2 && FlagBases[0] != nullptr && FlagBases[1] != nullptr)
+	{
+		FVector FlagLoc0 = FlagBases[0]->GetActorLocation();
+		FVector FlagLoc1 = FlagBases[1]->GetActorLocation();
+		for (auto& Pair : PickupGroups)
+		{
+			TArray<AUTPickup*>& PickupGroup = Pair.Value;
+
+			//Find the powerups that are symmetrical, set the team to the closest flag, remove from list
+			for (int32 i = 0; i < PickupGroup.Num(); ++i)
+			{
+				for (int32 j = i + 1; j < PickupGroup.Num(); ++j)
+				{
+					float SymError = FMath::Abs((PickupGroup[i]->GetActorLocation() - FlagLoc0).Size() - (PickupGroup[j]->GetActorLocation() - FlagLoc1).Size());
+					if (SymError < 300.f)
+					{
+						PickupGroup[i]->TeamSide = NearestTeamSide(PickupGroup[i]);
+						PickupGroup[j]->TeamSide = NearestTeamSide(PickupGroup[j]);
+						PickupGroup.RemoveAt(j);
+						PickupGroup.RemoveAt(i);
+						i--;
+						break;
+					}
+				}
+			}
+
+			//from the remaining check to see if they should be on a team or neutral
+			for (AUTPickup* Pickup : PickupGroup)
+			{
+				float Dist0 = FVector::Dist(Pickup->GetActorLocation(), FlagLoc0);
+				float Dist1 = FVector::Dist(Pickup->GetActorLocation(), FlagLoc1);
+				float Total = Dist0 + Dist1;
+				Pickup->TeamSide = (FMath::Min(Dist0, Dist1) / Total > 0.4f) ? 255 : NearestTeamSide(Pickup);
+			}
+		}
+	}
+
+	//Sort the list by team and by respawn time 
+	//TODO: powerup priority so different armors sort properly
+	PickupList.Sort([](const AUTPickup& A, const AUTPickup& B) -> bool
+	{
+		return A.TeamSide > B.TeamSide || (A.TeamSide == B.TeamSide && A.RespawnTime > B.RespawnTime);
+	});
+
+	return true;
+}

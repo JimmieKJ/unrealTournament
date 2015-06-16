@@ -347,6 +347,14 @@ public:
 	UPROPERTY(Replicated)
 	int32 VoteTimer;
 
+	/** Returns a list of important pickups for this gametype
+	*	Used to gather pickups for the spectator slideout
+	*	For now, do gamytype specific team sorting here
+	*   NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
+	*/
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = GameState)
+	bool GetImportantPickups(UPARAM(ref) TArray<class AUTPickup*>& PickupList);
+
 };
 
 

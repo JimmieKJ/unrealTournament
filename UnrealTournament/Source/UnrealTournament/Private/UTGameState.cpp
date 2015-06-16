@@ -10,6 +10,8 @@
 #include "UTReplicatedLoadoutInfo.h"
 #include "UTMutator.h"
 #include "UTReplicatedMapVoteInfo.h"
+#include "UTPickup.h"
+#include "UTArmor.h"
 #include "StatNames.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
@@ -1006,8 +1008,34 @@ void AUTGameState::SortVotes()
 			}
 		}
 	}
-
-
 }
 
+bool AUTGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList)
+{
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AUTPickup* Pickup = Cast<AUTPickup>(*It);
+		AUTPickupInventory* PickupInventory = Cast<AUTPickupInventory>(*It);
+
+		if ((PickupInventory && PickupInventory->GetInventoryType() && PickupInventory->GetInventoryType()->GetDefaultObject<AUTInventory>()->bShowPowerupTimer
+			&& ((PickupInventory->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL) || PickupInventory->GetInventoryType()->IsChildOf(AUTArmor::StaticClass())))
+			|| (Pickup && Pickup->bDelayedSpawn && Pickup->RespawnTime >= 0.0f && Pickup->HUDIcon.Texture != nullptr))
+		{
+			if (!Pickup->bOverride_TeamSide)
+			{
+				Pickup->TeamSide = NearestTeamSide(Pickup);
+			}
+			PickupList.Add(Pickup);
+		}
+	}
+
+	//Sort the list by by respawn time 
+	//TODO: powerup priority so different armors sort properly
+	PickupList.Sort([](const AUTPickup& A, const AUTPickup& B) -> bool
+	{
+		return A.RespawnTime > B.RespawnTime;
+	});
+
+	return true;
+}
 

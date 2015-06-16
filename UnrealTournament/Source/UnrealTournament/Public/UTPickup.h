@@ -84,6 +84,10 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UPROPERTY(BlueprintReadOnly, Category = Game)
 	AUTPlayerState* LastPickedUpBy;
 
+	/** icon for drawing time remaining on the HUD. AUTPickupInventory use their InventoryClasses HUDIcon*/
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
+	FCanvasIcon HUDIcon;
+
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void Tick(float DeltaTime) override;

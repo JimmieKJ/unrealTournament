@@ -141,83 +141,10 @@ bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
 void UUTHUDWidget_SpectatorSlideOut::InitPowerupList()
 {
 	bPowerupListInitialized = true;
-	TMap<UClass*, TArray<AUTPickupInventory*> > PickupGroups;
-
-	//Add Powerups to the PowerupList, collect any without bOverride_TeamSide
-	for (FActorIterator It(GetWorld()); It; ++It)
+	if (UTGameState != nullptr)
 	{
-		AUTPickupInventory* Pickup = Cast<AUTPickupInventory>(*It);
-		// @TODO FIXMESTEVE add superhealth
-		if (Pickup && Pickup->GetInventoryType() && Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->bShowPowerupTimer
-			&& ((Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon.Texture != NULL) || Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass())))
-		{
-			PowerupList.Add(Pickup);
-
-			//Collect the Powerups without bOverride_TeamSide and group by class
-			if (!Pickup->bOverride_TeamSide)
-			{
-				TArray<AUTPickupInventory*>& PickupGroup = PickupGroups.FindOrAdd(Pickup->GetInventoryType());
-				PickupGroup.Add(Pickup);
-			}
-		}
+		UTGameState->GetImportantPickups(PowerupList);
 	}
-
-	//CTF specific auto teamside 
-	AUTCTFGameState* CTFGS = Cast<AUTCTFGameState>(UTGameState);
-	if (CTFGS != nullptr && CTFGS->FlagBases.Num() == 2 && CTFGS->FlagBases[0] != nullptr && CTFGS->FlagBases[1] != nullptr)
-	{
-		FVector FlagLoc0 = CTFGS->FlagBases[0]->GetActorLocation();
-		FVector FlagLoc1 = CTFGS->FlagBases[1]->GetActorLocation();
-		for (auto& Pair : PickupGroups)
-		{
-			TArray<AUTPickupInventory*>& PickupGroup = Pair.Value;
-
-			//Find the powerups that are symmetrical, set the team to the closest flag, remove from list
-			for (int32 i = 0; i < PickupGroup.Num(); ++i)
-			{
-				for (int32 j = i + 1; j < PickupGroup.Num(); ++j)
-				{
-					float SymError = FMath::Abs((PickupGroup[i]->GetActorLocation() - FlagLoc0).Size() - (PickupGroup[j]->GetActorLocation() - FlagLoc1).Size());
-					if (SymError < 300.f)
-					{
-						PickupGroup[i]->TeamSide = UTGameState->NearestTeamSide(PickupGroup[i]);
-						PickupGroup[j]->TeamSide = UTGameState->NearestTeamSide(PickupGroup[j]);
-						PickupGroup.RemoveAt(j);
-						PickupGroup.RemoveAt(i);
-						i--;
-						break;
-					}
-				}
-			}
-
-			//from the remaining check to see if they should be on a team or neutral
-			for (AUTPickupInventory* Pickup : PickupGroup)
-			{
-				float Dist0 = FVector::Dist(Pickup->GetActorLocation(), FlagLoc0);
-				float Dist1 = FVector::Dist(Pickup->GetActorLocation(), FlagLoc1);
-				float Total = Dist0 + Dist1;
-				Pickup->TeamSide = (FMath::Min(Dist0, Dist1) / Total > 0.4f) ? 255 : UTGameState->NearestTeamSide(Pickup);
-			}
-		}
-	}
-	//Default to just picking the nearest side
-	else
-	{
-		for (auto& Pair : PickupGroups)
-		{
-			for (AUTPickupInventory* Pickup : Pair.Value)
-			{
-				Pickup->TeamSide = UTGameState->NearestTeamSide(Pickup);
-			}
-		}
-	}
-
-	//Sort the list by team and by respawn time 
-	//TODO: powerup priority so different armors sort properly
-	PowerupList.Sort([](const AUTPickupInventory& A, const AUTPickupInventory& B) -> bool
-	{
-		return A.TeamSide > B.TeamSide || (A.TeamSide == B.TeamSide && A.RespawnTime > B.RespawnTime);
-	});
 }
 
 void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
@@ -461,7 +388,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 	}
 }
 
-void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickupInventory* Pickup, float XOffset, float YOffset)
+void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffset, float YOffset)
 {
 	// @TODO FIXMESTEVE get rid of armor hacks when they have icons
 	FLinearColor BarColor = FLinearColor::White;
@@ -473,17 +400,23 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickupInventory* Pickup, flo
 	{
 		DrawTexture(UTHUDOwner->HUDAtlas, XOffset, YOffset, 0.08f*Size.X, 0.08f*Size.X, UTHUDOwner->TeamIconUV[Pickup->TeamSide].X, UTHUDOwner->TeamIconUV[Pickup->TeamSide].Y, 72, 72, 1.f, ((Pickup->TeamSide == 0) ? FLinearColor::Red : FLinearColor::Blue));
 	}
-	if (Pickup->GetInventoryType()->IsChildOf(AUTArmor::StaticClass()))
+	AUTPickupInventory* PickupInventory = Cast<AUTPickupInventory>(Pickup);
+	if (PickupInventory && PickupInventory->GetInventoryType()->IsChildOf(AUTArmor::StaticClass()))
 	{
 		DrawTexture(ArmorIcon.Texture, XOffset + 0.12f*Size.X, YOffset, 0.085f*Size.X, 0.085f*Size.X, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.f, FLinearColor::White);
 		FFormatNamedArguments Args;
-		Args.Add("Armor", FText::AsNumber(Pickup->GetInventoryType()->GetDefaultObject<AUTArmor>()->ArmorAmount));
+		Args.Add("Armor", FText::AsNumber(PickupInventory->GetInventoryType()->GetDefaultObject<AUTArmor>()->ArmorAmount));
 		FLinearColor DrawColor = FLinearColor::Yellow;
 		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 0.16f*Size.X, YOffset + ColumnY, SlideOutFont, FVector2D(1.f, 1.f), FLinearColor::Black, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
+	else if (PickupInventory)
+	{
+		FCanvasIcon HUDIcon = PickupInventory->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
+		DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Size.X, YOffset - 0.021f*Size.X, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 0.8f, FLinearColor::White);
+	}
 	else
 	{
-		FCanvasIcon HUDIcon = Pickup->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
+		FCanvasIcon HUDIcon = Pickup->HUDIcon;
 		DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Size.X, YOffset - 0.021f*Size.X, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 0.8f, FLinearColor::White);
 	}
 

@@ -206,4 +206,6 @@ public:
 	virtual float ScoreCameraView(AUTPlayerState* InPS, AUTCharacter *Character) override;
 
 	virtual uint8 NearestTeamSide(AActor* InActor) override;
+
+	bool GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList);
 };
