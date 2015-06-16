@@ -23,7 +23,10 @@ public:
 
 	// Cached reference to the Game Mode
 	AUTBaseGameMode* UTGameMode;
-	
+
+	// Will be true if this server has been registered with the MCP
+	bool bSessionValid;
+
 public:		// Online Subsystem stuff
 
 	// Make sure to clean everything up
@@ -66,7 +69,9 @@ protected:
 
 public:
 	virtual bool BanPlayer(APlayerController* BannedPlayer, const FText& BanReason);
+	virtual void HandleMatchHasStarted();
 	virtual void HandleMatchHasEnded();
+
 protected:
 	UPROPERTY(Config)
 	TArray<FString> BannedUsers;

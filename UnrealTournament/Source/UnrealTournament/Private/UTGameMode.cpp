@@ -388,9 +388,18 @@ void AUTGameMode::InitGameState()
 
 	if (GameSession != NULL && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
-		GameSession->RegisterServer();
-		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::UpdateOnlineServer, 60.0f);	
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession)
+		{
+			UTGameSession->RegisterServer();
+			FTimerHandle TempHandle;
+			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::UpdateOnlineServer, 60.0f);	
+
+			if (UTGameSession->bSessionValid)
+			{
+				NotifyLobbyGameIsReady();
+			}
+		}
 	}
 }
 
@@ -872,7 +881,7 @@ void AUTGameMode::DefaultTimer()
 		// if the server is empty and would be asking the hub to kill it, just kill ourselves rather than waiting for reconnection
 		// this relies on there being good monitoring and cleanup code in the hub, but it's better than some kind of network port failure leaving an instance spamming connection attempts forever
 		// also handles the hub itself failing
-		if (!bDedicatedInstance && NumPlayers <= 0)
+		if (!bDedicatedInstance && NumPlayers <= 0 && MatchState != MatchState::WaitingToStart)
 		{
 			FPlatformMisc::RequestExit(false);
 			return;
@@ -1333,15 +1342,6 @@ void AUTGameMode::EndMatch()
 		if (Pawn && !Cast<ASpectatorPawn>(Pawn))
 		{
 			Pawn->TurnOff();
-		}
-	}
-
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->EndMatch();
 		}
 	}
 }

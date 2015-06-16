@@ -34,6 +34,14 @@ void AUTServerBeaconLobbyClient::OnConnected()
 	if (UTGameMode)
 	{
 		Lobby_PrimeMapList(UTGameMode->GetMapPrefix());
+
+		// Try to notify that we are ready.
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(UTGameMode->GameSession);
+		if (UTGameSession && UTGameSession->bSessionValid)
+		{
+			UTGameMode->NotifyLobbyGameIsReady();
+		}
+
 	}
 
 

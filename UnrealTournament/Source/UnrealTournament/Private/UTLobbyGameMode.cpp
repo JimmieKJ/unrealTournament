@@ -91,15 +91,6 @@ void AUTLobbyGameMode::InitGameState()
 
 void AUTLobbyGameMode::StartMatch()
 {
-	if (GameSession != NULL)
-	{
-		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
-		if (UTGameSession != NULL)
-		{
-			UTGameSession->StartMatch();
-		}
-	}
-
 	SetMatchState(MatchState::InProgress);
 }
 
