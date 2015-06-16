@@ -969,11 +969,12 @@ void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget
 	}
 	else if (ButtonPressed == UTDIALOG_BUTTON_CANCEL)
 	{
-		if (bIsHost && !MatchInfo->CurrentRuleset.IsValid() && PlayerData.Num() > 0)	
+		if (bIsHost && !MatchInfo->CurrentRuleset.IsValid())	
 		{
-			if (PlayerData[0].IsValid() && PlayerData[0]->PlayerState.IsValid())
+			AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			if (PlayerState)
 			{
-				PlayerData[0].Get()->PlayerState->ServerDestroyOrLeaveMatch();
+				PlayerState->ServerDestroyOrLeaveMatch();
 			}
 		}
 	}
