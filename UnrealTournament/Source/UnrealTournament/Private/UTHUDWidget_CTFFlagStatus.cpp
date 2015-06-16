@@ -189,7 +189,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 					{
 						float DroppedAlpha = DroppedIconTemplate.RenderOpacity;
 						DroppedIconTemplate.RenderOpacity = CurrentWorldAlpha;
-						RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, DroppedIconTemplate.GetWidth()* WorldRenderScale, DroppedIconTemplate.GetHeight());
+						RenderObj_TextureAt(DroppedIconTemplate, ScreenPosition.X, ScreenPosition.Y, DroppedIconTemplate.GetWidth()* WorldRenderScale, DroppedIconTemplate.GetHeight()* WorldRenderScale);
 						DroppedIconTemplate.RenderOpacity = DroppedAlpha;
 					}
 				}
