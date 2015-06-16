@@ -15,6 +15,8 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	bUseClientSideCameraUpdates = false;
 	
 	PrimaryActorTick.bTickEvenWhenPaused = true;
+	ViewPitchMin = -89.0f;
+	ViewPitchMax = 89.0f;
 
 	DefaultPPSettings.SetBaseValues();
 	DefaultPPSettings.bOverride_AmbientCubemapIntensity = true;
