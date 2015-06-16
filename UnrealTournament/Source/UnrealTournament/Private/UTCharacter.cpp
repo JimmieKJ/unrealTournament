@@ -2819,7 +2819,7 @@ void AUTCharacter::OnSlide_Implementation(const FVector & SlideLocation, const F
 	}
 	if (SlideEffect != NULL)
 	{
-		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), SlideEffect, SlideLocation, SlideDir.Rotation(), true);
+		UGameplayStatics::SpawnEmitterAttached(SlideEffect, GetRootComponent(), NAME_None, SlideLocation, SlideDir.Rotation(), EAttachLocation::KeepWorldPosition);
 	}
 }
 
@@ -4356,7 +4356,7 @@ void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const 
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->SimulatedVelocity = NewVelocity;
-
+	
 		// Always consider Location as changed if we were spawned this tick as in that case our replicated Location was set as part of spawning, before PreNetReceive()
 		if ((NewLocation != GetActorLocation()) || (CreationTime == GetWorld()->TimeSeconds))
 		{
