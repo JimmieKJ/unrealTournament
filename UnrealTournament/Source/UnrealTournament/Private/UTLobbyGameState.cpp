@@ -642,63 +642,21 @@ void AUTLobbyGameState::GameInstance_RequestNextMap(AUTServerBeaconLobbyClient* 
 
 void AUTLobbyGameState::ScanAssetRegistry()
 {
-	UE_LOG(UT,Log,TEXT("Beginning Lobby Scan of Asset Registry to generate custom settings list...."));
+	UE_LOG(UT,Verbose,TEXT("Beginning Lobby Scan of Asset Registry to generate custom settings list...."));
 
-	static FName NAME_DisplayName(TEXT("DisplayName"));
+	TArray<UClass*> AllowedGameModes;
+	TArray<UClass*> AllowedMutators;
 
-	for (TObjectIterator<UClass> It; It; ++It)
+
+	AUTGameState::GetAvailableGameData(AllowedGameModes, AllowedMutators);
+	for (int32 i=0; i < AllowedGameModes.Num(); i++)
 	{
-		// non-native classes are detected by asset search even if they're loaded for consistency
-		if (!It->HasAnyClassFlags(CLASS_Abstract | CLASS_HideDropDown) && It->HasAnyClassFlags(CLASS_Native))
-		{
-			if (It->IsChildOf(AUTGameMode::StaticClass()))
-			{
-				AUTGameMode* GM = It->GetDefaultObject<AUTGameMode>();
-				if (!GM->bHideInUI)
-				{
-					// This is bad.. needs to be localized on the client :( but for not it will work. 
-					AllowedGameData.Add(FAllowedData(EGameDataType::GameMode, GM->GetClass()->GetPathName()));
-				}
-			}
-			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
-			{
-				AllowedGameData.Add(FAllowedData(EGameDataType::Mutator, It->GetPathName()));
-			}
-		}
+		AllowedGameData.Add(FAllowedData(EGameDataType::GameMode, AllowedGameModes[i]->GetPathName()));
 	}
 
-	TArray<FAssetData> AssetList;
-	GetAllBlueprintAssetData(AUTGameMode::StaticClass(), AssetList);
-	for (const FAssetData& Asset : AssetList)
+	for (int32 i=0; i < AllowedMutators.Num(); i++)
 	{
-		static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
-		static FName NAME_HideInUI(TEXT("bHideInUI"));
-		const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-		const FString* Hide = Asset.TagsAndValues.Find(NAME_HideInUI);
-		if (ClassPath != NULL && Hide != NULL && Hide->Equals(TEXT("false"), ESearchCase::IgnoreCase))
-		{
-			const FString* DisplayName = Asset.TagsAndValues.Find(NAME_DisplayName);
-			if (DisplayName != NULL)
-			{
-				AllowedGameData.Add( FAllowedData(EGameDataType::GameMode, Asset.PackageName.ToString()));
-			}
-		}
-	}
-
-	AssetList.Empty();
-	GetAllBlueprintAssetData(AUTMutator::StaticClass(), AssetList);
-	for (const FAssetData& Asset : AssetList)
-	{
-		static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
-		const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-		if (ClassPath != NULL)
-		{
-			const FString* DisplayName = Asset.TagsAndValues.Find(NAME_DisplayName);
-			if (DisplayName != NULL)
-			{
-				AllowedGameData.Add( FAllowedData(EGameDataType::Mutator, Asset.PackageName.ToString()));
-			}
-		}
+		AllowedGameData.Add(FAllowedData(EGameDataType::Mutator, AllowedMutators[i]->GetPathName()));
 	}
 
 	// Next , Grab the maps...
@@ -713,7 +671,7 @@ void AUTLobbyGameState::ScanAssetRegistry()
 		}
 	}
 
-	UE_LOG(UT,Log,TEXT("Scan Complete!!"))
+	UE_LOG(UT,Verbose,TEXT("Scan Complete!!"))
 
 }
 
