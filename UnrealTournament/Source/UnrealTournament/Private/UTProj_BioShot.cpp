@@ -471,9 +471,9 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 					}
 
 					Linker->LinkedBio = this;
+					return 0.f;
 				}
 			}
-			return 0.f;
 		}
 		if (WebLinks.Num() > 0)
 		{
@@ -498,7 +498,7 @@ float AUTProj_BioShot::TakeDamage(float DamageAmount, struct FDamageEvent const&
 				}
 			}
 		}
-		if ((bLanded || TrackedPawn) && !bExploded && (DamageAmount > 15.f))
+		if ((bLanded || TrackedPawn) && !bExploded && (DamageAmount > 12.f))
 		{
 			Explode(GetActorLocation(), SurfaceNormal);
 		}
