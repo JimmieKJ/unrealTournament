@@ -109,7 +109,7 @@ public:
 			TEXT("Duel"),
 			TEXT("/Script/UnrealTournament.UTDuelGame"),
 			TEXT("?TimeLimit=10?GoalScore=0"),
-			false);
+			true);
 
 		if (NewRuleset) Storage.Add(NewRuleset);
 
