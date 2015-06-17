@@ -589,7 +589,7 @@ FReply SUWindowsMainMenu::OnConnectIP(TSharedPtr<SComboButton> MenuButton)
 	PlayerOwner->OpenDialog(
 							SNew(SUWInputBox)
 							.DefaultInput(PlayerOwner->LastConnectToIP)
-							.DialogSize(FVector2D(600, 200))
+							.DialogSize(FVector2D(700, 300))
 							.OnDialogResult(this, &SUWindowsMainMenu::ConnectIPDialogResult)
 							.PlayerOwner(PlayerOwner)
 							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "ConnectToIP", "Connect to IP"))
