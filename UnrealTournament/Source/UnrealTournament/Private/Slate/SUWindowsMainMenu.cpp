@@ -757,6 +757,10 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		{
 			GameOptions += FString::Printf(TEXT("?Difficulty=%i?BotFill=%i?MaxPlayers=%i"),CreateGameDialog->BotSkillLevel, DesiredPlayerCount, DesiredPlayerCount);
 		}
+		else
+		{
+			GameOptions += TEXT("?BotFill=0");
+		}
 
 	}
 	else
@@ -779,6 +783,10 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 			int32 OptimalPlayerCount = DefaultGameMode->bTeamGame ? CreateGameDialog->MapPlayList[0].MapInfo->OptimalTeamPlayerCount : CreateGameDialog->MapPlayList[0].MapInfo->OptimalPlayerCount;
 
 			GameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(CreateGameDialog->BotSkillLevel,0,7));				
+		}
+		else
+		{
+			GameOptions += TEXT("?BotFill=0");
 		}
 	}
 
