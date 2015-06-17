@@ -646,9 +646,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 
 	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetController()); // fixmesteve use the viewer rather than the controller (when can do everywhere)
 	float WeaponBobGlobalScaling = MyWeapon->WeaponBobScaling * (MyPC ? MyPC->WeaponBobGlobalScaling : 1.f);
-	float EyeOffsetGlobalScaling = MyPC ? MyPC->EyeOffsetGlobalScaling : 1.f;
-
-	return WeaponBobGlobalScaling*(CurrentWeaponBob.Y + CurrentJumpBob.Y)*Y + WeaponBobGlobalScaling*(CurrentWeaponBob.Z + CurrentJumpBob.Z)*Z + CrouchEyeOffset + EyeOffsetGlobalScaling*GetTransformedEyeOffset();
+	return WeaponBobGlobalScaling*(CurrentWeaponBob.Y + CurrentJumpBob.Y)*Y + WeaponBobGlobalScaling*(CurrentWeaponBob.Z + CurrentJumpBob.Z)*Z + CrouchEyeOffset + GetTransformedEyeOffset();
 }
 
 void AUTCharacter::NotifyJumpApex()
@@ -1247,7 +1245,7 @@ void AUTCharacter::StartRagdoll()
 	}
 	else
 	{
-		GetMesh()->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity, false); 
+		GetMesh()->SetAllPhysicsLinearVelocity(GetMovementComponent()->Velocity, false);
 	}
 
 	GetCharacterMovement()->StopActiveMovement();
@@ -2728,13 +2726,13 @@ FVector AUTCharacter::GetTransformedEyeOffset() const
 		float MaxZ = FMath::Max(0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 12.f - EyeOffset.Z - BaseEyeHeight - CrouchEyeOffset.Z);
 		XTransform = XTransform * MaxZ / XTransform.Z;
 	}
-	return XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z);
+	float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
+	return EyeOffsetGlobalScaling * (XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z));
 }
 
 FVector AUTCharacter::GetPawnViewLocation() const
 {
-	float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
-	return GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + CrouchEyeOffset + EyeOffsetGlobalScaling*GetTransformedEyeOffset();
+	return GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight) + CrouchEyeOffset + GetTransformedEyeOffset();
 }
 
 void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
@@ -2745,8 +2743,7 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 		float SavedFOV = OutResult.FOV;
 		CharacterCameraComponent->GetCameraView(DeltaTime, OutResult);
 		OutResult.FOV = SavedFOV;
-		float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
-		OutResult.Location = OutResult.Location + CrouchEyeOffset + EyeOffsetGlobalScaling*GetTransformedEyeOffset();
+		OutResult.Location = OutResult.Location + CrouchEyeOffset + GetTransformedEyeOffset();
 	}
 	else
 	{
