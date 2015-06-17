@@ -229,6 +229,22 @@ void UUTCTFScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, floa
 	}
 
 	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+
+	if (!PlayerState->bIsABot)
+	{
+		int32 Badge;
+		int32 Level;
+
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTHUDOwner->UTPlayerOwner->Player);
+		if (LP)
+		{
+			UUTLocalPlayer::GetBadgeFromELO(PlayerState->AverageRank, Badge, Level);
+			Badge = FMath::Clamp<int32>(Badge, 0, 3);
+			Level = FMath::Clamp<int32>(Level, 0, 8);
+			DrawTexture(TextureAtlas, XOffset + (Width * ColumnMedalX), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			DrawTexture(TextureAtlas, XOffset + (Width * ColumnMedalX), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		}
+	}
 }
 
 void UUTCTFScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
