@@ -8,8 +8,6 @@ DEFINE_LOG_CATEGORY(LogGameStats);
 UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	StatPrefix = TEXT("STAT_");
-
 	Stats.Add(MakeStat(NAME_SkillRating, false));
 	Stats.Add(MakeStat(NAME_TDMSkillRating, false));
 	Stats.Add(MakeStat(NAME_DMSkillRating, false));
@@ -87,8 +85,7 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 
 UStat* UStatManager::MakeStat(FName StatName, bool bBackendStat)
 {
-	FString NewName = FString::Printf(TEXT("%s%s"), *StatPrefix, *StatName.ToString());
-	UStat* Stat = NewObject<UStat>(this,FName(*NewName));
+	UStat* Stat = NewObject<UStat>(this, StatName);
 	Stat->StatName = StatName;
 	Stat->HighestPeriodToTrack = EStatRecordingPeriod::Persistent;
 	Stat->bBackendStat = bBackendStat;
@@ -214,13 +211,20 @@ void UStatManager::PopulateStatLookup()
 	}
 }
 
-void UStatManager::PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> JsonObject)
+void UStatManager::PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> JsonObject, AUTPlayerState* PS)
 {
 	for (auto* Stat : Stats)
 	{
-		if (Stat && Stat->bBackendStat)
+		if (Stat && Stat->bBackendStat && PS)
 		{
-			JsonObject->SetNumberField(Stat->StatName.ToString(), GetStatValue(Stat, EStatRecordingPeriod::Persistent));
+			float NewStatValue = PS->GetStatsValue(Stat->StatName);
+			Stat->ModifyStat(NewStatValue, EStatMod::Set);
+
+			int32 StatValue = GetStatValue(Stat, EStatRecordingPeriod::Persistent);
+			if (StatValue > 0)
+			{
+				JsonObject->SetNumberField(Stat->StatName.ToString(), StatValue);
+			}
 		}
 	}
 }

@@ -836,7 +836,7 @@ void AUTPlayerState::WriteStatsToCloud()
 		// Write the stats going to the backend
 		{
 			TSharedPtr<FJsonObject> StatsJson = MakeShareable(new FJsonObject);
-			StatManager->PopulateJsonObjectForBackendStats(StatsJson);
+			StatManager->PopulateJsonObjectForBackendStats(StatsJson, this);
 			FString OutputJsonString;
 			TArray<uint8> BackendStatsData;
 			TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
@@ -881,6 +881,8 @@ void AUTPlayerState::WriteStatsToCloud()
 					FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
 					StatsWriteRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);
 				}
+
+				UE_LOG(LogGameStats, VeryVerbose, TEXT("%s"), *OutputJsonString);
 
 				StatsWriteRequest->SetContent(BackendStatsData);
 				StatsWriteRequest->ProcessRequest();

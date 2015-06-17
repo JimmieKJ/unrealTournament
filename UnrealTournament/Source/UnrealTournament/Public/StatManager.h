@@ -49,7 +49,7 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 
 	AUTPlayerState* GetPlayerState() { return UTPS; }
 
-	virtual void PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> JsonObject);
+	virtual void PopulateJsonObjectForBackendStats(TSharedPtr<FJsonObject> JsonObject, AUTPlayerState* PS);
 	virtual void PopulateJsonObjectForNonBackendStats(TSharedPtr<FJsonObject> JsonObject);
 	virtual void InsertDataFromNonBackendJsonObject(const TSharedPtr<FJsonObject> JsonObject);
 
@@ -74,11 +74,7 @@ private:
 	/** Array of stats tracked */
 	UPROPERTY()
 	TArray<UStat*> Stats;
-
-	// Prefix prepended to all stat names when constructing stat objects
-	UPROPERTY()
-	FString StatPrefix;
-
+	
 	/** Reference to the PS that controls this StatManager */
 	UPROPERTY()
 	AUTPlayerState *UTPS;
