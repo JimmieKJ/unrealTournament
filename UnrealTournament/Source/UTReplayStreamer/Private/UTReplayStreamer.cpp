@@ -15,6 +15,24 @@ FUTReplayStreamer::FUTReplayStreamer()
 	{
 		ServerURL = TEXT( "https://replay-public-service-gamedev.ol.epicgames.net/replay/" );
 	}
+
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+
+	if ( OnlineSubsystem )
+	{
+		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+	}
+}
+
+void FUTReplayStreamer::ProcessRequestInternal( TSharedPtr< class IHttpRequest > Request )
+{
+	if ( OnlineIdentityInterface.IsValid() )
+	{
+		FString AuthToken = OnlineIdentityInterface->GetAuthToken( 0 );
+		Request->SetHeader( TEXT( "Authorization" ), FString( TEXT( "bearer " ) ) + AuthToken );
+	}
+
+	Request->ProcessRequest();
 }
 
 IMPLEMENT_MODULE( FUTReplayStreamingFactory, UTReplayStreamer )
