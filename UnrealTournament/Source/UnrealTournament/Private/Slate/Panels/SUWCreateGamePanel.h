@@ -46,6 +46,8 @@ protected:
 	TSharedPtr< SListView<UClass*> > EnabledMutators;
 	FSlateDynamicImageBrush* LevelScreenshot;
 
+	UTexture2D* LevelShot;
+
 	/** currently opened mutator config menu - if valid, can't open another
 	 * workaround for Slate not supporting modal dialogs...
 	 */
@@ -83,6 +85,8 @@ protected:
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
 		Collector.AddReferencedObjects(AllGametypes);
+		Collector.AddReferencedObjects(MutatorListAvailable);
+		Collector.AddReferencedObject(LevelShot);
 	}
 
 	void OnTextChanged(const FText& NewText);

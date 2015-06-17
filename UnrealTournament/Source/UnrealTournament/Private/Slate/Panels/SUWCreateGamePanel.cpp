@@ -456,7 +456,7 @@ void SUWCreateGamePanel::OnMapSelected(TSharedPtr<FMapListItem> NewSelection, ES
 		}
 		else
 		{
-			UTexture2D* LevelShot = LoadObject<UTexture2D>(nullptr, *NewSelection->Screenshot);
+			LevelShot = LoadObject<UTexture2D>(nullptr, *NewSelection->Screenshot);
 			if (LevelShot)
 			{
 				*LevelScreenshot = FSlateDynamicImageBrush(LevelShot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
