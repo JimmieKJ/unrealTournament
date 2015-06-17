@@ -654,10 +654,12 @@ bool AUTProjectile::ShouldIgnoreHit_Implementation(AActor* OtherActor, UPrimitiv
 	// special case not blowing up on teleporters on overlap so teleporters have the option to teleport the projectile
 	// don't blow up on weapon redirectors that teleport weapons fire
 	// don't blow up from our side on weapon shields; let the shield do that so it can change damage/kill credit
+	// ignore client-side actors if will bounce
 	return ( ((Cast<AUTTeleporter>(OtherActor) != NULL || Cast<AVolume>(OtherActor) != NULL) && !GetVelocity().IsZero())
 			|| (Cast<AUTProjectile>(OtherActor) != NULL && !InteractsWithProj(Cast<AUTProjectile>(OtherActor)))
 			|| (Cast<AUTWeaponRedirector>(OtherActor) != NULL && ((AUTWeaponRedirector*)OtherActor)->bWeaponPortal)
-			|| Cast<AUTProj_WeaponScreen>(OtherActor) != NULL );
+			|| Cast<AUTProj_WeaponScreen>(OtherActor) != NULL )
+			|| (ProjectileMovement->bShouldBounce && (Role != ROLE_Authority) && OtherActor && OtherActor->bTearOff);
 }
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
