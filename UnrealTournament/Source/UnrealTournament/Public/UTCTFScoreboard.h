@@ -52,7 +52,7 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
-	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
+	virtual void DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor) override;
 
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
 	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;

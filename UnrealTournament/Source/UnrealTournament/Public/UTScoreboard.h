@@ -159,6 +159,7 @@ protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& DrawY);
 	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
+	virtual void DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor);
 
 	virtual void DrawServerPanel(float RenderDelta, float YOffset);
 

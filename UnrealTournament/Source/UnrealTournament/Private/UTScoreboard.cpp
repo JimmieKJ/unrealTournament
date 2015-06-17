@@ -25,7 +25,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ColumnHeaderPingX = 0.96;
 	ColumnHeaderY = 8;
 	ColumnY = 12;
-	ColumnMedalX = 0.6;
+	ColumnMedalX = 0.59;
 	FooterPosY = 1020.f;
 	CellHeight = 40;
 
@@ -346,10 +346,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		bIsUnderCursor = (CursorPosition.X >= Bounds.X && CursorPosition.X <= Bounds.Z && CursorPosition.Y >= Bounds.Y && CursorPosition.Y <= Bounds.W);
 	}
 
-	FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, UTHUDOwner->MediumFont, 1.f, 0.475f*Width));
-	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score));
-	FText PlayerDeaths = FText::AsNumber(PlayerState->Deaths);
 
 	int32 Ping = PlayerState->Ping * 4;
 	if (UTHUDOwner->UTPlayerOwner->UTPlayerState == PlayerState)
@@ -358,7 +355,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		DrawColor = FLinearColor(0.0f,0.92f,1.0f,1.0f);
 		BarOpacity = 0.5;
 	}
-
 	else if (PlayerState->bIsFriend)
 	{
 		DrawColor = FLinearColor(FColor(254, 255, 174, 255));
@@ -374,8 +370,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	{
 		PlayerPing = FText::Format(NSLOCTEXT("UTScoreboard", "PingFormatText", "{0}ms"), FText::AsNumber(Ping));
 	}
-
-	// Draw the position
 	
 	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::Black;
@@ -406,7 +400,11 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, 36, 26, FlagU, FlagV, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));	// Add a function to support additional flags
 
 	// Draw the Text
-	DrawText(Position, XOffset + (Width * FlagX - 5), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
+	if (UTGameState && !UTGameState->bTeamGame)
+	{
+		FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
+		DrawText(Position, XOffset + (Width * FlagX - 5.f), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
+	}
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
 	if (PlayerState->bIsFriend)
@@ -416,8 +414,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
-		DrawText(PlayerScore, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-		DrawText(PlayerDeaths, XOffset + (Width * ColumnHeaderDeathsX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawPlayerScore(PlayerState, XOffset, YOffset, Width, DrawColor);
 	}
 	else
 	{
@@ -442,10 +439,17 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 			UUTLocalPlayer::GetBadgeFromELO(PlayerState->AverageRank, Badge, Level);
 			Badge = FMath::Clamp<int32>(Badge,0, 3);
 			Level = FMath::Clamp<int32>(Level,0, 8);
-			DrawTexture(TextureAtlas, XOffset + (Width * ColumnMedalX), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
-			DrawTexture(TextureAtlas, XOffset + (Width * ColumnMedalX), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
+			DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		}
 	}
+}
+
+void UUTScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor)
+{
+	DrawText(FText::AsNumber(int32(PlayerState->Score)), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	DrawText(FText::AsNumber(PlayerState->Deaths), XOffset + (Width * ColumnHeaderDeathsX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
 void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
