@@ -171,6 +171,8 @@ public:
 	void EnumerateCheckpoints();
 	void ConditionallyEnumerateCheckpoints();
 
+	virtual void ProcessRequestInternal( TSharedPtr< class IHttpRequest > Request );
+
 	/** EStreamerState - Overall state of the streamer */
 	enum class EStreamerState
 	{

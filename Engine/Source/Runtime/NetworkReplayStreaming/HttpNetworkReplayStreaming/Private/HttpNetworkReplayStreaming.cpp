@@ -1312,13 +1312,19 @@ bool FHttpNetworkReplayStreamer::ProcessNextHttpRequest()
 		check( !InFlightHttpRequest.IsValid() );
 
 		InFlightHttpRequest = QueuedRequest;
-		InFlightHttpRequest->Request->ProcessRequest();
+
+		ProcessRequestInternal( InFlightHttpRequest->Request );
 
 		// We can return now since we know a http request is now in flight
 		return true;
 	}
 
 	return false;
+}
+
+void FHttpNetworkReplayStreamer::ProcessRequestInternal( TSharedPtr< class IHttpRequest > Request )
+{
+	Request->ProcessRequest();
 }
 
 void FHttpNetworkReplayStreamer::Tick( const float DeltaTime )
