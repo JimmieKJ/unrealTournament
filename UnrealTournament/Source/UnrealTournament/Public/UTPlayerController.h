@@ -192,7 +192,10 @@ public:
 
 	/** Update rotation to be good view of current viewtarget.  UnBlockedPct is how much of the camera offset trace needs to be unblocked. */
 	UFUNCTION()
-	virtual void FindGoodView(bool bIsUpdate);
+		virtual void FindGoodView(const FVector& TargetLoc, bool bIsUpdate);
+
+	UPROPERTY()
+		float LastGoalYaw;
 
 	UFUNCTION(Client, Reliable)
 	void ClientViewSpectatorPawn(FViewTargetTransitionParams TransitionParams);
@@ -239,7 +242,7 @@ public:
 
 	/** Returns updated rotation for third person camera view. */
 	UFUNCTION()
-		virtual FRotator GetSpectatingRotation(float DeltaTime);
+		virtual FRotator GetSpectatingRotation(const FVector& ViewLoc, float DeltaTime);
 
 	UFUNCTION(exec)
 	virtual void ToggleTacCom();

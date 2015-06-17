@@ -242,7 +242,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
 		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
 		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
-		FRotator Rotator = (bAllowSpecCameraControl || !UTPC) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(DeltaTime);
+		FRotator Rotator = (bAllowSpecCameraControl || !UTPC) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
 		if (Cast<AUTProjectile>(OutVT.Target) && !OutVT.Target->IsPendingKillPending())
 		{
 			Rotator = OutVT.Target->GetVelocity().Rotation();

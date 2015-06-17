@@ -1932,12 +1932,12 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		if (IsLocalController() && bSpectateBehindView && PlayerState && PlayerState->bOnlySpectator && (NewViewTarget != GetSpectatorPawn()))
 		{
 			// pick good starting rotation
-			FindGoodView(false);
+			FindGoodView(NewViewTarget->GetActorLocation(), false);
 		}
 	}
 }
 
-FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
+FRotator AUTPlayerController::GetSpectatingRotation(const FVector& ViewLoc, float DeltaTime)
 {
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
@@ -1947,7 +1947,7 @@ FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
 			return GetControlRotation();
 		}
 		float OldYaw = FMath::UnwindDegrees(GetControlRotation().Yaw);
-		FindGoodView(true);
+		FindGoodView(ViewLoc, true);
 		FRotator NewRotation = GetControlRotation();
 		float NewYaw = FMath::UnwindDegrees(NewRotation.Yaw);
 		if (FMath::Abs(NewYaw - OldYaw) < 60.f)
@@ -1959,7 +1959,7 @@ FRotator AUTPlayerController::GetSpectatingRotation(float DeltaTime)
 	return GetControlRotation();
 }
 
-void AUTPlayerController::FindGoodView(bool bIsUpdate)
+void AUTPlayerController::FindGoodView(const FVector& TargetLoc, bool bIsUpdate)
 {
 	AActor* TestViewTarget = GetViewTarget();
 	if (!TestViewTarget || !PlayerCameraManager || (TestViewTarget == this) || (TestViewTarget == GetSpectatorPawn()) || Cast<AUTProjectile>(TestViewTarget) || Cast<AUTViewPlaceholder>(TestViewTarget))
@@ -1976,7 +1976,7 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 	float CurrentYaw = BestRot.Yaw;
 
 	// @TODO FIXMESTEVE - if update, work harder to stay close to current view, slowly move back to behind
-	BestRot.Yaw = TestViewTarget->GetActorRotation().Yaw + 15.f;
+	BestRot.Yaw = FMath::UnwindDegrees(TestViewTarget->GetActorRotation().Yaw) + 15.f;
 	if (bIsUpdate)
 	{
 		float DesiredYaw = BestRot.Yaw;
@@ -1990,16 +1990,13 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 		{
 			CurrentYaw -= 360.f;
 		}
-		if (DesiredYaw - CurrentYaw > 30.f)
-		{
-			BestRot.Yaw = CurrentYaw + 15.f + FMath::Clamp(60.f - (DesiredYaw - CurrentYaw), 0.f , 15.f);
-		}
-		else if (CurrentYaw - DesiredYaw > 30.f)
-		{
-			BestRot.Yaw = CurrentYaw - 15.f - FMath::Clamp(60.f - (CurrentYaw - DesiredYaw), 0.f, 15.f);
-		}
 	}
-	float UnBlockedPct = (Cast<APawn>(TestViewTarget) && (PlayerCameraManager->FreeCamDistance > 0.f)) ? 96.f / PlayerCameraManager->FreeCamDistance : 1.f;
+	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
+	static const FName NAME_GameOver = FName(TEXT("GameOver"));
+	bool bGameOver = (GetStateName() == NAME_GameOver);
+	float CameraDistance = bGameOver ? CamMgr->EndGameFreeCamDistance : CamMgr->FreeCamDistance;
+	FVector CameraOffset = bGameOver ? CamMgr->EndGameFreeCamOffset : CamMgr->FreeCamOffset;
+	float UnBlockedPct = (Cast<APawn>(TestViewTarget) && (CameraDistance > 0.f)) ? 96.f / CameraDistance : 1.f;
 
 	AUTCTFFlag* Flag = Cast<AUTCTFFlag>(TestViewTarget);
 	if (Flag)
@@ -2010,7 +2007,7 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 		}
 		else if (Flag->Holder && Flag->AttachmentReplication.AttachParent)
 		{
-			UnBlockedPct = (PlayerCameraManager->FreeCamDistance > 0.f) ? 96.f / PlayerCameraManager->FreeCamDistance : 1.f;
+			UnBlockedPct = (CameraDistance > 0.f) ? 96.f / CameraDistance : 1.f;
 			BestRot.Yaw = Flag->AttachmentReplication.AttachParent->GetActorRotation().Yaw + 15.f;
 		}
 	}
@@ -2023,6 +2020,13 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 
 	// look for acceptable view
 	float YawIncrement = 30.f;
+	BestRot.Yaw = int32(BestRot.Yaw / 5.f) * 5.f;
+	BestRot.Yaw = FMath::UnwindDegrees(BestRot.Yaw);
+	if ((FMath::Abs(LastGoalYaw - BestRot.Yaw) < 6.f) || (FMath::Abs(LastGoalYaw - BestRot.Yaw) > 354.f))
+	{
+		// prevent jitter when can't settle on good view
+		BestRot.Yaw = LastGoalYaw;
+	}
 	float OffsetMag = -60.f;
 	float YawOffset = 0.f;
 	bool bFoundGoodView = false;
@@ -2030,12 +2034,10 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 	float BestDist = 0.f;
 	float StartYaw = BestRot.Yaw;
 	int32 IncrementCount = 1;
-	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
 	while (!bFoundGoodView && (IncrementCount < 12) && CamMgr)
 	{
 		BestRot.Yaw = StartYaw + YawOffset;
-		FVector TargetLoc = TestViewTarget->GetActorLocation();
-		FVector Pos = TargetLoc + FRotationMatrix(BestRot).TransformVector(PlayerCameraManager->FreeCamOffset) - BestRot.Vector() * PlayerCameraManager->FreeCamDistance;
+		FVector Pos = TargetLoc + FRotationMatrix(BestRot).TransformVector(CameraOffset) - BestRot.Vector() * CameraDistance;
 		FHitResult Result(1.f);
 		CamMgr->CheckCameraSweep(Result, TestViewTarget, TargetLoc, Pos);
 		float NewDist = (Result.Location - TargetLoc).SizeSquared();
@@ -2055,7 +2057,41 @@ void AUTPlayerController::FindGoodView(bool bIsUpdate)
 	}
 	if (!bFoundGoodView)
 	{
-		BestRot.Yaw = BestView;
+		BestRot.Yaw = CurrentYaw;
+	}
+	LastGoalYaw = BestRot.Yaw;
+	if ((FMath::Abs(CurrentYaw - BestRot.Yaw) > 60.f) && (FMath::Abs(CurrentYaw - BestRot.Yaw) < 300.f))
+	{
+		if (BestRot.Yaw < 0.f)
+		{
+			BestRot.Yaw += 360.f;
+		}
+		if (CurrentYaw < 0.f)
+		{
+			CurrentYaw += 360.f;
+		}
+		if (CurrentYaw > BestRot.Yaw)
+		{
+			if (360.f - CurrentYaw + BestRot.Yaw < CurrentYaw - BestRot.Yaw)
+			{
+				BestRot.Yaw = CurrentYaw + 30.f;
+			}
+			else
+			{
+				BestRot.Yaw = CurrentYaw - 30.f;
+			}
+		}
+		else
+		{
+			if (360.f - BestRot.Yaw + CurrentYaw < BestRot.Yaw - CurrentYaw)
+			{
+				BestRot.Yaw = CurrentYaw - 30.f;
+			}
+			else
+			{
+				BestRot.Yaw = CurrentYaw + 30.f;
+			}
+		}
 	}
 	SetControlRotation(BestRot);
 }
