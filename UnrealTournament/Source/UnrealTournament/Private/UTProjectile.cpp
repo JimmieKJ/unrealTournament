@@ -320,6 +320,13 @@ void AUTProjectile::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile)
 		ReplicatedMovement.Rotation = MyFakeProjectile->GetActorRotation();
 		PostNetReceiveLocationAndRotation();
 	}
+	AUTPlayerController* MyPlayer = Cast<AUTPlayerController>(InstigatorController ? InstigatorController : GEngine->GetFirstLocalPlayerController(GetWorld()));
+	if (MyPlayer && (GetLifeSpan() != 0.f))
+	{
+		// remove forward prediction from lifespan
+		float CatchupTickDelta = MyPlayer->GetPredictionTime();
+		SetLifeSpan(FMath::Max(0.001f, GetLifeSpan() - CatchupTickDelta));
+	}
 	MyFakeProjectile->SetLifeSpan(GetLifeSpan());
 	if (bNetTemporary)
 	{
