@@ -47,9 +47,7 @@ void SUWindowsMainMenu::SetInitialPanel()
 	if (HomePanel.IsValid())
 	{
 		TSharedPtr<SUTFragCenterPanel> FragCenterPanel = StaticCastSharedPtr<SUTFragCenterPanel>(HomePanel);
-		FragCenterPanel->Browse(TEXT("http://www.necris.net/fragcenter"));
-//		FString HTMLPath = TEXT("D:/Source/UE4-UT/UnrealTournament/Content/FragCenter/index.html");
-//		FragCenterPanel->Browse(HTMLPath);
+		FragCenterPanel->Browse(TEXT("http://www.unrealtournament.com/fragcenter"));
 		ActivatePanel(HomePanel);
 	}
 }
