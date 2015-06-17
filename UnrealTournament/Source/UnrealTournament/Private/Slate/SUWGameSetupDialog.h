@@ -80,7 +80,7 @@ private:
 			MapInfo = inMapInfo;
 
 			// Create the default Image Brush.  This will be replaced in time.
-			MapImage = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("HubMapListShot")));
+			MapImage = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), NAME_None);
 			
 			bSelected = bInitiallySelected;
 			CheckMark.Reset();

@@ -898,12 +898,12 @@ void SULobbyMatchSetupPanel::BuildMapList()
 		if (MatchInfo->InitialMapInfo->Screenshot != TEXT(""))
 		{
 			UTexture2D* MapImage = LoadObject<UTexture2D>(nullptr, *MatchInfo->InitialMapInfo->Screenshot);
-			MapScreenshot = new FSlateDynamicImageBrush(MapImage, FVector2D(256.0, 128.0), FName(TEXT("HubMapShot")));
+			MapScreenshot = new FSlateDynamicImageBrush(MapImage, FVector2D(256.0, 128.0), NAME_None);
 
 		}
 		else
 		{
-			MapScreenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("HubMapShot")));
+			MapScreenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), NAME_None);
 		}
 
 		MapListPanel->AddSlot().AutoHeight()

@@ -64,8 +64,7 @@ void SUWCreateGamePanel::ConstructPanel(FVector2D ViewportSize)
 	TSharedPtr<SVerticalBox> MainBox;
 	TSharedPtr<SUniformGridPanel> ButtonRow;
 
-	// NOTE: leaks at the moment because Slate corrupts memory if you delete brushes
-	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(256.0f, 128.0f), FName(TEXT("LevelScreenshot")));
+	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(256.0f, 128.0f), NAME_None);
 
 	ChildSlot
 	.VAlign(VAlign_Fill)

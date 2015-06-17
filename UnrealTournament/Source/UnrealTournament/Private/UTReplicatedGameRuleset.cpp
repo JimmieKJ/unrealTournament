@@ -77,7 +77,7 @@ void AUTReplicatedGameRuleset::BuildSlateBadge()
 {
 #if !UE_SERVER
 	UTexture2D* BadgeTexture = LoadObject<UTexture2D>(nullptr, *DisplayTexture, nullptr, LOAD_None, nullptr);
-	SlateBadge = MakeShareable( new FSlateDynamicImageBrush(BadgeTexture, FVector2D(256.0f, 256.0f), FName(TEXT("SlateBadge"))) );
+	SlateBadge = MakeShareable( new FSlateDynamicImageBrush(BadgeTexture, FVector2D(256.0f, 256.0f), NAME_None) );
 #endif
 }
 

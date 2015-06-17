@@ -15,7 +15,7 @@
 
 void SUWMapVoteDialog::Construct(const FArguments& InArgs)
 {
-	DefaultLevelScreenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), FName(TEXT("MapVoteScreenshot")));
+	DefaultLevelScreenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), NAME_None);
 	GameState = InArgs._GameState;
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
@@ -176,7 +176,7 @@ void SUWMapVoteDialog::TextureLoadComplete(const FName& InPackageName, UPackage*
 				UTexture2D* Tex = FindObject<UTexture2D>(nullptr, *Screenshot);
 				if (Tex)
 				{
-					VoteButtons[i].MapVoteInfo->MapBrush = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), FName(TEXT("MapVoteScreenshot")));
+					VoteButtons[i].MapVoteInfo->MapBrush = new FSlateDynamicImageBrush(Tex, FVector2D(256.0, 128.0), NAME_None);
 					VoteButtons[i].MapImage->SetImage(VoteButtons[i].MapVoteInfo->MapBrush);
 				}
 			}

@@ -679,11 +679,12 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		if (DesiredSkillLevel >= 0)
 		{
-			// Load the level summary of this map.
-			UUTLevelSummary* Summary = UUTGameEngine::LoadLevelSummary(StartingMap);
-
-			// This match wants bots.  
-			int32 OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? Summary->OptimalTeamPlayerCount : Summary->OptimalPlayerCount;
+			int32 OptimalPlayerCount = 4;
+			TSharedPtr<FMapListItem> MapInfo = GetMapInformation(StartingMap);
+			if (MapInfo.IsValid())
+			{
+				OptimalPlayerCount = NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame ? MapInfo->OptimalTeamPlayerCount : MapInfo->OptimalPlayerCount;
+			}
 			FinalGameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(DesiredSkillLevel,0,7));				
 		}
 
