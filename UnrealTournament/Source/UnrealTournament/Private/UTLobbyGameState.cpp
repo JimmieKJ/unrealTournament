@@ -662,7 +662,7 @@ void AUTLobbyGameState::ScanAssetRegistry()
 			}
 			else if (It->IsChildOf(AUTMutator::StaticClass()) && !It->GetDefaultObject<AUTMutator>()->DisplayName.IsEmpty())
 			{
-				AllowedGameData.Add(FAllowedData(EGameDataType::Mutator, It->GetName()));
+				AllowedGameData.Add(FAllowedData(EGameDataType::Mutator, It->GetPathName()));
 			}
 		}
 	}
