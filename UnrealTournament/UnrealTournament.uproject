@@ -31,7 +31,7 @@
 		{
 			"Name": "OculusAudio",
 			"Enabled": true,
-			"NotRequired": true
+			"WhitelistPlatforms" : [ "Win64" ]
 		},
 	],
 	"EpicSampleNameHash": "0"
