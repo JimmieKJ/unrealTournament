@@ -644,19 +644,19 @@ void AUTLobbyGameState::ScanAssetRegistry()
 {
 	UE_LOG(UT,Verbose,TEXT("Beginning Lobby Scan of Asset Registry to generate custom settings list...."));
 
-	TArray<UClass*> AllowedGameModes;
-	TArray<UClass*> AllowedMutators;
+	TArray<UClass*> AllowedGameModesClasses;
+	TArray<UClass*> AllowedMutatorsClasses;
 
 
-	AUTGameState::GetAvailableGameData(AllowedGameModes, AllowedMutators);
-	for (int32 i=0; i < AllowedGameModes.Num(); i++)
+	AUTGameState::GetAvailableGameData(AllowedGameModesClasses, AllowedMutatorsClasses);
+	for (int32 i = 0; i < AllowedGameModesClasses.Num(); i++)
 	{
-		AllowedGameData.Add(FAllowedData(EGameDataType::GameMode, AllowedGameModes[i]->GetPathName()));
+		AllowedGameData.Add(FAllowedData(EGameDataType::GameMode, AllowedGameModesClasses[i]->GetPathName()));
 	}
 
-	for (int32 i=0; i < AllowedMutators.Num(); i++)
+	for (int32 i = 0; i < AllowedMutatorsClasses.Num(); i++)
 	{
-		AllowedGameData.Add(FAllowedData(EGameDataType::Mutator, AllowedMutators[i]->GetPathName()));
+		AllowedGameData.Add(FAllowedData(EGameDataType::Mutator, AllowedMutatorsClasses[i]->GetPathName()));
 	}
 
 	// Next , Grab the maps...
@@ -665,9 +665,9 @@ void AUTLobbyGameState::ScanAssetRegistry()
 	for (const FAssetData& Asset : MapAssets)
 	{
 		FString MapPackageName = Asset.PackageName.ToString();
-		if ( !MapPackageName.StartsWith(TEXT("/Engine/")) && IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0 )
+		if (!MapPackageName.StartsWith(TEXT("/Engine/")) && IFileManager::Get().FileSize(*FPackageName::LongPackageNameToFilename(MapPackageName, FPackageName::GetMapPackageExtension())) > 0)
 		{
-			AllowedGameData.Add(FAllowedData( EGameDataType::Map, MapPackageName) );
+			AllowedGameData.Add(FAllowedData( EGameDataType::Map, MapPackageName));
 		}
 	}
 
