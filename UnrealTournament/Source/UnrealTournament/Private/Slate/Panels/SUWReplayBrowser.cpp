@@ -38,6 +38,12 @@ TSharedRef<SWidget> SReplayBrowserRow::GenerateWidgetForColumn(const FName& Colu
 				.Font(ItemEditorFont)
 				.Text(FText::FromString(ReplayData->StreamInfo.bIsLive ? TEXT("YES") : TEXT("NO")));
 		}
+		else if (ColumnName == FName(TEXT("NumViewers")))
+		{
+			return SNew(STextBlock)
+				.Font(ItemEditorFont)
+				.Text(FText::AsNumber(ReplayData->StreamInfo.NumViewers));
+		}
 		else
 		{
 			ColumnText = NSLOCTEXT("SUWServerBrowser", "UnknownColumnText", "n/a");
@@ -138,6 +144,14 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 							SNew(STextBlock)
 							.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayLiveColumn", "Live?"))
 							.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayLiveColumnToolTip", "Is this replay live?"))
+							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
+						]
+						+ SHeaderRow::Column("NumViewers")
+						.HeaderContent()
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUWReplayBrowser", "ReplayNumViewersColumn", "Viewer Count"))
+							.ToolTipText(NSLOCTEXT("SUWReplayBrowser", "ReplayNumViewersColumnToolTip", "How many people are watching."))
 							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.Header.TextStyle")
 						]
 					)
