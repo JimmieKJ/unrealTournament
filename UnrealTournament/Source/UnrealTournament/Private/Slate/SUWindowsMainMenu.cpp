@@ -390,7 +390,7 @@ void SUWindowsMainMenu::OpenDelayedMenu()
 	SUTMenuBase::OpenDelayedMenu();
 	if (bNeedToShowGamePanel)
 	{
-
+		bNeedToShowGamePanel = false;
 		if (AvailableGameRulesets.Num() == 0)
 		{
 			UUTEpicDefaultRulesets::GetDefaultRules(PlayerOwner->GetWorld()->GetAuthGameMode(), AvailableGameRulesets);
