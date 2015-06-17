@@ -1257,45 +1257,47 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 
 int32 UUTLocalPlayer::GetBaseELORank()
 {
-	// Currently Elo returned is just a representation of DM skill
-	// good enough for initial sorting of players by skill
-	// Will eventually calculate per game type more accurately
-
 	float TotalRating = 0.f;
 	float RatingCount = 0.f;
 	float CurrentRating = 1.f;
-	int32 MatchCount = 0;
+	int32 BestRating = 0;
+	int32 MatchCount = DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed;
+
 	if (DUEL_ELO > 0)
 	{
 		TotalRating += DUEL_ELO;
 		RatingCount += 1.f;
-		MatchCount += DuelMatchesPlayed;
 		CurrentRating = TotalRating / RatingCount;
+		BestRating = (DuelMatchesPlayed > 40) ? FMath::Max(BestRating, DUEL_ELO) : BestRating;
 	}
 
-	// max rating of 5000 if not Duel
-	if ((TDM_ELO > 0) && ((CurrentRating < 5000) || (DuelMatchesPlayed < 50)))
+	if (TDM_ELO > 0)
 	{
-		TotalRating += 0.8f * FMath::Min(TDM_ELO, 5000);
-		RatingCount += 0.8f;
-		MatchCount += TDMMatchesPlayed;
+		TotalRating += TDM_ELO;
+		RatingCount += 1.f;
 		CurrentRating = TotalRating / RatingCount;
+		BestRating = (TDMMatchesPlayed > 40) ? FMath::Max(BestRating, TDM_ELO) : BestRating;
 	}
 
-	// FFA Elo is the least accurate, weighted lower
+	// FFA Elo is the least accurate, weighted lower @TODO FIXMESTEVE show badge based on current game type
 	// max rating of 2400 based on FFA 
-	if ((FFA_ELO > 0) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed < 40)))
+	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < 40)))
 	{
 		TotalRating += 0.5f * FMath::Min(FFA_ELO, 2400);
 		RatingCount += 0.5f;
-		MatchCount += FFAMatchesPlayed;
 		CurrentRating = TotalRating / RatingCount;
 	}
 
-	// Limit displayed Elo to 400 + 50 * number of matches played, except scaling to 100 * number of duels played if duels played > 10
-	float MaxElo = 400.f + 50.f * MatchCount + FMath::Max(0.f, float(DuelMatchesPlayed) - 10.f) * 50.f * FMath::Clamp((float(DuelMatchesPlayed)-10.f)/40.f, 0.f, 1.f);
-		
-	return FMath::Min(CurrentRating, MaxElo);
+	if ((CTF_ELO > CurrentRating) || (DuelMatchesPlayed + TDMMatchesPlayed < 40))
+	{
+		TotalRating += CTF_ELO;
+		RatingCount += 1.f;
+		CurrentRating = TotalRating / RatingCount;
+		BestRating = (CTFMatchesPlayed > 40) ? FMath::Max(BestRating, CTF_ELO) : BestRating;
+	}
+
+	// Limit displayed Elo to 400 + 50 * number of matches played
+	return FMath::Min(FMath::Max(float(BestRating), CurrentRating), 400.f + 50.f * MatchCount);
 }
 
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
