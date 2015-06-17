@@ -782,5 +782,10 @@ void SUWCreateGamePanel::GetCustomMutatorOptions(UClass* MutatorClass, FString& 
 	}
 }
 
+bool SUWCreateGamePanel::IsReadyToPlay()
+{
+	return SelectedGameClass != nullptr && MapList->GetSelectedItem().IsValid();
+}
+
 #endif
 

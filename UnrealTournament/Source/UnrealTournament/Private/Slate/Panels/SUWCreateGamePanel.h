@@ -90,6 +90,11 @@ protected:
 	TSharedRef<SWidget> AddMutatorMenu();
 
 	void GetCustomMutatorOptions(UClass* MutatorClass, FString& Description, TArray<FString>&GameOptions);
+	// Returns true if this custom screen has everything needed to play
+
+public:
+
+	bool IsReadyToPlay();
 
 };
 

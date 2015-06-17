@@ -144,6 +144,8 @@ public:
 
 	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount);
 
+	void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime);
+
 protected:
 
 	// Holds the list of categories to create.

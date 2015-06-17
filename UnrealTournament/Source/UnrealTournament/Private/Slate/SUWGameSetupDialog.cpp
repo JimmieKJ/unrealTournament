@@ -141,8 +141,6 @@ void SUWGameSetupDialog::Construct(const FArguments& InArgs)
 	}
 	BuildCategories();
 
-	
-
 	DisableButton(UTDIALOG_BUTTON_OK);
 	DisableButton(UTDIALOG_BUTTON_PLAY);
 	DisableButton(UTDIALOG_BUTTON_LAN);
@@ -276,10 +274,6 @@ void SUWGameSetupDialog::BuildRuleList(FName Category)
 			SAssignNew(CustomPanel, SUWCreateGamePanel, GetPlayerOwner())
 		];
 
-		EnableButton(UTDIALOG_BUTTON_OK);
-		EnableButton(UTDIALOG_BUTTON_PLAY);
-		EnableButton(UTDIALOG_BUTTON_LAN);
-
 		return;	
 
 	}
@@ -362,10 +356,6 @@ FReply SUWGameSetupDialog::OnRuleClick(int32 RuleIndex)
 
 
 		SelectedRuleset = RuleSubset[RuleIndex].Ruleset;
-
-		EnableButton(UTDIALOG_BUTTON_OK);
-		EnableButton(UTDIALOG_BUTTON_PLAY);
-		EnableButton(UTDIALOG_BUTTON_LAN);
 
 		BuildMapList();
 	}
@@ -636,10 +626,6 @@ FReply SUWGameSetupDialog::OnMapClick(int32 MapIndex)
 		MapPlayList[MapIndex].Button->BePressed();
 	}
 
-	EnableButton(UTDIALOG_BUTTON_OK);
-	EnableButton(UTDIALOG_BUTTON_PLAY);
-	EnableButton(UTDIALOG_BUTTON_LAN);
-
 	// If we are a hub menu, then selecting the map is as good as starting.
 	if (bHubMenu)
 	{
@@ -714,5 +700,41 @@ FString SUWGameSetupDialog::GetSelectedMap()
 
 	return TEXT("");
 }
+
+void SUWGameSetupDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	if (IsCustomSettings())
+	{
+		if (CustomPanel->IsReadyToPlay())
+		{
+			EnableButton(UTDIALOG_BUTTON_OK);
+			EnableButton(UTDIALOG_BUTTON_PLAY);
+			EnableButton(UTDIALOG_BUTTON_LAN);
+		}
+		else
+		{
+			DisableButton(UTDIALOG_BUTTON_OK);
+			DisableButton(UTDIALOG_BUTTON_PLAY);
+			DisableButton(UTDIALOG_BUTTON_LAN);
+		}
+	}
+	else
+	{
+		if (SelectedRuleset.IsValid() && GetSelectedMap() != TEXT(""))
+		{
+			EnableButton(UTDIALOG_BUTTON_OK);
+			EnableButton(UTDIALOG_BUTTON_PLAY);
+			EnableButton(UTDIALOG_BUTTON_LAN);
+		}
+		else
+		{
+			DisableButton(UTDIALOG_BUTTON_OK);
+			DisableButton(UTDIALOG_BUTTON_PLAY);
+			DisableButton(UTDIALOG_BUTTON_LAN);
+		}
+
+	}
+}
+
 
 #endif
