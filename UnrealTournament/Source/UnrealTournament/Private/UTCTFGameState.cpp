@@ -316,54 +316,48 @@ bool AUTCTFGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& Pic
 	{
 		if (!Pickup->bOverride_TeamSide)
 		{
-			UClass* PickupClass = nullptr;
-			if (Cast<AUTPickupInventory>(Pickup) != nullptr)
-			{
-				Cast<AUTPickupInventory>(Pickup)->GetInventoryType();
-			}
-			else
-			{
-				Pickup->GetClass();
-			}
+			UClass* PickupClass = (Cast<AUTPickupInventory>(Pickup) != nullptr) ? *Cast<AUTPickupInventory>(Pickup)->GetInventoryType() : Pickup->GetClass();
 			TArray<AUTPickup*>& PickupGroup = PickupGroups.FindOrAdd(PickupClass);
 			PickupGroup.Add(Pickup);
 		}
 	}
 
 	//Auto get the TeamSide
-	if (FlagBases.Num() == 2 && FlagBases[0] != nullptr && FlagBases[1] != nullptr)
+	if (FlagBases.Num() > 1)
 	{
-		FVector FlagLoc0 = FlagBases[0]->GetActorLocation();
-		FVector FlagLoc1 = FlagBases[1]->GetActorLocation();
 		for (auto& Pair : PickupGroups)
 		{
 			TArray<AUTPickup*>& PickupGroup = Pair.Value;
 
-			//Find the powerups that are symmetrical, set the team to the closest flag, remove from list
-			for (int32 i = 0; i < PickupGroup.Num(); ++i)
+			//Find the midfield pickup for an odd number of pickups per group
+			if (PickupGroup.Num() % 2 != 0 && PickupGroup.Num() > 2)
 			{
-				for (int32 j = i + 1; j < PickupGroup.Num(); ++j)
+				AUTPickup* MidfieldPickup = nullptr;
+				float FarthestDist = 0.0;
+
+				//Find the furthest pickup that would've been returned by NearestTeamSide()
+				for (AUTPickup* Pickup : PickupGroup)
 				{
-					float SymError = FMath::Abs((PickupGroup[i]->GetActorLocation() - FlagLoc0).Size() - (PickupGroup[j]->GetActorLocation() - FlagLoc1).Size());
-					if (SymError < 300.f)
+					float ClosestFlagDist = MAX_FLT;
+					for (AUTCTFFlagBase* Flag : FlagBases)
 					{
-						PickupGroup[i]->TeamSide = NearestTeamSide(PickupGroup[i]);
-						PickupGroup[j]->TeamSide = NearestTeamSide(PickupGroup[j]);
-						PickupGroup.RemoveAt(j);
-						PickupGroup.RemoveAt(i);
-						i--;
-						break;
+						if (Flag != nullptr)
+						{
+							ClosestFlagDist = FMath::Min(ClosestFlagDist, FVector::Dist(Pickup->GetActorLocation(), Flag->GetActorLocation()));
+						}
+					}
+
+					if (FarthestDist < ClosestFlagDist)
+					{
+						MidfieldPickup = Pickup;
+						FarthestDist = ClosestFlagDist;
 					}
 				}
-			}
 
-			//from the remaining check to see if they should be on a team or neutral
-			for (AUTPickup* Pickup : PickupGroup)
-			{
-				float Dist0 = FVector::Dist(Pickup->GetActorLocation(), FlagLoc0);
-				float Dist1 = FVector::Dist(Pickup->GetActorLocation(), FlagLoc1);
-				float Total = Dist0 + Dist1;
-				Pickup->TeamSide = (FMath::Min(Dist0, Dist1) / Total > 0.4f) ? 255 : NearestTeamSide(Pickup);
+				if (MidfieldPickup != nullptr)
+				{
+					MidfieldPickup->TeamSide = 255;
+				}
 			}
 		}
 	}
