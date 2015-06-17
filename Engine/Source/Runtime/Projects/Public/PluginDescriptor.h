@@ -102,10 +102,7 @@ struct PROJECTS_API FPluginReferenceDescriptor
 
 	/** Whether it should be enabled by default */
 	bool bEnabled;
-
-	/** Whether we should silently ignore missing plugins */
-	bool bNotRequired;
-
+	
 	/** Description of the plugin for users that do not have it installed. */
 	FString Description;
 
