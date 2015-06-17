@@ -111,6 +111,20 @@ public:
 		Super::BeginPlay();
 	}
 
+	virtual void EndPlay(const EEndPlayReason::Type Reason) override
+	{
+		Super::EndPlay(Reason);
+
+		for (int32 i = Members.Num() - 1; i >= 0; i--)
+		{
+			RemoveMember(Members[i]);
+		}
+		if (Team != NULL)
+		{
+			Team->RemoveSquad(this);
+		}
+	}
+
 	virtual void Initialize(AUTTeamInfo* InTeam, FName InOrders)
 	{
 		Team = InTeam;
