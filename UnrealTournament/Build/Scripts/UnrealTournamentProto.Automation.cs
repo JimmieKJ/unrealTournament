@@ -619,6 +619,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				Filter.Include("/Engine/Binaries/ThirdParty/Ogg/Win64/VS2013/*.dll");
 				Filter.Include("/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2013/*.dll");
 				Filter.Include("/Engine/Binaries/ThirdParty/nvTextureTools/Win64/*.dll");
+				Filter.Include("/Engine/Binaries/ThirdParty/Oculus/Audio/Win64/*.dll");
 			}
 			else if(Platform == UnrealTargetPlatform.Mac)
 			{
@@ -661,6 +662,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../ExampleDeviceProfileSelector/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../VisualStudioSourceCodeAccess/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../XCodeSourceCodeAccess/...");
+            UnusedPluginFilter.Exclude("/Engine/Plugins/.../OculusAudio/...");
 
 			RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
 		}
