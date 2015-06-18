@@ -4,6 +4,8 @@
 
 #include "UTBasePlayerController.generated.h"
 
+class UUTGameViewportClient;
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , public IUTTeamInterface
 {
@@ -66,6 +68,12 @@ public:
 	 **/
 	virtual void ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate=false, bool bFindLastMatch=false);
 
+	/**
+	 *	Used by the hub system to cancel a pending connect if the player is downloading content.  Used for aborting.
+	 **/
+
+	virtual void CancelConnectViaGUID();
+
 	UFUNCTION(Client, Reliable)
 	virtual void ClientReturnToLobby();
 
@@ -106,9 +114,14 @@ protected:
 	bool GUIDJoinWantsToFindMatch;
 	int32 GUIDJoinDesiredTeam;
 
+	void StartGUIDJoin();
 	void AttemptGUIDJoin();
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	void OnCancelGUIDFindSessionComplete(bool bWasSuccessful);
+
+	FContentDownloadComplete OnDownloadComleteDelgate;
+	FDelegateHandle OnDownloadCompleteDelegateHandle;
+	virtual void OnDownloadComplete(class UUTGameViewportClient* ViewportClient, ERedirectStatus::Type RedirectStatus, const FString& PackageName);
 
 public:
 	UFUNCTION(Exec)

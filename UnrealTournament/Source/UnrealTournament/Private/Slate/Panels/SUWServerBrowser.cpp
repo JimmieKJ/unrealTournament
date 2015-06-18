@@ -1476,7 +1476,7 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			PingTrackers[i].Server->HUBInstances.Empty();
 			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->InstanceCount; InstIndex++ )
 			{
-				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceDescriptions[InstIndex], PingTrackers[i].Beacon->InstanceHostNames[InstIndex]));	
+				PingTrackers[i].Server->HUBInstances.Add(FServerInstanceData::Make(PingTrackers[i].Beacon->InstanceInfo[InstIndex]));	
 			}
 
 			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
@@ -2047,6 +2047,10 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HU
 		int32 Column = 0;
 		for (int32 i=0;i<HUB->HUBInstances.Num();i++)
 		{
+
+			HUB->HUBInstances[i]->BadgeTexture = LoadObject<UTexture2D>(nullptr, *HUB->HUBInstances[i]->RuleSetIcon, nullptr, LOAD_None, nullptr);
+			HUB->HUBInstances[i]->SlateBadge = new FSlateDynamicImageBrush(HUB->HUBInstances[i]->BadgeTexture, FVector2D(256.0f, 256.0f), NAME_None);
+
 			if (Column == 0)
 			{
 				VBox->AddSlot()
@@ -2077,22 +2081,28 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBInstances(TSharedPtr<FServerData> HU
 							.WidthOverride(192)
 							[
 								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Backdrop.Highlight"))
+								.Image(HUB->HUBInstances[i]->SlateBadge)
 							]
 						]
 						+SOverlay::Slot()
 						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.Padding(5.0,5.0,5.0,5.0)
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
 							.HAlign(HAlign_Center)
+							.VAlign(VAlign_Center)
 							[
-								SNew(SRichTextBlock)
-								.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
-								.Justification(ETextJustify::Center)
-								.DecoratorStyleSet( &SUWindowsStyle::Get() )
-								.AutoWrapText( true )
-								.Text(FText::FromString(*HUB->HUBInstances[i]->Description))
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.Padding(5.0,5.0,5.0,5.0)
+								.HAlign(HAlign_Center)
+								[
+									SNew(SRichTextBlock)
+									.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
+									.Justification(ETextJustify::Center)
+									.DecoratorStyleSet( &SUWindowsStyle::Get() )
+									.AutoWrapText( true )
+									.Text(FText::FromString(*HUB->HUBInstances[i]->Description))
+								]
 							]
 						]
 					]

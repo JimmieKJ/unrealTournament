@@ -59,10 +59,10 @@ void AUTServerBeaconLobbyClient::UpdateMatch(FString Update)
 	Lobby_UpdateMatch(GameInstanceID, Update);
 }
 
-void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
+void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate)
 {
 	UE_LOG(UT,Verbose,TEXT("UpdatePlayer: Instance %i [%s] Player = %s [%s] Score = %i"), GameInstanceID, *GameInstanceGUID.ToString(), *PlayerName, *PlayerID.ToString(),  PlayerScore);
-	Lobby_UpdatePlayer(GameInstanceID, PlayerID, PlayerName, PlayerScore);
+	Lobby_UpdatePlayer(GameInstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, bLastUpdate);
 }
 
 void AUTServerBeaconLobbyClient::EndGame(FString FinalUpdate)
@@ -109,14 +109,14 @@ void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 Instanc
 }
 
 
-bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
+bool AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Validate(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 InstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i"), InstanceID, *PlayerName, *PlayerID.ToString(), PlayerScore);
+	UE_LOG(UT,Verbose,TEXT("[HUB] UpdatePlayer: Instance %i PlayerName = %s [%s] Score = %i, bLastUpdate =%i"), InstanceID, *PlayerName, *PlayerID.ToString(), PlayerScore, bLastUpdate);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->GameInstance_PlayerUpdate(InstanceID, PlayerID, PlayerName, PlayerScore);
+		LobbyGameState->GameInstance_PlayerUpdate(InstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, bLastUpdate);
 	}
 }
 

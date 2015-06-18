@@ -60,6 +60,8 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 	Super::PreInitializeComponents();
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
 
+	UniqueMatchID = FGuid::NewGuid();
+
 	MatchBadge = TEXT("Loading...");
 }
 
@@ -392,30 +394,14 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 	{
 		for (int32 i=0;i<Players.Num();i++)
 		{
-
 			if (Players[i].IsValid())
 			{
-				// Add this player to the players in Match
-				PlayersInMatchInstance.Add(FPlayerListInfo(Players[i]));
-
 				// Tell the client to connect to the instance
 				Players[i]->ClientConnectToInstance(GameInstanceGUID, false);
 			}
 		}
 	}
 	SetLobbyMatchState(ELobbyMatchState::InProgress);
-}
-
-bool AUTLobbyMatchInfo::WasInMatchInstance(AUTLobbyPlayerState* PlayerState)
-{
-	for (int32 i=0; i<PlayersInMatchInstance.Num();i++)
-	{
-		if (PlayersInMatchInstance[i].PlayerID == PlayerState->UniqueId)
-		{
-			return true;
-		}
-	}
-	return false;
 }
 
 void AUTLobbyMatchInfo::RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState)
@@ -542,7 +528,19 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 
 		if (NewRuleSet.IsValid())
 		{
-			SetRules(NewRuleSet, StartingMap);
+			InitialMap = StartingMap;
+			InitialMapInfo = GetMapInformation(InitialMap);
+
+			SetRules(NewRuleSet, InitialMap);
+			if (!InitialMapInfo.IsValid())
+			{
+				MatchBadge = FString::Printf(TEXT("Setting up a %s match."), *NewRuleSet->Title);
+			}
+			else
+			{
+				MatchBadge = FString::Printf(TEXT("Setting up a %s match on %s."), *NewRuleSet->Title, *InitialMapInfo->Title);
+			
+			}
 		}
 
 		BotSkillLevel = NewBotSkillLevel;
@@ -659,7 +657,6 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		NewReplicatedRuleset->Title = TEXT("Custom Rule");
 		NewReplicatedRuleset->Tooltip = TEXT("");
 		NewReplicatedRuleset->Description = Description;
-
 		int32 PlayerCount = 20;
 
 		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount;
@@ -700,6 +697,25 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		CurrentRuleset = NewReplicatedRuleset;
 		InitialMap = StartingMap;
 		InitialMapInfo = GetMapInformation(InitialMap);
+
+
+		if (!InitialMapInfo.IsValid())
+		{
+			MatchBadge = FString::Printf(TEXT("Setting up a custom match."));
+		}
+		else
+		{
+			MatchBadge = FString::Printf(TEXT("Setting up a custom match on %s."), *InitialMapInfo->Title);
+			
+		}
+
+
+		MatchBadge = TEXT("Setting up a custom match.");
+
+
+
+
+
 	}
 
 }
@@ -763,5 +779,24 @@ TSharedPtr<FMapListItem> AUTLobbyMatchInfo::GetMapInformation(FString MapPackage
 	}
 
 	return MapInfo;
+}
+
+int32 AUTLobbyMatchInfo::NumPlayersInMatch()
+{
+	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers) return Players.Num();
+	else if (CurrentState == ELobbyMatchState::InProgress)
+	{
+		int32 Cnt = Players.Num();
+		for (int32 i=0; i < PlayersInMatchInstance.Num(); i++)
+		{
+			if (!PlayersInMatchInstance[i].bIsSpectator)
+			{
+				Cnt++;
+			}
+		}
+
+		return Cnt;
+	}
+	return 0;
 }
 

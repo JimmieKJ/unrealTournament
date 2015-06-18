@@ -836,6 +836,7 @@ void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 									AUTLobbyPlayerState* PS = GS->AvailableMatches[i]->Players[j].Get();
 									Players += Players == TEXT("") ? PS->PlayerName : FString::Printf(TEXT(", %s"), *PS->PlayerName);
 								}
+
 								PlayerOwner->SaveChat(FName(TEXT("Debug")), Players, FLinearColor::White);
 
 							}
@@ -888,60 +889,30 @@ void SULobbyInfoPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 						PlayerOwner->SaveChat(FName(TEXT("Debug")), Text3.ToString(), FLinearColor::White);
 					}
 				}
-			}
-			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
-			ChatText->SetText(FText::GetEmpty());
-			return;
-		}
 
-
-		if (Cmd.ToLower() == TEXT("@debugrules"))
-		{
-/*
-			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
-			AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
-			if (GS)
-			{
-				for (int32 i=0;i < GS->AvailableGameRulesets.Num();i++)
+				for (int32 i=0; i < GS->AvailableMatches.Num(); i++)
 				{
-					TWeakObjectPtr<AUTReplicatedGameRuleset> RS = GS->AvailableGameRulesets[i];
-					if (RS.IsValid())
+					if (GS->AvailableMatches[i])
 					{
-						FString Categories = TEXT("");
-						for (int32 j=0;j < RS->Categories.Num(); j++)
+						if (GS->AvailableMatches[i]->PlayersInMatchInstance.Num() > 0)
 						{
-							if (j==0) Categories = RS->Categories[j].ToString();
-							else Categories = Categories + TEXT(", ") + RS->Categories[j].ToString();
+							for (int32 j=0; j < GS->AvailableMatches[i]->PlayersInMatchInstance.Num(); j++)
+							{
+								FText Text4 = FText::Format(NSLOCTEXT("UTLOBBYHUD", "LobbyDebugG", " iPlayer {0} = {1} - {2}"), 
+									FText::FromString(GS->AvailableMatches[i]->PlayersInMatchInstance[j].PlayerName),
+									FText::FromString(GS->AvailableMatches[i]->PlayersInMatchInstance[j].PlayerID.ToString()),
+									FText::AsNumber(GS->AvailableMatches[i]->PlayersInMatchInstance[j].PlayerScore));
+								PlayerOwner->SaveChat(FName(TEXT("Debug")), Text4.ToString(), FLinearColor::White);
+							}
 						}
-						if (Categories == TEXT("")) Categories = TEXT("None");
-
-						FString UniqueTag = RS->UniqueTag.IsEmpty() ? TEXT("none") : RS->UniqueTag;
-						FString Title = RS->Title.IsEmpty() ? TEXT("None") : RS->Title;
-						FString Desc = RS->Description.IsEmpty() ? TEXT("None") : RS->Description;
-
-						FString MapList = TEXT("");
-						for (int32 j=0;j < RS->MapPlaylist.Num(); j++)
-						{
-							if (j==0) MapList = RS->MapPlaylist[j];
-							else MapList += TEXT(", ") + RS->MapPlaylist[j];
-						}
-						if (MapList == TEXT("")) MapList = TEXT("None");
-
-
-						FString Rule = FString::Printf(TEXT("Tag [%s]  Category [%s]  Title [%s]  Description [%s]  MapList [%s]"), *UniqueTag, *Categories, *Title, *Desc, *MapList);
-						PlayerOwner->SaveChat(FName(TEXT("Debug")), Rule, FLinearColor::White);
 					}
 				}
 			}
 			PlayerOwner->SaveChat(FName(TEXT("Debug")), TEXT(" " ), FLinearColor::White);
 			ChatText->SetText(FText::GetEmpty());
 			return;
-*/
-
 		}
-
 	}
-
 
 	SUInGameHomePanel::ChatTextCommited(NewText, CommitType);
 }

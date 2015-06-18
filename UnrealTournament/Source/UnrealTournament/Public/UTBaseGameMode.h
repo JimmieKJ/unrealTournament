@@ -79,7 +79,7 @@ public:
 	virtual FName GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination);
 
 	// Returns the # of instances controlled by this game mode and fills out the HostNames and Descriptions arrays.  
-	virtual int32 GetInstanceData(TArray<FString>& HostNames, TArray<FString>& Descriptions);
+	virtual int32 GetInstanceData(TArray<FGuid>& InstanceIDs);
 
 	// Returns the # of players in this game.  By Default returns NumPlayers but can be overrride in children (like the HUBs)
 	virtual int32 GetNumPlayers();

@@ -121,7 +121,7 @@ protected:
 
 public:
 	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
-	virtual int32 GetInstanceData(TArray<FString>& HostNames, TArray<FString>& Descriptions);
+	virtual int32 GetInstanceData(TArray<FGuid>& InstanceIDs);
 
 	virtual int32 GetNumPlayers();
 	virtual int32 GetNumMatches();

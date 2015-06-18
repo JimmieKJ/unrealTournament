@@ -2352,6 +2352,16 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 
 	UpdatePlayersPresence();
 
+	if (IsGameInstanceServer() && LobbyBeacon)
+	{
+		if (C && Cast<AUTPlayerController>(C) && C->PlayerState)
+		{
+			LobbyBeacon->UpdatePlayer(C->PlayerState->UniqueId, C->PlayerState->PlayerName, int32(C->PlayerState->Score), C->PlayerState->bOnlySpectator, false);
+		}
+	}
+
+
+
 }
 
 void AUTGameMode::PostLogin( APlayerController* NewPlayer )
@@ -2443,6 +2453,15 @@ void AUTGameMode::Logout(AController* Exiting)
 	}
 
 	UpdatePlayersPresence();
+
+	if (IsGameInstanceServer() && LobbyBeacon)
+	{
+		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
+		{
+			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, true);
+		}
+	}
+
 }
 
 bool AUTGameMode::PlayerCanRestart_Implementation( APlayerController* Player )
@@ -2865,10 +2884,9 @@ void AUTGameMode::UpdateLobbyPlayerList()
 		for (int32 i=0;i<UTGameState->PlayerArray.Num();i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PS && !PS->bIsSpectator)
+			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
 			{
-				int32 Score = int32(PS->Score);
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, Score);
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, false);
 			}
 		}
 	}

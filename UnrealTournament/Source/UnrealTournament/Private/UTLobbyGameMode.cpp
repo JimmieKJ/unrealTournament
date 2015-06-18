@@ -290,36 +290,32 @@ void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, 
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
-int32 AUTLobbyGameMode::GetInstanceData(TArray<FString>& HostNames, TArray<FString>& Descriptions)
+int32 AUTLobbyGameMode::GetInstanceData(TArray<FGuid>& InstanceIDs)
 {
+	InstanceIDs.Empty();
 	if (UTLobbyGameState)
 	{
 		for (int32 i=0;i<UTLobbyGameState->GameInstances.Num(); i++)
 		{
 			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
 
-			if (MatchInfo && MatchInfo->CurrentState == ELobbyMatchState::InProgress && (MatchInfo->bDedicatedMatch || MatchInfo->PlayersInMatchInstance.Num() >0))
+			if (MatchInfo && !MatchInfo->bDedicatedMatch && MatchInfo->ShouldShowInDock())
 			{
-				if (MatchInfo->PlayersInMatchInstance.Num() > 0)
-				{
-					HostNames.Add( FString::Printf(TEXT("%s=%s"), *MatchInfo->PlayersInMatchInstance[0].PlayerName, *MatchInfo->PlayersInMatchInstance[0].PlayerID.ToString()));
-				}
-				else
-				{
-					HostNames.Add(TEXT("None"));
-				}
-
-				Descriptions.Add(MatchInfo->MatchBadge);
+				InstanceIDs.Add(MatchInfo->UniqueMatchID);
 			}
 		}
 
-		if (HostNames.Num() == Descriptions.Num() && HostNames.Num() != 0)
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num();i++)
 		{
-			return HostNames.Num();
-		}
+			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->AvailableMatches[i];
 
+			if (MatchInfo && !MatchInfo->bDedicatedMatch && MatchInfo->ShouldShowInDock())
+			{
+				InstanceIDs.Add(MatchInfo->UniqueMatchID);
+			}
+		}
 	}
-	return 0;
+	return InstanceIDs.Num();
 }
 
 int32 AUTLobbyGameMode::GetNumPlayers()

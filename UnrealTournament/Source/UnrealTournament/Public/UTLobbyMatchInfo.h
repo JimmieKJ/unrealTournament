@@ -25,13 +25,16 @@ struct FPlayerListInfo
 	UPROPERTY()
 	TWeakObjectPtr<AUTLobbyPlayerState> LocalPlayerState;
 
+	UPROPERTY()
+	bool bIsSpectator;
+
 	// The current name of this player
 	UPROPERTY()
 	FString PlayerName;
 
 	// The current score for this player
 	UPROPERTY()
-	float PlayerScore;
+	int32 PlayerScore;
 	
 	FPlayerListInfo() {};
 
@@ -44,6 +47,14 @@ struct FPlayerListInfo
 			PlayerName = inPlayerState->PlayerName;
 			PlayerScore = 0;
 		}
+	}
+
+	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator)
+		: PlayerID(inPlayerID)
+		, PlayerName(inPlayerName)
+		, PlayerScore(inPlayerScore)
+		, bIsSpectator(inbIsSpectator)
+	{
 	}
 
 };
@@ -183,12 +194,6 @@ public:
 	virtual void GameInstanceReady(FGuid inGameInstanceGUID);
 
 	/**
-	 *	returns true if this player belongs in this match.  When a player joins a lobby server,
-	 *  the server will see if that player belongs in any of the active matches.
-	 **/
-	bool WasInMatchInstance(AUTLobbyPlayerState* PlayerState);
-
-	/**
 	 *	Removes the player from 
 	 **/
 	void RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState);
@@ -287,6 +292,12 @@ public:
 	TSharedPtr<FMapListItem> GetMapInformation(FString MapPackage);
 
 	void LoadInitialMapInfo();
+
+public:
+	// Unique for each match on this hub.  This will be used to lookup data regarding a given instance.
+	FGuid UniqueMatchID;
+
+	int32 NumPlayersInMatch();
 
 };
 

@@ -529,7 +529,7 @@ void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 InGameInstanceID, c
 }
 
 
-void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate)
 {
 	// Find the match
 	for (int32 i = 0; i < GameInstances.Num(); i++)
@@ -544,11 +544,24 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 				{
 					if (Match->PlayersInMatchInstance[j].PlayerID == PlayerID)
 					{
-						Match->PlayersInMatchInstance[j].PlayerName = PlayerName;
-						Match->PlayersInMatchInstance[j].PlayerScore = PlayerScore;
+						if (bLastUpdate)
+						{
+							Match->PlayersInMatchInstance.RemoveAt(j,1);
+							return;
+						}
+						else
+						{
+							Match->PlayersInMatchInstance[j].PlayerName = PlayerName;
+							Match->PlayersInMatchInstance[j].PlayerScore = PlayerScore;
+							Match->PlayersInMatchInstance[j].bIsSpectator = bSpectator;
+							return;
+						}
 						break;
 					}
 				}
+
+				// A player not in the instance table.. add them
+				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator));
 			}
 		}
 	}
@@ -827,3 +840,12 @@ bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& 
 	return false;
 }
 
+AUTLobbyMatchInfo* AUTLobbyGameState::FindMatch(FGuid MatchID)
+{
+	for (int32 i=0; i<AvailableMatches.Num(); i++)
+	{
+		if (AvailableMatches[i]->UniqueMatchID == MatchID) return AvailableMatches[i];
+	}
+
+	return NULL;
+}

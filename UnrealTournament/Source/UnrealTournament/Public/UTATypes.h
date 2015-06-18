@@ -548,3 +548,42 @@ static FName NAME_MapInfo_Description(TEXT("Description"));
 static FName NAME_MapInfo_OptimalPlayerCount(TEXT("OptimalPlayerCount"));
 static FName NAME_MapInfo_OptimalTeamPlayerCount(TEXT("OptimalTeamPlayerCount"));
 static FName NAME_MapInfo_ScreenshotReference(TEXT("ScreenshotReference"));
+
+// Called upon completion of a redirect transfer.  
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FContentDownloadComplete, class UUTGameViewportClient*, ERedirectStatus::Type, const FString&);
+
+USTRUCT()
+struct FServerInstanceData 
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString RuleSetIcon;
+
+	UPROPERTY()
+	FString Description;
+
+	UTexture2D* BadgeTexture;
+
+#if !UE_SERVER
+	FSlateDynamicImageBrush* SlateBadge;
+#endif
+
+	FServerInstanceData()
+		: RuleSetIcon(TEXT(""))
+		, Description(TEXT(""))
+	{
+	}
+
+	FServerInstanceData(FString inRuleSetIcon, FString inDescription)
+		: RuleSetIcon(inRuleSetIcon)
+		, Description(inDescription)
+	{
+	}
+
+	static TSharedRef<FServerInstanceData> Make(FServerInstanceData& inData)
+	{
+		return MakeShareable( new FServerInstanceData( inData.RuleSetIcon, inData.Description) );
+	}
+
+};

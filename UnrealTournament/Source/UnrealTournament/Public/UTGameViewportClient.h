@@ -5,9 +5,6 @@
 #include "Slate/SlateGameResources.h"
 #include "UTGameViewportClient.generated.h"
 
-// Called upon completion of a redirect transfer.  
-DECLARE_MULTICAST_DELEGATE_ThreeParams(FContentDownloadComplete, class UUTGameViewportClient*, ERedirectStatus::Type, const FString&);
-
 // Used to hold a list of items for redirect download.
 USTRUCT()
 struct FPendingRedirect
