@@ -367,6 +367,11 @@ void FNullNetworkReplayStreamer::EnumerateStreams( const FNetworkReplayVersion& 
 	Delegate.ExecuteIfBound(Results);
 }
 
+void FNullNetworkReplayStreamer::AddUserToReplay(const FString& UserString)
+{
+	UE_LOG(LogNullReplay, Log, TEXT("FNullNetworkReplayStreamer::AddUserToReplay is currently unsupported."));
+}
+
 FArchive* FNullNetworkReplayStreamer::GetCheckpointArchive()
 {
 	// If the archive is null, and the API is being used properly, the caller is writing a checkpoint...

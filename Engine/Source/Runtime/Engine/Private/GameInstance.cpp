@@ -794,3 +794,13 @@ void UGameInstance::PlayReplay(const FString& Name)
 		FCoreUObjectDelegates::PostDemoPlay.Broadcast();
 	}
 }
+
+void UGameInstance::AddUserToReplay(const FString& UserString)
+{
+	UWorld* CurrentWorld = GetWorld();
+
+	if ( CurrentWorld != nullptr && CurrentWorld->DemoNetDriver != nullptr )
+	{
+		CurrentWorld->DemoNetDriver->AddUserToReplay( UserString );
+	}
+}

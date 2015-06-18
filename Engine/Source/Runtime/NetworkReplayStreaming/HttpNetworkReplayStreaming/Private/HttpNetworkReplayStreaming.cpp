@@ -835,6 +835,36 @@ void FHttpNetworkReplayStreamer::EnumerateRecentStreams( const FNetworkReplayVer
 	AddRequestToQueue( EQueuedHttpRequestType::EnumeratingSessions, HttpRequest );
 }
 
+void FHttpNetworkReplayStreamer::AddUserToReplay(const FString& UserString)
+{
+	if ( StreamerState != EStreamerState::StreamingUp )
+	{
+		return;
+	}
+
+	if ( UserString.IsEmpty() )
+	{
+		UE_LOG(LogHttpReplay, Log, TEXT("FHttpNetworkReplayStreamer::AddUserToReplay: can't add a user with an empty UserString."));
+		return;
+	}
+
+	TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
+
+	HttpRequest->SetURL( FString::Printf( TEXT( "%saddusers?Session=%s" ), *ServerURL, *SessionName ) );
+	HttpRequest->SetVerb( TEXT( "POST" ) );
+
+	FNetworkReplayUserList UserList;
+
+	UserList.Users.Add(UserString);
+	FString JsonString = UserList.ToJson();
+	HttpRequest->SetContentAsString( JsonString );
+	HttpRequest->SetHeader( TEXT( "Content-Type" ), TEXT( "application/json" ) );
+
+	HttpRequest->OnProcessRequestComplete().BindRaw( this, &FHttpNetworkReplayStreamer::HttpAddUserFinished );
+
+	AddRequestToQueue( EQueuedHttpRequestType::AddingUser, HttpRequest );
+}
+
 void FHttpNetworkReplayStreamer::EnumerateCheckpoints()
 {
 	TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
@@ -1293,6 +1323,21 @@ void FHttpNetworkReplayStreamer::HttpEnumerateCheckpointsFinished( FHttpRequestP
 
 	// Reset delegate
 	StartStreamingDelegate = FOnStreamReadyDelegate();
+}
+
+void FHttpNetworkReplayStreamer::HttpAddUserFinished(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
+{
+	RequestFinished( EStreamerState::StreamingUp, EQueuedHttpRequestType::AddingUser, HttpRequest );
+
+	if ( bSucceeded && HttpResponse->GetResponseCode() == EHttpResponseCodes::Ok )
+	{		
+		UE_LOG( LogHttpReplay, Verbose, TEXT( "FHttpNetworkReplayStreamer::HttpAddUserFinished." ) );
+	}
+	else
+	{
+		// Don't consider this a fatal error
+		UE_LOG( LogHttpReplay, Warning, TEXT( "FHttpNetworkReplayStreamer::HttpAddUserFinished. FAILED" ) );
+	}
 }
 
 bool FHttpNetworkReplayStreamer::ProcessNextHttpRequest()

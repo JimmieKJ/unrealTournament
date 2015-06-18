@@ -421,7 +421,12 @@ bool UDemoNetDriver::InitListen( FNetworkNotify* InNotify, FURL& ListenURL, bool
 
 	for ( int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++ )
 	{
-		UserNames.Add( GetWorld()->GameState->PlayerArray[i]->UniqueId.ToString() );
+		APlayerState* PlayerState = GetWorld()->GameState->PlayerArray[i];
+
+		if ( !PlayerState->bIsABot && !PlayerState->bIsSpectator )
+		{
+			UserNames.Add( PlayerState->UniqueId.ToString() );
+		}
 	}
 
 	ReplayStreamer->StartStreaming(
@@ -1236,6 +1241,14 @@ void UDemoNetDriver::JumpToEndOfLiveReplay()
 	OldDemoCurrentTime	= DemoCurrentTime;		// So we can restore on failure
 	DemoCurrentTime		= (float)( JoinTimeInMS ) / 1000.0f;
 	InitialLiveDemoTime = 0;
+}
+
+void UDemoNetDriver::AddUserToReplay( const FString& UserString )
+{
+	if ( ReplayStreamer.IsValid() )
+	{
+		ReplayStreamer->AddUserToReplay( UserString );
+	}
 }
 
 void UDemoNetDriver::TickDemoPlayback( float DeltaSeconds )

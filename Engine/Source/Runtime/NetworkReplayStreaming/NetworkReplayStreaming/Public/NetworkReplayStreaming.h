@@ -149,6 +149,13 @@ public:
 
 	/** Returns the last error that occurred while streaming replays */
 	virtual ENetworkReplayError::Type GetLastError() const = 0;
+
+	/**
+	 * Adds a join-in-progress user to the set of users associated with the currently recording replay (if any)
+	 *
+	 * @param UserString a string that uniquely identifies the user, usually his or her FUniqueNetId
+	 */
+	virtual void AddUserToReplay( const FString& UserString ) = 0;
 };
 
 /** Replay streamer factory */

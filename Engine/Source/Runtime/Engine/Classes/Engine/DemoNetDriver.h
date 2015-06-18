@@ -130,6 +130,13 @@ public:
 	void ResetDemoState();
 	void JumpToEndOfLiveReplay();
 
+	/**
+	 * Adds a join-in-progress user to the set of users associated with the currently recording replay (if any)
+	 *
+	 * @param UserString a string that uniquely identifies the user, usually his or her FUniqueNetId
+	 */
+	void AddUserToReplay(const FString& UserString);
+
 	void StopDemo();
 
 	void ReplayStreamingReady( bool bSuccess, bool bRecord );

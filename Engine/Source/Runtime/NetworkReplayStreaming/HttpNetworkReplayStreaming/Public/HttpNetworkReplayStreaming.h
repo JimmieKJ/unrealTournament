@@ -77,7 +77,8 @@ namespace EQueuedHttpRequestType
 		EnumeratingSessions,		// We are in the process of downloading the available sessions
 		EnumeratingCheckpoints,		// We are in the process of downloading the available checkpoints
 		UploadingCheckpoint,		// We are uploading a checkpoint
-		DownloadingCheckpoint		// We are downloading a checkpoint
+		DownloadingCheckpoint,		// We are downloading a checkpoint
+		AddingUser					// We are adding a user who joined in progress during recording
 	};
 
 	inline const TCHAR* ToString( EQueuedHttpRequestType::Type Type )
@@ -108,6 +109,8 @@ namespace EQueuedHttpRequestType
 				return TEXT( "UploadingCheckpoint" );
 			case DownloadingCheckpoint:
 				return TEXT( "DownloadingCheckpoint" );
+			case AddingUser:
+				return TEXT( "AddingUser" );
 		}
 
 		return TEXT( "Unknown EQueuedHttpRequestType type." );
@@ -153,6 +156,7 @@ public:
 	virtual void		DeleteFinishedStream( const FString& StreamName, const FOnDeleteFinishedStreamComplete& Delegate ) const override;
 	virtual void		EnumerateStreams( const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const FOnEnumerateStreamsComplete& Delegate ) override;
 	virtual void		EnumerateRecentStreams( const FNetworkReplayVersion& ReplayVersion, const FString& RecentViewer, const FOnEnumerateStreamsComplete& Delegate ) override;
+	virtual void		AddUserToReplay(const FString& UserString);
 
 	virtual ENetworkReplayError::Type GetLastError() const override;
 
@@ -196,6 +200,7 @@ public:
 	void HttpUploadCheckpointFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpEnumerateSessionsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpEnumerateCheckpointsFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
+	void HttpAddUserFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 
 	bool ProcessNextHttpRequest();
 	void Tick( const float DeltaTime );
