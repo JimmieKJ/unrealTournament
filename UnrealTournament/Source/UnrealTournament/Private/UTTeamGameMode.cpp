@@ -192,6 +192,13 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 {
 	if (Teams.IsValidIndex(NewTeam) && (PS->Team == NULL || PS->Team->TeamIndex != NewTeam))
 	{
+		//Make sure we kill the player before they switch sides so the correct team loses the point
+		AUTCharacter* UTC = Cast<AUTCharacter>(Player->GetPawn());
+		if (UTC != nullptr)
+		{
+			UTC->PlayerSuicide();
+		}
+
 		if (PS->Team != NULL)
 		{
 			PS->Team->RemoveFromTeam(Player);

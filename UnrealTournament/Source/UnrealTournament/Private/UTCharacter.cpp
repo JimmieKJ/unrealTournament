@@ -3734,7 +3734,6 @@ void AUTCharacter::NotifyTeamChanged()
 
 void AUTCharacter::PlayerChangedTeam()
 {
-	PlayerSuicide();
 }
 
 void AUTCharacter::PlayerSuicide()
