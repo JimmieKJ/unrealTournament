@@ -169,6 +169,8 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 
 	virtual void SetTeam(AUTTeamInfo* NewTeam);
 
+	virtual void EnteredPainVolume(class AUTPainVolume* PainVolume);
+
 	UFUNCTION()
 	virtual void AttachTo(USkeletalMeshComponent* AttachToMesh);
 

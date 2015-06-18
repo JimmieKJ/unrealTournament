@@ -4,6 +4,7 @@
 #include "UTProjectileMovementComponent.h"
 #include "UTCTFScoring.h"
 #include "Net/UnrealNetwork.h"
+#include "UTPainVolume.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -412,6 +413,24 @@ void AUTCarriedObject::FellOutOfWorld(const UDamageType& dmgType)
 		SetActorLocation(ReplicatedMovement.Location);
 	}
 }
+
+void AUTCarriedObject::EnteredPainVolume(AUTPainVolume* PainVolume)
+{
+	if (Holder)
+	{
+		return;
+	}
+	if (Role == ROLE_Authority)
+	{
+		SendHomeWithNotify();
+	}
+	else
+	{
+		// Force it back to the last replicated location
+		SetActorLocation(ReplicatedMovement.Location);
+	}
+}
+
 
 // workaround for bug in AActor implementation
 void AUTCarriedObject::OnRep_AttachmentReplication()
