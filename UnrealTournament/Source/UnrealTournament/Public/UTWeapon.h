@@ -815,4 +815,8 @@ public:
 	void TestWeaponRot(float Pitch, float Yaw, float Roll = 0.0f);
 	UFUNCTION(exec)
 	void TestWeaponScale(float X, float Y, float Z);
+
+	/** blueprint hook to modify team color materials */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
+	void NotifyTeamChanged();
 };
