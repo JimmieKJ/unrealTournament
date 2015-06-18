@@ -119,6 +119,8 @@ void SUWStatsViewer::ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttp
 	{
 		if (bSucceeded && HttpResponse->GetResponseCode() == 200)
 		{
+			UE_LOG(LogGameStats, VeryVerbose, TEXT("%s"), *HttpResponse->GetContentAsString());
+
 			// Have to hack around chrome access issues, can't open json from local disk, take JSON and turn into javascript variable
 			FString JSONString = FString(TEXT("var BackendStats = ")) + HttpResponse->GetContentAsString() + TEXT(";");
 
@@ -175,6 +177,8 @@ void SUWStatsViewer::ReadBackendStats()
 		StatsReadRequest->SetURL(BaseURL);
 		StatsReadRequest->OnProcessRequestComplete().BindRaw(this, &SUWStatsViewer::ReadBackendStatsComplete);
 		StatsReadRequest->SetVerb(TEXT("GET"));
+
+		UE_LOG(LogGameStats, Verbose, TEXT("%s"), *BaseURL);
 
 		if (OnlineIdentityInterface.IsValid())
 		{
