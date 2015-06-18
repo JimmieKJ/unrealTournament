@@ -818,6 +818,13 @@ public:
 		ClientShowMapVote();
 	}
 
+	virtual void ShowMenu()
+	{
+		Super::ShowMenu();
+		OnStopFire();
+		OnStopAltFire();
+	}
+
 };
 
 
