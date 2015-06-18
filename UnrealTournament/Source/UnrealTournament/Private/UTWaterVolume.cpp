@@ -93,12 +93,6 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 		{
 			CausePainTo(Other);
 		}
-
-		// Start timer if none is active
-		if (!GetWorldTimerManager().IsTimerActive(PainTimerHandle))
-		{
-			GetWorldTimerManager().SetTimer(PainTimerHandle, this, &AUTPainVolume::PainTimer, PainInterval, true);
-		}
 	}
 }
 
@@ -134,13 +128,13 @@ void AUTPainVolume::PainTimer()
 				CausePainTo(A);
 			}
 		}
-
-		// Stop timer if nothing is overlapping us
-		if (TouchingActors.Num() == 0)
-		{
-			GetWorldTimerManager().ClearTimer(PainTimerHandle);
-		}
 	}
+}
+
+void AUTPainVolume::BeginPlay()
+{
+	GetWorldTimerManager().SetTimer(PainTimerHandle, this, &AUTPainVolume::PainTimer, PainInterval, true);
+	Super::BeginPlay();
 }
 
 

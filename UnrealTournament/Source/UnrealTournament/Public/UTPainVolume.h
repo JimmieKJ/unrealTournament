@@ -12,6 +12,7 @@ class UNREALTOURNAMENT_API AUTPainVolume : public APainCausingVolume
 	virtual void ActorEnteredVolume(class AActor* Other) override;
 	virtual void ActorLeavingVolume(class AActor* Other) override;
 	virtual void PainTimer() override;
+	virtual void BeginPlay() override;
 
 	FTimerHandle PainTimerHandle;
 
