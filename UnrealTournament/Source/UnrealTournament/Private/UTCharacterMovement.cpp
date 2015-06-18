@@ -45,12 +45,13 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	WallDodgeMinNormal = 0.5f; 
 	MaxConsecutiveWallDodgeDP = 0.97f;
 	WallDodgeGraceVelocityZ = -2400.f;
-	AirControl = 0.4f;
-	MultiJumpAirControl = 0.4f;
+	AirControl = 0.46f;
+	MultiJumpAirControl = 0.46f;
+	DodgeAirControl = 0.40f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 6600.f; 
-	MaxFallingAcceleration = 4600.f;
+	MaxFallingAcceleration = 4200.f;
 	BrakingDecelerationWalking = 500.f;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
@@ -1406,11 +1407,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	if (!HasRootMotion())
 	{
 		// test for slope to avoid using air control to climb walls 
-		float TickAirControl = (CurrentMultiJumpCount < 1) ? AirControl : MultiJumpAirControl;
-		if (bRestrictedJump)
-		{
-			TickAirControl = 0.0f;
-		}
+		float TickAirControl = GetCurrentAirControl();
 		bool bCheckWallSlide = false;
 		if (UTCharOwner)
 		{
@@ -1443,7 +1440,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 						CheckWallSlide(Result);
 						if (UTCharOwner && UTCharOwner->bApplyWallSlide)
 						{
-							TickAirControl = (CurrentMultiJumpCount < 1) ? AirControl : MultiJumpAirControl;
+							TickAirControl = GetCurrentAirControl();
 							FallAcceleration = FallAcceleration - FMath::Max(0.f, (FallAcceleration | WallSlideNormal)) * WallSlideNormal - Result.Time * FallAcceleration.Size() * WallSlideNormal;
 						}
 						else
@@ -1678,6 +1675,17 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		}
 		//UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), GetCurrentSynchTime(), Velocity.X, Velocity.Y, Velocity.Z);
 	}
+}
+
+float UUTCharacterMovement::GetCurrentAirControl()
+{
+	float Result = bIsDodging ? DodgeAirControl : AirControl;
+	Result = (CurrentMultiJumpCount < 1) ? Result : MultiJumpAirControl;
+	if (bRestrictedJump)
+	{
+		Result = 0.0f;
+	}
+	return Result;
 }
 
 void UUTCharacterMovement::NotifyJumpApex()

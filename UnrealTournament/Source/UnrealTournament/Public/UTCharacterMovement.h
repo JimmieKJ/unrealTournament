@@ -446,9 +446,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Multijump)
 	float MultiJumpAirControl;
 
+	/** Air control during dodge. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Multijump)
+		float DodgeAirControl;
+
 	/** if set air control is forced to zero during the current jump/fall */
 	UPROPERTY(BlueprintReadWrite, Category = AirControl)
 	bool bRestrictedJump;
+
+	virtual float GetCurrentAirControl();
 
 	FTimerHandle ClearRestrictedJumpHandle;
 
