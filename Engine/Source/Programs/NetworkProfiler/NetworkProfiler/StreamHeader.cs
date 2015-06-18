@@ -17,7 +17,7 @@ namespace NetworkProfiler
 		public const UInt32 ExpectedMagic = 0x1DBF348C;
 
 		/** We expect this version, or we can't proceed.			*/
-		public const UInt32 ExpectedVersion = 7;
+		public const UInt32 ExpectedVersion = 8;
 
 		/** Magic to ensure we're opening the right file.			*/
 		public UInt32 Magic;
@@ -132,7 +132,7 @@ namespace NetworkProfiler
 				NameTableOffset = BinaryStream.ReadUInt32();
 				NameTableEntries = BinaryStream.ReadUInt32();
 
-				// Serialize various fixed size strings.
+				// Serialize various dynamically-sized strings.
 				Tag = SerializeAnsiString( BinaryStream );
 				GameName = SerializeAnsiString( BinaryStream );
 				URL = SerializeAnsiString( BinaryStream );
@@ -140,8 +140,7 @@ namespace NetworkProfiler
 		}
 
 		/**
-		 * We serialize a fixed size string into the header so its size doesn't change later on. This means
-		 * we need to handle loading slightly differently to trim the extra padding.
+		 * Serialize a string from the header.
 		 * 
 		 * @param	BinaryStream	stream to read from
 		 * @return	string being read
@@ -149,13 +148,7 @@ namespace NetworkProfiler
 		private string SerializeAnsiString( BinaryReader BinaryStream )
 		{
 			UInt32 SerializedLength = BinaryStream.ReadUInt32();
-			string ResultString = new string(BinaryStream.ReadChars((int)SerializedLength)); 
-			// We serialize a fixed size string. Trim the null characters that make it in by converting char[] to string.
-			int RealLength = 0;
-			while( ( RealLength < ResultString.Length ) && ( ResultString[RealLength++] != '\0' ) ) 
-			{
-			}
-			return ResultString.Remove(RealLength-1);
+			return new string(BinaryStream.ReadChars((int)SerializedLength));
 		}
 	}
 }

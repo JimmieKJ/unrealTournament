@@ -4,8 +4,9 @@
 	NetworkProfiler.h: network profiling support.
 =============================================================================*/
 
-#ifndef UNREAL_NETWORK_PROFILER_H
-#define UNREAL_NETWORK_PROFILER_H
+#pragma once
+
+#include "UnrealString.h"
 
 class UNetConnection;
 class FInternetAddr;
@@ -13,6 +14,57 @@ class FInternetAddr;
 #if USE_NETWORK_PROFILER 
 
 #define NETWORK_PROFILER( x ) if ( GNetworkProfiler.IsTrackingEnabled() ) { x; }
+
+/*=============================================================================
+	Network profiler header.
+=============================================================================*/
+
+class FNetworkProfilerHeader
+{
+private:
+	/** Magic to ensure we're opening the right file.	*/
+	uint32	Magic;
+	/** Version number to detect version mismatches.	*/
+	uint32	Version;
+
+	/** Offset in file for name table.					*/
+	uint32	NameTableOffset;
+	/** Number of name table entries.					*/
+	uint32	NameTableEntries;
+
+	/** Tag, set via -networkprofiler=TAG				*/
+	FString Tag;
+	/** Game name, e.g. Example							*/
+	FString GameName;
+	/** URL used to open/ browse to the map.			*/
+	FString URL;
+
+public:
+	/** Constructor.									*/
+	FNetworkProfilerHeader();
+
+	/** Resets the header info for a new session.		*/
+	void Reset(const FURL& InURL);
+
+	/** Sets the final name table values.				*/
+	void SetNameTableValues(uint32 Offset, uint32 Entries)
+	{
+		NameTableOffset = Offset;
+		NameTableEntries = Entries;
+	}
+
+	/** Returns the URL stored in the header.			*/
+	FString GetURL() const { return URL; }
+
+	/**
+	 * Serialization operator.
+	 *
+	 * @param	Ar			Archive to serialize to
+	 * @param	Header		Header to serialize
+	 * @return	Passed in archive
+	 */
+	friend FArchive& operator << ( FArchive& Ar, FNetworkProfilerHeader& Header );
+};
 
 /*=============================================================================
 	FNetworkProfiler
@@ -43,9 +95,9 @@ private:
 	/** Whether tracking is enabled.																*/
 	bool									bIsTrackingEnabled;	
 
-	/** URL used for current tracking session.														*/
-	FURL									CurrentURL;
-	
+	/** Header for the current session.																*/
+	FNetworkProfilerHeader					CurrentHeader;
+
 	/** All the data required for writing sent bunches to the profiler stream						*/
 	struct FSendBunchInfo
 	{
@@ -341,5 +393,3 @@ extern ENGINE_API FNetworkProfiler GNetworkProfiler;
 #define NETWORK_PROFILER(x)
 
 #endif
-
-#endif	//#ifndef UNREAL_NETWORK_PROFILER_H

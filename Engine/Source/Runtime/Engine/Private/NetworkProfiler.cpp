@@ -26,7 +26,7 @@ FNetworkProfiler GNetworkProfiler;
 /** Magic value, determining that file is a network profiler file.				*/
 #define NETWORK_PROFILER_MAGIC						0x1DBF348C
 /** Version of memory profiler. Incremented on serialization changes.			*/
-#define NETWORK_PROFILER_VERSION					7
+#define NETWORK_PROFILER_VERSION					8
 
 static const FString UnknownName("UnknownName");
 
@@ -50,54 +50,43 @@ enum ENetworkProfilingPayloadType
 	NPTYPE_WritePropertyHandle			// Property handles
 };
 
-
 /*=============================================================================
-	Network profiler header.
+	FNetworkProfilerHeader implementation.
 =============================================================================*/
 
-struct FNetworkProfilerHeader
+FNetworkProfilerHeader::FNetworkProfilerHeader()
+	: Magic(NETWORK_PROFILER_MAGIC)
+	, Version(NETWORK_PROFILER_VERSION)
+	, NameTableOffset(0)
+	, NameTableEntries(0)
 {
-	/** Magic to ensure we're opening the right file.	*/
-	uint32	Magic;
-	/** Version number to detect version mismatches.	*/
-	uint32	Version;
+}
 
-	/** Offset in file for name table.					*/
-	uint32	NameTableOffset;
-	/** Number of name table entries.					*/
-	uint32	NameTableEntries;
+void FNetworkProfilerHeader::Reset(const FURL& InURL)
+{
+	NameTableOffset = 0;
+	NameTableEntries = 0;
 
-	/** Tag, set via -networkprofiler=TAG				*/
-	FString Tag;
-	/** Game name, e.g. Example							*/
-	FString GameName;
-	/** URL used to open/ browse to the map.			*/
-	FString URL;
+	FParse::Value(FCommandLine::Get(), TEXT("NETWORKPROFILER="), Tag);
+	GameName = FApp::GetGameName();
+	URL = InURL.ToString();
+}
 
-	/**
-	 * Serialization operator.
-	 *
-	 * @param	Ar			Archive to serialize to
-	 * @param	Header		Header to serialize
-	 * @return	Passed in archive
-	 */
-	friend FArchive& operator << ( FArchive& Ar, FNetworkProfilerHeader Header )
-	{
-		check( Ar.IsSaving() );
-		Ar	<< Header.Magic
-			<< Header.Version
-			<< Header.NameTableOffset
-			<< Header.NameTableEntries;
-		Header.Tag.SerializeAsANSICharArray( Ar, 255 );
-		Header.GameName.SerializeAsANSICharArray( Ar, 255 );
-		Header.URL.SerializeAsANSICharArray( Ar, 255 );
-		return Ar;
-	}
-};
-
+FArchive& operator << ( FArchive& Ar, FNetworkProfilerHeader& Header )
+{
+	check( Ar.IsSaving() );
+	Ar	<< Header.Magic
+		<< Header.Version
+		<< Header.NameTableOffset
+		<< Header.NameTableEntries;
+	Header.Tag.SerializeAsANSICharArray( Ar );
+	Header.GameName.SerializeAsANSICharArray( Ar );
+	Header.URL.SerializeAsANSICharArray( Ar );
+	return Ar;
+}
 
 /*=============================================================================
-	FMallocProfiler implementation.
+	FNetworkProfiler implementation.
 =============================================================================*/
 
 /**
@@ -107,7 +96,6 @@ FNetworkProfiler::FNetworkProfiler()
 :	FileWriter(NULL)
 ,	bHasNoticeableNetworkTrafficOccured(false)
 ,	bIsTrackingEnabled(false)
-,	CurrentURL(NoInit)
 {
 }
 
@@ -494,24 +482,15 @@ void FNetworkProfiler::TrackSessionChange( bool bShouldContinueTracking, const F
 		{	
 			if( bHasNoticeableNetworkTrafficOccured )
 			{
-				UE_LOG(LogNet, Log, TEXT("Network Profiler: Writing out session file for '%s'"), *CurrentURL.ToString());
+				UE_LOG(LogNet, Log, TEXT("Network Profiler: Writing out session file for '%s'"), *CurrentHeader.GetURL());
 
 				// Write end of stream marker.
 				uint8 Type = NPTYPE_EndOfStreamMarker;
 				(*FileWriter) << Type;
 
-				// Real header, written at start of the file but overwritten out right before we close the file.
-				FNetworkProfilerHeader Header;
-				Header.Magic	= NETWORK_PROFILER_MAGIC;
-				Header.Version	= NETWORK_PROFILER_VERSION;
-				Header.Tag		= TEXT("");
-				FParse::Value(FCommandLine::Get(), TEXT("NETWORKPROFILER="), Header.Tag);
-				Header.GameName = FApp::GetGameName();
-				Header.URL		= CurrentURL.ToString();
-
 				// Write out name table and update header with offset and count.
-				Header.NameTableOffset	= FileWriter->Tell();
-				Header.NameTableEntries	= NameArray.Num();
+				CurrentHeader.SetNameTableValues(FileWriter->Tell(), NameArray.Num());
+
 				for( int32 NameIndex=0; NameIndex<NameArray.Num(); NameIndex++ )
 				{
 					NameArray[NameIndex].SerializeAsANSICharArray( *FileWriter );
@@ -519,7 +498,7 @@ void FNetworkProfiler::TrackSessionChange( bool bShouldContinueTracking, const F
 
 				// Seek to the beginning of the file and write out proper header.
 				FileWriter->Seek( 0 );
-				(*FileWriter) << Header;
+				(*FileWriter) << CurrentHeader;
 
 				// Close file writer so we can rename the file to its final destination.
 				FileWriter->Close();
@@ -566,14 +545,12 @@ void FNetworkProfiler::TrackSessionChange( bool bShouldContinueTracking, const F
 			IFileManager::Get().MakeDirectory( *FPaths::GetPath(TempFileName) );
 			FileWriter = IFileManager::Get().CreateFileWriter( *TempFileName, FILEWRITE_EvenIfReadOnly );
 			check( FileWriter );
+			
+			CurrentHeader.Reset(InURL);
 
-			// Serialize dummy header, overwritten when session ends.
-			FNetworkProfilerHeader DummyHeader;
-			FMemory::Memzero( &DummyHeader, sizeof(DummyHeader) );
-			(*FileWriter) << DummyHeader;
+			// Serialize a header of the proper size, overwritten when session ends.
+			(*FileWriter) << CurrentHeader;
 		}
-
-		CurrentURL = InURL;
 	}
 #endif	//#if ALLOW_DEBUG_FILES
 }
