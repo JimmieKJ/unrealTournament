@@ -710,23 +710,26 @@ void AUTBot::Tick(float DeltaTime)
 				}
 				if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && GetCharacter()->GetCharacterMovement()->AirControl > 0.0f && GetCharacter()->GetCharacterMovement()->MaxWalkSpeed > 0.0f)
 				{
-					// figure out desired 2D velocity and set air control to achieve that
-					FVector DesiredVel2D;
-					if ( FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, GetCharacter()->GetCharacterMovement()->Velocity.Z, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight()) ||
-						(UTChar != NULL && UTChar->UTCharacterMovement->CanMultiJump() && FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, UTChar->UTCharacterMovement->MultiJumpImpulse, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight())) )
+					if (!CurrentPath.Spec.IsValid() || !CurrentPath.Spec->OverrideAirControl(CurrentPath, GetPawn(), GetMoveBasedPosition(), MoveTarget))
 					{
-						FVector NewAccel = (DesiredVel2D - GetCharacter()->GetCharacterMovement()->Velocity) / FMath::Max<float>(0.001f, DeltaTime) / GetCharacter()->GetCharacterMovement()->AirControl;
-						NewAccel.Z = 0.0f;
-						MyPawn->GetMovementComponent()->AddInputVector(NewAccel.GetSafeNormal() * (NewAccel.Size() / FMath::Max<float>(1.0f, GetCharacter()->GetCharacterMovement()->GetMaxAcceleration())));
-					}
-					else
-					{
-						// just assume max, get as close as we can and maybe we get lucky
-						MyPawn->GetMovementComponent()->AddInputVector((TargetLoc - MyPawn->GetActorLocation()).GetSafeNormal2D());
+						// figure out desired 2D velocity and set air control to achieve that
+						FVector DesiredVel2D;
+						if ( FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, GetCharacter()->GetCharacterMovement()->Velocity.Z, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight()) ||
+							(UTChar != NULL && UTChar->UTCharacterMovement->CanMultiJump() && FindBestJumpVelocityXY(DesiredVel2D, MyPawn->GetActorLocation(), TargetLoc, UTChar->UTCharacterMovement->MultiJumpImpulse, GetCharacter()->GetCharacterMovement()->GetGravityZ(), MyPawn->GetSimpleCollisionHalfHeight())) )
+						{
+							FVector NewAccel = (DesiredVel2D - GetCharacter()->GetCharacterMovement()->Velocity) / FMath::Max<float>(0.001f, DeltaTime) / GetCharacter()->GetCharacterMovement()->AirControl;
+							NewAccel.Z = 0.0f;
+							MyPawn->GetMovementComponent()->AddInputVector(NewAccel.GetSafeNormal() * (NewAccel.Size() / FMath::Max<float>(1.0f, GetCharacter()->GetCharacterMovement()->GetMaxAcceleration())));
+						}
+						else
+						{
+							// just assume max, get as close as we can and maybe we get lucky
+							MyPawn->GetMovementComponent()->AddInputVector((TargetLoc - MyPawn->GetActorLocation()).GetSafeNormal2D());
+						}
 					}
 				}
 				// do nothing if path says we need to wait
-				else if (bAdjusting || CurrentPath.Spec == NULL || !CurrentPath.Spec->WaitForMove(CurrentPath, GetPawn(), GetMoveBasedPosition(), MoveTarget))
+				else if (bAdjusting || !CurrentPath.Spec.IsValid() || !CurrentPath.Spec->WaitForMove(CurrentPath, GetPawn(), GetMoveBasedPosition(), MoveTarget))
 				{
 					if (GetCharacter() != NULL && (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Flying || GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Swimming))
 					{
@@ -2303,7 +2306,12 @@ void AUTBot::ExecuteWhatToDoNext()
 				}
 				else
 				{
-					SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + FMath::VRand() * FVector(500.0f, 500.0f, 0.0f)));
+					// if we're on a moving platform, we might be off the navmesh due to it not handling moving things
+					// try just waiting until the platform stops
+					if (GetCharacter() == NULL || GetCharacter()->GetMovementBase() == NULL || GetCharacter()->GetMovementBase()->GetComponentVelocity().IsZero())
+					{
+						SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + FMath::VRand() * FVector(500.0f, 500.0f, 0.0f)));
+					}
 					StartNewAction(WaitForMoveAction);
 				}
 			}

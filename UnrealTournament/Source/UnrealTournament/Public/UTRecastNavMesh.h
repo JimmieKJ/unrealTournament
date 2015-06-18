@@ -371,6 +371,11 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	 */
 	int32 CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPoly);
 
+	/** returns if the given distance is traversable only by jumping and/or falling
+	* note: returns false if walk reachable; use Raycast() to check that
+	*/
+	virtual bool OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly = INVALID_NAVNODEREF, NavNodeRef EndPoly = INVALID_NAVNODEREF, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
+
 	/** trace test potential jump arcs for obstructions (does not walk test, align to edge, etc; see OnlyJumpReachable()) */
 	virtual bool JumpTraceTest(FVector Start, const FVector& End, NavNodeRef StartPoly, NavNodeRef EndPoly, FCollisionShape ScoutShape, float XYSpeed, float GravityZ, float BaseJumpZ, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
 
@@ -404,6 +409,9 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	 * if bOnlyWalkable is false, includes the far side of edges that require additional movement (jump, teleport, special move, etc)
 	 */
 	virtual void FindAdjacentPolys(APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, bool bOnlyWalkable, TArray<NavNodeRef>& Polys) const;
+
+	/** returns whether the given point is valid for jump testing (as source, destination or both) */
+	virtual bool IsValidJumpPoint(const FVector& TestPolyCenter) const;
 protected:
 	/** graph of path nodes overlaying the mesh */
 	UPROPERTY()
@@ -426,15 +434,7 @@ protected:
 
 	virtual void DeletePaths();
 
-	/** returns if the given distance is traversable only by jumping and/or falling
-	 * note: returns false if walk reachable; use Raycast() to check that
-	 */
-	virtual bool OnlyJumpReachable(APawn* Scout, FVector Start, const FVector& End, NavNodeRef StartPoly = INVALID_NAVNODEREF, NavNodeRef EndPoly = INVALID_NAVNODEREF, float MaxJumpZ = -1.0f, float* RequiredJumpZ = NULL, float* MaxFallSpeed = NULL) const;
-
 	const class dtQueryFilter* GetDefaultDetourFilter() const;
-
-	/** returns whether the given point is valid for jump testing (as source, destination or both) */
-	virtual bool IsValidJumpPoint(const FVector& TestPolyCenter) const;
 
 	// hide base functionality we don't want being used
 	// if you are UT aware you should use the UT functions that use the node graph with more robust traversal options

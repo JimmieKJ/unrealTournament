@@ -1638,7 +1638,9 @@ NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentPropertie
 					{
 						PolyBox += Vert;
 					}
-					if (FMath::LineBoxIntersection(PolyBox, AgentLoc, TraceEnd, TraceEnd - AgentLoc))
+					FVector HitLocation, HitNormal;
+					float HitTime;
+					if (FMath::LineExtentBoxIntersection(PolyBox, AgentLoc, TraceEnd, AgentExtent * FVector(1.5f, 1.5f, 1.0f), HitLocation, HitNormal, HitTime))
 					{
 						float Dist = (PolyBox.GetCenter() - AgentLoc).SizeSquared();
 						if (Dist < BestDist)
