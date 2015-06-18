@@ -145,6 +145,20 @@ void AUTWeapon::BeginPlay()
 	Super::BeginPlay();
 
 	InstanceMuzzleFlashArray(this, MuzzleFlash);
+	// sanity check some settings
+	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
+	{
+		if (MuzzleFlash[i] != NULL)
+		{
+			if (RootComponent == NULL && MuzzleFlash[i]->IsRegistered())
+			{
+				MuzzleFlash[i]->UnregisterComponent(); // SCS components were registered without our permission
+			}
+			MuzzleFlash[i]->bAutoActivate = false;
+			MuzzleFlash[i]->SecondsBeforeInactive = 0.0f;
+			MuzzleFlash[i]->SetOnlyOwnerSee(false); // we handle this in AUTPlayerController::UpdateHiddenComponents() instead
+		}
+	}
 
 	// might have already been activated if at startup, see ClientGivenTo_Internal()
 	if (CurrentState == NULL)
@@ -471,15 +485,6 @@ void AUTWeapon::AttachToOwner_Implementation()
 		DetachFromHolster();
 	}
 
-	// sanity check some settings
-	for (int32 i = 0; i < MuzzleFlash.Num(); i++)
-	{
-		if (MuzzleFlash[i] != NULL)
-		{
-			MuzzleFlash[i]->bAutoActivate = false;
-			MuzzleFlash[i]->SetOnlyOwnerSee(false); // we handle this in AUTPlayerController::UpdateHiddenComponents() instead
-		}
-	}
 	// attach
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
