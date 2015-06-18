@@ -512,7 +512,7 @@ void UDemoNetDriver::TickDispatch(float DeltaSeconds)
 
 			if ( AvgTimeMS > 3.0f || MaxRecordTimeMS > 6.0f )
 			{
-				UE_LOG( LogDemo, Warning, TEXT( "UDemoNetDriver::TickFlush: SLOW FRAME. Avg: %2.2f, Max: %2.2f, Actors: %i" ), AvgTimeMS, MaxRecordTimeMS, World->NetworkActors.Num() );
+				//UE_LOG( LogDemo, Warning, TEXT( "UDemoNetDriver::TickFlush: SLOW FRAME. Avg: %2.2f, Max: %2.2f, Actors: %i" ), AvgTimeMS, MaxRecordTimeMS, World->NetworkActors.Num() );
 			}
 
 			LastRecordAvgFlush		= EndTime;
