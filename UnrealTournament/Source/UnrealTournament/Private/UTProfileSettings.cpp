@@ -301,3 +301,9 @@ void UUTProfileSettings::TokensReset()
 {
 	TempFoundTokenUniqueIDs.Empty();
 }
+
+void UUTProfileSettings::TokensClear()
+{
+	TempFoundTokenUniqueIDs.Empty();
+	FoundTokenUniqueIDs.Empty();
+}

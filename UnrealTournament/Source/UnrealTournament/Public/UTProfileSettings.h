@@ -54,6 +54,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	void TokenRevoke(FName TokenUniqueID);
 	void TokensCommit();
 	void TokensReset();
+	
+	// debug only
+	void TokensClear();
 
 	/**
 	 *	Gather all of the settings so that this profile object can be saved.

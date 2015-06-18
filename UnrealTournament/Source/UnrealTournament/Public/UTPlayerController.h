@@ -427,7 +427,10 @@ public:
 		USoundBase* SelectSound;
 	
 	UFUNCTION()
-		virtual void PlayMenuSelectSound();
+	virtual void PlayMenuSelectSound();
+
+	UFUNCTION(exec)
+	void ClearTokens();
 
 	//-----------------------------------------------
 	// Perceived latency reduction

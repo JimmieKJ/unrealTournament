@@ -3327,3 +3327,18 @@ void AUTPlayerController::ClientHideMapVote_Implementation()
 		LocalPlayer->CloseMapVote();
 	}
 }
+
+void AUTPlayerController::ClearTokens()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
+		if (Settings != NULL)
+		{
+			Settings->TokensClear();
+		}
+	}
+#endif
+}
