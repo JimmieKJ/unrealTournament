@@ -15,6 +15,10 @@ FUTReplayStreamer::FUTReplayStreamer()
 	{
 		ServerURL = TEXT( "https://replay-public-service-gamedev.ol.epicgames.net/replay/" );
 	}
+	else if (McpConfigOverride == TEXT("localhost"))
+	{
+		ServerURL = TEXT( "http://localhost:8080/replay/" );
+	}
 
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 
