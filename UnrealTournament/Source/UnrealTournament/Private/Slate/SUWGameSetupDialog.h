@@ -160,6 +160,8 @@ protected:
 	TSharedPtr<class SSplitter> HorzSplitter;
 	TSharedPtr<SHorizontalBox> TabButtonPanel;
 
+	TSharedPtr<SVerticalBox> MainBox;
+
 	TSharedPtr<SGridPanel> RulesPanel;
 	TArray<FTabButtonInfo> Tabs;
 
@@ -199,6 +201,8 @@ protected:
 
 	// Will be true if this dialog was opened while connected to a hub.
 	bool bHubMenu;
+
+
 
 public:
 
