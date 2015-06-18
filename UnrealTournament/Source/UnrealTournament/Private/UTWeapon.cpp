@@ -964,14 +964,6 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 			{
 				Collider = FCollisionShape::MakeSphere(0.0f);
 			}
-			{
-				FHitResult Hit;
-				if (UTOwner->GetCapsuleComponent()->SweepComponent(Hit, FinalLoc, BaseLoc, Collider, false))
-				{
-					// owner capsule could be flush against the wall so we need to push the projectile partially into the capsule to make sure we don't start penetrating wall
-					BaseLoc = Hit.Location + (BaseLoc - FinalLoc).GetSafeNormal() * Collider.GetExtent().X * 0.5f;
-				}
-			}
 			FCollisionQueryParams Params(FName(TEXT("WeaponStartLoc")), false, UTOwner);
 			FHitResult Hit;
 			if (GetWorld()->SweepSingleByChannel(Hit, BaseLoc, FinalLoc, FQuat::Identity, COLLISION_TRACE_WEAPON, Collider, Params))
