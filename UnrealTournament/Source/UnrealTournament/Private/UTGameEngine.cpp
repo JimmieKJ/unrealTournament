@@ -8,6 +8,7 @@
 #include "AssetRegistryModule.h"
 #include "UTLevelSummary.h"
 #include "Engine/Console.h"
+#include "Runtime/Launch/Resources/Version.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -73,7 +74,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 		}
 	}
 
-	LoadDownloadedAssetRegistries();
+	IndexExpansionContent();
 
 	UniqueAnalyticSessionGuid = FGuid::NewGuid();
 	FUTAnalytics::Initialize();
@@ -466,7 +467,7 @@ void UUTGameEngine::UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFr
 	//UE_LOG(UT, Warning, TEXT("SMOOTHED TO %f"), SmoothedDeltaTime);
 }
 
-void UUTGameEngine::LoadDownloadedAssetRegistries()
+void UUTGameEngine::IndexExpansionContent()
 {
 	// Plugin manager should handle this instead of us, but we're not using plugin-based dlc just yet
 	if (FPlatformProperties::RequiresCookedData())
@@ -519,31 +520,67 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("MyContent")), PakVisitor);		
 		for (const auto& PakPath : FoundPaks)
 		{
+			bool bValidPak = false;
+
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
 			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
 			{
-				TArray<uint8> Data;
-				if (FFileHelper::LoadFileToArray(Data, *PakPath))
-				{
-					FString MD5 = MD5Sum(Data);
-					LocalContentChecksums.Add(PakFilename, MD5);
-				}
-
-				FArrayReader SerializedAssetData;
-				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);								
 				if (DashPosition != -1)
 				{
 					PakFilename = PakFilename.Left(DashPosition);
-					FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-					if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+
+					FString VersionFilename = PakFilename + TEXT("-version.txt");
+					FString VersionString;
+					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
-						// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-						AssetRegistryModule.Get().Serialize(SerializedAssetData);
+						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
+
+						if (VersionString == CompiledVersionString)
+						{
+							bValidPak = true;
+						}
+						else
+						{
+							UE_LOG(UT, Warning, TEXT("%s is version %s, but needs to be version %s"), *PakFilename, *VersionString, *CompiledVersionString);
+						}
 					}
 					else
 					{
-						UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+						UE_LOG(UT, Warning, TEXT("%s had no version file"), *PakFilename);
 					}
+
+					if (bValidPak)
+					{
+						TArray<uint8> Data;
+						if (FFileHelper::LoadFileToArray(Data, *PakPath))
+						{
+							FString MD5 = MD5Sum(Data);
+							LocalContentChecksums.Add(PakFilename, MD5);
+						}
+
+						FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+						FArrayReader SerializedAssetData;
+						if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+						{
+							// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+							AssetRegistryModule.Get().Serialize(SerializedAssetData);
+						}
+						else
+						{
+							UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+						}
+					}
+				}
+			}
+
+			if (!bValidPak)
+			{
+				// Unmount the pak
+				if (FCoreDelegates::OnUnmountPak.IsBound())
+				{
+					FCoreDelegates::OnUnmountPak.Execute(PakPath);
+					UE_LOG(UT, Warning, TEXT("Unmounted %s"), *PakPath);
 				}
 			}
 		}
@@ -553,24 +590,60 @@ void UUTGameEngine::LoadDownloadedAssetRegistries()
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameContentDir(), TEXT("Paks")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
+			bool bValidPak = false;
+
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
 			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
 			{
-				FArrayReader SerializedAssetData;
 				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
 				if (DashPosition != -1)
 				{
 					PakFilename = PakFilename.Left(DashPosition);
-					FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-					if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+
+					FString VersionFilename = PakFilename + TEXT("-version.txt");
+					FString VersionString;
+					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
-						// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-						AssetRegistryModule.Get().Serialize(SerializedAssetData);
+						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
+
+						if (VersionString == CompiledVersionString)
+						{
+							bValidPak = true;
+						}
+						else
+						{
+							UE_LOG(UT, Warning, TEXT("%s is version %s, but needs to be version %s"), *PakFilename, *VersionString, *CompiledVersionString);
+						}
 					}
 					else
 					{
-						UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+						UE_LOG(UT, Warning, TEXT("%s had no version file"), *PakFilename);
 					}
+
+					if (bValidPak)
+					{
+						FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+						FArrayReader SerializedAssetData;
+						if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+						{
+							// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+							AssetRegistryModule.Get().Serialize(SerializedAssetData);
+						}
+						else
+						{
+							UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+						}
+					}
+				}
+			}
+
+			if (!bValidPak)
+			{
+				// Unmount the pak
+				if (FCoreDelegates::OnUnmountPak.IsBound())
+				{
+					FCoreDelegates::OnUnmountPak.Execute(PakPath);
+					UE_LOG(UT, Warning, TEXT("Unmounted %s"), *PakPath);
 				}
 			}
 		}

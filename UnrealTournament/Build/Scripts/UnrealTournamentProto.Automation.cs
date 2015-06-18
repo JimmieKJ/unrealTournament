@@ -1865,6 +1865,7 @@ public class MakeUTDLC : BuildCommand
     public string DLCName;
     public string DLCMaps;
     public string AssetRegistry;
+    public string VersionString;
 
     static public ProjectParams GetParams(BuildCommand Cmd, string DLCName, string AssetRegistry)
     {
@@ -1908,6 +1909,10 @@ public class MakeUTDLC : BuildCommand
 
     public void Stage(DeploymentContext SC, ProjectParams Params)
     {
+        // Create the version.txt
+        string VersionPath = CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform, "UnrealTournament", DLCName + "-" + "version.txt");
+        CommandUtils.WriteToFile(VersionPath, VersionString);
+
         // Rename the asset registry file to DLC name
         CommandUtils.RenameFile(CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform, "UnrealTournament", "AssetRegistry.bin"),
                                 CombinePaths(SC.ProjectRoot, "Saved", "Cooked", DLCName, SC.CookPlatform, "UnrealTournament", DLCName + "-" + "AssetRegistry.bin"));
@@ -2023,6 +2028,8 @@ public class MakeUTDLC : BuildCommand
 
     public override void ExecuteBuild()
     {
+        VersionString = ParseParamValue("Version", "NOVERSION");
+
         DLCName = ParseParamValue("DLCName", "PeteGameMode");
 
         // Maps should be in format -maps=DM-DLCMap1+DM-DLCMap2+DM-DLCMap3
