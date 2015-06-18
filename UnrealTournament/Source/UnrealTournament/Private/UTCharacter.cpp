@@ -3731,7 +3731,6 @@ void AUTCharacter::NotifyTeamChanged()
 		}
 
 		//Update weapon team colors
-		AUTWeapon* Weapon = GetWeapon();
 		if (Weapon != nullptr)
 		{
 			Weapon->NotifyTeamChanged();
