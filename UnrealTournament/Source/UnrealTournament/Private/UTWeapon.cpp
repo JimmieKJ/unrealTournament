@@ -152,7 +152,10 @@ void AUTWeapon::BeginPlay()
 		{
 			if (RootComponent == NULL && MuzzleFlash[i]->IsRegistered())
 			{
+				MuzzleFlash[i]->DeactivateSystem();
+				MuzzleFlash[i]->KillParticlesForced();
 				MuzzleFlash[i]->UnregisterComponent(); // SCS components were registered without our permission
+				MuzzleFlash[i]->bWasActive = false;
 			}
 			MuzzleFlash[i]->bAutoActivate = false;
 			MuzzleFlash[i]->SecondsBeforeInactive = 0.0f;
