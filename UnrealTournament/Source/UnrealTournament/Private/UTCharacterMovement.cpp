@@ -47,7 +47,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	WallDodgeGraceVelocityZ = -2400.f;
 	AirControl = 0.46f;
 	MultiJumpAirControl = 0.46f;
-	DodgeAirControl = 0.40f;
+	DodgeAirControl = 0.42f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 6600.f; 
