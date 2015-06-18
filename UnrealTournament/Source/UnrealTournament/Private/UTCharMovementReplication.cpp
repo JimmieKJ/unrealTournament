@@ -228,7 +228,6 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 		return;
 	}
 
-	bool bWasFalling = (MovementMode == MOVE_Falling);
 	FVector RealVelocity = Velocity; // Used now to keep our forced clientside decel from affecting animation
 
 	float RemainingTime = DeltaSeconds;
@@ -241,75 +240,77 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 			DeltaTime = FMath::Min(0.5f*RemainingTime, MaxSimulationTimeStep);
 		}
 		RemainingTime -= DeltaTime;
+
+		if (MovementMode == MOVE_Walking)
+		{
+			// update simulated velocity for walking (falling done in simulatemovement_internal)
+			bIsSprinting = (RealVelocity.SizeSquared() > 1.01f * FMath::Square(MaxWalkSpeed));
+
+			const float MaxAccel = GetMaxAcceleration();
+			float MaxSpeed = GetMaxSpeed();
+
+			// Apply braking or deceleration
+			const bool bZeroAcceleration = Acceleration.IsZero();
+			const bool bVelocityOverMax = IsExceedingMaxSpeed(MaxSpeed);
+
+			// Only apply braking if there is no acceleration, or we are over our max speed and need to slow down to it.
+			if (bZeroAcceleration || bVelocityOverMax)
+			{
+				const FVector OldVelocity = Velocity;
+				ApplyVelocityBraking(DeltaSeconds, GroundFriction, BrakingDecelerationWalking);
+
+				// Don't allow braking to lower us below max speed if we started above it.
+				if (bVelocityOverMax && Velocity.SizeSquared() < FMath::Square(MaxSpeed) && FVector::DotProduct(Acceleration, OldVelocity) > 0.0f)
+				{
+					Velocity = OldVelocity.GetSafeNormal() * MaxSpeed;
+				}
+			}
+			else if (!bZeroAcceleration)
+			{
+				// Friction affects our ability to change direction. This is only done for input acceleration, not path following.
+				const FVector AccelDir = Acceleration.GetSafeNormal();
+				const float VelSize = Velocity.Size();
+				Velocity = Velocity - (Velocity - AccelDir * VelSize) * FMath::Min(DeltaTime * GroundFriction, 1.f);
+			}
+
+			// Apply acceleration
+			const float NewMaxSpeed = (IsExceedingMaxSpeed(MaxSpeed)) ? Velocity.Size() : MaxSpeed;
+			Velocity += Acceleration * DeltaTime;
+			if (Velocity.Size() > NewMaxSpeed)
+			{
+				Velocity = NewMaxSpeed * Velocity.GetSafeNormal();
+			}
+			//UE_LOG(UT, Warning, TEXT("New simulated velocity %f %f"), Velocity.X, Velocity.Y);
+		}
+		bool bWasFalling = (MovementMode == MOVE_Falling);
 		SimulateMovement_Internal(DeltaTime);
 
-		if (CharacterOwner->Role == ROLE_SimulatedProxy)
+		if (MovementMode != MOVE_Falling)
 		{
-			// update velocity with replicated acceleration - handle falling also
-			// For now, pretend 0 accel if walking on ground
-			if (MovementMode != MOVE_Falling)
+			LastCheckedAgainstWall = 0.f;
+		}
+		if (MovementMode == MOVE_Walking)
+		{
+			bIsAgainstWall = false;
+			float Speed = Velocity.Size2D();
+			if (bWasFalling && (Speed > MaxWalkSpeed))
 			{
-				LastCheckedAgainstWall = 0.f;
-			}
-			if (MovementMode == MOVE_Walking)
-			{
-				bIsAgainstWall = false;
-				float Speed = Velocity.Size();
-				if (bWasFalling && (Speed > MaxWalkSpeed))
+				if (bIsFloorSliding)
 				{
-					if (Speed > SprintSpeed)
-					{
-						SimulatedVelocity = DodgeLandingSpeedFactor * Velocity.GetSafeNormal2D();
-					}
-					else
-					{
-						SimulatedVelocity = MaxWalkSpeed * Velocity.GetSafeNormal2D();
-					}
+					Velocity = FMath::Min(Speed, SprintSpeed) * Velocity.GetSafeNormal2D();
+				}
+				else if (Speed > SprintSpeed)
+				{
+					Velocity = DodgeLandingSpeedFactor * Velocity.GetSafeNormal2D();
 				}
 				else
 				{
-					bIsSprinting = (RealVelocity.SizeSquared() > 1.01f * FMath::Square(MaxWalkSpeed));
-
-					const float MaxAccel = GetMaxAcceleration();
-					float MaxSpeed = GetMaxSpeed();
-
-					// Apply braking or deceleration
-					const bool bZeroAcceleration = Acceleration.IsZero();
-					const bool bVelocityOverMax = IsExceedingMaxSpeed(MaxSpeed);
-
-					// Only apply braking if there is no acceleration, or we are over our max speed and need to slow down to it.
-					if (bZeroAcceleration || bVelocityOverMax)
-					{
-						const FVector OldVelocity = Velocity;
-						ApplyVelocityBraking(DeltaSeconds, GroundFriction, BrakingDecelerationWalking);
-
-						// Don't allow braking to lower us below max speed if we started above it.
-						if (bVelocityOverMax && Velocity.SizeSquared() < FMath::Square(MaxSpeed) && FVector::DotProduct(Acceleration, OldVelocity) > 0.0f)
-						{
-							Velocity = OldVelocity.GetSafeNormal() * MaxSpeed;
-						}
-					}
-					else if (!bZeroAcceleration)
-					{
-						// Friction affects our ability to change direction. This is only done for input acceleration, not path following.
-						const FVector AccelDir = Acceleration.GetSafeNormal();
-						const float VelSize = Velocity.Size();
-						Velocity = Velocity - (Velocity - AccelDir * VelSize) * FMath::Min(DeltaSeconds * GroundFriction, 1.f);
-					}
-
-					// Apply acceleration
-					const float NewMaxSpeed = (IsExceedingMaxSpeed(MaxSpeed)) ? Velocity.Size() : MaxSpeed;
-					Velocity += Acceleration * DeltaTime;
-					if (Velocity.Size() > NewMaxSpeed)
-					{
-						Velocity = NewMaxSpeed * Velocity.GetSafeNormal();
-					}
-					SimulatedVelocity = Velocity;
-					//UE_LOG(UT, Warning, TEXT("New simulated velocity %f %f"), Velocity.X, Velocity.Y);
+					Velocity = MaxWalkSpeed * Velocity.GetSafeNormal2D();
 				}
 			}
-			// @TODO FIXMESTEVE - need to update falling velocity after simulate also
 		}
+		SimulatedVelocity = Velocity;
+		// save three values - linear velocity with no accel, accel before, accel after.  Log error when get position update from server
 	}
 	Velocity = RealVelocity;
 }
