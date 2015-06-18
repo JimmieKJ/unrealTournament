@@ -11,6 +11,7 @@
 #include "UTHUDWidget_WeaponCrosshair.h"
 #include "UTHUDWidget_Spectator.h"
 #include "UTHUDWidget_WeaponBar.h"
+#include "UTHUDWidget_SpectatorSlideOut.h"
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Powerups.h"
 #include "Json.h"
@@ -293,6 +294,10 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	if (Cast<UUTHUDWidget_ReplayTimeSlider>(Widget))
 	{
 		ReplayTimeSliderWidget = Cast<UUTHUDWidget_ReplayTimeSlider>(Widget);
+	}
+	if (Cast<UUTHUDWidget_SpectatorSlideOut>(Widget))
+	{
+		SpectatorSlideOutWidget = Cast<UUTHUDWidget_SpectatorSlideOut>(Widget);
 	}
 
 	return Widget;

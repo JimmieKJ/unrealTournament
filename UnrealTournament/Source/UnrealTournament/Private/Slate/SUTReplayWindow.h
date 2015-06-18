@@ -46,6 +46,13 @@ protected:
 	const FSlateBrush* GetPlayButtonBrush() const;
 	FReply OnPlayPauseButtonClicked();
 
+	//Mouse interaction overrides so it can send input to UUTHUDWidget_SpectatorSlideOut
+	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override;
+	bool GetGameMousePosition(FVector2D& MousePosition);
+	virtual bool MouseClickHUD();
+
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TWeakObjectPtr<class UDemoNetDriver> DemoNetDriver;

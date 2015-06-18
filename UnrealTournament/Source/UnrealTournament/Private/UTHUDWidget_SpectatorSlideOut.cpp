@@ -151,6 +151,11 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 {
 	Super::Draw_Implementation(DeltaTime);
 
+	if (bIsInteractive)
+	{
+		ClickElementStack.Empty();
+	}
+
 	// Hack to allow animations during pause
 	DeltaTime = GetWorld()->DeltaTimeSeconds;
 
@@ -442,6 +447,18 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, A
 	float BarOpacity = 0.3f;
 	float Width = Size.X;
 
+	// If we are interactive and this element has a keybind, store it so the mouse can click it
+	if (bIsInteractive && KeyName != NAME_None)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		ClickElementStack.Add(FClickElement(KeyName, Bounds));
+		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
+		{
+			BarOpacity = 0.5;
+		}
+	}
+
 	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
 	float FinalBarOpacity = BarOpacity;
@@ -466,6 +483,18 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
 	float Width = Size.X;
+
+	// If we are interactive and this element has a keybind, store it so the mouse can click it
+	if (bIsInteractive && KeyName != NAME_None)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		ClickElementStack.Add(FClickElement(KeyName, Bounds));
+		if ((MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W))
+		{
+			BarOpacity = 0.5;
+		}
+	}
 
 	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
@@ -492,6 +521,18 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	FLinearColor DrawColor = FLinearColor::White;
 	float FinalBarOpacity = 0.3f;
 	float Width = Size.X;
+
+	// If we are interactive and this element has a keybind, store it so the mouse can click it
+	if (bIsInteractive)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		ClickElementStack.Add(FClickElement(NumberToKey(Index), Bounds));
+		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
+		{
+			FinalBarOpacity = 1.f;
+		}
+	}
 
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, SlideOutFont, 1.f, 0.475f*Width));
 	FText PlayerScore = FText::AsNumber(int32(PlayerState->Score));
@@ -578,4 +619,50 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 			DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (Width * ColumnHeaderScoreX), YOffset, 0.075f*Width, 0.075f*Width, 725, 0, 28, 36, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
 		}
 	}
+}
+
+int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D Position)
+{
+	if (bIsInteractive)
+	{
+		for (int32 i = 0; i < ClickElementStack.Num(); i++)
+		{
+			if (Position.X >= ClickElementStack[i].Bounds.X && Position.X <= ClickElementStack[i].Bounds.Z &&
+				Position.Y >= ClickElementStack[i].Bounds.Y && Position.Y <= ClickElementStack[i].Bounds.W)
+			{
+				return i;
+			}
+		}
+	}
+	return -1;
+}
+
+bool UUTHUDWidget_SpectatorSlideOut::MouseClick(FVector2D InMousePosition)
+{ 
+	int32 ElementIndex = MouseHitTest(InMousePosition);
+	if (ClickElementStack.IsValidIndex(ElementIndex) && UTHUDOwner && UTHUDOwner->PlayerOwner && Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput))
+	{
+		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
+		Input->ExecuteCustomBind(ClickElementStack[ElementIndex].Key, EInputEvent::IE_Pressed);
+		return true;
+	}
+	return false; 
+}
+
+FKey UUTHUDWidget_SpectatorSlideOut::NumberToKey(int32 InNumber)
+{
+	switch (InNumber)
+	{
+	case 0: return FKey(TEXT("Zero"));
+	case 1: return FKey(TEXT("One"));
+	case 2: return FKey(TEXT("Two"));
+	case 3: return FKey(TEXT("Three"));
+	case 4: return FKey(TEXT("Four"));
+	case 5: return FKey(TEXT("Five"));
+	case 6: return FKey(TEXT("Six"));
+	case 7: return FKey(TEXT("Seven"));
+	case 8: return FKey(TEXT("Eight"));
+	case 9: return FKey(TEXT("Nine"));
+	}
+	return FKey();
 }

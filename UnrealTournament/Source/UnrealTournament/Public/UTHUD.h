@@ -102,6 +102,11 @@ public:
 
 	class UUTHUDWidget_ReplayTimeSlider* GetReplayTimeSlider() { return ReplayTimeSliderWidget; }
 
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+	class UUTHUDWidget_SpectatorSlideOut* SpectatorSlideOutWidget;
+
+	class UUTHUDWidget_SpectatorSlideOut* GetSpectatorSlideOut() { return SpectatorSlideOutWidget; }
+
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastPickupTime;

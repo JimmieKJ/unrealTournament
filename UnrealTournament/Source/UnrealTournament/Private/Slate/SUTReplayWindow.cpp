@@ -2,6 +2,8 @@
 
 #include "../Public/UnrealTournament.h"
 #include "../Public/UTLocalPlayer.h"
+#include "../Public/UTGameViewportClient.h"
+#include "../Public/UTHUDWidget_SpectatorSlideOut.h"
 #include "SUTReplayWindow.h"
 #include "SUWindowsStyle.h"
 #include "Widgets/SUTButton.h"
@@ -42,6 +44,8 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 		.HAlign(HAlign_Fill)
 		[
 			SNew(SCanvas)
+
+			//Time Controls
 			+ SCanvas::Slot()
 			.Position(TimePos)
 			.Size(TimeSize)
@@ -199,5 +203,70 @@ void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCu
 {
 	return SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 }
+
+// @Returns true if the mouse position is inside the viewport
+bool SUTReplayWindow::GetGameMousePosition(FVector2D& MousePosition)
+{
+	// We need to get the mouse input but the mouse event only has the mouse in screen space.  We need it in viewport space and there
+	// isn't a good way to get there.  So we punt and just get it from the game viewport.
+
+	UUTGameViewportClient* GVC = Cast<UUTGameViewportClient>(PlayerOwner->ViewportClient);
+	if (GVC)
+	{
+		return GVC->GetMousePosition(MousePosition);
+	}
+	return false;
+}
+
+FReply SUTReplayWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	return MouseClickHUD() ? FReply::Handled() : FReply::Unhandled();
+}
+
+FReply SUTReplayWindow::OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent)
+{
+	return MouseClickHUD() ? FReply::Handled() : FReply::Unhandled();
+}
+
+bool SUTReplayWindow::MouseClickHUD()
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		FVector2D MousePosition;
+		if (GetGameMousePosition(MousePosition))
+		{
+			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
+			if (SpectatorWidget)
+			{
+				SpectatorWidget->SetMouseInteractive(true);
+				return SpectatorWidget->MouseClick(MousePosition);
+			}
+		}
+	}
+	return false;
+}
+
+FReply SUTReplayWindow::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (PC && PC->MyUTHUD)
+	{
+		FVector2D MousePosition;
+		if (GetGameMousePosition(MousePosition))
+		{
+			UUTHUDWidget_SpectatorSlideOut* SpectatorWidget = PC->MyUTHUD->GetSpectatorSlideOut();
+			if (SpectatorWidget)
+			{
+				SpectatorWidget->SetMouseInteractive(true);
+				SpectatorWidget->TrackMouseMovement(MousePosition);
+			}
+		}
+	}
+
+	return FReply::Unhandled();
+}
+
+
 
 #endif
