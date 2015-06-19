@@ -117,6 +117,10 @@ public:
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float MaxFallingAcceleration;
 
+	/** Ground friction when braking. */
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+		float BrakingFriction;
+
 	/** Max speed player can travel in water (faster than powered swim speed */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Swimming)
 		float MaxWaterSpeed;
@@ -336,10 +340,6 @@ public:
 	/** Amount of falling damage reduction */
 	UFUNCTION(BlueprintCallable, Category = "FloorSlide")
 	virtual	float FallingDamageReduction(float FallingDamage, const FHitResult& Hit);
-
-	/** Maximum Velocity Z that a floor slide tap will register. */
-	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
-	float FloorSlideEarliestZ;
 
 	/** Scaling for how much upward slope affects max floor slide initial speed. */
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)

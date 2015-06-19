@@ -34,9 +34,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	DodgeJumpResetInterval = 0.35f;
 	WallDodgeResetInterval = 0.2f;
 	SprintSpeed = 1230.f;
-	SprintAccel = 200.f;
+	SprintAccel = 300.f;
 	SprintMaxWallNormal = -0.7f;
-	AutoSprintDelayInterval = 1.5f;
+	AutoSprintDelayInterval = 2.f;
 	LandingStepUp = 40.f;
 	LandingAssistBoost = 430.f;
 	CrouchedSpeedMultiplier_DEPRECATED = 0.31f;
@@ -47,15 +47,16 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	WallDodgeGraceVelocityZ = -2400.f;
 	AirControl = 0.46f;
 	MultiJumpAirControl = 0.46f;
-	DodgeAirControl = 0.42f;
+	DodgeAirControl = 0.41f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 6600.f; 
+	MaxAcceleration = 6300.f; 
 	MaxFallingAcceleration = 4200.f;
 	BrakingDecelerationWalking = 500.f;
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
-	GroundFriction = 5.f;
+	GroundFriction = 12.f;
+	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	DodgeImpulseHorizontal = 1350.f;
 	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
@@ -64,13 +65,12 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	CrouchedHalfHeight = 55.0f;
 	SlopeDodgeScaling = 0.93f;
 
-	FloorSlideAcceleration = 1500.f;
+	FloorSlideAcceleration = 1000.f;
 	MaxFloorSlideSpeed = 920.f;
-	FloorSlideDuration = 0.45f;
+	FloorSlideDuration = 0.5f;
 	FloorSlideBonusTapInterval = 0.17f;
-	FloorSlideEarliestZ = -100.f;
-	FloorSlideEndingSpeedFactor = 0.5f;
-	FloorSlideSlopeBraking = 3.f;
+	FloorSlideEndingSpeedFactor = 0.45f;
+	FloorSlideSlopeBraking = 2.7f;
 	FallingDamageRollReduction = 6.f;
 
 	MaxSwimSpeed = 1000.f;
@@ -766,6 +766,10 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 	if (!UTOwner || !UTOwner->IsRagdoll())
 	{
 		float RealGroundFriction = GroundFriction;
+		if (Acceleration.IsZero())
+		{
+			GroundFriction = BrakingFriction;
+		}
 		if (bIsFloorSliding)
 		{
 			GroundFriction = 0.f;
@@ -779,8 +783,8 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		bool bSavedWantsToCrouch = bWantsToCrouch;
 		bWantsToCrouch = bWantsToCrouch || bIsFloorSliding;
 		bForceMaxAccel = bIsFloorSliding;
-		FVector Loc = CharacterOwner->GetActorLocation();
 		/*
+		FVector Loc = CharacterOwner->GetActorLocation();
 		if (CharacterOwner->Role < ROLE_Authority)
 		{
 		UE_LOG(UTNet, Warning, TEXT("CLIENT MOVE at %f deltatime %f from %f %f %f vel %f %f %f accel %f %f %f wants to crouch %d sliding %d sprinting %d pressed slide %d"), GetCurrentSynchTime(), DeltaSeconds, Loc.X, Loc.Y, Loc.Z, Velocity.X, Velocity.Y, Velocity.Z, Acceleration.X, Acceleration.Y, Acceleration.Z, bWantsToCrouch, bIsFloorSliding, bIsSprinting, bPressedSlide);
@@ -845,7 +849,7 @@ bool UUTCharacterMovement::CanSprint() const
 		// must be moving mostly forward
 		FRotator TurnRot(0.f, CharacterOwner->GetActorRotation().Yaw, 0.f);
 		FVector X = FRotationMatrix(TurnRot).GetScaledAxis(EAxis::X);
-		return ((X | Velocity.GetSafeNormal()) > 0.6f);
+		return (((X | Velocity.GetSafeNormal()) > 0.8f) && ((X | Acceleration.GetSafeNormal()) > 0.9f));
 	}
 	return false;
 }
@@ -906,6 +910,15 @@ void UUTCharacterMovement::CalcVelocity(float DeltaTime, float Friction, bool bF
 		{
 			Friction *= (1.0f - UTOwner->GetWalkMovementReductionPct());
 			BrakingDeceleration *= (1.0f - UTOwner->GetWalkMovementReductionPct());
+		}
+		if (!bIsFloorSliding)
+		{
+			// always clamp to max speed (gets back down from sprinting faster, so get full accel)
+			float MaxSpeed = GetMaxSpeed();
+			if (Velocity.SizeSquared() > MaxSpeed*MaxSpeed)
+			{
+				Velocity = Velocity.GetSafeNormal() * MaxSpeed;
+			}
 		}
 	}
 	Super::CalcVelocity(DeltaTime, Friction, bFluid, BrakingDeceleration);
