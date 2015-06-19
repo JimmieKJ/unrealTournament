@@ -45,12 +45,12 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	WallDodgeMinNormal = 0.5f; 
 	MaxConsecutiveWallDodgeDP = 0.97f;
 	WallDodgeGraceVelocityZ = -2400.f;
-	AirControl = 0.46f;
-	MultiJumpAirControl = 0.46f;
+	AirControl = 0.45f;
+	MultiJumpAirControl = 0.45f;
 	DodgeAirControl = 0.41f;
 	bAllowSlopeDodgeBoost = true;
 	SetWalkableFloorZ(0.695f); 
-	MaxAcceleration = 6300.f; 
+	MaxAcceleration = 6200.f; 
 	MaxFallingAcceleration = 4200.f;
 	BrakingDecelerationWalking = 500.f;
 	BrakingDecelerationFalling = 0.f;
@@ -58,14 +58,12 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	GroundFriction = 12.f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
-	DodgeImpulseHorizontal = 1350.f;
-	DodgeMaxHorizontalVelocity = 1500.f; // DodgeImpulseHorizontal * 1.11
 	MaxStepHeight = 51.0f;
 	NavAgentProps.AgentStepHeight = MaxStepHeight; // warning: must be manually mirrored, won't be set automatically
 	CrouchedHalfHeight = 55.0f;
 	SlopeDodgeScaling = 0.93f;
 
-	FloorSlideAcceleration = 1000.f;
+	FloorSlideAcceleration = 1500.f;
 	MaxFloorSlideSpeed = 920.f;
 	FloorSlideDuration = 0.5f;
 	FloorSlideBonusTapInterval = 0.17f;
@@ -80,8 +78,10 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 
 	MaxMultiJumpZSpeed = 280.f;
 	JumpZVelocity = 730.f;
+	DodgeImpulseHorizontal = 1410.f;
+	DodgeMaxHorizontalVelocity = 1565.f; // DodgeImpulseHorizontal * 1.11
 	WallDodgeSecondImpulseVertical = 320.f;
-	DodgeImpulseVertical = 525.f;
+	DodgeImpulseVertical = 502.5f;
 	WallDodgeImpulseHorizontal = 1350.f; 
 	WallDodgeImpulseVertical = 470.f; 
 
