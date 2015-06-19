@@ -534,6 +534,7 @@ void UUTGameEngine::IndexExpansionContent()
 					FString VersionString;
 					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
+						VersionString = VersionString.LeftChop(1);
 						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
 
 						if (VersionString == CompiledVersionString)
@@ -573,6 +574,11 @@ void UUTGameEngine::IndexExpansionContent()
 					}
 				}
 			}
+			else
+			{
+				// Assume the stock pak is good
+				bValidPak = true;
+			}
 
 			if (!bValidPak)
 			{
@@ -604,6 +610,7 @@ void UUTGameEngine::IndexExpansionContent()
 					FString VersionString;
 					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
+						VersionString = VersionString.LeftChop(1);
 						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
 
 						if (VersionString == CompiledVersionString)
@@ -634,6 +641,11 @@ void UUTGameEngine::IndexExpansionContent()
 							UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
 						}
 					}
+				}
+				else
+				{
+					// Assume the stock pak is good
+					bValidPak = true;
 				}
 			}
 
