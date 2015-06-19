@@ -510,7 +510,7 @@ void AUTHUD::DrawNumber(int32 Number, float X, float Y, FLinearColor Color, floa
 	DrawString(FText::AsNumber(Number, &Opts), X, Y, bRightAlign ? ETextHorzPos::Right : ETextHorzPos::Left, ETextVertPos::Top, NumberFont, Color, Scale, true);
 }
 
-void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass, bool bFriendlyFire)
+void AUTHUD::PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire)
 {
 	// Calculate the rotation 	
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTPlayerOwner->GetViewTarget());
@@ -582,10 +582,6 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 	if (GS == NULL || !GS->OnSameTeam(HitPawn, PlayerOwner))
 	{
 		LastConfirmedHitTime = GetWorld()->TimeSeconds;
-	}
-	else
-	{
-		// TODO: team damage - draw "don't do that!" indicator? but need to make sure enemy hitconfirms have priority
 	}
 }
 

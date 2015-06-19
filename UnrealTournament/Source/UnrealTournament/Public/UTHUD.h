@@ -180,7 +180,7 @@ public:
 	
 	UTexture2D* OldHudTexture;
 
-	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, TSubclassOf<UDamageType> DamageClass, bool bFriendlyFire);
+	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire);
 	virtual void DrawDamageIndicators();
 
 	/** called when PlayerOwner caused damage to HitPawn */

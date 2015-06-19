@@ -1314,7 +1314,7 @@ void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer,
 	}
 }
 
-void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bIsOccluded, bool bAmplifyVolume)
+void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bIsOccluded, bool bAmplifyVolume)
 {
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
@@ -2414,19 +2414,21 @@ void AUTPlayerController::NotifyTakeHit(AController* InstigatedBy, int32 Damage,
 	{
 		RelHitLocation = ((FRadialDamageEvent*)&DamageEvent)->ComponentHits[0].Location - GetViewTarget()->GetActorLocation();
 	}
-	ClientNotifyTakeHit(InstigatedByState, Damage, Momentum, RelHitLocation, DamageEvent.DamageTypeClass);
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	bool bFriendlyFire = InstigatedByState != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedByState, this);
+	uint8 RepDamage = FMath::Clamp(Damage, 0, 255);
+	ClientNotifyTakeHit(bFriendlyFire, RepDamage, RelHitLocation);
 }
 
-void AUTPlayerController::ClientNotifyTakeHit_Implementation(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamageType)
+void AUTPlayerController::ClientNotifyTakeHit_Implementation(bool bFriendlyFire, uint8 Damage, FVector_NetQuantize RelHitLocation)
 {
 	if (MyUTHUD != NULL)
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : GetViewTarget()->GetActorLocation()) + RelHitLocation, Damage, DamageType, InstigatedBy != PlayerState && GS != NULL && GS->OnSameTeam(InstigatedBy, this));
+		MyUTHUD->PawnDamaged(((GetPawn() != NULL) ? GetPawn()->GetActorLocation() : GetViewTarget()->GetActorLocation()) + RelHitLocation, Damage, bFriendlyFire);
 	}
 }
 
-void AUTPlayerController::ClientNotifyCausedHit_Implementation(APawn* HitPawn, int32 Damage)
+void AUTPlayerController::ClientNotifyCausedHit_Implementation(APawn* HitPawn, uint8 Damage)
 {
 	// by default we only show HUD hitconfirms for hits that the player could conceivably see (i.e. target is in LOS)
 	if (HitPawn != NULL && HitPawn->GetRootComponent() != NULL && GetPawn() != NULL && MyUTHUD != NULL)

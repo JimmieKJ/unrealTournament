@@ -97,7 +97,7 @@ public:
 	 * if SoundLocation is zero then the sound should be attached to SoundPlayer
 	 */
 	UFUNCTION(client, unreliable)
-	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
+	void ClientHearSound(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bOccluded, bool bAmplifyVolume);
 
 	virtual void ClientSay_Implementation(AUTPlayerState* Speaker, const FString& Message, FName Destination) override
 	{
@@ -278,13 +278,13 @@ public:
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyTakeHit(APlayerState* InstigatedBy, int32 Damage, FVector Momentum, FVector RelHitLocation, TSubclassOf<UDamageType> DamageType);
+	void ClientNotifyTakeHit(bool bFriendlyFire, uint8 Damage, FVector_NetQuantize RelHitLocation);
 
 	/** notification that we successfully hit HitPawn
 	 * note that HitPawn may be NULL if it is not currently relevant to the client
 	 */
 	UFUNCTION(Client, Unreliable)
-	void ClientNotifyCausedHit(APawn* HitPawn, int32 Damage);
+	void ClientNotifyCausedHit(APawn* HitPawn, uint8 Damage);
 
 	/** blueprint hook */
 	UFUNCTION(BlueprintCallable, Category = Message)
