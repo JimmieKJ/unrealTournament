@@ -2487,13 +2487,13 @@ struct FRepMovement
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FVector_NetQuantize100 LinearVelocity;
+	FVector_NetQuantize LinearVelocity;
 
 	UPROPERTY()
-	FVector_NetQuantize100 AngularVelocity;
+	FVector_NetQuantize AngularVelocity;
 	
 	UPROPERTY()
-	FVector_NetQuantize100 Location;
+	FVector_NetQuantize Location;
 
 	UPROPERTY()
 	FRotator Rotation;

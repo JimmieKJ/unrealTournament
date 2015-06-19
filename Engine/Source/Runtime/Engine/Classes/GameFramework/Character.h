@@ -138,9 +138,9 @@ struct FBasedMovementInfo
 
 	/** Location relative to MovementBase. Only valid if HasRelativeLocation() is true. */
 	UPROPERTY()
-	FVector_NetQuantize100 Location;
+	FVector_NetQuantize Location;
 
-	/** Rotation: relative to MovementBase if HasRelativeRotation() is true, absolute otherwise. */
+	/** Rotation: relative to MovementBase if HasRelativeRotation() is true, absolute otherwise. */ // @TODO FIXMESTEVE also compress
 	UPROPERTY()
 	FRotator Rotation;
 
