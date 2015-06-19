@@ -583,7 +583,18 @@ EWeaponHand AUTWeapon::GetWeaponHand() const
 	}
 	else
 	{
-		AUTPlayerController* Viewer = (UTOwner != NULL) ? UTOwner->GetLocalViewer() : NULL;
+		AUTPlayerController* Viewer = NULL;
+		if (UTOwner != NULL)
+		{
+			if (Role == ROLE_Authority)
+			{
+				Viewer = Cast<AUTPlayerController>(UTOwner->Controller);
+			}
+			if (Viewer == NULL)
+			{
+				Viewer = UTOwner->GetLocalViewer();
+			}
+		}
 		return (Viewer != NULL) ? Viewer->GetWeaponHand() : HAND_Right;
 	}
 }

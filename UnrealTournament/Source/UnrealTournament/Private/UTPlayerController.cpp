@@ -2498,8 +2498,16 @@ bool AUTPlayerController::ServerSuicide_Validate()
 void AUTPlayerController::SetWeaponHand(EWeaponHand NewHand)
 {
 	WeaponHand = NewHand;
-	SaveConfig();
-	if (!IsTemplate())
+	AUTCharacter* UTCharTarget = Cast<AUTCharacter>(GetViewTarget());
+	if (UTCharTarget != NULL && UTCharTarget->GetWeapon() != NULL)
+	{
+		UTCharTarget->GetWeapon()->UpdateWeaponHand();
+	}
+	if (IsTemplate() || IsLocalPlayerController())
+	{
+		SaveConfig();
+	}
+	if (!IsTemplate() && Role < ROLE_Authority)
 	{
 		ServerSetWeaponHand(NewHand);
 	}
@@ -2510,12 +2518,7 @@ bool AUTPlayerController::ServerSetWeaponHand_Validate(EWeaponHand NewHand)
 }
 void AUTPlayerController::ServerSetWeaponHand_Implementation(EWeaponHand NewHand)
 {
-	WeaponHand = NewHand;
-	AUTCharacter* UTCharTarget = Cast<AUTCharacter>(GetViewTarget());
-	if (UTCharTarget != NULL && UTCharTarget->GetWeapon() != NULL)
-	{
-		UTCharTarget->GetWeapon()->UpdateWeaponHand();
-	}
+	SetWeaponHand(NewHand);
 }
 
 void AUTPlayerController::Emote(int32 EmoteIndex)
