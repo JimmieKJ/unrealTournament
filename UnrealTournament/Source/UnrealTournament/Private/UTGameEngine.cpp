@@ -534,7 +534,7 @@ void UUTGameEngine::IndexExpansionContent()
 					FString VersionString;
 					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
-						VersionString = VersionString.LeftChop(1);
+						VersionString = VersionString.LeftChop(2);
 						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
 
 						if (VersionString == CompiledVersionString)
@@ -610,7 +610,7 @@ void UUTGameEngine::IndexExpansionContent()
 					FString VersionString;
 					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 					{
-						VersionString = VersionString.LeftChop(1);
+						VersionString = VersionString.LeftChop(2);
 						FString CompiledVersionString = FString::FromInt(ENGINE_VERSION);
 
 						if (VersionString == CompiledVersionString)
@@ -642,11 +642,11 @@ void UUTGameEngine::IndexExpansionContent()
 						}
 					}
 				}
-				else
-				{
-					// Assume the stock pak is good
-					bValidPak = true;
-				}
+			}
+			else
+			{
+				// Assume the stock pak is good
+				bValidPak = true;
 			}
 
 			if (!bValidPak)
