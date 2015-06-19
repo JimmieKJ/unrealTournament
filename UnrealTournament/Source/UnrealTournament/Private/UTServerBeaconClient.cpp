@@ -149,6 +149,7 @@ void AUTServerBeaconClient::ClientReceivedAllInstance_Implementation(uint32 Fina
 	if (InstanceInfo.Num() != FinalCount)
 	{
 		UE_LOG(UT, Log, TEXT("ERROR: Instance Names/Descriptions doesn't meet the final size requirement: %i vs %i"), InstanceInfo.Num(), FinalCount);
+		InstanceCount = InstanceInfo.Num();
 	}
 
 	UE_LOG(LogBeacon, Verbose, TEXT("---> Got them All DONE!!!!  [%i vs %i]"), InstanceInfo.Num(), FinalCount );
