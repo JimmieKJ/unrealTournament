@@ -2311,7 +2311,7 @@ void AUTPlayerController::Tick(float DeltaTime)
 			{
 				if (TeamStatsUpdateIndex < GS->TeamStats.Num())
 				{
-					ClientUpdateTeamStats(TeamStatsUpdateTeam, GS->TeamStats[TeamStatsUpdateIndex], GS->Teams[TeamStatsUpdateTeam]->GetStatsValue(GS->TeamStats[TeamStatsUpdateIndex]));
+					ClientUpdateTeamStats(TeamStatsUpdateTeam, TeamStatsUpdateIndex, GS->Teams[TeamStatsUpdateTeam]->GetStatsValue(GS->TeamStats[TeamStatsUpdateIndex]));
 				}
 				TeamStatsUpdateIndex++;
 				if (TeamStatsUpdateIndex >= GS->TeamStats.Num())
@@ -2352,7 +2352,7 @@ void AUTPlayerController::Tick(float DeltaTime)
 			}
 			if (StatsUpdateIndex < StatArraySize)
 			{
-				ClientUpdateScoreStats(CurrentlyViewedScorePS, StatsName, CurrentlyViewedScorePS->GetStatsValue(StatsName));
+				ClientUpdateScoreStats(CurrentlyViewedScorePS, CurrentlyViewedStatsTab, StatsUpdateIndex, CurrentlyViewedScorePS->GetStatsValue(StatsName));
 			}
 			StatsUpdateIndex++;
 			if (StatsUpdateIndex >= StatArraySize)
@@ -3295,19 +3295,43 @@ bool AUTPlayerController::ServerSetViewedScorePS_Validate(AUTPlayerState* NewVie
 	return true;
 }
 
-void AUTPlayerController::ClientUpdateScoreStats_Implementation(AUTPlayerState* ViewedPS, FName StatsName, float NewValue)
+void AUTPlayerController::ClientUpdateScoreStats_Implementation(AUTPlayerState* ViewedPS, uint8 StatsPage, uint8 StatsIndex, float NewValue)
 {
-	if (ViewedPS)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (ViewedPS && GS)
 	{
+		FName StatsName = NAME_None;
+		if (StatsPage == 0)
+		{
+			if (StatsUpdateIndex < GS->GameScoreStats.Num())
+			{
+				StatsName = GS->GameScoreStats[StatsIndex];
+			}
+		}
+		else if (StatsPage == 1)
+		{
+			if (StatsUpdateIndex < GS->WeaponStats.Num())
+			{
+				StatsName = GS->WeaponStats[StatsIndex];
+			}
+		}
+		else if (StatsPage == 2)
+		{
+			if (StatsUpdateIndex < GS->RewardStats.Num())
+			{
+				StatsName = GS->RewardStats[StatsIndex];
+			}
+		}
 		ViewedPS->SetStatsValue(StatsName, NewValue);
 	}
 }
 
-void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, FName StatsName, float NewValue)
+void AUTPlayerController::ClientUpdateTeamStats_Implementation(uint8 TeamNum, uint8 TeamStatsIndex, float NewValue)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && (GS->Teams.Num() > TeamNum) && GS->Teams[TeamNum])
 	{
+		FName StatsName = (GS->TeamStats.Num() < TeamStatsIndex) ? GS->TeamStats[TeamStatsIndex] : NAME_None;
 		GS->Teams[TeamNum]->SetStatsValue(StatsName, NewValue);
 	}
 }

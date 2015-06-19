@@ -800,10 +800,10 @@ public:
 	virtual void ServerSetViewedScorePS(AUTPlayerState* ViewedPS, uint8 NewStatsPage);
 
 	UFUNCTION(client, unreliable)
-	virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, FName StatsName, float NewValue);
+		virtual void ClientUpdateScoreStats(AUTPlayerState* ViewedPS, uint8 StatsPage, uint8 StatsIndex, float NewValue);
 
 	UFUNCTION(client, unreliable)
-	virtual void ClientUpdateTeamStats(uint8 TeamNum, FName StatsName, float NewValue);
+	virtual void ClientUpdateTeamStats(uint8 TeamNum, uint8 TeamStatsIndex, float NewValue);
 
 	virtual void AdvanceStatsPage(int32 Increment);
 
