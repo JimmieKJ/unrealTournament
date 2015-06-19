@@ -27,7 +27,7 @@ class UNREALTOURNAMENT_API AUTLiftExit : public AActor, public IUTPathBuilderInt
 	bool bOnlyExit;
 
 	/** utility for shared functionality that is also used by the UTLift automatic exit generation */
-	static void AddLiftPathsShared(const FVector& ExitLoc, class AUTLift* TheLift, bool bRequireLiftJump, bool bOnlyExitPath, class AUTRecastNavMesh* NavData);
+	static bool AddLiftPathsShared(const FVector& ExitLoc, class AUTLift* TheLift, bool bRequireLiftJump, bool bOnlyExitPath, class AUTRecastNavMesh* NavData);
 
 	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData) override;
 };

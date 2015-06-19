@@ -13,6 +13,8 @@
 #include "UTReachSpec_HighJump.h"
 #include "UTTeleporter.h"
 #include "UTNavMeshRenderingComponent.h"
+#include "MessageLog.h"
+#include "UObjectToken.h"
 #if WITH_EDITOR
 #include "EditorBuildUtils.h"
 #endif
@@ -566,6 +568,8 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 	FSecondsCounter TimeCounter(LastNodeBuildDuration);
 #endif
 
+	FMessageLog MapCheckLog(TEXT("MapCheck"));
+
 	struct FQueryMarker
 	{
 		AUTRecastNavMesh* Mesh;
@@ -618,6 +622,10 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 						SetNodeSize(Node);
 					}
 					Node->POIs.Add(*It);
+				}
+				else
+				{
+					MapCheckLog.Warning()->AddToken(FUObjectToken::Create(*It))->AddToken(FTextToken::Create(NSLOCTEXT("UTRecastNavMesh", "UnlinkedPOI", "Navigation relevant Actor couldn't be linked to the navmesh. Check that it is in a valid position and close enough to the ground.")));
 				}
 			}
 		}
@@ -915,6 +923,11 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 				AllReachSpecs.Add(Link.Spec.Get());
 			}
 		}
+	}
+
+	if (MapCheckLog.NumMessages(EMessageSeverity::Warning) > 0)
+	{
+		MapCheckLog.Open();
 	}
 
 #if WITH_EDITORONLY_DATA

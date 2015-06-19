@@ -137,7 +137,7 @@ void AUTWallDodgePoint::AddSpecialPaths(class UUTPathNode* MyNode, class AUTReca
 							// this happens if the walk part of OnlyJumpReachable() makes it to the target; i.e. the wall to dodge off of is the wall of a walkable surface
 							MaxFallSpeed = UTScout->GetCharacterMovement()->JumpZVelocity * 0.9f;
 						}
-						new(StartPoints) FDodgeStartPoint(SrcPoly, TestPt, MaxFallSpeed);
+						new(StartPoints)FDodgeStartPoint(SrcPoly, TestPt, MaxFallSpeed);
 						DrawDebugSphere(GetWorld(), TestPt, 16, 8, FColor::Red, true);
 						break;
 					}
@@ -163,9 +163,9 @@ void AUTWallDodgePoint::AddSpecialPaths(class UUTPathNode* MyNode, class AUTReca
 					{
 						const FDodgeStartPoint& DodgePt = StartPoints[i];
 						const FVector EndPt = PolyCenter + FVector(0.0f, 0.0f, ScoutShape.GetCapsuleHalfHeight());
-						if ( NavData->JumpTraceTest(WallPoint, EndPt, INVALID_NAVNODEREF, DestPoly, ScoutShape, DodgeSpeed, GravityZ, DodgePt.DodgeTimeZSpeed + DodgeZ, DodgePt.DodgeTimeZSpeed + DodgeZ) &&
+						if (NavData->JumpTraceTest(WallPoint, EndPt, INVALID_NAVNODEREF, DestPoly, ScoutShape, DodgeSpeed, GravityZ, DodgePt.DodgeTimeZSpeed + DodgeZ, DodgePt.DodgeTimeZSpeed + DodgeZ) &&
 							// make sure can't make via normal jump
-							!NavData->JumpTraceTest(WallPoint, EndPt, INVALID_NAVNODEREF, DestPoly, ScoutShape, UTScout->UTCharacterMovement->MaxWalkSpeed, GravityZ, FMath::Max<float>(0.0f, DodgePt.DodgeTimeZSpeed), FMath::Max<float>(0.0f, DodgePt.DodgeTimeZSpeed)) )
+							!NavData->JumpTraceTest(WallPoint, EndPt, INVALID_NAVNODEREF, DestPoly, ScoutShape, UTScout->UTCharacterMovement->MaxWalkSpeed, GravityZ, FMath::Max<float>(0.0f, DodgePt.DodgeTimeZSpeed), FMath::Max<float>(0.0f, DodgePt.DodgeTimeZSpeed)))
 						{
 							DrawDebugSphere(GetWorld(), PolyCenter, 16, 8, FColor::Blue, true);
 							// create ReachSpecs for this point and all easier jumps
@@ -208,9 +208,5 @@ void AUTWallDodgePoint::AddSpecialPaths(class UUTPathNode* MyNode, class AUTReca
 				}
 			}
 		}
-	}
-	if (MapCheckLog.NumMessages(EMessageSeverity::Warning) > 0)
-	{
-		MapCheckLog.Open();
 	}
 }
