@@ -22,7 +22,7 @@ public class CoreAudio : ModuleRules
 			"VorbisFile"
 			);
 
-		PublicFrameworks.AddRange(new string[] { "CoreAudio", "AudioToolbox", "AudioUnit" });
+		PublicFrameworks.AddRange(new string[] { "CoreAudio", "AudioUnit", "AudioToolbox" });
 
 		AdditionalBundleResources.Add(new UEBuildBundleResource("ThirdParty/Mac/RadioEffectUnit/RadioEffectUnit.component"));
 	}

@@ -73,8 +73,8 @@
 		_Pragma ("clang diagnostic ignored \"-Wdeprecated-declarations\"")
 
 	#define PRAGMA_ENABLE_DEPRECATION_WARNINGS \
-		_Pragma ("clang diagnostic push") \
-		_Pragma ("clang diagnostic warning \"-Wdeprecated-declarations\"")
+		_Pragma ("clang diagnostic pop")
+
 #endif // DISABLE_DEPRECATION
 
 #ifndef PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
@@ -102,3 +102,6 @@
 // Rationale: we don't want to suppress those as there are plans to address them (e.g. UE-12341), but breaking builds due to these warnings is very expensive
 // since they cannot be caught by all compilers that we support. They are deemed to be relatively safe to be ignored, at least until all SDKs/toolchains start supporting them.
 #pragma clang diagnostic warning "-Wreorder"
+#pragma clang diagnostic ignored "-Winconsistent-missing-override"
+#pragma clang diagnostic ignored "-Wundefined-bool-conversion"
+#pragma clang diagnostic ignored "-Wunused-local-typedef"

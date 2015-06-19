@@ -454,7 +454,7 @@ void RunGameThread(id Target, SEL Selector)
 	
 	// Create a separate game thread and set it to the stack size to be the same as the main thread default of 8MB ( http://developer.apple.com/library/mac/#qa/qa1419/_index.html )
 	FCocoaGameThread* GameThread = [[FCocoaGameThread alloc] initWithTarget:Target selector:Selector object:nil];
-	[GameThread setStackSize:8*1024*1024];
+	[GameThread setStackSize:16*1024*1024];
 	[GameThread start];
 #else
 	[Target performSelector:Selector withObject:nil];
