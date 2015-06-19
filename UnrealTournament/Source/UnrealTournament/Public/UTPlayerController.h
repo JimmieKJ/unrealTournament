@@ -753,6 +753,8 @@ protected:
 	int32 ParseWeaponBind(FString ActionName);
 	FString FixedupKeyname(FString KeyName);
 
+	void TurnOffPawns();
+
 public:
 	TMap<int32,FString> WeaponGroupKeys;
 	virtual void UpdateWeaponGroupKeys();

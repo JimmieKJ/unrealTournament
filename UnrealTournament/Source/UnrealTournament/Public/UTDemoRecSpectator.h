@@ -24,6 +24,8 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 
 	virtual void ClientTravelInternal_Implementation(const FString& URL, ETravelType TravelType, bool bSeamless, FGuid MapPackageGuid) override;
 
+	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
+
 	virtual void InitPlayerState() override
 	{
 		Super::InitPlayerState();
